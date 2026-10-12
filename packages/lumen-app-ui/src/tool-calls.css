@@ -590,7 +590,7 @@
   border-radius: 0;
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .hbar-app-ui-tool-calls-heading,
   .hbar-app-ui-tool-calls-code-heading,
   .hbar-app-ui-tool-calls-search > header,

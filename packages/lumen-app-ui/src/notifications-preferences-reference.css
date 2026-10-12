@@ -272,12 +272,12 @@
   opacity: 0.45;
   cursor: default;
 }
-@media (min-width: 33rem) {
+@media (width >= 40rem) {
   .hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix-viewport {
     overflow: visible;
   }
 }
-@media (max-width: 30rem) {
+@media (width < 40rem) {
   .hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix-viewport {
     margin-inline-end: -1.25rem;
   }
@@ -285,7 +285,7 @@
     max-inline-size: 8rem;
   }
 }
-@media (max-width: 20rem) {
+@media (width < 40rem) {
   .hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix {
     min-inline-size: 31.75rem;
   }

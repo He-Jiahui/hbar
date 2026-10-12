@@ -119,7 +119,7 @@
   color: var(--lumen-ink);
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-prompt-upload-reference-row {
     gap: 0.5rem;
     padding: 0.625rem;

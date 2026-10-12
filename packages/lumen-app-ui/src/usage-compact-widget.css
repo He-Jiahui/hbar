@@ -226,7 +226,7 @@
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
 }
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .lumen-usage.lumen-usage-widget-stage {
     padding: 0 32px;
   }

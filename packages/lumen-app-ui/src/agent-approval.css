@@ -408,7 +408,7 @@
   white-space: nowrap;
 }
 
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .hbar-app-ui-agent-approval-inline {
     padding-inline: 1.5rem;
   }
@@ -630,7 +630,7 @@
   min-inline-size: 0;
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .hbar-app-ui-agent-approval-change-list > div,
   .hbar-app-ui-agent-approval-queue-compact-row,
   .hbar-app-ui-agent-approval-history-pane li {

@@ -209,13 +209,13 @@
 .lumen-reader-reference-content section p + p {
   margin-block-start: 10px;
 }
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .lumen-reader-reference-outline,
   .lumen-reader-reference-toggle {
     display: none;
   }
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-reader-reference-content {
     padding-inline: 20px;
   }

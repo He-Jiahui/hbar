@@ -110,7 +110,7 @@
   padding-block-start: 0.5rem;
 }
 
-@media (max-width: 56rem) {
+@media (width < 64rem) {
   .lumen-ai-chat-reference-agents-layout {
     flex-direction: column;
   }

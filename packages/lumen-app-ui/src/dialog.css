@@ -96,7 +96,7 @@
 }
 
 /* A compact owner window uses all available space, including short desktop windows. */
-@media (max-width: 60rem), (max-height: 40rem) {
+@media (width < 64rem), (max-height: 40rem) {
   .lumen-dialog[data-dialog-size] {
     --lumen-dialog-extent: 100%;
   }

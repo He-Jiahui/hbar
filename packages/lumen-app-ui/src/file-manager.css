@@ -603,7 +603,7 @@
   border-radius: 0;
 }
 
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .hbar-app-ui-file-manager-drive-sidebar,
   .hbar-app-ui-file-manager-detail-left {
     max-block-size: 16rem;

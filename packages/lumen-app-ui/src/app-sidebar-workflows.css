@@ -311,7 +311,7 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-app-sidebar-mobile-trigger {
     display: inline-flex;
   }

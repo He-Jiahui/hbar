@@ -137,7 +137,7 @@
   stroke-width: 1.5;
 }
 
-@media (max-width: 32rem) {
+@media (width < 40rem) {
   .lumen-file-error {
     align-items: stretch;
     flex-direction: column;

@@ -368,7 +368,7 @@
   font-family: ui-monospace, monospace;
   overflow-wrap: anywhere;
 }
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .lumen-onboarding-profile,
   .lumen-onboarding-step-layout {
     flex-direction: column;

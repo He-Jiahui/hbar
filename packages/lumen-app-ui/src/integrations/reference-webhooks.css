@@ -229,7 +229,7 @@
   font-size: 0.75rem;
 }
 
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .hbar-app-ui-integration-reference-webhooks-endpoints {
     border-inline-end: 0;
     border-block-end: 0.0625rem solid var(--lumen-integration-border);

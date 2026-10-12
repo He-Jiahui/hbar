@@ -1374,7 +1374,7 @@
   }
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .lumen-data-table [role='row'] {
     min-inline-size: 42rem;
   }

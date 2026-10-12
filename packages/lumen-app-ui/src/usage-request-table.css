@@ -203,7 +203,7 @@
   margin-block-start: 12px;
   font-size: 0.8125rem;
 }
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .lumen-usage.lumen-usage-request-stage {
     padding: 0 32px;
   }

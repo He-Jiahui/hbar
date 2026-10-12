@@ -236,7 +236,7 @@
   text-decoration: underline;
 }
 
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .hbar-app-ui-integration-connection-reference-header {
     padding-inline: 1rem;
   }
@@ -246,7 +246,7 @@
   }
 }
 
-@media (max-width: 30rem) {
+@media (width < 40rem) {
   .hbar-app-ui-integration-connection-reference-actions {
     inline-size: 100%;
     margin-inline-start: 0;

@@ -171,7 +171,7 @@
   outline-offset: 0.125rem;
 }
 
-@media (max-width: 19rem) {
+@media (width < 40rem) {
   .lumen-onboarding6-summary-row {
     align-items: flex-start;
     flex-wrap: wrap;

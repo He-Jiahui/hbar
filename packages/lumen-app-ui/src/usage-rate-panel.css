@@ -199,7 +199,7 @@
   flex: 0 0 auto;
   font-weight: 500;
 }
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .lumen-usage.lumen-usage-rate-stage {
     padding: 0 32px;
   }

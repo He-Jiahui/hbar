@@ -218,7 +218,7 @@
   gap: 1rem;
   overflow-wrap: anywhere;
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-rich-editor-document {
     padding-inline: 24px;
   }

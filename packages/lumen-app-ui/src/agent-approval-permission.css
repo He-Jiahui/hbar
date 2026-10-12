@@ -321,7 +321,7 @@
   line-height: 1.5;
 }
 
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .hbar-app-ui-agent-approval-permission-heading {
     padding-inline: 24px;
   }

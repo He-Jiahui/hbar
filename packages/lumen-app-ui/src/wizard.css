@@ -293,7 +293,7 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
-@media (max-width: 46rem) {
+@media (width < 48rem) {
   .lumen-wizard-review-sections > section {
     align-items: stretch;
     flex-direction: column;

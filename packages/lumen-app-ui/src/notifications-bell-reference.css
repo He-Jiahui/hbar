@@ -358,7 +358,7 @@
   color: var(--bell-ink);
   font: inherit;
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-app-ui-notifications-variant-6 .lumen-bell-brand {
     flex: 1 1 auto;
   }

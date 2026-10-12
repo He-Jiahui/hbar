@@ -1091,7 +1091,7 @@
   border-radius: 0;
 }
 
-@media (max-width: 64.999rem) {
+@media (width < 64rem) {
   .lumen-file-manager-reference-sidebar {
     display: none;
   }
@@ -1122,7 +1122,7 @@
   }
 }
 
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .lumen-file-manager-reference {
     padding: 0.125rem;
   }
@@ -1165,7 +1165,7 @@
   }
 }
 
-@media (max-width: 36rem) {
+@media (width < 40rem) {
   .lumen-file-manager-reference-header {
     padding: 0.625rem;
   }

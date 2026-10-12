@@ -82,7 +82,7 @@
   stroke-width: 1.6;
 }
 
-@media (max-width: 36rem) {
+@media (width < 40rem) {
   .lumen-prompt-reference-suggestions button {
     flex: 1 1 calc(50% - 0.5rem);
   }

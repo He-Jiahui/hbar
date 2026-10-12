@@ -276,7 +276,7 @@
   color: light-dark(#a3a3a3, #737373);
   cursor: default;
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-wizard-stage.hbar-app-ui-wizard-review-reference {
     padding: 1.5rem;
   }

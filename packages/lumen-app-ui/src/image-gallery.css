@@ -203,7 +203,7 @@
   background: var(--lumen-contrast);
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .lumen-image-gallery {
     gap: 0.5rem;
     padding: 0.5rem;

@@ -181,7 +181,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .lumen-integration-sync-reference-header {
     align-items: flex-start;
   }

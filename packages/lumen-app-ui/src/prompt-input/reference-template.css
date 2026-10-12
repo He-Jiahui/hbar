@@ -131,7 +131,7 @@
   cursor: default;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-prompt-template-reference-fields {
     gap: 0.75rem;
   }

@@ -286,7 +286,7 @@
   gap: 0.5rem;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-settings-form-2-reference {
     justify-content: stretch;
   }

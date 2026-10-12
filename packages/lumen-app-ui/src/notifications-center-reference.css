@@ -237,7 +237,7 @@
   border: 0;
   text-align: left;
 }
-@media (max-width: 340px) {
+@media (width < 40rem) {
   .hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header {
     justify-content: flex-start;
   }

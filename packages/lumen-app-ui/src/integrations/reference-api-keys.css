@@ -159,7 +159,7 @@
   text-align: center;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-app-ui-integration-reference-api-keys-topbar {
     align-items: flex-start;
     flex-direction: column;

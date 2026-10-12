@@ -373,7 +373,7 @@
   gap: 0.25rem;
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .lumen-usage-table-heading {
     display: none;
   }

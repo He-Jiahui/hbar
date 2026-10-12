@@ -237,7 +237,7 @@
 .lumen-plan-summary-edge-overlay[data-visible='true'] {
   opacity: 1;
 }
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .lumen-agent-plan.lumen-plan-summary {
     padding: 1.5rem;
   }

@@ -360,7 +360,7 @@
   color: var(--lumen-subtle);
 }
 
-@media (max-width: 39rem) {
+@media (width < 40rem) {
   .hbar-app-ui-search-commands-body {
     overflow: auto;
     flex-direction: column;

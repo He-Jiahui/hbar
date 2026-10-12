@@ -1063,7 +1063,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 64rem) {
+@media (width < 64rem) {
   .lumen-data-table-shipment-layout {
     overflow: visible;
   }
@@ -1078,7 +1078,7 @@
   }
 }
 
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .lumen-data-table-master-detail {
     flex-direction: column;
     overflow: visible;
@@ -1102,7 +1102,7 @@
   }
 }
 
-@media (max-width: 39.99rem) {
+@media (width < 40rem) {
   .lumen-data-table-reference-toolbar {
     align-items: stretch;
   }

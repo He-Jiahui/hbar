@@ -223,7 +223,7 @@
   padding: 12px 16px;
   background: light-dark(#fafafa, #171717);
 }
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .lumen-markdown-reference-mode-split .lumen-markdown-reference-preview {
     display: none;
   }

@@ -445,7 +445,7 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .lumen-ai-chat-header {
     flex-wrap: wrap;
   }

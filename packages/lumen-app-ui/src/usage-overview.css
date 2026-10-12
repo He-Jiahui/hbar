@@ -207,7 +207,7 @@
   margin-block-start: 16px;
   color: var(--lumen-subtle);
 }
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .lumen-usage.lumen-usage-chart-stage {
     padding: 32px;
   }

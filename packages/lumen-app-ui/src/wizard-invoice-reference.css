@@ -272,7 +272,7 @@
   inline-size: var(--lumen-icon-sm);
   block-size: var(--lumen-icon-sm);
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-app-ui-wizard-invoice-progress {
     display: none;
   }

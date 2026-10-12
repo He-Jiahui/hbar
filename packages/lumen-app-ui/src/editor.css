@@ -385,7 +385,7 @@
 .hbar-app-ui-editor-reader-content section.is-dimmed {
   opacity: 0.25;
 }
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .hbar-app-ui-editor-markdown-main {
     flex-direction: column;
   }

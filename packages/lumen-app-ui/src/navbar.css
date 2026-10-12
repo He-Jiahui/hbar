@@ -2683,7 +2683,7 @@
   background: var(--lumen-glass);
 }
 
-@media (min-width: 42.0625rem) and (max-width: 60rem) {
+@media (width >= 48rem) and (width < 64rem) {
   .hbar-app-ui-navbar-variant-5 > header > nav {
     display: none !important;
   }
@@ -2711,7 +2711,7 @@
   }
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .hbar-app-ui-navbar-board-header {
     padding-inline: 1rem;
   }
@@ -3156,7 +3156,7 @@
 /* Narrow variants preserve the reference's semantic priorities: the
  * infrastructure hero remains centered, filter controls retain their icon
  * affordances, and document toolbar actions stay available. */
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .hbar-app-ui-navbar-landing.hbar-app-ui-navbar-variant-5 > main {
     align-items: center;
     gap: 0.75rem;

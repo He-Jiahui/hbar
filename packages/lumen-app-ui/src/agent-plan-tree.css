@@ -237,7 +237,7 @@
 .lumen-plan-tree-edge-overlay[data-visible='true'] {
   opacity: 1;
 }
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .lumen-agent-plan.hbar-app-ui-agent-plan-tree {
     padding: 1.5rem;
   }

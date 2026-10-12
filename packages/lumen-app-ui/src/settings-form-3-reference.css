@@ -294,7 +294,7 @@
   font-size: 0.8125rem;
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .lumen-settings-form-3-page {
     inline-size: 100%;
   }

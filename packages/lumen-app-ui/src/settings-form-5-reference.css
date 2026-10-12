@@ -303,7 +303,7 @@
   outline-offset: 0.125rem;
 }
 
-@media (max-width: 30rem) {
+@media (width < 40rem) {
   .lumen-settings-form-5-page {
     inline-size: 100%;
     padding: 0.75rem;

@@ -504,7 +504,7 @@
   gap: 1rem;
   padding: clamp(0.75rem, 2vw, 1.5rem);
 }
-@media (max-width: 44rem) {
+@media (width < 48rem) {
   .lumen-dashboard-widgets > article.is-wide {
     flex-basis: 10rem;
     flex-grow: 1;
@@ -1404,7 +1404,7 @@
   font-weight: 580;
 }
 
-@media (max-width: 56rem) {
+@media (width < 64rem) {
   .lumen-dashboard-reference-metrics > article {
     flex-basis: calc(50% - var(--lumen-dashboard-reference-gap));
   }
@@ -1437,7 +1437,7 @@
   }
 }
 
-@media (max-width: 44rem) {
+@media (width < 48rem) {
   .lumen-dashboard-reference {
     padding: 0.75rem;
   }

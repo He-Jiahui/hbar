@@ -23,7 +23,7 @@
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-ai-chat-reference-models {
     overflow: auto;
   }

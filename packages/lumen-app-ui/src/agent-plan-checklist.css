@@ -289,7 +289,7 @@
   opacity: 1;
 }
 
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .hbar-app-ui-agent-plan-checklist {
     padding: 1.5rem;
   }

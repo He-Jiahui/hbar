@@ -215,12 +215,12 @@
   background: light-dark(#fff, #0a0a0a);
   color: light-dark(#171717, #f5f5f5);
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-wizard-stage.hbar-app-ui-wizard-migration-reference {
     padding: 1.5rem;
   }
 }
-@media (max-width: 20rem) {
+@media (width < 40rem) {
   .hbar-app-ui-wizard-migration-header > div {
     max-inline-size: 6.25rem;
   }

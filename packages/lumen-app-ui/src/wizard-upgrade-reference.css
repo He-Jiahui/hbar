@@ -350,12 +350,12 @@
   outline: 0.125rem solid currentColor;
   outline-offset: 0.125rem;
 }
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .hbar-app-ui-wizard-upgrade-body {
     flex-direction: column;
   }
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-app-ui-wizard-upgrade-step-label {
     display: none;
   }

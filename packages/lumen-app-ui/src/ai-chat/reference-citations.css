@@ -79,7 +79,7 @@
 .lumen-ai-chat-citations-conversation .lumen-ai-chat-reference-messages {
   overflow: auto;
 }
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .lumen-ai-chat-reference-citations {
     overflow: auto;
   }

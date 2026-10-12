@@ -213,7 +213,7 @@
   background: color-mix(in srgb, var(--lumen-ink) 8%, var(--lumen-glass));
 }
 
-@media (max-width: 36rem) {
+@media (width < 40rem) {
   .lumen-onboarding3-task {
     align-items: flex-start;
   }

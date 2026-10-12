@@ -374,7 +374,7 @@
   background: var(--lumen-ink);
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-settings-form-4-invite-form {
     align-items: stretch;
     flex-direction: column;

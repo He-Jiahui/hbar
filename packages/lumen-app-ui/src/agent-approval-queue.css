@@ -271,7 +271,7 @@
   text-align: end;
 }
 
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .hbar-app-ui-agent-approval-queue-heading {
     padding-inline: 1.5rem;
   }

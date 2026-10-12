@@ -90,7 +90,7 @@
   color: var(--lumen-muted);
   font-size: 0.75rem;
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-ai-chat-voice-panel {
     margin: 0 auto;
     padding: 1rem;

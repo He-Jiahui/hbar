@@ -183,12 +183,12 @@
     animation: none;
   }
 }
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .lumen-agent-plan.hbar-app-ui-agent-plan-board-surface {
     padding: 1.5rem;
   }
 }
-@media (min-width: 64rem) {
+@media (width >= 64rem) {
   .lumen-plan-board-columns {
     flex-direction: row;
     overflow: hidden;

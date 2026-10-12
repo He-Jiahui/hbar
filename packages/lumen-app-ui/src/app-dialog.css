@@ -302,7 +302,7 @@
   max-block-size: min(22rem, 70vh);
   overflow: auto;
 }
-@media (max-width: 34rem) {
+@media (width < 40rem) {
   .lumen-app-dialog-stage {
     padding: 0;
   }

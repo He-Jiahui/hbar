@@ -296,7 +296,7 @@
   font: inherit;
   font-weight: 500;
 }
-@media (max-width: 58rem) {
+@media (width < 64rem) {
   .hbar-app-ui-wizard-environment-content {
     padding-inline: 1.5rem;
   }
@@ -304,7 +304,7 @@
     flex-basis: calc((100% - 0.75rem) / 2);
   }
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-app-ui-wizard-environment-toolbar {
     padding-inline: 1rem;
   }

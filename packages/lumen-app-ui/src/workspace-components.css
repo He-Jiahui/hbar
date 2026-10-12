@@ -290,7 +290,7 @@
   border-radius: 0;
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .lumen-page-header,
   .lumen-settings-list > header {
     align-items: stretch;

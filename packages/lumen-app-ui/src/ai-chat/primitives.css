@@ -286,7 +286,7 @@
   color: var(--lumen-muted);
   font-size: 0.75rem;
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-ai-chat-reference-header,
   .lumen-ai-chat-reference-messages {
     padding: 1rem;

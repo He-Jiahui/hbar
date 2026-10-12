@@ -1096,7 +1096,7 @@
   font-size: 0.75rem;
 }
 
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .hbar-app-ui-integration-page {
     padding: 1rem;
   }
@@ -1143,7 +1143,7 @@
   }
 }
 
-@media (max-width: 30rem) {
+@media (width < 40rem) {
   .hbar-app-ui-integration-topbar > .hbar-app-ui-integration-actions,
   .hbar-app-ui-integration-section-head > .hbar-app-ui-integration-actions {
     margin-inline-start: 0;

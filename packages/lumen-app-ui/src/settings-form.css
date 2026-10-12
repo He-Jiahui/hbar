@@ -497,7 +497,7 @@
   border-radius: 0;
 }
 
-@media (max-width: 48rem) {
+@media (width < 48rem) {
   .hbar-app-ui-settings-workspace {
     flex-direction: column;
   }
@@ -538,7 +538,7 @@
   }
 }
 
-@media (max-width: 32rem) {
+@media (width < 40rem) {
   .hbar-app-ui-settings-actions,
   .hbar-app-ui-settings-topbar,
   .hbar-app-ui-settings-photo,

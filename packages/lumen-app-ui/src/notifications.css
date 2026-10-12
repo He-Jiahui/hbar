@@ -492,7 +492,7 @@
   text-align: center;
   min-inline-size: 0;
 }
-@media (max-width: 44rem) {
+@media (width < 48rem) {
   .lumen-notifications-preferences [role='row'] {
     grid-template-columns: minmax(0, 1fr) repeat(var(--lumen-channel-count), minmax(0, 3rem));
   }

@@ -308,7 +308,7 @@
   color: var(--lumen-contrast);
 }
 
-@media (min-width: 40rem) {
+@media (width >= 40rem) {
   .hbar-app-ui-agent-approval-history-heading {
     padding-inline: 1.5rem;
   }

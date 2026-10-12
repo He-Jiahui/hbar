@@ -4,6 +4,8 @@
 }
 
 .lumen-app-shell {
+  container-name: lumen-app-shell;
+  container-type: inline-size;
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
@@ -476,7 +478,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 79.9375rem) {
+@container lumen-app-shell (width < 80rem) {
   .lumen-app-shell:not([data-tool-presentation]) .hbar-app-ui-app-tool-drawer.lumen-app-tool-drawer {
     position: fixed;
     z-index: 20;
@@ -487,7 +489,7 @@
   }
 }
 
-@media (max-width: 47.9375rem) {
+@container lumen-app-shell (width < 48rem) {
   .lumen-app-sidebar-separator {
     display: none;
   }

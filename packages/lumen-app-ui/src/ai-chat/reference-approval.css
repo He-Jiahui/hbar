@@ -128,7 +128,7 @@
   color: var(--lumen-contrast);
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-ai-chat-reference-approval-history {
     padding-inline: 1rem;
   }

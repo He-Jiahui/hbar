@@ -206,7 +206,7 @@
   margin: 0;
   color: light-dark(#777, #a3a3a3);
 }
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .lumen-wizard-stage.hbar-app-ui-wizard-shipping-reference {
     padding: 2rem;
   }
