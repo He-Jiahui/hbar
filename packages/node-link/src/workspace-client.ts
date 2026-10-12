@@ -13,6 +13,12 @@ import { encodeNodeFrame, nodeWebSocketURL } from './wire'
 import { z } from 'zod'
 import { NODE_CLOSE_CODES } from '@hbar/contracts/node-wire'
 
+// bun-types hides its documented WebSocketOptions overload when lib.dom is loaded.
+// Restore that Bun-only overload here; the trusted/untrusted WSS integration test exercises it.
+const BunWebSocket = WebSocket as typeof WebSocket & {
+  new (url: string, options: Bun.WebSocketOptions): WebSocket
+}
+
 export interface NodeJoinedIdentity {
   readonly publicKey: string
   readonly nodeId: string
@@ -44,7 +50,7 @@ export class WorkspaceNodeClient {
     const url = nodeWebSocketURL(input.url)
     const handshake = new WorkspaceNodeHandshake({ identity: this.options.identity, ...input })
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(url)
+      const socket = new BunWebSocket(url, { tls: { rejectUnauthorized: true } })
       this.socket = socket
       let settled = false,
         stopped = false,

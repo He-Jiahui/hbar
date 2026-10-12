@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { CommandError } from '@hbar/commands'
 import { createRunCommandClient } from '@hbar/client'
@@ -32,6 +31,7 @@ import { runTui } from './tui.ts'
 import { runRepl } from './repl.ts'
 import { hostProcessCommand } from './host-process.ts'
 import { isNodeManagementCommand, runNodeManagementCommand } from './node-management'
+import { conversationHostArguments } from './service-entry'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
@@ -62,14 +62,7 @@ function completion(shell: string | undefined) {
 }
 
 async function serve(args: CliArgs) {
-  const command = hostProcessCommand([
-    '--supervisor',
-    '--desktop',
-    ...(args.dataRoot ? ['--data-root', args.dataRoot] : []),
-    ...(args.cacheRoot ? ['--cache-root', args.cacheRoot] : []),
-    ...(args.project ? ['--workspace', resolve(args.project)] : []),
-    ...(args.demo ? ['--demo'] : []),
-  ])
+  const command = hostProcessCommand(conversationHostArguments(args))
   const child = spawn(command[0]!, command.slice(1), { stdio: 'inherit', windowsHide: false })
   return new Promise<number>((resolveExit, reject) => {
     child.once('error', reject)

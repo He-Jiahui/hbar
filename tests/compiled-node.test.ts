@@ -15,7 +15,7 @@ test('standalone CLI embeds the workspace node worker and execution artifact wit
     await mkdir(workspace)
     await buildStandaloneCli(resolve('.'), executable)
     const share = Bun.spawn(
-      [executable, 'node', 'share', workspace, '--id', 'engine', '--access', 'write', '--home', home],
+      [executable, '--home', home, 'node', 'share', workspace, '--id', 'engine', '--access', 'write'],
       {
         cwd: root,
         stdout: 'pipe',
@@ -25,7 +25,7 @@ test('standalone CLI embeds the workspace node worker and execution artifact wit
     )
     const [code, error] = await Promise.all([share.exited, new Response(share.stderr).text()])
     expect(code, error).toBe(0)
-    const nodeProcess = Bun.spawn([executable, 'serve', '--role', 'workspace', '--home', home], {
+    const nodeProcess = Bun.spawn([executable, '--home', home, '--role', 'workspace', 'serve'], {
       cwd: root,
       stdout: 'pipe',
       stderr: 'pipe',
