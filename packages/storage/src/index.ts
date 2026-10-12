@@ -9,6 +9,12 @@ import type { StorageMethods } from './types.ts'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import { storageRpcCallSchema } from './rpc'
 export type { RuntimeRecoveryRecord, RuntimeRecoveryScope, RuntimeManualRecovery } from './runtime-state'
+export type {
+  NodeExecutionIntentIdentity,
+  NodeExecutionIntentPage,
+  NodeExecutionIntentPageInput,
+  NodeExecutionIntentRecord,
+} from './node-execution-intents'
 export { runtimeRecoveryRecordSchema, runtimeManualRecoverySchema } from './runtime-state'
 export { StableStoragePort } from './stable-port'
 export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'

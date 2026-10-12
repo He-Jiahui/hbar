@@ -155,7 +155,7 @@ test('migration 28 preserves pre-node local workspace rows without adding remote
     await storage.close()
     const database = new Database(path)
     try {
-      database.exec('DROP TABLE node_workspace_locations; PRAGMA user_version=27')
+      database.exec('DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; PRAGMA user_version=27')
     } finally {
       database.close()
     }

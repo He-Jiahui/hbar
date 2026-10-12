@@ -30,6 +30,7 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'activeOperations',
   'stats',
   'pendingSessionLaunchTargetPreparations',
+  'pendingNodeExecutionIntents',
   'queuedSessions',
   'recentSessions',
   'nextQueuedRun',

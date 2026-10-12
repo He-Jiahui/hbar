@@ -2,6 +2,7 @@ import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
+import { NODE_EXECUTION_INTENTS_SQL, createNodeExecutionIntentStorage } from './node-execution-intents'
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { readContextCompactionMarkers } from './context-compaction-markers'
 import {
@@ -31,6 +32,7 @@ import {
   settingScopeSchema,
 } from '@hbar/contracts'
 import { z } from 'zod'
+import { nodeCallAuthoritySchema } from '@hbar/contracts/node'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import {
   sessionSchema,
@@ -144,7 +146,19 @@ const cacheRoot = options.cache ?? join(dirname(options.path), 'cache')
 const logWriter = new SessionLogWriter(sessionsRoot)
 const runSteering = new RunSteeringRegistry()
 let databaseMaintenanceOwner: string | null = null
-const databaseMaintenanceReads = new Set<string>(['ready', 'deviceByHash', 'devices', 'chatDatabaseOperationRead', 'chatDatabaseOperationReceipt', 'chatDatabasePreviewPage', 'chatDatabaseHistory', 'chatDatabaseResourceReceipt', 'chatDatabaseMaintenanceEnd', 'close'])
+const databaseMaintenanceReads = new Set<string>([
+  'ready',
+  'deviceByHash',
+  'devices',
+  'pendingNodeExecutionIntents',
+  'chatDatabaseOperationRead',
+  'chatDatabaseOperationReceipt',
+  'chatDatabasePreviewPage',
+  'chatDatabaseHistory',
+  'chatDatabaseResourceReceipt',
+  'chatDatabaseMaintenanceEnd',
+  'close',
+])
 const workerDiagnostics = createStorageWorkerDiagnostics({
   enabled: options.diagnosticsEnabled ?? options.diagnostics !== undefined,
   ...(options.diagnosticsFullCoverage === undefined ? {} : { fullCoverage: options.diagnosticsFullCoverage }),
@@ -279,7 +293,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 28
+const LATEST_SCHEMA_VERSION = 29
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
@@ -511,13 +525,20 @@ for (const [version, sql] of [
   [26, DEVICE_ACCESS_SQL],
   [27, NODE_REGISTRY_SQL],
   [28, NODE_WORKSPACES_SQL],
+  [29, NODE_EXECUTION_INTENTS_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
     if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
     if (current === version - 1) {
-      if (version === 24 && !db.query<{ name: string }, []>('PRAGMA table_info(runs)').all().some(column => column.name === 'recovery'))
+      if (
+        version === 24 &&
+        !db
+          .query<{ name: string }, []>('PRAGMA table_info(runs)')
+          .all()
+          .some((column) => column.name === 'recovery')
+      )
         db.exec('ALTER TABLE runs ADD COLUMN recovery TEXT')
       db.exec(sql)
       db.exec(`PRAGMA user_version=${version};`)
@@ -552,6 +573,7 @@ const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot
 const deviceStorage = createDeviceStorage(db, id => chatDatabaseArtifacts.unknownDevice(id, false))
 const nodeRegistryStorage = createNodeRegistryStorage(db)
 const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
+const nodeExecutionIntentStorage = createNodeExecutionIntentStorage(db)
 const chatDatabaseJournal = createChatDatabaseJournal(db)
 const chatDatabaseAutomaticPlan = createChatDatabaseAutomaticPlan(db, chatDatabaseJournal)
 const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
@@ -2677,8 +2699,18 @@ const methods: StorageMethods = {
       const modeEvent = decision === 'implement' ? event : null
       return { approval: resolved, event, modeEvent }
     })(),
-  toolStart: (sessionId, runId, callId, name, args, presentation) =>
+  toolStart: (sessionId, runId, callId, name, args, presentation, nodeExecution) =>
     db.transaction(() => {
+      if (nodeExecution) {
+        nodeExecutionIntentStorage.begin({
+          ...nodeExecution,
+          sessionId,
+          runId,
+          callId,
+          name,
+          args,
+        })
+      }
       db.query('INSERT INTO tool_intents VALUES(?,?,?,?,?,?)').run(
         `${runId}:${callId}`,
         sessionId,
@@ -2690,10 +2722,17 @@ const methods: StorageMethods = {
       return appendEvent(
         sessionId,
         'tool.started',
-        { callId, name, args, ...(presentation ? { presentation } : {}) },
+        {
+          callId,
+          name,
+          args,
+          ...(presentation ? { presentation } : {}),
+          ...(nodeExecution ? { nodeExecution } : {}),
+        },
         runId,
       )
     })(),
+  pendingNodeExecutionIntents: (input) => nodeExecutionIntentStorage.pendingPage(input),
   toolEnd: (sessionId, runId, callId, failed = false) =>
     db.transaction(() => {
       const result = db
@@ -2703,7 +2742,7 @@ const methods: StorageMethods = {
     })(),
   recover: (scope) =>
     db.transaction(() => {
-      const ids = scope ? new Set(z.array(z.string().min(1).max(160)).max(256).parse(scope.runIds)) : null
+      const ids = scope?.runIds ? new Set(z.array(z.string().min(1).max(160)).max(256).parse(scope.runIds)) : null
       const interruptedCompactions = db
         .query<{ data: string }, []>(
           `
@@ -2718,7 +2757,10 @@ const methods: StorageMethods = {
         const parsed = z
           .object({ compaction: contextCompactionRecordSchema })
           .safeParse(JSON.parse(row.data) as unknown)
-        if (parsed.success && (!ids || (parsed.data.compaction.runId !== null && ids.has(parsed.data.compaction.runId))))
+        if (
+          parsed.success &&
+          (!ids || (parsed.data.compaction.runId !== null && ids.has(parsed.data.compaction.runId)))
+        )
           methods.compactionFinish(parsed.data.compaction, {
             status: 'interrupted',
             durationMs: null,
@@ -2729,19 +2771,40 @@ const methods: StorageMethods = {
             errorCode: 'HOST_INTERRUPTED',
           })
       }
-      const active = (db.query(scope?.reconcileInterrupted
-        ? "SELECT * FROM runs WHERE status IN ('running','waiting_approval','interrupted')"
-        : "SELECT * FROM runs WHERE status IN ('running','waiting_approval')").all() as Row[]).map(
-        runRow,
-      ).filter(run => !ids || ids.has(run.id))
+      const active = (
+        db
+          .query(
+            scope?.reconcileInterrupted
+              ? "SELECT * FROM runs WHERE status IN ('running','waiting_approval','interrupted')"
+              : "SELECT * FROM runs WHERE status IN ('running','waiting_approval')",
+          )
+          .all() as Row[]
+      )
+        .map(runRow)
+        .filter((run) => !ids || ids.has(run.id))
+      const deferredNodeRuns = new Set(
+        scope?.deferNodeExecutions === true
+          ? db
+              .query<{ runId: string }, []>(
+                `SELECT DISTINCT i.runId FROM node_execution_intents i
+                 JOIN tool_intents t ON t.id=i.operationId AND t.status='started'
+                 JOIN sessions s ON s.id=i.sessionId AND s.workspaceId=i.workspaceId
+                 JOIN node_workspace_locations l ON l.workspaceId=i.workspaceId
+                 WHERE i.kind='process' AND l.nodeId=i.nodeId AND l.rootId=i.rootId AND l.nodePath=i.nodePath`,
+              )
+              .all()
+              .map((row) => row.runId)
+          : [],
+      )
+      const interruptedRuns = active.filter((run) => !deferredNodeRuns.has(run.id))
       for (const run of active) {
         const current = runtimeState.ownership(run.id)
         if (current?.state === 'active') {
-          if (scope) throw new HbarError('EXECUTION_OWNER_ACTIVE', 'Revoke the fault owner before scoped recovery')
+          if (ids) throw new HbarError('EXECUTION_OWNER_ACTIVE', 'Revoke the fault owner before scoped recovery')
           runtimeState.revoke(current.lease.owner, [run.id])
         }
       }
-      for (const run of active) {
+      for (const run of interruptedRuns) {
         let unknownEffects = false
         const sequenceCalls = new Map<string, string>()
         const sequenceResults: string[] = []
@@ -2771,9 +2834,14 @@ const methods: StorageMethods = {
             ),
           ),
         )
-        const pendingCalls = new Set(scope?.preserveApprovals ? db.query<{ callId: string }, [string]>(
-          "SELECT callId FROM approvals WHERE runId=? AND status='pending'",
-        ).all(run.id).map(approval => approval.callId) : [])
+        const pendingCalls = new Set(
+          scope?.preserveApprovals
+            ? db
+                .query<{ callId: string }, [string]>("SELECT callId FROM approvals WHERE runId=? AND status='pending'")
+                .all(run.id)
+                .map((approval) => approval.callId)
+            : [],
+        )
         for (const callId of sequenceResults) if (sequenceCalls.has(callId)) settledCalls.add(callId)
         for (const intent of db.query("SELECT * FROM tool_intents WHERE runId=? AND status='started'").all(run.id) as {
           callId: string
@@ -2820,23 +2888,28 @@ const methods: StorageMethods = {
             }
         }
         db.query("UPDATE tool_intents SET status='unknown' WHERE runId=? AND status='started'").run(run.id)
-        for (const approval of (scope?.preserveApprovals ? [] : db.query("SELECT id FROM approvals WHERE runId=? AND status='pending'").all(run.id)) as {
+        for (const approval of (scope?.preserveApprovals
+          ? []
+          : db.query("SELECT id FROM approvals WHERE runId=? AND status='pending'").all(run.id)) as {
           id: string
         }[])
           methods.resolveApproval(approval.id, 'cancelled')
-        if (run.status !== 'interrupted') methods.setRun(
-          run.id,
-          'interrupted',
-          'Host stopped before this run settled. Inspect tool outcomes before resuming.',
-          {
-            code: unknownEffects ? 'EFFECT_UNKNOWN' : 'HOST_INTERRUPTED',
-            category: unknownEffects ? 'result_unknown' : 'interrupted',
-            retryable: false,
-          },
-        )
-        for (const queued of (scope?.preserveQueued ? [] : db
-          .query("SELECT id FROM runs WHERE sessionId=? AND status='queued'")
-          .all(run.sessionId)) as { id: string }[])
+        if (run.status !== 'interrupted')
+          methods.setRun(
+            run.id,
+            'interrupted',
+            'Host stopped before this run settled. Inspect tool outcomes before resuming.',
+            {
+              code: unknownEffects ? 'EFFECT_UNKNOWN' : 'HOST_INTERRUPTED',
+              category: unknownEffects ? 'result_unknown' : 'interrupted',
+              retryable: false,
+            },
+          )
+        for (const queued of (scope?.preserveQueued
+          ? []
+          : db.query("SELECT id FROM runs WHERE sessionId=? AND status='queued'").all(run.sessionId)) as {
+          id: string
+        }[])
           methods.setRun(
             queued.id,
             'interrupted',
@@ -2844,7 +2917,7 @@ const methods: StorageMethods = {
             { code: 'HOST_INTERRUPTED', category: 'interrupted', retryable: false },
           )
       }
-      return active.length
+      return interruptedRuns.length
     })(),
   saveProvider(provider) {
     providerSchema.parse(provider)
@@ -3279,13 +3352,64 @@ function restoreProjection(event: SessionEvent) {
       event.seq,
     )
   } else if (event.type === 'tool.started') {
+    const callId = z.string().min(1).max(160).parse(data.callId)
+    const name = z.string().min(1).max(160).parse(data.name)
     db.query('INSERT OR IGNORE INTO tool_intents VALUES(?,?,?,?,?,?)').run(
-      `${event.runId}:${String(data.callId)}`,
+      `${event.runId}:${callId}`,
       event.sessionId,
       event.runId,
-      String(data.callId),
-      String(data.name),
+      callId,
+      name,
       'started',
+    )
+    const terminal = db
+      .query<{ type: 'tool.settled' | 'tool.unknown' }, [string | null, number, string]>(
+        `SELECT type FROM events
+         WHERE runId=? AND seq>? AND type IN ('tool.settled','tool.unknown')
+           AND json_extract(data,'$.callId')=?
+         ORDER BY seq DESC LIMIT 1`,
+      )
+      .get(event.runId, event.seq, callId)
+    if (terminal)
+      db.query('UPDATE tool_intents SET status=? WHERE id=?').run(
+        terminal.type === 'tool.unknown' ? 'unknown' : 'settled',
+        `${event.runId}:${callId}`,
+      )
+    if (data.nodeExecution !== undefined) {
+      const metadata = z
+        .strictObject({
+          workspaceId: z.string().min(1).max(160),
+          nodeId: z.string().min(1).max(160),
+          rootId: z.string().min(1).max(160),
+          nodePath: z.string().min(1).max(4_000),
+          operationId: z.string().min(1).max(330),
+          kind: z.enum(['process', 'file']),
+          authority: nodeCallAuthoritySchema,
+        })
+        .parse(data.nodeExecution)
+      if (!event.runId) throw new Error(`SESSION_LOG_CORRUPTED node tool.started has no Run: ${event.eventId}`)
+      nodeExecutionIntentStorage.restore(
+        {
+          ...metadata,
+          sessionId: event.sessionId,
+          runId: event.runId,
+          callId,
+          name,
+          args: data.args,
+        },
+        event.time,
+      )
+    }
+  } else if (event.type === 'tool.settled') {
+    const callId = z.string().min(1).max(160).parse(data.callId)
+    db.query("UPDATE tool_intents SET status='settled' WHERE id=? AND status='started'").run(`${event.runId}:${callId}`)
+  } else if (event.type === 'tool.unknown') {
+    const intent = z
+      .strictObject({ callId: z.string().min(1).max(160), name: z.string().min(1).max(160) })
+      .passthrough()
+      .parse(data)
+    db.query("UPDATE tool_intents SET status='unknown' WHERE id=? AND status='started'").run(
+      `${event.runId}:${intent.callId}`,
     )
   }
   const notification = notificationFromSessionEvent(event, session.workspaceId)

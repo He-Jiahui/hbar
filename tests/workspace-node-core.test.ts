@@ -18,6 +18,7 @@ import {
   verifyNode,
   validateNodeIdentity,
   type NodeExecutionBackend,
+  WorkspaceNodeProtocol,
 } from '@hbar/node-core'
 import { resolveSandboxProfile, sandboxSnapshotContent } from '@hbar/sandbox'
 
@@ -38,6 +39,7 @@ async function fixture(
     floor?: Record<string, unknown>
     hold?: boolean
     beforeLaunch?: () => Promise<void>
+    beforeOperationGet?: () => Promise<void>
   } = {},
 ) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-workspace-node-'))
@@ -75,8 +77,13 @@ async function fixture(
   }
   const execution = new LocalExecution([data, join(workspace, '.git/hooks')])
   const identity = createNodeIdentity()
+  let delayOperationRead = options.beforeOperationGet !== undefined
   const statePort: NodeStatePort = {
     call: async (method, input) => {
+      if (method === 'operation.get' && delayOperationRead) {
+        delayOperationRead = false
+        await options.beforeOperationGet?.()
+      }
       const result = await state.call(method, input)
       if (method === 'operation.start') await options.beforeLaunch?.()
       return result
@@ -236,6 +243,35 @@ function launchGate() {
     },
   }
 }
+
+test('a disconnected pre-accept exec.start cannot start after a reconnect observed absent', async () => {
+  const gate = launchGate()
+  const f = await fixture({ beforeOperationGet: gate.beforeLaunch })
+  const protocol = new WorkspaceNodeProtocol(f.node)
+  const oldConnection = new AbortController()
+  const oldStart = protocol.invoke('exec.start', f.request('run:delayed-admission'), oldConnection.signal)
+  await gate.entered
+
+  oldConnection.abort(new Error('old node peer closed'))
+  expect(await f.state.call('operation.get', { operationId: 'run:delayed-admission' })).toBeNull()
+  gate.release()
+  const oldResult = await oldStart.catch((error: unknown) => error)
+  expect(oldResult).toMatchObject({ message: 'old node peer closed' })
+  expect(await f.state.call('operation.get', { operationId: 'run:delayed-admission' })).toBeNull()
+
+  const replacement = await protocol.invoke(
+    'exec.start',
+    f.request('run:delayed-admission'),
+    new AbortController().signal,
+  )
+  expect(replacement).toMatchObject({ state: 'started' })
+  expect(await settlement(f.node, 'run:delayed-admission')).toMatchObject({
+    state: 'settled',
+    result: { details: { executionStarted: true } },
+  })
+  expect(f.calls).toEqual(['echo safe'])
+  protocol.dispose()
+})
 
 test('cancel waits for a durable start reservation before confirming process settlement', async () => {
   const gate = launchGate(),

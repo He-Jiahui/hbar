@@ -84,6 +84,11 @@ import type {
   WorkspaceDisplayNamesSnapshot,
 } from '@hbar/contracts/commands/workspace-display-names'
 import type {
+  NodeExecutionIntentIdentity,
+  NodeExecutionIntentPage,
+  NodeExecutionIntentPageInput,
+} from './node-execution-intents'
+import type {
   SessionActivityGlobalListInput,
   SessionActivityGlobalPage,
   WorkspaceSidebarListInput,
@@ -561,7 +566,9 @@ export interface StorageMethods {
     name: string,
     args: unknown,
     presentation?: import('@hbar/contracts').ToolCallPresentation,
+    nodeExecution?: Omit<NodeExecutionIntentIdentity, 'sessionId' | 'runId' | 'callId' | 'name' | 'args'>,
   ): SessionEvent
+  pendingNodeExecutionIntents(input: NodeExecutionIntentPageInput): NodeExecutionIntentPage
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
   recover(scope?: RuntimeRecoveryScope): number
   runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null

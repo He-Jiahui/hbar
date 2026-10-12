@@ -2840,6 +2840,15 @@ export class Kernel {
         sandbox: mode === 'sandbox' ? pinnedSandbox : null,
         admission: nodeAdmission,
       })
+      const nodeLocation = executionFacts.workspace.location
+      // Only the built-in workspace shell has a process receipt on B. Other
+      // process tools may execute on A and must keep ordinary unknown-effect recovery.
+      const nodeExecution = nodeLocation?.kind === 'node' && name === 'shell' && tool.effect === 'process' &&
+        tool.workspaceAccess?.kind === 'workspace' && tool.commandArgument
+        ? { workspaceId: executionFacts.workspace.id, nodeId: nodeLocation.nodeId, rootId: nodeLocation.rootId,
+          nodePath: nodeLocation.nodePath, operationId: `${executionIdentity.runId}:${executionIdentity.callId}`,
+          kind: 'process' as const, authority: nodeAuthority }
+        : undefined
       if (authority && this.options.execution?.reserveTool && !tool.runtimeOwner)
         permitId = (await this.options.execution.reserveTool(authority, executionIdentity.callId)).id
       const startEvent = await this.storage.call(
@@ -2850,6 +2859,7 @@ export class Kernel {
         name,
         args,
         captureToolPresentations(new Set([name]), scope.tools).get(name),
+        nodeExecution,
       )
       this.executionDiagnostics.toolStarted(toolDiagnosticIdentity, name)
       this.publishEvent(startEvent)

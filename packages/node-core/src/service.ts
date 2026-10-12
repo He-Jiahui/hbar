@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import { z } from 'zod'
-import type { ExecutionProvider, ToolResult, OsConfinementOptions } from '@hbar/plugin-sdk'
+import type { ExecutionProvider, OsConfinementOptions } from '@hbar/plugin-sdk'
 import {
   NODE_PROTOCOL_VERSION,
   NODE_LIMITS,
@@ -27,26 +27,9 @@ import {
   SANDBOX_EVALUATOR_FINGERPRINT,
 } from '@hbar/sandbox'
 import { nodeOwnedPath, localNodePaths, validateNodeRoots, nodeProtectedPaths } from './paths'
+import type { NodeExecutionBackend } from './execution-backend'
+export type { NodeExecutionBackend, NodeExecutionBackendOptions, NodeArgvResult } from './execution-backend'
 
-export interface NodeExecutionBackend {
-  readonly name: NodeCapabilities['sandbox']['backends'][number]
-  readonly filesystem: boolean
-  readonly network: boolean
-  readonly processTree: boolean
-  exec(
-    workspace: string,
-    command: string,
-    signal: AbortSignal,
-    options: {
-      timeoutMs: number
-      environment: Readonly<Record<string, string>>
-      confinement: OsConfinementOptions | null
-      protectedPaths: readonly string[]
-      environmentAllowlist: readonly string[]
-    },
-  ): Promise<ToolResult>
-  dispose?(): Promise<void>
-}
 const dangerousEnvironment = /^(?:PATH|PATHEXT|LD_PRELOAD|LD_LIBRARY_PATH|DYLD_.*|BASH_ENV|ENV|NODE_OPTIONS)$/i
 const digestOf = (value: unknown) => createHash('sha256').update(canonicalSandboxJSON(value)).digest('hex')
 function outputTail(text: string): string {
@@ -347,10 +330,15 @@ export class WorkspaceNodeService {
       code: result.details.code,
     })
   }
-  async start(value: unknown): Promise<NodeReceipt> {
+  async start(value: unknown, transportSignal?: AbortSignal): Promise<NodeReceipt> {
+    transportSignal?.throwIfAborted()
     const request = nodeExecStartSchema.parse(value)
     return this.serial(request.operationId, async () => {
+      // A disconnected peer can be waiting behind another request for this id.
+      // Fence it before any durable acceptance when its transport has closed.
+      transportSignal?.throwIfAborted()
       const prior = await this.state.call('operation.get', { operationId: request.operationId })
+      transportSignal?.throwIfAborted()
       const argumentsDigest = digestOf(request)
       if (prior) {
         if (prior.argumentsDigest !== argumentsDigest)
@@ -362,6 +350,7 @@ export class WorkspaceNodeService {
         throw new HbarError('NODE_BUSY', 'Node process capacity reached')
       this.starting++
       try {
+        transportSignal?.throwIfAborted()
         const accepted = await this.state.call('operation.accept', {
           operationId: request.operationId,
           argumentsDigest,
@@ -377,6 +366,9 @@ export class WorkspaceNodeService {
         })
         if (!accepted.accepted) return accepted.operation.receipt
         try {
+          // From acceptance until durable start, cancellation settles a no-start receipt.
+          // Once started, transport loss belongs to the independent process controller.
+          transportSignal?.throwIfAborted()
           if (!this.floor.process) throw new HbarError('NODE_DENIED', 'Processes are disabled by the node floor')
           if (['always', 'process'].includes(this.floor.localConfirm))
             throw new HbarError(
@@ -384,6 +376,7 @@ export class WorkspaceNodeService {
               'The node floor requires local process confirmation',
             )
           const target = await nodeOwnedPath(this.floor, this.dataRoot, request.rootId, request.cwd)
+          transportSignal?.throwIfAborted()
           const profile = this.profile(request)
           if (profile) {
             const verdict = await evaluateSandboxCall(
@@ -440,9 +433,11 @@ export class WorkspaceNodeService {
               : null
           const controller = new AbortController()
           this.availableToStart(request.operationId)
+          transportSignal?.throwIfAborted()
           const started = await this.state.call('operation.start', { operationId: request.operationId })
           if (started.receipt.state !== 'started') return started.receipt
           this.availableToStart(request.operationId)
+          transportSignal?.throwIfAborted()
           const timeoutMs = Math.min(request.timeoutMs, this.floor.maxTimeoutMs)
           const finished = Promise.resolve()
             .then(async () => {

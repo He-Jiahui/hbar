@@ -256,7 +256,7 @@ export class WorkspaceNodeProtocol {
         break
       }
       case 'exec.start':
-        result = await this.node.start(value)
+        result = await this.node.start(value, signal)
         break
       case 'exec.cancel':
         result = await this.node.cancel(nodeWorkspaceMethods[method].input.parse(value).operationId)
