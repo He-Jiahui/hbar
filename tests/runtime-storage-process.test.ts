@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
+import { Database } from 'bun:sqlite'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, relative } from 'node:path'
@@ -40,8 +41,8 @@ async function fixture() {
   const port = new StableStoragePort(5000)
   const entry = { root, port, processes: [] as ManagedProcess[] }
   resources.push(entry)
-  const make = async (generation: number, selectedArtifact = artifact) => {
-    const process = new ManagedProcess({ descriptor, artifactId: selectedArtifact.id, modulePath: await registry.modulePath(selectedArtifact.id), generation,
+  const make = async (generation: number, selectedArtifact = artifact, selectedDescriptor = descriptor) => {
+    const process = new ManagedProcess({ descriptor: selectedDescriptor, artifactId: selectedArtifact.id, modulePath: await registry.modulePath(selectedArtifact.id), generation,
       parent: { unitId: 'base', generation: 1, incarnation: 'stable-base' },
       configuration: { database: layout.database, dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, pointerFile: layout.pointerFile,
         settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot,
@@ -124,6 +125,49 @@ test('the public storage RPC catalog contains every declared method exactly once
   const actual: string[] = [...STORAGE_RPC_METHODS]
   expect(actual.sort()).toEqual(declared)
   expect(new Set(STORAGE_RPC_METHODS).size).toBe(STORAGE_RPC_METHODS.length)
+})
+
+test('the current RPC candidate reads event pages on schema 25 and rejects the pre-page fingerprint without displacing its writer', async () => {
+  const f = await fixture()
+  const serving = await f.make(1)
+  await serving.activate()
+  f.install(serving)
+  const userVersion = new Database(f.layout.database, { readonly: true, strict: true })
+  try {
+    expect(userVersion.query('PRAGMA user_version').get()).toEqual({ user_version: 25 })
+  } finally {
+    userVersion.close()
+  }
+
+  const page = await f.port.call('readEventPage', {
+    sessionId: f.session.id,
+    afterSeq: 0,
+    types: ['session.created'],
+    limit: 10,
+    maxReplyBytes: 4_096,
+  })
+  expect(page).toMatchObject({
+    sessionId: f.session.id,
+    afterSeq: 0,
+    throughSeq: 1,
+    items: [{ kind: 'event', event: { sessionId: f.session.id, type: 'session.created', seq: 1 } }],
+    nextAfterSeq: 1,
+    hasMore: false,
+  })
+
+  const previousFingerprint = '6e3b927ba949b1b9c6c34e58fccba3b4a2a6a2eab3400eaef510c5dc881c6b9b'
+  const previousDescriptor = { ...f.descriptor, contractFingerprint: previousFingerprint }
+  const previousArtifact = await f.registry.build({
+    descriptor: previousDescriptor,
+    entrypoint: 'apps/host/src/runtime-storage-process.ts',
+    workers: ['packages/storage/src/worker.ts'],
+  })
+  expect(await outcome(f.make(2, previousArtifact, previousDescriptor))).toMatchObject({
+    code: 'RUNTIME_RESTART_REQUIRED',
+  })
+  expect(f.port.snapshot()).toMatchObject({ phase: 'serving', owner: serving.owner() })
+  await f.port.call('setSetting', 'event-page-candidate', 'writer-preserved')
+  expect(await f.port.call('getSetting', 'event-page-candidate')).toBe('writer-preserved')
 })
 
 test('an actual candidate Worker startup failure is rejected before the serving storage writer retires', async () => {

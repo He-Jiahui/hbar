@@ -7,6 +7,7 @@ export const STORAGE_PREFLIGHT_METHODS: ReadonlySet<keyof StorageMethods> = new 
   'getSetting',
   'sessions',
   'events',
+  'readEventPage',
   'plugins',
 ])
 export function assertStoragePreflightMethod(method: keyof StorageMethods): void {

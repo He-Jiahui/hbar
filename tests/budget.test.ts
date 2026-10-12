@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { HbarClient, createBudgetCommandClient } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { BudgetRuntime } from '../plugins/budget/src/index.ts'
-import type { SessionEvent } from '@hbar/contracts'
+import type { SessionEvent, SessionEventPage, SessionEventPageInput } from '@hbar/contracts'
 import type { BudgetService, GoalService, HbarAPI } from '@hbar/plugin-sdk'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -202,6 +202,37 @@ test('an ACK lost after append is unknown until restart, then the original recei
       },
       list: async () => [{ id: sessionId }],
       events: async (id: string) => (id === sessionId ? [...events] : []),
+      readEventPage: async (input: SessionEventPageInput): Promise<SessionEventPage> => {
+        const throughSeq = input.throughSeq ?? events.at(-1)?.seq ?? 0
+        const remaining = events.filter((event) => event.seq > input.afterSeq && event.seq <= throughSeq)
+        const selected = remaining
+          .filter(
+            (event) => input.types.includes(event.type) && (!input.runIds || input.runIds.includes(event.runId ?? '')),
+          )
+          .slice(0, input.limit)
+        const items = selected.map((event) => {
+          if (input.headerOnlyTypes?.includes(event.type)) {
+            const { data: _data, ...header } = event
+            return { kind: 'header' as const, event: header }
+          }
+          return { kind: 'event' as const, event }
+        })
+        const matching = remaining.filter(
+          (event) => input.types.includes(event.type) && (!input.runIds || input.runIds.includes(event.runId ?? '')),
+        )
+        const hasMore = matching.length > selected.length
+        return {
+          sessionId,
+          afterSeq: input.afterSeq,
+          throughSeq,
+          totalEventCount: events.filter((event) => event.seq <= throughSeq).length,
+          remainingEventCount: remaining.length,
+          matchingEventCount: matching.length,
+          items,
+          nextAfterSeq: hasMore ? (selected.at(-1)?.seq ?? input.afterSeq) : throughSeq,
+          hasMore,
+        } as SessionEventPage
+      },
       append: async (id: string, type: string, data: unknown, runId?: string) => {
         const event: SessionEvent = {
           eventId: crypto.randomUUID(),

@@ -111,6 +111,43 @@ test('read phases retain their request owner, preserve results and expose the la
   expect(messages).toHaveLength(2)
 })
 
+test('bounded event-page diagnostics correlate selection/decode counts without payload content', () => {
+  const messages: StorageWorkerDiagnosticMessage[] = []
+  const diagnostics = createStorageWorkerDiagnostics({
+    fullCoverage: true,
+    port: { postMessage: (message) => messages.push(message) },
+  })
+  diagnostics.withOperation(52, 'readEventPage', () =>
+    diagnostics.measuredReadPhase('event-page-decode', {
+      sessionId: 'session-safe-id',
+      anchorSeq: 400,
+      cursorSeq: 120,
+      durationMs: 2,
+      recordsIn: 5,
+      recordsOut: 3,
+      bytesIn: 80,
+      bytesOut: 240,
+      memoryBytes: 32_000_000,
+    }),
+  )
+  expect(messages).toHaveLength(1)
+  expect(diagnosticEventSchema.parse(messages[0]?.event)).toMatchObject({
+    event: 'sqlite.read_phase_completed',
+    phase: 'event-page-decode',
+    method: 'readEventPage',
+    storageRequestId: 52,
+    sessionId: 'session-safe-id',
+    anchorSeq: 400,
+    cursorSeq: 120,
+    recordsIn: 5,
+    recordsOut: 3,
+    bytesIn: 80,
+    bytesOut: 240,
+    memoryBytes: 32_000_000,
+  })
+  expect(JSON.stringify(messages)).not.toContain('payload')
+})
+
 test('failed nested phases restore the outer owner without changing the thrown error', () => {
   const messages: StorageWorkerDiagnosticMessage[] = []
   const diagnostics = createStorageWorkerDiagnostics({
