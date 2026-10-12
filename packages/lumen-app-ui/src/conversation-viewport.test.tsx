@@ -115,6 +115,126 @@ describe('controlled conversation scroll targets', () => {
     await settle(300)
     expect(viewport().scrollTop).to.equal(initialTop)
   })
+  it('pauses follow immediately on an upward wheel and resumes after the reader returns to the end', async () => {
+    let measuredHeight = 800
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => measuredHeight)
+    const { setProps } = render(<LumenConversation {...defaults} />)
+    await settle(300)
+
+    viewport().scrollTop = 600
+    await React.act(() => viewport().dispatchEvent(new WheelEvent('wheel', { deltaY: -1, bubbles: true })))
+    viewport().scrollTop = 599
+    measuredHeight = 1000
+    setProps({ contentRevision: 'while-reading' })
+    await settle(80)
+    expect(viewport().scrollTop).to.equal(599)
+
+    await React.act(() => viewport().dispatchEvent(new Event('scroll', { bubbles: true })))
+    measuredHeight = 1200
+    setProps({ contentRevision: 'more-while-reading' })
+    await settle(80)
+    expect(viewport().scrollTop).to.equal(599)
+
+    viewport().scrollTop = measuredHeight
+    await React.act(() => viewport().dispatchEvent(new WheelEvent('wheel', { deltaY: 80, bubbles: true })))
+    await React.act(() => viewport().dispatchEvent(new Event('scroll', { bubbles: true })))
+    measuredHeight = 1400
+    setProps({ contentRevision: 'reader-returned-to-end' })
+    await settle(100)
+    expect(viewport().scrollTop).to.equal(1400)
+  })
+  it('locks the reader intent on transcript pointerdown before the browser dispatches scroll', async () => {
+    let measuredHeight = 800
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => measuredHeight)
+    const { setProps } = render(<LumenConversation {...defaults} />)
+    await settle(300)
+    const row = viewport().querySelector('[data-message-id]')
+    if (!row) throw new Error('Expected a transcript message row')
+
+    await React.act(() => row.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })))
+    measuredHeight = 1000
+    setProps({ contentRevision: 'pointer-reading-intent' })
+    viewport().scrollTop = 200
+    await settle(100)
+    expect(viewport().scrollTop).to.equal(200)
+  })
+  it('does not replay a stale reading anchor during the input settlement window', async () => {
+    const callbacks: Array<ResizeObserverCallback> = []
+    class TestResizeObserver {
+      readonly callback: ResizeObserverCallback
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+        callbacks.push(callback)
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+    vi.stubGlobal('ResizeObserver', TestResizeObserver)
+    const { render: renderWithoutFakeClock } = createRenderer()
+    renderWithoutFakeClock(<LumenConversation {...defaults} />)
+    const pane = viewport()
+    const row = pane.querySelector('[data-message-id]')
+    if (!row) throw new Error('Expected a transcript message row')
+    await React.act(() => row.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })))
+
+    pane.scrollTop = 180
+    await React.act(() => {
+      const observer = { observe() {}, unobserve() {}, disconnect() {} } satisfies ResizeObserver
+      for (const callback of callbacks) callback([], observer)
+    })
+    await settle(32)
+    expect(pane.scrollTop).to.equal(180)
+  })
+  it('cancels an older correction when a scroll event establishes a new position without pointer intent', async () => {
+    let measuredHeight = 800
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => measuredHeight)
+    const { setProps } = render(<LumenConversation {...defaults} />)
+    await settle(300)
+
+    viewport().scrollTop = 220
+    await React.act(() => viewport().dispatchEvent(new Event('scroll', { bubbles: true })))
+    expect(viewport().scrollTop).to.equal(220)
+
+    measuredHeight = 1000
+    setProps({ contentRevision: 'after-reader-scroll' })
+    await settle(80)
+    expect(viewport().scrollTop).to.equal(220)
+    await settle(300)
+    expect(viewport().scrollTop).to.equal(220)
+  })
+  it('keeps follow pause scoped to its conversation while a new conversation follows latest', async () => {
+    let measuredHeight = 800
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => measuredHeight)
+    const { setProps } = render(<LumenConversation {...defaults} />)
+    await settle(300)
+
+    viewport().scrollTop = 120
+    await React.act(() => viewport().dispatchEvent(new WheelEvent('wheel', { deltaY: -80, bubbles: true })))
+    await React.act(() => viewport().dispatchEvent(new Event('scroll', { bubbles: true })))
+    measuredHeight = 1000
+    setProps({ contentRevision: 'A-stream' })
+    await settle(80)
+    expect(viewport().scrollTop).to.equal(120)
+
+    measuredHeight = 1200
+    setProps({ scrollKey: 'B' })
+    await settle(300)
+    expect(viewport().scrollTop).to.equal(1200)
+
+    measuredHeight = 1400
+    setProps({ contentRevision: 'B-stream' })
+    await settle(100)
+    expect(viewport().scrollTop).to.equal(1400)
+
+    setProps({ scrollKey: 'A' })
+    await settle(80)
+    expect(viewport().scrollTop).to.equal(120)
+    measuredHeight = 1600
+    setProps({ contentRevision: 'A-later-stream' })
+    await settle(100)
+    expect(viewport().scrollTop).to.equal(120)
+  })
   it('explicit Latest cancels a pending reading correction outside the scroll viewport', async () => {
     const { setProps } = render(<LumenConversation {...defaults} latestLabel="显示最新内容" followLatest={false} />)
     viewport().scrollTop = 200

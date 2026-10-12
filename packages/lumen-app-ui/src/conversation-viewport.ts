@@ -41,6 +41,7 @@ function uniqueMessages<Item extends { id: string }>(items: readonly Item[]): re
 interface ScrollAnchor {
   readonly top: number
   readonly atEnd: boolean
+  readonly followPaused: boolean
   readonly revision: string
   readonly messageId: string | undefined
   readonly messageOffset: number
@@ -92,6 +93,7 @@ export function useConversationViewport<Item extends { id: string }>(options: {
         readonly top: number
         readonly height: number
         readonly atEnd: boolean
+        readonly followPaused: boolean
         readonly revision: string
         readonly messageId: string | undefined
         readonly messageOffset: number
@@ -99,6 +101,10 @@ export function useConversationViewport<Item extends { id: string }>(options: {
     | undefined
   >(undefined)
   const [hasNewContent, setHasNewContent] = React.useState(false)
+  const userPausedFollow = React.useRef(false)
+  const userResumeRequested = React.useRef(false)
+  const readerIntentAt = React.useRef(Number.NEGATIVE_INFINITY)
+  const previousTouchY = React.useRef<number | null>(null)
   const seekGeneration = React.useRef(0)
   const seeking = React.useRef(false)
   const cancelSeek = React.useRef<(() => void) | undefined>(undefined)
@@ -130,15 +136,17 @@ export function useConversationViewport<Item extends { id: string }>(options: {
   const visible = virtual.getVirtualItems()
   const leading = visible[0]?.start ?? 0
   const trailing = Math.max(0, virtual.getTotalSize() - (visible.at(-1)?.end ?? 0))
-  const atEnd = React.useCallback((element: HTMLDivElement) => {
+  const isAtEnd = React.useCallback((element: HTMLDivElement) => {
     const rootSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
     return element.scrollHeight - element.scrollTop - element.clientHeight <= END_THRESHOLD_REM * rootSize
   }, [])
+  const atEnd = React.useCallback((element: HTMLDivElement) => followLatest && isAtEnd(element), [followLatest, isAtEnd])
   const saveAnchor = React.useCallback(
     (element: HTMLDivElement) => {
       const value = {
         top: element.scrollTop,
-        atEnd: followLatest && atEnd(element),
+        atEnd: followLatest && !userPausedFollow.current && atEnd(element),
+        followPaused: userPausedFollow.current,
         revision,
         ...visibleMessageAnchor(element),
       }
@@ -165,6 +173,7 @@ export function useConversationViewport<Item extends { id: string }>(options: {
       top: current.top,
       height: element.scrollHeight,
       atEnd: current.atEnd,
+      followPaused: current.followPaused,
       revision,
       messageId: current.messageId,
       messageOffset: current.messageOffset,
@@ -351,6 +360,7 @@ export function useConversationViewport<Item extends { id: string }>(options: {
       }
       correctionObserver?.disconnect()
     }
+    const hasRecentReaderIntent = () => performance.now() - readerIntentAt.current < TARGET_SETTLE_MS
     const cancelPositionKey = (event: KeyboardEvent) => {
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
         cancelPositionCorrection()
@@ -360,6 +370,7 @@ export function useConversationViewport<Item extends { id: string }>(options: {
       const run = () => {
         if (
           correctionCancelled ||
+          hasRecentReaderIntent() ||
           viewport.current !== element ||
           latest.current.scrollKey !== scrollKey ||
           seeking.current
@@ -402,6 +413,10 @@ export function useConversationViewport<Item extends { id: string }>(options: {
       })
     if (!prior || prior.key !== scrollKey) {
       const saved = anchors.current.get(scrollKey)
+      userPausedFollow.current = saved?.followPaused ?? false
+      userResumeRequested.current = false
+      previousTouchY.current = null
+      readerIntentAt.current = Number.NEGATIVE_INFINITY
       if (!saved || saved.atEnd) {
         element.scrollTop = element.scrollHeight
         if (followLatest) {
@@ -425,7 +440,7 @@ export function useConversationViewport<Item extends { id: string }>(options: {
     } else {
       const prepended =
         prior.firstId !== messages[0]?.id && prior.lastId === messages.at(-1)?.id && messages.length > prior.count
-      if (!prior.atEnd || !followLatest) {
+      if (!prior.atEnd || !followLatest || userPausedFollow.current || hasRecentReaderIntent()) {
         const correct = () => {
           const current = viewport.current
           if (!current) {
@@ -442,13 +457,16 @@ export function useConversationViewport<Item extends { id: string }>(options: {
                 top: anchor.top,
                 height: current.scrollHeight,
                 atEnd: anchor.atEnd,
+                followPaused: anchor.followPaused,
                 messageId: anchor.messageId,
                 messageOffset: anchor.messageOffset,
               }
             : previous.current
         }
-        correct()
-        correctMeasuredPosition(correct)
+        if (!hasRecentReaderIntent()) {
+          correct()
+          correctMeasuredPosition(correct)
+        }
         if (!prepended && prior.revision !== revision) {
           setHasNewContent(true)
         }
@@ -466,6 +484,7 @@ export function useConversationViewport<Item extends { id: string }>(options: {
       top: current.top,
       height: element.scrollHeight,
       atEnd: current.atEnd,
+      followPaused: current.followPaused,
       revision,
       messageId: current.messageId,
       messageOffset: current.messageOffset,
@@ -506,7 +525,7 @@ export function useConversationViewport<Item extends { id: string }>(options: {
   React.useLayoutEffect(() => {
     const element = viewport.current
     const content = element?.querySelector('.lumen-conversation-content')
-    if (!element || !content || typeof ResizeObserver === 'undefined') {
+    if (!element) {
       return undefined
     }
     let frame: number | undefined
@@ -517,45 +536,112 @@ export function useConversationViewport<Item extends { id: string }>(options: {
       }
     }
     const interruptKey = (event: KeyboardEvent) => {
+      if (['ArrowUp', 'PageUp', 'Home'].includes(event.key)) {
+        userPausedFollow.current = true
+        userResumeRequested.current = false
+      } else if (['ArrowDown', 'PageDown', 'End'].includes(event.key) || (event.key === ' ' && !event.shiftKey)) {
+        userResumeRequested.current = true
+      }
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
         cancelResizeFrame()
       }
     }
-    const observer = new ResizeObserver(() => {
-      if (frame !== undefined) {
-        return
+    const pauseForOlderContent = (event: WheelEvent) => {
+      if (event.deltaY < 0) {
+        userPausedFollow.current = true
+        userResumeRequested.current = false
+        readerIntentAt.current = performance.now()
+      } else if (event.deltaY > 0) {
+        userResumeRequested.current = true
       }
-      frame = requestAnimationFrame(() => {
-        frame = undefined
-        const prior = previous.current
-        const current = latest.current
-        if (
-          viewport.current !== element ||
-          current.scrollKey !== scrollKey ||
-          prior?.key !== scrollKey ||
-          !element.isConnected ||
-          seeking.current
-        ) {
-          return
-        }
-        if (prior.atEnd && current.followLatest) {
-          element.scrollTop = element.scrollHeight
+    }
+    const startTouchIntent = (event: TouchEvent) => {
+      const nextY = event instanceof TouchEvent ? event.touches.item(0)?.clientY : undefined
+      previousTouchY.current = nextY ?? null
+    }
+    const trackTouchIntent = (event: TouchEvent) => {
+      const nextY = event instanceof TouchEvent ? event.touches.item(0)?.clientY : undefined
+      if (nextY === undefined) return
+      if (previousTouchY.current !== null && nextY !== previousTouchY.current) {
+        if (nextY > previousTouchY.current) {
+          userPausedFollow.current = true
+          userResumeRequested.current = false
+          readerIntentAt.current = performance.now()
         } else {
-          restoreMessageAnchor(element, prior.messageId, prior.messageOffset)
+          userResumeRequested.current = true
         }
-        current.recordPosition(element)
-      })
-    })
-    observer.observe(element)
-    observer.observe(content)
+      }
+      previousTouchY.current = nextY
+    }
+    const endTouchIntent = () => {
+      previousTouchY.current = null
+    }
+    const resumeForScrollbar = (event: PointerEvent) => {
+      if (event.target === element) {
+        userResumeRequested.current = true
+      } else if (
+        event.target instanceof Element &&
+        event.target.closest('[data-message-id]') &&
+        !event.target.closest('button,a,input,textarea,[contenteditable="true"]')
+      ) {
+        userPausedFollow.current = true
+        userResumeRequested.current = false
+        readerIntentAt.current = performance.now()
+      }
+    }
+    const observer =
+      content && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            if (frame !== undefined) {
+              return
+            }
+            frame = requestAnimationFrame(() => {
+              frame = undefined
+              const prior = previous.current
+              const current = latest.current
+              if (
+                viewport.current !== element ||
+                current.scrollKey !== scrollKey ||
+                prior?.key !== scrollKey ||
+                !element.isConnected ||
+                seeking.current ||
+                performance.now() - readerIntentAt.current < TARGET_SETTLE_MS
+              ) {
+                return
+              }
+              if (prior.atEnd && current.followLatest && !userPausedFollow.current) {
+                element.scrollTop = element.scrollHeight
+              } else {
+                restoreMessageAnchor(element, prior.messageId, prior.messageOffset)
+              }
+              current.recordPosition(element)
+            })
+          })
+        : undefined
+    observer?.observe(element)
+    if (content) {
+      observer?.observe(content)
+    }
+    element.addEventListener('wheel', pauseForOlderContent, { passive: true })
     element.addEventListener('wheel', cancelResizeFrame, { passive: true })
+    element.addEventListener('touchstart', startTouchIntent, { passive: true })
+    element.addEventListener('touchmove', trackTouchIntent, { passive: true })
+    element.addEventListener('touchend', endTouchIntent, { passive: true })
+    element.addEventListener('touchcancel', endTouchIntent, { passive: true })
+    element.addEventListener('pointerdown', resumeForScrollbar, { passive: true })
     element.addEventListener('touchstart', cancelResizeFrame, { passive: true })
     element.addEventListener('pointerdown', cancelResizeFrame, { passive: true })
     element.addEventListener('keydown', interruptKey)
     return () => {
-      observer.disconnect()
+      observer?.disconnect()
       cancelResizeFrame()
+      element.removeEventListener('wheel', pauseForOlderContent)
       element.removeEventListener('wheel', cancelResizeFrame)
+      element.removeEventListener('touchstart', startTouchIntent)
+      element.removeEventListener('touchmove', trackTouchIntent)
+      element.removeEventListener('touchend', endTouchIntent)
+      element.removeEventListener('touchcancel', endTouchIntent)
+      element.removeEventListener('pointerdown', resumeForScrollbar)
       element.removeEventListener('touchstart', cancelResizeFrame)
       element.removeEventListener('pointerdown', cancelResizeFrame)
       element.removeEventListener('keydown', interruptKey)
@@ -567,16 +653,29 @@ export function useConversationViewport<Item extends { id: string }>(options: {
     if (!element || seeking.current) {
       return
     }
-    const current = saveAnchor(element)
-    if (current.atEnd) {
-      setHasNewContent(false)
+    const priorTop = previous.current?.key === scrollKey ? previous.current.top : undefined
+    const movedFromRecordedPosition = priorTop !== undefined && Math.abs(element.scrollTop - priorTop) > 1
+    if (movedFromRecordedPosition) {
+      cancelCorrection.current?.()
+      cancelCorrection.current = undefined
     }
+    if (isAtEnd(element) && (!userPausedFollow.current || userResumeRequested.current)) {
+      userPausedFollow.current = false
+      userResumeRequested.current = false
+      readerIntentAt.current = Number.NEGATIVE_INFINITY
+      setHasNewContent(false)
+    } else if (!isAtEnd(element)) {
+      userPausedFollow.current = true
+      userResumeRequested.current = false
+    }
+    const current = saveAnchor(element)
     previous.current = previous.current
       ? {
           ...previous.current,
           top: current.top,
           height: element.scrollHeight,
           atEnd: current.atEnd,
+          followPaused: current.followPaused,
           messageId: current.messageId,
           messageOffset: current.messageOffset,
         }
@@ -587,6 +686,9 @@ export function useConversationViewport<Item extends { id: string }>(options: {
     if (!element) {
       return
     }
+    userPausedFollow.current = false
+    userResumeRequested.current = false
+    readerIntentAt.current = Number.NEGATIVE_INFINITY
     cancelSeek.current?.()
     cancelCorrection.current?.()
     if (virtualized) {
