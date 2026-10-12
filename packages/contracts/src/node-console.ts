@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { nodeLinkStatusSchema } from './node-link-state'
 import {
   nodeCapabilitiesSchema,
   nodeFloorSchema,
@@ -19,6 +20,7 @@ export const nodeConsoleMethods = {
       paused: z.boolean(),
       running: z.array(z.string().max(330)).max(64),
       linked: z.boolean(),
+      connection: nodeLinkStatusSchema,
     }),
   },
   'node.policy.get': { input: empty, output: nodeFloorSchema },

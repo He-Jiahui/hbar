@@ -12,6 +12,7 @@
     "@hbar/contracts": "workspace:*",
     "@hbar/local-tools": "workspace:*",
     "@hbar/node-core": "workspace:*",
+    "@hbar/node-link": "workspace:*",
     "@hbar/plugin-sdk": "workspace:*",
     "@hbar/runtime": "workspace:*",
     "@hbar/runtime-native": "workspace:*",

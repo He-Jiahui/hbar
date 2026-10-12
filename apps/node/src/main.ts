@@ -16,9 +16,11 @@ import { acquireProcessLease, type RuntimeArtifactPackage } from '@hbar/runtime'
 import { createManagedNodeBackend } from './managed-backend'
 import { NodeConsoleService } from './console-service'
 import { startNodeControlServer } from './control-server'
+import { WorkspaceNodeLink } from './link-service'
 import { nodeDataRoot, openNodeIdentity } from './bootstrap'
 export { runNodeCommand } from './cli'
 export { NodeConsoleService } from './console-service'
+export { WorkspaceNodeLink } from './link-service'
 export async function runNode(
   argv: readonly string[],
   options: {
@@ -42,8 +44,13 @@ export async function runNode(
     },
   })
   if (values.role && values.role !== 'workspace') throw new HbarError('INVALID_ROLE', 'Node role must be workspace')
-  if (values.join || values.code || values.fingerprint || values.stdio)
-    throw new HbarError('NODE_LINK_NOT_CONFIGURED', 'Node transport must be configured before joining')
+  if (values.stdio) throw new HbarError('NODE_TRANSPORT_UNAVAILABLE', 'SSH stdio transport is not installed')
+  const joining = [values.join, values.code, values.fingerprint].some((value) => value !== undefined)
+  if (joining && (!values.join || !values.code || !values.fingerprint))
+    throw new HbarError(
+      'INVALID_INPUT',
+      'First join requires an address, eight-digit code and conversation fingerprint',
+    )
   const dataRoot = nodeDataRoot(values.home ?? values['data-root'])
   await mkdir(dataRoot, { recursive: true, mode: 0o700 })
   const release = await acquireProcessLease(join(dataRoot, 'node.lock'))
@@ -52,6 +59,7 @@ export async function runNode(
   let backend: NodeExecutionBackend | undefined
   let execution: LocalExecution | undefined
   let control: Awaited<ReturnType<typeof startNodeControlServer>> | undefined
+  let link: WorkspaceNodeLink | undefined
   let closeTask: Promise<void> | undefined
   const stop = () => {
     void close().catch((error: unknown) => {
@@ -64,15 +72,19 @@ export async function runNode(
       process.removeListener('SIGINT', stop)
       process.removeListener('SIGTERM', stop)
       try {
-        const outcomes = await Promise.allSettled([
-          control?.close(),
-          node
-            ? node.dispose()
-            : Promise.resolve().then(async () => {
-                await backend?.dispose?.()
-                execution?.dispose()
-              }),
-        ])
+        const linkOutcomes = await Promise.allSettled([link?.close()])
+        const outcomes = [
+          ...linkOutcomes,
+          ...(await Promise.allSettled([
+            control?.close(),
+            node
+              ? node.dispose()
+              : Promise.resolve().then(async () => {
+                  await backend?.dispose?.()
+                  execution?.dispose()
+                }),
+          ])),
+        ]
         const failed = outcomes.filter((outcome) => outcome.status === 'rejected')
         if (failed.length)
           throw new AggregateError(
@@ -97,8 +109,14 @@ export async function runNode(
       get: () => nodeProtectedPaths(node?.policy ?? floor, dataRoot),
     })
     node = await WorkspaceNodeService.open(nodeIdFromPublicKey(identity.publicKey), dataRoot, state, execution, backend)
-    const service = new NodeConsoleService(state, identity, dataRoot, node)
+    link = new WorkspaceNodeLink(state, identity, node)
+    const service = new NodeConsoleService(state, identity, dataRoot, node, link)
     control = await startNodeControlServer(dataRoot, service, values.listen)
+    await link.start(
+      values.join && values.code && values.fingerprint
+        ? { url: values.join, code: values.code, fingerprint: values.fingerprint }
+        : undefined,
+    )
     if (options.registerSignals !== false) {
       process.on('SIGINT', stop)
       process.on('SIGTERM', stop)
@@ -111,7 +129,7 @@ export async function runNode(
         control: control.connection.url,
       }),
     )
-    return { node, state, control: control.connection, close }
+    return { node, state, link, control: control.connection, close }
   } catch (error) {
     await close()
     throw error

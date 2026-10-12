@@ -28,7 +28,7 @@ export class WorkspaceNodeClient {
     private readonly options: {
       identity: NodeIdentity
       handle(method: string, input: unknown, signal: AbortSignal): Promise<unknown>
-      onJoined?(identity: NodeJoinedIdentity): Promise<void>
+      onJoined?(identity: NodeJoinedIdentity, signal: AbortSignal): Promise<void>
       onDisconnected?(error: HbarError): void
       heartbeatTimeoutMs?: number
     },
@@ -50,6 +50,7 @@ export class WorkspaceNodeClient {
         stopped = false,
         processing = false
       let lastSeenAt = Date.now()
+      const authority = new AbortController()
       const deadline = setTimeout(
         () => stop(new HbarError('NODE_AUTH_EXPIRED', 'Workspace node dial or handshake expired')),
         10_000,
@@ -64,13 +65,22 @@ export class WorkspaceNodeClient {
       const stop = (error: HbarError) => {
         if (stopped) return
         stopped = true
+        authority.abort(error)
         clearTimeout(deadline)
         clearInterval(heartbeat)
         this.ready = false
-        this.peer?.close(4001, 'Workspace link closed')
+        try {
+          this.peer?.close(4001, 'Workspace link closed')
+        } catch {
+          /* Continue releasing the expired socket. */
+        }
         this.peer = null
         if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN)
-          socket.close(4001, 'Workspace link closed')
+          try {
+            socket.close(4001, 'Workspace link closed')
+          } catch {
+            /* An already failed dial still releases authority. */
+          }
         if (this.socket === socket) {
           this.socket = null
           this.stopConnection = null
@@ -90,7 +100,11 @@ export class WorkspaceNodeClient {
         },
         close(code: number, reason: string): void {
           if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN)
-            socket.close(code >= 3000 && code <= 4999 ? code : 4000, reason)
+            try {
+              socket.close(code >= 3000 && code <= 4999 ? code : 4000, reason)
+            } catch {
+              /* Transport is already closed. */
+            }
         },
       }
       socket.onopen = () => {
@@ -146,7 +160,7 @@ export class WorkspaceNodeClient {
               },
               onClose: () => stop(new HbarError('NODE_OFFLINE', 'Workspace RPC link closed')),
             })
-            await this.options.onJoined?.(result.joined)
+            await this.options.onJoined?.(result.joined, authority.signal)
             if (stopped) return
             this.ready = true
             settled = true
@@ -170,6 +184,9 @@ export class WorkspaceNodeClient {
   ) {
     if (!this.peer || !this.ready) throw new HbarError('NODE_OFFLINE', 'Workspace observation link is offline')
     return this.peer.call(method, input, { ...(signal ? { signal } : {}) })
+  }
+  get isOnline(): boolean {
+    return this.ready && this.peer !== null && this.socket?.readyState === WebSocket.OPEN
   }
   notify(method: keyof typeof nodeNotificationSchemas, value: unknown): void {
     if (!this.peer || !this.ready) throw new HbarError('NODE_OFFLINE', 'Workspace node is not linked')

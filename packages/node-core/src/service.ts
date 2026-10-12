@@ -66,6 +66,7 @@ export class WorkspaceNodeService {
   private readonly locks = new Map<string, Promise<void>>()
   private linkTimer: ReturnType<typeof setTimeout> | undefined
   private readonly completions = new Set<Promise<void>>()
+  private readonly policyListeners = new Set<() => void>()
   constructor(
     readonly id: string,
     readonly dataRoot: string,
@@ -109,6 +110,13 @@ export class WorkspaceNodeService {
     try {
       const floor = await validateNodeRoots(nodeFloorSchema.parse(value), this.dataRoot)
       this.floor = await this.state.call('floor.set', floor)
+      for (const listener of this.policyListeners) {
+        try {
+          listener()
+        } catch {
+          /* A notification observer cannot roll back the persisted floor. */
+        }
+      }
       return this.policy
     } finally {
       this.changingPolicy = false
@@ -116,6 +124,10 @@ export class WorkspaceNodeService {
   }
   get isPaused(): boolean {
     return this.paused
+  }
+  onPolicyChanged(listener: () => void): () => void {
+    this.policyListeners.add(listener)
+    return () => this.policyListeners.delete(listener)
   }
   capabilities(): NodeCapabilities {
     const { roots, protectedPaths: _paths, environmentAllowlist: _env, ...floor } = this.floor
@@ -649,6 +661,7 @@ export class WorkspaceNodeService {
   }
   async dispose(): Promise<void> {
     this.disposed = true
+    this.policyListeners.clear()
     this.linkRestored()
     for (const active of this.active.values())
       active.controller.abort(new HbarError('CANCELLED', 'Workspace node is stopping'))

@@ -2,6 +2,7 @@ import { HbarError } from '@hbar/contracts'
 import { nodeConsoleMethods, type NodeConsoleMethod } from '@hbar/contracts/node-console'
 import { nodeFloorSchema } from '@hbar/contracts/node'
 import type { NodeStatePort } from '@hbar/contracts/node-state'
+import type { NodeLinkStatus } from '@hbar/contracts/node-link-state'
 import { nodeFingerprint, type NodeIdentity, type WorkspaceNodeService, validateNodeRoots } from '@hbar/node-core'
 
 export class NodeConsoleService {
@@ -10,7 +11,7 @@ export class NodeConsoleService {
     private readonly identity: NodeIdentity,
     private readonly dataRoot: string,
     private readonly node?: WorkspaceNodeService,
-    private readonly unlink?: () => Promise<void>,
+    private readonly link?: { readonly linked: boolean; readonly connection: NodeLinkStatus; unlink(): Promise<void> },
   ) {}
   async invoke(method: NodeConsoleMethod, input: unknown): Promise<unknown> {
     const value = nodeConsoleMethods[method].input.parse(input)
@@ -23,7 +24,8 @@ export class NodeConsoleService {
           fingerprint: nodeFingerprint(this.identity.publicKey),
           paused: this.node.isPaused,
           running: this.node.running,
-          linked: !!(await this.state.call('config.get', { key: 'link' })),
+          linked: this.link?.linked ?? !!(await this.state.call('config.get', { key: 'link' })),
+          connection: this.link?.connection ?? { phase: 'unlinked', reasonCode: null, nextAttemptAt: null },
         }
         break
       }
@@ -55,7 +57,7 @@ export class NodeConsoleService {
         result = await this.state.call('audit.list', nodeConsoleMethods['node.audit'].input.parse(value))
         break
       case 'node.unlink':
-        if (this.unlink) await this.unlink()
+        if (this.link) await this.link.unlink()
         else await this.state.call('config.set', { key: 'link', value: null })
         result = { accepted: true }
         break
