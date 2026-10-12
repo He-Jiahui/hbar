@@ -8,7 +8,8 @@ import {
 import { HbarError } from '@hbar/contracts'
 import { observabilityRange } from './session-observability-range'
 import { observabilityDetails } from './session-observability-details'
-import { TOOL_FACTS_SQL, USAGE_FACTS_SQL, COMPACTION_FACTS_SQL } from './session-observability-facts'
+import { TOOL_FACTS_SQL, COMPACTION_FACTS_SQL } from './session-observability-facts'
+import { readObservabilityUsageFacts } from './session-observability-usage'
 
 function activity(db: Database, args: [string, number, number], terminal: boolean) {
   return db
@@ -35,24 +36,7 @@ export function readSessionObservability(db: Database, value: SessionObservabili
   return db.transaction(() => {
     const range = observabilityRange(db, input)
     const args: [string, number, number] = [input.sessionId, range.fromSeq, range.throughSeq]
-    const usage = db
-      .query<Record<string, unknown>, [string, number, number]>(
-        `${USAGE_FACTS_SQL}
-      SELECT COALESCE(SUM(input),0) input,COALESCE(SUM(output),0) output,COALESCE(SUM(cacheRead),0) cacheRead,
-        COALESCE(SUM(cacheWrite),0) cacheWrite,COUNT(*) recorded,COUNT(DISTINCT model) models,
-        (SELECT COUNT(DISTINCT COALESCE(runId,'')||':'||attemptId) FROM starts WHERE seq>?2 AND seq<=?3) requests,
-        (SELECT COUNT(DISTINCT runId) FROM events WHERE sessionId=?1 AND seq>?2 AND seq<=?3 AND type IN ('run.status','run.settled','message.committed','request.started','compaction.request','tool.started')) runs,
-        (SELECT COUNT(*) FROM events e LEFT JOIN runs r ON r.id=e.runId WHERE e.sessionId=?1 AND e.seq>?2 AND e.seq<=?3
-          AND e.type='message.committed' AND json_extract(e.data,'$.role')='user'
-          AND (json_extract(e.data,'$.queueGuidance') IS NOT NULL OR COALESCE(json_extract(r.input,'$.source'),'user')='user')) turns,
-        CASE WHEN COUNT(*)=COUNT(cost) THEN COALESCE(SUM(cost),0) END cost,COALESCE(SUM(cost),0) knownCost,COUNT(cost) pricedRequests,
-        CASE WHEN COUNT(*)=COUNT(eligibleInput) THEN 1.0*SUM(cacheRead)/NULLIF(SUM(eligibleInput),0) END cacheHitRate,
-        1.0*SUM(cacheRead)/NULLIF(SUM(input),0) cacheInputShare,SUM(durationMs) durationMs,COUNT(durationMs) timingSamples,
-        CASE WHEN COUNT(*)=COUNT(durationMs) THEN 1000.0*SUM(input+output)/NULLIF(SUM(durationMs),0) END tokensPerSecond,
-        CASE WHEN COUNT(*)=COUNT(durationMs) THEN 1000.0*SUM(output)/NULLIF(SUM(durationMs),0) END outputPerSecond
-      FROM usage`,
-      )
-      .get(...args)
+    const usageFacts = readObservabilityUsageFacts(db, args, range)
     const skills = db
       .query<Record<string, unknown>, [string, number, number]>(
         `${TOOL_FACTS_SQL}
@@ -85,14 +69,6 @@ export function readSessionObservability(db: Database, value: SessionObservabili
         COUNT(CASE WHEN status='completed' AND afterTokens IS NOT NULL THEN 1 END) measured FROM compactions`,
       )
       .get(...args)
-    const bucketMs = Math.max(1, Math.ceil(Math.max(1, range.endedAt - range.startedAt + 1) / 40))
-    const series = db
-      .query<Record<string, unknown>, [string, number, number, number, number]>(
-        `${USAGE_FACTS_SQL}
-      SELECT ?4+MIN(39,MAX(0,CAST((time-?4)/?5 AS INTEGER)))*?5 start,SUM(input) input,SUM(output) output,SUM(cacheRead) cacheRead
-      FROM usage GROUP BY start ORDER BY start`,
-      )
-      .all(...args, range.startedAt, bucketMs)
     const revision =
       db.query<{ seq: number }, [string]>('SELECT seq FROM sessions WHERE id=?').get(input.sessionId)?.seq ??
       range.throughSeq
@@ -101,13 +77,13 @@ export function readSessionObservability(db: Database, value: SessionObservabili
       revision,
       observedAt: Date.now(),
       range,
-      usage,
+      usage: usageFacts.usage,
       tools: activity(db, args, false),
       terminal: activity(db, args, true),
       skills,
       files,
       compactions,
-      series,
+      series: usageFacts.series,
       detail: input.detail,
       ...observabilityDetails(db, ...args, input.detail, input.after, input.limit),
     })
