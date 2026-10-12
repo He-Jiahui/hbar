@@ -93,7 +93,8 @@
     "e2e/**/*.tsx",
     "examples/**/*.ts",
     "playwright.config.ts",
-    "vitest.lumen.config.ts"
+    "vitest.lumen.config.ts",
+    "vitest.app-react.config.ts"
   ],
   "exclude": ["node_modules", "dist", "**/artifacts/**", "apps/desktop/src-tauri/target"]
 }

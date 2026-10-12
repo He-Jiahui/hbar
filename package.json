@@ -81,6 +81,7 @@
     "test": "bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000",
     "test:e2e": "playwright test",
     "test:lumen": "vitest run --config vitest.lumen.config.ts",
+    "test:app-react": "vitest run --config vitest.app-react.config.ts",
     "bench": "bun scripts/benchmark.ts",
     "bench:workspace-query": "bun run native:build && bun scripts/benchmark-workspace-query.ts",
     "desktop": "bun scripts/desktop.ts dev",
@@ -88,7 +89,7 @@
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen",
+    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen && bun run test:app-react",
     "lumen:build": "bun run --cwd packages/lumen-app-ui build"
   },
   "dependencies": {

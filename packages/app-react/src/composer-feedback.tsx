@@ -16,6 +16,23 @@ export interface HbarComposerFeedbackLabels {
 interface FeedbackEntry {
   readonly content: ReactNode
   readonly tone: 'neutral' | 'danger'
+  readonly priority: 'information' | 'recovery' | 'blocking'
+}
+
+const noticeRank = { information: 0, recovery: 1, blocking: 2 } as const
+export function primaryComposerFeedback<Entry extends Pick<FeedbackEntry, 'tone' | 'priority'>>(
+  entries: ReadonlyMap<string, Entry>,
+): string | null {
+  let selected: string | null = null
+  let rank = 0
+  for (const [id, entry] of entries) {
+    const candidate = noticeRank[entry.priority] * 2 + Number(entry.tone === 'danger')
+    if (candidate > rank) {
+      selected = id
+      rank = candidate
+    }
+  }
+  return selected
 }
 
 /** View registrations only: feature state and recovery actions stay with their owning ViewModels. */
@@ -50,10 +67,12 @@ export function HbarComposerFeedback({
   children,
   active = true,
   tone = 'neutral',
+  priority = tone === 'danger' ? 'recovery' : 'information',
 }: {
   readonly children: ReactNode
   readonly active?: boolean
   readonly tone?: FeedbackEntry['tone']
+  readonly priority?: FeedbackEntry['priority']
 }) {
   const store = useContext(FeedbackContext)
   const id = useId()
@@ -61,11 +80,11 @@ export function HbarComposerFeedback({
     if (!store) return
     store.setState((state) => {
       const entries = new Map(state.entries)
-      if (active) entries.set(id, { content: children, tone })
+      if (active) entries.set(id, { content: children, tone, priority })
       else entries.delete(id)
       return { entries }
     })
-  }, [store, id, active, children, tone])
+  }, [store, id, active, children, tone, priority])
   useLayoutEffect(
     () => () => {
       store?.setState((state) => {
@@ -85,6 +104,22 @@ export function HbarComposerFeedbackTrigger() {
   return store && labels ? <FeedbackTrigger store={store} labels={labels} /> : null
 }
 
+/** The composer reserves one nearby notice; remaining feedback is reachable in its details surface. */
+export function HbarComposerPrimaryNotice() {
+  const store = useContext(FeedbackContext)
+  return store ? <PrimaryNotice store={store} /> : null
+}
+function PrimaryNotice({ store }: { readonly store: ReturnType<typeof createFeedbackStore> }) {
+  const entries = useStore(store, (state) => state.entries)
+  const id = primaryComposerFeedback(entries)
+  const entry = id ? entries.get(id) : undefined
+  return entry ? (
+    <LumenFrame className="hbar-composer-primary-notice" data-priority={entry.priority}>
+      {entry.content}
+    </LumenFrame>
+  ) : null
+}
+
 /** Fixed feature groups and the existing bounded attachment/queue collections own these registrations. */
 function FeedbackTrigger({
   store,
@@ -94,6 +129,8 @@ function FeedbackTrigger({
   readonly labels: HbarComposerFeedbackLabels
 }) {
   const entries = useStore(store, (state) => state.entries)
+  const primary = primaryComposerFeedback(entries)
+  const details = [...entries].filter(([key]) => key !== primary)
   const anchor = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const handlers = useFloatingTrigger(open, setOpen)
@@ -142,8 +179,8 @@ function FeedbackTrigger({
           </LumenButton>
         </LumenFrame>
         <LumenFrame className="hbar-composer-feedback-list" role="log" aria-live="polite" tabIndex={0}>
-          {entries.size ? (
-            [...entries].map(([key, entry]) => (
+          {details.length ? (
+            details.map(([key, entry]) => (
               <LumenFrame key={key} className="hbar-composer-feedback-item" data-tone={entry.tone}>
                 {entry.content}
               </LumenFrame>

@@ -1,3 +1,4 @@
+import { HbarComposerFeedback } from './composer-feedback'
 import {
   LumenButton,
   LumenCollection,
@@ -159,6 +160,7 @@ export function HbarContextCompactionNotice({
   if (!owned || record?.sessionId !== sessionId || record.status !== 'running') return null
   const elapsedMs = Math.max(0, (now || record.startedAt) - record.startedAt)
   return (
+    <HbarComposerFeedback priority="blocking">
     <CompactionHint
       identity={record.id}
       label={labels.detailsLabel}
@@ -182,6 +184,7 @@ export function HbarContextCompactionNotice({
         </LumenContentText>
       )}
     </CompactionHint>
+    </HbarComposerFeedback>
   )
 }
 

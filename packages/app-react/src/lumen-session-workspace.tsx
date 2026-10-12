@@ -62,6 +62,7 @@ import { HbarPromptComposer } from './prompt-composer'
 import {
   HbarComposerFeedback,
   HbarComposerFeedbackProvider,
+  HbarComposerPrimaryNotice,
   type HbarComposerFeedbackLabels,
 } from './composer-feedback'
 import { HbarDeletedSessionWorkspace } from './deleted-session-workspace'
@@ -2087,6 +2088,8 @@ function SessionWorkspaceContent({
         data-hbar-composer-session={sessionId}
         data-git-context-status={projectContext.context.status}
       >
+        <HbarComposerPrimaryNotice />
+        {!connected && <HbarComposerFeedback priority="blocking"><LumenContentText context="feedback.message" role="status">{labels.disconnected}</LumenContentText></HbarComposerFeedback>}
         {labels.liveStatus.history && (
           <HbarContextCompactionNotice
             record={timeline.sessionId === sessionId ? timeline.activeCompaction : null}
@@ -2097,7 +2100,7 @@ function SessionWorkspaceContent({
           />
         )}
         <HbarSessionLiveStatus
-          key={sessionId}
+          key={`live:${sessionId}`}
           sessionId={sessionId}
           timelineSessionId={timeline.sessionId}
           owned={activeConversationOwner}
@@ -2178,7 +2181,7 @@ function SessionWorkspaceContent({
           />
         )}
         <HbarComposerGoal
-          key={sessionId}
+          key={`submission:${sessionId}`}
           sessionId={sessionId}
           workspaceId={navigation.workspaceId}
           connected={connected}
@@ -2236,7 +2239,7 @@ function SessionWorkspaceContent({
           }}
         />
         <HbarComposerAttachmentDropTarget
-          key={sessionId}
+          key={`attachments:${sessionId}`}
           enabled={attachmentIntakeEnabled}
           label={labels.attachments.drop}
           onAdd={addAttachments}

@@ -79,7 +79,10 @@ export function HbarPreSessionLaunchStatus({
             ? labels.error(draft.error ?? 'EXECUTION_FAILED')
             : labels.preparing
   return (
-    <HbarComposerFeedback tone={error || draft.phase === 'failed' || draft.phase === 'unknown' ? 'danger' : 'neutral'}>
+    <HbarComposerFeedback
+      priority="blocking"
+      tone={error || draft.phase === 'failed' || draft.phase === 'unknown' ? 'danger' : 'neutral'}
+    >
       <LumenFrame className="hbar-pre-session-launch-status" data-first-send-phase={draft.phase}>
         <LumenContentText
           context="feedback.message"

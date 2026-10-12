@@ -62,7 +62,7 @@ export function HbarSessionExecutionNotice({
       })
   }
   return (
-    <HbarComposerFeedback>
+    <HbarComposerFeedback priority="blocking">
       <LumenFrame className="hbar-session-execution-notice" data-session-execution-access={status}>
         <LumenFrame className="hbar-session-execution-summary" role="status">
           <LumenIcon icon={status === 'archived' ? Archive : ShieldQuestion} tier="sm" />
