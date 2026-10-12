@@ -155,13 +155,13 @@ test('command parameters present loaded workspace and session targets with reada
 test('web host supplies localized command, category, field, and validation copy', () => {
   const chinese = getShellCopy('zh-CN').commandPalette
   const english = getShellCopy('en-US').commandPalette
-  expect(chinese.resolve('commands.session.setBudget.title')).toBe('设置会话 Token 预算')
+  expect(chinese.resolve('commands.session.setBudget.title')).toBe('设置会话词元预算')
   expect(english.resolve('commands.session.setBudget.title')).toBe('Set session token budget')
   expect(chinese.resolve('commands.app.createSession.title')).toBe('新建会话')
   expect(english.resolve('commands.app.createSession.title')).toBe('New session')
   expect(chinese.category('model.budget')).toBe('模型与预算')
   expect(english.category('model.budget')).toBe('Models and budgets')
-  expect(chinese.fieldFallback('tokens')).toBe('Token 上限')
+  expect(chinese.fieldFallback('tokens')).toBe('词元上限')
   expect(english.fieldFallback('tokens')).toBe('Token limit')
   expect(english.issue({ field: 'tokens', code: 'required' })).toBe('This parameter is required.')
   expect(english.resolve('commands.plugin.dynamic.title')).toBe('commands.plugin.dynamic.title')
