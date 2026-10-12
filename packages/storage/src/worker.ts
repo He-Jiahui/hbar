@@ -8,6 +8,7 @@ import {
   nodeExecutionIntentSettlementResultSchema,
 } from './node-execution-intents'
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
+import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { readContextCompactionMarkers } from './context-compaction-markers'
 import {
   RUN_FILE_CHANGES_SQL,
@@ -297,7 +298,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 29
+const LATEST_SCHEMA_VERSION = 30
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
@@ -530,6 +531,7 @@ for (const [version, sql] of [
   [27, NODE_REGISTRY_SQL],
   [28, NODE_WORKSPACES_SQL],
   [29, NODE_EXECUTION_INTENTS_SQL],
+  [30, 'ALTER TABLE approvals ADD COLUMN executionTarget TEXT;'],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -544,7 +546,14 @@ for (const [version, sql] of [
           .some((column) => column.name === 'recovery')
       )
         db.exec('ALTER TABLE runs ADD COLUMN recovery TEXT')
-      db.exec(sql)
+      if (
+        version !== 30 ||
+        !db
+          .query<{ name: string }, []>('PRAGMA table_info(approvals)')
+          .all()
+          .some((column) => column.name === 'executionTarget')
+      )
+        db.exec(sql)
       db.exec(`PRAGMA user_version=${version};`)
     } else if (current < version || current > LATEST_SCHEMA_VERSION) {
       throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
@@ -1156,14 +1165,43 @@ function usageReadRow(row: Row): UsageReadRow {
     run,
   }
 }
+const approvalSchema = z
+  .strictObject({
+    id: z.string().min(1).max(160),
+    sessionId: z.string().min(1).max(160),
+    runId: z.string().min(1).max(160),
+    callId: z.string().min(1).max(160),
+    tool: z.string().min(1).max(160),
+    args: z.record(z.string(), z.unknown()),
+    status: z.enum(['pending', 'allowed', 'denied', 'cancelled']),
+    createdAt: z.number().int().nonnegative(),
+    feedback: z.string().optional(),
+    decidedBy: z.string().optional(),
+    executionTarget: nodeExecutionTargetSchema.optional(),
+  })
+  .transform(({ feedback, decidedBy, executionTarget, ...approval }) => ({
+    ...approval,
+    ...(feedback === undefined ? {} : { feedback }),
+    ...(decidedBy === undefined ? {} : { decidedBy }),
+    ...(executionTarget === undefined ? {} : { executionTarget }),
+  }))
 function approvalRow(row: Row | null): Approval {
-  const { feedback, decidedBy, ...value } = required(row, 'Approval')
-  return {
-    ...value,
+  const value = required(row, 'Approval')
+  return approvalSchema.parse({
+    id: value.id,
+    sessionId: value.sessionId,
+    runId: value.runId,
+    callId: value.callId,
+    tool: value.tool,
     args: z.record(z.string(), z.unknown()).parse(parseJson(value.args as string)),
-    ...(typeof feedback === 'string' ? { feedback } : {}),
-    ...(typeof decidedBy === 'string' ? { decidedBy } : {}),
-  } as unknown as Approval
+    status: value.status,
+    createdAt: value.createdAt,
+    ...(typeof value.feedback === 'string' ? { feedback: value.feedback } : {}),
+    ...(typeof value.decidedBy === 'string' ? { decidedBy: value.decidedBy } : {}),
+    ...(typeof value.executionTarget === 'string'
+      ? { executionTarget: nodeExecutionTargetSchema.parse(parseJson(value.executionTarget)) }
+      : {}),
+  })
 }
 function settingsLayerRow(row: Row): StoredSettingsLayer {
   return {
@@ -2643,10 +2681,11 @@ const methods: StorageMethods = {
     (db.query("SELECT DISTINCT sessionId FROM runs WHERE status='queued'").all() as { sessionId: string }[]).map(
       (row) => row.sessionId,
     ),
-  createApproval: (approval) =>
-    db.transaction(() => {
+  createApproval: (raw) => {
+    const approval = approvalSchema.parse(raw)
+    return db.transaction(() => {
       db.query(
-        'INSERT INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt) VALUES(?,?,?,?,?,?,?,?)',
+        'INSERT INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt,executionTarget) VALUES(?,?,?,?,?,?,?,?,?)',
       ).run(
         approval.id,
         approval.sessionId,
@@ -2656,9 +2695,11 @@ const methods: StorageMethods = {
         JSON.stringify(approval.args),
         approval.status,
         approval.createdAt,
+        approval.executionTarget ? JSON.stringify(approval.executionTarget) : null,
       )
       return appendEvent(approval.sessionId, 'approval.requested', approval, approval.runId)
-    })(),
+    })()
+  },
   approval: (id) => approvalRow(db.query('SELECT * FROM approvals WHERE id=?').get(id) as Row | null),
   resolveApproval: (id, status) =>
     db.transaction(() => {
@@ -3402,9 +3443,9 @@ function restoreProjection(event: SessionEvent) {
       JSON.stringify(receipt),
     )
   } else if (event.type === 'approval.requested') {
-    const approval = event.data as Approval
+    const approval = approvalSchema.parse(event.data)
     db.query(
-      'INSERT OR IGNORE INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt,feedback,decidedBy) VALUES(?,?,?,?,?,?,?,?,?,?)',
+      'INSERT OR IGNORE INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt,feedback,decidedBy,executionTarget) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
     ).run(
       approval.id,
       approval.sessionId,
@@ -3416,6 +3457,7 @@ function restoreProjection(event: SessionEvent) {
       approval.createdAt,
       approval.feedback ?? null,
       approval.decidedBy ?? null,
+      approval.executionTarget ? JSON.stringify(approval.executionTarget) : null,
     )
   } else if (event.type === 'plan_exit.resolved') {
     const result = z

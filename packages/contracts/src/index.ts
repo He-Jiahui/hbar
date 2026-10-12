@@ -664,6 +664,8 @@ export interface Approval {
   /** Present only after a Plan-exit decision; never part of the model-supplied tool input. */
   feedback?: string
   decidedBy?: string
+  /** Captured remote execution target and capability observation shown for this approval. */
+  executionTarget?: import('./node-execution-target').NodeExecutionTarget
 }
 export interface LiveStream {
   id: string

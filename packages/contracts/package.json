@@ -11,6 +11,7 @@
     "./node-info": "./src/node-info.ts",
     "./node-authority": "./src/node-authority.ts",
     "./node-backend": "./src/node-backend.ts",
+    "./node-execution-target": "./src/node-execution-target.ts",
     "./node-state": "./src/node-state.ts",
     "./node-link-state": "./src/node-link-state.ts",
     "./node-workspaces": "./src/node-workspaces.ts",
