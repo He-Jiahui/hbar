@@ -12,6 +12,7 @@ import {
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { MessageMarkdown } from './message-markdown'
 import { ExtensionPagination, type ExtensionPaginationLabels } from './extension-pagination'
+import { extensionMessages } from './extension-messages'
 import './extension-skill-detail.css'
 
 type SkillDetailState = NonNullable<ExtensionWorkspaceEntryState['skillDetail']>
@@ -47,7 +48,9 @@ export interface ExtensionSkillDetailLabels {
   readonly pagination: ExtensionPaginationLabels
 }
 
-function SkillSummary({ skill, labels }: { readonly skill: Skill; readonly labels: ExtensionSkillDetailLabels }) {
+function SkillSummary({ skill }: { readonly skill: Skill }) {
+  const { t } = extensionMessages.useMessages()
+  const labels = t('skillDetail')
   return (
     <LumenFrame as="section" className="hbar-app-react-skill-summary">
       <LumenFrame as="header">
@@ -90,18 +93,18 @@ function SkillSummary({ skill, labels }: { readonly skill: Skill; readonly label
 function SkillFiles({
   skill,
   detail,
-  labels,
   connected,
   onPage,
   onOpenFile,
 }: {
   readonly skill: Skill
   readonly detail: SkillDetailState
-  readonly labels: ExtensionSkillDetailLabels
   readonly connected: boolean
   readonly onPage: (page: number) => void
   readonly onOpenFile: (path: string) => void
 }) {
+  const { t } = extensionMessages.useMessages()
+  const labels = t('skillDetail')
   const selectedPath = detail.selectedPath
   const previewRef = useRef<HTMLElement>(null)
   const openerRef = useRef<HTMLButtonElement | null>(null)
@@ -148,7 +151,7 @@ function SkillFiles({
             ))}
           </LumenCollection>
         )}
-        <ExtensionPagination labels={labels.pagination} count={skill.files.length} page={page} onPage={onPage} />
+        <ExtensionPagination count={skill.files.length} page={page} onPage={onPage} />
       </LumenFrame>
       <LumenFrame
         ref={previewRef}
@@ -223,7 +226,6 @@ function SkillFiles({
 
 export function ExtensionSkillDetail({
   detail,
-  labels,
   connected,
   onBack,
   onRetry,
@@ -232,7 +234,6 @@ export function ExtensionSkillDetail({
   onOpenFile,
 }: {
   readonly detail: Readonly<SkillDetailState>
-  readonly labels: ExtensionSkillDetailLabels
   readonly connected: boolean
   readonly onBack: () => void
   readonly onRetry: () => void
@@ -240,6 +241,8 @@ export function ExtensionSkillDetail({
   readonly onFilesPage: (page: number) => void
   readonly onOpenFile: (path: string) => void
 }) {
+  const { t } = extensionMessages.useMessages()
+  const labels = t('skillDetail')
   const skill = detail.skill
   const tabId = useId()
   const overviewId = `${tabId}-overview`
@@ -294,7 +297,7 @@ export function ExtensionSkillDetail({
       )}
       {skill && (
         <>
-          <SkillSummary skill={skill} labels={labels} />
+          <SkillSummary skill={skill} />
           <LumenFrame as="div" role="tablist" aria-label={labels.tabs} className="hbar-app-react-skill-tabs">
             <LumenButton
               type="button"
@@ -353,7 +356,6 @@ export function ExtensionSkillDetail({
               <SkillFiles
                 skill={skill}
                 detail={detail}
-                labels={labels}
                 connected={connected}
                 onPage={onFilesPage}
                 onOpenFile={onOpenFile}

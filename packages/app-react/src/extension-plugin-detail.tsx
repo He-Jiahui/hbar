@@ -16,6 +16,7 @@ import {
   type ExtensionWorkspaceDetailState,
 } from '@hbar/app-runtime'
 import { ExtensionPagination, type ExtensionPaginationLabels } from './extension-pagination'
+import { extensionMessages } from './extension-messages'
 import './extension-plugin-detail.css'
 
 type Plugin = NonNullable<ExtensionWorkspaceDetailState['plugin']>
@@ -64,14 +65,14 @@ export interface ExtensionPluginDetailLabels {
 function Collection<Item>({
   title,
   items,
-  labels,
   render,
 }: {
   readonly title: string
   readonly items: readonly Item[]
-  readonly labels: ExtensionPluginDetailLabels
   readonly render: (item: Item) => ReactNode
 }) {
+  const { t } = extensionMessages.useMessages()
+  const labels = t('detail')
   const [requestedPage, setPage] = useState(0)
   const page = Math.min(requestedPage, Math.max(0, Math.ceil(items.length / EXTENSION_PAGE_SIZE) - 1))
   if (!items.length) return null
@@ -88,7 +89,7 @@ function Collection<Item>({
           </LumenCollectionItem>
         ))}
       </LumenCollection>
-      <ExtensionPagination labels={labels.pagination} count={items.length} page={page} onPage={setPage} />
+      <ExtensionPagination count={items.length} page={page} onPage={setPage} />
     </LumenFrame>
   )
 }
@@ -106,7 +107,6 @@ function declaration(value: Readonly<Record<string, unknown>>, labels: Extension
 
 export function ExtensionPluginDetail({
   detail,
-  labels,
   connected,
   action,
   refreshing,
@@ -116,7 +116,6 @@ export function ExtensionPluginDetail({
   onSetEnabled,
 }: {
   readonly detail: Readonly<ExtensionWorkspaceDetailState>
-  readonly labels: ExtensionPluginDetailLabels
   readonly connected: boolean
   readonly action: Readonly<ExtensionWorkspaceActionState> | undefined
   readonly refreshing: boolean
@@ -125,6 +124,8 @@ export function ExtensionPluginDetail({
   readonly onRetry: () => void
   readonly onSetEnabled: (enabled: boolean) => void
 }) {
+  const { t } = extensionMessages.useMessages()
+  const labels = t('detail')
   const plugin = detail.plugin
   const commandMap = new Map(
     (plugin?.contributes?.commands ?? plugin?.terminalCommands ?? []).map((command) => [command.id, command]),
@@ -265,7 +266,6 @@ export function ExtensionPluginDetail({
           <Collection
             title={labels.commands}
             items={commands}
-            labels={labels}
             render={(command) => (
               <>
                 <LumenContentText context="record.title">{command.title}</LumenContentText>
@@ -287,25 +287,21 @@ export function ExtensionPluginDetail({
           <Collection
             title={labels.services}
             items={[...new Set(plugin.provides)]}
-            labels={labels}
             render={(item) => <LumenText as="code">{item}</LumenText>}
           />
           <Collection
             title={labels.requires}
             items={[...new Set(plugin.requires)]}
-            labels={labels}
             render={(item) => <LumenText as="code">{item}</LumenText>}
           />
           <Collection
             title={labels.panels}
             items={plugin.contributes?.panels ?? []}
-            labels={labels}
             render={(item) => declaration(item, labels)}
           />
           <Collection
             title={labels.renderers}
             items={plugin.contributes?.renderers ?? []}
-            labels={labels}
             render={(item) => declaration(item, labels)}
           />
           {Boolean(plugin.contributes?.panels.length || plugin.contributes?.renderers.length) && (

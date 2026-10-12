@@ -19,6 +19,7 @@ import { ExtensionPluginDetail, type ExtensionPluginDetailLabels } from './exten
 import { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 import { ExtensionPagination, type ExtensionPaginationLabels } from './extension-pagination'
 import { ExtensionCollectionFeedback, type ExtensionCollectionLabels } from './extension-collection-feedback'
+import { extensionMessages } from './extension-messages'
 import './extension-workspace.css'
 
 type PluginStatus = ExtensionWorkspaceEntryState['plugins'][number]['status']
@@ -82,47 +83,59 @@ export interface HbarExtensionWorkspaceLabels {
 /** A short, content-grown recovery surface for a confirmed nonempty collection. */
 function ExtensionNoMatches({
   title,
-  labels,
   onClear,
 }: {
   readonly title: string
-  readonly labels: Pick<HbarExtensionWorkspaceLabels, 'noMatchesHint' | 'clearSearch'>
   readonly onClear: () => void
 }) {
+  const { t } = extensionMessages.useMessages()
   return (
     <LumenFrame className="hbar-app-react-extension-no-matches" role="status">
       <LumenIcon icon={SearchX} tier="lg" />
       <LumenContentText context="record.title">{title}</LumenContentText>
-      <LumenContentText context="section.description">{labels.noMatchesHint}</LumenContentText>
+      <LumenContentText context="section.description">{t('noMatchesHint')}</LumenContentText>
       <LumenButton type="button" variant="outlined" onClick={onClear}>
-        {labels.clearSearch}
+        {t('clearSearch')}
       </LumenButton>
     </LumenFrame>
   )
 }
 
-export function HbarExtensionWorkspace({
-  labels,
-  connected,
-  instanceId,
-  collection,
-  onCommandPaletteOpen,
-  commandPaletteTriggerRef,
-}: {
+type HbarExtensionWorkspaceProps = {
   readonly labels: HbarExtensionWorkspaceLabels
   readonly connected: boolean
   readonly instanceId: string
   readonly collection?: 'plugins' | 'skills'
   readonly onCommandPaletteOpen?: (opener: HTMLButtonElement) => () => void
   readonly commandPaletteTriggerRef?: RefObject<HTMLButtonElement | null>
-}) {
+}
+
+export function HbarExtensionWorkspace(props: HbarExtensionWorkspaceProps) {
+  const { labels, ...contentProps } = props
+  return (
+    <extensionMessages.Provider messages={labels}>
+      <ExtensionWorkspaceContent {...contentProps} />
+    </extensionMessages.Provider>
+  )
+}
+
+function ExtensionWorkspaceContent({
+  connected,
+  instanceId,
+  collection,
+  onCommandPaletteOpen,
+  commandPaletteTriggerRef,
+}: Omit<HbarExtensionWorkspaceProps, 'labels'>) {
+  const { t } = extensionMessages.useMessages()
   const runtime = useHbarRuntime()
   const renderSkillImport = useHbarSkillImportSurface()
   const extensions = useHbarRuntimeState(runtime.state.extensions)
   const entry = extensions.entries[instanceId]
   const detail = collection === 'skills' ? undefined : entry?.detail
   const skillDetail = collection === 'plugins' ? undefined : entry?.skillDetail
-  const navigation = collection ? labels.navigation[collection] : labels
+  const navigation = collection
+    ? t('navigation')[collection]
+    : { title: t('title'), description: t('description'), filter: t('filter') }
   const page = entry ? extensionWorkspacePage(entry) : null
   const plugins = entry?.collections.plugins
   const skills = entry?.collections.skills
@@ -239,12 +252,12 @@ export function HbarExtensionWorkspace({
               <LumenContentText context="message.inline">{navigation.title}</LumenContentText>
             </LumenFrame>
             <LumenContentText context="section.description">{navigation.description}</LumenContentText>
-            {!collection && <LumenContentText context="record.description">{labels.hostWide}</LumenContentText>}
+            {!collection && <LumenContentText context="record.description">{t('hostWide')}</LumenContentText>}
             {collection === 'plugins' && plugins?.hasSnapshot && page && (
-              <LumenContentText context="record.description">{labels.pluginCount(page.pluginCount)}</LumenContentText>
+              <LumenContentText context="record.description">{t('pluginCount')(page.pluginCount)}</LumenContentText>
             )}
             {collection === 'skills' && skills?.hasSnapshot && page && (
-              <LumenContentText context="record.description">{labels.skillCount(page.skillCount)}</LumenContentText>
+              <LumenContentText context="record.description">{t('skillCount')(page.skillCount)}</LumenContentText>
             )}
           </LumenFrame>
           <LumenFrame>
@@ -261,11 +274,11 @@ export function HbarExtensionWorkspace({
               onClick={() => void refresh(collection)}
             >
               <LumenIcon icon={RefreshCw} tier="md" />
-              {labels.refresh}
+              {t('refresh')}
             </LumenButton>
             {collection !== 'skills' && (
               <LumenButton ref={commandPaletteTriggerRef} variant="text" onClick={openCommands}>
-                {labels.openSystemCommands}
+                {t('openSystemCommands')}
               </LumenButton>
             )}
           </LumenFrame>
@@ -278,7 +291,7 @@ export function HbarExtensionWorkspace({
             <LumenFrame className="hbar-app-react-extension-browser" hidden={Boolean(detail || skillDetail)}>
               {collection !== 'skills' && entry?.error === 'CAPACITY_EXCEEDED' && (
                 <LumenContentText context="feedback.message" role="alert">
-                  {labels.detail.actions.error(entry.error)}
+                  {t('detail').actions.error(entry.error)}
                 </LumenContentText>
               )}
               <>
@@ -305,14 +318,14 @@ export function HbarExtensionWorkspace({
                       }
                     />
                     {query && (
-                      <LumenIconButton label={labels.clearSearch} size="s" onClick={clearQuery}>
+                      <LumenIconButton label={t('clearSearch')} size="s" onClick={clearQuery}>
                         <LumenIcon icon={X} tier="sm" />
                       </LumenIconButton>
                     )}
                   </LumenFrame>
                   {collection === 'skills' && query.trim() && skills?.status === 'ready' && page && (
                     <LumenContentText context="record.description" role="status">
-                      {labels.skillSearchResults(page.skillCount, entry?.skills.length ?? 0)}
+                      {t('skillSearchResults')(page.skillCount, entry?.skills.length ?? 0)}
                     </LumenContentText>
                   )}
                 </LumenFrame>
@@ -321,7 +334,7 @@ export function HbarExtensionWorkspace({
                     as="section"
                     className="hbar-app-react-extension-section"
                     data-extension-collection="plugins"
-                    aria-label={collection ? undefined : labels.plugins}
+                    aria-label={collection ? undefined : t('plugins')}
                   >
                     {!collection && (
                       <LumenFrame as="header">
@@ -332,11 +345,11 @@ export function HbarExtensionWorkspace({
                           ref={pluginsHeading}
                           tabIndex={-1}
                         >
-                          <LumenContentText context="message.inline">{labels.plugins}</LumenContentText>
+                          <LumenContentText context="message.inline">{t('plugins')}</LumenContentText>
                         </LumenFrame>
                         {plugins?.hasSnapshot && page && (
                           <LumenContentText context="record.description">
-                            {labels.pluginCount(page.pluginCount)}
+                            {t('pluginCount')(page.pluginCount)}
                           </LumenContentText>
                         )}
                       </LumenFrame>
@@ -344,7 +357,6 @@ export function HbarExtensionWorkspace({
                     <ExtensionCollectionFeedback
                       key={collection ?? 'combined'}
                       state={plugins}
-                      labels={labels.collections.plugins}
                       connected={connected}
                       onRetry={() => refresh('plugins')}
                       owner={runtime}
@@ -355,10 +367,10 @@ export function HbarExtensionWorkspace({
                     {!plugins?.hasSnapshot || !entry || !page ? null : !page.plugins.length ? (
                       plugins.status === 'ready' &&
                       (entry.plugins.length && collection === 'plugins' ? (
-                        <ExtensionNoMatches title={labels.noMatchingPlugins} labels={labels} onClear={clearQuery} />
+                        <ExtensionNoMatches title={t('noMatchingPlugins')} onClear={clearQuery} />
                       ) : (
                         <LumenContentText context="section.description" className="hbar-app-react-extension-empty">
-                          {entry.plugins.length ? labels.noMatches : labels.noPlugins}
+                          {entry.plugins.length ? t('noMatches') : t('noPlugins')}
                         </LumenContentText>
                       ))
                     ) : (
@@ -376,7 +388,7 @@ export function HbarExtensionWorkspace({
                                 type="button"
                                 variant="text"
                                 className="hbar-app-react-extension-open"
-                                aria-label={labels.inspect(plugin.name)}
+                                aria-label={t('inspect')(plugin.name)}
                                 aria-current={entry.selectedPluginId === plugin.id ? 'true' : undefined}
                                 disabled={!connected}
                                 onClick={() => {
@@ -393,12 +405,12 @@ export function HbarExtensionWorkspace({
                                 >
                                   <LumenContentText context="choice.title">{plugin.name}</LumenContentText>
                                   <LumenContentText context="choice.description">
-                                    {labels.pluginMetadata(plugin.id, plugin.version)}
+                                    {t('pluginMetadata')(plugin.id, plugin.version)}
                                   </LumenContentText>
                                   <LumenContentText context="choice.description">{plugin.description}</LumenContentText>
                                 </LumenContentText>
                                 <LumenStatus
-                                  value={labels.status[plugin.status]}
+                                  value={t('status')[plugin.status]}
                                   tone={
                                     plugin.status === 'active'
                                       ? 'success'
@@ -414,17 +426,17 @@ export function HbarExtensionWorkspace({
                               </LumenContentText>
                               {action?.status === 'unknown' && (
                                 <LumenContentText context="feedback.message" role="status">
-                                  {labels.detail.actions.unknown}
+                                  {t('detail').actions.unknown}
                                 </LumenContentText>
                               )}
                               {action?.error && action.status === 'failed' && (
                                 <LumenContentText context="feedback.message" role="alert">
-                                  {labels.detail.actions.error(action.error)}
+                                  {t('detail').actions.error(action.error)}
                                 </LumenContentText>
                               )}
                               <LumenFrame as="footer">
                                 {plugin.required && (
-                                  <LumenContentText context="record.description">{labels.required}</LumenContentText>
+                                  <LumenContentText context="record.description">{t('required')}</LumenContentText>
                                 )}
                                 {action?.status === 'unknown' ? (
                                   <LumenButton
@@ -432,7 +444,7 @@ export function HbarExtensionWorkspace({
                                     disabled={!connected || pluginsBusy}
                                     onClick={() => void refresh('plugins')}
                                   >
-                                    {labels.detail.actions.readCurrent}
+                                    {t('detail').actions.readCurrent}
                                   </LumenButton>
                                 ) : (
                                   !plugin.required && (
@@ -450,10 +462,10 @@ export function HbarExtensionWorkspace({
                                       }
                                     >
                                       {action?.status === 'submitting'
-                                        ? labels.changing
+                                        ? t('changing')
                                         : plugin.status === 'active'
-                                          ? labels.disable
-                                          : labels.enable}
+                                          ? t('disable')
+                                          : t('enable')}
                                     </LumenButton>
                                   )
                                 )}
@@ -465,7 +477,6 @@ export function HbarExtensionWorkspace({
                     )}
                     {plugins?.hasSnapshot && page && (
                       <ExtensionPagination
-                        labels={labels.pagination}
                         count={page.pluginCount}
                         page={page.pluginPage}
                         onPage={(page) =>
@@ -482,7 +493,7 @@ export function HbarExtensionWorkspace({
                     as="section"
                     className="hbar-app-react-extension-section"
                     data-extension-collection="skills"
-                    aria-label={collection ? undefined : labels.skills}
+                    aria-label={collection ? undefined : t('skills')}
                   >
                     {!collection && (
                       <LumenFrame as="header">
@@ -493,11 +504,11 @@ export function HbarExtensionWorkspace({
                           ref={skillsHeading}
                           tabIndex={-1}
                         >
-                          <LumenContentText context="message.inline">{labels.skills}</LumenContentText>
+                          <LumenContentText context="message.inline">{t('skills')}</LumenContentText>
                         </LumenFrame>
                         {skills?.hasSnapshot && page && (
                           <LumenContentText context="record.description">
-                            {labels.skillCount(page.skillCount)}
+                            {t('skillCount')(page.skillCount)}
                           </LumenContentText>
                         )}
                       </LumenFrame>
@@ -506,7 +517,6 @@ export function HbarExtensionWorkspace({
                     <ExtensionCollectionFeedback
                       key={collection ?? 'combined'}
                       state={skills}
-                      labels={labels.collections.skills}
                       connected={connected}
                       onRetry={() => refresh('skills')}
                       owner={runtime}
@@ -517,10 +527,10 @@ export function HbarExtensionWorkspace({
                     {!skills?.hasSnapshot || !entry || !page ? null : !page.skills.length ? (
                       skills.status === 'ready' &&
                       (entry.skills.length && collection === 'skills' ? (
-                        <ExtensionNoMatches title={labels.noMatchingSkills} labels={labels} onClear={clearQuery} />
+                        <ExtensionNoMatches title={t('noMatchingSkills')} onClear={clearQuery} />
                       ) : (
                         <LumenContentText context="section.description" className="hbar-app-react-extension-empty">
-                          {entry.skills.length ? labels.noMatches : labels.noSkills}
+                          {entry.skills.length ? t('noMatches') : t('noSkills')}
                         </LumenContentText>
                       ))
                     ) : (
@@ -534,7 +544,7 @@ export function HbarExtensionWorkspace({
                               type="button"
                               variant="text"
                               className="hbar-app-react-extension-open"
-                              aria-label={labels.inspect(skill.id)}
+                              aria-label={t('inspect')(skill.id)}
                               aria-current={entry.selectedSkillId === skill.id ? 'true' : undefined}
                               disabled={!connected}
                               onClick={() => {
@@ -549,12 +559,12 @@ export function HbarExtensionWorkspace({
                                 <LumenContentText context="choice.description" title={skill.path}>
                                   {skill.path}
                                 </LumenContentText>
-                                <LumenContentText context="control.label">{labels.skillScope}</LumenContentText>
+                                <LumenContentText context="control.label">{t('skillScope')}</LumenContentText>
                               </LumenFrame>
                             </LumenButton>
                             <LumenStatus
                               className="hbar-app-react-extension-skill-status"
-                              value={labels.discovered}
+                              value={t('discovered')}
                               tone="neutral"
                             />
                           </LumenCollectionItem>
@@ -563,7 +573,6 @@ export function HbarExtensionWorkspace({
                     )}
                     {skills?.hasSnapshot && page && (
                       <ExtensionPagination
-                        labels={labels.pagination}
                         count={page.skillCount}
                         page={page.skillPage}
                         onPage={(page) =>
@@ -587,7 +596,6 @@ export function HbarExtensionWorkspace({
               <ExtensionPluginDetail
                 key={detail.pluginId}
                 detail={detail}
-                labels={labels.detail}
                 connected={connected}
                 action={entry?.actions[detail.pluginId]}
                 refreshing={pluginsBusy || detail.status === 'loading'}
@@ -615,7 +623,6 @@ export function HbarExtensionWorkspace({
         <ExtensionSkillDetail
           key={skillDetail.skillId}
           detail={skillDetail}
-          labels={labels.skillDetail}
           connected={connected}
           onBack={() => {
             focusDirection.current = 'list'
