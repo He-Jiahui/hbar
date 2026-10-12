@@ -20,7 +20,9 @@ test('production entry initializes the current shell, language and styles withou
   )
   const copy = getShellCopy('zh-CN')
   try {
-    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    // Development capture parameters must not replace the shipped workbench.
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/?referenceFixture=ai-chat-1`)
+    await expect(page.locator('#reference-fixture-route')).toHaveCount(0)
     await expect(page.locator('[data-hbar-app-ui-shell="app"]')).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
     await expect(page.getByRole('button', { name: copy.shell.settings, exact: true })).toBeVisible()
