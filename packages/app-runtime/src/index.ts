@@ -618,8 +618,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const offRunBoardEvents = options.runBoardEvents?.subscribe(() => {
     const page = presentation.reader.getSnapshot().page
-    const instanceId = page.kind === 'run-board' ? page.instanceId : null
-    if (!instanceId || surfaces.reader.getSnapshot().panels[instanceId]?.panelId !== 'run-board') return
+    const instanceId = page.kind === 'run-board' || page.kind === 'status' ? page.instanceId : null
+    const panel = instanceId ? surfaces.reader.getSnapshot().panels[instanceId] : null
+    if (
+      !instanceId ||
+      (page.kind === 'run-board' && panel?.panelId !== 'run-board') ||
+      (page.kind === 'status' && (panel?.panelId !== 'status' || panel.params.section !== 'runs'))
+    )
+      return
     void runBoard.refresh({ instanceId }).catch(() => undefined)
   })
   const executionPreparation = createSessionExecutionPreparation({

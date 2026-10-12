@@ -46,6 +46,7 @@ test('global destinations share the public main-page contract and leave session 
 
 for (const pageId of globalFeaturePageIds) {
   test(`${pageId} covers the main view and returns to its original session, draft and tool`, async () => {
+    const pageKind = pageId === 'run-board' ? 'status' : pageId
     const app = runtime()
     try {
       await app.view.commands.execute('app.setSession', { sessionId: 's1' })
@@ -58,20 +59,22 @@ for (const pageId of globalFeaturePageIds) {
         binding: 'pinned',
       })
       expect(app.view.state.presentation.getSnapshot()).toMatchObject({
-        page: { kind: pageId, instanceId: page.instanceId },
+        page: { kind: pageKind, instanceId: page.instanceId },
         toolInstanceId: null,
         modalInstanceId: null,
         returnContext: { workspaceId: 'w1', sessionId: 's1', toolInstanceId: tool.instanceId },
       })
+      if (pageId === 'run-board')
+        expect(app.view.state.surfaces.getSnapshot().panels[page.instanceId]?.params.section).toBe('runs')
       expect(app.view.state.surfaces.getSnapshot().panels[page.instanceId]?.sessionId).toBeNull()
       expect(app.view.state.navigation.getSnapshot().sessionId).toBe('s1')
       expect(app.view.state.drafts.getSnapshot().s1).toEqual(draft)
       // Public summaries must accept every global page, including when toggling mobile navigation.
       expect(await app.view.commands.execute('app.setSidebarVisible', { visible: false })).toMatchObject({
-        page: pageId,
+        page: pageKind,
       })
       await app.view.commands.execute('app.openPanel', { panelId: 'commands' })
-      expect(await app.view.commands.execute('app.back', {})).toMatchObject({ page: pageId, modalInstanceId: null })
+      expect(await app.view.commands.execute('app.back', {})).toMatchObject({ page: pageKind, modalInstanceId: null })
       expect(await app.view.commands.execute('app.back', {})).toMatchObject({
         page: 'session',
         toolInstanceId: tool.instanceId,
@@ -109,9 +112,12 @@ test('global pages can open before workspace selection without borrowing a sessi
   const app = runtime()
   try {
     for (const pageId of globalFeaturePageIds) {
+      const pageKind = pageId === 'run-board' ? 'status' : pageId
       const page = await app.view.commands.execute('app.openPanel', { panelId: pageId })
       expect(page).toMatchObject({ workspaceId: null, sessionId: null })
-      expect(app.view.state.presentation.getSnapshot()).toMatchObject({ page: { kind: pageId }, toolInstanceId: null })
+      expect(app.view.state.presentation.getSnapshot()).toMatchObject({ page: { kind: pageKind }, toolInstanceId: null })
+      if (pageId === 'run-board')
+        expect(app.view.state.surfaces.getSnapshot().panels[page.instanceId]?.params.section).toBe('runs')
     }
   } finally {
     app.dispose()
@@ -173,15 +179,39 @@ test('run-board invalidations refresh the active main page and stop refreshing w
       workspaceId: 'w1',
       binding: 'pinned',
     })
+    expect(board.panelId).toBe('status')
+    expect(app.view.state.surfaces.getSnapshot().panels[board.instanceId]?.params.section).toBe('runs')
+    expect(
+      await app.view.commands.execute('statusWorkspace.refresh', { instanceId: board.instanceId }),
+    ).toMatchObject({ section: 'runs', status: 'ready' })
+    queries.length = 0
     invalidate()
     await Bun.sleep(0)
     expect(queries).toHaveLength(1)
     expect(queries[0]).toMatchObject({ workspaceId: 'w1' })
     expect(queries[0]).not.toHaveProperty('sessionId')
-    await app.view.commands.execute('app.closePanel', { instanceId: board.instanceId })
+    await app.view.commands.execute('app.openStatus', {
+      workspaceId: 'w1',
+      section: 'dashboard',
+      instanceId: board.instanceId,
+      binding: 'pinned',
+    })
     invalidate()
     await Bun.sleep(0)
     expect(queries).toHaveLength(1)
+    await app.view.commands.execute('app.openStatus', {
+      workspaceId: 'w1',
+      section: 'runs',
+      instanceId: board.instanceId,
+      binding: 'pinned',
+    })
+    invalidate()
+    await Bun.sleep(0)
+    expect(queries).toHaveLength(2)
+    await app.view.commands.execute('app.closePanel', { instanceId: board.instanceId })
+    invalidate()
+    await Bun.sleep(0)
+    expect(queries).toHaveLength(2)
   } finally {
     app.dispose()
   }
