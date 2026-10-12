@@ -201,7 +201,7 @@ dialog.hbar-pre-session-choice-dialog [data-lumen-part~="dialog.body"] {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-pre-session-choice-popover[data-presentation='web'] {
     inset: auto 0 0;
     inline-size: 100%;

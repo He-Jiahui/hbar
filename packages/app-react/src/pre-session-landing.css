@@ -51,7 +51,7 @@
   flex-wrap: wrap;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-pre-session-landing-footer [data-lumen-part~="composer.toolbar"] {
     align-items: stretch;
     flex-direction: column;

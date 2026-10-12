@@ -369,7 +369,7 @@
   font-size: var(--hbar-session-pane-meta-size);
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .hbar-app-react-workflow-focus strong,
   .hbar-app-react-workflow-evidence > li > span,
   .hbar-app-react-workflow-scope dd {

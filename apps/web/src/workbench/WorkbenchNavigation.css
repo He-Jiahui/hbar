@@ -106,7 +106,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 899px) {
+@media (width < 64rem) {
   .mobile-more-backdrop {
     display: flex;
   }
@@ -142,7 +142,7 @@
   }
 }
 
-@media (min-width: 900px) {
+@media (width >= 64rem) {
   .mobile-more-backdrop {
     display: none;
   }

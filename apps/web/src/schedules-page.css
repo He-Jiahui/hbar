@@ -55,7 +55,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 35rem) {
+@media (width < 40rem) {
   .hbar-schedule-form-actions,
   .hbar-schedule-item-actions {
     align-items: stretch;

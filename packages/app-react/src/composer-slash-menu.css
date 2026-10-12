@@ -38,7 +38,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 28rem) {
+@media (width < 40rem) {
   .hbar-composer-slash-hint {
     display: none;
   }

@@ -124,13 +124,13 @@
   box-shadow: none;
 }
 
-@container session-project-context (width <= 40rem) {
+@container session-project-context (width < 40rem) {
   .hbar-prompt-toolbar button.hbar-prompt-primary-action {
     --lumen-control-size: 2.75rem;
   }
 }
 
-@media (width <= 40rem) {
+@media (width < 40rem) {
   .hbar-prompt-toolbar {
     flex-direction: column;
     align-items: stretch;

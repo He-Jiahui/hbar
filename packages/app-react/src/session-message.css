@@ -352,7 +352,7 @@
   margin-inline-start: var(--lumen-space-8);
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-session-disclosure-preview {
     flex-basis: 35%;
   }

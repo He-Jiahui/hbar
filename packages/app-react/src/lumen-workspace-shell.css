@@ -535,7 +535,7 @@
   align-self: flex-start;
 }
 
-@media (max-width: 63.9375rem) {
+@media (width < 64rem) {
   .hbar-app-react-shell-header {
     min-block-size: 3.25rem;
   }
@@ -561,7 +561,7 @@
   }
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .hbar-app-react-shell-header {
     inline-size: 100%;
     max-inline-size: 100%;

@@ -76,7 +76,7 @@
   padding-block: var(--lumen-space-8);
 }
 
-@container policy-fields (max-width: 40rem) {
+@container policy-fields (width < 40rem) {
   .hbar-agent-policy-primary-fields {
     flex-direction: column;
   }

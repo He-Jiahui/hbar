@@ -376,7 +376,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 35rem) {
+@media (width < 40rem) {
   .hbar-app-react-session-workspace {
     --hbar-session-reading-column-inline-gutter: 0.75rem;
   }
@@ -408,7 +408,7 @@
   }
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .hbar-app-react-session-workspace > [data-lumen-part~="page-header.root"] {
     display: none;
   }

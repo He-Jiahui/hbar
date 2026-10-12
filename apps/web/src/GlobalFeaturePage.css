@@ -42,7 +42,7 @@
   gap: var(--lumen-space-12);
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .hbar-web-global-page .hbar-web-global-page-header[data-header-layout='page'] [data-lumen-part~="page-header.heading"] {
     flex-basis: auto;
   }

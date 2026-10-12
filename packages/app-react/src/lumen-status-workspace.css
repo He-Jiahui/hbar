@@ -375,7 +375,7 @@
   color: var(--lumen-danger);
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .hbar-app-react-usage-models li {
     align-items: flex-start;
     flex-direction: column;

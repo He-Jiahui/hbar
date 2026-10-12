@@ -58,7 +58,7 @@
   background-color: #9c4726;
 }
 
-@media (max-width: 35rem) {
+@media (width < 40rem) {
   .hbar-session-find-bar {
     inline-size: calc(100% - 1rem);
     margin-inline: var(--lumen-space-8);

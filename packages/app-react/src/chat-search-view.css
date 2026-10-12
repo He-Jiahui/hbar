@@ -298,7 +298,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 35rem) {
+@media (width < 40rem) {
   .hbar-chat-search-header {
     padding-inline: var(--lumen-space-16);
   }

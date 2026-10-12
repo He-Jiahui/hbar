@@ -125,7 +125,7 @@
   gap: var(--lumen-space-4);
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-app-react-run-board-columns {
     flex-direction: column;
   }

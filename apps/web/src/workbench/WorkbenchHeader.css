@@ -204,7 +204,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
 }
 
-@media (max-width: 899px) {
+@media (width < 64rem) {
   .rb-shell-header {
     gap: var(--lumen-space-4);
     padding-right: var(--lumen-space-8);
@@ -253,7 +253,7 @@
   }
 }
 
-@media (max-width: 1180px) and (min-width: 900px) {
+@media (width < 64rem) and (width >= 48rem) {
   .rb-shell-header .shell-scope {
     flex-basis: min(230px, 24vw);
   }
@@ -277,7 +277,7 @@
   }
 }
 
-@media (max-width: 1040px) and (min-width: 900px) {
+@media (width < 64rem) and (width >= 48rem) {
   .rb-shell-header .top-command span {
     display: none;
   }

@@ -236,7 +236,7 @@
   background: color-mix(in srgb, var(--lumen-danger) 8%, var(--lumen-frost));
 }
 
-@container hbar-settings-workspace (max-width: 48rem) {
+@container hbar-settings-workspace (width < 48rem) {
   .hbar-app-react-settings-workspace > [data-lumen-part~="page-header.root"] {
     gap: var(--lumen-space-8);
     padding-inline: var(--lumen-space-8);
@@ -281,7 +281,7 @@
   }
 }
 
-@container hbar-settings-workspace (max-width: 30rem) {
+@container hbar-settings-workspace (width < 40rem) {
   .hbar-app-react-settings-workspace > [data-lumen-part~="page-header.root"] {
     flex-direction: row;
     flex-wrap: wrap;
@@ -309,7 +309,7 @@
   }
 }
 
-@container hbar-settings-workspace (max-width: 24rem) {
+@container hbar-settings-workspace (width < 40rem) {
   .hbar-app-react-settings-footer-inner > span {
     flex-basis: 100%;
   }

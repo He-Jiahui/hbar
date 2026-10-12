@@ -14,7 +14,7 @@
   flex: 0 0 auto;
 }
 
-@media (max-width: 32rem) {
+@media (width < 40rem) {
   .hbar-app-react-schema-resource {
     align-items: stretch;
     flex-direction: column;

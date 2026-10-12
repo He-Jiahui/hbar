@@ -104,13 +104,13 @@
   color: var(--hbar-t3);
 }
 
-@media (max-width: 899px) {
+@media (width < 64rem) {
   .rb-statusbar {
     display: none;
   }
 }
 
-@media (max-width: 1200px) and (min-width: 900px) {
+@media (width < 64rem) and (width >= 48rem) {
   .rb-statusbar .status-item {
     max-width: 22vw;
   }

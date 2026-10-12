@@ -62,7 +62,7 @@
   margin-inline-start: auto;
 }
 
-@container session-project-context (max-width: 30rem) {
+@container session-project-context (width < 40rem) {
   .hbar-session-live-status-goal {
     order: 1;
     flex-basis: 100%;

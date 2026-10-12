@@ -73,7 +73,7 @@
   display: flex;
 }
 
-@container session-project-context (max-width: 44rem) {
+@container session-project-context (width < 48rem) {
   .hbar-session-project-context-toolbar {
     display: none;
   }

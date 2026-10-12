@@ -211,7 +211,7 @@
   gap: var(--lumen-space-8);
 }
 
-@container hbar-appearance-settings (max-width: 42rem) {
+@container hbar-appearance-settings (width < 48rem) {
   .hbar-web-appearance-fields > [data-lumen-part~="field.group"] {
     flex-basis: 100%;
   }
@@ -223,7 +223,7 @@
   }
 }
 
-@container hbar-appearance-settings (max-width: 30rem) {
+@container hbar-appearance-settings (width < 40rem) {
   .hbar-web-appearance-actions {
     align-items: stretch;
     flex-direction: column;

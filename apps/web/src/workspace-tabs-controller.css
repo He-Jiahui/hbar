@@ -38,7 +38,7 @@
   padding: var(--lumen-space-12);
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .hbar-workspace-tabs-region {
     border-block-end: 0;
   }

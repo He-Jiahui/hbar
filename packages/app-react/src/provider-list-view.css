@@ -170,7 +170,7 @@
   padding-block: var(--lumen-space-16);
 }
 
-@media (max-width: 42rem) {
+@media (width < 48rem) {
   .hbar-provider-list-view > header {
     align-items: stretch;
     flex-direction: column;

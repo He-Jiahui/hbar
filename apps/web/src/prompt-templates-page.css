@@ -186,7 +186,7 @@
   gap: var(--lumen-space-12);
 }
 
-@container (max-width: 35rem) {
+@container (width < 40rem) {
   .hbar-prompt-templates-page header,
   .hbar-prompt-template-list article,
   .hbar-prompt-variable {

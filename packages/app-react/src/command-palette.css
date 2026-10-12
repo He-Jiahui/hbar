@@ -224,7 +224,7 @@
   padding: var(--lumen-space-16);
 }
 
-@media (max-width: 35rem) {
+@media (width < 40rem) {
   .hbar-app-react-command-form-body,
   .hbar-app-react-command-result-view {
     gap: var(--lumen-space-12);

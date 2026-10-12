@@ -101,7 +101,7 @@
   font-size: calc(var(--lumen-font-size) * 0.928571);
   overflow-wrap: anywhere;
 }
-@media (max-width: 26rem) {
+@media (width < 40rem) {
   .hbar-plan-exit-actions {
     align-items: stretch;
     flex-direction: column;

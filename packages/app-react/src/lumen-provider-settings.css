@@ -62,6 +62,8 @@
 }
 
 .hbar-app-react-provider-dialog {
+  container-name: provider-dialog;
+  container-type: inline-size;
   display: flex;
   inline-size: min(100%, 58rem);
   min-inline-size: 0;
@@ -489,7 +491,7 @@
   gap: var(--lumen-space-8);
 }
 
-@media (max-width: 78rem) {
+@container provider-dialog (width < 64rem) {
   .hbar-app-react-provider-dialog > main {
     flex-direction: column;
     align-items: stretch;
@@ -504,9 +506,7 @@
   .hbar-app-react-provider-model-section {
     flex: 0 0 auto;
   }
-}
 
-@media (max-width: 60rem) {
   .hbar-app-react-provider-model-workspace {
     flex-direction: column;
   }
@@ -519,7 +519,7 @@
   }
 }
 
-@media (max-width: 42rem) {
+@container provider-dialog (width < 48rem) {
   .hbar-app-react-provider-page-header,
   .hbar-app-react-provider-section,
   .hbar-app-react-provider-dialog > footer {

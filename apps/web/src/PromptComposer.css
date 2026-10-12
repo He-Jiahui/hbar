@@ -312,7 +312,7 @@
   font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
-@media (max-width: 899px) {
+@media (width < 64rem) {
   .rb-prompt-composer {
     width: 100%;
   }

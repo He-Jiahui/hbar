@@ -2,7 +2,7 @@
   display: none;
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .hbar-mobile-header-menu {
     display: flex;
     min-inline-size: 0;
@@ -83,7 +83,7 @@
   }
 }
 
-@media (max-width: 22.5rem) {
+@media (width < 40rem) {
   .hbar-mobile-header-menu-content {
     max-block-size: min(45dvh, calc(100dvh - 4rem));
   }
