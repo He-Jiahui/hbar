@@ -87,7 +87,7 @@ import type {
 } from '@hbar/contracts'
 import { createKernelExecutionDiagnostics } from './execution-diagnostics'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
-import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
+import { definePlugin, prependModelInstructions, provide, readSessionEventPages, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   BudgetService,
@@ -618,6 +618,7 @@ export class Kernel {
           },
           children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
+          readEventPage: (input) => this.storage.call('readEventPage', input),
           create: (id, title, parentId) => this.createSession(id, title, parentId),
           submit: (...args) => this.submit(...args),
           wake: (id) => this.kick(id),
@@ -841,12 +842,17 @@ export class Kernel {
   private async restoreAutomation() {
     this.automation.clear()
     for (const session of await this.storage.call('sessions')) {
-      const events = await this.storage.call('events', session.id, 0, 2_000)
-      for (const event of events) {
-        if (event.type !== 'automation.changed') continue
-        const parsed = automationStateSchema.safeParse(event.data)
-        if (parsed.success && parsed.data.sessionId === session.id)
-          this.automation.set(session.id, { unattended: parsed.data.unattended, goalEnabled: parsed.data.goalEnabled })
+      for await (const page of readSessionEventPages(
+        { readEventPage: (input) => this.storage.call('readEventPage', input) },
+        { sessionId: session.id, types: ['automation.changed'], limit: 128, maxReplyBytes: 1_048_576 },
+      )) {
+        for (const item of page.items) {
+          if (item.kind !== 'event') continue
+          const parsed = automationStateSchema.safeParse(item.event.data)
+          if (parsed.success && parsed.data.sessionId === session.id)
+            this.automation.set(session.id, { unattended: parsed.data.unattended, goalEnabled: parsed.data.goalEnabled })
+        }
+        if (page.hasMore) await Bun.sleep(0)
       }
     }
   }

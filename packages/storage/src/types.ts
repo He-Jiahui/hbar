@@ -10,6 +10,8 @@ import type {
   RunFailure,
   Session,
   SessionEvent,
+  SessionEventPage,
+  SessionEventPageInput,
   SessionSnapshot,
   SessionSummary,
   UserInput,
@@ -448,6 +450,7 @@ export interface StorageMethods {
   ): { session: Session; event: SessionEvent | null }
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
+  readEventPage(input: SessionEventPageInput): SessionEventPage
   goalHistory(input: GoalHistoryInput): GoalHistoryPage
   usageEvents(input: UsageReadInput): UsageReadPage
   commit(
