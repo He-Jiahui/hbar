@@ -11,6 +11,7 @@
     "./node-state": "./src/node-state.ts",
     "./node-console": "./src/node-console.ts",
     "./node-registry": "./src/node-registry.ts",
+    "./node-wire": "./src/node-wire.ts",
     "./node-address": "./src/node-address.ts",
     "./device": "./src/device.ts",
     "./runtime-notifications": "./src/runtime-notifications.ts",
