@@ -129,6 +129,7 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@hbar/node-core": "workspace:*",
     "@hbar/sandbox": "workspace:*",
     "@hbar/agent": "workspace:*",
     "@hbar/image-generation": "workspace:*",

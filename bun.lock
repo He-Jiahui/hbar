@@ -69,6 +69,7 @@
         "@hbar/commands": "workspace:*",
         "@hbar/decision-laya": "workspace:*",
         "@hbar/image-generation": "workspace:*",
+        "@hbar/node-core": "workspace:*",
         "@hbar/sandbox": "workspace:*",
         "@mui/material": "9.4.0",
         "@playwright/test": "1.63.0",
@@ -285,6 +286,16 @@
       "version": "0.1.0",
       "dependencies": {
         "@hbar/contracts": "workspace:*",
+      },
+    },
+    "packages/node-core": {
+      "name": "@hbar/node-core",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
+        "zod": "4.5.4",
       },
     },
     "packages/plugin-sdk": {
@@ -713,6 +724,8 @@
     "@hbar/local-tools": ["@hbar/local-tools@workspace:plugins/local-tools"],
 
     "@hbar/metrics": ["@hbar/metrics@workspace:packages/metrics"],
+
+    "@hbar/node-core": ["@hbar/node-core@workspace:packages/node-core"],
 
     "@hbar/pi-driver": ["@hbar/pi-driver@workspace:plugins/pi-driver"],
 
