@@ -87,6 +87,8 @@ import type {
   NodeExecutionIntentIdentity,
   NodeExecutionIntentPage,
   NodeExecutionIntentPageInput,
+  NodeExecutionIntentSettlementInput,
+  NodeExecutionIntentSettlementReceipt,
 } from './node-execution-intents'
 import type {
   SessionActivityGlobalListInput,
@@ -569,6 +571,7 @@ export interface StorageMethods {
     nodeExecution?: Omit<NodeExecutionIntentIdentity, 'sessionId' | 'runId' | 'callId' | 'name' | 'args'>,
   ): SessionEvent
   pendingNodeExecutionIntents(input: NodeExecutionIntentPageInput): NodeExecutionIntentPage
+  nodeExecutionIntentSettle(input: NodeExecutionIntentSettlementInput): NodeExecutionIntentSettlementReceipt
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
   recover(scope?: RuntimeRecoveryScope): number
   runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null

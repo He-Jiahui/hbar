@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite'
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
-import { nodeCallAuthoritySchema, nodeIdSchema, nodeRootIdSchema } from '@hbar/contracts/node'
+import { HbarError, toolOutcomeSchema } from '@hbar/contracts'
+import { NODE_LIMITS, nodeCallAuthoritySchema, nodeIdSchema, nodeRootIdSchema } from '@hbar/contracts/node'
 
 export const NODE_EXECUTION_INTENTS_SQL = `
 CREATE TABLE node_execution_intents(
@@ -23,7 +23,7 @@ CREATE TABLE node_execution_intents(
 CREATE INDEX node_execution_intents_run_call ON node_execution_intents(runId,callId);
 `
 
-const intentIdentitySchema = z.strictObject({
+export const nodeExecutionIntentIdentitySchema = z.strictObject({
   workspaceId: z.string().min(1).max(160),
   sessionId: z.string().min(1).max(160),
   runId: z.string().min(1).max(160),
@@ -38,10 +38,27 @@ const intentIdentitySchema = z.strictObject({
   authority: nodeCallAuthoritySchema,
 })
 
-export type NodeExecutionIntentIdentity = z.infer<typeof intentIdentitySchema>
+export type NodeExecutionIntentIdentity = z.infer<typeof nodeExecutionIntentIdentitySchema>
 export interface NodeExecutionIntentPageInput {
   after?: string
   limit: number
+  runIds?: readonly string[]
+}
+export const nodeExecutionIntentSettlementResultSchema = z.strictObject({
+  text: z.string().max(NODE_LIMITS.outputBytes),
+  isError: z.boolean().optional(),
+  details: z.unknown().optional(),
+  hostFailure: z.strictObject({ code: z.string().min(1).max(128), executionStarted: z.boolean() }).optional(),
+  outcome: toolOutcomeSchema.optional(),
+})
+export type NodeExecutionIntentSettlementResult = z.infer<typeof nodeExecutionIntentSettlementResultSchema>
+export interface NodeExecutionIntentSettlementInput {
+  identity: NodeExecutionIntentIdentity
+  result: NodeExecutionIntentSettlementResult
+}
+export interface NodeExecutionIntentSettlementReceipt {
+  settled: true
+  event: import('@hbar/contracts').SessionEvent
 }
 export interface NodeExecutionIntentRecord extends Omit<NodeExecutionIntentIdentity, 'authority'> {
   authority: z.infer<typeof nodeCallAuthoritySchema>
@@ -55,8 +72,8 @@ export const NODE_EXECUTION_INTENT_PAGE_MAX_ITEMS = 100
 export const NODE_EXECUTION_INTENT_PAGE_MAX_BYTES = 512 * 1024
 
 export function createNodeExecutionIntentStorage(db: Database) {
-  function checkedIdentity(raw: NodeExecutionIntentIdentity): NodeExecutionIntentIdentity {
-    const value = intentIdentitySchema.parse(raw)
+  function checkedIdentity(raw: unknown): NodeExecutionIntentIdentity {
+    const value = nodeExecutionIntentIdentitySchema.parse(raw)
     if (
       value.operationId !== `${value.runId}:${value.callId}` ||
       value.authority.sessionId !== value.sessionId ||
@@ -173,13 +190,45 @@ export function createNodeExecutionIntentStorage(db: Database) {
       if (!hasHistoricalBinding(value)) return
       persist(value, z.number().int().nonnegative().parse(createdAt), true)
     },
+    validateSettlementIdentity(raw: unknown): NodeExecutionIntentIdentity {
+      const value = checkedIdentity(raw)
+      const row = db
+        .query<Record<string, unknown>, [string]>(
+          `SELECT workspaceId,sessionId,runId,callId,name,argsJson,nodeId,rootId,nodePath,kind,authorityJson
+           FROM node_execution_intents WHERE operationId=?`,
+        )
+        .get(value.operationId)
+      if (
+        !row ||
+        row.workspaceId !== value.workspaceId ||
+        row.sessionId !== value.sessionId ||
+        row.runId !== value.runId ||
+        row.callId !== value.callId ||
+        row.name !== value.name ||
+        row.argsJson !== JSON.stringify(value.args) ||
+        row.nodeId !== value.nodeId ||
+        row.rootId !== value.rootId ||
+        row.nodePath !== value.nodePath ||
+        row.kind !== value.kind ||
+        row.authorityJson !== JSON.stringify(value.authority)
+      )
+        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Settlement identity differs from its durable node intent')
+      assertCurrentBinding(value)
+      return value
+    },
     pendingPage(raw: NodeExecutionIntentPageInput): NodeExecutionIntentPage {
       const input = z
         .strictObject({
           after: z.string().min(1).max(330).optional(),
           limit: z.number().int().min(1).max(NODE_EXECUTION_INTENT_PAGE_MAX_ITEMS),
+          runIds: z.array(z.string().min(1).max(160)).max(256).optional(),
         })
         .parse(raw)
+      const runFilter = input.runIds?.length
+        ? `AND i.runId IN (${input.runIds.map(() => '?').join(',')})`
+        : input.runIds
+          ? 'AND 0'
+          : ''
       const rows = db
         .query(
           `SELECT i.* FROM node_execution_intents i
@@ -188,15 +237,18 @@ export function createNodeExecutionIntentStorage(db: Database) {
            JOIN runs r ON r.id=i.runId AND r.sessionId=i.sessionId
            JOIN node_workspace_locations l ON l.workspaceId=i.workspaceId
              AND l.nodeId=i.nodeId AND l.rootId=i.rootId AND l.nodePath=i.nodePath
-           AND r.status IN ('running','waiting_approval','interrupted')
-           WHERE (? IS NULL OR i.operationId>?) ORDER BY i.operationId LIMIT ?`,
+           WHERE r.status IN ('running','waiting_approval','interrupted')
+             AND (? IS NULL OR i.operationId>?) ${runFilter} ORDER BY i.operationId LIMIT ?`,
         )
-        .all(input.after ?? null, input.after ?? null, input.limit + 1) as Record<string, unknown>[]
+        .all(input.after ?? null, input.after ?? null, ...(input.runIds ?? []), input.limit + 1) as Record<
+        string,
+        unknown
+      >[]
       const items: NodeExecutionIntentRecord[] = []
       let responseBytes = 0
       let byteLimited = false
       for (const row of rows.slice(0, input.limit)) {
-        const parsed = intentIdentitySchema.parse({
+        const parsed = nodeExecutionIntentIdentitySchema.parse({
           workspaceId: row.workspaceId,
           sessionId: row.sessionId,
           runId: row.runId,

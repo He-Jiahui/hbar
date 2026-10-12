@@ -2,7 +2,11 @@ import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
-import { NODE_EXECUTION_INTENTS_SQL, createNodeExecutionIntentStorage } from './node-execution-intents'
+import {
+  NODE_EXECUTION_INTENTS_SQL,
+  createNodeExecutionIntentStorage,
+  nodeExecutionIntentSettlementResultSchema,
+} from './node-execution-intents'
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { readContextCompactionMarkers } from './context-compaction-markers'
 import {
@@ -2733,6 +2737,125 @@ const methods: StorageMethods = {
       )
     })(),
   pendingNodeExecutionIntents: (input) => nodeExecutionIntentStorage.pendingPage(input),
+  nodeExecutionIntentSettle: (raw) =>
+    db.transaction(() => {
+      const input = z
+        .strictObject({
+          identity: z.unknown(),
+          result: nodeExecutionIntentSettlementResultSchema,
+        })
+        .parse(raw)
+      if (input.result.details !== undefined) z.json().parse(input.result.details)
+      if (new TextEncoder().encode(JSON.stringify(input.result)).byteLength > 128 * 1024)
+        throw new HbarError('PAYLOAD_TOO_LARGE', 'Node receipt settlement result exceeds the durable payload limit')
+      const identity = nodeExecutionIntentStorage.validateSettlementIdentity(input.identity)
+      const run = methods.run(identity.runId)
+      if (run.sessionId !== identity.sessionId || !['running', 'waiting_approval', 'interrupted'].includes(run.status))
+        throw new HbarError('EXECUTION_UNSETTLED', 'Node receipt settlement requires its unsettled original Run')
+      const owner = runtimeState.ownership(identity.runId)
+      if (owner?.state === 'active')
+        throw new HbarError(
+          'EXECUTION_OWNER_ACTIVE',
+          'Revoke the active execution owner before settling a node receipt',
+        )
+      const intent = db
+        .query<{ status: string }, [string]>('SELECT status FROM tool_intents WHERE id=?')
+        .get(identity.operationId)
+      if (!intent) throw new HbarError('NODE_INTENT_NOT_FOUND', 'Node tool intent is no longer available')
+
+      const isError = input.result.isError ?? false
+      const detailObject = z.record(z.string(), z.unknown()).safeParse(input.result.details)
+      const executionStarted =
+        input.result.hostFailure?.executionStarted ??
+        (detailObject.success && typeof detailObject.data.executionStarted === 'boolean'
+          ? detailObject.data.executionStarted
+          : true)
+      const outcome =
+        input.result.outcome ??
+        (detailObject.success && detailObject.data.code === 'EFFECT_UNKNOWN'
+          ? { kind: 'unknown' as const, executionStarted: true }
+          : {
+              kind: isError ? ('failed' as const) : ('succeeded' as const),
+              executionStarted,
+            })
+      const block = contentBlockSchema.parse({
+        type: 'tool_result',
+        callId: identity.callId,
+        name: identity.name,
+        text: input.result.text,
+        isError,
+        ...(input.result.details === undefined ? {} : { details: input.result.details }),
+        outcome,
+      })
+      if (intent.status !== 'started') {
+        if (intent.status !== 'settled')
+          throw new HbarError('IDEMPOTENCY_CONFLICT', 'Node tool intent already has a different terminal outcome')
+        const messages = db
+          .query<{ content: string }, [string, string]>(
+            `SELECT m.content FROM messages m
+             WHERE m.runId=? AND m.role='tool' AND EXISTS(
+               SELECT 1 FROM json_each(m.content) b WHERE json_extract(b.value,'$.type')='tool_result'
+                 AND json_extract(b.value,'$.callId')=?
+             )`,
+          )
+          .all(identity.runId, identity.callId)
+        const sequences = db
+          .query<{ data: string }, [string, string]>(
+            `SELECT data FROM events WHERE runId=? AND type='tool.sequence_result'
+             AND EXISTS(SELECT 1 FROM json_each(json_extract(data,'$.content')) b
+               WHERE json_extract(b.value,'$.type')='tool_result' AND json_extract(b.value,'$.callId')=?)`,
+          )
+          .all(identity.runId, identity.callId)
+        const blocks = [
+          ...messages.flatMap((row) => contentBlockSchema.array().parse(JSON.parse(row.content))),
+          ...sequences.flatMap((row) => {
+            const eventData = z.record(z.string(), z.unknown()).parse(JSON.parse(row.data))
+            return contentBlockSchema.array().parse(eventData.content)
+          }),
+        ]
+        if (!blocks.some((item) => item.type === 'tool_result' && stableJson(item) === stableJson(block)))
+          throw new HbarError('IDEMPOTENCY_CONFLICT', 'Node tool intent was already settled with a different result')
+        const event = db
+          .query(
+            "SELECT * FROM events WHERE runId=? AND type='tool.settled' AND json_extract(data,'$.callId')=? ORDER BY seq DESC LIMIT 1",
+          )
+          .get(identity.runId, identity.callId) as Row | null
+        if (!event) throw new HbarError('INVALID_STATE', 'Settled node tool intent has no settlement event')
+        return { settled: true as const, event: eventRow(event) }
+      }
+
+      const sequence = db
+        .query<{ data: string }, [string, string]>(
+          `SELECT data FROM events WHERE runId=? AND type='tool.sequence_call'
+           AND json_extract(data,'$.callId')=? ORDER BY seq DESC LIMIT 1`,
+        )
+        .get(identity.runId, identity.callId)
+      if (sequence) {
+        const sequenceData = z
+          .strictObject({ parentCallId: z.string().min(1).max(160) })
+          .passthrough()
+          .parse(JSON.parse(sequence.data))
+        appendEvent(
+          identity.sessionId,
+          'tool.sequence_result',
+          { parentCallId: sequenceData.parentCallId, content: [block] },
+          identity.runId,
+        )
+      } else {
+        methods.commit(identity.sessionId, identity.runId, 'tool', [block])
+      }
+      const settled = db
+        .query("UPDATE tool_intents SET status='settled' WHERE id=? AND status='started'")
+        .run(identity.operationId)
+      if (!settled.changes) throw new HbarError('IDEMPOTENCY_CONFLICT', 'Node tool intent was settled concurrently')
+      const event = appendEvent(
+        identity.sessionId,
+        'tool.settled',
+        { callId: identity.callId, failed: isError },
+        identity.runId,
+      )
+      return { settled: true as const, event }
+    })(),
   toolEnd: (sessionId, runId, callId, failed = false) =>
     db.transaction(() => {
       const result = db

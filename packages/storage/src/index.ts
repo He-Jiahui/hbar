@@ -14,6 +14,9 @@ export type {
   NodeExecutionIntentPage,
   NodeExecutionIntentPageInput,
   NodeExecutionIntentRecord,
+  NodeExecutionIntentSettlementInput,
+  NodeExecutionIntentSettlementReceipt,
+  NodeExecutionIntentSettlementResult,
 } from './node-execution-intents'
 export { runtimeRecoveryRecordSchema, runtimeManualRecoverySchema } from './runtime-state'
 export { StableStoragePort } from './stable-port'
