@@ -1,4 +1,10 @@
 import './theme-bridge'
+export {
+  createMessageScope,
+  type MessageScope,
+  type MessageScopeProviderProps,
+  type MessageScopeReader,
+} from './messages'
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState, useHbarRuntimeSelector } from './runtime'
 export { AgentPolicyEditor, type AgentPolicyEditorLabels } from './agent-policy-editor'
 export { FloatingSurface, useFloatingTrigger } from './floating-surface'
