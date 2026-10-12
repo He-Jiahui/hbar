@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import { osConfinementOptionsSchema } from '@hbar/plugin-sdk'
+import { nodeCallAuthoritySchema } from '@hbar/contracts/node'
 import { runtimePluginStateSchema, RUNTIME_PLUGIN_HOOKS } from '@hbar/plugin-sdk/runtime-plugin'
 import { RUNTIME_APPLICATION_METHODS } from '@hbar/kernel/runtime-application'
 
@@ -37,5 +38,6 @@ export const PLUGIN_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.strin
   z.toJSONSchema(runtimePluginResultSchema), RUNTIME_PLUGIN_SERVICES, RUNTIME_PLUGIN_HOOKS,
   z.toJSONSchema(runtimeNativeResourceSchema), ['resource.retain', 'resource.release'],
   z.toJSONSchema(osConfinementOptionsSchema),
+  z.toJSONSchema(nodeCallAuthoritySchema),
 ])).digest('hex')
 export const RUNTIME_PLUGIN_CONTROL_METHODS = ['plugin.application.callback', 'plugin.application.control'] as const

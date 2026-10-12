@@ -21,7 +21,7 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
       apply(ctx, config) {
         provide(ctx, 'budget', { get: async sessionId => ({ pid: process.pid, session: await ctx.hbar.api.sessions.get(sessionId), limit: config.limit }) })
         ctx.hbar.api.tools.register({ name: 'owned_write', description: 'Write once inside the owner', effect: 'write', inputSchema: z.object({ count: z.number().int().positive().default(7) }),
-          execute: async (args, c) => { await writeFile(${JSON.stringify(marker)}, String(args.count)); return { text: 'owned:' + process.pid, details: { osConfinement: c.osConfinement } } } })
+          execute: async (args, c) => { await writeFile(${JSON.stringify(marker)}, String(args.count)); return { text: 'owned:' + process.pid, details: { osConfinement: c.osConfinement, nodeAuthority: c.nodeAuthority } } } })
         ctx.hbar.api.hooks.on('goal.beforeComplete', value => ({ ...value, commit: async () => { await value.commit() } }))
       } })
     export const create = context => createRuntimePlugin(context, { plugins: [plugin] })
@@ -59,16 +59,32 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
     const capability = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'capability', name: 'budget', method: 'get', catalog: state.tools }, ['session'], host]))
     expect(capability).toMatchObject({ kind: 'value', value: { pid: processOwner.snapshot().pid, limit: 9, session: { id: 'session' } } })
     expect(processOwner.snapshot().pid).not.toBe(process.pid)
-    const executed = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'execute', name: 'owned_write', catalog: state.tools },
-      [{ count: 7 }, { signal: new AbortController().signal, callId: 'owned-call',
+    const sandbox = { profileId: ':read-only', digest: 'b'.repeat(64) }
+    const nodeAuthority = { sessionId: 'session', runId: 'run', callId: 'owned-call', sandbox, admission: { kind: 'approved', approvalId: 'approval' } }
+    const toolContext = { signal: new AbortController().signal, callId: 'owned-call',
         session: { id: 'session', workspaceId: 'workspace', title: 'Fixture', archived: false, parentId: null, createdAt: 1, updatedAt: 1, seq: 0 },
         workspace: { id: 'workspace', path: root, name: 'Fixture', createdAt: 1 },
-        run: { id: 'run', sessionId: 'session', requestId: 'request', input: { text: '', images: [] }, modelId: 'model', status: 'running', createdAt: 1, startedAt: 1, endedAt: null, error: null },
-        osConfinement: { level: 'elevated', writableRoots: [root], readableRoots: [root], networkEnabled: false, envOverrides: { LANG: 'C' } } }], host]))
+        run: { id: 'run', sessionId: 'session', requestId: 'request', input: { text: '', images: [], approval: 'sandbox', sandbox }, modelId: 'model', status: 'running', createdAt: 1, startedAt: 1, endedAt: null, error: null },
+        nodeAuthority,
+        osConfinement: { level: 'elevated', writableRoots: [root], readableRoots: [root], networkEnabled: false, envOverrides: { LANG: 'C' } } }
+    const executed = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'execute', name: 'owned_write', catalog: state.tools },
+      [{ count: 7 }, toolContext], host]))
     expect(executed.kind).toBe('value'); expect(await readFile(marker, 'utf8')).toBe('7')
     expect(executed).toMatchObject({ kind: 'value', value: { details: { osConfinement: {
       level: 'elevated', writableRoots: [root], readableRoots: [root], networkEnabled: false, envOverrides: { LANG: 'C' },
     } } } })
+    expect(executed).toMatchObject({ kind: 'value', value: { details: { nodeAuthority } } })
+    for (const invalidAuthority of [
+      { ...nodeAuthority, callId: 'other-call' },
+      { ...nodeAuthority, runId: 'other-run' },
+      { ...nodeAuthority, sandbox: { profileId: ':read-only', digest: 'a'.repeat(64) } },
+      { ...nodeAuthority, sandbox: null },
+    ]) {
+      const invalid = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'execute', name: 'owned_write', catalog: state.tools },
+        [{ count: 99 }, { ...toolContext, nodeAuthority: invalidAuthority }], host]))
+      expect(invalid).toMatchObject({ kind: 'error', code: 'INVALID_TOOL_INPUT' })
+      expect(await readFile(marker, 'utf8')).toBe('7')
+    }
     const authority = new AsyncLocalStorage<string>(); let committed = 0
     const complete = await authority.run('original-execution-lease', () => port.call('invoke', [{ operation: 'commitGoal', name: 'goal.beforeComplete', catalog: state.tools },
       [{ sessionId: 'session', runId: 'run', goal: {}, commit: () => { expect(authority.getStore()).toBe('original-execution-lease'); committed++ } }], host]))

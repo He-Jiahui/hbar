@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { Context, RunControlSignal, service, osConfinementOptionsSchema, type HbarPlugin, type HbarAPI, type HookEvents, type ToolDefinition } from '@hbar/plugin-sdk'
 import { HbarError, runSchema, type ToolWindowContribution } from '@hbar/contracts'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
+import { nodeCallAuthoritySchema } from '@hbar/contracts/node'
 import { runtimePluginStateSchema, runtimePluginManifestSchema, describeRuntimeTool, describeRuntimeHook,
   restoreRuntimeHook, RUNTIME_PLUGIN_HOOKS, type RuntimePluginHook } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimeValuePort, procedure, runtimeDomainError, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
@@ -16,11 +17,17 @@ const toolContextSchema = z.object({ session: sessionSchema, workspace: workspac
   signal: z.instanceof(AbortSignal), callId: z.string().min(1).max(160), timeoutMs: z.number().int().positive().optional(),
   parentCallId: z.string().min(1).max(160).optional(), environment: z.record(z.string(), z.string()).optional(),
   osConfinement: osConfinementOptionsSchema.optional(),
+  nodeAuthority: nodeCallAuthoritySchema.optional(),
   executeSequence: z.custom<NonNullable<import('@hbar/plugin-sdk').ToolContext['executeSequence']>>(value => typeof value === 'function').optional(),
   reportProgress: z.custom<NonNullable<import('@hbar/plugin-sdk').ToolContext['reportProgress']>>(value => typeof value === 'function').optional(),
 }).superRefine((value, result) => {
   if (value.run.sessionId !== value.session.id || value.session.workspaceId !== value.workspace.id)
     result.addIssue({ code: 'custom', message: 'Tool context identities do not share an admitted execution' })
+  const authority = value.nodeAuthority
+  if (authority && (authority.sessionId !== value.session.id || authority.runId !== value.run.id || authority.callId !== value.callId))
+    result.addIssue({ code: 'custom', message: 'Workspace routing authority does not match this tool call' })
+  if (authority && ((authority.sandbox?.digest ?? null) !== (value.run.input.sandbox?.digest ?? null) || (authority.sandbox?.profileId ?? null) !== (value.run.input.sandbox?.profileId ?? null)))
+    result.addIssue({ code: 'custom', message: 'Workspace routing authority does not match the pinned Run sandbox' })
 })
 
 /** One plugin's Context, schemas, hooks and executable capabilities live entirely in this managed owner. */
@@ -102,6 +109,7 @@ export function createRuntimePlugin(context: RuntimeProcessContext, factory: Run
               ...(parsed.timeoutMs !== undefined ? { timeoutMs: parsed.timeoutMs } : {}), ...(parsed.parentCallId ? { parentCallId: parsed.parentCallId } : {}),
               ...(parsed.environment ? { environment: parsed.environment } : {}), ...(parsed.executeSequence ? { executeSequence: parsed.executeSequence } : {}),
               ...(parsed.osConfinement ? { osConfinement: parsed.osConfinement } : {}),
+              ...(parsed.nodeAuthority ? { nodeAuthority: parsed.nodeAuthority } : {}),
               ...(parsed.reportProgress ? { reportProgress: parsed.reportProgress } : {}),
             }
             result = await tool.execute(z.record(z.string(), z.unknown()).parse(await tool.inputSchema.parseAsync(args[0])), contextValue)

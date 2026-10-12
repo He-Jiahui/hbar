@@ -796,6 +796,7 @@ export default definePlugin({
           environment: c.environment,
           timeoutMs: c.timeoutMs ?? 120_000,
           osConfinement: c.osConfinement,
+          nodeAuthority: c.nodeAuthority,
         }),
     })
   },

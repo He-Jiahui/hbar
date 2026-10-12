@@ -43,6 +43,7 @@ import { toolFileChangesSchema } from '@hbar/contracts/run-file-changes'
 import { undoRunFileChanges } from './run-file-changes'
 import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import { nodeCallAuthoritySchema, type NodeCallAuthority } from '@hbar/contracts/node'
 import {
   assertContextCapacity,
   compactionBoundary,
@@ -2647,6 +2648,11 @@ export class Kernel {
     const hostSignal = context.signal
     const executionIdentity = { sessionId: context.session.id, runId: context.run.id, callId: context.callId }
     const executionRoot = context.workspace.path
+    const requestedMode = context.run.input.approval
+    const pinnedSandbox = context.run.input.sandbox ? structuredClone(context.run.input.sandbox) : null
+    const executionFacts = { session: structuredClone(context.session), workspace: structuredClone(context.workspace),
+      run: structuredClone(context.run), callId: context.callId }
+    const restoreExecutionFacts = () => { Object.assign(context, structuredClone(executionFacts)) }
     const toolDiagnosticIdentity = {
       sessionId: executionIdentity.sessionId,
       runId: executionIdentity.runId,
@@ -2664,10 +2670,11 @@ export class Kernel {
       hostSignal.removeEventListener('abort', forwardAbort)
       throw new HbarError('TOOL_NOT_FOUND', name)
     }
-    context = { ...context, signal: controller.signal }
+    // Hooks may alter their call context, but cannot mutate the active Run or another call's pinned facts.
+    context = { ...context, ...structuredClone(executionFacts), signal: controller.signal }
     const sequence = selectedTools
       ? createToolSequenceExecutor(
-          context,
+          { ...context, ...structuredClone(executionFacts) },
           selectedTools,
           name,
           (childName, childArgs, childContext) => this.execute(childName, childArgs, childContext, scope),
@@ -2706,19 +2713,22 @@ export class Kernel {
         context,
         tool,
       })
+      restoreExecutionFacts()
       const args = tool.validate ? await tool.validate(transformed.args) : tool.inputSchema.parse(transformed.args) as Record<string, unknown>
       const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args
       await this.assertRunPermission(context.run)
-      const mode = context.run.input.approval ?? this.permissionModeValue
+      const mode = requestedMode ?? this.permissionModeValue
+      let nodeAdmission: NodeCallAuthority['admission'] = { kind: 'allow' }
       let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
+      restoreExecutionFacts()
       let denial = 'Tool denied by policy'
       let environment: Readonly<Record<string, string>> | undefined
       let osConfinement: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
       // A policy plugin may still forbid a call; otherwise the Run's sandbox profile decides.
       if (mode === 'sandbox' && decision !== 'deny') {
-        const sandbox = await this.sandboxDecision(tool, args, context)
+        const sandbox = await this.sandboxDecision(tool, args, context, pinnedSandbox)
         decision = sandbox.decision
         denial = sandbox.denial
         environment = sandbox.environment
@@ -2753,11 +2763,17 @@ export class Kernel {
               : 'User denied the tool call',
           )
         }
+        nodeAdmission = { kind: 'approved', approvalId: resolution.approvalId }
       }
       assertBoundary()
       await this.assertRunPermission(context.run)
       this.toolExecutions.assertAvailable(`${context.session.id}:${name}`, name)
       const authority = this.executionScope.current
+      const nodeAuthority = nodeCallAuthoritySchema.parse({
+        ...executionIdentity,
+        sandbox: mode === 'sandbox' ? pinnedSandbox : null,
+        admission: nodeAdmission,
+      })
       if (authority && this.options.execution?.reserveTool && !tool.runtimeOwner)
         permitId = (await this.options.execution.reserveTool(authority, executionIdentity.callId)).id
       const startEvent = await this.storage.call(
@@ -2792,15 +2808,19 @@ export class Kernel {
         timeoutMs,
         async () => {
           await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
+          restoreExecutionFacts()
           await this.assertRunPermission(context.run)
           assertBoundary()
           controller.signal.throwIfAborted()
           // These execution fields are Host-owned, even when hooks mutate ToolContext.
-          const { environment: _hookEnvironment, reportProgress: _hookProgress, ...plain } = context
+          const { environment: _hookEnvironment, reportProgress: _hookProgress,
+            osConfinement: _hookConfinement, nodeAuthority: _hookNodeAuthority, ...plain } = context
           let executed = await tool.execute(args, {
             ...plain,
+            ...structuredClone(executionFacts),
             signal: controller.signal,
             timeoutMs,
+            nodeAuthority,
             reportProgress: async (progress) => {
               controller.signal.throwIfAborted()
               await reportProgress(progress)
@@ -2926,13 +2946,13 @@ export class Kernel {
     tool: ToolDefinition,
     args: Record<string, unknown>,
     context: ToolContext,
+    ref: import('@hbar/contracts/sandbox').SandboxSnapshotRef | null,
   ): Promise<{
     decision: 'allow' | 'ask' | 'deny'
     denial: string
     environment?: Readonly<Record<string, string>> | undefined
     osConfinement?: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
   }> {
-    const ref = context.run.input.sandbox
     let profile: Awaited<ReturnType<SandboxProfileService['loadSnapshot']>>
     try {
       if (!ref) throw new HbarError('SANDBOX_SNAPSHOT_NOT_FOUND', 'The Run has no sandbox snapshot')
@@ -3024,7 +3044,7 @@ export class Kernel {
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
-      return await outcome
+      return { ...await outcome, approvalId: approval.id }
     } finally {
       hostSignal.removeEventListener('abort', onAbort)
       this.approvals.delete(approval.id)

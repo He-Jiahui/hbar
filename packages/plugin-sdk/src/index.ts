@@ -6,6 +6,7 @@ export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
 import type { OsConfinementOptions } from './execution-options'
+import type { NodeCallAuthority } from '@hbar/contracts/node'
 export { osConfinementOptionsSchema, type OsConfinementOptions } from './execution-options'
 import type { z } from 'zod'
 import type { ToolPresentationDeclaration } from '@hbar/contracts'
@@ -129,6 +130,8 @@ export interface ToolContext {
   environment?: Readonly<Record<string, string>>
   /** Host-owned OS isolation requirement; unsupported execution backends must refuse it. */
   osConfinement?: OsConfinementOptions
+  /** Host-owned identities, pinned sandbox and completed admission for workspace routing. */
+  nodeAuthority?: NodeCallAuthority
 }
 export interface ToolSequenceCall {
   name: string
@@ -195,6 +198,8 @@ export interface ExecOptions {
    * current user's process context. An unavailable backend refuses execution.
    */
   readonly osConfinement?: OsConfinementOptions | undefined
+  /** Forward the Host's admitted call unchanged when execution is routed to a workspace node. */
+  readonly nodeAuthority?: NodeCallAuthority | undefined
 }
 export interface ExecutionProvider {
   list(workspace: string, path: string): Promise<FileEntry[]>
