@@ -8,7 +8,7 @@ import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const satisfies readonly ShellLocale[]) {
-  test(`new-session shortcut uses the same project and draft ownership as the sidebar: ${locale}`, async ({
+  test(`new-session shortcut requires one explicit project choice and preserves session drafts: ${locale}`, async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -47,6 +47,11 @@ for (const locale of ['en-US', 'zh-CN'] as const satisfies readonly ShellLocale[
       const savedDraft = `Keep this draft in ${originalTitle}`
       await prompt.fill(savedDraft)
       await page.keyboard.press('Control+n')
+      await expect(picker).toBeVisible()
+      expect(await sessionCount()).toBe(1)
+      await picker
+        .getByRole('button', { name: copy.shell.createSessionInWorkspace(host.ready.workspaceName), exact: true })
+        .click()
       await expect.poll(sessionCount).toBe(2)
       await expect(picker).toHaveCount(0)
       await expectComposerText(prompt, '')
@@ -56,6 +61,11 @@ for (const locale of ['en-US', 'zh-CN'] as const satisfies readonly ShellLocale[
       // The Mac modifier follows the same path; the narrow layout stays usable.
       await page.setViewportSize({ width: 320, height: 720 })
       await page.keyboard.press('Meta+n')
+      await expect(picker).toBeVisible()
+      expect(await sessionCount()).toBe(2)
+      await picker
+        .getByRole('button', { name: copy.shell.createSessionInWorkspace(host.ready.workspaceName), exact: true })
+        .click()
       await expect.poll(sessionCount).toBe(3)
       await expect(picker).toHaveCount(0)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)

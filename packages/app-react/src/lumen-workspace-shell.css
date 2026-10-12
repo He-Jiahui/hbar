@@ -552,10 +552,12 @@
   .hbar-app-react-project-new-session,
   .hbar-app-react-roster-refresh,
   .hbar-app-react-session-batch-mode,
-  .hbar-app-react-workspace-line > .hbar-app-react-project-menu summary,
-  .hbar-app-react-project-organization-menu summary {
+  .hbar-app-react-workspace-line > .hbar-app-react-project-menu > button,
+  .hbar-app-react-project-organization-menu > button {
     inline-size: 2.75rem;
     block-size: 2.75rem;
+    min-inline-size: 2.75rem;
+    flex-basis: 2.75rem;
   }
 }
 
