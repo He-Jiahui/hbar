@@ -1,4 +1,6 @@
 .hbar-web-global-page {
+  container-name: global-feature-page;
+  container-type: inline-size;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -42,7 +44,7 @@
   gap: var(--lumen-space-12);
 }
 
-@media (width < 48rem) {
+@container global-feature-page (width < 48rem) {
   .hbar-web-global-page .hbar-web-global-page-header[data-header-layout='page'] [data-lumen-part~="page-header.heading"] {
     flex-basis: auto;
   }

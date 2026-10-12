@@ -652,7 +652,7 @@
   line-height: 1rem;
   color: var(--lumen-subtle);
 }
-@container (max-width: 63.999rem) {
+@container (width < 64rem) {
   .lumen-inbox-rail {
     display: none;
   }
@@ -673,7 +673,7 @@
     display: inline-flex;
   }
 }
-@container (max-width: 39.999rem) {
+@container (width < 40rem) {
   .lumen-inbox-reading header {
     padding-inline: var(--lumen-space-16);
   }

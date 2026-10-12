@@ -124,7 +124,7 @@
 .hbar-settings-usage-model-list span {
   overflow-wrap: anywhere;
 }
-@media (width < 40rem) {
+@container hbar-settings-workspace (width < 40rem) {
   .hbar-settings-usage {
     padding: var(--lumen-space-12);
   }

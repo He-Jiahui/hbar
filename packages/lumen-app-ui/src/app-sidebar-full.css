@@ -222,7 +222,7 @@
 .lumen-full-profile p:last-child {
   color: var(--full-muted);
 }
-@container (max-width: 48rem) {
+@container (width < 48rem) {
   .lumen-full-desktop {
     display: none;
   }

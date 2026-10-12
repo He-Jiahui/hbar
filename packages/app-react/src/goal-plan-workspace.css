@@ -1,5 +1,10 @@
 @import './session-pane-density.css';
 
+.hbar-app-react-goal-plan-workspace {
+  container-name: goal-plan-workspace;
+  container-type: inline-size;
+}
+
 .hbar-app-react-goal-plan-workspace h2,
 .hbar-app-react-goal-plan-workspace p {
   margin: 0;
@@ -369,7 +374,7 @@
   font-size: var(--hbar-session-pane-meta-size);
 }
 
-@media (width < 48rem) {
+@container goal-plan-workspace (width < 48rem) {
   .hbar-app-react-workflow-focus strong,
   .hbar-app-react-workflow-evidence > li > span,
   .hbar-app-react-workflow-scope dd {

@@ -44,7 +44,7 @@
 .descriptor-setting-array-row > :first-child { flex: 1; }
 .descriptor-setting-array-row > button { flex: 0 0 auto; }
 
-@media (width >= 48rem) {
+@container global-feature-page (width >= 48rem) {
   .descriptor-setting-row { grid-template-columns: minmax(220px, 0.85fr) minmax(260px, 1.15fr); align-items: start; }
   .descriptor-setting-control { justify-content: flex-end; }
 }

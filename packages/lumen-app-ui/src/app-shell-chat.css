@@ -628,7 +628,7 @@
   border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
   box-shadow: 0.25rem 0 1.25rem rgba(0, 0, 0, 0.1);
 }
-@container (max-width: 56rem) {
+@container (width < 64rem) {
   .lumen-chat-sidebar {
     display: none;
   }
@@ -647,7 +647,7 @@
     padding-inline: var(--lumen-space-24);
   }
 }
-@container (max-width: 30rem) {
+@container (width < 40rem) {
   .lumen-chat-hero h2 {
     font-size: 1.25rem;
   }

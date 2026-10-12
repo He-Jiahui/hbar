@@ -1,4 +1,6 @@
 .hbar-pre-session-landing {
+  container-name: pre-session-landing;
+  container-type: inline-size;
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
@@ -51,7 +53,7 @@
   flex-wrap: wrap;
 }
 
-@media (width < 40rem) {
+@container pre-session-landing (width < 40rem) {
   .hbar-pre-session-landing-footer [data-lumen-part~="composer.toolbar"] {
     align-items: stretch;
     flex-direction: column;

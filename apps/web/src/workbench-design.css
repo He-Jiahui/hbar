@@ -147,7 +147,7 @@
   }
 }
 
-@media (width < 40rem) {
+@container pre-session-landing (width < 40rem) {
   [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing .hbar-prompt-composer {
     padding: var(--lumen-space-12);
   }

@@ -1,4 +1,6 @@
 .hbar-app-react-command-palette {
+  container-name: command-palette;
+  container-type: inline-size;
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
@@ -224,7 +226,7 @@
   padding: var(--lumen-space-16);
 }
 
-@media (width < 40rem) {
+@container command-palette (width < 40rem) {
   .hbar-app-react-command-form-body,
   .hbar-app-react-command-result-view {
     gap: var(--lumen-space-12);

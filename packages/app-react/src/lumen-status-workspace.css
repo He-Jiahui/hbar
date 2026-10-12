@@ -1,4 +1,6 @@
 .hbar-app-react-status-workspace {
+  container-name: status-workspace;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   min-inline-size: 0;
@@ -375,7 +377,7 @@
   color: var(--lumen-danger);
 }
 
-@media (width < 48rem) {
+@container status-workspace (width < 48rem) {
   .hbar-app-react-usage-models li {
     align-items: flex-start;
     flex-direction: column;

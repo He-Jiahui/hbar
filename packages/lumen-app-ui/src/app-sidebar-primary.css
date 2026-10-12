@@ -313,7 +313,7 @@
 .lumen-primary-backdrop {
   display: none;
 }
-@container (max-width: 48rem) {
+@container (width < 48rem) {
   .lumen-primary-sidebar:not(.is-drawer) {
     display: none;
   }

@@ -491,7 +491,7 @@
 [data-lumen-mode='dark'] .lumen-shell-adaptive-stage .lumen-adaptive-row-list > li:hover {
   background: color-mix(in srgb, var(--lumen-contrast) 91%, var(--lumen-ink));
 }
-@container (max-width: 63.99rem) and (min-width: 45rem) {
+@container (width < 64rem) and (width >= 40rem) {
   .lumen-adaptive-sidebar {
     display: none;
   }
@@ -531,7 +531,7 @@
     flex-basis: 12rem;
   }
 }
-@container (max-width: 44.99rem) {
+@container (width < 48rem) {
   .lumen-adaptive-sidebar,
   .lumen-adaptive-rail {
     display: none;
@@ -711,7 +711,7 @@
     max-inline-size: 100%;
   }
 }
-@container (max-width: 20rem) {
+@container (width < 40rem) {
   .lumen-adaptive-bottom-nav ul {
     inline-size: max-content;
     padding: 0 !important;

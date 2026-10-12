@@ -589,7 +589,7 @@
 .lumen-scope-drawer .lumen-scope-search-row > button {
   --lumen-control-size: 2.25rem;
 }
-@container (max-width: 63.999rem) {
+@container (width < 64rem) {
   .lumen-scope-sidebar {
     display: none;
   }
@@ -597,7 +597,7 @@
     display: inline-flex;
   }
 }
-@container (max-width: 47.999rem) {
+@container (width < 48rem) {
   .lumen-scope-wide-pickers,
   .lumen-scope-records table {
     display: none;
@@ -648,7 +648,7 @@
     overflow-wrap: anywhere;
   }
 }
-@container (max-width: 39.999rem) {
+@container (width < 40rem) {
   .lumen-scope-header {
     padding-inline: var(--lumen-space-16);
   }

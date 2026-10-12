@@ -544,7 +544,7 @@
 .lumen-sidebar-overlay {
   display: none;
 }
-@container (max-width: 63.999rem) {
+@container (width < 64rem) {
   .lumen-sidebar-desktop {
     display: none;
   }
@@ -587,7 +587,7 @@
     box-shadow: 0.5rem 0 2rem rgb(0 0 0 / 12%);
   }
 }
-@container (max-width: 39.999rem) {
+@container (width < 40rem) {
   .lumen-sidebar-header {
     padding-inline: var(--lumen-space-16);
   }
@@ -619,7 +619,7 @@
     padding-inline: var(--lumen-space-16);
   }
 }
-@container (max-width: 47.999rem) {
+@container (width < 48rem) {
   .lumen-sidebar-table {
     display: none;
   }

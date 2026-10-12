@@ -1,4 +1,6 @@
 .hbar-chat-search-view {
+  container-name: chat-search-view;
+  container-type: inline-size;
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
@@ -298,7 +300,7 @@
   white-space: nowrap;
 }
 
-@media (width < 40rem) {
+@container chat-search-view (width < 40rem) {
   .hbar-chat-search-header {
     padding-inline: var(--lumen-space-16);
   }

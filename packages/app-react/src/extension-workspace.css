@@ -1,4 +1,6 @@
 .hbar-app-react-extension-workspace {
+  container-name: extension-workspace;
+  container-type: inline-size;
   display: flex;
   inline-size: min(100%, 58rem);
   min-inline-size: 0;
@@ -187,7 +189,7 @@
   line-height: 1.5;
 }
 
-@media (width < 40rem) {
+@container extension-workspace (width < 40rem) {
   .hbar-app-react-extension-open {
     flex-wrap: wrap;
     min-block-size: 2.75rem;
@@ -419,7 +421,7 @@
   color: var(--lumen-danger);
 }
 
-@media (width < 48rem) {
+@container extension-workspace (width < 48rem) {
   .hbar-app-react-extension-heading {
     flex-direction: column;
   }

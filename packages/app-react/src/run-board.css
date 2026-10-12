@@ -1,4 +1,6 @@
 .hbar-app-react-run-board {
+  container-name: run-board;
+  container-type: inline-size;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -125,7 +127,7 @@
   gap: var(--lumen-space-4);
 }
 
-@media (width < 40rem) {
+@container run-board (width < 40rem) {
   .hbar-app-react-run-board-columns {
     flex-direction: column;
   }

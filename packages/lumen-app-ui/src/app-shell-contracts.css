@@ -579,7 +579,7 @@
 .lumen-contracts-overlay {
   display: none;
 }
-@container (max-width: 63.999rem) {
+@container (width < 64rem) {
   .lumen-contracts-sidebar,
   .lumen-contracts-header .lumen-contracts-collapse {
     display: none;
@@ -640,7 +640,7 @@
     font-weight: 500;
   }
 }
-@container (max-width: 47.999rem) {
+@container (width < 48rem) {
   .lumen-contracts-mobile-search {
     display: flex;
     flex: 0 0 auto;
@@ -717,7 +717,7 @@
     line-height: 1.5rem;
   }
 }
-@container (max-width: 39.999rem) {
+@container (width < 40rem) {
   .lumen-contracts-header,
   .lumen-contracts-main-frame main {
     padding-inline: var(--lumen-space-16);

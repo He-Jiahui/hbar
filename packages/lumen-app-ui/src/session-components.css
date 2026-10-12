@@ -291,7 +291,7 @@
   border-radius: 50%;
   padding: 0;
 }
-@container lumen-composer (width <= 40rem) {
+@container lumen-composer (width < 40rem) {
   .lumen-composer-primary-action {
     --lumen-control-size: 2.75rem;
   }
@@ -491,7 +491,7 @@
   text-align: center;
 }
 
-@container (max-width: 32rem) {
+@container (width < 40rem) {
   .lumen-run-summary {
     flex-basis: 100%;
   }

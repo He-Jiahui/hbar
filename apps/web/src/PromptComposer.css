@@ -312,7 +312,7 @@
   font: var(--hbar-font-size-small) var(--dsh-font-family-code);
 }
 
-@media (width < 64rem) {
+@container session-workspace (width < 64rem) {
   .rb-prompt-composer {
     width: 100%;
   }

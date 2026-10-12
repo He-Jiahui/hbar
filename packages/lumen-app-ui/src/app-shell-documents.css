@@ -146,7 +146,7 @@
 .lumen-documents-shell .lumen-documents-open {
   display: none;
 }
-@container (max-width: 63.999rem) {
+@container (width < 64rem) {
   .lumen-documents-sidebar {
     display: none;
   }
@@ -380,7 +380,7 @@
 .lumen-documents-scroll-frame[data-bottom='true']::after {
   opacity: 1;
 }
-@container (max-width: 39.999rem) {
+@container (width < 40rem) {
   .lumen-documents-heading,
   .lumen-documents-toolbar {
     padding-inline: var(--lumen-space-16);
@@ -395,7 +395,7 @@
     padding-inline: var(--lumen-space-16);
   }
 }
-@container (max-width: 47.999rem) {
+@container (width < 48rem) {
   .lumen-documents-block-style,
   .lumen-documents-shell button.lumen-documents-insert-link {
     display: none;

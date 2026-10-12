@@ -195,7 +195,7 @@
   color: var(--lumen-muted);
 }
 
-@media (width < 48rem) {
+@container extension-workspace (width < 48rem) {
   .hbar-app-react-skill-files-layout {
     flex-direction: column;
   }
@@ -207,7 +207,7 @@
   }
 }
 
-@media (width < 40rem) {
+@container extension-workspace (width < 40rem) {
   .hbar-app-react-skill-detail button {
     min-block-size: 2.75rem;
 

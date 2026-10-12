@@ -561,12 +561,12 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-@container (min-width: 80rem) {
+@container (width >= 64rem) {
   .lumen-editorial-table .lumen-editorial-owner {
     display: table-cell;
   }
 }
-@container (max-width: 63.999rem) {
+@container (width < 64rem) {
   .lumen-editorial-sidebar {
     display: none;
   }
@@ -615,7 +615,7 @@
     backdrop-filter: blur(0.75rem);
   }
 }
-@container (max-width: 47.999rem) {
+@container (width < 48rem) {
   .lumen-editorial-table {
     display: none;
   }
@@ -663,7 +663,7 @@
     line-height: 1.21875rem;
   }
 }
-@container (max-width: 39.999rem) {
+@container (width < 40rem) {
   .lumen-editorial-central header,
   .lumen-editorial-toolbar {
     padding-inline: var(--lumen-space-16);

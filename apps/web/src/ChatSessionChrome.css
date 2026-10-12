@@ -114,7 +114,7 @@
   margin-left: var(--lumen-space-2);
 }
 
-@media (width < 64rem) {
+@container session-workspace (width < 64rem) {
   .rb-chat-session-chrome .session-console-context {
     display: none;
   }
@@ -137,7 +137,7 @@
   }
 }
 
-@media (width < 40rem) {
+@container session-workspace (width < 40rem) {
   .rb-chat-context-bar .chat-reference-context {
     max-width: 100%;
     margin-left: 0;

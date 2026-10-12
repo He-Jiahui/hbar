@@ -1,3 +1,9 @@
+/* Dialog contents reflow with their surface width, including when a host narrows the dialog. */
+.hbar-workspace-folders-dialog {
+  container-name: workspace-folders-dialog;
+  container-type: inline-size;
+}
+
 .hbar-workspace-folders-body,
 .hbar-workspace-folder-list,
 .hbar-workspace-folder {
@@ -156,7 +162,7 @@
   inline-size: 100%;
   min-inline-size: 0;
 }
-@media (width < 40rem) {
+@container workspace-folders-dialog (width < 40rem) {
   .hbar-workspace-folder-path-row {
     flex-wrap: wrap;
   }

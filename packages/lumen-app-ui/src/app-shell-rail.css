@@ -410,7 +410,7 @@
 .lumen-rail-overlay {
   display: none;
 }
-@container (max-width: 63.999rem) {
+@container (width < 64rem) {
   .lumen-rail-desktop {
     display: none;
   }
@@ -445,7 +445,7 @@
     backdrop-filter: blur(0.75rem);
   }
 }
-@container (max-width: 39.999rem) {
+@container (width < 40rem) {
   .lumen-rail-header {
     padding-inline: var(--lumen-space-16);
   }

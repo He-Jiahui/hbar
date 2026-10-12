@@ -9,6 +9,8 @@
   gap: var(--lumen-space-16);
 }
 .hbar-schedule-page {
+  container-name: schedule-page;
+  container-type: inline-size;
   padding: var(--lumen-space-16);
   min-block-size: 0;
   overflow: auto;
@@ -55,7 +57,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (width < 40rem) {
+@container schedule-page (width < 40rem) {
   .hbar-schedule-form-actions,
   .hbar-schedule-item-actions {
     align-items: stretch;

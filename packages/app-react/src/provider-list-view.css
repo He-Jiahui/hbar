@@ -1,4 +1,6 @@
 .hbar-provider-list-view {
+  container-name: provider-list;
+  container-type: inline-size;
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
@@ -170,7 +172,7 @@
   padding-block: var(--lumen-space-16);
 }
 
-@media (width < 48rem) {
+@container provider-list (width < 48rem) {
   .hbar-provider-list-view > header {
     align-items: stretch;
     flex-direction: column;

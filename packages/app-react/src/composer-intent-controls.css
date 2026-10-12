@@ -138,7 +138,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (width < 40rem) {
+@container session-project-context (width < 40rem) {
   .hbar-composer-goal-summary {
     flex-basis: 100%;
   }
