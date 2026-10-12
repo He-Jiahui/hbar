@@ -9,6 +9,7 @@ import { canReturnGoalClearFocus, sameGoalClearFocusScope, type GoalClearFocusSc
 import { HbarGoalTiming } from './session-goal-timing'
 import './composer-intent-controls.css'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 
 type Goal = NonNullable<NonNullable<ComposerIntentState['facts']['snapshot']>['goal']>
 
@@ -39,6 +40,8 @@ export interface HbarComposerIntentLabels extends HbarComposerIntentControlLabel
   readonly error: (code: string) => string
 }
 
+const ComposerGoalMessages = createMessageScope<{ readonly intent: HbarComposerIntentLabels }>()
+
 export { HbarComposerIntentControl as HbarComposerIntentControls } from './composer-intent-blocked'
 
 function commandCode(reason: unknown) {
@@ -47,11 +50,18 @@ function commandCode(reason: unknown) {
     : 'EXECUTION_FAILED'
 }
 
-export function HbarComposerGoal({
+export function HbarComposerGoal(props: Parameters<typeof HbarComposerGoalContent>[0]) {
+  return (
+    <ComposerGoalMessages.Provider messages={{ intent: props.labels }}>
+      <HbarComposerGoalContent {...props} />
+    </ComposerGoalMessages.Provider>
+  )
+}
+
+function HbarComposerGoalContent({
   sessionId,
   workspaceId,
   connected,
-  labels,
   surface = 'all',
   canPrepare = true,
   runActive = false,
@@ -72,6 +82,8 @@ export function HbarComposerGoal({
   readonly goalTriggerRef?: RefObject<HTMLButtonElement | null>
   readonly embedded?: boolean
 }) {
+  const { t } = ComposerGoalMessages.useMessages()
+  const labels = t('intent')
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
   const entry = state.entries[sessionId]

@@ -14,6 +14,7 @@ import {
 } from './composer-intent-availability'
 import './composer-intent-blocked.css'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 
 export interface HbarComposerIntentBlockedLabels {
   readonly goalRecovery: HbarComposerGoalRecoveryLabels
@@ -42,6 +43,8 @@ export interface HbarComposerIntentControlLabels {
   readonly blocked: HbarComposerIntentBlockedLabels
 }
 
+const ComposerIntentControlMessages = createMessageScope<{ readonly intent: HbarComposerIntentControlLabels }>()
+
 /** Native light-dismiss may start with BODY focused after a pending action was removed. */
 export function canReturnComposerGoalFocus(input: {
   readonly captured: ComposerIntentInteractionTarget | null
@@ -63,12 +66,19 @@ export function canReturnComposerGoalFocus(input: {
   )
 }
 
-export function HbarComposerIntentControl({
+export function HbarComposerIntentControl(props: Parameters<typeof HbarComposerIntentControlContent>[0]) {
+  return (
+    <ComposerIntentControlMessages.Provider messages={{ intent: props.labels }}>
+      <HbarComposerIntentControlContent {...props} />
+    </ComposerIntentControlMessages.Provider>
+  )
+}
+
+function HbarComposerIntentControlContent({
   sessionId,
   connected,
   disabled,
   canPrepare = true,
-  labels,
   triggerRef,
   preferMenu = false,
   menuSlot,
@@ -84,6 +94,8 @@ export function HbarComposerIntentControl({
   readonly menuSlot?: HTMLDivElement | null
   readonly onPrepared?: (() => void) | undefined
 }) {
+  const { t } = ComposerIntentControlMessages.useMessages()
+  const labels = t('intent')
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
   const planState = useHbarRuntimeState(runtime.state.composerPlanMode)

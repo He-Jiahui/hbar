@@ -26,8 +26,10 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { filterCatalogModels, modelIdsRequiringDisclosure, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
 import './composer-model-picker.css'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 import { HbarMaxModeControl, type HbarMaxModeLabels } from './max-mode-control'
 import { maximumContextWindow } from '@hbar/contracts'
+import { WORKSPACE_VIEWPORT_MEDIA } from './responsive-contract'
 
 type ModelDescriptor = ComposerModelState['models'][number]
 type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
@@ -97,6 +99,8 @@ export interface HbarComposerModelLabels {
   readonly thinkingLevel: (level: ThinkingLevel) => string
   readonly error: (code: string) => string
 }
+
+const ComposerModelMessages = createMessageScope<{ readonly modelPicker: HbarComposerModelLabels }>()
 
 // The catalog is contract-bounded at 4,096. Render 60 rows at a time in a
 // pane-owned list; search covers the whole catalog and scrolling reveals more.
@@ -213,13 +217,20 @@ function PickerPopover({
   )
 }
 
-export function HbarComposerModelPicker({
+export function HbarComposerModelPicker(props: Parameters<typeof HbarComposerModelPickerContent>[0]) {
+  return (
+    <ComposerModelMessages.Provider messages={{ modelPicker: props.labels }}>
+      <HbarComposerModelPickerContent {...props} />
+    </ComposerModelMessages.Provider>
+  )
+}
+
+function HbarComposerModelPickerContent({
   sessionId,
   connected,
   disabled,
   runActive = false,
   canSelect = true,
-  labels,
   openRequest = 0,
   onOpened,
   onOpenFailed,
@@ -237,6 +248,8 @@ export function HbarComposerModelPicker({
   /** Native desktop keeps a trigger-anchored menu even when zoom narrows CSS viewport width. */
   readonly menuPresentation?: 'native' | 'web' | undefined
 }) {
+  const { t } = ComposerModelMessages.useMessages()
+  const labels = t('modelPicker')
   const runtime = useHbarRuntime()
   const catalog = useHbarRuntimeState(runtime.state.composerModel)
   const controls = useHbarRuntimeState(runtime.state.controls)
@@ -661,7 +674,7 @@ export function HbarComposerModelPicker({
         anchor={groupRef}
         popupRef={modelRef}
         initialFocus={
-          typeof window !== 'undefined' && !window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches
+          typeof window !== 'undefined' && !window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.coarseNarrow).matches
             ? searchRef
             : undefined
         }

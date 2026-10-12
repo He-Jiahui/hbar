@@ -4,6 +4,7 @@ import { LumenContentText, LumenButton, LumenCompactUsage, LumenFrame, LumenIcon
 import type { SessionControlsState } from '@hbar/app-runtime'
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './session-usage-control.css'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionUsageLabels {
   readonly title: string
@@ -30,6 +31,8 @@ export interface HbarSessionUsageLabels {
   readonly number: (value: number) => string
   readonly error: (code: string) => string
 }
+
+const SessionUsageMessages = createMessageScope<{ readonly usage: HbarSessionUsageLabels }>()
 
 export function sessionUsagePresentation(controls: SessionControlsState, labels: HbarSessionUsageLabels) {
   const context = controls.context?.sessionId === controls.sessionId ? controls.context : null
@@ -180,6 +183,20 @@ export function HbarSessionUsageControl({
   readonly onOpenMonitor: () => void
   readonly onRefresh: () => void
 }) {
+  return (
+    <SessionUsageMessages.Provider messages={{ usage: labels }}>
+      <HbarSessionUsageControlContent controls={controls} onOpenMonitor={onOpenMonitor} onRefresh={onRefresh} />
+    </SessionUsageMessages.Provider>
+  )
+}
+
+function HbarSessionUsageControlContent({
+  controls,
+  onOpenMonitor,
+  onRefresh,
+}: Omit<Parameters<typeof HbarSessionUsageControl>[0], 'labels'>) {
+  const { t } = SessionUsageMessages.useMessages()
+  const labels = t('usage')
   const id = useId()
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)

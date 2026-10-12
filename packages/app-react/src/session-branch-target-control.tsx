@@ -5,6 +5,7 @@ import type { SessionBranchTargetPage, SessionBranchTargetSelectInput } from '@h
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-branch-target-control.css'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionBranchTargetLabels {
   readonly title: string
@@ -38,15 +39,26 @@ export interface HbarSessionBranchTargetLabels {
   readonly error: (code: string) => string
 }
 
+const SessionBranchTargetMessages = createMessageScope<{
+  readonly branchTarget: HbarSessionBranchTargetLabels
+  readonly branch: (name: string) => string
+}>()
+
 type BranchBase = NonNullable<SessionBranchTargetPage['base']>
-export function HbarSessionBranchTargetControl({
+export function HbarSessionBranchTargetControl(props: Parameters<typeof HbarSessionBranchTargetControlContent>[0]) {
+  return (
+    <SessionBranchTargetMessages.Provider messages={{ branchTarget: props.labels, branch: props.branchLabel }}>
+      <HbarSessionBranchTargetControlContent {...props} />
+    </SessionBranchTargetMessages.Provider>
+  )
+}
+
+function HbarSessionBranchTargetControlContent({
   sessionId,
   workspaceId,
   connected,
   busy,
   branch,
-  labels,
-  branchLabel,
 }: {
   readonly sessionId: string
   readonly workspaceId: string
@@ -56,6 +68,9 @@ export function HbarSessionBranchTargetControl({
   readonly labels: HbarSessionBranchTargetLabels
   readonly branchLabel: (name: string) => string
 }) {
+  const { t } = SessionBranchTargetMessages.useMessages()
+  const labels = t('branchTarget')
+  const branchLabel = t('branch')
   const runtime = useHbarRuntime()
   const projection = useHbarRuntimeState(runtime.state.sessionBranchTargetPicker)
   const captured = projection.entries[sessionId]

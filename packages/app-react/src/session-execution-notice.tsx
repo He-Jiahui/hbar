@@ -3,6 +3,7 @@ import { Archive, ShieldQuestion } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { SessionExecutionAccess, SessionExecutionTarget } from '@hbar/app-runtime'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionExecutionLabels {
   readonly archived: string
@@ -11,6 +12,8 @@ export interface HbarSessionExecutionLabels {
   readonly opening: string
   readonly error: (code: string) => string
 }
+
+const SessionExecutionMessages = createMessageScope<{ readonly execution: HbarSessionExecutionLabels }>()
 
 /** A ready fact for another target is never permission for the retained conversation. */
 export function sessionPreparationStatus(
@@ -26,11 +29,18 @@ export function sessionPreparationStatus(
 }
 
 /** One nearby status and one explicit read-only list entry, never an implicit restore or navigation. */
-export function HbarSessionExecutionNotice({
+export function HbarSessionExecutionNotice(props: Parameters<typeof HbarSessionExecutionNoticeContent>[0]) {
+  return (
+    <SessionExecutionMessages.Provider messages={{ execution: props.labels }}>
+      <HbarSessionExecutionNoticeContent {...props} />
+    </SessionExecutionMessages.Provider>
+  )
+}
+
+function HbarSessionExecutionNoticeContent({
   status,
   workspaceName,
   connected,
-  labels,
   onOpenArchived,
 }: {
   readonly status: 'ready' | 'archived' | 'unverified'
@@ -39,6 +49,8 @@ export function HbarSessionExecutionNotice({
   readonly labels: HbarSessionExecutionLabels
   readonly onOpenArchived: () => Promise<void>
 }) {
+  const { t } = SessionExecutionMessages.useMessages()
+  const labels = t('execution')
   const [opening, setOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inFlight = useRef(false)

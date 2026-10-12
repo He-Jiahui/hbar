@@ -25,6 +25,7 @@ import {
 } from './session-stop-model'
 import './session-stop.css'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 
 export interface SessionStopLabels {
   readonly sending: string
@@ -42,6 +43,8 @@ export interface SessionStopLabels {
   readonly retry: string
   readonly offline: string
 }
+
+const SessionStopMessages = createMessageScope<{ readonly stop: SessionStopLabels }>()
 
 const terminalKinds = new Set(['cancelled', 'completed', 'run-failed', 'interrupted', 'guided'])
 const SessionStopContext = createContext<{
@@ -68,7 +71,7 @@ export function HbarSessionStopNotice({ region }: { readonly region: 'main' | 't
 
 function overlayOpen(ownedTool: HTMLElement | null, ownedFeedback: HTMLElement | null = null) {
   const toolModal = ownedTool?.closest<HTMLElement>(
-    "[data-lumen-floating-mode=\"modal\"][data-lumen-floating-open=\"true\"][aria-modal=\"true\"],dialog[data-lumen-part~=\"shell.tool-drawer\"]:modal",
+    '[data-lumen-floating-mode="modal"][data-lumen-floating-open="true"][aria-modal="true"],dialog[data-lumen-part~="shell.tool-drawer"]:modal',
   )
   const modalRoot = toolModal?.closest<HTMLElement>('[data-lumen-floating-root="true"]')
   const toolLayer =
@@ -78,9 +81,11 @@ function overlayOpen(ownedTool: HTMLElement | null, ownedFeedback: HTMLElement |
   )
   const feedbackParentId = feedbackSurface?.dataset.lumenFloatingParent
   const feedbackToolbar = feedbackParentId
-    ? [...document.querySelectorAll<HTMLElement>("[data-lumen-part~=\"toolbar.overflow\"][data-lumen-floating-open=\"true\"]")].find(
-        (element) => element.dataset.lumenFloatingId === feedbackParentId,
-      )
+    ? [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-lumen-part~="toolbar.overflow"][data-lumen-floating-open="true"]',
+        ),
+      ].find((element) => element.dataset.lumenFloatingId === feedbackParentId)
     : undefined
   return [
     ...document.querySelectorAll<HTMLElement>(
@@ -101,9 +106,16 @@ function overlayOpen(ownedTool: HTMLElement | null, ownedFeedback: HTMLElement |
 }
 
 /** Only selection of a nearby notice is local; cancellation facts stay in runtime. */
-export function HbarSessionStopProvider({
+export function HbarSessionStopProvider(props: Parameters<typeof HbarSessionStopProviderContent>[0]) {
+  return (
+    <SessionStopMessages.Provider messages={{ stop: props.labels }}>
+      <HbarSessionStopProviderContent {...props} />
+    </SessionStopMessages.Provider>
+  )
+}
+
+function HbarSessionStopProviderContent({
   children,
-  labels,
   connected,
   mainRef,
   toolRef,
@@ -116,6 +128,8 @@ export function HbarSessionStopProvider({
   readonly toolRef: RefObject<HTMLElement | null>
   readonly toolPresentation: LumenToolPresentation
 }) {
+  const { t } = SessionStopMessages.useMessages()
+  const labels = t('stop')
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)

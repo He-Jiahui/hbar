@@ -23,6 +23,7 @@ import type {
 import './composer-permission-picker.css'
 import { LumenFloatingSurface, useFloatingTrigger } from '@lumen/app-ui'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 
 export interface HbarComposerPermissionLabels {
   readonly execution: {
@@ -106,6 +107,8 @@ export interface HbarComposerPermissionPickerProps {
   }
 }
 
+const ComposerPermissionMessages = createMessageScope<{ readonly permissionPicker: HbarComposerPermissionLabels }>()
+
 // Plan occupies the reference's execution-mode position, but remains a separate
 // durable Host mode. The other four entries are per-send approval choices.
 // This bounded list grows with its content; only the viewport-limited overlay scrolls.
@@ -122,7 +125,17 @@ function errorCode(reason: unknown) {
 
 /** A controlled session policy picker. The Host owns settings, drafts, and submission receipts. */
 export function HbarComposerPermissionPicker(props: HbarComposerPermissionPickerProps) {
-  const { sessionId, sessionLabel, hostDefault, connected, disabled, labels, onRefresh, onSelect } = props
+  return (
+    <ComposerPermissionMessages.Provider messages={{ permissionPicker: props.labels }}>
+      <HbarComposerPermissionPickerContent {...props} />
+    </ComposerPermissionMessages.Provider>
+  )
+}
+
+function HbarComposerPermissionPickerContent(props: Omit<HbarComposerPermissionPickerProps, 'labels'>) {
+  const { t } = ComposerPermissionMessages.useMessages()
+  const labels = t('permissionPicker')
+  const { sessionId, sessionLabel, hostDefault, connected, disabled, onRefresh, onSelect } = props
   const entry = props.entry?.sessionId === sessionId ? props.entry : undefined
   const plan = props.plan
   const planEntry = plan?.entry?.sessionId === sessionId ? plan.entry : undefined
