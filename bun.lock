@@ -63,10 +63,12 @@
       },
       "devDependencies": {
         "@eslint/js": "10.0.1",
+        "@hbar/agent": "workspace:*",
         "@hbar/app-react": "workspace:*",
         "@hbar/app-runtime": "workspace:*",
         "@hbar/commands": "workspace:*",
         "@hbar/decision-laya": "workspace:*",
+        "@hbar/image-generation": "workspace:*",
         "@mui/material": "9.4.0",
         "@playwright/test": "1.63.0",
         "@tauri-apps/cli": "2.11.4",
@@ -134,6 +136,7 @@
       "name": "@hbar/host",
       "version": "0.1.0",
       "dependencies": {
+        "@hbar/agent": "workspace:*",
         "@hbar/commands": "workspace:*",
         "@hbar/image-generation": "workspace:*",
         "@hbar/runtime-native": "workspace:*",
