@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import {
   ChevronDown,
@@ -137,7 +139,7 @@ export function AppSidebarTree({
               const expanded = !closed.has(folder.id)
               return (
                 <li key={folder.id}>
-                  <div className="lumen-tree-row">
+                  <div {...lumenPartProps("tree.row")} className="lumen-tree-row">
                     <button
                       type="button"
                       className="lumen-tree-label is-folder"
@@ -171,7 +173,7 @@ export function AppSidebarTree({
                         .map((document) => (
                           <li key={document.id}>
                             <div
-                              className={
+                              {...lumenPartProps("tree.row")} className={
                                 document.id === content.selectedDocumentId
                                   ? 'lumen-tree-row is-selected'
                                   : 'lumen-tree-row'

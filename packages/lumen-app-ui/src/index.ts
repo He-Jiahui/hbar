@@ -319,3 +319,6 @@ export type { LumenColors } from './appearance'
 export { getLumenColorProperties } from './appearance'
 export { default as createLumenTheme } from './theme'
 export type { LumenThemeOptions } from './theme'
+
+export { LUMEN_STYLE_PARTS, lumenPartProps, lumenPartSelector } from './style-contract'
+export type { LumenStylePart, LumenStylePartProps } from './style-contract'

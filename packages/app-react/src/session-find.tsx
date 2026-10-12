@@ -49,8 +49,8 @@ function scopeOf(target: EventTarget | null, root: HTMLElement): SessionFindTarg
   if (target === document.body) return 'body'
   if (!(target instanceof HTMLElement) || !root.contains(target)) return 'outside'
   if (target.closest('[data-session-find-bar]')) return 'find'
-  if (target.closest('.lumen-prompt-composer,.hbar-app-react-session-footer')) return 'composer'
-  if (target.closest('.lumen-page-header')) return 'header'
+  if (target.closest("[data-lumen-part~=\"composer.root\"],.hbar-app-react-session-footer")) return 'composer'
+  if (target.closest("[data-lumen-part~=\"page-header.root\"]")) return 'header'
   if (target.matches('input,textarea,select,[contenteditable="true"]')) return 'other-editable'
   return 'conversation'
 }
@@ -214,7 +214,7 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
           altKey: event.altKey,
           ctrlKey: event.ctrlKey,
           metaKey: event.metaKey,
-          insideViewport: Boolean(target?.closest('.lumen-conversation-messages')),
+          insideViewport: Boolean(target?.closest("[data-lumen-part~=\"conversation.messages\"]")),
           editing: Boolean(target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')),
           activationControl: Boolean(target?.closest('button,a[href],[role="button"],[role="menu"],[role="listbox"]')),
         })

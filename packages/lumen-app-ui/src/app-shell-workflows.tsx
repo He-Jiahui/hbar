@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { LumenInput, LumenTextarea, LumenChoiceSelect } from './forms'
 import LumenSurface from './LumenSurface'
@@ -840,7 +842,7 @@ export function LumenAppShellWorkflows(props: LumenAppShellWorkflowsProps) {
         >
           {props.titlebar}
           {props.header || props.slots.header ? (
-            <header className="lumen-desktop-shell-header">{props.header ?? props.slots.header}</header>
+            <header {...lumenPartProps("shell.header")} className="lumen-desktop-shell-header">{props.header ?? props.slots.header}</header>
           ) : null}
           {props.slots.desktopLayout}
           {props.overlay}

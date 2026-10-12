@@ -43,7 +43,7 @@
 }
 
 @media (max-width: 47.9375rem) {
-  .hbar-web-global-page .hbar-web-global-page-header[data-header-layout='page'] .lumen-page-heading {
+  .hbar-web-global-page .hbar-web-global-page-header[data-header-layout='page'] [data-lumen-part~="page-header.heading"] {
     flex-basis: auto;
   }
 }

@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import type { LumenSize } from './appearance'
 import LumenSurface from './LumenSurface'
@@ -196,7 +198,7 @@ export function LumenTabs({
   const current = available.find((item) => item.id === selectedId) ?? available[0]
   return (
     <div
-      className={['lumen-tabs', className].filter(Boolean).join(' ')}
+      {...lumenPartProps("tabs.root")} className={['lumen-tabs', className].filter(Boolean).join(' ')}
       role="tablist"
       aria-label={label}
       aria-orientation={orientation}

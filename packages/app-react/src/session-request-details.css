@@ -49,7 +49,7 @@
   align-items: baseline;
 }
 
-.hbar-session-request-summary > .lumen-record-trailing {
+.hbar-session-request-summary > [data-lumen-part~="record.trailing"] {
   color: var(--lumen-muted);
   font-size: var(--hbar-session-pane-meta-size);
 }

@@ -14,7 +14,7 @@
   gap: 0.25rem;
 }
 
-.hbar-web-pre-session-goal-chip span:not(.lumen-icon) {
+.hbar-web-pre-session-goal-chip span:not([data-lumen-part~="icon"]) {
   flex: 0 0 auto;
   white-space: nowrap;
 }

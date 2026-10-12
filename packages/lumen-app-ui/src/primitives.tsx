@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { type LumenShape, type LumenSize } from './appearance'
 import { type LumenState, type LumenTone } from './LumenIndicator'
@@ -59,7 +61,7 @@ export const LumenButton = React.forwardRef<HTMLButtonElement, LumenButtonProps>
     state = 'disabled'
   }
   return (
-    <button
+    <button {...lumenPartProps("button")}
       {...other}
       ref={ref}
       type={type}
@@ -166,7 +168,7 @@ export interface LumenStatusProps extends React.HTMLAttributes<HTMLSpanElement> 
 
 export function LumenStatus({ value, tone = 'neutral', className, ...other }: LumenStatusProps) {
   return (
-    <span
+    <span {...lumenPartProps("status")}
       {...other}
       className={[styles.status, className].filter(Boolean).join(' ')}
       data-lumen-component="status"

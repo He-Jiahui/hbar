@@ -9,7 +9,7 @@
   background: var(--lumen-frost);
 }
 
-.hbar-app-react-command-palette > .lumen-page-header {
+.hbar-app-react-command-palette > [data-lumen-part~="page-header.root"] {
   min-block-size: 3.75rem;
 }
 
@@ -23,7 +23,7 @@
   flex-direction: column;
 }
 
-.hbar-app-react-command-search > .lumen-command-list {
+.hbar-app-react-command-search > [data-lumen-part~="command-list"] {
   min-block-size: 0;
   block-size: 100%;
   flex: 1 1 auto;
@@ -102,7 +102,7 @@
   gap: 0.5rem;
 }
 
-.hbar-app-react-command-field > .lumen-form-field {
+.hbar-app-react-command-field > [data-lumen-part~="field.group"] {
   min-inline-size: 0;
   flex: 1 1 16rem;
 }

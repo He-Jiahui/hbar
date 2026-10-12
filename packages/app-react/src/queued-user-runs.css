@@ -74,7 +74,7 @@
 }
 
 /* A native editor viewport grows with the message, within the bounded queue pane. */
-.hbar-queued-user-run-edit-input.lumen-control {
+.hbar-queued-user-run-edit-input[data-lumen-part~="control"] {
   inline-size: auto;
   min-block-size: var(--lumen-control-size, 2.25rem);
   max-block-size: min(25vh, 8rem);

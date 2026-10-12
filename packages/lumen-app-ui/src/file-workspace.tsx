@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { LumenButton, LumenIconButton, LumenText } from './primitives'
 import './file-workspace.css'
@@ -177,10 +179,10 @@ export function LumenFileDocument({
       </LumenText>
     )
   } else if (contentAvailable) {
-    body = <div className="lumen-file-document-body">{children}</div>
+    body = <div {...lumenPartProps("file-document.body")} className="lumen-file-document-body">{children}</div>
   }
   return (
-    <section className="lumen-file-document" aria-label={path} aria-busy={loading || undefined}>
+    <section {...lumenPartProps("file-document.root")} className="lumen-file-document" aria-label={path} aria-busy={loading || undefined}>
       <header>
         {back ? (
           <LumenIconButton label={back.label} onClick={back.onInvoke}>

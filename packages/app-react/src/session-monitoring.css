@@ -34,7 +34,7 @@
   gap: var(--lumen-space-section);
 }
 
-.hbar-monitoring-content > .lumen-tabs {
+.hbar-monitoring-content > [data-lumen-part~="tabs.root"] {
   flex: 0 0 auto;
   padding-block-end: 8px;
   border-block-end: 0.0625rem solid var(--lumen-line);
@@ -163,14 +163,14 @@
   gap: 12px;
 }
 
-.hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics .lumen-compact-metrics {
+.hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics [data-lumen-part~="metrics.compact"] {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   gap: 16px;
 }
 
-.hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics .lumen-compact-metrics > div {
+.hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics [data-lumen-part~="metrics.compact"] > div {
   display: flex;
   min-inline-size: 0;
   flex: 1 1 8rem;
@@ -185,7 +185,7 @@
   font-size: var(--hbar-session-pane-meta-size);
 }
 
-.hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics .lumen-compact-metrics dd {
+.hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics [data-lumen-part~="metrics.compact"] dd {
   max-inline-size: 100%;
   font-size: calc(var(--lumen-font-size, 0.875rem) * 1.6);
   font-weight: 650;
@@ -228,7 +228,7 @@
   gap: 8px;
 }
 
-.hbar-monitoring-composition-legend .lumen-compact-metrics > div {
+.hbar-monitoring-composition-legend [data-lumen-part~="metrics.compact"] > div {
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
@@ -243,7 +243,7 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.hbar-monitoring-composition-legend .lumen-compact-metrics > div:first-child dt {
+.hbar-monitoring-composition-legend [data-lumen-part~="metrics.compact"] > div:first-child dt {
   color: var(--lumen-info);
 }
 

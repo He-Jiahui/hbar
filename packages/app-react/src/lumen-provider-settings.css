@@ -24,22 +24,22 @@
 
 /* Shared LumenDialog owns the viewport size; the editor only arranges its
    header, scrolling form body and footer within that available space. */
-.hbar-app-react-provider-modal .lumen-dialog-surface,
-.hbar-app-react-provider-modal .lumen-dialog-content,
-.hbar-app-react-provider-modal .lumen-dialog-body {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.surface"],
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.content"],
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.body"] {
   min-block-size: 0;
 }
 
-.hbar-app-react-provider-modal .lumen-dialog-surface,
-.hbar-app-react-provider-modal .lumen-dialog-content {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.surface"],
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.content"] {
   block-size: 100%;
 }
 
-.hbar-app-react-provider-modal .lumen-dialog-body {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.body"] {
   overflow: hidden;
 }
 
-.hbar-app-react-provider-modal .lumen-dialog-body > .hbar-app-react-provider-dialog {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.body"] > .hbar-app-react-provider-dialog {
   inline-size: 100%;
   min-block-size: 0;
   flex: 1 1 auto;
@@ -193,8 +193,8 @@
   flex: 1 1 0;
 }
 
-.hbar-app-react-provider-field-row > .lumen-form-field,
-.hbar-app-react-provider-capabilities > .lumen-toggle {
+.hbar-app-react-provider-field-row > [data-lumen-part~="field.group"],
+.hbar-app-react-provider-capabilities > [data-lumen-part~="toggle.root"] {
   min-inline-size: min(100%, 13rem);
   flex: 1 1 0;
 }
@@ -276,18 +276,18 @@
   gap: 0.25rem;
 }
 
-.hbar-app-react-provider-inline-action > .lumen-field,
-.hbar-app-react-provider-inline-action > .lumen-outlined-field,
-.hbar-app-react-provider-inline-action > .lumen-popup-select,
-.hbar-app-react-provider-inline-action > .lumen-combobox-control {
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field.outlined"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="select.root"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="combobox.control"] {
   min-inline-size: 0;
   flex: 1 1 auto;
 }
 
-.hbar-app-react-provider-inline-action > .lumen-field > .lumen-control,
-.hbar-app-react-provider-inline-action > .lumen-outlined-field > .lumen-control,
-.hbar-app-react-provider-inline-action > .lumen-popup-select > .lumen-control,
-.hbar-app-react-provider-inline-action > .lumen-combobox-control > .lumen-control {
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field"] > [data-lumen-part~="control"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field.outlined"] > [data-lumen-part~="control"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="select.root"] > [data-lumen-part~="control"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="combobox.control"] > [data-lumen-part~="control"] {
   inline-size: 100%;
 }
 

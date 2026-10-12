@@ -164,7 +164,7 @@ function captureSelection(root: HTMLElement): SelectionCapture {
   }
   if (blocked || textNodes === 0) return null
 
-  const pane = root.closest<HTMLElement>('.lumen-conversation-messages')
+  const pane = root.closest<HTMLElement>("[data-lumen-part~=\"conversation.messages\"]")
   const view = root.ownerDocument.defaultView
   if (!pane || !view) return null
   const paneRect = pane.getBoundingClientRect()

@@ -5,6 +5,7 @@ import createLensMap from './lensMap'
 import { type LumenShape } from './appearance'
 import { type LumenState, type LumenTone } from './LumenIndicator'
 import styles from './materials.module.css'
+import type { LumenStylePart } from './style-contract'
 
 export type LumenSurfaceElement = 'article' | 'aside' | 'div' | 'form' | 'main' | 'nav' | 'section'
 export type LumenSurfaceRole = 'canvas' | 'navigation' | 'reading' | 'raised' | 'overlay'
@@ -18,6 +19,8 @@ interface LumenSurfaceOwnProps {
   /** @deprecated The boundary is continuous; direction no longer selects a lamp edge. */
   boundary?: 'none' | 'horizontal' | 'vertical' | undefined
   contentClassName?: string | undefined
+  /** Public styling point for the content wrapper, independent of its internal class. */
+  contentPart?: LumenStylePart | undefined
   material?: 'glass' | 'frost' | 'solid' | undefined
   elevation?: 'base' | 'overlay' | undefined
   glassStrength?: number | undefined
@@ -37,6 +40,7 @@ export default function LumenSurface<Element extends LumenSurfaceElement = 'div'
   surfaceRole: suppliedSurfaceRole,
   boundary = 'none',
   contentClassName,
+  contentPart,
   material = 'glass',
   elevation = 'base',
   glassStrength = 65,
@@ -135,7 +139,12 @@ export default function LumenSurface<Element extends LumenSurfaceElement = 'div'
           </defs>
         </svg>
       )}
-      <div className={[styles.surfaceContent, contentClassName].filter(Boolean).join(' ')}>{children}</div>
+      <div
+        data-lumen-part={contentPart}
+        className={[styles.surfaceContent, contentClassName].filter(Boolean).join(' ')}
+      >
+        {children}
+      </div>
     </Component>
   )
 }

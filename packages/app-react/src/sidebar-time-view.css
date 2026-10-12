@@ -76,7 +76,7 @@
   color: var(--lumen-muted);
 }
 
-.hbar-app-react-session-context-line .lumen-icon {
+.hbar-app-react-session-context-line [data-lumen-part~="icon"] {
   flex: 0 0 auto;
 }
 

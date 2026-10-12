@@ -30,7 +30,7 @@
   display: none;
 }
 
-.hbar-app-react-session-workspace > .lumen-page-header {
+.hbar-app-react-session-workspace > [data-lumen-part~="page-header.root"] {
   min-block-size: 3.5rem;
   align-items: center;
   flex-direction: row;
@@ -40,36 +40,36 @@
   overflow: hidden;
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] {
   min-inline-size: 0;
   flex: 1 1 auto;
   overflow: hidden;
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading h1,
-.hbar-app-react-session-workspace .lumen-page-heading p {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] h1,
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] p {
   min-inline-size: 0;
   overflow-x: auto;
   text-overflow: clip;
   white-space: nowrap;
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading h1 {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] h1 {
   font-size: calc(var(--lumen-font-size) * 1.142857);
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading p {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] p {
   font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
-.hbar-app-react-session-workspace .lumen-page-header-end,
-.hbar-app-react-session-workspace .lumen-page-actions {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.end"],
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.actions"] {
   flex: 0 0 auto;
   max-inline-size: 100%;
   flex-wrap: nowrap;
 }
 
-.hbar-app-react-session-workspace .lumen-page-actions {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.actions"] {
   gap: 0.25rem;
 }
 
@@ -87,7 +87,7 @@
   font-weight: 600;
 }
 
-.hbar-app-react-session-main > .lumen-conversation {
+.hbar-app-react-session-main > [data-lumen-part~="conversation.root"] {
   gap: 0;
 }
 
@@ -96,20 +96,20 @@
   --hbar-session-reading-column-inline-gutter: 1rem;
 }
 
-.hbar-app-react-session-main .lumen-conversation-content {
+.hbar-app-react-session-main [data-lumen-part~="conversation.content"] {
   inline-size: min(100%, var(--hbar-session-reading-column-max-inline-size));
   padding-inline: var(--hbar-session-reading-column-inline-gutter);
 }
 
-.hbar-app-react-session-workspace .lumen-message-body > :first-child,
-.hbar-app-react-session-workspace .lumen-message-body > :first-child > :first-child,
-.hbar-app-react-session-workspace .lumen-message-body p {
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :first-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :first-child > :first-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] p {
   margin-block-start: 0;
 }
 
-.hbar-app-react-session-workspace .lumen-message-body > :last-child,
-.hbar-app-react-session-workspace .lumen-message-body > :last-child > :last-child,
-.hbar-app-react-session-workspace .lumen-message-body p:last-child {
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :last-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :last-child > :last-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] p:last-child {
   margin-block-end: 0;
 }
 
@@ -154,12 +154,12 @@
   display: none;
 }
 
-.hbar-app-react-session-main .lumen-conversation-messages:has(.hbar-app-react-session-empty-hero) {
+.hbar-app-react-session-main [data-lumen-part~="conversation.messages"]:has(.hbar-app-react-session-empty-hero) {
   display: flex;
   flex-direction: column;
 }
 
-.hbar-app-react-session-main .lumen-conversation-content:has(> .hbar-app-react-session-empty-hero) {
+.hbar-app-react-session-main [data-lumen-part~="conversation.content"]:has(> .hbar-app-react-session-empty-hero) {
   flex: 1 0 auto;
   align-items: center;
   justify-content: safe center;
@@ -254,24 +254,24 @@
   container-type: inline-size;
 }
 
-.hbar-app-react-session-footer .lumen-prompt-composer-surface {
+.hbar-app-react-session-footer [data-lumen-part~="composer.surface"] {
   outline: 0.0625rem solid var(--lumen-edge);
   outline-offset: -0.0625rem;
 }
 
-.hbar-app-react-session-footer .lumen-prompt-composer-surface:focus-within {
+.hbar-app-react-session-footer [data-lumen-part~="composer.surface"]:focus-within {
   outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 42%, transparent);
   outline-offset: -0.125rem;
 }
 
 @media (forced-colors: active) {
-  .hbar-app-react-session-footer .lumen-prompt-composer-surface:focus-within {
+  .hbar-app-react-session-footer [data-lumen-part~="composer.surface"]:focus-within {
     outline: 0.125rem solid CanvasText;
     outline-offset: -0.125rem;
   }
 }
 
-.hbar-app-react-session-footer .lumen-composer-toolbar > :last-child {
+.hbar-app-react-session-footer [data-lumen-part~="composer.toolbar"] > :last-child {
   min-inline-size: 0;
 }
 
@@ -357,7 +357,7 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-session-execution-summary > .lumen-icon {
+.hbar-session-execution-summary > [data-lumen-part~="icon"] {
   flex: 0 0 auto;
 }
 
@@ -381,11 +381,11 @@
     --hbar-session-reading-column-inline-gutter: 0.75rem;
   }
 
-  .hbar-app-react-session-workspace > .lumen-page-header {
+  .hbar-app-react-session-workspace > [data-lumen-part~="page-header.root"] {
     flex-wrap: wrap;
   }
 
-  .hbar-app-react-session-workspace .lumen-page-header-end {
+  .hbar-app-react-session-workspace [data-lumen-part~="page-header.end"] {
     max-inline-size: 100%;
     inline-size: 100%;
     align-items: flex-end;
@@ -393,12 +393,12 @@
     gap: 4px;
   }
 
-  .hbar-app-react-session-workspace .lumen-page-actions {
+  .hbar-app-react-session-workspace [data-lumen-part~="page-header.actions"] {
     justify-content: flex-end;
     flex-wrap: wrap;
   }
 
-  .hbar-app-react-session-workspace .lumen-page-header-end > .lumen-status {
+  .hbar-app-react-session-workspace [data-lumen-part~="page-header.end"] > [data-lumen-part~="status"] {
     max-inline-size: 100%;
     overflow-wrap: anywhere;
   }
@@ -409,7 +409,7 @@
 }
 
 @media (max-width: 47.9375rem) {
-  .hbar-app-react-session-workspace > .lumen-page-header {
+  .hbar-app-react-session-workspace > [data-lumen-part~="page-header.root"] {
     display: none;
   }
 }

@@ -8,7 +8,7 @@
   gap: 0.375rem;
 }
 
-.hbar-pre-session-location-picker > button span:not(.lumen-icon),
+.hbar-pre-session-location-picker > button span:not([data-lumen-part~="icon"]),
 .hbar-pre-session-location-picker > button small {
   flex: 0 0 auto;
   white-space: nowrap;

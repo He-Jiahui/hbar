@@ -10,7 +10,7 @@
   color: var(--lumen-ink);
 }
 
-.hbar-host-connection-notice > .lumen-icon {
+.hbar-host-connection-notice > [data-lumen-part~="icon"] {
   color: var(--lumen-warning);
 }
 

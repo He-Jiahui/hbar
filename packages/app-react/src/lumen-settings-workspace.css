@@ -11,7 +11,7 @@
   background: var(--lumen-canvas);
 }
 
-.hbar-app-react-settings-workspace > .lumen-page-header {
+.hbar-app-react-settings-workspace > [data-lumen-part~="page-header.root"] {
   min-block-size: 3.75rem;
 }
 
@@ -70,7 +70,7 @@
   text-align: start;
 }
 
-.hbar-app-react-settings-groups .lumen-icon {
+.hbar-app-react-settings-groups [data-lumen-part~="icon"] {
   flex: 0 0 auto;
 }
 
@@ -237,12 +237,12 @@
 }
 
 @container hbar-settings-workspace (max-width: 48rem) {
-  .hbar-app-react-settings-workspace > .lumen-page-header {
+  .hbar-app-react-settings-workspace > [data-lumen-part~="page-header.root"] {
     gap: 0.5rem;
     padding-inline: 0.5rem;
   }
 
-  .hbar-app-react-settings-workspace .lumen-page-heading p {
+  .hbar-app-react-settings-workspace [data-lumen-part~="page-header.heading"] p {
     max-inline-size: 100%;
   }
 
@@ -260,11 +260,11 @@
     display: flex;
   }
 
-  .hbar-app-react-settings-mobile-group > .lumen-control {
+  .hbar-app-react-settings-mobile-group > [data-lumen-part~="control"] {
     inline-size: 100%;
   }
 
-  .hbar-app-react-settings-mobile-group > .lumen-popup-select {
+  .hbar-app-react-settings-mobile-group > [data-lumen-part~="select.root"] {
     inline-size: 100%;
   }
 
@@ -282,18 +282,18 @@
 }
 
 @container hbar-settings-workspace (max-width: 30rem) {
-  .hbar-app-react-settings-workspace > .lumen-page-header {
+  .hbar-app-react-settings-workspace > [data-lumen-part~="page-header.root"] {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
   }
 
-  .hbar-app-react-settings-workspace .lumen-page-heading p {
+  .hbar-app-react-settings-workspace [data-lumen-part~="page-header.heading"] p {
     display: none;
   }
 
-  .hbar-app-react-settings-workspace .lumen-page-header-end,
-  .hbar-app-react-settings-workspace .lumen-page-actions {
+  .hbar-app-react-settings-workspace [data-lumen-part~="page-header.end"],
+  .hbar-app-react-settings-workspace [data-lumen-part~="page-header.actions"] {
     inline-size: 100%;
     flex-basis: 100%;
   }

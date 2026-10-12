@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { ArrowUp, Square } from 'lucide-react'
 import { LumenIcon } from './workbench'
@@ -136,7 +138,7 @@ export function LumenMessage({
           {streaming ? <SessionGlyph name="loading" /> : null}
         </header>
       ) : null}
-      <div className="lumen-message-body">{children}</div>
+      <div {...lumenPartProps("message.body")} className="lumen-message-body">{children}</div>
       {actionContent ? <footer>{actionContent}</footer> : null}
     </LumenSurface>
   )
@@ -230,9 +232,9 @@ export function LumenConversation({
     }
   }
   return (
-    <section className="lumen-conversation" aria-label={title}>
+    <section {...lumenPartProps("conversation.root")} className="lumen-conversation" aria-label={title}>
       {header === undefined ? (
-        <header>
+        <header {...lumenPartProps("conversation.header")}>
           <LumenText as="h2" variant="heading">
             {title}
           </LumenText>
@@ -243,10 +245,10 @@ export function LumenConversation({
       <div
         ref={viewport}
         onScroll={onScroll}
-        className="lumen-conversation-messages"
+        {...lumenPartProps("conversation.messages")} className="lumen-conversation-messages"
         data-follow-latest={followLatest ?? true}
       >
-        <div className="lumen-conversation-content">
+        <div {...lumenPartProps("conversation.content")} className="lumen-conversation-content">
           {beforeMessages}
           {messageContent}
           {afterMessages}
@@ -370,8 +372,8 @@ export function LumenPromptComposer(props: LumenPromptComposerProps) {
       as="form"
       surfaceRole="raised"
       boundary={props.boundary ?? 'horizontal'}
-      className="lumen-prompt-composer-surface"
-      contentClassName={['lumen-prompt-composer', props.className].filter(Boolean).join(' ')}
+      {...lumenPartProps("composer.surface")} className="lumen-prompt-composer-surface"
+      contentPart="composer.root" contentClassName={['lumen-prompt-composer', props.className].filter(Boolean).join(' ')}
       interactive
       material="frost"
       state={surfaceState}
@@ -448,7 +450,7 @@ export function LumenPromptComposer(props: LumenPromptComposerProps) {
           label={props.labels.input}
           moreLabel={props.toolbar.moreLabel}
           revealRequest={props.toolbar.revealRequest}
-          className="lumen-composer-toolbar"
+          {...lumenPartProps("composer.toolbar")} className="lumen-composer-toolbar"
           items={[
             ...(props.onAddAttachments
               ? [
@@ -482,7 +484,7 @@ export function LumenPromptComposer(props: LumenPromptComposerProps) {
               {runningActions?.submit === 'queue' ? (
                 <LumenButton
                   type="submit"
-                  className="lumen-composer-queue-action"
+                  {...lumenPartProps("composer.queue-action")} className="lumen-composer-queue-action"
                   title={runningActions.queueTitle}
                   tone="primary"
                   variant="text"
@@ -524,7 +526,7 @@ export function LumenPromptComposer(props: LumenPromptComposerProps) {
           }
         />
       ) : (
-        <div className="lumen-composer-toolbar">
+        <div {...lumenPartProps("composer.toolbar")} className="lumen-composer-toolbar">
           <div className="lumen-composer-control-rail" role="group" aria-label={props.labels.input} tabIndex={0}>
             <div className="lumen-composer-leading-controls">
               {props.onAddAttachments ? (
@@ -549,7 +551,7 @@ export function LumenPromptComposer(props: LumenPromptComposerProps) {
               {runningActions?.submit === 'queue' ? (
                 <LumenButton
                   type="submit"
-                  className="lumen-composer-queue-action"
+                  {...lumenPartProps("composer.queue-action")} className="lumen-composer-queue-action"
                   title={runningActions.queueTitle}
                   tone="primary"
                   variant="text"
@@ -1164,7 +1166,7 @@ export function LumenCompactUsage({
         as="section"
         boundary="horizontal"
         className="lumen-inline-usage-surface"
-        contentClassName="lumen-inline-usage"
+        contentPart="usage.inline" contentClassName="lumen-inline-usage"
         aria-label={title}
         title={description}
         data-tone={mappedTone}

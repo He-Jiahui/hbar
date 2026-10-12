@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { LumenDialog } from './dialog'
@@ -255,7 +257,7 @@ export function LumenCommandList({
   )
 
   return (
-    <section className="lumen-command-list" data-list-strategy={listStrategy} aria-label={labels.available}>
+    <section {...lumenPartProps("command-list")} className="lumen-command-list" data-list-strategy={listStrategy} aria-label={labels.available}>
       {breadcrumbPosition === 'before-query' && breadcrumb}
       {!hideQuery && (
         <LumenCommandQuery

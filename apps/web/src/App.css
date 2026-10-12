@@ -52,11 +52,11 @@
   overflow-wrap: anywhere;
 }
 
-.lumen-dialog.hbar-app-react-chat-search-dialog .lumen-dialog-body {
+[data-lumen-part~="dialog.root"].hbar-app-react-chat-search-dialog [data-lumen-part~="dialog.body"] {
   min-block-size: 0;
 }
 
-.lumen-dialog.hbar-app-react-workspace-modal .lumen-dialog-body > * {
+[data-lumen-part~="dialog.root"].hbar-app-react-workspace-modal [data-lumen-part~="dialog.body"] > * {
   min-inline-size: 0;
   min-block-size: 0;
   flex: 1 1 auto;

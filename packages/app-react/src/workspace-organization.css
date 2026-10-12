@@ -11,8 +11,8 @@
   gap: 0.125rem;
 }
 
-.hbar-app-react-project-menu .lumen-action-menu-popup,
-.hbar-app-react-project-organization-menu .lumen-action-menu-popup {
+.hbar-app-react-project-menu [data-lumen-part~="menu.popup"],
+.hbar-app-react-project-organization-menu [data-lumen-part~="menu.popup"] {
   background: var(--lumen-contrast);
 }
 

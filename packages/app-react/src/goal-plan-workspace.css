@@ -19,7 +19,7 @@
   gap: 0.25rem;
 }
 
-.hbar-app-react-goal-plan-workspace .lumen-tool-pane-body > main {
+.hbar-app-react-goal-plan-workspace [data-lumen-part~="tool-pane.body"] > main {
   display: flex;
   min-inline-size: 0;
   flex: 0 0 auto;
@@ -50,7 +50,7 @@
   border: 0;
 }
 
-.hbar-app-react-plan-editor-view > .lumen-plan-editor {
+.hbar-app-react-plan-editor-view > [data-lumen-part~="plan-editor"] {
   flex: 0 0 auto;
 }
 

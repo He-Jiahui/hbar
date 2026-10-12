@@ -13,7 +13,7 @@
   gap: 0.375rem;
 }
 
-.hbar-pre-session-choice-picker > button span:not(.lumen-icon) {
+.hbar-pre-session-choice-picker > button span:not([data-lumen-part~="icon"]) {
   flex: 0 0 auto;
   white-space: nowrap;
 }
@@ -28,7 +28,7 @@ dialog.hbar-pre-session-choice-dialog header button > [data-edge] {
   display: none;
 }
 
-dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
+dialog.hbar-pre-session-choice-dialog [data-lumen-part~="dialog.body"] {
   overflow: hidden;
 }
 
@@ -100,16 +100,16 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   outline-offset: 0.125rem;
 }
 
-.hbar-pre-session-choice-search > .lumen-control {
+.hbar-pre-session-choice-search > [data-lumen-part~="control"] {
   min-inline-size: 0;
   flex: 1 1 auto;
 }
 
-.hbar-pre-session-choice-search > input.lumen-control[data-lumen-variant='plain']:focus-visible {
+.hbar-pre-session-choice-search > input[data-lumen-part~="control"][data-lumen-variant='plain']:focus-visible {
   outline: none;
 }
 
-.hbar-pre-session-choice-search > .lumen-control::-webkit-search-cancel-button {
+.hbar-pre-session-choice-search > [data-lumen-part~="control"]::-webkit-search-cancel-button {
   appearance: none;
 }
 

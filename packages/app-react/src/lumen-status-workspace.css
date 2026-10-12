@@ -14,7 +14,7 @@
   margin-block: 0.75rem;
 }
 
-.hbar-app-react-status-workspace > .lumen-page-header {
+.hbar-app-react-status-workspace > [data-lumen-part~="page-header.root"] {
   flex: 0 0 auto;
   flex-direction: row;
   flex-wrap: wrap;
@@ -22,7 +22,7 @@
   min-block-size: 3.75rem;
 }
 
-.hbar-app-react-status-workspace > .lumen-page-header > .lumen-page-heading {
+.hbar-app-react-status-workspace > [data-lumen-part~="page-header.root"] > [data-lumen-part~="page-header.heading"] {
   flex-basis: 0;
 }
 
@@ -36,8 +36,8 @@
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-status-controls > .lumen-form-field,
-.hbar-app-react-status-filter-details .lumen-form-field {
+.hbar-app-react-status-controls > [data-lumen-part~="field.group"],
+.hbar-app-react-status-filter-details [data-lumen-part~="field.group"] {
   display: flex;
   min-inline-size: min(100%, 12rem);
   flex: 1 1 14rem;
@@ -46,12 +46,12 @@
   gap: 0.25rem;
 }
 
-.hbar-app-react-status-controls .lumen-popup-select {
+.hbar-app-react-status-controls [data-lumen-part~="select.root"] {
   min-inline-size: 0;
   inline-size: 100%;
 }
 
-.hbar-app-react-status-controls .lumen-popup-select-label {
+.hbar-app-react-status-controls [data-lumen-part~="select.label"] {
   text-overflow: clip;
 
   min-inline-size: max-content;
@@ -59,13 +59,13 @@
   white-space: nowrap;
 }
 
-.hbar-app-react-status-controls .lumen-checkbox {
+.hbar-app-react-status-controls [data-lumen-part~="checkbox"] {
   align-self: center;
   min-inline-size: min(100%, 12rem);
   flex: 1 1 14rem;
 }
 
-.hbar-app-react-usage-controls > .lumen-form-field {
+.hbar-app-react-usage-controls > [data-lumen-part~="field.group"] {
   min-inline-size: min(100%, 12rem);
   flex: 1 1 12rem;
 }
@@ -115,25 +115,25 @@
   padding-block-start: 0.5rem;
 }
 
-.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-content > div > .lumen-form-field {
+.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-content > div > [data-lumen-part~="field.group"] {
   flex: 1 1 14rem;
 }
 
-.hbar-app-react-git-source-options > .lumen-checkbox {
+.hbar-app-react-git-source-options > [data-lumen-part~="checkbox"] {
   flex: 1 1 10rem;
 }
 
-.hbar-app-react-git-controls > .lumen-form-field > label {
+.hbar-app-react-git-controls > [data-lumen-part~="field.group"] > label {
   min-inline-size: max-content;
   max-inline-size: none;
   white-space: nowrap;
 }
 
-.hbar-app-react-status-controls > .lumen-action-menu {
+.hbar-app-react-status-controls > [data-lumen-part~="menu.root"] {
   margin-inline-start: auto;
 }
 
-.hbar-app-react-status-controls > .lumen-action-menu + p {
+.hbar-app-react-status-controls > [data-lumen-part~="menu.root"] + p {
   flex: 1 1 100%;
   min-inline-size: 100%;
 }
@@ -252,7 +252,7 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-app-react-usage-latency .lumen-compact-metrics > div {
+.hbar-app-react-usage-latency [data-lumen-part~="metrics.compact"] > div {
   flex-basis: 14rem;
 }
 
@@ -274,17 +274,17 @@
   background: var(--lumen-reading);
 }
 
-.hbar-app-react-git-charts .lumen-bar-series {
+.hbar-app-react-git-charts [data-lumen-part~="metrics.bars"] {
   min-block-size: 6rem;
 }
 
-.hbar-app-react-git-charts .is-files .lumen-bar-series > i,
-.hbar-app-react-git-charts .is-files .lumen-bar-series > button {
+.hbar-app-react-git-charts .is-files [data-lumen-part~="metrics.bars"] > i,
+.hbar-app-react-git-charts .is-files [data-lumen-part~="metrics.bars"] > button {
   background: var(--lumen-success);
 }
 
-.hbar-app-react-git-charts .is-changes .lumen-bar-series > i,
-.hbar-app-react-git-charts .is-changes .lumen-bar-series > button {
+.hbar-app-react-git-charts .is-changes [data-lumen-part~="metrics.bars"] > i,
+.hbar-app-react-git-charts .is-changes [data-lumen-part~="metrics.bars"] > button {
   background: var(--lumen-warning);
 }
 
@@ -292,11 +292,11 @@
   color: var(--lumen-muted);
 }
 
-.hbar-app-react-git-status > .hbar-app-react-status-details .lumen-compact-metrics > div:first-child {
+.hbar-app-react-git-status > .hbar-app-react-status-details [data-lumen-part~="metrics.compact"] > div:first-child {
   flex-basis: 24rem;
 }
 
-.hbar-app-react-git-status > .hbar-app-react-status-details .lumen-compact-metrics > div:first-child dd {
+.hbar-app-react-git-status > .hbar-app-react-status-details [data-lumen-part~="metrics.compact"] > div:first-child dd {
   text-align: start;
 }
 

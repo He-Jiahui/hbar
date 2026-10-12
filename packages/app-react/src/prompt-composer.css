@@ -18,7 +18,7 @@
 
 /* Closed composer controls stay single-line as labels and run state update.
    Popover/dialog content retains its own readable text flow. */
-.hbar-prompt-composer .lumen-composer-toolbar button:not([popover] button, dialog button) {
+.hbar-prompt-composer [data-lumen-part~="composer.toolbar"] button:not([popover] button, dialog button) {
   flex: 0 0 auto;
   max-inline-size: none;
   min-inline-size: 0;
@@ -30,7 +30,7 @@
   flex-wrap: nowrap;
 }
 
-.hbar-prompt-composer .lumen-composer-queue-action {
+.hbar-prompt-composer [data-lumen-part~="composer.queue-action"] {
   inline-size: max-content;
   text-align: start;
 }

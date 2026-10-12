@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { LumenInput, type LumenInputProps } from './forms'
 import './range.css'
@@ -34,7 +36,7 @@ export const LumenRange = React.forwardRef<HTMLInputElement, LumenRangeProps>(fu
     <LumenInput
       {...props}
       ref={ref}
-      className={['lumen-range', className].filter(Boolean).join(' ')}
+      {...lumenPartProps("range")} className={['lumen-range', className].filter(Boolean).join(' ')}
       style={rangeStyle}
       onInput={(event) => {
         if (props.value === undefined) {

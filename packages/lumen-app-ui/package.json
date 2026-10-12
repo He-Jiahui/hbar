@@ -51,7 +51,8 @@
     "./session-components": "./src/session-components.tsx",
     "./workspace-components": "./src/workspace-components.tsx",
     "./workbench": "./src/workbench.tsx",
-    "./catalog/styles.css": "./src/catalog-styles.css"
+    "./catalog/styles.css": "./src/catalog-styles.css",
+    "./style-contract": "./src/style-contract.ts"
   },
   "publishConfig": {
     "exports": {
@@ -204,7 +205,11 @@
         "types": "./dist/types/workbench.d.ts",
         "import": "./dist/workbench.js"
       },
-      "./catalog/styles.css": "./dist/app-ui.css"
+      "./catalog/styles.css": "./dist/app-ui.css",
+      "./style-contract": {
+        "types": "./dist/types/style-contract.d.ts",
+        "import": "./dist/style-contract.js"
+      }
     }
   },
   "scripts": {

@@ -68,7 +68,7 @@ export function HbarSessionStopNotice({ region }: { readonly region: 'main' | 't
 
 function overlayOpen(ownedTool: HTMLElement | null, ownedFeedback: HTMLElement | null = null) {
   const toolModal = ownedTool?.closest<HTMLElement>(
-    '[data-lumen-floating-mode="modal"][data-lumen-floating-open="true"][aria-modal="true"],dialog.lumen-app-tool-drawer:modal',
+    "[data-lumen-floating-mode=\"modal\"][data-lumen-floating-open=\"true\"][aria-modal=\"true\"],dialog[data-lumen-part~=\"shell.tool-drawer\"]:modal",
   )
   const modalRoot = toolModal?.closest<HTMLElement>('[data-lumen-floating-root="true"]')
   const toolLayer =
@@ -78,7 +78,7 @@ function overlayOpen(ownedTool: HTMLElement | null, ownedFeedback: HTMLElement |
   )
   const feedbackParentId = feedbackSurface?.dataset.lumenFloatingParent
   const feedbackToolbar = feedbackParentId
-    ? [...document.querySelectorAll<HTMLElement>('.lumen-toolbar-overflow[data-lumen-floating-open="true"]')].find(
+    ? [...document.querySelectorAll<HTMLElement>("[data-lumen-part~=\"toolbar.overflow\"][data-lumen-floating-open=\"true\"]")].find(
         (element) => element.dataset.lumenFloatingId === feedbackParentId,
       )
     : undefined

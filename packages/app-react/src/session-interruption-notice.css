@@ -9,6 +9,6 @@
   font-size: var(--hbar-session-meta-size, var(--lumen-font-size));
 }
 
-.hbar-session-interruption-notice > .lumen-button {
+.hbar-session-interruption-notice > [data-lumen-part~="button"] {
   margin-inline-start: auto;
 }

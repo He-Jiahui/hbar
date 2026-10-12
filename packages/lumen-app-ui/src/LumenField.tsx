@@ -1,3 +1,4 @@
+import { lumenPartProps } from './style-contract'
 import * as React from 'react'
 import { type LumenShape } from './appearance'
 import { type LumenState, type LumenTone } from './LumenIndicator'
@@ -29,7 +30,7 @@ export default function LumenField({
   return (
     <div
       {...other}
-      className={['lumen-effect', 'lumen-outlined-field', styles.field, className].filter(Boolean).join(' ')}
+      {...lumenPartProps("field.outlined", "field")} className={['lumen-effect', 'lumen-outlined-field', styles.field, className].filter(Boolean).join(' ')}
       data-lumen-state={resolvedState}
       data-lumen-tone={resolvedTone}
       data-boundary={boundary}

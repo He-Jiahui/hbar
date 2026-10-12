@@ -7,6 +7,7 @@ export default defineConfig({
       entry: {
         index: resolve(import.meta.dirname, 'src/index.ts'),
         appearance: resolve(import.meta.dirname, 'src/appearance.ts'),
+        'style-contract': resolve(import.meta.dirname, 'src/style-contract.ts'),
         provider: resolve(import.meta.dirname, 'src/LumenProvider.tsx'),
         primitives: resolve(import.meta.dirname, 'src/primitives.tsx'),
         forms: resolve(import.meta.dirname, 'src/forms.tsx'),

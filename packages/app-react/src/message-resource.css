@@ -1,7 +1,7 @@
 .hbar-message-resource-link {
   overflow-wrap: anywhere;
 }
-.hbar-message-resource-link > .lumen-icon,
+.hbar-message-resource-link > [data-lumen-part~="icon"],
 .hbar-resource-icon {
   display: inline-flex;
   vertical-align: middle;

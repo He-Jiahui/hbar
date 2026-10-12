@@ -20,7 +20,7 @@
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-chat-search-header > .lumen-icon {
+.hbar-chat-search-header > [data-lumen-part~="icon"] {
   flex: 0 0 auto;
   color: var(--lumen-muted);
 }

@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import type { LumenSize } from './appearance'
 import type { LumenControlOption } from './forms'
@@ -297,7 +299,7 @@ export const LumenToggleGroup = React.forwardRef<HTMLDivElement, LumenToggleGrou
         {...rootProps}
         ref={forwardedRef}
         id={controlId}
-        className={['lumen-toggle-group', className].filter(Boolean).join(' ')}
+        {...lumenPartProps("toggle-group.root")} className={['lumen-toggle-group', className].filter(Boolean).join(' ')}
         data-size={resolvedSize}
         data-type={type}
         data-value={isSingle ? (selectedValue ?? '') : undefined}
@@ -323,7 +325,7 @@ export const LumenToggleGroup = React.forwardRef<HTMLDivElement, LumenToggleGrou
                 key={option.id}
                 ref={(button) => setButtonRef(option.id, button)}
                 type="button"
-                className={['lumen-toggle-option', 'lumen-effect', selected ? 'is-selected' : '']
+                {...lumenPartProps("toggle-group.option")} className={['lumen-toggle-option', 'lumen-effect', selected ? 'is-selected' : '']
                   .filter(Boolean)
                   .join(' ')}
                 data-value={option.id}

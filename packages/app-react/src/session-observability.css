@@ -29,8 +29,8 @@
 .hbar-observability-range-actions > :first-child {
   flex: 1 1 10rem;
 }
-.hbar-observability-scope > .lumen-tabs,
-.hbar-observability-records > .lumen-tabs {
+.hbar-observability-scope > [data-lumen-part~="tabs.root"],
+.hbar-observability-records > [data-lumen-part~="tabs.root"] {
   flex-wrap: wrap;
   min-inline-size: 0;
   max-inline-size: 100%;

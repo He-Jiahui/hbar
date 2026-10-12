@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import { MoreHorizontal } from 'lucide-react'
@@ -66,7 +68,7 @@ export function LumenRecordRow({
         ) : null}
         {children}
       </Group>
-      {trailing ? <Group className="lumen-record-trailing">{trailing}</Group> : null}
+      {trailing ? <Group {...lumenPartProps("record.trailing")} className="lumen-record-trailing">{trailing}</Group> : null}
     </Root>
   )
 }
@@ -338,7 +340,7 @@ function MeasuredToolbar({ label, moreLabel, items, trailing, className, revealR
         onClose={() => setOpen(false)}
         role="dialog"
         aria-label={moreLabel}
-        className="lumen-toolbar-overflow"
+        {...lumenPartProps("toolbar.overflow")} className="lumen-toolbar-overflow"
       >
         {unique.map((item) => (
           <div

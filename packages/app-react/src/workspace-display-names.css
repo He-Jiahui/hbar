@@ -13,7 +13,7 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-workspace-display-name-form .lumen-control {
+.hbar-workspace-display-name-form [data-lumen-part~="control"] {
   inline-size: 100%;
   min-inline-size: 0;
 }

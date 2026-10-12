@@ -106,7 +106,7 @@
 }
 
 .hbar-app-react-workspace-sort-chevron,
-.hbar-app-react-workspace-sort-submenu > button > .lumen-icon[data-tier='sm'] {
+.hbar-app-react-workspace-sort-submenu > button > [data-lumen-part~="icon"][data-tier='sm'] {
   flex: 0 0 auto;
   margin-inline-start: auto;
 }

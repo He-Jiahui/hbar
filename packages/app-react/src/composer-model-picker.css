@@ -151,15 +151,15 @@
   outline-offset: 0.0625rem;
 }
 
-.hbar-composer-model-search > .lumen-control {
+.hbar-composer-model-search > [data-lumen-part~="control"] {
   flex: 1 1 auto;
 }
 
-.hbar-composer-model-search > input.lumen-control[data-lumen-variant='plain']:focus-visible {
+.hbar-composer-model-search > input[data-lumen-part~="control"][data-lumen-variant='plain']:focus-visible {
   outline: none;
 }
 
-.hbar-composer-model-search > .lumen-control::-webkit-search-cancel-button {
+.hbar-composer-model-search > [data-lumen-part~="control"]::-webkit-search-cancel-button {
   appearance: none;
 }
 
@@ -299,7 +299,7 @@
   background: var(--lumen-ink);
 }
 
-.hbar-composer-thinking-scale .hbar-composer-thinking-slider.lumen-range {
+.hbar-composer-thinking-scale .hbar-composer-thinking-slider[data-lumen-part~="range"] {
   inline-size: 100%;
   min-block-size: 1.625rem;
   block-size: 1.625rem;
@@ -335,7 +335,7 @@
     color: CanvasText;
   }
 
-  .hbar-composer-thinking-scale .hbar-composer-thinking-slider.lumen-range {
+  .hbar-composer-thinking-scale .hbar-composer-thinking-slider[data-lumen-part~="range"] {
     background: linear-gradient(to right, Highlight 0 var(--hbar-thinking-progress), Canvas 0 100%);
     background-size: 100% 0.875rem;
     background-position: center;

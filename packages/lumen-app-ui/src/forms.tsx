@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { type LumenSize } from './appearance'
 import LumenField from './LumenField'
@@ -128,7 +130,7 @@ export function LumenFormField({
 
   return (
     <div
-      className={['lumen-form-field', className].filter(Boolean).join(' ')}
+      {...lumenPartProps("field.group")} className={['lumen-form-field', className].filter(Boolean).join(' ')}
       data-invalid={Boolean(error) || undefined}
     >
       <label htmlFor={controlId}>
@@ -232,7 +234,7 @@ export const LumenInput = React.forwardRef<HTMLInputElement, LumenInputProps>(fu
       {...other}
       ref={ref}
       data-lumen-component="input"
-      className={controlClass(className)}
+      {...lumenPartProps("control")} className={controlClass(className)}
       data-size={size ?? (typeof compatibilitySize === 'string' ? compatibilitySize : undefined)}
       data-lumen-variant={lumenVariant}
       data-variant={typeof compatibilityVariant === 'string' ? compatibilityVariant : variant}
@@ -264,7 +266,7 @@ export const LumenTextarea = React.forwardRef<HTMLTextAreaElement, LumenTextarea
       {...other}
       ref={ref}
       data-lumen-component="textarea"
-      className={controlClass(className)}
+      {...lumenPartProps("control")} className={controlClass(className)}
       data-size={size ?? (typeof compatibilitySize === 'string' ? compatibilitySize : undefined)}
       data-lumen-variant={lumenVariant}
       data-variant={typeof compatibilityVariant === 'string' ? compatibilityVariant : variant}
@@ -297,7 +299,7 @@ export const LumenSelect = React.forwardRef<HTMLSelectElement, LumenSelectProps>
       {...other}
       ref={ref}
       data-lumen-component="select"
-      className={controlClass(className)}
+      {...lumenPartProps("control")} className={controlClass(className)}
       data-size={size ?? (typeof compatibilitySize === 'string' ? compatibilitySize : undefined)}
       data-lumen-variant={lumenVariant}
       data-variant={typeof compatibilityVariant === 'string' ? compatibilityVariant : variant}
@@ -368,7 +370,7 @@ export const LumenCheckBox = React.forwardRef<HTMLInputElement, LumenCheckBoxPro
   ref,
 ) {
   return (
-    <label className={['lumen-checkbox', className].filter(Boolean).join(' ')}>
+    <label {...lumenPartProps("checkbox")} className={['lumen-checkbox', className].filter(Boolean).join(' ')}>
       <LumenCheckBoxControl {...other} ref={ref} size={size} />
       <span className="lumen-checkbox-copy">
         <LumenText as="span" variant="label" size={size}>
@@ -420,7 +422,7 @@ export const LumenToggle = React.forwardRef<HTMLInputElement, LumenToggleProps>(
   ref,
 ) {
   return (
-    <label className={['lumen-toggle', className].filter(Boolean).join(' ')}>
+    <label {...lumenPartProps("toggle.root")} className={['lumen-toggle', className].filter(Boolean).join(' ')}>
       <span className="lumen-toggle-copy">
         <LumenText as="span" variant="label" size={size}>
           {label}
@@ -624,7 +626,7 @@ export function LumenComboBox({
 
   const control = (
     <div
-      className="lumen-combobox-control lumen-effect"
+      {...lumenPartProps("combobox.control")} className="lumen-combobox-control lumen-effect"
       data-size={size}
       data-variant={variant}
       data-invalid={resolvedInvalid || undefined}

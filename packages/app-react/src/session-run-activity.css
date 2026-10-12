@@ -16,8 +16,8 @@
   gap: 8px;
 }
 
-.hbar-session-run-current > .lumen-button,
-.hbar-session-run-row > .lumen-button {
+.hbar-session-run-current > [data-lumen-part~="button"],
+.hbar-session-run-row > [data-lumen-part~="button"] {
   margin-inline-start: auto;
 }
 

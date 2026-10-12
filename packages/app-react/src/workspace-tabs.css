@@ -131,25 +131,25 @@
 }
 
 /* The reference close choice is an opaque, naturally sized modal over a simple scrim. */
-.hbar-workspace-tabs-close-dialog.lumen-dialog {
+.hbar-workspace-tabs-close-dialog[data-lumen-part~="dialog.root"] {
   --lumen-dialog-width: 29rem;
 }
-.hbar-workspace-tabs-close-dialog.lumen-dialog::backdrop {
+.hbar-workspace-tabs-close-dialog[data-lumen-part~="dialog.root"]::backdrop {
   backdrop-filter: none;
 }
-.hbar-workspace-tabs-close-dialog .lumen-dialog-surface {
+.hbar-workspace-tabs-close-dialog [data-lumen-part~="dialog.surface"] {
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: 1rem;
   background: var(--lumen-contrast);
 }
-.hbar-workspace-tabs-close-dialog .lumen-dialog-surface > [data-edge],
-.hbar-workspace-tabs-close-dialog .lumen-dialog-content > [role='separator'] {
+.hbar-workspace-tabs-close-dialog [data-lumen-part~="dialog.surface"] > [data-edge],
+.hbar-workspace-tabs-close-dialog [data-lumen-part~="dialog.content"] > [role='separator'] {
   display: none;
 }
-.hbar-workspace-tabs-close-dialog .lumen-dialog-content > header {
+.hbar-workspace-tabs-close-dialog [data-lumen-part~="dialog.content"] > header {
   padding: 1.25rem 1.5rem 0.5rem;
 }
-.hbar-workspace-tabs-close-dialog .lumen-dialog-content > footer {
+.hbar-workspace-tabs-close-dialog [data-lumen-part~="dialog.content"] > footer {
   padding: 0.5rem 1.5rem 1.25rem;
 }
 .hbar-workspace-tabs-close-dialog .hbar-workspace-tabs-close-body {

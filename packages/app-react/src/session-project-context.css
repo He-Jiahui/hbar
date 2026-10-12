@@ -57,8 +57,7 @@
   display: flex;
 }
 
-.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]):has(
-    .lumen-composer-toolbar > button[aria-expanded='true']
+.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]):has([data-lumen-part~="composer.toolbar"] > button[aria-expanded='true']
   )
   .hbar-session-project-context-below {
   /* Keep the row in flow while its duplicate is disclosed in More. Closing

@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import type { LumenSize } from './appearance'
 import LumenField from './LumenField'
@@ -224,7 +226,7 @@ export const LumenPopupSelect = React.forwardRef<HTMLButtonElement, LumenPopupSe
       ref={triggerRef}
       id={controlId}
       type="button"
-      className="lumen-popup-select-trigger lumen-control"
+      {...lumenPartProps("control", "select.trigger")} className="lumen-popup-select-trigger lumen-control"
       data-size={resolvedSize}
       data-lumen-variant={lumenVariant}
       data-value={value ?? ''}
@@ -250,7 +252,7 @@ export const LumenPopupSelect = React.forwardRef<HTMLButtonElement, LumenPopupSe
       onBlur={onBlur}
     >
       <span
-        className={['lumen-popup-select-label', selected || stale ? '' : 'is-placeholder'].filter(Boolean).join(' ')}
+        {...lumenPartProps("select.label")} className={['lumen-popup-select-label', selected || stale ? '' : 'is-placeholder'].filter(Boolean).join(' ')}
       >
         {label}
       </span>
@@ -261,7 +263,7 @@ export const LumenPopupSelect = React.forwardRef<HTMLButtonElement, LumenPopupSe
   return (
     <div
       ref={rootRef}
-      className={['lumen-popup-select', className].filter(Boolean).join(' ')}
+      {...lumenPartProps("select.root")} className={['lumen-popup-select', className].filter(Boolean).join(' ')}
       data-size={resolvedSize}
       data-variant={typeof compatibilityVariant === 'string' ? compatibilityVariant : variant}
       data-invalid={invalid || undefined}

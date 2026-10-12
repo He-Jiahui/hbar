@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { LumenInput, LumenSelect } from './forms'
 import { LumenButton, LumenIconButton, LumenText } from './primitives'
@@ -111,7 +113,7 @@ export function LumenPlanEditor({
   const includedCount = steps.filter((step) => step.state !== 'skipped').length
 
   return (
-    <section className="lumen-plan-editor" aria-label={labels.title} aria-busy={busy || undefined}>
+    <section {...lumenPartProps("plan-editor")} className="lumen-plan-editor" aria-label={labels.title} aria-busy={busy || undefined}>
       <header>
         <LumenText as="h2" variant="heading">
           {labels.title}

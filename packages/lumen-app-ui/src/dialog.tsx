@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import LumenDivider from './LumenDivider'
 import LumenSurface from './LumenSurface'
@@ -53,7 +55,7 @@ export function LumenDialog({
       onClose={onClose}
       initialFocusRef={initialFocus}
       label={title}
-      className={['lumen-dialog', 'hbar-app-ui-native-dialog', chromeless ? 'is-chromeless' : '', className]
+      {...lumenPartProps("dialog.root")} className={['lumen-dialog', 'hbar-app-ui-native-dialog', chromeless ? 'is-chromeless' : '', className]
         .filter(Boolean)
         .join(' ')}
       backdropClassName="hbar-app-ui-dialog-backdrop"
@@ -63,13 +65,13 @@ export function LumenDialog({
     >
       <LumenSurface
         boundary={appearance === 'panel' ? 'none' : 'horizontal'}
-        className="lumen-dialog-surface"
-        contentClassName="lumen-dialog-content"
+        {...lumenPartProps("dialog.surface")} className="lumen-dialog-surface"
+        contentPart="dialog.content" contentClassName="lumen-dialog-content"
         material={appearance === 'panel' ? 'solid' : 'glass'}
       >
         {!chromeless ? (
           <React.Fragment>
-            <header>
+            <header {...lumenPartProps("dialog.header")}>
               <LumenContentText context="dialog.title">{title}</LumenContentText>
               <LumenIconButton label={closeLabel} onClick={onClose}>
                 <CloseGlyph />
@@ -78,11 +80,11 @@ export function LumenDialog({
             {appearance === 'glass' ? <LumenDivider /> : null}
           </React.Fragment>
         ) : null}
-        <div className="lumen-dialog-body hbar-app-ui-native-dialog-body">{children}</div>
+        <div {...lumenPartProps("dialog.body")} className="lumen-dialog-body hbar-app-ui-native-dialog-body">{children}</div>
         {footer ? (
           <React.Fragment>
             {appearance === 'glass' ? <LumenDivider /> : null}
-            <footer>{footer}</footer>
+            <footer {...lumenPartProps("dialog.footer")}>{footer}</footer>
           </React.Fragment>
         ) : null}
       </LumenSurface>

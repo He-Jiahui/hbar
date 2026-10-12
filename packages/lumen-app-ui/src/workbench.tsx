@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { type LumenSize } from './appearance'
 import { LumenButton, LumenIconButton, LumenNavigationButton, LumenStatus, LumenText } from './primitives'
@@ -26,7 +28,7 @@ export function LumenIcon({ icon: Icon, tier = 'md', className, ...other }: Lume
   return (
     <Icon
       {...other}
-      className={['lumen-icon', className].filter(Boolean).join(' ')}
+      {...lumenPartProps("icon")} className={['lumen-icon', className].filter(Boolean).join(' ')}
       data-tier={tier}
       aria-hidden="true"
       focusable="false"
@@ -211,11 +213,11 @@ export function LumenAppShell({
               )
             ) : null}
             {tool && toolLayout?.constrainedPresentation === 'drawer' ? (
-              <div ref={toolDock} className="lumen-app-tool-drawer" hidden={paneLayout?.presentation !== 'split'} />
+              <div ref={toolDock} {...lumenPartProps("shell.tool-drawer")} className="lumen-app-tool-drawer" hidden={paneLayout?.presentation !== 'split'} />
             ) : tool ? (
               <aside
                 ref={toolRef}
-                className="lumen-app-tool-drawer hbar-app-ui-app-tool-drawer"
+                {...lumenPartProps("shell.tool-drawer")} className="lumen-app-tool-drawer hbar-app-ui-app-tool-drawer"
                 aria-label={toolLabel}
                 tabIndex={-1}
               >
@@ -371,31 +373,31 @@ export function LumenAppSidebar({
   actions,
 }: LumenAppSidebarProps) {
   return (
-    <aside className="lumen-app-sidebar hbar-app-ui-app-sidebar" aria-label={title}>
-      <header>
+    <aside {...lumenPartProps("sidebar.root")} className="lumen-app-sidebar hbar-app-ui-app-sidebar" aria-label={title}>
+      <header {...lumenPartProps("sidebar.header")}>
         <div className="lumen-app-brand-row">
-          <LumenText as="strong" variant="title" className="lumen-app-brand">
+          <LumenText as="strong" variant="title" {...lumenPartProps("sidebar.brand")} className="lumen-app-brand">
             {brand}
           </LumenText>
           {brandAction}
         </div>
         {primaryActions}
       </header>
-      <div className="lumen-app-sidebar-title">
+      <div {...lumenPartProps("sidebar.title")} className="lumen-app-sidebar-title">
         <LumenText as="h2" variant="label" tone="muted">
           {title}
         </LumenText>
         {treeAction}
       </div>
-      <div className="lumen-app-sidebar-content">
+      <div {...lumenPartProps("sidebar.content")} className="lumen-app-sidebar-content">
         {children ?? (
           <LumenText as="p" tone="muted">
             {emptyLabel}
           </LumenText>
         )}
       </div>
-      <footer>
-        <div className="lumen-app-host-status">
+      <footer {...lumenPartProps("sidebar.footer")}>
+        <div {...lumenPartProps("sidebar.status")} className="lumen-app-host-status">
           <LumenStatus value={status.label} tone={status.tone} />
           <LumenText as="small" tone="subtle" variant="supporting">
             {status.value}
@@ -505,12 +507,12 @@ export function LumenActionMenu<ActionId extends string = string>({
   }, [availableItems.length, focusItem, open])
 
   return (
-    <div className="lumen-action-menu hbar-app-ui-action-menu" data-open={open || undefined}>
+    <div {...lumenPartProps("menu.root")} className="lumen-action-menu hbar-app-ui-action-menu" data-open={open || undefined}>
       <Trigger
         ref={triggerRef}
         type="button"
         {...(labelVisible ? { variant: 'text' as const } : {})}
-        className={labelVisible ? 'lumen-action-menu-trigger-label' : 'lumen-action-menu-trigger'}
+        {...lumenPartProps("menu.trigger")} className={labelVisible ? 'lumen-action-menu-trigger-label' : 'lumen-action-menu-trigger'}
         aria-label={label}
         title={label}
         aria-haspopup="menu"
@@ -545,7 +547,7 @@ export function LumenActionMenu<ActionId extends string = string>({
         initialFocusRef={firstItemRef}
         placement="below"
         id={menuId}
-        className="lumen-action-menu-popup hbar-app-ui-dialog-menu"
+        {...lumenPartProps("menu.popup")} className="lumen-action-menu-popup hbar-app-ui-dialog-menu"
         role="menu"
         aria-label={label}
       >

@@ -9,7 +9,7 @@
   overflow: hidden;
 }
 
-.hbar-app-react-sidebar-surface > .lumen-app-sidebar {
+.hbar-app-react-sidebar-surface > [data-lumen-part~="sidebar.root"] {
   min-block-size: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -18,29 +18,29 @@
 /* The shared tree intentionally preserves max-content rows for standalone
    tree demos. The production project tree must instead yield to its pane so
    long workspace/session labels never create a second horizontal viewport. */
-.hbar-app-react-sidebar-surface .lumen-app-sidebar-content,
+.hbar-app-react-sidebar-surface [data-lumen-part~="sidebar.content"],
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree,
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item,
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row,
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.item"],
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.row"],
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.group"] {
   min-inline-size: 0;
   max-inline-size: 100%;
 }
 
-.hbar-app-react-sidebar-surface .lumen-app-sidebar-content {
+.hbar-app-react-sidebar-surface [data-lumen-part~="sidebar.content"] {
   overflow-x: hidden;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.row"] {
   overflow: hidden;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row > * {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.row"] > * {
   min-inline-size: 0;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-workspace-line,
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-session-row {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.row"] > .hbar-app-react-workspace-line,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.row"] > .hbar-app-react-session-row {
   overflow: hidden;
 }
 
@@ -59,14 +59,14 @@
   white-space: nowrap;
 }
 
-.hbar-app-react-sidebar-surface > .lumen-app-sidebar > header {
+.hbar-app-react-sidebar-surface > [data-lumen-part~="sidebar.header"] {
   min-block-size: 0;
   flex: 0 1 auto;
   overflow: auto;
   overscroll-behavior: contain;
 }
 
-.hbar-app-react-sidebar-surface .lumen-app-sidebar-content {
+.hbar-app-react-sidebar-surface [data-lumen-part~="sidebar.content"] {
   min-block-size: 2.75rem;
 }
 
@@ -125,7 +125,7 @@
 }
 /* Desktop Shell09 owns one coherent header row; numbered navbar regions must
    flow inside it instead of rendering three standalone preview cards. */
-.lumen-desktop-shell-header .hbar-app-react-shell-header > * {
+[data-lumen-part~="shell.header"] .hbar-app-react-shell-header > * {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -325,19 +325,19 @@
   padding-inline-start: 0;
 }
 
-.hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-workspace-line,
-.hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-session-row {
+.hbar-app-react-project-tree [data-lumen-part~="tree.row"] > .hbar-app-react-workspace-line,
+.hbar-app-react-project-tree [data-lumen-part~="tree.row"] > .hbar-app-react-session-row {
   min-inline-size: 0;
   flex: 1 1 0;
 }
 
-.hbar-app-react-project-tree .lumen-tree-item:focus-within > .lumen-tree-row .hbar-app-react-project-menu,
-.hbar-app-react-project-tree .lumen-tree-item:focus-within > .lumen-tree-row .hbar-app-react-project-new-session,
+.hbar-app-react-project-tree [data-lumen-part~="tree.item"]:focus-within > [data-lumen-part~="tree.row"] .hbar-app-react-project-menu,
+.hbar-app-react-project-tree [data-lumen-part~="tree.item"]:focus-within > [data-lumen-part~="tree.row"] .hbar-app-react-project-new-session,
 .hbar-app-react-project-tree
-  .lumen-tree-item:focus-within
-  > .lumen-tree-row
+  [data-lumen-part~="tree.item"]:focus-within
+  > [data-lumen-part~="tree.row"]
   .hbar-app-react-session-row
-  > .lumen-action-menu {
+  > [data-lumen-part~="menu.root"] {
   opacity: 1;
 }
 
@@ -349,16 +349,16 @@
   flex: 1 1 auto;
 }
 
-.hbar-app-react-session-row > .lumen-action-menu {
+.hbar-app-react-session-row > [data-lumen-part~="menu.root"] {
   margin-inline-end: 0.25rem;
   opacity: 0;
 }
 
-.hbar-app-react-session-row > .lumen-action-menu .lumen-action-menu-popup {
+.hbar-app-react-session-row > [data-lumen-part~="menu.root"] [data-lumen-part~="menu.popup"] {
   background: var(--lumen-contrast);
 }
 
-.hbar-app-react-session-row > .lumen-action-menu .lumen-action-menu-popup button > [data-edge] {
+.hbar-app-react-session-row > [data-lumen-part~="menu.root"] [data-lumen-part~="menu.popup"] button > [data-edge] {
   display: none;
 }
 
@@ -382,9 +382,9 @@
   opacity: 1;
 }
 
-.hbar-app-react-session-row:hover > .lumen-action-menu,
-.hbar-app-react-session-row:focus-within > .lumen-action-menu,
-.hbar-app-react-session-row[data-selected='true'] > .lumen-action-menu {
+.hbar-app-react-session-row:hover > [data-lumen-part~="menu.root"],
+.hbar-app-react-session-row:focus-within > [data-lumen-part~="menu.root"],
+.hbar-app-react-session-row[data-selected='true'] > [data-lumen-part~="menu.root"] {
   opacity: 1;
 }
 
@@ -483,16 +483,16 @@
   --lumen-dialog-width: 36rem;
 }
 
-.hbar-app-react-workspace-picker .lumen-dialog-content > header h2 {
+.hbar-app-react-workspace-picker [data-lumen-part~="dialog.content"] > header h2 {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.hbar-app-react-workspace-picker .lumen-dialog-body {
+.hbar-app-react-workspace-picker [data-lumen-part~="dialog.body"] {
   padding: 1rem;
 }
 
-.hbar-app-react-workspace-picker .lumen-dialog-body,
+.hbar-app-react-workspace-picker [data-lumen-part~="dialog.body"],
 .hbar-app-react-workspace-picker-list,
 .hbar-app-react-workspace-picker-form,
 .hbar-app-react-workspace-picker-item > div {
@@ -540,7 +540,7 @@
     min-block-size: 3.25rem;
   }
 
-  .hbar-app-react-session-row > .lumen-action-menu {
+  .hbar-app-react-session-row > [data-lumen-part~="menu.root"] {
     opacity: 1;
   }
 
@@ -589,7 +589,7 @@
 }
 
 @media (hover: none) {
-  .hbar-app-react-session-row > .lumen-action-menu {
+  .hbar-app-react-session-row > [data-lumen-part~="menu.root"] {
     opacity: 1;
   }
 

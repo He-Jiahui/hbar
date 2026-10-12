@@ -77,6 +77,7 @@
     "build:reactbits-observations": "bun scripts/build-reactbits-observation-index.ts",
     "build:reactbits-skill-registry": "bun scripts/build-reactbits-skill-registry.ts",
     "check:theme-tokens": "bun scripts/check-theme-tokens.ts",
+    "check:styles": "bun scripts/check-style-contracts.ts",
     "check:github-flow": "bun test tests/github-flow.test.ts --timeout 20000",
     "test": "bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000",
     "test:e2e": "playwright test",
@@ -89,7 +90,7 @@
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen && bun run test:app-react",
+    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun run check:styles && bun run test && bun run test:lumen && bun run test:app-react",
     "lumen:build": "bun run --cwd packages/lumen-app-ui build"
   },
   "dependencies": {

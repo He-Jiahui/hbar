@@ -27,7 +27,7 @@
   }
 }
 
-.hbar-session-activity-workspace > .lumen-tool-pane-body {
+.hbar-session-activity-workspace > [data-lumen-part~="tool-pane.body"] {
   overflow: hidden;
 }
 

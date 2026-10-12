@@ -35,35 +35,35 @@
   overflow: visible;
 }
 
-.hbar-pre-session-landing-footer .lumen-prompt-composer-surface {
+.hbar-pre-session-landing-footer [data-lumen-part~="composer.surface"] {
   outline: 0.0625rem solid var(--lumen-edge);
   outline-offset: -0.0625rem;
 }
 
-.hbar-pre-session-landing-footer .lumen-prompt-composer-surface:focus-within {
+.hbar-pre-session-landing-footer [data-lumen-part~="composer.surface"]:focus-within {
   outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 42%, transparent);
   outline-offset: -0.125rem;
 }
 
-.hbar-pre-session-landing-footer .lumen-composer-toolbar,
-.hbar-pre-session-landing-footer .lumen-composer-toolbar > div {
+.hbar-pre-session-landing-footer [data-lumen-part~="composer.toolbar"],
+.hbar-pre-session-landing-footer [data-lumen-part~="composer.toolbar"] > div {
   min-inline-size: 0;
   flex-wrap: wrap;
 }
 
 @media (max-width: 40rem) {
-  .hbar-pre-session-landing-footer .lumen-composer-toolbar {
+  .hbar-pre-session-landing-footer [data-lumen-part~="composer.toolbar"] {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .hbar-pre-session-landing-footer .lumen-composer-toolbar > div {
+  .hbar-pre-session-landing-footer [data-lumen-part~="composer.toolbar"] > div {
     inline-size: 100%;
     max-inline-size: 100%;
     justify-content: flex-end;
   }
 
-  .hbar-pre-session-landing-footer .lumen-composer-toolbar > div:first-child {
+  .hbar-pre-session-landing-footer [data-lumen-part~="composer.toolbar"] > div:first-child {
     justify-content: flex-start;
   }
 }

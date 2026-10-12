@@ -80,7 +80,7 @@
   flex-wrap: wrap;
 }
 
-.hbar-web-general-zoom-range > .lumen-range {
+.hbar-web-general-zoom-range > [data-lumen-part~="range"] {
   flex: 1 1 auto;
   min-inline-size: 4rem;
 }

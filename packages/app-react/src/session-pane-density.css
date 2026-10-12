@@ -3,12 +3,12 @@
   line-height: 1.5;
 }
 
-:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-tool-pane-copy > p,
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-part~="tool-pane.copy"] > p,
 :is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-component='status'] {
   font-size: var(--hbar-session-pane-meta-size);
 }
 
-:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-tool-pane-heading h2 {
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-part~="tool-pane.heading"] h2 {
   font-size: var(--hbar-session-pane-heading-size);
 }
 
@@ -16,13 +16,13 @@
   font-size: var(--hbar-session-pane-body-size);
 }
 
-:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics {
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-part~="metrics.compact"] {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
-:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics > div {
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-part~="metrics.compact"] > div {
   display: flex;
   flex-direction: row;
   min-inline-size: 0;
@@ -37,14 +37,14 @@
   background: transparent;
 }
 
-:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics dt {
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-part~="metrics.compact"] dt {
   min-inline-size: 0;
   flex: 1 1 auto;
   font-size: var(--hbar-session-pane-meta-size);
   overflow-wrap: anywhere;
 }
 
-:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics dd {
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-part~="metrics.compact"] dd {
   min-inline-size: 0;
   flex: 0 1 auto;
   max-inline-size: 60%;
@@ -54,7 +54,7 @@
   overflow-wrap: anywhere;
 }
 
-:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics small {
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-part~="metrics.compact"] small {
   flex-basis: 100%;
   font-size: var(--hbar-session-pane-meta-size);
 }

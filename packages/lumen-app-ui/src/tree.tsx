@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { LumenIcon } from './workbench'
@@ -160,7 +162,7 @@ export function LumenTreeItem({
   return (
     <Tag
       {...props}
-      className={['lumen-tree-item', className].filter(Boolean).join(' ')}
+      {...lumenPartProps("tree.item")} className={['lumen-tree-item', className].filter(Boolean).join(' ')}
       role="treeitem"
       id={itemId}
       aria-label={label}
@@ -244,7 +246,7 @@ export function LumenTreeItem({
     >
       <div
         {...rowProps}
-        className={['lumen-tree-row', rowClassName].filter(Boolean).join(' ')}
+        {...lumenPartProps("tree.row")} className={['lumen-tree-row', rowClassName].filter(Boolean).join(' ')}
         onClickCapture={(event) => {
           if (!interactive(event.target)) rowProps?.onClickCapture?.(event)
         }}
@@ -258,7 +260,7 @@ export function LumenTreeItem({
           else activate()
         }}
       >
-        <span className="lumen-tree-disclosure" data-tree-disclosure aria-hidden="true">
+        <span {...lumenPartProps("tree.disclosure")} className="lumen-tree-disclosure" data-tree-disclosure aria-hidden="true">
           {branch ? <LumenIcon icon={expanded ? ChevronDown : ChevronRight} tier="sm" /> : null}
         </span>
         {content}
@@ -266,7 +268,7 @@ export function LumenTreeItem({
       {afterContent}
       {branch && expanded ? (
         <LevelContext.Provider value={level + 1}>
-          <div id={groupId} role="group" className="lumen-tree-group" data-flat-depth={level >= 4}>
+          <div id={groupId} role="group" {...lumenPartProps("tree.group")} className="lumen-tree-group" data-flat-depth={level >= 4}>
             {children}
           </div>
         </LevelContext.Provider>

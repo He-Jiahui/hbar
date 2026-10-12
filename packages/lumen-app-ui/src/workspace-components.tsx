@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { LumenContentText } from './content-text'
 import { LumenActionMenu, LumenIcon, type LumenIconProps } from './workbench'
@@ -32,22 +34,22 @@ export function LumenPageHeader({
   actions,
 }: LumenPageHeaderProps) {
   return (
-    <header className={['lumen-page-header', className].filter(Boolean).join(' ')} data-header-layout={layout}>
+    <header {...lumenPartProps("page-header.root")} className={['lumen-page-header', className].filter(Boolean).join(' ')} data-header-layout={layout}>
       {leading ? <div className="lumen-page-header-leading">{leading}</div> : null}
-      <div className="lumen-page-heading">
-        <LumenContentText context={layout === 'page' ? 'page.title' : 'workspace.title'} title={title}>
+      <div {...lumenPartProps("page-header.heading")} className="lumen-page-heading">
+        <LumenContentText {...lumenPartProps("page-header.title")} context={layout === 'page' ? 'page.title' : 'workspace.title'} title={title}>
           {title}
         </LumenContentText>
         {context ? (
-          <LumenContentText context="section.description" tone="muted" title={context}>
+          <LumenContentText {...lumenPartProps("page-header.context")} context="section.description" tone="muted" title={context}>
             {context}
           </LumenContentText>
         ) : null}
       </div>
-      <div className="lumen-page-header-end">
+      <div {...lumenPartProps("page-header.end")} className="lumen-page-header-end">
         {status ? <LumenStatus value={status.label} tone={status.tone} /> : null}
         {actions ? (
-          <div className="lumen-page-actions" role="group" aria-label={actionsLabel}>
+          <div {...lumenPartProps("page-header.actions")} className="lumen-page-actions" role="group" aria-label={actionsLabel}>
             {actions}
           </div>
         ) : null}
@@ -129,8 +131,8 @@ export function LumenToolPane({
             </LumenIconButton>
           ) : null}
           {icon ? <LumenIcon icon={icon} tier="md" className="lumen-tool-pane-icon" /> : null}
-          <div className="lumen-tool-pane-copy">
-            <div className="lumen-tool-pane-heading">
+          <div {...lumenPartProps("tool-pane.copy")} className="lumen-tool-pane-copy">
+            <div {...lumenPartProps("tool-pane.heading")} className="lumen-tool-pane-heading">
               <LumenContentText context="tool.title">{title}</LumenContentText>
               {targetLabel ? (
                 <LumenContentText context="section.description" tone="muted" title={targetLabel}>
@@ -157,7 +159,7 @@ export function LumenToolPane({
         ) : null}
       </header>
       {toolbar ? (
-        <div className="lumen-tool-pane-toolbar" data-tool-pane-slot="toolbar">
+        <div {...lumenPartProps("tool-pane.toolbar")} className="lumen-tool-pane-toolbar" data-tool-pane-slot="toolbar">
           {toolbar}
         </div>
       ) : null}
@@ -171,7 +173,7 @@ export function LumenToolPane({
           {error}
         </div>
       ) : null}
-      <div className="lumen-tool-pane-body" data-tool-pane-slot="body">
+      <div {...lumenPartProps("tool-pane.body")} className="lumen-tool-pane-body" data-tool-pane-slot="body">
         {children}
       </div>
       {footer ? (
@@ -203,7 +205,7 @@ function uniqueItems<Item extends { id: string }>(items: readonly Item[]): reado
 
 export function LumenCompactMetrics({ label, metrics }: { label: string; metrics: readonly LumenCompactMetric[] }) {
   return (
-    <dl className="lumen-compact-metrics" aria-label={label}>
+    <dl {...lumenPartProps("metrics.compact")} className="lumen-compact-metrics" aria-label={label}>
       {uniqueItems(metrics).map((metric) => (
         <div key={metric.id}>
           <LumenText as="dt" tone="muted" variant="supporting">
@@ -250,7 +252,7 @@ export function LumenBarSeries({
       ? maximum
       : Math.max(1, ...records.map((point) => (Number.isFinite(point.value) ? point.value : 0)))
   return records.length > 0 ? (
-    <div className="lumen-bar-series" role="img" aria-label={label}>
+    <div {...lumenPartProps("metrics.bars")} className="lumen-bar-series" role="img" aria-label={label}>
       {records.map((point) => {
         const style = {
           blockSize: `${Math.max(0, Math.min(1, Number.isFinite(point.value) ? point.value / scale : 0)) * 100}%`,

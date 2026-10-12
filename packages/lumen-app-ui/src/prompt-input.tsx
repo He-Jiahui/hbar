@@ -1,5 +1,7 @@
 'use client'
 
+import { lumenPartProps } from './style-contract'
+
 import * as React from 'react'
 import { LumenFormField, LumenInput, LumenTextarea, LumenChoiceSelect } from './forms'
 import LumenDivider from './LumenDivider'
@@ -262,7 +264,7 @@ function Root({
     <LumenSurface
       as="section"
       boundary="horizontal"
-      className="lumen-prompt-input-surface"
+      {...lumenPartProps("prompt-input.surface")} className="lumen-prompt-input-surface"
       contentClassName={contentClassName}
       data-lumen-component="prompt-input"
       data-lumen-variant={variant}

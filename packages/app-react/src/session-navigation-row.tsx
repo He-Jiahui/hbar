@@ -187,7 +187,7 @@ export function SessionNavigationRow({
     )
   const openActions = (): boolean => {
     if (batchSelecting || editing || archiving) return false
-    const trigger = row.current?.querySelector<HTMLButtonElement>('.lumen-action-menu-trigger')
+    const trigger = row.current?.querySelector<HTMLButtonElement>("[data-lumen-part~=\"menu.trigger\"]")
     if (!trigger || trigger.disabled) return false
     trigger.click()
     return true

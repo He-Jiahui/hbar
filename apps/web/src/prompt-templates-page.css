@@ -16,7 +16,7 @@
    ordinary document content, so let its surface grow with the form and keep
    the page as the sole scroll owner. This keeps the save/cancel footer in the
    hit-testable flow while navigating a narrow tool pane. */
-.hbar-prompt-templates-page > .lumen-prompt-input-surface {
+.hbar-prompt-templates-page > [data-lumen-part~="prompt-input.surface"] {
   block-size: auto;
   flex: 0 0 auto;
   inline-size: 100%;
@@ -24,14 +24,14 @@
   overflow: visible;
 }
 
-.hbar-prompt-templates-page > .lumen-prompt-input-surface > div {
+.hbar-prompt-templates-page > [data-lumen-part~="prompt-input.surface"] > div {
   box-sizing: border-box;
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
 
-.hbar-prompt-templates-page > .lumen-prompt-input-surface > .lumen-prompt-input {
+.hbar-prompt-templates-page > [data-lumen-part~="prompt-input.surface"] > [data-lumen-part~="prompt-input.root"] {
   box-sizing: border-box;
   block-size: auto;
   flex: 0 0 auto;
@@ -40,18 +40,18 @@
   overflow: visible;
 }
 
-.hbar-prompt-templates-page > .lumen-form-field,
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"],
 .hbar-prompt-template-editor,
-.hbar-prompt-template-editor > .lumen-form-field,
-.hbar-prompt-template-editor .lumen-outlined-field,
-.hbar-prompt-template-editor .lumen-outlined-field > *,
+.hbar-prompt-template-editor > [data-lumen-part~="field.group"],
+.hbar-prompt-template-editor [data-lumen-part~="field.outlined"],
+.hbar-prompt-template-editor [data-lumen-part~="field.outlined"] > *,
 .hbar-prompt-template-editor > footer {
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
 
-.hbar-prompt-templates-page > .lumen-form-field > label,
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] > label,
 .hbar-prompt-template-editor :where(h1, h2, h3, p, label) {
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -59,9 +59,9 @@
   white-space: normal;
 }
 
-.hbar-prompt-templates-page > .lumen-form-field .lumen-outlined-field,
-.hbar-prompt-templates-page > .lumen-form-field .lumen-outlined-field > *,
-.hbar-prompt-templates-page > .lumen-form-field :where(input, textarea) {
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] [data-lumen-part~="field.outlined"],
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] [data-lumen-part~="field.outlined"] > *,
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] :where(input, textarea) {
   box-sizing: border-box;
   inline-size: 100%;
   max-inline-size: 100%;

@@ -1,6 +1,6 @@
 /* Host composition of the user-selected DESIGN.md family. Lumen owns action paint and motion. */
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.root"] {
   border-inline-end-color: var(--lumen-line);
 }
 
@@ -16,12 +16,12 @@
   white-space: nowrap;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar > header {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.header"] {
   gap: 1rem;
   padding: 1rem;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-brand {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.brand"] {
   font-size: var(--hbar-workbench-brand-size);
   font-weight: 600;
   line-height: 1.4;
@@ -35,12 +35,12 @@
   padding-block: 0.625rem;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-title {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.title"] {
   padding-inline: 1rem;
   padding-block: 0.5rem;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-title h2 {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.title"] h2 {
   color: var(--lumen-muted);
   font-size: var(--hbar-workbench-caption-size);
   font-weight: 500;
@@ -48,11 +48,11 @@
   text-transform: none;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-content {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.content"] {
   padding-inline: 0.75rem;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar > footer {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.footer"] {
   gap: 0.75rem;
   padding: 0.875rem 1rem;
   border-block-start-color: var(--lumen-line);
@@ -85,24 +85,24 @@
   padding-block-end: 1.5rem;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"] {
   border-color: var(--lumen-line);
   border-radius: var(--lumen-radius-surface);
   outline: none;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:not([data-lumen-state='disabled']):focus-within {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"]:not([data-lumen-state='disabled']):focus-within {
   --lumen-effect-level: var(--lumen-glow-focus);
   border-color: var(--lumen-effect-color);
   outline: 0.125rem solid color-mix(in srgb, var(--lumen-effect-color) 45%, transparent);
   outline-offset: 0.125rem;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:not([data-lumen-state='failed']):focus-within {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"]:not([data-lumen-state='failed']):focus-within {
   --lumen-effect-color: var(--lumen-info);
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface[data-lumen-state='failed'] {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"][data-lumen-state='failed'] {
   border-color: var(--lumen-danger);
 }
 
@@ -154,11 +154,11 @@
 }
 
 @media (forced-colors: active) {
-  [data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface {
+  [data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"] {
     border-color: CanvasText;
   }
 
-  [data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:focus-within {
+  [data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"]:focus-within {
     border-color: Highlight;
     outline-color: Highlight;
   }
