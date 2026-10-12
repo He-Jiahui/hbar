@@ -22,8 +22,8 @@
   min-block-size: 3.5rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.75rem;
-  padding-inline: 1rem;
+  gap: var(--lumen-space-12);
+  padding-inline: var(--lumen-space-16);
   border-block-end: 0.0625rem solid light-dark(#e5e5e5, #292929);
 }
 .hbar-app-ui-wizard-invoice-header > button {
@@ -35,7 +35,7 @@
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: light-dark(#f5f5f5, #262626);
   color: light-dark(#525252, #d4d4d4);
   cursor: pointer;
@@ -57,7 +57,7 @@
   block-size: 0.25rem;
   flex: 0 1 15rem;
   margin-inline: auto;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: light-dark(#e5e5e5, #292929);
   overflow: hidden;
 }
@@ -79,7 +79,7 @@
   flex: 1 1 auto;
   max-block-size: none;
   overflow: auto;
-  padding: 1.5rem;
+  padding: var(--lumen-space-24);
   mask-image: linear-gradient(to bottom, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
 }
 .hbar-app-ui-wizard-invoice-card {
@@ -89,7 +89,7 @@
   flex-direction: column;
   margin-inline: auto;
   border: 0.0625rem solid light-dark(#e5e5e5, #292929);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: light-dark(#fff, #0a0a0a);
   overflow: hidden;
 }
@@ -98,8 +98,8 @@
   min-inline-size: 0;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
   border-block-end: 0.0625rem solid light-dark(#e5e5e5, #292929);
 }
 .hbar-app-ui-wizard-invoice-card-header h2 {
@@ -109,15 +109,15 @@
   line-height: 1.5rem;
 }
 .hbar-app-ui-wizard-invoice-card-header p {
-  margin: 0.25rem 0 0;
+  margin: var(--lumen-space-4) 0 0;
   color: light-dark(#777, #aaa);
   font-size: 0.8125rem;
   line-height: 1.25rem;
 }
 .hbar-app-ui-wizard-invoice-card-header > span,
 .hbar-app-ui-wizard-invoice-group-heading > span {
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.375rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   background: light-dark(#f5f5f5, #262626);
   color: light-dark(#525252, #d4d4d4);
   font-size: 0.6875rem;
@@ -125,12 +125,12 @@
   white-space: nowrap;
 }
 .hbar-app-ui-wizard-invoice-card-body {
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: var(--lumen-space-16) var(--lumen-space-24) var(--lumen-space-24);
 }
 .hbar-app-ui-wizard-invoice-group-heading {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .hbar-app-ui-wizard-invoice-group-heading h3 {
   margin: 0;
@@ -139,7 +139,7 @@
   line-height: 1.25rem;
 }
 .hbar-app-ui-wizard-invoice-group-detail {
-  margin: 0.25rem 0 0;
+  margin: var(--lumen-space-4) 0 0;
   color: light-dark(#777, #aaa);
   font-size: 0.75rem;
   line-height: 1rem;
@@ -147,25 +147,25 @@
 .hbar-app-ui-wizard-invoice-fields {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-block-start: 1rem;
+  gap: var(--lumen-space-16);
+  margin-block-start: var(--lumen-space-16);
 }
 .hbar-app-ui-wizard-invoice-field {
   display: flex;
   min-inline-size: 0;
   flex: 1 1 calc(50% - 0.5rem);
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 .hbar-app-ui-wizard-invoice-field label {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   font-size: 0.8125rem;
   line-height: 1.25rem;
 }
 .hbar-app-ui-wizard-invoice-field label > svg {
-  margin-inline-start: -0.125rem;
+  margin-inline-start: calc(var(--lumen-space-2) * -1);
 }
 .hbar-app-ui-wizard-invoice-field label svg {
   inline-size: var(--lumen-icon-xs);
@@ -177,10 +177,10 @@
   min-inline-size: 0;
   block-size: 2.25rem;
   align-items: center;
-  gap: 0.5rem;
-  padding-inline: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12);
   border: 0.0625rem solid light-dark(#e5e5e5, #292929);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: light-dark(#fff, #0a0a0a);
 }
 .hbar-app-ui-wizard-invoice-control:focus-within {
@@ -222,8 +222,8 @@
   cursor: pointer;
 }
 .hbar-app-ui-wizard-invoice-terms {
-  margin-block-start: 1.5rem;
-  padding-block-start: 1.5rem;
+  margin-block-start: var(--lumen-space-24);
+  padding-block-start: var(--lumen-space-24);
   border-block-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
 }
 .hbar-app-ui-wizard-invoice-footer {
@@ -232,8 +232,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
   border-block-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
   background: light-dark(#fafafa, #171717);
 }
@@ -243,10 +243,10 @@
   min-block-size: 2.25rem;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border: 0.0625rem solid light-dark(#e5e5e5, #292929);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: light-dark(#fff, #171717);
   color: inherit;
   cursor: pointer;
@@ -256,7 +256,7 @@
 }
 .hbar-app-ui-wizard-invoice-footer button:last-child {
   min-inline-size: 7.25rem;
-  padding-inline: 1rem;
+  padding-inline: var(--lumen-space-16);
   border-color: light-dark(#171717, #f5f5f5);
   background: light-dark(#171717, #f5f5f5);
   color: light-dark(#fff, #171717);
@@ -280,7 +280,7 @@
     margin-inline-start: auto;
   }
   .lumen-wizard-stage .hbar-app-ui-wizard-invoice-scroll {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
   .hbar-app-ui-wizard-invoice-field {
     flex-basis: 100%;

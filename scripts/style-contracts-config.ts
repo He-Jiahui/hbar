@@ -29,7 +29,8 @@ partRule.ruleName = ruleName
 partRule.messages = stylelint.utils.ruleMessages(ruleName, { rejected: 'Unknown public Lumen part' })
 
 const designScaleRuleName = 'hbar/design-scale-tokens'
-const designScaleProperties = /^(?:gap|row-gap|column-gap|margin(?:-.+)?|padding(?:-.+)?|border-radius|border-(?:top|bottom|left|right|start|end)-(?:top|bottom|left|right|start|end)-radius|z-index)$/
+const designScaleProperties =
+  /^(?:gap|row-gap|column-gap|margin(?:-.+)?|padding(?:-.+)?|border-radius|border-(?:top|bottom|left|right|start|end)-(?:top|bottom|left|right|start|end)-radius|z-index)$/
 const spacingTokenValues = new Map([
   ['--lumen-space-2', '0.125rem'],
   ['--lumen-space-4', '0.25rem'],
@@ -62,41 +63,77 @@ const layerTokenValues = new Map([
   ['--lumen-layer-backdrop', '9990'],
   ['--lumen-layer-modal', '10000'],
 ])
-const validTokenDeclaration = (property: string, value: string): boolean => {
+const validTokenDeclaration = (property: string, value: string, selector = ''): boolean => {
   const spacing = spacingTokenValues.get(property)
   if (spacing) return value.trim() === spacing
   const layer = layerTokenValues.get(property)
   if (layer) return value.trim() === layer
-  if (property === '--lumen-radius-base') return ['0.25rem', '0.375rem', '0.5rem'].includes(value.trim())
-  if (property === '--lumen-radius-pill') return value.trim() === '999px'
+  if (property.startsWith('--lumen-radius-')) {
+    if (selector === "[data-lumen-shape='square']")
+      return (
+        ['--lumen-radius-control', '--lumen-radius-surface', '--lumen-radius-panel'].includes(property) &&
+        value.trim() === '0'
+      )
+    const sizes: Record<string, Record<string, string>> = {
+      s: { '--lumen-radius-control': '0.25rem', '--lumen-radius-surface': '0.5rem', '--lumen-radius-panel': '0.75rem' },
+      m: {
+        '--lumen-radius-control': '0.375rem',
+        '--lumen-radius-surface': '0.75rem',
+        '--lumen-radius-panel': '1.125rem',
+      },
+      l: { '--lumen-radius-control': '0.5rem', '--lumen-radius-surface': '1rem', '--lumen-radius-panel': '1.5rem' },
+    }
+    const size = selector.match(/^\[data-lumen-corner-size=['"]([sml])['"]\]$/)?.[1]
+    if (size) return sizes[size]?.[property] === value.trim()
+    if (property === '--lumen-radius-pill') return value.trim() === '999px'
+    return false
+  }
   if (property === '--lumen-mobile-nav-height') return value.trim() === '3.625rem'
   return false
 }
 const designScaleRule: stylelint.Rule = (enabled: unknown) => (root, result) => {
   if (enabled !== true) return
   root.walkDecls((declaration) => {
-    const isCustomDesignValue = declaration.prop.startsWith('--') && /(?:space|spacing|gap|padding|radius|layer)/i.test(declaration.prop)
+    const isCustomDesignValue =
+      declaration.prop.startsWith('--') && /(?:space|spacing|gap|padding|radius|layer)/i.test(declaration.prop)
     if (!designScaleProperties.test(declaration.prop) && !isCustomDesignValue) return
-    const isTokenSource = /^--lumen-(?:space-(?:2|4|8|12|16|24|32)|radius-(?:base|pill)|layer-[a-z-]+|mobile-nav-height)$/.test(
-      declaration.prop,
-    )
-    let rejected = isTokenSource && !validTokenDeclaration(declaration.prop, declaration.value)
-    valueParser(declaration.value).walk((node) => {
+    const isTokenSource =
+      /^--lumen-(?:space-(?:2|4|8|12|16|24|32)|radius-(?:control|surface|panel|pill)|layer-[a-z-]+|mobile-nav-height)$/.test(
+        declaration.prop,
+      )
+    const selector = declaration.parent?.type === 'rule' ? declaration.parent.selector : ''
+    let rejected = isTokenSource && !validTokenDeclaration(declaration.prop, declaration.value, selector)
+    const normalizedValue = declaration.value
+      .replace(/calc\(\s*(var\(--lumen-space-(?:2|4|8|12|16|24|32)\))\s*\*\s*-1\s*\)/g, '$1')
+      .replace(
+        /calc\(100% \/ var\(--lumen-usage-widget-points\) \/ 2\)/g,
+        'calc(100% / var(--lumen-usage-widget-points) / 1)',
+      )
+    valueParser(normalizedValue).walk((node) => {
       if (node.type === 'function' && node.value === 'var') {
         const variable = node.nodes.find((argument) => argument.type === 'word')?.value ?? ''
-        if (!declaration.prop.startsWith('--') && declaration.prop.includes('radius') && !/^--lumen-radius-(?:control|surface|panel|pill)$/.test(variable)) {
+        if (
+          !declaration.prop.startsWith('--') &&
+          declaration.prop.includes('radius') &&
+          !/^--lumen-radius-(?:control|surface|panel|pill)$/.test(variable)
+        ) {
           rejected = true
         }
-        if (!declaration.prop.startsWith('--') && declaration.prop === 'z-index' && !/^--lumen-(?:layer-[a-z-]+|floating-layer|toast-depth)$/.test(variable)) rejected = true
+        if (
+          !declaration.prop.startsWith('--') &&
+          declaration.prop === 'z-index' &&
+          !/^--lumen-(?:layer-[a-z-]+|floating-layer|toast-depth)$/.test(variable)
+        )
+          rejected = true
       }
       if (node.type !== 'word') return
       if (/^-?\d*\.?\d+(?:px|rem|em|pt|pc|in|cm|mm|q|vh|vw|vmin|vmax|ch|ex|cap|ic|lh|rlh|%)$/i.test(node.value)) {
+        if (/%$/.test(node.value)) return
         if (isTokenSource) return
-        if (declaration.prop.includes('radius') && /%$/.test(node.value)) return
         rejected = true
         return
       }
-      if (declaration.prop === 'z-index' && /^-?\d*\.?\d+$/.test(node.value) && !isTokenSource) rejected = true
+      if (/^-?\d*\.?\d+$/.test(node.value) && Number(node.value) !== 0 && !isTokenSource) rejected = true
     })
     if (!rejected) return
     stylelint.utils.report({

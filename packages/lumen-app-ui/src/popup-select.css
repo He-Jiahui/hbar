@@ -14,7 +14,7 @@
   min-inline-size: max-content;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   cursor: pointer;
   text-align: start;
 }
@@ -83,9 +83,9 @@
   min-inline-size: 0;
   min-block-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow: auto;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
 }
 
 .lumen-popup-select-option {
@@ -93,14 +93,14 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   border: 0;
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   background: transparent;
   color: var(--lumen-ink);
   cursor: pointer;
   font: inherit;
-  padding: 0.5rem 0.625rem;
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   text-align: start;
 }
 
@@ -108,7 +108,7 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .lumen-popup-select-option-label,
@@ -139,7 +139,7 @@
 .lumen-popup-select-validation {
   inline-size: 0.0625rem;
   block-size: 0.0625rem;
-  margin: -0.0625rem;
+  margin: calc(var(--lumen-space-2) * -1);
   overflow: hidden;
   padding: 0;
   border: 0;

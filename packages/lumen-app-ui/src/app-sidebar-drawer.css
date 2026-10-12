@@ -64,16 +64,16 @@
   justify-content: center;
   flex: 0 0 2.25rem;
   block-size: 2.25rem;
-  margin: 10px 16px;
+  margin: var(--lumen-space-8) var(--lumen-space-16);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--drawer-subtle);
   color: var(--drawer-ink);
   cursor: pointer;
 }
 .lumen-drawer-scrim {
   position: absolute;
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
   inset: 0;
   border: 0;
   background: transparent;
@@ -81,7 +81,7 @@
 }
 .lumen-drawer-panel {
   position: absolute;
-  z-index: 2;
+  z-index: var(--lumen-layer-sticky-cell);
   inset-block: 0;
   inset-inline-start: 0;
   display: flex;
@@ -90,7 +90,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   overflow: hidden;
-  border-radius: 0 1rem 1rem 0;
+  border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
   background: var(--drawer-panel);
   box-shadow: 1rem 0 2rem var(--drawer-shadow);
 }
@@ -98,8 +98,8 @@
   display: flex;
   align-items: center;
   flex: 0 0 3.5rem;
-  gap: 10px;
-  padding-inline: 12px 8px;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12) var(--lumen-space-8);
 }
 .lumen-drawer-mark {
   display: flex;
@@ -107,7 +107,7 @@
   justify-content: center;
   flex: 0 0 2rem;
   block-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--drawer-ink);
   color: var(--drawer-panel);
   font-size: 0.875rem;
@@ -138,7 +138,7 @@
   flex: 0 0 2rem;
   block-size: 2rem;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--drawer-subtle);
   color: var(--drawer-muted);
   cursor: pointer;
@@ -147,18 +147,18 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--lumen-space-16);
   min-block-size: 0;
   max-block-size: none;
   overflow-y: auto;
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
   overscroll-behavior: contain;
 }
 .lumen-drawer-group > p {
   display: flex;
   align-items: center;
   min-block-size: 1.28125rem;
-  padding-inline: 12px;
+  padding-inline: var(--lumen-space-12);
   color: var(--drawer-muted);
   font-size: 0.6875rem;
   font-weight: 500;
@@ -168,15 +168,15 @@
 .lumen-drawer-group ul {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 .lumen-drawer-group a {
   display: flex;
   align-items: center;
   min-block-size: 2rem;
-  gap: 8px;
-  padding-inline: 12px;
-  border-radius: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
   color: var(--drawer-muted);
   text-decoration: none;
 }
@@ -197,15 +197,15 @@
   color: var(--drawer-muted);
 }
 .lumen-drawer-empty {
-  padding: 8px;
+  padding: var(--lumen-space-8);
   color: var(--drawer-muted);
 }
 .lumen-drawer-profile {
   display: flex;
   align-items: center;
   flex: 0 0 3.75rem;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   background: var(--drawer-footer);
 }
 .lumen-drawer-avatar {

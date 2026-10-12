@@ -73,11 +73,11 @@
   align-items: center;
   justify-content: space-between;
   flex: 0 0 3.5rem;
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
 }
 .lumen-tree-header h2 {
   overflow: hidden;
-  padding-inline-start: 12px;
+  padding-inline-start: var(--lumen-space-12);
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 1rem;
@@ -90,7 +90,7 @@
   flex: 0 0 2rem;
   block-size: 2rem;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--tree-hover);
   color: var(--tree-ink);
 }
@@ -98,12 +98,12 @@
   display: flex;
   align-items: center;
   flex: 0 0 2.25rem;
-  gap: 8px;
-  margin-inline: 8px;
-  margin-block-end: 8px;
-  padding-inline: 12px;
+  gap: var(--lumen-space-8);
+  margin-inline: var(--lumen-space-8);
+  margin-block-end: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12);
   border: 0.0625rem solid var(--tree-border);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--tree-canvas);
   color: var(--tree-muted);
 }
@@ -135,20 +135,20 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   mask-image: linear-gradient(to bottom, #000 calc(100% - 1.25rem), transparent);
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
 }
 .lumen-tree-navigation > ul,
 .lumen-tree-documents {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 .lumen-tree-row {
   position: relative;
   display: flex;
   align-items: center;
   min-block-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-tree-row:is(:hover, .is-selected, :has(.lumen-tree-menu)) {
   background: var(--tree-hover);
@@ -159,7 +159,7 @@
   flex: 1;
   min-inline-size: 0;
   block-size: 2rem;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   padding: 0;
   border: 0;
   background: transparent;
@@ -172,16 +172,16 @@
   text-overflow: ellipsis;
 }
 .lumen-tree-label.is-folder {
-  padding-inline-start: 12px;
-  gap: 6px;
+  padding-inline-start: var(--lumen-space-12);
+  gap: var(--lumen-space-4);
 }
 .lumen-tree-label.is-folder svg:first-child {
   inline-size: var(--lumen-icon-sm);
   block-size: var(--lumen-icon-sm);
 }
 .lumen-tree-label.is-document {
-  padding-inline-start: 48px;
-  padding-inline-end: 12px;
+  padding-inline-start: var(--lumen-space-32);
+  padding-inline-end: var(--lumen-space-12);
 }
 .lumen-tree-row.is-selected .lumen-tree-label {
   color: var(--tree-ink);
@@ -193,9 +193,9 @@
   justify-content: center;
   flex: 0 0 1.75rem;
   block-size: 1.75rem;
-  margin-inline-end: 2px;
+  margin-inline-end: var(--lumen-space-2);
   border: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   background: transparent;
   color: var(--tree-muted);
   opacity: 0;
@@ -205,27 +205,27 @@
 }
 .lumen-tree-menu {
   position: absolute;
-  z-index: 5;
+  z-index: var(--lumen-layer-menu-panel);
   inset-block-start: 1.6875rem;
   inset-inline-end: 0.125rem;
   display: flex;
   flex-direction: column;
   gap: 0;
   inline-size: 10rem;
-  padding: 4px;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--tree-border);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--tree-menu);
   box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 12%);
 }
 .lumen-tree-menu button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   min-block-size: 2rem;
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--tree-ink);
   text-align: start;
@@ -237,15 +237,15 @@
   color: #ef4444;
 }
 .lumen-tree-empty {
-  padding: 8px;
+  padding: var(--lumen-space-8);
   color: var(--tree-muted);
 }
 .lumen-tree-profile {
   display: flex;
   align-items: center;
   flex: 0 0 3.75rem;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   background: var(--tree-footer);
 }
 .lumen-tree-avatar {

@@ -12,7 +12,7 @@
 .lumen-range::-webkit-slider-runnable-track {
   block-size: 0.25rem;
   border: 0;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: linear-gradient(
     to right,
     var(--lumen-ink) 0 var(--lumen-range-progress, 50%),
@@ -23,21 +23,21 @@
 .lumen-range::-moz-range-track {
   block-size: 0.25rem;
   border: 0;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-line);
 }
 
 .lumen-range::-moz-range-progress {
   block-size: 0.25rem;
   border: 0;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-ink);
 }
 .lumen-range::-webkit-slider-thumb {
   appearance: none;
   inline-size: 1rem;
   block-size: 1rem;
-  margin-block-start: -0.375rem;
+  margin-block-start: calc(var(--lumen-space-4) * -1);
   border: 0;
   border-radius: 50%;
   background: var(--lumen-ink);

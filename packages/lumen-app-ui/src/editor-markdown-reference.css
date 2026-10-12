@@ -19,8 +19,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 12px 16px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-end: 0.0625rem solid light-dark(#e5e5e5, #262626);
 }
 .lumen-markdown-reference-file {
@@ -39,7 +39,7 @@
   color: light-dark(#737373, #a3a3a3);
   font-size: 0.8125rem;
   line-height: 1.5;
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
 }
 .lumen-markdown-reference-tabs {
   display: flex;
@@ -48,8 +48,8 @@
   align-items: center;
   overflow-x: auto;
   border: 0.0625rem solid light-dark(#e5e5e5, #262626);
-  border-radius: 0.625rem;
-  padding: 4px;
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-4);
   background: light-dark(#fafafa, #0a0a0a);
 }
 .lumen-markdown-reference-tabs button {
@@ -58,10 +58,10 @@
   flex: 0 0 auto;
   block-size: 1.75rem;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   border: 0;
-  border-radius: 0.375rem;
-  padding: 0 10px;
+  border-radius: var(--lumen-radius-control);
+  padding: 0 var(--lumen-space-8);
   background: transparent;
   color: light-dark(#737373, #a3a3a3);
   font:
@@ -107,7 +107,7 @@
   flex: 0 0 auto;
   min-block-size: 2rem;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 var(--lumen-space-16);
   color: #737373;
   font-size: 0.6875rem;
   line-height: 1.5;
@@ -124,7 +124,7 @@
   overflow: auto;
   resize: none;
   border: 0;
-  padding: 0 16px 16px;
+  padding: 0 var(--lumen-space-16) var(--lumen-space-16);
   background: transparent;
   color: light-dark(#525252, #d4d4d4);
   font:
@@ -137,13 +137,13 @@
   min-block-size: 0;
   flex: 1 1 0%;
   overflow: auto;
-  padding: 0 16px 24px;
+  padding: 0 var(--lumen-space-16) var(--lumen-space-24);
 }
 .lumen-markdown-reference-prose {
   min-inline-size: 0;
 }
 .lumen-markdown-reference-prose h3 {
-  margin-block-end: 16px;
+  margin-block-end: var(--lumen-space-16);
   font-size: 1.375rem;
   font-weight: 500;
   line-height: 1.25;
@@ -151,8 +151,8 @@
   overflow-wrap: anywhere;
 }
 .lumen-markdown-reference-prose h4 {
-  margin-block-end: 16px;
-  padding-block-start: 8px;
+  margin-block-end: var(--lumen-space-16);
+  padding-block-start: var(--lumen-space-8);
   font-size: 1rem;
   font-weight: 500;
   line-height: 1.5;
@@ -168,7 +168,7 @@
 }
 .lumen-markdown-reference-prose p,
 .lumen-markdown-reference-prose :is(ul, ol) {
-  margin-block-end: 16px;
+  margin-block-end: var(--lumen-space-16);
 }
 .lumen-markdown-reference-prose :is(ul, ol) {
   padding: 0;
@@ -176,8 +176,8 @@
 }
 .lumen-markdown-reference-prose li {
   display: flex;
-  gap: 0.625rem;
-  margin-block-end: 6px;
+  gap: var(--lumen-space-8);
+  margin-block-end: var(--lumen-space-4);
 }
 .lumen-markdown-reference-prose li:last-child {
   margin-block-end: 0;
@@ -196,7 +196,7 @@
   inline-size: 0.25rem;
   block-size: 0.25rem;
   border-radius: 50%;
-  margin-block-start: 10px;
+  margin-block-start: var(--lumen-space-8);
   background: #a3a3a3;
   content: '';
 }
@@ -209,8 +209,8 @@
   font-weight: 500;
 }
 .lumen-markdown-reference-prose code {
-  border-radius: 0.25rem;
-  padding: 2px 4px;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   background: light-dark(#f5f5f5, #262626);
   color: light-dark(#404040, #ebebeb);
   font:
@@ -219,8 +219,8 @@
     sans-serif;
 }
 .lumen-markdown-reference-prose .lumen-markdown-reference-quote {
-  border-radius: 0.5rem;
-  padding: 12px 16px;
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   background: light-dark(#fafafa, #171717);
 }
 @media (width < 48rem) {

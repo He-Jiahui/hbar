@@ -20,8 +20,8 @@
   flex: 1;
   min-inline-size: 0;
   min-block-size: 0;
-  gap: 12px;
-  padding: 12px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   overflow: hidden;
   position: relative;
   background: var(--lumen-contrast);
@@ -58,7 +58,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 1rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-chat-panel);
   overflow: hidden;
 }
@@ -70,9 +70,9 @@
 .lumen-chat-side-heading {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--lumen-space-8);
   flex: 0 0 3rem;
-  padding: 10px 12px 0;
+  padding: var(--lumen-space-8) var(--lumen-space-12) 0;
 }
 .lumen-chat-brand-mark,
 .lumen-chat-hero-mark {
@@ -82,7 +82,7 @@
   flex: 0 0 2rem;
   inline-size: 2rem;
   block-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-contrast);
   font-weight: 600;
@@ -113,12 +113,12 @@
 .lumen-chat-new {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   flex: 0 0 2.25rem;
-  margin: 12px 12px 0;
-  padding: 0 12px;
+  margin: var(--lumen-space-12) var(--lumen-space-12) 0;
+  padding: 0 var(--lumen-space-12);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-contrast);
   font-weight: 500 !important;
@@ -137,30 +137,30 @@
   min-block-size: 0;
   overflow: auto;
   scrollbar-width: none;
-  padding: 0 12px 12px;
+  padding: 0 var(--lumen-space-12) var(--lumen-space-12);
 }
 .lumen-chat-side-scroll::-webkit-scrollbar {
   display: none;
 }
 .lumen-chat-side-scroll section {
-  margin-block-start: 12px;
+  margin-block-start: var(--lumen-space-12);
 }
 .lumen-chat-side-scroll section:first-child {
-  margin-block-start: 14px;
+  margin-block-start: var(--lumen-space-12);
 }
 .lumen-chat-side-scroll section:nth-child(2) {
-  margin-block-start: 18px;
+  margin-block-start: var(--lumen-space-16);
 }
 .lumen-chat-side-label {
   color: var(--lumen-subtle);
   text-transform: uppercase;
   letter-spacing: 0.025em;
   font-size: 0.6875rem;
-  padding: 0 8px 6px !important;
+  padding: 0 var(--lumen-space-8) var(--lumen-space-4) !important;
 }
 .lumen-chat-model-radios {
   display: flex;
-  gap: 6px;
+  gap: var(--lumen-space-4);
 }
 .lumen-chat-model-radios button {
   display: flex;
@@ -168,11 +168,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
   block-size: 3.75rem;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-subtle);
   font-size: 0.75rem;
@@ -188,13 +188,13 @@
 .lumen-chat-pinned {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   inline-size: 100%;
   min-block-size: 4rem;
-  padding: 10px;
+  padding: var(--lumen-space-8);
   text-align: start;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-ink);
 }
@@ -212,25 +212,25 @@
 .lumen-chat-pinned small {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-block-start: 5px;
+  gap: var(--lumen-space-4);
+  margin-block-start: var(--lumen-space-4);
   color: var(--lumen-subtle);
   font-size: 0.75rem;
 }
 .lumen-chat-pinned small > span {
-  padding: 2px 5px;
-  border-radius: 0.25rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-frost);
 }
 .lumen-chat-side-link {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--lumen-space-8);
   inline-size: 100%;
   min-block-size: 2.125rem;
-  padding: 0 8px;
+  padding: 0 var(--lumen-space-8);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-subtle);
   text-align: start;
@@ -256,9 +256,9 @@
 .lumen-chat-account {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--lumen-space-8);
   flex: 0 0 4rem;
-  padding: 10px 12px;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-line);
   background: var(--lumen-chat-panel);
 }
@@ -282,7 +282,7 @@
 .lumen-chat-account small {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--lumen-space-4);
   font-size: 0.75rem;
   color: var(--lumen-subtle);
 }
@@ -299,7 +299,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 1rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-chat-panel);
   overflow: hidden;
 }
@@ -307,10 +307,10 @@
   display: flex;
   align-items: center;
   position: relative;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   flex: 0 0 3.75rem;
   min-inline-size: 0;
-  padding: 0 12px;
+  padding: 0 var(--lumen-space-12);
 }
 .lumen-shell-chat-header button {
   display: flex;
@@ -318,7 +318,7 @@
   justify-content: center;
   block-size: 2.25rem;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-chat-panel);
   color: var(--lumen-ink);
 }
@@ -343,8 +343,8 @@
   pointer-events: auto;
 }
 .lumen-shell-chat-header .lumen-chat-model-trigger {
-  gap: 8px;
-  padding: 0 10px;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-8);
   white-space: nowrap;
 }
 .lumen-chat-model-trigger[aria-expanded='true'] {
@@ -363,22 +363,22 @@
   position: absolute;
   inset-block-start: calc(100% + 0.375rem);
   inset-inline-start: 0;
-  z-index: 5;
+  z-index: var(--lumen-layer-menu-panel);
   display: flex;
   flex-direction: column;
   inline-size: 16rem;
-  padding: 5px;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-chat-panel);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12);
 }
 .lumen-chat-model-menu button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--lumen-space-8);
   min-block-size: 3.125rem;
-  padding: 5px 8px;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   border: 0;
   text-align: start;
 }
@@ -411,8 +411,8 @@
   text-overflow: ellipsis;
 }
 .lumen-shell-chat-header .lumen-chat-share {
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-12);
 }
 .lumen-chat-welcome-flow {
   display: flex;
@@ -421,7 +421,7 @@
   align-items: center;
   justify-content: center;
   overflow: auto;
-  padding: 12px 24px;
+  padding: var(--lumen-space-12) var(--lumen-space-24);
 }
 .lumen-chat-welcome-content {
   display: flex;
@@ -433,24 +433,24 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-block-end: 28px;
+  margin-block-end: var(--lumen-space-24);
   text-align: center;
 }
 .lumen-chat-hero-mark {
   flex-basis: 2.75rem;
   inline-size: 2.75rem;
   block-size: 2.75rem;
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   font-size: 1rem;
 }
 .lumen-chat-hero h2 {
-  margin-block-start: 16px;
+  margin-block-start: var(--lumen-space-16);
   font-size: 1.5rem;
   line-height: 1.25;
   font-weight: 500;
 }
 .lumen-chat-hero p {
-  margin-block-start: 6px;
+  margin-block-start: var(--lumen-space-4);
   color: var(--lumen-subtle);
 }
 .lumen-shell-chat-composer {
@@ -460,9 +460,9 @@
   gap: 0;
   position: relative;
   min-inline-size: 0;
-  padding: 12px 8px 8px;
+  padding: var(--lumen-space-12) var(--lumen-space-8) var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-chat-panel);
 }
 .lumen-chat-field-label {
@@ -480,21 +480,21 @@
   inline-size: calc(100% + 1rem);
   min-block-size: 2rem;
   block-size: 2rem;
-  margin-block: -12px 4px;
-  margin-inline: -8px;
+  margin-block: calc(var(--lumen-space-12) * -1) var(--lumen-space-4);
+  margin-inline: calc(var(--lumen-space-8) * -1);
   resize: none;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--lumen-ink);
-  padding: 11px 14px 0;
+  padding: var(--lumen-space-12) var(--lumen-space-12) 0;
   font-size: 0.875rem;
 }
 .lumen-shell-chat-composer-actions {
   display: flex;
   align-items: center;
   inline-size: 100%;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   min-block-size: 2rem;
 }
 .lumen-shell-chat-composer-actions button {
@@ -504,7 +504,7 @@
   flex: 0 0 2rem;
   block-size: 2rem;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-subtle);
 }
@@ -514,8 +514,8 @@
 }
 .lumen-shell-chat-composer-actions .lumen-chat-search {
   flex: 0 0 auto;
-  gap: 8px;
-  padding: 0 6px;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-4);
   color: var(--lumen-ink);
 }
 .lumen-shell-chat-composer-spacer {
@@ -537,19 +537,19 @@
 .lumen-chat-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-block-start: 12px;
+  gap: var(--lumen-space-8);
+  margin-block-start: var(--lumen-space-12);
 }
 .lumen-chat-suggestions button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--lumen-space-8);
   flex: 1 1 calc(50% - 0.25rem);
   min-inline-size: 0;
   block-size: 3rem;
-  padding: 0 12px;
+  padding: 0 var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-chat-panel);
   color: var(--lumen-ink);
   text-align: start;
@@ -568,7 +568,7 @@
 }
 .lumen-chat-disclaimer {
   flex: 0 0 auto;
-  padding: 10px 12px;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   text-align: center;
   color: var(--lumen-subtle);
   font-size: 0.75rem;
@@ -583,12 +583,12 @@
 .lumen-shell-chat-message-scroll {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: var(--lumen-space-24);
   flex: 1;
   min-block-size: 0;
   inline-size: min(100%, 45rem);
   overflow: auto;
-  padding: 24px;
+  padding: var(--lumen-space-24);
 }
 .lumen-shell-chat-message {
   max-inline-size: 90%;
@@ -596,8 +596,8 @@
 }
 .lumen-shell-chat-message-user {
   align-self: flex-end;
-  padding: 12px 16px !important;
-  border-radius: 0.75rem;
+  padding: var(--lumen-space-12) var(--lumen-space-16) !important;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
 }
 .lumen-shell-chat-message-assistant {
@@ -606,12 +606,12 @@
 }
 .lumen-chat-thread-composer {
   inline-size: min(100%, 45rem);
-  padding: 12px 24px 0;
+  padding: var(--lumen-space-12) var(--lumen-space-24) 0;
 }
 .lumen-chat-drawer-layer {
   position: absolute;
   inset: 0;
-  z-index: 6;
+  z-index: var(--lumen-layer-submenu);
   display: flex;
 }
 .lumen-chat-backdrop {
@@ -625,7 +625,7 @@
   position: relative;
   inline-size: min(18rem, calc(100% - 3rem));
   flex: 0 0 auto;
-  border-radius: 0 1rem 1rem 0;
+  border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
   box-shadow: 0.25rem 0 1.25rem rgba(0, 0, 0, 0.1);
 }
 @container (max-width: 56rem) {
@@ -641,10 +641,10 @@
     border: 0 !important;
   }
   .lumen-shell-chat-header {
-    gap: 8px;
+    gap: var(--lumen-space-8);
   }
   .lumen-chat-welcome-flow {
-    padding-inline: 24px;
+    padding-inline: var(--lumen-space-24);
   }
 }
 @container (max-width: 30rem) {
@@ -664,7 +664,7 @@
     display: none;
   }
   .lumen-chat-welcome-flow {
-    padding-inline: 16px;
+    padding-inline: var(--lumen-space-16);
   }
   .lumen-chat-suggestions button {
     flex-basis: 100%;

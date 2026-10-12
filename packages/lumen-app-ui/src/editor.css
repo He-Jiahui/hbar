@@ -57,8 +57,8 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-glass);
 }
@@ -69,7 +69,7 @@
 }
 .hbar-app-ui-editor-rich-toolbar > div {
   display: flex;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .hbar-app-ui-editor-rich-toolbar > span {
   margin-inline-start: auto;
@@ -80,7 +80,7 @@
   min-block-size: 0;
   flex: 1 1 auto;
   overflow: auto;
-  padding: clamp(0.75rem, 3vw, 2rem);
+  padding: var(--lumen-space-24);
 }
 .hbar-app-ui-editor-rich-document {
   display: flex;
@@ -89,7 +89,7 @@
   min-block-size: 0;
   margin-inline: auto;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 .hbar-app-ui-editor-rich-document > textarea {
   min-block-size: 20rem;
@@ -107,7 +107,7 @@
 }
 .hbar-app-ui-editor-rich-footer > div {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 .hbar-app-ui-editor-markdown-header {
   justify-content: space-between;
@@ -115,7 +115,7 @@
 .hbar-app-ui-editor-markdown-header > div {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .hbar-app-ui-editor-markdown-header > div:first-child {
   min-inline-size: 0;
@@ -141,7 +141,7 @@
   border-inline-end: 0.0625rem solid var(--lumen-edge);
 }
 .hbar-app-ui-editor-markdown-main > section > header {
-  padding: 0.5rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-muted);
 }
@@ -150,7 +150,7 @@
   min-block-size: 0;
   flex: 1 1 auto;
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 .hbar-app-ui-editor-markdown-preview > div {
   line-height: 1.7;
@@ -197,7 +197,7 @@
 .hbar-app-ui-editor-code-gutter {
   display: flex;
   flex-direction: column;
-  padding: 1rem 0.5rem;
+  padding: var(--lumen-space-16) var(--lumen-space-8);
   color: var(--lumen-subtle);
   text-align: end;
   flex: 0 0 auto;
@@ -205,7 +205,7 @@
 .hbar-app-ui-editor-code-main pre {
   flex: 1 1 auto;
   min-inline-size: 0;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   overflow: auto;
   color: var(--lumen-ink);
   font:
@@ -221,8 +221,8 @@
   flex: 0 0 4rem;
   display: flex;
   flex-direction: column;
-  gap: 0.1875rem;
-  padding: 1rem 0.5rem;
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-16) var(--lumen-space-8);
   border-inline-start: 0.0625rem solid var(--lumen-edge);
 }
 .hbar-app-ui-editor-code-main > aside i {
@@ -257,21 +257,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .hbar-app-ui-editor-suggestion-copy {
   min-block-size: 0;
   flex: 1 1 auto;
   overflow: auto;
-  padding: clamp(1rem, 4vw, 3rem);
+  padding: var(--lumen-space-24);
   font-size: 1rem;
   line-height: 1.8;
 }
 .hbar-app-ui-editor-inline-suggestion {
   display: inline;
-  padding: 0.1rem 0.25rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   color: var(--lumen-warning);
   text-decoration: underline;
 }
@@ -284,15 +284,15 @@
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   overflow: auto;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
 }
 .hbar-app-ui-editor-suggestion-card {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -301,7 +301,7 @@
 .hbar-app-ui-editor-suggestion-card > footer {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .hbar-app-ui-editor-suggestion-card > header strong {
   flex: 1;
@@ -314,7 +314,7 @@
   justify-content: flex-end;
 }
 .hbar-app-ui-editor-suggestion-panel > p {
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   color: var(--lumen-muted);
 }
 .hbar-app-ui-editor-reader {
@@ -331,7 +331,7 @@
 }
 .hbar-app-ui-editor-reader-outline > header,
 .hbar-app-ui-editor-reader-outline > footer {
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-muted);
 }
@@ -345,7 +345,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   overflow: auto;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
 }
 .hbar-app-ui-editor-reader-outline nav > button {
   inline-size: 100%;
@@ -369,7 +369,7 @@
   min-block-size: 0;
   flex: 1 1 auto;
   overflow: auto;
-  padding: clamp(1rem, 4vw, 3rem);
+  padding: var(--lumen-space-24);
 }
 .hbar-app-ui-editor-reader-content > article {
   inline-size: min(100%, 48rem);
@@ -378,8 +378,8 @@
 .hbar-app-ui-editor-reader-content section {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-block-end: 2rem;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-32);
   line-height: 1.75;
 }
 .hbar-app-ui-editor-reader-content section.is-dimmed {

@@ -10,7 +10,7 @@
 .lumen-ai-chat-reference-embedded-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
   color: var(--lumen-muted);
 }
 
@@ -23,9 +23,9 @@
 }
 
 .lumen-ai-chat-reference-embedded .lumen-ai-chat-reference-messages {
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .lumen-ai-chat-reference-embedded .lumen-ai-chat-reference-message-body {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }

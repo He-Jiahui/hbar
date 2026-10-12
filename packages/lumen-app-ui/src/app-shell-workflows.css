@@ -74,21 +74,21 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-shell-header > div {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-app-shell-brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-sidebar-layout {
   display: flex;
@@ -114,7 +114,7 @@
   background: var(--lumen-glass);
 }
 .lumen-app-shell-sidebar-layout > aside > button {
-  margin-inline: 0.5rem;
+  margin-inline: var(--lumen-space-8);
 }
 .lumen-app-shell-sidebar-layout > main {
   min-inline-size: 0;
@@ -122,14 +122,14 @@
   overflow: auto;
 }
 .lumen-app-shell-search {
-  margin: 1rem;
+  margin: var(--lumen-space-16);
 }
 .lumen-app-shell-nav {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
 }
 .lumen-app-shell-nav > button {
   inline-size: 100%;
@@ -152,8 +152,8 @@
 .lumen-app-shell-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 0 1rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: 0 var(--lumen-space-16) var(--lumen-space-16);
   min-inline-size: 0;
   flex-wrap: wrap;
 }
@@ -165,8 +165,8 @@
   flex: 1 1 8rem;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 1rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }
@@ -177,7 +177,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  padding: 0.5rem 1rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16) var(--lumen-space-16);
 }
 .lumen-app-shell-records > button {
   display: flex;
@@ -201,7 +201,7 @@
   min-inline-size: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-app-shell-records small {
   color: var(--lumen-muted);
@@ -227,8 +227,8 @@
 .lumen-app-shell-three-pane > aside {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 1rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-three-pane > main {
   min-inline-size: 0;
@@ -239,8 +239,8 @@
   inline-size: 100%;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-16);
 }
 .lumen-app-shell-workbench-header > button:nth-last-of-type(1) {
   margin-inline-start: auto;
@@ -251,7 +251,7 @@
 .lumen-app-shell-context-actions {
   display: flex;
   justify-content: flex-end;
-  padding: 0.75rem 1rem;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-app-shell-context-columns {
   display: flex;
@@ -274,15 +274,15 @@
 .lumen-app-shell-context-columns > aside:last-child {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
   border-inline: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-shell-context-columns > aside:last-child > div {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding-block-end: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding-block-end: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-shell-context-columns small {
@@ -307,13 +307,13 @@
   overflow: auto;
 }
 .lumen-app-shell-triage > main > p {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-filter {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-filter input {
   min-inline-size: 0;
@@ -332,8 +332,8 @@
 .lumen-app-shell-document > aside {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 1rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-document > aside > button {
   justify-content: flex-start;
@@ -347,8 +347,8 @@
 .lumen-app-shell-format {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  padding: 0.6rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-shell-format > button:last-child {
@@ -365,13 +365,13 @@
 .lumen-app-shell-scoped {
   min-block-size: 0;
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-scope-pickers {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-block-end: 1rem;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-16);
   min-inline-size: 0;
   flex-wrap: wrap;
 }
@@ -382,10 +382,10 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-app-shell-view-tabs {
-  padding: 0.5rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
 }
 .lumen-app-shell-adaptive {
   display: flex;
@@ -430,8 +430,8 @@
 .lumen-app-shell-chat > aside {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 1rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-chat > aside > button {
   justify-content: flex-start;
@@ -446,25 +446,25 @@
 }
 .lumen-app-shell-chat > main > select {
   justify-self: end;
-  margin: 0.75rem 1rem;
+  margin: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-app-shell-messages {
   min-block-size: 0;
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 .lumen-app-shell-messages article {
   inline-size: min(36rem, 90%);
-  margin-block-end: 0.75rem;
-  padding: 0.75rem;
+  margin-block-end: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-glass);
 }
 .lumen-app-shell-composer {
   display: flex;
   align-items: end;
-  gap: 0.5rem;
-  padding: 1rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
   min-inline-size: 0;
 }
@@ -481,8 +481,8 @@
   resize: vertical;
 }
 .lumen-app-shell-empty {
-  margin: 1rem;
-  padding: 1.5rem;
+  margin: var(--lumen-space-16);
+  padding: var(--lumen-space-24);
   border: 0.0625rem dashed var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   text-align: center;

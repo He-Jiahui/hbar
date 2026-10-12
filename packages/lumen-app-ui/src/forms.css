@@ -9,13 +9,13 @@
 }
 
 .lumen-form-field {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-form-field > label {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow-x: auto;
   scrollbar-width: none;
   white-space: nowrap;
@@ -54,9 +54,9 @@
   inline-size: 100%;
   min-inline-size: 0;
   min-block-size: var(--lumen-control-size, 2.25rem);
-  padding: 0.25rem var(--lumen-control-padding-inline, 0.75rem);
+  padding: var(--lumen-space-4) var(--lumen-control-padding-inline, var(--lumen-space-12));
   border: 0;
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   outline: none;
   background: transparent;
   color: var(--lumen-ink);
@@ -80,24 +80,24 @@
 }
 
 .lumen-control[data-size='s'] {
-  --lumen-control-padding-inline: 0.625rem;
-  --lumen-input-padding-block: 0.25rem;
-  --lumen-input-padding-inline: 0.625rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
+  --lumen-input-padding-block: var(--lumen-space-4);
+  --lumen-input-padding-inline: var(--lumen-space-8);
   min-block-size: 1.875rem;
   font-size: 0.8125rem;
 }
 
 .lumen-control[data-size='m'] {
-  --lumen-control-padding-inline: 0.75rem;
-  --lumen-input-padding-block: 0.375rem;
-  --lumen-input-padding-inline: 0.75rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
+  --lumen-input-padding-block: var(--lumen-space-4);
+  --lumen-input-padding-inline: var(--lumen-space-12);
   min-block-size: 2.25rem;
 }
 
 .lumen-control[data-size='l'] {
-  --lumen-control-padding-inline: 0.875rem;
-  --lumen-input-padding-block: 0.5rem;
-  --lumen-input-padding-inline: 0.875rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
+  --lumen-input-padding-block: var(--lumen-space-8);
+  --lumen-input-padding-inline: var(--lumen-space-12);
   min-block-size: 2.625rem;
 }
 
@@ -105,12 +105,12 @@
 input.lumen-control:where(
     :not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden'])
   ) {
-  padding: var(--lumen-input-padding-block, 0.375rem) var(--lumen-input-padding-inline, 0.75rem);
+  padding: var(--lumen-input-padding-block, var(--lumen-space-4)) var(--lumen-input-padding-inline, var(--lumen-space-12));
 }
 
 textarea.lumen-control {
   min-block-size: 6.5rem;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   resize: vertical;
 }
 
@@ -134,7 +134,7 @@ textarea.lumen-control {
 .lumen-combobox-control[data-variant='boxed'] {
   box-sizing: border-box;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-contrast);
 }
 
@@ -185,7 +185,7 @@ textarea.lumen-control {
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   color: var(--lumen-ink);
   cursor: pointer;
 }
@@ -219,7 +219,7 @@ textarea.lumen-control {
   block-size: 100%;
   align-items: center;
   justify-content: center;
-  border-radius: calc(var(--lumen-radius-control, 0.375rem) * 0.5);
+  border-radius: var(--lumen-radius-control);
   box-shadow:
     inset 0 0 0 0.0625rem currentColor,
     0 0 0.5rem color-mix(in srgb, currentColor 12%, transparent);
@@ -269,7 +269,7 @@ textarea.lumen-control {
 }
 
 .lumen-checkbox-copy {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-toggle {
@@ -278,7 +278,7 @@ textarea.lumen-control {
 
 .lumen-toggle-copy {
   flex: 1 1 auto;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-toggle-control {
@@ -372,14 +372,14 @@ textarea.lumen-control {
 .lumen-combobox-popup-content > [role='listbox'] {
   flex: 1 1 auto;
   min-block-size: 0;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow: auto;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
 }
 
 .lumen-combobox-popup-content p {
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
 }
 
 .lumen-combobox-option[role='option'] {
@@ -387,7 +387,7 @@ textarea.lumen-control {
   block-size: auto;
   flex: 0 0 auto;
   justify-content: flex-start;
-  padding-block: 0.5rem;
+  padding-block: var(--lumen-space-8);
   text-align: start;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -400,7 +400,7 @@ textarea.lumen-control {
 .lumen-combobox-popup .lumen-combobox-option > [data-edge] {
   box-sizing: border-box;
   justify-content: flex-start;
-  padding-inline-start: var(--lumen-control-padding-inline, 0.75rem);
+  padding-inline-start: var(--lumen-control-padding-inline, var(--lumen-space-12));
 }
 
 .lumen-combobox-option[data-active='true'] {
@@ -414,12 +414,12 @@ textarea.lumen-control {
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .lumen-combobox-load-more {
   inline-size: calc(100% - 0.5rem);
-  margin: 0 0.25rem 0.25rem;
+  margin: 0 var(--lumen-space-4) var(--lumen-space-4);
 }
 
 .lumen-choice-select {
@@ -448,11 +448,11 @@ textarea.lumen-control {
 .lumen-choice-select .lumen-choice-select-list {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   overflow: auto;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-overlay-edge);
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   background: color-mix(in srgb, var(--lumen-canvas) 97%, transparent);
   box-shadow: 0 0 1rem var(--lumen-overlay-glow-near);
   backdrop-filter: blur(1.25rem);
@@ -466,7 +466,7 @@ textarea.lumen-control {
 
 .lumen-choice-select-list > [role='option'] > [data-edge='bottom'] {
   justify-content: flex-start;
-  padding-inline-start: 0.75rem;
+  padding-inline-start: var(--lumen-space-12);
 }
 
 .lumen-choice-select-list > [role='option'] > span:first-child {
@@ -486,12 +486,12 @@ textarea.lumen-control {
 
 .lumen-multi-select {
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-multi-select-values {
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-multi-select-value {
@@ -499,8 +499,8 @@ textarea.lumen-control {
   min-inline-size: 0;
   min-block-size: var(--lumen-control-size, 2.25rem);
   align-items: center;
-  gap: 0.25rem;
-  padding-inline-start: var(--lumen-control-padding-inline, 0.75rem);
+  gap: var(--lumen-space-4);
+  padding-inline-start: var(--lumen-control-padding-inline, var(--lumen-space-12));
 }
 
 .lumen-multi-select-value-content {
@@ -508,7 +508,7 @@ textarea.lumen-control {
   min-inline-size: 0;
   flex-direction: row;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-multi-select[data-disabled='true'] {

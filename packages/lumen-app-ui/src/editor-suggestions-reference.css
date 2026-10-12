@@ -40,9 +40,9 @@
   min-block-size: 4.3125rem;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--lumen-space-12);
   border-block-end: 0.0625rem solid light-dark(#e5e5e5, #262626);
-  padding: 12px 20px;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-suggestions-reference-title {
   min-inline-size: 0;
@@ -57,7 +57,7 @@
   white-space: nowrap;
 }
 .lumen-suggestions-reference-title p {
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
   overflow: hidden;
   color: light-dark(#737373, #a3a3a3);
   font-size: 0.8125rem;
@@ -70,10 +70,10 @@
   flex: 0 0 auto;
   block-size: 1.75rem;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   border: 0.0625rem solid light-dark(#e5e5e5, #262626);
-  border-radius: 0.5rem;
-  padding: 0 10px;
+  border-radius: var(--lumen-radius-surface);
+  padding: 0 var(--lumen-space-8);
   background: light-dark(#fafafa, #171717);
   color: light-dark(#525252, #a3a3a3);
   font-size: 0.75rem;
@@ -84,14 +84,14 @@
   min-inline-size: 0;
   min-block-size: 0;
   overflow: auto;
-  padding: 24px 32px;
+  padding: var(--lumen-space-24) var(--lumen-space-32);
 }
 .lumen-suggestions-reference-prose {
   max-inline-size: 38.75rem;
   margin-inline: auto;
 }
 .lumen-suggestions-reference-prose p {
-  margin-block-end: 16px;
+  margin-block-end: var(--lumen-space-16);
   color: light-dark(#404040, #d4d4d4);
   font-size: 0.9375rem;
   line-height: 1.75rem;
@@ -102,8 +102,8 @@
 .lumen-suggestions-reference-inline {
   display: inline;
   border: 0;
-  border-radius: 0.25rem;
-  padding: 0 2px;
+  border-radius: var(--lumen-radius-control);
+  padding: 0 var(--lumen-space-2);
   background: light-dark(#fef9e8, #473b18);
   color: light-dark(#171717, #fff);
   font-size: inherit;
@@ -130,7 +130,7 @@
   align-items: center;
   justify-content: space-between;
   border-block-end: 0.0625rem solid light-dark(#e5e5e5, #262626);
-  padding: 0 16px;
+  padding: 0 var(--lumen-space-16);
   font-size: 0.8125rem;
 }
 .lumen-suggestions-reference-panel-header button {
@@ -145,14 +145,14 @@
   min-inline-size: 0;
   min-block-size: 0;
   overflow: auto;
-  padding: 12px;
+  padding: var(--lumen-space-12);
 }
 .lumen-suggestions-reference-card {
-  margin-block-end: 8px;
+  margin-block-end: var(--lumen-space-8);
   overflow: hidden;
   border: 0.0625rem solid light-dark(#e5e5e5, #262626);
-  border-radius: 0.75rem;
-  padding: 12px;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-12);
   background: light-dark(#fff, #0a0a0a);
 }
 .lumen-suggestions-reference-card.is-selected {
@@ -164,7 +164,7 @@
   min-inline-size: 0;
   block-size: 1.5rem;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .lumen-suggestions-reference-avatar {
   display: inline-flex;
@@ -194,9 +194,9 @@
   line-height: 1.125rem;
 }
 .lumen-suggestions-reference-change {
-  margin-block-start: 10px;
-  border-radius: 0.5rem;
-  padding: 8px;
+  margin-block-start: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-8);
   background: light-dark(#f7f7f7, #202020);
 }
 .lumen-suggestions-reference-change p {
@@ -204,7 +204,7 @@
   line-height: 1.25rem;
 }
 .lumen-suggestions-reference-change p + p {
-  margin-block-start: 4px;
+  margin-block-start: var(--lumen-space-4);
 }
 .lumen-suggestions-reference-change p:only-child {
   color: light-dark(#737373, #a3a3a3);
@@ -214,15 +214,15 @@
   text-decoration: line-through;
 }
 .lumen-suggestions-reference-detail {
-  margin-block-start: 8px !important;
+  margin-block-start: var(--lumen-space-8) !important;
   color: light-dark(#525252, #a3a3a3);
   font-size: 0.8125rem;
   line-height: 1.25rem;
 }
 .lumen-suggestions-reference-actions {
   display: flex;
-  gap: 6px;
-  margin-block-start: 12px;
+  gap: var(--lumen-space-4);
+  margin-block-start: var(--lumen-space-12);
 }
 .lumen-suggestions-reference-actions button,
 .lumen-suggestions-reference-complete button {
@@ -230,9 +230,9 @@
   block-size: 1.75rem;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  border-radius: 0.5rem;
-  padding: 0 10px;
+  gap: var(--lumen-space-4);
+  border-radius: var(--lumen-radius-surface);
+  padding: 0 var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.5;
 }
@@ -258,8 +258,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 56px 20px 24px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-32) var(--lumen-space-16) var(--lumen-space-24);
   text-align: center;
 }
 .lumen-suggestions-reference-complete-symbol {
@@ -269,7 +269,7 @@
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid light-dark(#e5e5e5, #262626);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: light-dark(#fafafa, #171717);
   color: light-dark(#737373, #a3a3a3);
 }
@@ -288,7 +288,7 @@
   line-height: 1.25rem;
 }
 .lumen-suggestions-reference-complete button {
-  margin-block-start: 4px;
+  margin-block-start: var(--lumen-space-4);
   block-size: 2rem;
 }
 .lumen-suggestions-reference-visually-hidden {
@@ -309,7 +309,7 @@
   .lumen-suggestions-reference-document-header {
     min-block-size: 0;
     align-items: flex-start;
-    padding-block: 10px 2px;
+    padding-block: var(--lumen-space-8) var(--lumen-space-2);
   }
   .lumen-suggestions-reference-title p {
     block-size: 0;
@@ -337,13 +337,13 @@
   }
   .lumen-suggestions-reference-document:is([data-remaining='0'], [data-remaining='1'], [data-remaining='2'])
     .lumen-suggestions-reference-document-header {
-    padding-block: 12px;
+    padding-block: var(--lumen-space-12);
   }
   .lumen-suggestions-reference-document:is([data-remaining='0'], [data-remaining='1'], [data-remaining='2'])
     .lumen-suggestions-reference-title
     p {
     block-size: auto;
-    margin-block-start: 2px;
+    margin-block-start: var(--lumen-space-2);
     overflow: visible;
     clip-path: none;
     text-overflow: initial;
@@ -353,7 +353,7 @@
     flex: 0 0 auto;
     block-size: auto;
     max-block-size: none;
-    padding: 24px 20px 8px;
+    padding: var(--lumen-space-24) var(--lumen-space-16) var(--lumen-space-8);
   }
   .lumen-suggestions-reference-document:is([data-remaining='0'], [data-remaining='1'], [data-remaining='2'])
     .lumen-suggestions-reference-prose

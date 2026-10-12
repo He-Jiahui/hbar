@@ -42,7 +42,7 @@
 }
 .lumen-rail-shell button[data-size='s'] {
   --lumen-control-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-rail-pane {
   display: flex;
@@ -56,15 +56,15 @@
   flex-direction: column;
   align-items: center;
   flex: 0 0 3.5rem;
-  padding: 8px;
-  gap: 4px;
+  padding: var(--lumen-space-8);
+  gap: var(--lumen-space-4);
   min-block-size: 0;
   border-inline-end: 0.0625rem solid var(--lumen-line);
 }
 .lumen-rail-icons nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--lumen-space-4);
   overflow-y: auto;
   overflow-x: clip;
   min-block-size: 0;
@@ -95,7 +95,7 @@
   font-weight: 500;
 }
 .lumen-rail-icons .lumen-rail-close {
-  margin-block-end: 4px;
+  margin-block-end: var(--lumen-space-4);
 }
 .lumen-rail-secondary {
   display: flex;
@@ -106,18 +106,18 @@
 }
 .lumen-rail-workspace {
   flex: 0 0 auto;
-  padding: 8px 8px 4px;
+  padding: var(--lumen-space-8) var(--lumen-space-8) var(--lumen-space-4);
 }
 .lumen-rail-workspace-anchor {
   position: relative;
 }
 .lumen-rail-shell .lumen-rail-workspace-trigger[data-size='s'] {
   --lumen-control-size: 2.75rem;
-  --lumen-control-padding-inline: 0.5rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
   inline-size: 100%;
   min-inline-size: 0;
-  border-radius: 0.625rem;
-  gap: 8px;
+  border-radius: var(--lumen-radius-surface);
+  gap: var(--lumen-space-8);
   text-align: start;
   background: color-mix(in srgb, var(--lumen-ink) 5%, transparent);
 }
@@ -130,7 +130,7 @@
   justify-content: center;
   flex: 0 0 1.75rem;
   block-size: 1.75rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-contrast);
   font-size: 0.75rem;
@@ -160,14 +160,14 @@
 /* Observed workspace menu overlays the navigation below its trigger. */
 .lumen-rail-workspace-menu {
   position: absolute;
-  z-index: 4;
+  z-index: var(--lumen-layer-anchored);
   inset-block-start: calc(100% + 0.25rem);
   inset-inline: 0;
-  padding: 4px;
+  padding: var(--lumen-space-4);
   max-block-size: min(24rem, 70cqh);
   overflow: auto;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
   backdrop-filter: blur(0.75rem);
   box-shadow: 0 0.25rem 1rem -0.25rem rgb(0 0 0 / 15%);
@@ -176,13 +176,13 @@
   inline-size: 100%;
   min-inline-size: 0;
   justify-content: flex-start;
-  padding: 6px 8px;
-  gap: 8px;
-  border-radius: 0.625rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
+  gap: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-rail-workspace-menu button[role='menuitem'] {
-  margin-block-start: 4px;
-  padding: 0 8px;
+  margin-block-start: var(--lumen-space-4);
+  padding: 0 var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 400;
@@ -198,14 +198,14 @@
   flex: 1;
   min-inline-size: 0;
   overflow: auto;
-  padding: 0 8px 12px;
+  padding: 0 var(--lumen-space-8) var(--lumen-space-12);
 }
 .lumen-rail-nav-section + .lumen-rail-nav-section {
-  margin-block-start: 16px;
+  margin-block-start: var(--lumen-space-16);
 }
 .lumen-rail-nav-section > p {
-  padding: 0 12px;
-  margin-block-end: 4px;
+  padding: 0 var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-4);
   color: var(--lumen-subtle);
   text-transform: uppercase;
   font-size: 0.6875rem;
@@ -216,15 +216,15 @@
 .lumen-rail-nav-section ul {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 .lumen-rail-nav-section a {
   display: flex;
   align-items: center;
   min-block-size: 2rem;
-  padding: 0 12px;
-  gap: 8px;
-  border-radius: 0.5rem;
+  padding: 0 var(--lumen-space-12);
+  gap: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 400;
@@ -260,8 +260,8 @@
   align-items: center;
   flex: 0 0 auto;
   min-block-size: 3.5rem;
-  padding: 0 24px;
-  gap: 12px;
+  padding: 0 var(--lumen-space-24);
+  gap: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-line);
   background: var(--lumen-frost);
 }
@@ -276,7 +276,7 @@
   font-weight: 500;
 }
 .lumen-rail-shell .lumen-rail-primary[data-size='s'] {
-  --lumen-control-padding-inline: 0.625rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
   flex: 0 0 auto;
   font-size: 0.8125rem;
   line-height: 1.21875rem;
@@ -296,7 +296,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   overflow: auto;
-  padding: 24px;
+  padding: var(--lumen-space-24);
 }
 /* These fades overlay scroll boundaries, never position the actual rows. */
 .lumen-rail-nav-frame::after,
@@ -314,7 +314,7 @@
 }
 .lumen-rail-records {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   overflow: hidden;
   background: var(--lumen-frost);
 }
@@ -323,8 +323,8 @@
   align-items: center;
   justify-content: space-between;
   min-block-size: 3rem;
-  gap: 12px;
-  padding: 0 16px;
+  gap: var(--lumen-space-12);
+  padding: 0 var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-line);
 }
 .lumen-rail-record-heading h2 {
@@ -348,8 +348,8 @@
   display: flex;
   inline-size: 100%;
   min-inline-size: 0;
-  padding: 10px 16px;
-  gap: 12px;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
+  gap: var(--lumen-space-12);
   border: 0;
   border-radius: 0;
 }
@@ -357,7 +357,7 @@
   background: color-mix(in srgb, var(--lumen-ink) 2%, transparent);
 }
 .lumen-rail-records .lumen-rail-pair > span + span {
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
 }
 .lumen-rail-record-value {
   display: flex;
@@ -378,8 +378,8 @@
 .lumen-rail-record-value > span + span {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-block-start: 2px;
+  gap: var(--lumen-space-4);
+  margin-block-start: var(--lumen-space-2);
   font-size: 0.75rem;
   line-height: 1rem;
   color: var(--lumen-subtle);
@@ -402,7 +402,7 @@
   background: var(--lumen-danger);
 }
 .lumen-rail-empty {
-  padding: 16px;
+  padding: var(--lumen-space-16);
   color: var(--lumen-subtle);
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
@@ -422,7 +422,7 @@
     display: block;
     position: absolute;
     inset: 0;
-    z-index: 3;
+    z-index: var(--lumen-layer-sticky-edge);
   }
   .lumen-rail-backdrop {
     position: absolute;
@@ -440,16 +440,16 @@
     inset-inline-start: 0;
     inline-size: 19.5rem;
     max-inline-size: calc(100% - 3rem);
-    border-radius: 0 1.125rem 1.125rem 0;
+    border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
     box-shadow: 0.5rem 0 2rem rgb(0 0 0 / 12%);
     backdrop-filter: blur(0.75rem);
   }
 }
 @container (max-width: 39.999rem) {
   .lumen-rail-header {
-    padding-inline: 16px;
+    padding-inline: var(--lumen-space-16);
   }
   .lumen-rail-main-frame main {
-    padding: 16px;
+    padding: var(--lumen-space-16);
   }
 }

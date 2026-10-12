@@ -20,15 +20,15 @@
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-frame {
   width: min(420px, calc(100% - 40px));
   min-width: 0;
-  padding: 4px;
+  padding: var(--lumen-space-4);
   border: 1px solid var(--toast-edge);
-  border-radius: 14px;
+  border-radius: var(--lumen-radius-panel);
   background: var(--toast-ground);
 }
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-card {
-  padding: 20px;
+  padding: var(--lumen-space-16);
   border: 1px solid var(--toast-edge);
-  border-radius: 10px;
+  border-radius: var(--lumen-radius-surface);
   background: var(--toast-card);
 }
 .hbar-app-ui-notifications-variant-2 h2 {
@@ -38,7 +38,7 @@
   line-height: 22.5px;
 }
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-card > p {
-  margin: 6px 0 16px;
+  margin: var(--lumen-space-4) 0 var(--lumen-space-16);
   color: var(--toast-muted);
   font-size: 13px;
   line-height: 20px;
@@ -46,7 +46,7 @@
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-choices {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-choices button {
   display: inline-flex;
@@ -54,10 +54,10 @@
   min-height: 36px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   border: 1px solid var(--toast-edge);
-  border-radius: 8px;
+  border-radius: var(--lumen-radius-surface);
   background: var(--toast-ground);
   color: var(--toast-ink);
   font: inherit;
@@ -90,11 +90,11 @@
   min-height: 36px;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 0 12px;
+  gap: var(--lumen-space-8);
+  margin-top: var(--lumen-space-12);
+  padding: 0 var(--lumen-space-12);
   border: 1px solid var(--toast-edge);
-  border-radius: 8px;
+  border-radius: var(--lumen-radius-surface);
   background: light-dark(#fafafa, #0a0a0a);
 }
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-summary > span {
@@ -120,7 +120,7 @@
   position: absolute;
   right: 20px;
   bottom: 20px;
-  z-index: 2;
+  z-index: var(--lumen-layer-sticky-cell);
   width: min(360px, calc(100% - 40px));
   height: 90px;
 }
@@ -128,21 +128,21 @@
   display: flex;
   height: auto;
   flex-direction: column-reverse;
-  gap: 10px;
+  gap: var(--lumen-space-8);
 }
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-stack article {
   position: absolute;
   right: 0;
-  bottom: calc(var(--toast-depth) * 7px);
-  z-index: calc(10 - var(--toast-depth));
+  bottom: calc(var(--lumen-toast-depth) * var(--lumen-space-8));
+  z-index: calc(var(--lumen-layer-toast) - var(--lumen-toast-depth));
   display: flex;
   width: 100%;
   min-height: 74px;
   align-items: flex-start;
-  gap: 12px;
-  padding: 16px 12px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16) var(--lumen-space-12);
   border: 1px solid var(--toast-edge);
-  border-radius: 10px;
+  border-radius: var(--lumen-radius-surface);
   background: var(--toast-card);
   box-shadow: 0 5px 20px rgb(0 0 0 / 9%);
 }
@@ -152,7 +152,7 @@
   bottom: auto;
 }
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-stack article > svg {
-  margin-top: 1px;
+  margin-top: var(--lumen-space-2);
 }
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-message {
   flex: 1 1 auto;
@@ -176,10 +176,10 @@
   min-width: 0;
   min-height: 28px;
   align-items: center;
-  gap: 4px;
-  padding: 4px 9px;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   border: 1px solid var(--toast-edge);
-  border-radius: 6px;
+  border-radius: var(--lumen-radius-control);
   background: var(--toast-ground);
   color: var(--toast-ink);
   font-size: 12px;
@@ -192,7 +192,7 @@
 .hbar-app-ui-notifications-variant-2 .lumen-notifications-toast-stack article > button:last-child {
   width: 24px;
   min-height: 24px;
-  padding: 4px;
+  padding: var(--lumen-space-4);
   border: 0;
   background: transparent;
   color: var(--toast-muted);

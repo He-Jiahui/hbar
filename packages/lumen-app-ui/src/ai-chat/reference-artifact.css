@@ -27,7 +27,7 @@
   flex: 0 1 36%;
   min-inline-size: 12rem;
   min-block-size: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
 }
 
 .lumen-ai-chat-artifact-details {
@@ -42,7 +42,7 @@
   display: flex;
   align-items: center;
   min-inline-size: 0;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   overflow-wrap: anywhere;
   cursor: pointer;
   font-weight: 600;
@@ -57,10 +57,10 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
   min-block-size: 0;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
 }
 
 .lumen-ai-chat-artifact-toolbar,
@@ -69,7 +69,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-ai-chat-artifact-toolbar {
@@ -78,9 +78,9 @@
 
 .lumen-ai-chat-artifact-modes,
 .lumen-ai-chat-artifact-versions {
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 
 .lumen-ai-chat-artifact-modes [aria-pressed='true'],
@@ -94,10 +94,10 @@
   min-inline-size: 0;
   min-block-size: 0;
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   overflow: auto;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-glass);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.8125rem;
@@ -125,7 +125,7 @@
   .lumen-ai-chat-artifact-aside {
     flex: 0 1 auto;
     min-inline-size: 0;
-    padding: 0.5rem 1rem;
+    padding: var(--lumen-space-8) var(--lumen-space-16);
   }
 
   .lumen-ai-chat-artifact-details:not([open]) {

@@ -786,7 +786,7 @@ function Toasts(props: Omit<LumenNotificationsProps, 'content'> & { content: Lum
             <article
               key={key}
               data-toast-tone={choice.tone}
-              style={{ '--toast-depth': Math.min(index, 3) } as React.CSSProperties}
+              style={{ '--lumen-toast-depth': Math.min(index, 3) } as React.CSSProperties}
             >
               <ToastGlyph tone={choice.tone} />
               <div className="lumen-notifications-toast-message">

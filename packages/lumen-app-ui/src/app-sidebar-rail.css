@@ -73,7 +73,7 @@
   display: flex;
   align-items: center;
   flex: 0 0 3.5rem;
-  padding-inline: 12px;
+  padding-inline: var(--lumen-space-12);
 }
 .lumen-rail-heading span {
   display: flex;
@@ -81,7 +81,7 @@
   justify-content: center;
   flex: 0 0 2rem;
   block-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-rail-ink);
   color: var(--lumen-rail-panel);
   font-weight: 600;
@@ -90,9 +90,9 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 12px;
+  gap: var(--lumen-space-12);
   min-block-size: 0;
-  padding: 4px 8px 0;
+  padding: var(--lumen-space-4) var(--lumen-space-8) 0;
 }
 .lumen-app-sidebar-stage .lumen-rail-navigation[data-hbar-app-ui-list-strategy] {
   max-block-size: none;
@@ -108,7 +108,7 @@
 .lumen-rail-navigation li,
 .lumen-rail-footer-item {
   position: relative;
-  padding-block-end: 4px;
+  padding-block-end: var(--lumen-space-4);
 }
 .lumen-rail-navigation li > button,
 .lumen-rail-footer-item > button {
@@ -118,7 +118,7 @@
   inline-size: 2.5rem;
   block-size: 2.5rem;
   border: 0;
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-rail-muted);
 }
@@ -133,7 +133,7 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  padding: 4px 8px 8px;
+  padding: var(--lumen-space-4) var(--lumen-space-8) var(--lumen-space-8);
 }
 .lumen-rail-footer-item:last-child {
   padding-block-end: 0;
@@ -148,12 +148,12 @@
 .lumen-rail-account-menu {
   position: absolute;
   inset-inline-start: calc(100% + 0.5rem);
-  z-index: 5;
+  z-index: var(--lumen-layer-menu-panel);
   display: flex;
   flex-direction: column;
   inline-size: 11rem;
-  padding: 4px;
-  border-radius: 1rem;
+  padding: var(--lumen-space-4);
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-rail-popover);
   color: var(--lumen-rail-ink);
   box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.08);
@@ -173,7 +173,7 @@
   display: flex;
   align-items: center;
   min-block-size: 1.5rem;
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
   color: var(--lumen-rail-muted);
   font-size: 0.6875rem;
   letter-spacing: 0.025em;
@@ -184,9 +184,9 @@
   display: flex;
   align-items: center;
   min-block-size: 2rem;
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-rail-ink);
   text-align: start;
@@ -203,7 +203,7 @@
   display: flex;
   align-items: center;
   min-block-size: 1.5rem;
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
   font-size: 0.875rem;
 }
 .lumen-rail-account-menu > p:nth-child(2) {

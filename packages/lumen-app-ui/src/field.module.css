@@ -3,7 +3,7 @@
   min-inline-size: 0;
   box-sizing: border-box;
   border: 0.0625rem solid color-mix(in srgb, var(--lumen-effect-color) 45%, transparent);
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
   backdrop-filter: blur(0.75rem);
   box-shadow: var(--lumen-effect-shadow);

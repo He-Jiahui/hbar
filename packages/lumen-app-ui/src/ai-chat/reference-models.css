@@ -10,7 +10,7 @@
 .lumen-ai-chat-model-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 .lumen-ai-chat-model-trigger > .lumen-ai-chat-reference-icon {
@@ -18,7 +18,7 @@
 }
 .lumen-ai-chat-model-disclaimer {
   flex: 0 0 auto;
-  padding: 0 1.25rem 0.75rem;
+  padding: 0 var(--lumen-space-16) var(--lumen-space-12);
   color: var(--lumen-muted);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
@@ -31,6 +31,6 @@
     overflow: auto;
   }
   .lumen-ai-chat-model-disclaimer {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 }

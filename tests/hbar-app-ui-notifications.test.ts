@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFileSync } from 'node:fs'
 import {
   getHbarAppUiVariant,
   HbarAppUiNotificationsProvider,
@@ -130,10 +131,16 @@ describe('hbar-app-ui notification surfaces', () => {
         ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES.toasts!,
         labels: {
           ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES.toasts!.labels,
-          title: '短消息', detail: '悬停后展开', empty: '没有消息', clear: '清除所有',
-          active: (count) => `${count} 条`, dismiss: () => '关闭',
+          title: '短消息',
+          detail: '悬停后展开',
+          empty: '没有消息',
+          clear: '清除所有',
+          active: (count) => `${count} 条`,
+          dismiss: () => '关闭',
         },
-        choices: [{ id: 'custom', label: '完成', title: '保存成功', detail: '新的内容已同步', tone: 'success', action: '撤销' }],
+        choices: [
+          { id: 'custom', label: '完成', title: '保存成功', detail: '新的内容已同步', tone: 'success', action: '撤销' },
+        ],
         maximum: 1,
       },
     }
@@ -142,6 +149,18 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(localizedHtml).toContain('没有消息')
     expect(localizedHtml).toContain('完成')
     expect(localizedHtml).not.toContain('Toast notifications')
+  })
+
+  test('toast depth stays clamped and the producer matches the CSS layer and offset contract', () => {
+    const component = readFileSync(new URL('../packages/lumen-app-ui/src/notifications.tsx', import.meta.url), 'utf8')
+    const stylesheet = readFileSync(
+      new URL('../packages/lumen-app-ui/src/notifications-toast-reference.css', import.meta.url),
+      'utf8',
+    )
+    expect(component).toContain("'--lumen-toast-depth': Math.min(index, 3)")
+    expect(stylesheet).toContain('bottom: calc(var(--lumen-toast-depth) * var(--lumen-space-8));')
+    expect(stylesheet).toContain('z-index: calc(var(--lumen-layer-toast) - var(--lumen-toast-depth));')
+    expect(stylesheet).not.toContain('var(--toast-depth)')
   })
 
   test('preferences preserve the reference groups, controlled channels and host save boundary', () => {
@@ -154,7 +173,9 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(html).toContain('aria-pressed="true"')
     expect(html).toContain('All changes saved')
     expect(html).not.toContain('When someone mentions you')
-    expect(render(3, createHbarAppUiNotificationPreferencesFixture('localized'))).toContain('Benachrichtigungseinstellungen')
+    expect(render(3, createHbarAppUiNotificationPreferencesFixture('localized'))).toContain(
+      'Benachrichtigungseinstellungen',
+    )
     expect(render(3, createHbarAppUiNotificationPreferencesFixture('empty'))).toContain('No preferences')
     expect((render(3, createHbarAppUiNotificationPreferencesFixture('overflow')).match(/<li/g) ?? []).length).toBe(81)
     expect((render(3, createHbarAppUiNotificationPreferencesFixture('duplicate')).match(/<li/g) ?? []).length).toBe(7)
@@ -195,9 +216,17 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(html).not.toContain('Three source files need a schema mapping')
     expect(render(5, createHbarAppUiNotificationSystemFixture('localized'))).toContain('Systemmeldungen')
     expect(render(5, createHbarAppUiNotificationSystemFixture('empty'))).toContain('Dismissed banners do not come back')
-    expect((render(5, createHbarAppUiNotificationSystemFixture('one')).match(/class="lumen-system-message"/g) ?? []).length).toBe(1)
-    expect((render(5, createHbarAppUiNotificationSystemFixture('overflow')).match(/class="lumen-system-message"/g) ?? []).length).toBe(81)
-    expect((render(5, createHbarAppUiNotificationSystemFixture('duplicate')).match(/class="lumen-system-message"/g) ?? []).length).toBe(5)
+    expect(
+      (render(5, createHbarAppUiNotificationSystemFixture('one')).match(/class="lumen-system-message"/g) ?? []).length,
+    ).toBe(1)
+    expect(
+      (render(5, createHbarAppUiNotificationSystemFixture('overflow')).match(/class="lumen-system-message"/g) ?? [])
+        .length,
+    ).toBe(81)
+    expect(
+      (render(5, createHbarAppUiNotificationSystemFixture('duplicate')).match(/class="lumen-system-message"/g) ?? [])
+        .length,
+    ).toBe(5)
     expect(render(5, createHbarAppUiNotificationSystemFixture('unavailable'))).toContain('Action unavailable')
   })
 

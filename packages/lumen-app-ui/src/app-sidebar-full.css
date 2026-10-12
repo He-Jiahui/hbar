@@ -76,8 +76,8 @@
   display: flex;
   align-items: center;
   flex: 0 0 3.5rem;
-  gap: 10px;
-  padding-inline: 12px 8px;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12) var(--lumen-space-8);
 }
 .lumen-full-mark {
   display: flex;
@@ -85,7 +85,7 @@
   justify-content: center;
   flex: 0 0 2rem;
   block-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--full-ink);
   color: var(--full-panel);
   font-size: 0.875rem;
@@ -116,7 +116,7 @@
   flex: 0 0 2rem;
   block-size: 2rem;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--full-hover);
   color: var(--full-muted);
   cursor: pointer;
@@ -125,18 +125,18 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--lumen-space-16);
   min-block-size: 0;
   max-block-size: none;
   overflow-y: auto;
-  padding-inline: 8px;
+  padding-inline: var(--lumen-space-8);
   overscroll-behavior: contain;
 }
 .lumen-full-group > p {
   display: flex;
   align-items: center;
   min-block-size: 1.28125rem;
-  padding-inline: 12px;
+  padding-inline: var(--lumen-space-12);
   color: var(--full-muted);
   font-size: 0.6875rem;
   font-weight: 500;
@@ -146,16 +146,16 @@
 .lumen-full-group ul {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 .lumen-full-group a,
 .lumen-full-footer > a {
   display: flex;
   align-items: center;
   min-block-size: 2rem;
-  gap: 8px;
-  padding-inline: 12px;
-  border-radius: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
   color: var(--full-muted);
   text-decoration: none;
 }
@@ -178,7 +178,7 @@
   color: var(--full-muted);
 }
 .lumen-full-empty {
-  padding: 8px;
+  padding: var(--lumen-space-8);
   color: var(--full-muted);
 }
 .lumen-full-footer {
@@ -189,15 +189,15 @@
 }
 .lumen-full-footer > a {
   flex: 0 0 2rem;
-  margin: 8px 8px 0;
+  margin: var(--lumen-space-8) var(--lumen-space-8) 0;
 }
 .lumen-full-profile {
   display: flex;
   align-items: center;
   flex: 1;
-  gap: 10px;
+  gap: var(--lumen-space-8);
   min-block-size: 0;
-  padding-inline: 12px;
+  padding-inline: var(--lumen-space-12);
 }
 .lumen-full-avatar {
   display: flex;
@@ -238,16 +238,16 @@
     justify-content: center;
     flex: 0 0 2.25rem;
     block-size: 2.25rem;
-    margin: 10px 16px;
+    margin: var(--lumen-space-8) var(--lumen-space-16);
     border: 0;
-    border-radius: 0.5rem;
+    border-radius: var(--lumen-radius-surface);
     background: var(--full-hover);
     color: var(--full-ink);
     cursor: pointer;
   }
   .lumen-full-scrim {
     position: absolute;
-    z-index: 1;
+    z-index: var(--lumen-layer-raised);
     inset: 0;
     border: 0;
     background: rgb(0 0 0 / 40%);
@@ -255,11 +255,11 @@
   }
   .lumen-full-dialog {
     position: absolute;
-    z-index: 2;
+    z-index: var(--lumen-layer-sticky-cell);
     inset-block: 0;
     inset-inline-start: 0;
     inline-size: min(18rem, 85%);
     overflow: hidden;
-    border-radius: 0 1rem 1rem 0;
+    border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
   }
 }

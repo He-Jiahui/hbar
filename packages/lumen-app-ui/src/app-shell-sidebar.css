@@ -39,7 +39,7 @@
   position: absolute;
   inline-size: 0.0625rem;
   block-size: 0.0625rem;
-  margin: -1px;
+  margin: calc(var(--lumen-space-2) * -1);
   padding: 0;
   overflow: hidden;
   clip-path: inset(50%);
@@ -68,9 +68,9 @@
   display: flex;
   flex: 0 0 auto;
   min-block-size: 3.5rem;
-  gap: 10px;
+  gap: var(--lumen-space-8);
   align-items: center;
-  padding: 0 8px 0 12px;
+  padding: 0 var(--lumen-space-8) 0 var(--lumen-space-12);
 }
 .lumen-sidebar-mark {
   display: flex;
@@ -78,7 +78,7 @@
   justify-content: center;
   flex: 0 0 2rem;
   block-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-contrast);
   font-size: 1rem;
@@ -104,7 +104,7 @@
 }
 .lumen-sidebar-shell button[data-size='s'] {
   --lumen-control-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-sidebar-brand button {
   flex: 0 0 auto;
@@ -119,7 +119,7 @@
   overflow: auto;
   flex: 1;
   min-inline-size: 0;
-  padding: 0 8px 12px;
+  padding: 0 var(--lumen-space-8) var(--lumen-space-12);
 }
 /* Observed bottom fades overlay scroll panes, never position their content. */
 .lumen-sidebar-nav-frame::after,
@@ -136,11 +136,11 @@
   background: linear-gradient(transparent, var(--lumen-frost));
 }
 .lumen-sidebar-nav-section + .lumen-sidebar-nav-section {
-  margin-block-start: 16px;
+  margin-block-start: var(--lumen-space-16);
 }
 .lumen-sidebar-nav-section > p {
-  padding: 0 12px;
-  margin-block-end: 4px;
+  padding: 0 var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-4);
   font-size: 0.6875rem;
   line-height: 1.03125rem;
   font-weight: 500;
@@ -151,7 +151,7 @@
 .lumen-sidebar-nav-section ul {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 .lumen-sidebar-shell .lumen-sidebar-link {
   display: flex;
@@ -159,10 +159,10 @@
   inline-size: 100%;
   min-inline-size: 0;
   min-block-size: 2rem;
-  padding: 0 12px;
-  gap: 8px;
+  padding: 0 var(--lumen-space-12);
+  gap: var(--lumen-space-8);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 400;
@@ -188,7 +188,7 @@
   color: var(--lumen-subtle);
 }
 .lumen-sidebar-subnav .lumen-sidebar-link {
-  padding-inline-start: 36px;
+  padding-inline-start: var(--lumen-space-32);
 }
 .lumen-sidebar-nav-section .lumen-sidebar-subnav[hidden] {
   display: none;
@@ -211,13 +211,13 @@
   background: var(--lumen-line);
 }
 .lumen-sidebar-link > .lumen-sidebar-dot {
-  margin-inline: 6px;
+  margin-inline: var(--lumen-space-4);
 }
 .lumen-sidebar-badge {
-  padding: 0 6px;
+  padding: 0 var(--lumen-space-4);
   min-inline-size: 1.125rem;
   text-align: center;
-  border-radius: 0.25rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-line);
   color: var(--lumen-subtle);
   font-size: 0.6875rem;
@@ -226,21 +226,21 @@
 .lumen-sidebar-footer {
   position: relative;
   flex: 0 0 auto;
-  padding: 8px;
+  padding: var(--lumen-space-8);
   background: color-mix(in srgb, var(--lumen-ink) 3%, transparent);
 }
 .lumen-sidebar-footer > .lumen-sidebar-link {
-  margin-block-end: 2px;
+  margin-block-end: var(--lumen-space-2);
 }
 .lumen-sidebar-shell .lumen-sidebar-account[data-size='s'] {
   display: flex;
   inline-size: 100%;
   --lumen-control-size: 2.75rem;
-  --lumen-control-padding-inline: 0.25rem;
+  --lumen-control-padding-inline: var(--lumen-space-4);
   min-inline-size: 0;
-  margin-block-start: 4px;
-  gap: 10px;
-  border-radius: 0.625rem;
+  margin-block-start: var(--lumen-space-4);
+  gap: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
   text-align: start;
 }
 .lumen-sidebar-avatar {
@@ -276,12 +276,12 @@
 /* Observed overlay is anchored above the whole footer. */
 .lumen-sidebar-account-menu {
   position: absolute;
-  z-index: 2;
+  z-index: var(--lumen-layer-sticky-cell);
   inset-inline: 0.5rem;
   inset-block-end: calc(100% - 0.125rem);
-  padding: 4px;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
   backdrop-filter: blur(0.75rem);
   box-shadow: 0 0.25rem 1rem -0.25rem rgb(0 0 0 / 15%);
@@ -289,8 +289,8 @@
 .lumen-sidebar-account-menu button {
   inline-size: 100%;
   justify-content: flex-start;
-  --lumen-control-padding-inline: 0.5rem;
-  gap: 8px;
+  --lumen-control-padding-inline: var(--lumen-space-8);
+  gap: var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 400;
@@ -307,8 +307,8 @@
   flex: 0 0 auto;
   align-items: center;
   min-block-size: 3.5rem;
-  padding: 0 24px;
-  gap: 12px;
+  padding: 0 var(--lumen-space-24);
+  gap: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-line);
   background: var(--lumen-frost);
 }
@@ -321,13 +321,13 @@
 .lumen-sidebar-header ol {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 .lumen-sidebar-header li {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 .lumen-sidebar-header li a,
@@ -336,7 +336,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
 }
 .lumen-sidebar-header li a,
 .lumen-sidebar-header li svg {
@@ -357,8 +357,8 @@
   align-items: center;
   flex: 1;
   min-inline-size: 0;
-  gap: 8px;
-  padding-inline: 12px;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12);
 }
 .lumen-sidebar-search-content > svg {
   color: var(--lumen-subtle);
@@ -369,15 +369,15 @@
   inline-size: 100%;
   padding: 0;
   flex: 1;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
 .lumen-sidebar-shell .lumen-sidebar-book[data-size='s'] {
   --lumen-control-size: 2.25rem;
-  --lumen-control-padding-inline: 0.75rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
   flex: 0 0 auto;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 500;
@@ -400,17 +400,17 @@
 .lumen-sidebar-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 24px;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-24);
 }
 .lumen-sidebar-metrics > div {
   display: flex;
   flex: 0 0 calc((100% - 3rem) / 4);
   flex-direction: column;
   min-inline-size: 0;
-  padding: 16px;
+  padding: var(--lumen-space-16);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
 }
 .lumen-sidebar-metrics p {
@@ -420,7 +420,7 @@
   overflow-wrap: anywhere;
 }
 .lumen-sidebar-metrics p:nth-child(2) {
-  margin-block-start: 8px;
+  margin-block-start: var(--lumen-space-8);
   font-size: 1.5rem;
   line-height: 2rem;
   font-weight: 500;
@@ -430,13 +430,13 @@
   white-space: nowrap;
 }
 .lumen-sidebar-metrics p:nth-child(3) {
-  padding-block-start: 6px;
+  padding-block-start: var(--lumen-space-4);
 }
 .lumen-sidebar-record-heading {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 24px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-24);
 }
 .lumen-sidebar-record-heading h2 {
   flex: 1;
@@ -476,13 +476,13 @@
   border-block-end: 0.0625rem solid var(--lumen-line);
 }
 .lumen-sidebar-table :is(th, td) {
-  padding: 0 12px;
+  padding: 0 var(--lumen-space-12);
 }
 .lumen-sidebar-table :is(th, td):first-child {
-  padding-inline-start: 24px;
+  padding-inline-start: var(--lumen-space-24);
 }
 .lumen-sidebar-table :is(th, td):last-child {
-  padding-inline-end: 24px;
+  padding-inline-end: var(--lumen-space-24);
   text-align: end;
 }
 .lumen-sidebar-table [data-column='reference'],
@@ -526,7 +526,7 @@
 .lumen-sidebar-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   color: var(--lumen-subtle);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
@@ -536,7 +536,7 @@
   display: none;
 }
 .lumen-sidebar-empty {
-  padding: 16px;
+  padding: var(--lumen-space-16);
   color: var(--lumen-subtle);
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
@@ -565,7 +565,7 @@
     display: block;
     position: absolute;
     inset: 0;
-    z-index: 3;
+    z-index: var(--lumen-layer-sticky-edge);
   }
   .lumen-sidebar-backdrop {
     position: absolute;
@@ -583,13 +583,13 @@
     inset-inline-start: 0;
     inline-size: 18rem;
     max-inline-size: 85%;
-    border-radius: 0 1.125rem 1.125rem 0;
+    border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
     box-shadow: 0.5rem 0 2rem rgb(0 0 0 / 12%);
   }
 }
 @container (max-width: 39.999rem) {
   .lumen-sidebar-header {
-    padding-inline: 16px;
+    padding-inline: var(--lumen-space-16);
   }
   .lumen-sidebar-header li:first-child {
     display: none;
@@ -605,8 +605,8 @@
     display: none;
   }
   .lumen-sidebar-metrics {
-    padding: 16px;
-    gap: 12px;
+    padding: var(--lumen-space-16);
+    gap: var(--lumen-space-12);
   }
   .lumen-sidebar-metrics > div {
     flex-basis: calc((100% - 0.75rem) / 2);
@@ -616,7 +616,7 @@
     line-height: 1rem;
   }
   .lumen-sidebar-record-heading {
-    padding-inline: 16px;
+    padding-inline: var(--lumen-space-16);
   }
 }
 @container (max-width: 47.999rem) {
@@ -625,20 +625,20 @@
   }
   .lumen-sidebar-shell .lumen-sidebar-record-cards {
     display: block;
-    padding: 0 16px 16px;
+    padding: 0 var(--lumen-space-16) var(--lumen-space-16);
   }
   .lumen-sidebar-record-cards li {
-    padding: 16px;
+    padding: var(--lumen-space-16);
     border: 0.0625rem solid var(--lumen-line);
-    border-radius: 0.875rem;
-    margin-block-end: 8px;
+    border-radius: var(--lumen-radius-panel);
+    margin-block-end: var(--lumen-space-8);
     background: var(--lumen-frost);
   }
   .lumen-sidebar-record-cards li > div {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: var(--lumen-space-12);
     font-size: 0.8125rem;
     line-height: 1.21875rem;
   }
@@ -655,7 +655,7 @@
     flex: 0 0 auto;
   }
   .lumen-sidebar-record-cards li > div:nth-child(2) {
-    margin-block-start: 8px;
+    margin-block-start: var(--lumen-space-8);
   }
   .lumen-sidebar-record-cards li > div:nth-child(2) > span:last-child,
   .lumen-sidebar-record-cards li > div:nth-child(3) {
@@ -664,6 +664,6 @@
     color: var(--lumen-subtle);
   }
   .lumen-sidebar-record-cards li > div:nth-child(3) {
-    margin-block-start: 4px;
+    margin-block-start: var(--lumen-space-4);
   }
 }

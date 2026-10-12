@@ -35,8 +35,8 @@
 .hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar {
   min-block-size: 3.5rem;
   flex: 0 0 auto;
-  gap: 1rem;
-  padding: 0.5rem 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   border: 0;
   border-block-end: 0.0625rem solid var(--bell-edge);
   border-radius: 0;
@@ -51,15 +51,15 @@
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-leading {
   flex: 1 1 auto;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-trailing {
   flex: 0 0 auto;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   margin-inline-start: auto;
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-brand {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   white-space: nowrap;
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-brand > span:last-child {
@@ -73,7 +73,7 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--bell-ink);
   color: var(--bell-ground);
   font-size: 0.6875rem;
@@ -82,15 +82,15 @@
 .hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar nav {
   display: flex;
   min-inline-size: 0;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow-x: auto;
 }
 .hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar nav a {
   display: flex;
   min-block-size: 2rem;
   align-items: center;
-  padding: 0.375rem 0.625rem;
-  border-radius: 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
   color: var(--bell-muted);
   text-decoration: none;
   white-space: nowrap;
@@ -135,7 +135,7 @@
   block-size: 0.875rem;
   align-items: center;
   justify-content: center;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--bell-ink);
   color: var(--bell-ground);
   font-size: 0.625rem;
@@ -146,7 +146,7 @@
   block-size: 1.75rem;
   align-items: center;
   justify-content: center;
-  margin-inline-start: 0.25rem;
+  margin-inline-start: var(--lumen-space-4);
   border: 0.0625rem solid var(--bell-edge);
   background: light-dark(#fafafa, #171717);
   color: var(--bell-ink);
@@ -159,7 +159,7 @@
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: var(--lumen-space-24);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-notifications-hint p {
   max-inline-size: 18.125rem;
@@ -171,7 +171,7 @@
   inset-block-start: calc(100% + 0.5rem);
   inset-inline-start: var(--lumen-bell-popover-inline-start);
   inset-inline-end: var(--lumen-bell-popover-inline-end);
-  z-index: 2;
+  z-index: var(--lumen-layer-sticky-cell);
   display: flex;
   inline-size: 22rem;
   max-inline-size: calc(100vw - 2rem);
@@ -181,7 +181,7 @@
   padding: 0;
   overflow: hidden;
   border: 0.0625rem solid var(--bell-edge);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: light-dark(#fff, #171717);
   box-shadow: 0 0.75rem 2rem light-dark(#0002, #0005);
   color: var(--bell-ink);
@@ -194,21 +194,21 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-toolbar {
   min-block-size: 2.875rem;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-4) var(--lumen-space-12);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-filters {
   display: flex;
   flex: 0 0 auto;
-  gap: 0.125rem;
-  padding: 0.125rem;
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-2);
   border: 0.0625rem solid var(--bell-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-filters button,
 .hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all {
@@ -221,8 +221,8 @@
   white-space: nowrap;
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-filters button {
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
+  border-radius: var(--lumen-radius-control);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-filters button[aria-selected='true'] {
   background: light-dark(#f5f5f5, #0a0a0a);
@@ -233,8 +233,8 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.375rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-4) var(--lumen-space-4);
   white-space: normal;
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all:not(:disabled) {
@@ -256,7 +256,7 @@
   gap: 0;
   max-block-size: min(16.5rem, calc(100vh - 9rem));
   margin: 0;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   overflow: auto;
   list-style: none;
   overscroll-behavior: contain;
@@ -270,10 +270,10 @@
   min-block-size: 3.75rem;
   min-inline-size: 0;
   align-items: flex-start;
-  gap: 0.625rem;
-  padding: 0.625rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--bell-ink);
   font: inherit;
@@ -298,9 +298,9 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  margin-block-start: 0.125rem;
+  margin-block-start: var(--lumen-space-2);
   border: 0.0625rem solid var(--bell-edge);
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--bell-ground);
   color: var(--bell-muted);
 }
@@ -342,18 +342,18 @@
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-status {
   margin: 0;
-  padding: 0.25rem 0.75rem;
+  padding: var(--lumen-space-4) var(--lumen-space-12);
   color: var(--lumen-danger);
   font-size: 0.75rem;
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-footer {
-  padding: 0.25rem 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-footer button {
   inline-size: 100%;
   min-block-size: 2.25rem;
   border: 0.0625rem solid var(--bell-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--bell-ground);
   color: var(--bell-ink);
   font: inherit;

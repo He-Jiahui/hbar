@@ -8,7 +8,7 @@
   block-size: 100%;
   min-block-size: 0;
   overflow: auto;
-  padding: 0 24px;
+  padding: 0 var(--lumen-space-24);
   gap: 0;
   background: var(--lumen-contrast);
   font-family: ui-sans-serif, system-ui, sans-serif;
@@ -32,8 +32,8 @@
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  margin-block-end: 12px;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-usage-rate-heading > div:first-child {
   min-inline-size: 0;
@@ -46,8 +46,8 @@
 .lumen-usage-rate-heading p {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-block-start: 2px;
+  gap: var(--lumen-space-4);
+  margin-block-start: var(--lumen-space-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -59,7 +59,7 @@
   flex: 0 0 auto;
   inline-size: 0.375rem;
   block-size: 0.375rem;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-subtle);
 }
 .lumen-usage-rate-heading p > span[data-near-capacity='true'] {
@@ -69,8 +69,8 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-4);
   font-size: 0.8125rem;
   max-inline-size: 100%;
   overflow-x: auto;
@@ -84,21 +84,21 @@
 }
 .lumen-usage-rate-frame {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
-  padding: 4px;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-4);
   background: var(--lumen-frost);
 }
 .lumen-usage-rate-meters,
 .lumen-usage-rate-footer {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
 }
 .lumen-usage-rate-meters {
-  margin-block-end: 4px;
+  margin-block-end: var(--lumen-space-4);
 }
 .lumen-usage-rate-meter {
-  padding: 14px 16px;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-usage-rate-meter:not(:last-child) {
   border-block-end: 0.0625rem solid transparent;
@@ -107,7 +107,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--lumen-space-12);
 }
 .lumen-usage-rate-labels {
   min-inline-size: 0;
@@ -140,9 +140,9 @@
 }
 .lumen-usage-rate-progress {
   block-size: 0.375rem;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   overflow: hidden;
-  margin-block-start: 10px;
+  margin-block-start: var(--lumen-space-8);
   background: var(--lumen-line);
 }
 .lumen-usage-rate-progress > div {
@@ -161,7 +161,7 @@
   background: color-mix(in srgb, var(--lumen-subtle) 65%, var(--lumen-contrast));
 }
 .lumen-usage-rate-empty {
-  padding: 16px;
+  padding: var(--lumen-space-16);
   color: var(--lumen-subtle);
 }
 .lumen-usage-rate-footer {
@@ -169,15 +169,15 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
 }
 .lumen-usage-rate-footer p {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
   font-size: 0.8125rem;
   line-height: 1.21875rem;
@@ -195,12 +195,12 @@
 }
 .lumen-usage-rate-footer button[data-size='s'] {
   --lumen-control-size: 2rem;
-  --lumen-control-padding-inline: 0.8125rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
   flex: 0 0 auto;
   font-weight: 500;
 }
 @media (width >= 40rem) {
   .lumen-usage.lumen-usage-rate-stage {
-    padding: 0 32px;
+    padding: 0 var(--lumen-space-32);
   }
 }

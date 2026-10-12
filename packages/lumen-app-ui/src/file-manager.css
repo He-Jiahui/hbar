@@ -96,14 +96,14 @@
 .hbar-app-ui-file-manager-assets-header,
 .hbar-app-ui-file-manager-upload-header {
   flex: 0 0 auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
 .hbar-app-ui-file-manager-drive-header,
 .hbar-app-ui-file-manager-upload-header {
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-ui-file-manager-drive-header > div:first-child,
@@ -118,7 +118,7 @@
 .hbar-app-ui-file-manager-selection-footer > div,
 .hbar-app-ui-file-manager-detail-actions,
 .hbar-app-ui-file-manager-upload-footer > div {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-drive-body {
@@ -144,7 +144,7 @@
   min-block-size: 0;
   flex-direction: column;
   overflow: auto;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-glass);
 }
@@ -161,11 +161,11 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-file-manager-folder-nav {
-  margin-block: 0.5rem;
+  margin-block: var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-folder-row > button:first-child {
@@ -189,14 +189,14 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   margin-block-start: auto;
-  padding-block-start: 1rem;
+  padding-block-start: var(--lumen-space-16);
 }
 
 .hbar-app-ui-file-manager-storage > div:first-child {
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-meter {
@@ -212,8 +212,8 @@
 }
 
 .hbar-app-ui-file-manager-drive-toolbar {
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -225,7 +225,7 @@
   display: flex;
   min-inline-size: min(100%, 18rem);
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-search > input {
@@ -248,7 +248,7 @@
 
 .hbar-app-ui-file-manager-drive-table th,
 .hbar-app-ui-file-manager-drive-table td {
-  padding: 0.625rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-muted);
   font-size: 0.8125rem;
@@ -267,7 +267,7 @@
 
 .hbar-app-ui-file-manager-select-all,
 .hbar-app-ui-file-manager-row-select {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-drive-row-open {
@@ -286,7 +286,7 @@
   display: inline-flex;
   inline-size: 1.75rem;
   block-size: 1.75rem;
-  margin-inline-end: 0.375rem;
+  margin-inline-end: var(--lumen-space-4);
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid var(--lumen-edge);
@@ -314,7 +314,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-assets-header > div:nth-child(2) > h2 {
@@ -324,7 +324,7 @@
 .hbar-app-ui-file-manager-asset-controls {
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-ui-file-manager-filter-row {
@@ -339,15 +339,15 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
 }
 
 .hbar-app-ui-file-manager-folder-cards,
 .hbar-app-ui-file-manager-asset-grid {
   display: flex;
   min-inline-size: 0;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   flex-wrap: wrap;
 }
 
@@ -397,8 +397,8 @@
 .hbar-app-ui-file-manager-upload-footer {
   flex: 0 0 auto;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -433,7 +433,7 @@
 
 .hbar-app-ui-file-manager-detail-header,
 .hbar-app-ui-file-manager-detail-preview {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 
 .hbar-app-ui-file-manager-detail-list {
@@ -443,7 +443,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   overflow: auto;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-detail-list > button {
@@ -464,7 +464,7 @@
 }
 
 .hbar-app-ui-file-manager-detail-preview {
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   overflow: auto;
 }
 
@@ -485,14 +485,14 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-block-start: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding-block-start: var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
 .hbar-app-ui-file-manager-detail-metadata dl {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
   flex-wrap: wrap;
 }
@@ -506,8 +506,8 @@
 .hbar-app-ui-file-manager-detail-owners > div {
   display: flex;
   min-inline-size: 0;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }
@@ -529,7 +529,7 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-self: stretch;
-  margin: 1rem;
+  margin: var(--lumen-space-16);
   border-style: dashed;
 }
 
@@ -539,8 +539,8 @@
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0 1rem 1rem;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-16) var(--lumen-space-16);
 }
 
 .hbar-app-ui-file-manager-upload-queue ul {
@@ -557,8 +557,8 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -571,7 +571,7 @@
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-file-manager-upload-queue li > div > span {
@@ -579,7 +579,7 @@
   min-inline-size: 0;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.25rem 0.5rem;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
 }
 
 .hbar-app-ui-file-manager-upload-queue li > div > span > small {
@@ -593,7 +593,7 @@
 }
 
 .hbar-app-ui-file-manager-empty {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   text-align: center;
 }
 

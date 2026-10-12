@@ -13,7 +13,7 @@
   flex-direction: column;
   min-inline-size: 0;
   min-block-size: 0;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-ai-chat-citations-sources details {
@@ -30,7 +30,7 @@
   font-weight: 600;
 }
 .lumen-ai-chat-citations-sources details > h2 {
-  margin-block-end: 0.75rem;
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-ai-chat-citations-sources h2 {
   color: var(--lumen-muted);
@@ -40,7 +40,7 @@
 .lumen-ai-chat-citations-sources ul {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -53,7 +53,7 @@
   flex-direction: column;
   align-items: flex-start;
   inline-size: 100%;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   text-align: start;
   border-color: transparent;
 }
@@ -67,7 +67,7 @@
 .lumen-ai-chat-citations-sources li > button > span {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-ai-chat-citations-conversation {
   display: flex;
@@ -96,7 +96,7 @@
     display: list-item;
   }
   .lumen-ai-chat-citations-sources details {
-    gap: 0.75rem;
+    gap: var(--lumen-space-12);
   }
   .lumen-ai-chat-citations-sources details > h2 {
     display: none;

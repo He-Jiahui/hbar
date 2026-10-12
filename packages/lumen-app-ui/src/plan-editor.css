@@ -8,7 +8,7 @@
 }
 
 .lumen-plan-editor {
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .lumen-plan-editor > header,
@@ -25,7 +25,7 @@
 .lumen-plan-editor > header,
 .lumen-plan-editor > footer {
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .lumen-plan-editor > header h2,
@@ -36,7 +36,7 @@
 }
 
 .lumen-plan-editor > main {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-plan-card {
@@ -60,8 +60,8 @@
 }
 
 .lumen-plan-editor li {
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -90,18 +90,18 @@
 }
 
 .lumen-plan-step-fields {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-plan-row-actions,
 .lumen-plan-actions {
   flex: 0 0 auto;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-plan-add-row {
   align-items: stretch;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-plan-add-row > input {
@@ -110,7 +110,7 @@
 }
 
 .lumen-plan-empty {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   text-align: center;
 }
 

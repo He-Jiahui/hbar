@@ -12,4 +12,7 @@ const maintainedStylesheets = result.results.filter((entry) => {
   return !source.includes('/react-bits/') && !source.endsWith('/gallery-theme.css')
 })
 if (result.errored) process.exitCode = 1
-else console.log(`Style contracts passed for ${maintainedStylesheets.length} maintained host stylesheets (${result.results.length} files discovered including ignored references).`)
+else
+  console.log(
+    `Style contracts passed for ${maintainedStylesheets.length} maintained host stylesheets (${result.results.length} files discovered including ignored references).`,
+  )

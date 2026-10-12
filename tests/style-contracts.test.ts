@@ -52,7 +52,10 @@ test('host styles reject bare values even when they match the approved spacing s
   ]) {
     const result = await lint(code)
     expect(result.errored, code).toBe(true)
-    expect(result.results[0]?.warnings.some((warning) => warning.rule === 'hbar/design-scale-tokens'), code).toBe(true)
+    expect(
+      result.results[0]?.warnings.some((warning) => warning.rule === 'hbar/design-scale-tokens'),
+      code,
+    ).toBe(true)
   }
 })
 
@@ -69,7 +72,10 @@ test('host styles reject bare dimensions in physical and logical corner-radius p
   ]
   for (const property of cornerProperties) {
     const result = await lint(`.host { ${property}: 4px; }`)
-    expect(result.results[0]?.warnings.some((warning) => warning.rule === 'hbar/design-scale-tokens'), property).toBe(true)
+    expect(
+      result.results[0]?.warnings.some((warning) => warning.rule === 'hbar/design-scale-tokens'),
+      property,
+    ).toBe(true)
   }
 })
 
@@ -82,4 +88,29 @@ test('Lumen styles use the same token scale without applying host selector rules
   expect(rejected.errored).toBe(true)
   expect(rejected.results[0]?.warnings.some((warning) => warning.rule === 'hbar/design-scale-tokens')).toBe(true)
   expect((await lintLumen('.lumen-card { --lumen-dashboard-gap: 0.625rem; }')).errored).toBe(true)
+  expect((await lintLumen(':root { --lumen-space-8: 0.75rem; }')).errored).toBe(true)
+  expect((await lintLumen(':root { --lumen-layer-popover: 41; }')).errored).toBe(true)
+  for (const [size, control, surface, panel] of [
+    ['s', '0.25rem', '0.5rem', '0.75rem'],
+    ['m', '0.375rem', '0.75rem', '1.125rem'],
+    ['l', '0.5rem', '1rem', '1.5rem'],
+  ]) {
+    expect(
+      (
+        await lintLumen(
+          `[data-lumen-corner-size='${size}'] { --lumen-radius-control: ${control}; --lumen-radius-surface: ${surface}; --lumen-radius-panel: ${panel}; }`,
+        )
+      ).errored,
+    ).toBe(false)
+  }
+  expect(
+    (
+      await lintLumen(
+        "[data-lumen-shape='square'] { --lumen-radius-control: 0; --lumen-radius-surface: 0; --lumen-radius-panel: 0; }",
+      )
+    ).errored,
+  ).toBe(false)
+  expect((await lintLumen("[data-lumen-corner-size='s'] { --lumen-radius-panel: 1rem; }")).errored).toBe(true)
+  expect((await lintLumen('.lumen-card { --lumen-radius-control: 0.375rem; }')).errored).toBe(true)
+  expect((await lintLumen("[data-lumen-corner-size='m'] { --lumen-radius-base: 0.375rem; }")).errored).toBe(true)
 })

@@ -8,7 +8,7 @@
   block-size: 100%;
   min-block-size: 0;
   overflow: auto;
-  padding: 0 24px;
+  padding: 0 var(--lumen-space-24);
   gap: 0;
   background: var(--lumen-contrast);
   font-family: ui-sans-serif, system-ui, sans-serif;
@@ -32,8 +32,8 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  margin-block-end: 12px;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-usage-widget-heading > div {
   min-inline-size: 0;
@@ -44,7 +44,7 @@
   font-weight: 500;
 }
 .lumen-usage-widget-heading p {
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
@@ -55,17 +55,17 @@
 .lumen-usage-widget-heading button[data-size='s'],
 .lumen-usage-widget-footer button[data-size='s'] {
   --lumen-control-size: 2rem;
-  --lumen-control-padding-inline: 0.75rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
   flex: 0 0 auto;
   max-inline-size: 100%;
-  gap: 4px;
-  border-radius: 0.5rem;
+  gap: var(--lumen-space-4);
+  border-radius: var(--lumen-radius-surface);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 500;
 }
 .lumen-usage-widget-heading button[data-size='s'] {
-  --lumen-control-padding-inline: 0.625rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
   font-weight: 400;
   color: var(--lumen-subtle);
 }
@@ -79,26 +79,26 @@
 }
 .lumen-usage-widget-frame {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
-  padding: 4px;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-4);
   background: var(--lumen-frost);
 }
 .lumen-usage-widget-primary,
 .lumen-usage-widget-meters,
 .lumen-usage-widget-footer {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
 }
 .lumen-usage-widget-primary {
-  padding: 16px;
-  margin-block-end: 4px;
+  padding: var(--lumen-space-16);
+  margin-block-end: var(--lumen-space-4);
 }
 .lumen-usage-widget-primary-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--lumen-space-12);
 }
 .lumen-usage-widget-primary-row > div:first-child {
   min-inline-size: 0;
@@ -109,14 +109,14 @@
   line-height: 1.21875rem;
 }
 .lumen-usage-widget-primary-row .lumen-usage-widget-value {
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
   font-size: 1.5rem;
   line-height: 2rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 .lumen-usage-widget-value span {
-  margin-inline-start: 6px;
+  margin-inline-start: var(--lumen-space-4);
   font-size: 0.8125rem;
   line-height: calc(4 / 3);
   font-weight: 400;
@@ -127,22 +127,22 @@
   align-items: flex-end;
   flex: 0 0 5.8125rem;
   block-size: 2.5rem;
-  gap: min(3px, calc(100% / var(--lumen-usage-widget-points) / 2));
+  gap: min(var(--lumen-space-2), calc(50% / var(--lumen-usage-widget-points)));
 }
 .lumen-usage-widget-sparkline > span {
   flex: 1 1 0;
   min-inline-size: 0;
-  border-radius: 0.125rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-line);
 }
 .lumen-usage-widget-progress,
 .lumen-usage-widget-meter-track {
   overflow: hidden;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-frost);
 }
 .lumen-usage-widget-progress {
-  margin-block-start: 12px;
+  margin-block-start: var(--lumen-space-12);
   block-size: 0.375rem;
 }
 .lumen-usage-widget-progress > div,
@@ -154,8 +154,8 @@
 .lumen-usage-widget-primary .lumen-usage-widget-status {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-block-start: 8px;
+  gap: var(--lumen-space-4);
+  margin-block-start: var(--lumen-space-8);
   font-size: 0.75rem;
   line-height: 1.125rem;
   color: var(--lumen-subtle);
@@ -168,16 +168,16 @@
   background: var(--lumen-ink);
 }
 .lumen-usage-widget-meters {
-  margin-block-end: 4px;
+  margin-block-end: var(--lumen-space-4);
 }
 .lumen-usage-widget-meter {
-  padding: 12px 16px;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-usage-widget-meter > div:first-child {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--lumen-space-12);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
 }
@@ -193,7 +193,7 @@
   font-variant-numeric: tabular-nums;
 }
 .lumen-usage-widget-meter-track {
-  margin-block-start: 8px;
+  margin-block-start: var(--lumen-space-8);
   block-size: 0.25rem;
 }
 .lumen-usage-widget-meter-track > div {
@@ -203,13 +203,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
 }
 .lumen-usage-widget-footer p {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
   font-size: 0.8125rem;
   line-height: 1.21875rem;
@@ -221,13 +221,13 @@
   white-space: nowrap;
 }
 .lumen-usage-widget-empty {
-  padding: 12px 16px;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
 }
 @media (width >= 40rem) {
   .lumen-usage.lumen-usage-widget-stage {
-    padding: 0 32px;
+    padding: 0 var(--lumen-space-32);
   }
 }

@@ -5,7 +5,7 @@
 .lumen-agent-plan.hbar-app-ui-agent-plan-editable {
   block-size: 100%;
   min-block-size: 0;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   gap: 0;
   background: var(--lumen-contrast);
 }
@@ -26,9 +26,9 @@
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
-  margin-block-end: 0.75rem;
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-plan-review h2 {
   flex: 1 1 0%;
@@ -69,8 +69,8 @@
   min-inline-size: 0;
   min-block-size: 0;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
-  padding: 0.25rem;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-4);
   background: var(--lumen-frost);
 }
 /* Owns only the observed pointer-transparent scroll-edge gradients. */
@@ -80,20 +80,20 @@
   min-block-size: 0;
   overflow: hidden;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
 }
 .lumen-plan-review-scroll {
   block-size: 100%;
   min-block-size: 0;
   overflow: auto;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   scrollbar-width: none;
 }
 .lumen-plan-review ol {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   padding: 0;
   margin: 0;
   list-style: none;
@@ -104,9 +104,9 @@
   flex: 0 0 auto;
   min-inline-size: 0;
   min-block-size: 2.75rem;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-plan-review li:hover {
   background: var(--lumen-frost);
@@ -118,7 +118,7 @@
   flex: 0 0 auto;
   inline-size: 1.75rem;
   block-size: 1.75rem;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-line);
   color: var(--lumen-subtle);
   font-size: 0.75rem;
@@ -145,7 +145,7 @@
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-plan-review .lumen-plan-review-row-actions > button {
   display: flex;
@@ -158,7 +158,7 @@
   min-block-size: 0;
   padding: 0;
   border: 0;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-plan-review-control-bg);
   color: var(--lumen-muted);
   box-shadow: none;
@@ -195,18 +195,18 @@
   align-items: center;
   flex: 0 0 auto;
   min-inline-size: 0;
-  margin-block-start: 0.75rem;
+  margin-block-start: var(--lumen-space-12);
 }
 .lumen-plan-review-add {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-plan-review-add > input {
   flex: 1 1 0%;
   min-inline-size: 0;
   block-size: 2.25rem;
-  padding: 0 0.75rem;
+  padding: 0 var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   font:
     400 0.875rem / 1.25rem ui-sans-serif,
     system-ui,
@@ -229,10 +229,10 @@
   min-block-size: 2.25rem;
   block-size: auto;
   max-inline-size: 100%;
-  gap: 0.5rem;
-  padding: 0 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-12);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   font:
     500 0.875rem / 1.25rem ui-sans-serif,
     system-ui,
@@ -253,7 +253,7 @@
   block-size: var(--lumen-icon-md);
 }
 .lumen-plan-review > footer {
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   justify-content: flex-end;
 }
 .lumen-plan-review > footer > p {
@@ -277,7 +277,7 @@
   color: var(--lumen-ink);
 }
 .lumen-plan-review-empty {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   text-align: center;
   color: var(--lumen-muted);
 }
@@ -306,7 +306,7 @@
 }
 @media (width >= 40rem) {
   .lumen-agent-plan.hbar-app-ui-agent-plan-editable {
-    padding: 1.5rem;
+    padding: var(--lumen-space-24);
   }
   .lumen-plan-review > footer > p {
     display: block;

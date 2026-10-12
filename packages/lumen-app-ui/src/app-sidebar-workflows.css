@@ -49,16 +49,16 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 .lumen-app-sidebar-navigation section {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: var(--lumen-space-2);
 }
 .lumen-app-sidebar-navigation section > h2 {
-  padding-inline: 0.6rem;
+  padding-inline: var(--lumen-space-8);
 }
 .lumen-app-sidebar-navigation.is-compact :where(h2, button span, button small) {
   display: none;
@@ -72,7 +72,7 @@
   block-size: 1.75rem;
   align-items: center;
   justify-content: center;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: color-mix(in srgb, var(--lumen-accent) 14%, transparent);
   color: var(--lumen-accent);
   min-inline-size: 0;
@@ -93,12 +93,12 @@
 .lumen-app-sidebar-mobile-trigger {
   display: none;
   align-self: flex-start;
-  margin: 0.75rem;
+  margin: var(--lumen-space-12);
 }
 .lumen-app-sidebar-stage .lumen-app-sidebar-scrim.hbar-app-ui-dialog-backdrop,
 .lumen-app-sidebar-drawer-demo .lumen-app-sidebar-drawer-scrim.hbar-app-ui-dialog-backdrop {
   position: absolute;
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
   inset: 0;
   inline-size: 100%;
   block-size: 100%;
@@ -124,16 +124,16 @@
 .lumen-app-sidebar-rail-demo > nav {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-sidebar-rail-demo > aside {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 1rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
   background: var(--lumen-glass);
 }
 .lumen-app-sidebar-rail-demo > aside button {
@@ -141,7 +141,7 @@
 }
 .lumen-app-sidebar-rail-demo > p {
   flex-basis: 100%;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-sidebar-scoped,
@@ -150,22 +150,22 @@
   inline-size: min(22rem, 100%);
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-glass);
 }
 .lumen-app-sidebar-scoped > label {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-app-sidebar-scoped > label input {
   min-inline-size: 0;
 }
 .lumen-app-sidebar-scoped > h2 {
-  margin-block-start: 0.75rem;
+  margin-block-start: var(--lumen-space-12);
 }
 .lumen-app-sidebar-scoped > button {
   inline-size: 100%;
@@ -188,36 +188,36 @@
 .lumen-app-sidebar-dual > nav {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-sidebar-dual > aside {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 1rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
   background: var(--lumen-glass);
 }
 .lumen-app-sidebar-dual > aside > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin-block-end: 0.5rem;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-8);
 }
 .lumen-app-sidebar-dual > aside > header > div {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-app-sidebar-dual > aside > button {
   justify-content: flex-start;
 }
 .lumen-app-sidebar-tree-node {
-  padding-inline-start: calc(var(--tree-depth) * 0.75rem);
+  padding-inline-start: calc(var(--tree-depth) * var(--lumen-space-12));
 }
 .lumen-app-sidebar-tree-node > button {
   inline-size: 100%;
@@ -234,14 +234,14 @@
 .lumen-app-sidebar-drawer-demo > header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-sidebar-demo-drawer .lumen-drawer-body > nav {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-app-sidebar-demo-drawer .lumen-drawer-body > nav > button {
   justify-content: flex-start;
@@ -264,16 +264,16 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 1rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-glass);
 }
 .lumen-app-sidebar-full > aside > div {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-block-end: 0.75rem;
+  gap: var(--lumen-space-8);
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-app-sidebar-full > aside > button {
   justify-content: flex-start;
@@ -290,18 +290,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-sidebar-full > main > div {
-  margin: 1rem;
-  padding: 1.25rem;
+  margin: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-panel);
 }
 .lumen-app-sidebar-empty {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border: 0.0625rem dashed var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   text-align: center;
@@ -317,7 +317,7 @@
   }
   .lumen-app-sidebar-primary.hbar-app-ui-app-sidebar-drawer {
     position: absolute;
-    z-index: 2;
+    z-index: var(--lumen-layer-sticky-cell);
     inset-block: 0;
     inset-inline-start: 0;
     display: none;

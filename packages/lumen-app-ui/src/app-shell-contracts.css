@@ -45,7 +45,7 @@
   position: absolute;
   inline-size: 0.0625rem;
   block-size: 0.0625rem;
-  margin: -1px;
+  margin: calc(var(--lumen-space-2) * -1);
   padding: 0;
   overflow: hidden;
   clip-path: inset(50%);
@@ -56,14 +56,14 @@
   align-items: center;
   flex: 0 0 auto;
   min-block-size: 3.5rem;
-  gap: 8px;
-  padding: 0 24px;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-24);
   border-block-end: 0.0625rem solid var(--lumen-line);
   background: var(--lumen-frost);
 }
 .lumen-contracts-shell button[data-size='s'] {
   --lumen-control-size: 2.25rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-contracts-mark {
   display: flex;
@@ -71,7 +71,7 @@
   justify-content: center;
   flex: 0 0 2rem;
   block-size: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-contrast);
   font-size: 0.875rem;
@@ -88,7 +88,7 @@
   white-space: nowrap;
 }
 .lumen-contracts-collapse {
-  margin-inline-start: 4px;
+  margin-inline-start: var(--lumen-space-4);
   flex: 0 0 auto;
 }
 .lumen-contracts-desktop-search {
@@ -96,7 +96,7 @@
   justify-content: center;
   flex: 1;
   min-inline-size: 0;
-  padding-inline: 16px;
+  padding-inline: var(--lumen-space-16);
 }
 .lumen-contracts-desktop-search > [data-boundary] {
   inline-size: 100%;
@@ -109,7 +109,7 @@
   align-items: center;
   min-inline-size: 0;
   padding: 0;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   color: var(--lumen-subtle);
 }
 .lumen-contracts-search-field input {
@@ -117,9 +117,9 @@
   flex: 1;
   inline-size: 100%;
   block-size: 2.25rem;
-  padding: 0 56px 0 36px;
+  padding: 0 var(--lumen-space-32) 0 var(--lumen-space-32);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-frost);
   font-size: 0.875rem;
   line-height: 1.25rem;
@@ -128,8 +128,8 @@
   position: absolute;
   inset-inline-end: 0.5rem;
   flex: 0 0 auto;
-  padding: 0 4px;
-  border-radius: 0.25rem;
+  padding: 0 var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-line);
   font-size: 0.625rem;
   line-height: 1.25rem;
@@ -141,21 +141,21 @@
   pointer-events: none;
 }
 .lumen-contracts-mobile-search .lumen-contracts-search-field input {
-  padding-inline-end: 12px;
+  padding-inline-end: var(--lumen-space-12);
 }
 .lumen-contracts-header-actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   margin-inline-start: auto;
 }
 .lumen-contracts-shell .lumen-contracts-create {
   font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 500;
-  gap: 8px;
-  --lumen-control-padding-inline: 0.75rem;
+  gap: var(--lumen-space-8);
+  --lumen-control-padding-inline: var(--lumen-space-12);
 }
 .lumen-contracts-account {
   position: relative;
@@ -174,20 +174,20 @@
 /* Observed account overlay anchored below the avatar; all contents remain in flow. */
 .lumen-contracts-account-menu {
   position: absolute;
-  z-index: 5;
+  z-index: var(--lumen-layer-menu-panel);
   inset-inline-end: 0;
   inset-block-start: calc(100% + 0.5rem);
   inline-size: 15rem;
   max-inline-size: calc(100cqw - 2rem);
-  padding: 4px;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
   backdrop-filter: blur(0.75rem);
   box-shadow: 0 0.25rem 1rem -0.25rem rgb(0 0 0 / 15%);
 }
 .lumen-contracts-account-menu > div {
-  padding: 4px 8px 8px;
+  padding: var(--lumen-space-4) var(--lumen-space-8) var(--lumen-space-8);
 }
 .lumen-contracts-account-menu p {
   font-size: 0.8125rem;
@@ -205,7 +205,7 @@
 }
 .lumen-contracts-account-menu button[data-size='s'] {
   --lumen-control-size: 2rem;
-  --lumen-control-padding-inline: 0.5rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
   inline-size: 100%;
   justify-content: flex-start;
   font-size: 0.8125rem;
@@ -251,15 +251,15 @@
   flex: 1;
   min-block-size: 0;
   min-inline-size: 0;
-  padding: 12px 8px;
+  padding: var(--lumen-space-12) var(--lumen-space-8);
   overflow: auto;
 }
 .lumen-contracts-nav-section + .lumen-contracts-nav-section {
-  margin-block-start: 16px;
+  margin-block-start: var(--lumen-space-16);
 }
 .lumen-contracts-nav-section > p {
-  padding-inline: 10px;
-  margin-block-end: 4px;
+  padding-inline: var(--lumen-space-8);
+  margin-block-end: var(--lumen-space-4);
   font-size: 0.6875rem;
   line-height: 1.03125rem;
   font-weight: 500;
@@ -270,16 +270,16 @@
 .lumen-contracts-nav-frame ul {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 .lumen-contracts-nav-frame a {
   display: flex;
   align-items: center;
   min-block-size: 2rem;
   min-inline-size: 0;
-  padding: 0 10px;
-  gap: 8px;
-  border-radius: 0.5rem;
+  padding: 0 var(--lumen-space-8);
+  gap: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 400;
@@ -309,7 +309,7 @@
 }
 .lumen-contracts-nav-frame .lumen-contracts-nav-footer {
   margin-block-start: auto;
-  padding-block-start: 16px;
+  padding-block-start: var(--lumen-space-16);
 }
 .lumen-contracts-main-frame {
   display: flex;
@@ -323,7 +323,7 @@
   overflow: auto;
   min-inline-size: 0;
   min-block-size: 0;
-  padding: 24px;
+  padding: var(--lumen-space-24);
 }
 .lumen-contracts-main-frame h1 {
   font-size: 1.25rem;
@@ -334,15 +334,15 @@
 .lumen-contracts-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-block-start: 16px;
+  gap: var(--lumen-space-16);
+  margin-block-start: var(--lumen-space-16);
 }
 .lumen-contracts-metrics > div {
   flex: 0 0 calc((100% - 2rem) / 3);
   min-inline-size: 0;
-  padding: 16px;
+  padding: var(--lumen-space-16);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: transparent;
 }
 .lumen-contracts-metrics p {
@@ -354,7 +354,7 @@
   white-space: nowrap;
 }
 .lumen-contracts-metrics p + p {
-  margin-block-start: 4px;
+  margin-block-start: var(--lumen-space-4);
   font-size: 1.25rem;
   line-height: 1.75rem;
   font-weight: 500;
@@ -365,15 +365,15 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-block-start: 24px;
+  gap: var(--lumen-space-12);
+  margin-block-start: var(--lumen-space-24);
 }
 .lumen-contracts-record-heading > div:first-child {
   max-inline-size: 100%;
   display: flex;
   align-items: center;
   min-inline-size: 0;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .lumen-contracts-record-heading h2 {
   font-size: 0.875rem;
@@ -392,20 +392,20 @@
 .lumen-contracts-filters {
   display: flex;
   flex: 0 0 auto;
-  padding: 2px;
-  border-radius: 0.5rem;
+  padding: var(--lumen-space-2);
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-line);
   max-inline-size: 100%;
   overflow: auto;
 }
 .lumen-contracts-filters button[data-size='s'] {
   --lumen-control-size: 1.75rem;
-  --lumen-control-padding-inline: 0.625rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
   flex: 0 0 auto;
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 500;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   color: var(--lumen-subtle);
 }
 .lumen-contracts-filters button[aria-checked='true'] {
@@ -414,9 +414,9 @@
   box-shadow: 0 0.0625rem 0.125rem var(--lumen-line);
 }
 .lumen-contracts-table-frame {
-  margin-block-start: 12px;
+  margin-block-start: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   overflow: hidden;
 }
 .lumen-contracts-table-frame table {
@@ -444,13 +444,13 @@
   border-block-end: 0.0625rem solid color-mix(in srgb, var(--lumen-line) 40%, transparent);
 }
 .lumen-contracts-table-frame :is(th, td) {
-  padding: 0 12px;
+  padding: 0 var(--lumen-space-12);
 }
 .lumen-contracts-table-frame :is(th, td):first-child {
-  padding-inline-start: 16px;
+  padding-inline-start: var(--lumen-space-16);
 }
 .lumen-contracts-table-frame :is(th, td):last-child {
-  padding-inline-end: 16px;
+  padding-inline-end: var(--lumen-space-16);
 }
 .lumen-contracts-table-frame [data-column='contract'] {
   inline-size: 34%;
@@ -499,7 +499,7 @@
 .lumen-contracts-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 400;
@@ -530,10 +530,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 24px;
-  margin-block-start: 12px;
+  padding: var(--lumen-space-32) var(--lumen-space-24);
+  margin-block-start: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   text-align: center;
 }
 .lumen-contracts-empty > p {
@@ -544,14 +544,14 @@
 }
 .lumen-contracts-empty > p + p {
   max-inline-size: 20rem;
-  margin-block-start: 4px;
+  margin-block-start: var(--lumen-space-4);
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 400;
   color: var(--lumen-subtle);
 }
 .lumen-contracts-empty button {
-  margin-block-start: 16px;
+  margin-block-start: var(--lumen-space-16);
   font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 500;
@@ -595,7 +595,7 @@
     display: block;
     position: absolute;
     inset: 0;
-    z-index: 6;
+    z-index: var(--lumen-layer-submenu);
   }
   .lumen-contracts-backdrop {
     position: absolute;
@@ -616,7 +616,7 @@
     inline-size: 18rem;
     max-inline-size: 85%;
     min-block-size: 0;
-    border-radius: 0 1.125rem 1.125rem 0;
+    border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
     background: var(--lumen-frost);
     backdrop-filter: blur(0.75rem);
     box-shadow: 0.5rem 0 2rem rgb(0 0 0 / 12%);
@@ -626,8 +626,8 @@
     align-items: center;
     flex: 0 0 auto;
     min-block-size: 3.5rem;
-    padding: 0 8px 0 16px;
-    gap: 10px;
+    padding: 0 var(--lumen-space-8) 0 var(--lumen-space-16);
+    gap: var(--lumen-space-8);
   }
   .lumen-contracts-drawer-heading p {
     flex: 1;
@@ -644,8 +644,8 @@
   .lumen-contracts-mobile-search {
     display: flex;
     flex: 0 0 auto;
-    gap: 8px;
-    padding: 8px 16px;
+    gap: var(--lumen-space-8);
+    padding: var(--lumen-space-8) var(--lumen-space-16);
     border-block-end: 0.0625rem solid var(--lumen-line);
   }
   .lumen-contracts-mobile-search > [data-boundary] {
@@ -664,13 +664,13 @@
   }
   .lumen-contracts-shell .lumen-contracts-cards {
     display: block;
-    margin-block-start: 12px;
+    margin-block-start: var(--lumen-space-12);
   }
   .lumen-contracts-cards li {
-    padding: 16px;
-    margin-block-end: 8px;
+    padding: var(--lumen-space-16);
+    margin-block-end: var(--lumen-space-8);
     border: 0.0625rem solid var(--lumen-line);
-    border-radius: 0.75rem;
+    border-radius: var(--lumen-radius-panel);
   }
   .lumen-contracts-cards a {
     display: block;
@@ -682,7 +682,7 @@
     white-space: nowrap;
   }
   .lumen-contracts-cards p {
-    margin-block-start: 2px;
+    margin-block-start: var(--lumen-space-2);
     font-size: 0.75rem;
     line-height: 1rem;
     color: var(--lumen-subtle);
@@ -693,8 +693,8 @@
   .lumen-contracts-cards dl {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 16px;
-    margin-block-start: 12px;
+    gap: var(--lumen-space-8) var(--lumen-space-16);
+    margin-block-start: var(--lumen-space-12);
   }
   .lumen-contracts-cards dl > div {
     flex: 0 0 calc((100% - 1rem) / 2);
@@ -720,10 +720,10 @@
 @container (max-width: 39.999rem) {
   .lumen-contracts-header,
   .lumen-contracts-main-frame main {
-    padding-inline: 16px;
+    padding-inline: var(--lumen-space-16);
   }
   .lumen-contracts-main-frame main {
-    padding-block: 16px;
+    padding-block: var(--lumen-space-16);
   }
   .lumen-contracts-header .lumen-contracts-secondary-action {
     display: none;

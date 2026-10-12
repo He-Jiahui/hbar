@@ -31,7 +31,7 @@
 .lumen-agent-approval-preview > p[role='status'] {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.625rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   overflow-wrap: anywhere;
 }
 

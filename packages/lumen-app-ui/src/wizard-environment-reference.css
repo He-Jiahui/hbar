@@ -29,8 +29,8 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 1.5rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-24);
 }
 .hbar-app-ui-wizard-environment-toolbar button {
   border: 0;
@@ -76,8 +76,8 @@
 .hbar-app-ui-wizard-environment-save {
   min-block-size: 2rem;
   flex: 0 0 auto;
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
   background: light-dark(#f5f5f5, #262626);
   color: light-dark(#404040, #d4d4d4);
   font-size: 0.75rem;
@@ -88,7 +88,7 @@
   min-inline-size: 0;
   align-items: center;
   margin: 0 auto;
-  padding: 0 1.5rem 0.75rem;
+  padding: 0 var(--lumen-space-24) var(--lumen-space-12);
   list-style: none;
 }
 .hbar-app-ui-wizard-environment-steps li {
@@ -96,7 +96,7 @@
   min-inline-size: 0;
   flex: 1 1 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   color: light-dark(#777, #737373);
   white-space: nowrap;
 }
@@ -136,7 +136,7 @@
   block-size: 0.0625rem;
   min-inline-size: 0.5rem;
   flex: 1 1 auto;
-  margin-inline: 0.25rem 0.5rem;
+  margin-inline: var(--lumen-space-4) var(--lumen-space-8);
   background: light-dark(#e5e5e5, #292929);
 }
 .hbar-app-ui-wizard-environment-steps li:has(.is-complete) .hbar-app-ui-wizard-environment-step-line {
@@ -153,7 +153,7 @@
   inline-size: 100%;
   max-inline-size: 55rem;
   margin-inline: auto;
-  padding: 1.5rem 0 2rem;
+  padding: var(--lumen-space-24) 0 var(--lumen-space-32);
 }
 .hbar-app-ui-wizard-environment-content h2 {
   margin: 0;
@@ -162,7 +162,7 @@
   line-height: 1.5rem;
 }
 .hbar-app-ui-wizard-environment-subtitle {
-  margin: 0.25rem 0 1.1875rem;
+  margin: var(--lumen-space-4) 0 var(--lumen-space-16);
   color: light-dark(#777, #a3a3a3);
   font-size: 0.8125rem;
   line-height: 1.25rem;
@@ -170,7 +170,7 @@
 .hbar-app-ui-wizard-environment-services {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 .hbar-app-ui-wizard-environment-services button {
   display: flex;
@@ -179,10 +179,10 @@
   flex: 0 0 calc((100% - 1.5rem) / 3);
   flex-direction: column;
   align-items: flex-start;
-  padding: 1rem;
-  padding-inline-end: 0.75rem;
+  padding: var(--lumen-space-16);
+  padding-inline-end: var(--lumen-space-12);
   border: 0.0625rem solid light-dark(#e5e5e5, #292929);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: light-dark(#fff, #0a0a0a);
   color: inherit;
   cursor: pointer;
@@ -206,7 +206,7 @@
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid light-dark(#e5e5e5, #292929);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: light-dark(#fafafa, #171717);
   color: light-dark(#737373, #737373);
 }
@@ -226,9 +226,9 @@
   block-size: 1rem;
   align-items: center;
   justify-content: center;
-  margin-block-start: -0.25rem;
+  margin-block-start: calc(var(--lumen-space-4) * -1);
   border: 0.0625rem solid light-dark(#d4d4d4, #404040);
-  border-radius: 0.25rem;
+  border-radius: var(--lumen-radius-control);
   color: transparent;
 }
 .hbar-app-ui-wizard-environment-services button[aria-checked='true'] .hbar-app-ui-wizard-environment-check {
@@ -242,19 +242,19 @@
   stroke-width: 2.5;
 }
 .hbar-app-ui-wizard-environment-name {
-  margin-block-start: 0.625rem;
+  margin-block-start: var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.25rem;
 }
 .hbar-app-ui-wizard-environment-detail {
-  margin-block-start: 0.25rem;
+  margin-block-start: var(--lumen-space-4);
   color: light-dark(#777, #a3a3a3);
   font-size: 0.75rem;
   line-height: 1rem;
 }
 .hbar-app-ui-wizard-environment-safety,
 .hbar-app-ui-wizard-environment-empty {
-  margin: 1.5rem 0 0;
+  margin: var(--lumen-space-24) 0 0;
   color: light-dark(#777, #a3a3a3);
   line-height: 1.25rem;
 }
@@ -264,8 +264,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
   border-block-start: 0.0625rem solid light-dark(#e5e5e5, #262626);
   background: light-dark(#fafafa, #171717);
 }
@@ -287,9 +287,9 @@
 .hbar-app-ui-wizard-environment-footer button {
   min-block-size: 2.25rem;
   flex: 0 0 auto;
-  padding: 0.5rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: light-dark(#171717, #f5f5f5);
   color: light-dark(#fff, #171717);
   cursor: pointer;
@@ -298,7 +298,7 @@
 }
 @media (width < 64rem) {
   .hbar-app-ui-wizard-environment-content {
-    padding-inline: 1.5rem;
+    padding-inline: var(--lumen-space-24);
   }
   .hbar-app-ui-wizard-environment-services button {
     flex-basis: calc((100% - 0.75rem) / 2);
@@ -306,10 +306,10 @@
 }
 @media (width < 40rem) {
   .hbar-app-ui-wizard-environment-toolbar {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
   .hbar-app-ui-wizard-environment-steps {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
   .hbar-app-ui-wizard-environment-step-label {
     display: none;
@@ -318,15 +318,15 @@
     gap: 0;
   }
   .hbar-app-ui-wizard-environment-step-line {
-    margin-inline: 0.75rem;
+    margin-inline: var(--lumen-space-12);
   }
   .hbar-app-ui-wizard-environment-content {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
   .hbar-app-ui-wizard-environment-services button {
     flex-basis: 100%;
   }
   .hbar-app-ui-wizard-environment-footer {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 }

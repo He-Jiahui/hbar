@@ -12,9 +12,9 @@
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding: clamp(0.75rem, 3vw, 2rem);
+  padding: var(--lumen-space-24);
   background: transparent;
   color: var(--lumen-ink);
 }
@@ -44,18 +44,18 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-dashboard-header {
   justify-content: space-between;
-  gap: 0.75rem 1rem;
+  gap: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-dashboard-header > div:first-child {
   display: flex;
   min-inline-size: 0;
   flex: 1 1 16rem;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-dashboard [data-hbar-app-ui-list-strategy='pane-scroll'] {
   min-block-size: 0;
@@ -64,7 +64,7 @@
   overscroll-behavior: contain;
 }
 .lumen-dashboard-empty {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border: 0.0625rem dashed var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   text-align: center;
@@ -81,7 +81,7 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   flex-wrap: wrap;
 }
 .lumen-dashboard-metrics > *,
@@ -105,8 +105,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.875rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-surface);
   background: var(--lumen-glass);
@@ -119,7 +119,7 @@
 .lumen-dashboard-metrics > article > span {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   font-size: 0.75rem;
 }
 .lumen-dashboard-chart-heading,
@@ -128,7 +128,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-dashboard-chart-heading {
   justify-content: space-between;
@@ -150,13 +150,13 @@
   display: flex;
   min-block-size: 7rem;
   align-items: end;
-  gap: 0.25rem;
-  padding-block-start: 0.5rem;
+  gap: var(--lumen-space-4);
+  padding-block-start: var(--lumen-space-8);
 }
 .lumen-dashboard-bars > i {
   min-block-size: 0.2rem;
   flex: 1 1 0;
-  border-radius: 0.25rem 0.25rem 0 0;
+  border-radius: var(--lumen-radius-control) var(--lumen-radius-control) 0 0;
   background: var(--lumen-accent);
   opacity: 0.62;
 }
@@ -172,15 +172,15 @@
 .lumen-dashboard-bars.is-horizontal > i {
   min-block-size: 0.75rem;
   flex: none;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
 }
 .hbar-app-ui-dashboard-variant-6 .lumen-dashboard-metrics {
-  gap: clamp(1rem, 3vw, 2rem);
+  gap: var(--lumen-space-24);
 }
 .hbar-app-ui-dashboard-variant-6 .lumen-dashboard-metrics > article {
   min-inline-size: min(100%, 12rem);
-  gap: 0.35rem;
-  padding: 0.5rem 0;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8) 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -189,9 +189,9 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   margin: 0;
-  padding-block-start: 0.75rem;
+  padding-block-start: var(--lumen-space-12);
 }
 .lumen-dashboard-comparison-figure figcaption {
   color: var(--lumen-muted);
@@ -243,8 +243,8 @@
 .lumen-dashboard-breakdown > [role='row'] {
   display: flex;
   min-inline-size: 28rem;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   flex-wrap: wrap;
 }
@@ -279,12 +279,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-dashboard-menu {
   display: flex;
   flex-direction: column;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -292,7 +292,7 @@
 .lumen-dashboard-services > article {
   display: flex;
   min-inline-size: 0;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   align-items: center;
   min-inline-size: 0;
 }
@@ -319,8 +319,8 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.5rem;
-  padding-block: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding-block: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-dashboard-feed > article > span {
@@ -347,7 +347,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   text-align: center;
 }
 .lumen-dashboard-project-empty > i {
@@ -371,7 +371,7 @@
   block-size: 5rem;
   align-items: center;
   justify-content: center;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background:
     radial-gradient(circle, var(--lumen-glass) 0 68%, transparent 69%),
     conic-gradient(var(--lumen-accent) var(--progress), color-mix(in srgb, var(--lumen-edge) 65%, transparent) 0);
@@ -382,8 +382,8 @@
 .lumen-dashboard-worklog > [role='row'] {
   display: flex;
   min-inline-size: 38rem;
-  gap: 0.35rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   flex-wrap: wrap;
 }
@@ -413,8 +413,8 @@
 }
 .lumen-dashboard-worklog [role='cell'],
 .lumen-dashboard-worklog [role='columnheader'] {
-  padding: 0.45rem;
-  border-radius: 0.35rem;
+  padding: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-control);
   text-align: center;
 }
 .lumen-dashboard-worklog [role='cell'][data-busy='true'] {
@@ -425,13 +425,13 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-dashboard-coverage > article {
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 .lumen-dashboard-coverage > article > strong {
   min-inline-size: 8rem;
@@ -445,14 +445,14 @@
   flex: 0 0 auto;
 }
 .lumen-dashboard-lanes {
-  padding: 0.625rem;
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-glass);
 }
 .lumen-dashboard-lanes > span {
   flex: 1 1 10rem;
-  padding: 0.625rem;
+  padding: var(--lumen-space-8);
   border-inline-start: 0.1875rem solid var(--lumen-accent);
 }
 .lumen-dashboard-scorecard > article > span:last-child {
@@ -480,13 +480,13 @@
   min-inline-size: 0;
   flex-direction: column;
   flex: 0 1 28%;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-glass);
 }
 .lumen-dashboard-service-detail > aside > strong {
-  padding: 0.625rem;
+  padding: var(--lumen-space-8);
 }
 .lumen-dashboard-service-detail > aside > button {
   justify-content: space-between;
@@ -501,8 +501,8 @@
   min-inline-size: 0;
   flex: 1 1 72%;
   flex-direction: column;
-  gap: 1rem;
-  padding: clamp(0.75rem, 2vw, 1.5rem);
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
 }
 @media (width < 48rem) {
   .lumen-dashboard-widgets > article.is-wide {
@@ -514,7 +514,7 @@
   }
   .lumen-dashboard-services > article > small {
     flex-basis: calc(100% - var(--lumen-icon-md, 1rem) - 0.5rem);
-    margin-inline-start: calc(var(--lumen-icon-md, 1rem) + 0.5rem);
+    margin-inline-start: calc(var(--lumen-icon-md, var(--lumen-space-16)) + var(--lumen-space-8));
   }
   .lumen-dashboard-coverage > article {
     flex-wrap: wrap;
@@ -557,13 +557,10 @@
     var(--lumen-accent, #81b5ff) 9%,
     var(--lumen-dashboard-reference-panel)
   );
-  --lumen-dashboard-reference-gap: clamp(0.625rem, 1.4vw, 1rem);
-  --lumen-dashboard-reference-radius: var(--lumen-radius-surface, 0.75rem);
-  --lumen-dashboard-reference-control-radius: var(--lumen-radius-control, 0.375rem);
   --lumen-dashboard-reference-muted: var(--lumen-muted, #aaa);
   --lumen-dashboard-reference-subtle: var(--lumen-subtle, #858585);
-  gap: var(--lumen-dashboard-reference-gap);
-  padding: clamp(0.75rem, 3vw, 2rem);
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-24);
 }
 
 .lumen-dashboard-preview-owner {
@@ -577,7 +574,7 @@
 .lumen-dashboard-preview-owner > .lumen-dashboard-preview-notice {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   color: var(--lumen-muted);
   font-size: 0.75rem;
 }
@@ -620,7 +617,7 @@
 .lumen-dashboard-reference-header {
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 0.75rem 1rem;
+  gap: var(--lumen-space-12) var(--lumen-space-16);
 }
 
 .lumen-dashboard-reference-header > div:first-child {
@@ -628,7 +625,7 @@
   flex: 1 1 14rem;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-dashboard-reference-header > .lumen-dashboard-actions,
@@ -636,7 +633,7 @@
   flex: 0 1 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-dashboard-reference-header > .lumen-dashboard-actions > small {
@@ -646,7 +643,7 @@
 .lumen-dashboard-reference-toolbar,
 .lumen-dashboard-actions {
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-dashboard-reference-toolbar {
@@ -665,10 +662,10 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: clamp(0.75rem, 1.6vw, 1.125rem);
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge, rgb(255 255 255 / 17%));
-  border-radius: var(--lumen-dashboard-reference-radius);
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-dashboard-reference-panel);
 }
 
@@ -679,7 +676,7 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.625rem 1rem;
+  gap: var(--lumen-space-8) var(--lumen-space-16);
 }
 
 .lumen-dashboard-reference-panel > header > :first-child,
@@ -690,7 +687,7 @@
 
 .lumen-dashboard-reference-panel > header > :first-child > p,
 .lumen-dashboard-reference-chart > header > :first-child > p {
-  margin-block-start: 0.25rem;
+  margin-block-start: var(--lumen-space-4);
   font-size: 0.75rem;
 }
 
@@ -700,7 +697,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   color: var(--lumen-dashboard-reference-muted);
   font-size: 0.75rem;
 }
@@ -709,18 +706,18 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: var(--lumen-dashboard-reference-gap);
+  gap: var(--lumen-space-12);
 }
 
 .lumen-dashboard-reference-metrics > article {
   display: flex;
   min-inline-size: 0;
-  flex: 1 1 calc(25% - var(--lumen-dashboard-reference-gap));
+  flex: 1 1 calc(25% - var(--lumen-space-12));
   flex-direction: column;
-  gap: 0.375rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge, rgb(255 255 255 / 17%));
-  border-radius: var(--lumen-dashboard-reference-control-radius);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-dashboard-reference-panel);
 }
 
@@ -738,7 +735,7 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-dashboard-reference-metric-value > strong {
@@ -798,9 +795,9 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.125rem;
-  padding: 0.25rem;
-  border-radius: var(--lumen-dashboard-reference-control-radius);
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading, #101010);
 }
 
@@ -826,10 +823,10 @@
   min-inline-size: 12rem;
   flex: 1 1 16rem;
   align-items: center;
-  gap: 0.5rem;
-  padding-inline: 0.625rem;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge, rgb(255 255 255 / 17%));
-  border-radius: var(--lumen-dashboard-reference-control-radius);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading, #101010);
 }
 
@@ -865,8 +862,8 @@
   block-size: 1.25rem;
   align-items: center;
   justify-content: flex-start;
-  padding: 0.125rem;
-  border-radius: 999rem;
+  padding: var(--lumen-space-2);
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-edge, rgb(255 255 255 / 17%));
 }
 
@@ -896,7 +893,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   color: var(--lumen-dashboard-reference-muted);
   font-size: 0.75rem;
 }
@@ -905,8 +902,8 @@
   display: inline-block;
   inline-size: 0.75rem;
   block-size: 0.125rem;
-  margin-inline-end: 0.25rem;
-  border-radius: 999rem;
+  margin-inline-end: var(--lumen-space-4);
+  border-radius: var(--lumen-radius-pill);
   background: currentColor;
   content: '';
   vertical-align: middle;
@@ -919,7 +916,7 @@
 .lumen-dashboard-reference-plot {
   display: flex;
   min-inline-size: 0;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-dashboard-reference-ticks {
@@ -928,7 +925,7 @@
   flex: 0 0 2.25rem;
   flex-direction: column;
   justify-content: space-between;
-  padding-block: 0.125rem 1.375rem;
+  padding-block: var(--lumen-space-2) var(--lumen-space-24);
   color: var(--lumen-dashboard-reference-subtle);
   font-size: 0.6875rem;
   text-align: end;
@@ -939,7 +936,7 @@
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   aspect-ratio: 2.25;
 }
 
@@ -991,7 +988,7 @@
   display: flex;
   min-inline-size: 0;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   color: var(--lumen-dashboard-reference-subtle);
   font-size: 0.6875rem;
 }
@@ -1014,7 +1011,7 @@
   min-inline-size: 4rem;
   block-size: 0.375rem;
   overflow: hidden;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: color-mix(in srgb, var(--lumen-edge, #555) 72%, transparent);
 }
 
@@ -1039,8 +1036,8 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.625rem;
-  padding-block: 0.625rem;
+  gap: var(--lumen-space-8);
+  padding-block: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-line, rgb(255 255 255 / 10%));
 }
 
@@ -1053,7 +1050,7 @@
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-dashboard-reference-entries > li > :first-child > strong,
@@ -1104,7 +1101,7 @@
 .lumen-dashboard-reference-table th,
 .lumen-dashboard-reference-table td {
   min-inline-size: 0;
-  padding: 0.625rem 0.5rem;
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-line, rgb(255 255 255 / 10%));
   text-align: start;
   vertical-align: middle;
@@ -1121,7 +1118,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-dashboard-reference-table td > div > span,
@@ -1147,24 +1144,24 @@
 }
 
 .lumen-dashboard-reference-table footer {
-  margin-block-start: 0.125rem;
+  margin-block-start: var(--lumen-space-2);
 }
 
 .lumen-dashboard-reference-row-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-dashboard-reference-menu {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.375rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-edge, rgb(255 255 255 / 17%));
-  border-radius: var(--lumen-dashboard-reference-control-radius);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading, #101010);
 }
 
@@ -1179,12 +1176,12 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: var(--lumen-dashboard-reference-gap);
+  gap: var(--lumen-space-12);
 }
 
 .lumen-dashboard-reference-web-grid > .lumen-dashboard-reference-panel {
   min-inline-size: min(100%, 20rem);
-  flex: 1 1 calc(50% - var(--lumen-dashboard-reference-gap));
+  flex: 1 1 calc(50% - var(--lumen-space-12));
 }
 
 .lumen-dashboard-reference-columns > * {
@@ -1202,7 +1199,7 @@
   min-inline-size: 0;
   flex: 1.45 1 30rem;
   flex-direction: column;
-  gap: var(--lumen-dashboard-reference-gap);
+  gap: var(--lumen-space-12);
 }
 
 .lumen-dashboard-reference-columns.is-coverage > :last-child,
@@ -1226,7 +1223,7 @@
   min-inline-size: 0;
   flex: 1.5 1 28rem;
   flex-direction: column;
-  gap: var(--lumen-dashboard-reference-gap);
+  gap: var(--lumen-space-12);
 }
 
 .lumen-dashboard-reference-columns.is-service > aside {
@@ -1254,9 +1251,9 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.625rem;
-  padding: 0.625rem;
-  border-radius: var(--lumen-dashboard-reference-control-radius);
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-control);
   text-align: start;
 }
 
@@ -1266,7 +1263,7 @@
   min-inline-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-dashboard-reference-service-list > button > div > strong,
@@ -1314,7 +1311,7 @@
   min-inline-size: 10rem;
   flex: 1 1 12rem;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   align-items: flex-end;
   text-align: end;
 }
@@ -1344,7 +1341,7 @@
   display: block;
   inline-size: 100%;
   block-size: 0.75rem;
-  border-radius: var(--lumen-dashboard-reference-control-radius);
+  border-radius: var(--lumen-radius-control);
   background: linear-gradient(
     90deg,
     var(--lumen-glass, #202020),
@@ -1376,7 +1373,7 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .lumen-dashboard-reference-measures > button {
@@ -1385,10 +1382,10 @@
   flex: 1 1 10rem;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge, rgb(255 255 255 / 17%));
-  border-radius: var(--lumen-dashboard-reference-control-radius);
+  border-radius: var(--lumen-radius-control);
   text-align: start;
 }
 
@@ -1406,7 +1403,7 @@
 
 @media (width < 64rem) {
   .lumen-dashboard-reference-metrics > article {
-    flex-basis: calc(50% - var(--lumen-dashboard-reference-gap));
+    flex-basis: calc(50% - var(--lumen-space-12));
   }
 
   .lumen-dashboard-reference-web-grid > .lumen-dashboard-reference-panel {
@@ -1439,7 +1436,7 @@
 
 @media (width < 48rem) {
   .lumen-dashboard-reference {
-    padding: 0.75rem;
+    padding: var(--lumen-space-12);
   }
 
   .lumen-dashboard-reference-header > div:first-child {
@@ -1453,7 +1450,7 @@
   }
 
   .lumen-dashboard-reference-metrics > article {
-    flex-basis: calc(50% - var(--lumen-dashboard-reference-gap));
+    flex-basis: calc(50% - var(--lumen-space-12));
   }
 
   .lumen-dashboard-reference.is-modules .lumen-dashboard-reference-metrics > article {
@@ -1461,7 +1458,7 @@
   }
 
   .lumen-dashboard-reference.is-coverage .lumen-dashboard-reference-metrics > article {
-    flex-basis: calc(50% - var(--lumen-dashboard-reference-gap));
+    flex-basis: calc(50% - var(--lumen-space-12));
   }
 
   .lumen-dashboard-reference-measures > button {

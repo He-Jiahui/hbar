@@ -8,7 +8,7 @@
   block-size: 100%;
   min-block-size: 0;
   overflow: auto;
-  padding: 0 24px;
+  padding: 0 var(--lumen-space-24);
   gap: 0;
   background: var(--lumen-contrast);
   font-family: ui-sans-serif, system-ui, sans-serif;
@@ -28,7 +28,7 @@
   margin: 0;
 }
 .lumen-usage-budget-heading {
-  margin-block-end: 12px;
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-usage-budget-heading h2 {
   font-size: 1rem;
@@ -36,35 +36,35 @@
   font-weight: 500;
 }
 .lumen-usage-budget-heading p {
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
 }
 .lumen-usage-budget-frame {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
-  padding: 4px;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-4);
   background: var(--lumen-frost);
 }
 .lumen-usage-budget-summary,
 .lumen-usage-budget-controls,
 .lumen-usage-budget-switches {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
 }
 .lumen-usage-budget-summary,
 .lumen-usage-budget-controls {
-  padding: 16px;
-  margin-block-end: 4px;
+  padding: var(--lumen-space-16);
+  margin-block-end: var(--lumen-space-4);
 }
 .lumen-usage-budget-value-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
@@ -79,9 +79,9 @@
   color: var(--lumen-ink);
 }
 .lumen-usage-budget-progress {
-  margin-block-start: 12px;
+  margin-block-start: var(--lumen-space-12);
   block-size: 0.5rem;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-line);
   overflow: hidden;
 }
@@ -96,8 +96,8 @@
 .lumen-usage-budget-forecast {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-block-start: 12px;
+  gap: var(--lumen-space-8);
+  margin-block-start: var(--lumen-space-12);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
@@ -127,8 +127,8 @@
 .lumen-usage-budget-cap-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-block-start: 8px;
+  gap: var(--lumen-space-12);
+  margin-block-start: var(--lumen-space-8);
 }
 .lumen-usage-budget-cap-row input {
   flex: 1;
@@ -144,19 +144,19 @@
   font-variant-numeric: tabular-nums;
 }
 .lumen-usage-budget-controls .lumen-usage-budget-notify {
-  margin-block-start: 16px;
+  margin-block-start: var(--lumen-space-16);
 }
 .lumen-usage-budget-thresholds {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-block-start: 8px;
+  gap: var(--lumen-space-4);
+  margin-block-start: var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
 }
 .lumen-usage-budget-thresholds button[data-size='s'] {
   --lumen-control-size: 2rem;
-  --lumen-control-padding-inline: 0.75rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
   border: 0.0625rem solid transparent;
   font-weight: 400;
 }
@@ -167,8 +167,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-usage-budget-switch-row > div {
   min-inline-size: 0;
@@ -195,13 +195,13 @@
   padding: 0;
 }
 .lumen-usage-budget-empty {
-  padding: 16px;
+  padding: var(--lumen-space-16);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
 }
 @media (width >= 40rem) {
   .lumen-usage.lumen-usage-budget-stage {
-    padding: 0 32px;
+    padding: 0 var(--lumen-space-32);
   }
 }

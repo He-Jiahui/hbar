@@ -166,7 +166,7 @@ html:has([data-lumen-mode]),
   min-width: 2.5rem;
   min-height: 2.5rem;
   border: 0.3125rem solid transparent;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-scrollbar-core);
   background-clip: content-box;
   filter: drop-shadow(0 0 0.3125rem var(--lumen-scrollbar-halo));
@@ -201,23 +201,23 @@ html:has([data-lumen-mode]),
 
 [data-lumen-control-size='s'] {
   --lumen-control-size: 1.875rem;
-  --lumen-control-padding-inline: 0.625rem;
-  --lumen-input-padding-block: 0.25rem;
-  --lumen-input-padding-inline: 0.625rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
+  --lumen-input-padding-block: var(--lumen-space-4);
+  --lumen-input-padding-inline: var(--lumen-space-8);
 }
 
 [data-lumen-control-size='m'] {
   --lumen-control-size: 2.25rem;
-  --lumen-control-padding-inline: 0.75rem;
-  --lumen-input-padding-block: 0.375rem;
-  --lumen-input-padding-inline: 0.75rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
+  --lumen-input-padding-block: var(--lumen-space-4);
+  --lumen-input-padding-inline: var(--lumen-space-12);
 }
 
 [data-lumen-control-size='l'] {
   --lumen-control-size: 2.625rem;
-  --lumen-control-padding-inline: 0.875rem;
-  --lumen-input-padding-block: 0.5rem;
-  --lumen-input-padding-inline: 0.875rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
+  --lumen-input-padding-block: var(--lumen-space-8);
+  --lumen-input-padding-inline: var(--lumen-space-12);
 }
 
 [data-lumen-text-size='s'] {
@@ -233,21 +233,21 @@ html:has([data-lumen-mode]),
 }
 
 [data-lumen-corner-size='s'] {
-  --lumen-radius-base: 0.25rem;
+  --lumen-radius-control: 0.25rem;
+  --lumen-radius-surface: 0.5rem;
+  --lumen-radius-panel: 0.75rem;
 }
 
 [data-lumen-corner-size='m'] {
-  --lumen-radius-base: 0.375rem;
+  --lumen-radius-control: 0.375rem;
+  --lumen-radius-surface: 0.75rem;
+  --lumen-radius-panel: 1.125rem;
 }
 
 [data-lumen-corner-size='l'] {
-  --lumen-radius-base: 0.5rem;
-}
-
-[data-lumen-shape='rounded'] {
-  --lumen-radius-control: var(--lumen-radius-base, 0.375rem);
-  --lumen-radius-surface: calc(var(--lumen-radius-base, 0.375rem) * 2);
-  --lumen-radius-panel: calc(var(--lumen-radius-base, 0.375rem) * 3);
+  --lumen-radius-control: 0.5rem;
+  --lumen-radius-surface: 1rem;
+  --lumen-radius-panel: 1.5rem;
 }
 
 [data-lumen-shape='square'] {

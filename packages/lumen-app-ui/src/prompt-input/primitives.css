@@ -11,10 +11,10 @@
 .lumen-prompt-reference {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
   min-block-size: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   color: var(--lumen-ink);
   font-size: 0.875rem;
 }
@@ -30,10 +30,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.375rem;
-  padding: 0.4rem 0.6rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   color: inherit;
   background: transparent;
   font: inherit;
@@ -58,17 +58,17 @@
 .lumen-prompt-reference-composer {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
 }
 .lumen-prompt-reference-composer textarea {
   inline-size: 100%;
   min-inline-size: 0;
   border: 0;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
   resize: vertical;
   font: inherit;
   color: inherit;
@@ -93,7 +93,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 .lumen-prompt-reference .lumen-prompt-reference-send {
@@ -110,28 +110,28 @@
 }
 .lumen-prompt-reference-notice {
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block-start: 0.5rem;
+  padding-block-start: var(--lumen-space-8);
 }
 .lumen-prompt-reference-attachments {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-prompt-reference-attachments > span {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
   max-inline-size: 100%;
   background: var(--lumen-glass);
-  border-radius: 0.375rem;
-  padding: 0.2rem 0.4rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-4) var(--lumen-space-8);
 }
 .lumen-prompt-reference-attachments > span > span {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
   overflow-wrap: anywhere;
 }
@@ -140,7 +140,7 @@
 }
 .lumen-prompt-reference-attachments button {
   border: 0;
-  padding: 0.15rem;
+  padding: var(--lumen-space-2);
 }
 .lumen-prompt-reference-choice-anchor {
   position: relative;
@@ -150,16 +150,16 @@
 .lumen-prompt-reference-choice-menu {
   position: absolute;
   inset-inline-start: 0;
-  z-index: 5;
+  z-index: var(--lumen-layer-menu-panel);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   inline-size: min(16rem, 75vw);
   max-block-size: 18rem;
   overflow: auto;
-  padding: 0.4rem;
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
 }
 .lumen-prompt-reference-choice-menu[data-anchor='above'] {
@@ -179,7 +179,7 @@
 .lumen-prompt-reference-choice-menu > button > span {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-prompt-reference-choice-menu small {
   color: var(--lumen-muted);
@@ -188,10 +188,10 @@
 .lumen-prompt-reference-picker {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-prompt-reference-picker > button {
   justify-content: flex-start;

@@ -18,7 +18,7 @@
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.625rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 
@@ -26,7 +26,7 @@
   display: flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
   color: var(--lumen-muted);
   font-size: 0.75rem;
@@ -37,7 +37,7 @@
   inline-size: clamp(3rem, 12vw, 7rem);
   block-size: 0.375rem;
   overflow: hidden;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-edge);
 }
 
@@ -50,11 +50,11 @@
 
 .lumen-ai-chat-reference .lumen-ai-chat-context-settings {
   flex: 0 0 auto;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
 }
 
 .lumen-ai-chat-reference-context .lumen-ai-chat-reference-messages {
-  gap: 1.25rem;
+  gap: var(--lumen-space-16);
 }
 
 @media (width < 40rem) {

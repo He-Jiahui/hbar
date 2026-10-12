@@ -30,11 +30,11 @@
 }
 .lumen-scope-shell button[data-size='s'] {
   --lumen-control-size: 2rem;
-  --lumen-control-padding-inline: 0.625rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.5;
-  gap: 6px;
-  border-radius: 0.5rem;
+  gap: var(--lumen-space-4);
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-scope-icon,
 .lumen-scope-icon-sm,
@@ -63,8 +63,8 @@
   display: flex;
   flex: 0 0 3.5rem;
   align-items: center;
-  gap: 8px;
-  padding: 0 24px;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-24);
   border-block-end: 0.0625rem solid var(--lumen-line);
   min-inline-size: 0;
 }
@@ -78,14 +78,14 @@
   font-weight: 600;
   background: var(--lumen-ink);
   color: var(--lumen-contrast);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .lumen-scope-header nav {
   display: flex;
   flex: 1;
   min-inline-size: 0;
   align-items: center;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 }
 .lumen-scope-header nav > span,
 .lumen-scope-wide-pickers > span {
@@ -95,7 +95,7 @@
 .lumen-scope-wide-pickers {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 .lumen-scope-header button span {
@@ -126,12 +126,12 @@
   position: absolute;
   inset-block-start: calc(100% + 0.5rem);
   inset-inline-start: 0;
-  z-index: 30;
+  z-index: var(--lumen-layer-mobile-overlay);
   inline-size: 15rem;
   max-inline-size: calc(100cqi - 2rem);
-  padding: 4px;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-frost);
   box-shadow: var(--lumen-shadow);
   backdrop-filter: blur(1rem);
@@ -144,11 +144,11 @@
   inline-size: 100%;
   min-block-size: 2rem;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-8);
   background: transparent;
   border: 0;
-  border-radius: 0.25rem;
+  border-radius: var(--lumen-radius-control);
   color: var(--lumen-ink);
   font-size: 0.8125rem;
   line-height: 1.5;
@@ -164,10 +164,10 @@
   background: var(--lumen-line);
 }
 .lumen-scope-menu .lumen-scope-create-option {
-  margin-top: 4px;
+  margin-top: var(--lumen-space-4);
 }
 .lumen-scope-menu-label {
-  padding: 8px 8px 4px !important;
+  padding: var(--lumen-space-8) var(--lumen-space-8) var(--lumen-space-4) !important;
   font-size: 0.6875rem;
   line-height: 1rem;
   text-transform: uppercase;
@@ -177,11 +177,11 @@
   position: absolute;
   inset-block-start: calc(100% + 0.5rem);
   inset-inline-end: 0;
-  z-index: 30;
+  z-index: var(--lumen-layer-mobile-overlay);
   inline-size: min(18rem, calc(100cqi - 2rem));
-  padding: 4px;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
   box-shadow: var(--lumen-shadow);
   backdrop-filter: blur(1rem);
@@ -189,20 +189,20 @@
   line-height: 1.5;
 }
 .lumen-scope-status-popover > p {
-  padding: 8px;
+  padding: var(--lumen-space-8);
   color: var(--lumen-subtle);
 }
 .lumen-scope-status-popover > div > div {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 6px 8px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-4) var(--lumen-space-8);
 }
 .lumen-scope-status-popover > div > div > span:last-child {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
 }
 .lumen-scope-dot {
   display: inline-flex;
@@ -241,20 +241,20 @@
 }
 .lumen-scope-search-row {
   display: flex;
-  gap: 8px;
-  padding: 12px;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   align-items: center;
 }
 .lumen-scope-search {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   flex: 1;
   min-inline-size: 0;
-  padding: 0 10px;
+  padding: 0 var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-line);
   background: var(--lumen-contrast);
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   color: var(--lumen-subtle);
 }
 .lumen-scope-search input {
@@ -276,10 +276,10 @@
   flex: 1;
   min-block-size: 0;
   overflow: auto;
-  padding: 0 8px 8px;
+  padding: 0 var(--lumen-space-8) var(--lumen-space-8);
 }
 .lumen-scope-navigation > p {
-  padding: 0 12px 4px;
+  padding: 0 var(--lumen-space-12) var(--lumen-space-4);
   text-transform: uppercase;
   color: var(--lumen-subtle);
   font-size: 0.6875rem;
@@ -287,21 +287,21 @@
   letter-spacing: 0.025em;
 }
 .lumen-scope-navigation > p:not(:first-child) {
-  margin-top: 16px;
+  margin-top: var(--lumen-space-16);
 }
 .lumen-scope-navigation li + li {
-  margin-top: 2px;
+  margin-top: var(--lumen-space-2);
 }
 .lumen-scope-navigation a,
 .lumen-scope-navigation button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   inline-size: 100%;
   min-block-size: 2rem;
-  padding: 0 12px;
+  padding: 0 var(--lumen-space-12);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-subtle);
   text-decoration: none;
@@ -325,10 +325,10 @@
   rotate: 0deg;
 }
 .lumen-scope-navigation li ul {
-  margin-top: 2px;
+  margin-top: var(--lumen-space-2);
 }
 .lumen-scope-navigation li ul a {
-  padding-inline-start: 36px;
+  padding-inline-start: var(--lumen-space-32);
 }
 .lumen-scope-navigation a[aria-current='page'],
 .lumen-scope-navigation a:hover,
@@ -337,9 +337,9 @@
   color: var(--lumen-ink);
 }
 .lumen-scope-notice {
-  margin: 0 8px 8px;
-  padding: 12px;
-  border-radius: 0.75rem;
+  margin: 0 var(--lumen-space-8) var(--lumen-space-8);
+  padding: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-contrast);
   font-size: 0.8125rem;
   line-height: 1.625;
@@ -349,31 +349,31 @@
   line-height: 1.5;
 }
 .lumen-scope-notice > p + p {
-  margin-top: 4px;
+  margin-top: var(--lumen-space-4);
   color: var(--lumen-subtle);
 }
 .lumen-scope-notice > div {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--lumen-space-8);
+  margin-top: var(--lumen-space-8);
 }
 .lumen-scope-notice button[data-size='s'] {
   --lumen-control-size: 1.75rem;
-  --lumen-control-padding-inline: 0.5rem;
+  --lumen-control-padding-inline: var(--lumen-space-8);
   font-size: 0.75rem;
   line-height: 1rem;
 }
 .lumen-scope-account {
-  padding: 0 8px 8px;
+  padding: 0 var(--lumen-space-8) var(--lumen-space-8);
 }
 .lumen-scope-account-menu > button[data-size='s'] {
   display: flex;
   inline-size: 100%;
   block-size: 3rem;
   justify-content: flex-start;
-  gap: 10px;
-  padding: 0 8px;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-8);
   background: transparent;
   border: 0;
 }
@@ -426,8 +426,8 @@
 .lumen-scope-heading {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 24px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
 }
 .lumen-scope-heading h1 {
   min-inline-size: 0;
@@ -446,9 +446,9 @@
 .lumen-scope-heading > button {
   margin-inline-start: auto;
   --lumen-control-size: 2.25rem;
-  --lumen-control-padding-inline: 0.75rem;
-  gap: 8px;
-  border-radius: 0.5rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
+  gap: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.25rem;
@@ -480,7 +480,7 @@
   inset-inline: 0;
   block-size: 2rem;
   pointer-events: none;
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
   opacity: 0;
 }
 .lumen-scope-scroll-frame::before {
@@ -511,11 +511,11 @@
 }
 .lumen-scope-records th,
 .lumen-scope-records td {
-  padding: 0 12px;
+  padding: 0 var(--lumen-space-12);
 }
 .lumen-scope-records th:first-child,
 .lumen-scope-records td:first-child {
-  padding-inline-start: 24px;
+  padding-inline-start: var(--lumen-space-24);
   inline-size: 32%;
 }
 .lumen-scope-records th:nth-child(2),
@@ -532,7 +532,7 @@
 }
 .lumen-scope-records th:last-child,
 .lumen-scope-records td:last-child {
-  padding-inline-end: 24px;
+  padding-inline-end: var(--lumen-space-24);
 }
 .lumen-scope-records td {
   block-size: 2.75rem;
@@ -550,7 +550,7 @@
 .lumen-scope-record-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   color: var(--lumen-subtle);
   font-size: 0.8125rem;
   line-height: 1.5;
@@ -559,14 +559,14 @@
   display: none;
 }
 .lumen-scope-empty {
-  padding: 24px !important;
+  padding: var(--lumen-space-24) !important;
   color: var(--lumen-subtle);
   font-size: 0.875rem;
 }
 .lumen-scope-overlay {
   position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: var(--lumen-layer-dialog-content);
   display: flex;
 }
 .lumen-scope-backdrop {
@@ -581,8 +581,8 @@
   position: relative;
   flex-basis: auto;
   inline-size: min(18rem, 85%);
-  border-start-end-radius: 1.25rem;
-  border-end-end-radius: 1.25rem;
+  border-start-end-radius: var(--lumen-radius-panel);
+  border-end-end-radius: var(--lumen-radius-panel);
   background: var(--lumen-contrast);
   box-shadow: var(--lumen-shadow);
 }
@@ -614,17 +614,17 @@
   }
   .lumen-scope-cards {
     display: block;
-    padding: 0 16px 16px !important;
+    padding: 0 var(--lumen-space-16) var(--lumen-space-16) !important;
   }
   .lumen-scope-cards li {
-    padding: 12px;
+    padding: var(--lumen-space-12);
     border: 0.0625rem solid var(--lumen-line);
-    border-radius: 0.625rem;
+    border-radius: var(--lumen-radius-surface);
     font-size: 0.8125rem;
     line-height: 1.5;
   }
   .lumen-scope-cards li + li {
-    margin-top: 8px;
+    margin-top: var(--lumen-space-8);
   }
   .lumen-scope-cards li > p {
     font-weight: 500;
@@ -636,12 +636,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
-    margin-top: 8px;
+    gap: var(--lumen-space-12);
+    margin-top: var(--lumen-space-8);
     color: var(--lumen-subtle);
   }
   .lumen-scope-cards li > div + div {
-    margin-top: 4px;
+    margin-top: var(--lumen-space-4);
   }
   .lumen-scope-cards li > div > span {
     min-inline-size: 0;
@@ -650,13 +650,13 @@
 }
 @container (max-width: 39.999rem) {
   .lumen-scope-header {
-    padding-inline: 16px;
+    padding-inline: var(--lumen-space-16);
   }
   .lumen-scope-brand {
     display: none;
   }
   .lumen-scope-heading {
-    padding-inline: 16px;
+    padding-inline: var(--lumen-space-16);
   }
   .lumen-scope-create-full {
     display: none;

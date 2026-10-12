@@ -4,14 +4,14 @@
   min-block-size: 0;
   box-sizing: border-box;
   border: 0.0625rem solid transparent;
-  border-radius: var(--lumen-radius-surface, 0.75rem);
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-glass);
   backdrop-filter: blur(1.25rem);
   box-shadow: var(--lumen-effect-shadow);
   transition: var(--lumen-state-transition);
 }
 .surface[data-material='frost'] {
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-frost);
   backdrop-filter: blur(1.2rem);
 }

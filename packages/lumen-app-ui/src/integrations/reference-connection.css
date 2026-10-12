@@ -23,14 +23,14 @@
   min-block-size: min-content;
   flex: 1 0 auto;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-ui-integration-connection-reference-header {
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16) var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-integration-border);
 }
 
@@ -42,7 +42,7 @@
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid var(--lumen-integration-border-strong);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-integration-surface);
   color: var(--lumen-integration-muted);
   font-size: 0.75rem;
@@ -51,7 +51,7 @@
 .hbar-app-ui-integration-connection-reference-title {
   flex: 1 1 24rem;
   flex-direction: column;
-  gap: 0.1875rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-integration-connection-reference-title h2 {
@@ -59,7 +59,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   font-size: 1.125rem;
   font-weight: 500;
   overflow-wrap: anywhere;
@@ -76,7 +76,7 @@
   flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   margin-inline-start: auto;
 }
 
@@ -84,17 +84,17 @@
   flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
 }
 
 .hbar-app-ui-integration-connection-reference-panel {
   min-inline-size: 0;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
   border: 0.0625rem solid var(--lumen-integration-border);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-integration-surface);
 }
 
@@ -108,7 +108,7 @@
 
 .hbar-app-ui-integration-connection-reference-panel > header {
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-integration-connection-reference-panel h3 {
@@ -126,19 +126,19 @@
 
 .hbar-app-ui-integration-connection-reference-scope-list {
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-ui-integration-connection-reference-scope {
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-ui-integration-connection-reference-scope > div {
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-integration-connection-reference-scope strong {
@@ -146,7 +146,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   font-size: 0.8125rem;
   font-weight: 500;
   overflow-wrap: anywhere;
@@ -161,8 +161,8 @@
 
 .hbar-app-ui-integration-connection-reference-required {
   display: inline-flex;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-integration-border);
   color: var(--lumen-integration-muted);
   font-size: 0.6875rem;
@@ -175,19 +175,19 @@
 
 .hbar-app-ui-integration-connection-reference-activity-list {
   flex-direction: column;
-  gap: 0.875rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-ui-integration-connection-reference-activity-item {
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-integration-connection-reference-activity-item > i {
   inline-size: 0.375rem;
   block-size: 0.375rem;
   flex: 0 0 auto;
-  margin-block-start: 0.375rem;
+  margin-block-start: var(--lumen-space-4);
   border-radius: 50%;
   background: currentColor;
 }
@@ -226,7 +226,7 @@
   display: inline-flex;
   align-self: flex-start;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   color: var(--lumen-integration-text);
   font-size: 0.8125rem;
   text-decoration: none;
@@ -238,11 +238,11 @@
 
 @media (width < 48rem) {
   .hbar-app-ui-integration-connection-reference-header {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-integration-connection-reference-layout {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 }
 

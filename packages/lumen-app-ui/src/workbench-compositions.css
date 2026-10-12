@@ -3,17 +3,17 @@
   min-inline-size: 0;
   align-items: flex-start;
   gap: var(--lumen-space-inline);
-  padding-block: 8px;
+  padding-block: var(--lumen-space-8);
 }
 .lumen-record-row[data-density='comfortable'] {
-  padding-block: 12px;
+  padding-block: var(--lumen-space-12);
 }
 .lumen-record-content {
   display: flex;
   min-inline-size: 0;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 }
 .lumen-record-leading,
 .lumen-record-trailing {
@@ -30,7 +30,7 @@
   min-inline-size: 0;
   justify-content: space-between;
   gap: var(--lumen-space-group);
-  padding-block: 6px;
+  padding-block: var(--lumen-space-4);
   overflow-x: auto;
 }
 .lumen-metric-row > * {
@@ -41,7 +41,7 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   align-items: center;
-  gap: 4px;
+  gap: var(--lumen-space-4);
   flex: 0 0 auto;
   flex-wrap: nowrap;
 }
@@ -62,9 +62,9 @@
 .lumen-toolbar-overflow {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   max-inline-size: min(30rem, 95vw);
-  padding: 8px;
+  padding: var(--lumen-space-8);
 }
 .lumen-toolbar-overflow-item {
   display: flex;
@@ -83,7 +83,7 @@
   min-inline-size: 0;
   min-block-size: 1.25rem;
   inline-size: 100%;
-  padding: 2px 4px;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   color: var(--lumen-muted);
 }
 .lumen-reading-marker-ink {

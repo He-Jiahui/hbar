@@ -13,9 +13,9 @@
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding: clamp(0.75rem, 3vw, 2rem);
+  padding: var(--lumen-space-24);
   background: transparent;
   color: var(--lumen-ink);
 }
@@ -46,19 +46,19 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-notifications-header,
 .lumen-notifications-save {
   justify-content: space-between;
-  gap: 0.75rem 1rem;
+  gap: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-notifications-header > div:first-child {
   display: flex;
   min-inline-size: 0;
   flex: 1 1 16rem;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-notifications [data-hbar-app-ui-list-strategy='pane-scroll'] {
   max-block-size: min(38rem, 66vh);
@@ -66,7 +66,7 @@
   overscroll-behavior: contain;
 }
 .lumen-notifications-empty {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border: 0.0625rem dashed var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   text-align: center;
@@ -80,14 +80,14 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-notifications-feed > section > article {
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.625rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-notifications-feed > section > article > :nth-child(5n + 1) {
@@ -120,7 +120,7 @@
   block-size: 2rem;
   align-items: center;
   justify-content: center;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: color-mix(in srgb, var(--lumen-accent) 13%, var(--lumen-glass));
   color: var(--lumen-accent);
   font-size: 0.75rem;
@@ -132,7 +132,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-notifications-feed small,
 .lumen-notifications-feed time,
@@ -144,7 +144,7 @@
 .lumen-notifications-toast-choices {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-notifications-toasts {
   display: flex;
@@ -152,8 +152,8 @@
   flex-direction: column;
   align-items: flex-end;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
   border: 0.0625rem dashed var(--lumen-edge);
   border-radius: var(--lumen-radius-surface);
 }
@@ -161,8 +161,8 @@
   display: flex;
   inline-size: min(24rem, 100%);
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-inline-start: 0.1875rem solid var(--lumen-accent);
   border-radius: var(--lumen-radius-control);
@@ -198,14 +198,14 @@
 .lumen-notifications-empty-state {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   color: var(--lumen-muted);
 }
 .lumen-notifications-preferences {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 .lumen-notifications-preferences > [role='table'] {
   display: flex;
@@ -220,8 +220,8 @@
   min-inline-size: 0;
   grid-template-columns: minmax(0, 1fr) repeat(var(--lumen-channel-count), minmax(3rem, 4.5rem));
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -255,8 +255,8 @@
   min-inline-size: 0;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 0.75rem;
-  padding: 0.875rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-surface);
   background: var(--lumen-glass);
@@ -267,14 +267,14 @@
 }
 .lumen-notifications-save {
   position: static;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
 }
 .lumen-notifications-save > div {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-notifications-activity {
   display: flex;
@@ -297,7 +297,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-glass);
 }
@@ -327,15 +327,15 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
 }
 .lumen-notifications-back {
   align-self: flex-start;
 }
 .lumen-notifications-facts {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
   flex-wrap: wrap;
 }
@@ -344,7 +344,7 @@
   min-inline-size: 8rem;
 }
 .lumen-notifications-facts > div {
-  padding: 0.625rem;
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }
@@ -353,15 +353,15 @@
   font-size: 0.75rem;
 }
 .lumen-notifications-facts dd {
-  margin: 0.2rem 0 0;
+  margin: var(--lumen-space-4) 0 0;
   font-weight: 650;
 }
 .lumen-notifications-system > article {
   display: flex;
   min-inline-size: 0;
   align-items: start;
-  gap: 0.75rem;
-  padding: 0.875rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-inline-start: 0.1875rem solid var(--lumen-accent);
   border-radius: var(--lumen-radius-control);
@@ -393,13 +393,13 @@
   min-inline-size: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-notifications-progress {
   display: flex;
   inline-size: 100%;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 .lumen-notifications-progress > :nth-child(2n + 1) {
@@ -418,8 +418,8 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-surface);
   background: var(--lumen-glass);
@@ -428,7 +428,7 @@
 .lumen-notifications-appbar > div {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-notifications-appbar nav button[aria-current='page'] {
   color: var(--lumen-accent);
@@ -445,7 +445,7 @@
   block-size: 1rem;
   align-items: center;
   justify-content: center;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-danger, #c2413b);
   color: white;
   font-size: 0.65rem;
@@ -454,12 +454,12 @@
   position: absolute;
   inset-block-start: calc(100% + 0.5rem);
   inset-inline-end: 0;
-  z-index: 2;
+  z-index: var(--lumen-layer-sticky-cell);
   display: flex;
   inline-size: min(22rem, 80vw);
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-surface);
   background: var(--lumen-reading);
@@ -473,12 +473,12 @@
 .lumen-notifications-bell aside > div {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-notifications-bell article {
   display: flex;
   flex-direction: column;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-notifications-bell small {
@@ -517,7 +517,7 @@
     min-inline-size: 0;
   }
   .lumen-notifications-feed time {
-    margin-inline-start: 2.6rem;
+    margin-inline-start: var(--lumen-space-32);
   }
   .lumen-notifications-activity {
     flex-direction: column;

@@ -13,7 +13,7 @@
 
 .lumen-navbar-preview-notice {
   flex: 0 0 auto;
-  padding: 0.5rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   color: var(--lumen-muted);
   font-size: 0.75rem;
   line-height: 1.5;
@@ -58,7 +58,7 @@
 
 .lumen-navbar-menu {
   position: absolute;
-  z-index: 3;
+  z-index: var(--lumen-layer-sticky-edge);
   inset-block-start: 100%;
   inset-inline-start: var(--lumen-navbar-menu-start, 0);
   inset-inline-end: var(--lumen-navbar-menu-end, auto);
@@ -67,10 +67,10 @@
   max-inline-size: calc(100vw - 2rem);
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.625rem;
-  padding: 0.375rem;
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-4);
   background: var(--lumen-reading);
   box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
 }
@@ -81,9 +81,9 @@
   min-inline-size: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.125rem;
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
+  gap: var(--lumen-space-2);
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   text-align: start;
 }
 
@@ -124,7 +124,7 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .lumen-navbar-menu-group {
@@ -132,12 +132,12 @@
   min-inline-size: 0;
   flex: 1 1 10rem;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-navbar-menu-group h3 {
   margin: 0;
-  padding: 0.25rem 0.625rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   color: var(--lumen-muted);
   font-size: 0.6875rem;
   font-weight: 650;
@@ -150,9 +150,9 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block-start: 0.5rem;
+  padding-block-start: var(--lumen-space-8);
 }
 
 .lumen-navbar-menu-footer > p {
@@ -194,22 +194,22 @@
 
 .lumen-navbar-search-results {
   position: absolute;
-  z-index: 3;
+  z-index: var(--lumen-layer-sticky-edge);
   inset-block-start: 100%;
   inset-inline: 0;
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.625rem;
-  padding: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-8);
   background: var(--lumen-reading);
   box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
 }
 
 .lumen-navbar-search-results > p {
-  padding: 0.25rem 0.375rem;
+  padding: var(--lumen-space-4) var(--lumen-space-4);
   color: var(--lumen-muted);
   font-size: 0.75rem;
   line-height: 1.5;
@@ -218,8 +218,8 @@
 .lumen-navbar-search-results > .hbar-app-ui-button {
   justify-content: flex-start;
   min-inline-size: 0;
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   color: var(--lumen-ink);
   text-align: start;
 }
@@ -243,7 +243,7 @@
 
 .lumen-navbar-drawer-layer {
   position: absolute;
-  z-index: 4;
+  z-index: var(--lumen-layer-anchored);
   inset: 0;
   display: flex;
   min-inline-size: 0;
@@ -252,7 +252,7 @@
 
 .lumen-navbar-drawer-backdrop {
   position: absolute;
-  z-index: 0;
+  z-index: var(--lumen-layer-base);
   inset: 0;
   display: block;
   inline-size: 100%;
@@ -268,14 +268,14 @@
   inline-size: min(20rem, calc(100% - 2rem));
   max-inline-size: 100%;
   min-inline-size: 0;
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
   block-size: 100%;
   min-block-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   overflow: auto;
   border-inline-end: 0.0625rem solid var(--lumen-edge);
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   background: var(--lumen-reading);
 }
 
@@ -284,7 +284,7 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .lumen-navbar-drawer-panel > header h2 {
@@ -299,15 +299,15 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .lumen-navbar-drawer-panel > nav .hbar-app-ui-button,
 .lumen-navbar-drawer-panel > details .hbar-app-ui-button {
   justify-content: flex-start;
   min-inline-size: 0;
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   color: var(--lumen-ink);
   text-align: start;
 }
@@ -328,7 +328,7 @@
 }
 
 .lumen-navbar-drawer-panel > details > .hbar-app-ui-button {
-  margin-inline-start: 0.5rem;
+  margin-inline-start: var(--lumen-space-8);
 }
 
 .lumen-navbar-drawer-panel > details > .hbar-app-ui-button,
@@ -421,12 +421,12 @@
 .hbar-app-ui-navbar-avatar-stack > span + span,
 .hbar-app-ui-navbar-task-people > span + span,
 .hbar-app-ui-navbar-document header > section > span + span {
-  margin-inline-start: -0.5rem;
+  margin-inline-start: calc(var(--lumen-space-8) * -1);
 }
 
 .hbar-app-ui-navbar-avatar-stack > small,
 .hbar-app-ui-navbar-task-people > small {
-  margin-inline-start: 0.375rem;
+  margin-inline-start: var(--lumen-space-4);
   font-size: 0.6875rem;
 }
 
@@ -439,9 +439,9 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding: 1.125rem 1.5rem 0;
+  padding: var(--lumen-space-16) var(--lumen-space-24) 0;
 }
 
 .hbar-app-ui-navbar-board-title-row,
@@ -458,7 +458,7 @@
 
 .hbar-app-ui-navbar-board-title-row {
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-board-title-row h1 {
@@ -474,11 +474,11 @@
 
 .hbar-app-ui-navbar-board-actions {
   flex: 0 0 auto;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-board-breadcrumbs {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow: hidden;
   color: var(--lumen-muted);
   font-size: 0.8125rem;
@@ -487,7 +487,7 @@
 }
 
 .hbar-app-ui-navbar-board-breadcrumbs > span {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 
@@ -502,27 +502,27 @@
 
 .hbar-app-ui-navbar-board-tabs-row {
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-ui-navbar-board-tabs {
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   overflow: auto;
 }
 
 .hbar-app-ui-navbar-board-tabs > [role='tab'] {
   min-block-size: 2.5rem;
   flex: 0 0 auto;
-  padding-inline: 0.5rem;
+  padding-inline: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-board-tabs .lumen-badge {
-  margin-inline-start: 0.25rem;
+  margin-inline-start: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-board-people {
   flex: 0 0 auto;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-ui-navbar-board-people .hbar-app-ui-navbar-add {
@@ -537,8 +537,8 @@
   display: flex;
   flex-wrap: wrap;
   min-inline-size: 0;
-  gap: 0.75rem;
-  padding: 1.25rem 1.5rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
   flex-wrap: wrap;
 }
 
@@ -562,10 +562,10 @@
   flex: 1 1 0;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   border: 0.0625rem dashed var(--lumen-edge);
-  border-radius: 0.875rem;
-  padding: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-12);
 }
 
 .hbar-app-ui-navbar-board-columns h2 {
@@ -579,15 +579,15 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   padding: 0;
   list-style: none;
 }
 
 .hbar-app-ui-navbar-board-columns li {
   overflow: hidden;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.625rem;
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   background: var(--lumen-glass);
   color: var(--lumen-muted);
   font-size: 0.8125rem;
@@ -608,9 +608,9 @@
   min-block-size: 3.5rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1rem;
+  padding-inline: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-task-header > nav {
@@ -618,7 +618,7 @@
   min-inline-size: 0;
   flex: 1;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow: hidden;
   color: var(--lumen-muted);
   font-size: 0.8125rem;
@@ -629,7 +629,7 @@
   display: inline-flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-task-header > nav > span > span {
@@ -662,8 +662,8 @@
   min-block-size: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   overflow: auto;
 }
 
@@ -679,7 +679,7 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   padding: 0;
   list-style: none;
 }
@@ -694,9 +694,9 @@
   inline-size: 100%;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  border-radius: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-8);
   background: var(--lumen-glass);
   text-align: left;
   min-inline-size: 0;
@@ -752,9 +752,9 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1.5rem;
+  padding-inline: var(--lumen-space-24);
 }
 
 .hbar-app-ui-navbar-deployment-path,
@@ -762,7 +762,7 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-deployment-path {
@@ -773,7 +773,7 @@
 
 .hbar-app-ui-navbar-deployment-path .hbar-app-ui-button {
   flex: 0 1 auto;
-  padding-inline: 0.25rem;
+  padding-inline: var(--lumen-space-4);
   color: var(--lumen-muted);
 }
 
@@ -794,7 +794,7 @@
   inline-size: 1.25rem;
   block-size: 1.25rem;
   flex-basis: 1.25rem;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-ink);
   color: var(--lumen-reading);
   font-size: 0.625rem;
@@ -826,8 +826,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.375rem;
-  padding: 1.5rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-24);
 }
 
 .hbar-app-ui-navbar-deployment > main h1 {
@@ -847,8 +847,8 @@
   display: flex;
   flex-wrap: wrap;
   min-inline-size: 0;
-  gap: 0.75rem;
-  margin-block-start: 0.75rem;
+  gap: var(--lumen-space-12);
+  margin-block-start: var(--lumen-space-12);
   flex-wrap: wrap;
 }
 
@@ -872,10 +872,10 @@
   flex: 1 1 0;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-12);
   background: var(--lumen-glass);
 }
 
@@ -903,9 +903,9 @@
   min-block-size: 4rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1.5rem;
+  padding-inline: var(--lumen-space-24);
 }
 
 .hbar-app-ui-navbar-landing-brand,
@@ -914,12 +914,12 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-landing-brand {
   flex: 0 0 auto;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-landing-brand > span {
@@ -928,7 +928,7 @@
   block-size: 2rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-reading);
   font-size: 0.75rem;
@@ -962,7 +962,7 @@
 .hbar-app-ui-navbar-landing-primary {
   min-inline-size: 0;
   flex: 0 1 auto;
-  padding-block: 0.375rem;
+  padding-block: var(--lumen-space-4);
   white-space: normal;
   overflow-wrap: anywhere;
   background: var(--lumen-ink) !important;
@@ -999,24 +999,24 @@
 }
 
 .hbar-app-ui-navbar-landing-popover > div {
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-ui-navbar-landing-panel-groups {
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-landing-panel-groups > section {
   min-inline-size: 10rem;
   flex: 1 1 10rem;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-landing-panel-groups > section > h3 {
   margin: 0;
-  padding-inline: 0.5rem;
+  padding-inline: var(--lumen-space-8);
   color: var(--lumen-subtle);
 }
 
@@ -1027,7 +1027,7 @@
 
 .hbar-app-ui-navbar-landing-panel-groups > section > button > span {
   align-items: flex-start;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-landing-panel-groups small {
@@ -1037,13 +1037,13 @@
 .hbar-app-ui-navbar-landing-popover footer {
   display: flex;
   justify-content: flex-end;
-  padding-block-start: 0.5rem;
+  padding-block-start: var(--lumen-space-8);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
 .hbar-app-ui-navbar-landing-mobile-menu nav,
 .hbar-app-ui-navbar-landing-mobile-menu nav > section {
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-landing-mobile-menu nav > section > button {
@@ -1057,8 +1057,8 @@
   flex: 1;
   flex-direction: column;
   align-items: center;
-  gap: 0.875rem;
-  padding: 2.125rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-32) var(--lumen-space-16);
   text-align: center;
 }
 
@@ -1091,15 +1091,15 @@
   inline-size: min(100%, 45rem);
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-block-start: 1rem;
+  gap: var(--lumen-space-12);
+  margin-block-start: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-landing-placeholders > i {
   display: block;
   min-block-size: 7.5rem;
   border: 0.0625rem dashed var(--lumen-edge);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-reading);
 }
 
@@ -1108,8 +1108,8 @@
   flex-wrap: wrap;
   inline-size: min(100%, 51.25rem);
   min-inline-size: 0;
-  gap: 0.75rem;
-  margin-block-start: 0.75rem;
+  gap: var(--lumen-space-12);
+  margin-block-start: var(--lumen-space-12);
   flex-wrap: wrap;
 }
 
@@ -1133,10 +1133,10 @@
   flex: 1 1 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
-  padding: 1rem;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-16);
   background: var(--lumen-glass);
   text-align: left;
 }
@@ -1153,7 +1153,7 @@
 }
 
 .hbar-app-ui-navbar-landing.hbar-app-ui-navbar-variant-5 > main {
-  padding-block-start: 2.5rem;
+  padding-block-start: var(--lumen-space-32);
 }
 
 .lumen-navbar.hbar-app-ui-navbar-surface.hbar-app-ui-navbar-landing-centered {
@@ -1166,10 +1166,10 @@
   inline-size: min(calc(100% - 2rem), 42.5rem);
   min-block-size: 3rem;
   align-self: center;
-  margin-block-start: 1rem;
+  margin-block-start: var(--lumen-space-16);
   border: 0.0625rem solid transparent;
-  border-radius: 0.75rem;
-  padding-inline: 0.5rem;
+  border-radius: var(--lumen-radius-panel);
+  padding-inline: var(--lumen-space-8);
   background: color-mix(in srgb, var(--lumen-glass) 60%, transparent);
   transition:
     border-color 140ms ease,
@@ -1188,8 +1188,8 @@
   min-block-size: 0;
   align-items: flex-start;
   align-self: center;
-  gap: 0.5rem;
-  padding: 2rem 1.25rem 2.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-32) var(--lumen-space-16) var(--lumen-space-32);
   text-align: left;
 }
 
@@ -1208,7 +1208,7 @@
 
 .hbar-app-ui-navbar-landing-centered > main > .hbar-app-ui-navbar-landing-description {
   max-inline-size: 27rem;
-  margin-block-start: 0.25rem;
+  margin-block-start: var(--lumen-space-4);
   line-height: 1.625;
 }
 
@@ -1235,9 +1235,9 @@
   min-block-size: 3.5rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1.5rem;
+  padding-inline: var(--lumen-space-24);
 }
 
 .hbar-app-ui-navbar-activity-brand,
@@ -1250,7 +1250,7 @@
 
 .hbar-app-ui-navbar-activity-brand {
   flex: 0 0 auto;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-activity-brand > span {
@@ -1259,7 +1259,7 @@
   block-size: 2rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-reading);
   font-size: 0.75rem;
@@ -1277,10 +1277,10 @@
   inline-size: min(100%, 26.25rem);
   min-block-size: 2.25rem;
   margin-inline: auto;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
-  padding-inline: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
+  padding-inline: var(--lumen-space-8);
   background: var(--lumen-glass);
   color: var(--lumen-muted);
 }
@@ -1304,8 +1304,8 @@
 .hbar-app-ui-navbar-activity-search > kbd {
   flex: 0 0 auto;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.25rem;
-  padding: 0.0625rem 0.25rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   color: var(--lumen-muted);
   font-family: inherit;
   font-size: 0.625rem;
@@ -1314,7 +1314,7 @@
 .hbar-app-ui-navbar-activity-actions {
   position: relative;
   flex: 0 0 auto;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-activity-new {
@@ -1342,14 +1342,14 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-activity-notifications button {
   display: flex;
   min-inline-size: 0;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   text-align: start;
 }
 
@@ -1376,8 +1376,8 @@
   min-block-size: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.5rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-24);
   overflow: auto;
 }
 
@@ -1393,7 +1393,7 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   padding: 0;
   list-style: none;
 }
@@ -1404,9 +1404,9 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--lumen-space-16);
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   background: var(--lumen-glass);
   text-align: left;
 }
@@ -1448,14 +1448,14 @@
   min-inline-size: 0;
   align-items: center;
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1.5rem;
+  padding-inline: var(--lumen-space-24);
 }
 
 .hbar-app-ui-navbar-analytics > header {
   min-block-size: 3.5rem;
   flex: 0 0 auto;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-analytics-brand,
@@ -1463,7 +1463,7 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-analytics-brand {
@@ -1477,7 +1477,7 @@
   flex: 0 0 2rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-reading);
   font-size: 0.75rem;
@@ -1499,12 +1499,12 @@
 
 .hbar-app-ui-navbar-analytics-actions {
   flex: 0 0 auto;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-analytics-primary,
 .hbar-app-ui-navbar-analytics-secondary {
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   overflow: auto;
 }
 
@@ -1531,7 +1531,7 @@
 }
 
 .hbar-app-ui-navbar-analytics-secondary .hbar-app-ui-button.is-selected {
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-reading);
 }
@@ -1546,8 +1546,8 @@
   min-block-size: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.5rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-24);
   overflow: auto;
 }
 
@@ -1562,7 +1562,7 @@
   display: flex;
   flex-wrap: wrap;
   min-inline-size: 0;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   flex-wrap: wrap;
 }
 
@@ -1586,10 +1586,10 @@
   flex: 1 1 0;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
-  padding: 1rem;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-16);
   background: var(--lumen-glass);
 }
 
@@ -1611,7 +1611,7 @@
   display: block;
   min-block-size: 8.75rem;
   border: 0.0625rem dashed var(--lumen-edge);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
 }
 
 /* Filter toolbar ------------------------------------------------------- */
@@ -1625,9 +1625,9 @@
   min-block-size: 3.5625rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1rem;
+  padding-inline: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-filter-list > header > nav,
@@ -1635,7 +1635,7 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-filter-list > header > nav {
@@ -1668,8 +1668,8 @@
   min-block-size: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   overflow: auto;
 }
 
@@ -1683,7 +1683,7 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   padding: 0;
   list-style: none;
 }
@@ -1693,8 +1693,8 @@
   inline-size: 100%;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   text-align: left;
 }
 
@@ -1719,7 +1719,7 @@
 }
 
 .hbar-app-ui-navbar-filter-list > main li > button:hover {
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-glass);
 }
 
@@ -1779,7 +1779,7 @@
 
 .hbar-app-ui-navbar-commerce > header > p {
   min-block-size: 2rem;
-  padding: 0.4375rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   background: var(--lumen-ink);
   color: var(--lumen-reading);
   font-size: 0.75rem;
@@ -1792,8 +1792,8 @@
   min-inline-size: 0;
   min-block-size: 3.5rem;
   align-items: center;
-  gap: 1rem;
-  padding-inline: 1rem;
+  gap: var(--lumen-space-16);
+  padding-inline: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-commerce-menu {
@@ -1818,12 +1818,12 @@
 
 .hbar-app-ui-navbar-commerce > header nav {
   flex: 1;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-commerce > header nav > button {
   min-block-size: 2rem;
-  padding-inline: 0.625rem;
+  padding-inline: var(--lumen-space-8);
   color: var(--lumen-muted);
   font-size: 0.8125rem;
   line-height: 1.5;
@@ -1832,7 +1832,7 @@
 
 .hbar-app-ui-navbar-commerce-actions {
   flex: 0 0 auto;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-commerce-actions > span {
@@ -1845,7 +1845,7 @@
   block-size: 1rem;
   align-items: center;
   justify-content: center;
-  margin-inline-start: -0.625rem;
+  margin-inline-start: calc(var(--lumen-space-8) * -1);
   border-radius: 50%;
   background: var(--lumen-ink);
   color: var(--lumen-reading);
@@ -1857,8 +1857,8 @@
   display: flex;
   flex-wrap: wrap;
   min-inline-size: 0;
-  gap: 0.75rem;
-  padding: 1.5rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-24);
   flex-wrap: wrap;
 }
 
@@ -1885,7 +1885,7 @@
   flex-direction: column;
   justify-content: flex-end;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   overflow: hidden;
   background: var(--lumen-glass);
 }
@@ -1899,8 +1899,8 @@
   min-inline-size: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.125rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-12);
   text-align: left;
 }
 
@@ -1935,9 +1935,9 @@
   min-block-size: 3.5625rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1rem;
+  padding-inline: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-docs-menu {
@@ -1954,7 +1954,7 @@
 
 .hbar-app-ui-navbar-docs-brand {
   flex: 0 0 auto;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-docs-brand > span {
@@ -1963,7 +1963,7 @@
   block-size: 2rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-ink);
   color: var(--lumen-reading);
 }
@@ -1976,7 +1976,7 @@
 
 .hbar-app-ui-navbar-docs > header > nav {
   flex: 1;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-docs > header > nav .hbar-app-ui-button {
@@ -1985,7 +1985,7 @@
 
 .hbar-app-ui-navbar-docs-actions {
   flex: 0 0 auto;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-docs-search {
@@ -1996,8 +1996,8 @@
 .hbar-app-ui-navbar-docs-search kbd {
   margin-inline-start: auto;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.25rem;
-  padding: 0.0625rem 0.25rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   color: var(--lumen-muted);
   font-family: inherit;
   font-size: 0.625rem;
@@ -2032,7 +2032,7 @@
 
 .hbar-app-ui-navbar-docs-search-dialog .lumen-dialog-body,
 .hbar-app-ui-navbar-docs-search-dialog .lumen-dialog-body > div {
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-docs-search-dialog .lumen-dialog-body button {
@@ -2054,11 +2054,11 @@
 
 .hbar-app-ui-navbar-docs-drawer nav,
 .hbar-app-ui-navbar-docs-drawer section {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-docs-drawer section + section {
-  padding-block-start: 0.75rem;
+  padding-block-start: var(--lumen-space-12);
 }
 
 .hbar-app-ui-navbar-docs-drawer section > p {
@@ -2087,8 +2087,8 @@
   min-block-size: 0;
   flex: 1;
   justify-content: center;
-  gap: 2rem;
-  padding: 1.25rem 1rem;
+  gap: var(--lumen-space-32);
+  padding: var(--lumen-space-16) var(--lumen-space-16);
   overflow: auto;
 }
 
@@ -2109,14 +2109,14 @@
   min-inline-size: 0;
   min-block-size: 0;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
 }
 
 .hbar-app-ui-navbar-docs > main > aside section {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-docs > main > aside p {
@@ -2129,7 +2129,7 @@
 .hbar-app-ui-navbar-docs > main > aside ul {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   padding: 0;
   list-style: none;
 }
@@ -2138,8 +2138,8 @@
   display: block;
   inline-size: 100%;
   min-block-size: 1.75rem;
-  border-radius: 0.375rem;
-  padding-inline: 0.5rem;
+  border-radius: var(--lumen-radius-control);
+  padding-inline: var(--lumen-space-8);
   color: var(--lumen-muted);
   font-size: 0.75rem;
   line-height: 1.5;
@@ -2161,7 +2161,7 @@
 }
 
 .hbar-app-ui-navbar-docs > main > article > p:first-child {
-  margin-block-end: 0.25rem;
+  margin-block-end: var(--lumen-space-4);
   color: var(--lumen-muted);
   font-size: 0.75rem;
   line-height: 1.5;
@@ -2175,14 +2175,14 @@
 }
 
 .hbar-app-ui-navbar-docs > main > article > p:nth-of-type(2) {
-  margin-block-start: 0.5rem;
+  margin-block-start: var(--lumen-space-8);
   color: var(--lumen-muted);
   font-size: 0.8125rem;
   line-height: 1.625;
 }
 
 .hbar-app-ui-navbar-docs > main > article > p + button {
-  margin-block-start: 1rem;
+  margin-block-start: var(--lumen-space-16);
 }
 
 .lumen-navbar.hbar-app-ui-navbar-surface.hbar-app-ui-navbar-docs > main > article > button {
@@ -2191,9 +2191,9 @@
   min-block-size: 2.5rem;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  border-radius: 0.5rem;
-  padding-inline: 0.75rem;
+  gap: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
+  padding-inline: var(--lumen-space-12);
   background: var(--lumen-glass);
   color: var(--lumen-ink);
   font-size: 0.8125rem;
@@ -2205,7 +2205,7 @@
 }
 
 .lumen-navbar.hbar-app-ui-navbar-surface.hbar-app-ui-navbar-docs > main > article > button + button {
-  margin-block-start: 0.5rem;
+  margin-block-start: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-docs > main > article > button > span:first-child {
@@ -2230,9 +2230,9 @@
   min-block-size: 3.5rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 0.75rem;
+  padding-inline: var(--lumen-space-12);
 }
 
 .hbar-app-ui-navbar-document-summary {
@@ -2240,7 +2240,7 @@
   min-inline-size: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.0625rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-document-summary > button {
@@ -2260,7 +2260,7 @@
 }
 
 .hbar-app-ui-navbar-document-summary > span {
-  padding-inline: 0.625rem;
+  padding-inline: var(--lumen-space-8);
   color: var(--lumen-muted);
   font-size: 0.6875rem;
   line-height: 1.25;
@@ -2269,7 +2269,7 @@
 .hbar-app-ui-navbar-document-summary > .lumen-control {
   max-inline-size: min(26rem, 100%);
   min-block-size: 1.75rem;
-  padding-inline: 0.625rem;
+  padding-inline: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-document > header > section {
@@ -2277,7 +2277,7 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-document > header > section > span {
@@ -2317,7 +2317,7 @@
 
 .hbar-app-ui-navbar-document-history > div,
 .hbar-app-ui-navbar-document-share-popover > div {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-document-history button {
@@ -2339,7 +2339,7 @@
 
 .hbar-app-ui-navbar-document-share-popover > div > div {
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-navbar-document-share-popover .lumen-control {
@@ -2354,8 +2354,8 @@
   flex: 1;
   flex-direction: column;
   align-self: center;
-  gap: 0.75rem;
-  padding: 2rem 1.25rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-32) var(--lumen-space-16);
   overflow: auto;
 }
 
@@ -2373,14 +2373,14 @@
 }
 
 .hbar-app-ui-navbar-document > main > p + button {
-  margin-block-start: 0.5rem;
+  margin-block-start: var(--lumen-space-8);
 }
 
 .lumen-navbar.hbar-app-ui-navbar-surface.hbar-app-ui-navbar-document > main > button {
   display: block;
   min-block-size: 2.5rem;
-  border-radius: 0.5rem;
-  padding-inline: 0.75rem;
+  border-radius: var(--lumen-radius-surface);
+  padding-inline: var(--lumen-space-12);
   background: var(--lumen-glass);
   color: var(--lumen-ink);
   font-size: 0.8125rem;
@@ -2392,7 +2392,7 @@
 }
 
 .hbar-app-ui-navbar-document > main > button + button {
-  margin-block-start: -0.25rem;
+  margin-block-start: calc(var(--lumen-space-4) * -1);
 }
 
 /* Portfolio header ----------------------------------------------------- */
@@ -2406,9 +2406,9 @@
   min-block-size: 4rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1.25rem;
+  padding-inline: var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-portfolio > header > :nth-child(3n + 1) {
@@ -2431,7 +2431,7 @@
   flex: 1 1 0;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-portfolio-right {
@@ -2461,8 +2461,8 @@
   flex: 1;
   flex-direction: column;
   align-self: center;
-  gap: 0.75rem;
-  padding: 3.875rem 1.25rem 1.5rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-32) var(--lumen-space-16) var(--lumen-space-24);
   overflow: auto;
 }
 
@@ -2485,8 +2485,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.125rem;
-  margin-block-start: 0.75rem;
+  gap: var(--lumen-space-2);
+  margin-block-start: var(--lumen-space-12);
   padding: 0;
   list-style: none;
 }
@@ -2499,9 +2499,9 @@
   min-block-size: 3rem;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 1rem;
+  padding-inline: var(--lumen-space-16);
   text-align: left;
 }
 
@@ -2565,9 +2565,9 @@
   min-block-size: 3.5625rem;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
-  padding-inline: 0.75rem;
+  padding-inline: var(--lumen-space-12);
 }
 
 .hbar-app-ui-navbar-article-summary {
@@ -2575,7 +2575,7 @@
   min-inline-size: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.0625rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-article-summary p,
@@ -2602,7 +2602,7 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-ui-navbar-article-contents {
@@ -2630,7 +2630,7 @@
   min-inline-size: 0;
   flex-direction: column;
   gap: 0;
-  padding: 1.75rem 1.25rem;
+  padding: var(--lumen-space-24) var(--lumen-space-16);
 }
 
 .hbar-app-ui-navbar-article h1 {
@@ -2642,7 +2642,7 @@
 }
 
 .hbar-app-ui-navbar-article > main > article > p {
-  margin-block-start: 0.75rem;
+  margin-block-start: var(--lumen-space-12);
   color: var(--lumen-muted);
   font-size: 0.875rem;
   line-height: 1.625;
@@ -2652,15 +2652,15 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-navbar-article > main > article > p + section {
-  margin-block-start: 1.75rem;
+  margin-block-start: var(--lumen-space-24);
 }
 
 .hbar-app-ui-navbar-article > main > article > section + section {
-  margin-block-start: 1.5rem;
+  margin-block-start: var(--lumen-space-24);
 }
 
 .hbar-app-ui-navbar-article h2 {
@@ -2679,7 +2679,7 @@
 .hbar-app-ui-navbar-article > main section > i {
   display: block;
   min-block-size: 5.75rem;
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-glass);
 }
 
@@ -2697,7 +2697,7 @@
   }
 
   .hbar-app-ui-navbar-docs > main {
-    padding-inline: 1.5rem;
+    padding-inline: var(--lumen-space-24);
   }
 
   .hbar-app-ui-navbar-docs > main > aside {
@@ -2713,7 +2713,7 @@
 
 @media (width < 48rem) {
   .hbar-app-ui-navbar-board-header {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-board-actions {
@@ -2721,7 +2721,7 @@
   }
 
   .hbar-app-ui-navbar-board-tabs-row {
-    gap: 0.25rem;
+    gap: var(--lumen-space-4);
   }
 
   .hbar-app-ui-navbar-board-people {
@@ -2733,7 +2733,7 @@
   }
 
   .hbar-app-ui-navbar-board-columns {
-    padding: 1.25rem 1rem;
+    padding: var(--lumen-space-16) var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-board-columns > section {
@@ -2741,7 +2741,7 @@
   }
 
   .hbar-app-ui-navbar-task-header {
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-task-header > nav > span:first-child > span:last-child {
@@ -2759,16 +2759,16 @@
   }
 
   .hbar-app-ui-navbar-task-main {
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-task-main li > button {
-    gap: 0.5rem;
+    gap: var(--lumen-space-8);
   }
 
   .hbar-app-ui-navbar-deployment > header {
-    gap: 0.5rem;
-    padding-inline: 1rem;
+    gap: var(--lumen-space-8);
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-deployment-path > .hbar-app-ui-button:not(:first-child),
@@ -2777,11 +2777,11 @@
   }
 
   .hbar-app-ui-navbar-deployment > main {
-    padding: 1rem;
+    padding: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-deployment > main dl {
-    gap: 0.625rem;
+    gap: var(--lumen-space-8);
   }
 
   .hbar-app-ui-navbar-deployment > main dl > div {
@@ -2789,7 +2789,7 @@
   }
 
   .hbar-app-ui-navbar-landing > header {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-landing > header > nav,
@@ -2807,17 +2807,17 @@
 
   .hbar-app-ui-navbar-landing > main {
     align-items: flex-start;
-    gap: 0.625rem;
-    padding: 2.125rem 1rem;
+    gap: var(--lumen-space-8);
+    padding: var(--lumen-space-32) var(--lumen-space-16);
     text-align: left;
   }
 
   .hbar-app-ui-navbar-landing:not(.hbar-app-ui-navbar-landing-centered) > main {
-    padding-block-start: 2rem;
+    padding-block-start: var(--lumen-space-32);
   }
 
   .hbar-app-ui-navbar-variant-5 > main {
-    padding-block-start: 2.5rem !important;
+    padding-block-start: var(--lumen-space-32) !important;
   }
 
   .hbar-app-ui-navbar-variant-5 > main h1 {
@@ -2826,7 +2826,7 @@
   }
 
   .hbar-app-ui-navbar-variant-5 > main dl {
-    margin-block-start: 1rem;
+    margin-block-start: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-landing > main h1 {
@@ -2854,21 +2854,21 @@
   .hbar-app-ui-navbar-landing-centered > header {
     inline-size: calc(100% - 1.5rem);
     min-block-size: 3rem;
-    margin-block-start: 0.75rem;
+    margin-block-start: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-landing-centered > main {
-    padding-block-start: 2.25rem;
+    padding-block-start: var(--lumen-space-32);
   }
 
   .hbar-app-ui-navbar-landing-centered > main > .hbar-app-ui-navbar-landing-description {
-    margin-block-start: 0.0625rem;
+    margin-block-start: var(--lumen-space-2);
   }
 
   .hbar-app-ui-navbar-activity > header {
     flex-wrap: wrap;
-    gap: 0.25rem;
-    padding-inline: 1rem;
+    gap: var(--lumen-space-4);
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-activity-brand > strong,
@@ -2901,17 +2901,17 @@
   }
 
   .hbar-app-ui-navbar-activity > main {
-    padding: 1rem;
+    padding: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-activity > main li > button {
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-analytics > header,
   .hbar-app-ui-navbar-analytics-primary,
   .hbar-app-ui-navbar-analytics-secondary {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-analytics-brand > .hbar-app-ui-button,
@@ -2925,7 +2925,7 @@
   }
 
   .hbar-app-ui-navbar-analytics > main {
-    padding: 1rem;
+    padding: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-analytics > main dl {
@@ -2940,7 +2940,7 @@
     min-block-size: 6.0625rem;
     flex-wrap: wrap;
     align-content: center;
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-filter-list > header > nav {
@@ -2962,12 +2962,12 @@
   }
 
   .hbar-app-ui-navbar-filter-list > main {
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-filter-list > main li > button {
-    gap: 0.75rem;
-    padding: 0.625rem 0.75rem;
+    gap: var(--lumen-space-12);
+    padding: var(--lumen-space-8) var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-filter-list > main li > button > :nth-child(3n + 1) {
@@ -2990,12 +2990,12 @@
   }
 
   .hbar-app-ui-navbar-filter-list > main ol {
-    gap: 0.25rem;
+    gap: var(--lumen-space-4);
   }
 
   .hbar-app-ui-navbar-commerce > header > div {
-    gap: 0.5rem;
-    padding-inline: 1rem;
+    gap: var(--lumen-space-8);
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-commerce-menu {
@@ -3019,7 +3019,7 @@
   }
 
   .hbar-app-ui-navbar-commerce > main {
-    padding: 1rem;
+    padding: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-commerce > main article {
@@ -3028,8 +3028,8 @@
   }
 
   .hbar-app-ui-navbar-docs > header {
-    gap: 0.375rem;
-    padding-inline: 1rem;
+    gap: var(--lumen-space-4);
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-docs-menu {
@@ -3052,7 +3052,7 @@
 
   .hbar-app-ui-navbar-docs > main {
     display: flex;
-    padding: 1.25rem 1rem;
+    padding: var(--lumen-space-16) var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-docs > main > aside {
@@ -3064,7 +3064,7 @@
   }
 
   .hbar-app-ui-navbar-document > header {
-    gap: 0.25rem;
+    gap: var(--lumen-space-4);
   }
 
   .hbar-app-ui-navbar-document-summary > span,
@@ -3078,7 +3078,7 @@
   }
 
   .hbar-app-ui-navbar-document > main {
-    padding: 2rem 1.25rem;
+    padding: var(--lumen-space-32) var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-document > main h1 {
@@ -3088,7 +3088,7 @@
   .hbar-app-ui-navbar-portfolio > header {
     display: flex;
     justify-content: center;
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-portfolio > header > nav {
@@ -3102,7 +3102,7 @@
   }
 
   .hbar-app-ui-navbar-portfolio > main {
-    padding: 2.5rem 1.25rem 1.5rem;
+    padding: var(--lumen-space-32) var(--lumen-space-16) var(--lumen-space-24);
   }
 
   .hbar-app-ui-navbar-portfolio > main h1 {
@@ -3111,7 +3111,7 @@
   }
 
   .hbar-app-ui-navbar-portfolio > main li > button {
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-portfolio > main li > button > :nth-child(2n + 1) {
@@ -3129,7 +3129,7 @@
   }
 
   .hbar-app-ui-navbar-article > header {
-    gap: 0.25rem;
+    gap: var(--lumen-space-4);
   }
 
   .hbar-app-ui-navbar-article-contents > span {
@@ -3145,7 +3145,7 @@
   }
 
   .hbar-app-ui-navbar-article > main > article {
-    padding: 1.75rem 1.25rem;
+    padding: var(--lumen-space-24) var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-article h1 {
@@ -3159,7 +3159,7 @@
 @media (width < 48rem) {
   .hbar-app-ui-navbar-landing.hbar-app-ui-navbar-variant-5 > main {
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--lumen-space-12);
     text-align: center;
   }
 
@@ -3175,7 +3175,7 @@
   }
 
   .hbar-app-ui-navbar-landing.hbar-app-ui-navbar-variant-5 > main dl {
-    margin-block-start: 1.25rem;
+    margin-block-start: var(--lumen-space-16);
   }
 
   .hbar-app-ui-navbar-landing-centered > header {
@@ -3186,8 +3186,8 @@
   .hbar-app-ui-navbar-landing-centered > main {
     inline-size: 100%;
     align-items: flex-start;
-    gap: 0.5rem;
-    padding: 6rem 1.25rem 2.5rem;
+    gap: var(--lumen-space-8);
+    padding: var(--lumen-space-32) var(--lumen-space-16) var(--lumen-space-32);
     text-align: left;
   }
 
@@ -3205,7 +3205,7 @@
 
   .hbar-app-ui-navbar-landing-centered > main > .hbar-app-ui-navbar-landing-description {
     max-inline-size: 100%;
-    margin-block-start: 0.25rem;
+    margin-block-start: var(--lumen-space-4);
     line-height: 1.625;
   }
 
@@ -3218,7 +3218,7 @@
   }
 
   .hbar-app-ui-navbar-document > header {
-    padding-inline: 0.5rem;
+    padding-inline: var(--lumen-space-8);
   }
 
   .hbar-app-ui-navbar-document > header > section > .hbar-app-ui-icon-button:first-of-type,
@@ -3227,13 +3227,13 @@
   }
 
   .hbar-app-ui-navbar-filter-list > header {
-    gap: 0.5rem;
+    gap: var(--lumen-space-8);
   }
 
   .hbar-app-ui-navbar-filter-list > header > nav {
     inline-size: calc(100% - 0.5rem);
-    margin-inline: 0.25rem;
-    padding-block: 0.125rem;
+    margin-inline: var(--lumen-space-4);
+    padding-block: var(--lumen-space-2);
   }
 
   .hbar-app-ui-navbar-filter-list > header > div > .hbar-app-ui-icon-button {
@@ -3251,8 +3251,8 @@
   }
 
   .hbar-app-ui-navbar-filter-list > main {
-    gap: 0.5rem;
-    padding-block-start: 0.75rem;
+    gap: var(--lumen-space-8);
+    padding-block-start: var(--lumen-space-12);
   }
 
   .hbar-app-ui-navbar-filter-list > main > p {
@@ -3262,9 +3262,9 @@
   .lumen-navbar.hbar-app-ui-navbar-surface.hbar-app-ui-navbar-filter-list > main li > button {
     display: flex;
     min-block-size: 2.4688rem;
-    gap: 0.75rem;
+    gap: var(--lumen-space-12);
     border-radius: 0;
-    padding: 0.625rem 0.75rem;
+    padding: var(--lumen-space-8) var(--lumen-space-12);
     background: transparent;
     font-size: 0.8125rem;
     line-height: 1.5;
@@ -3299,7 +3299,7 @@
   }
 
   .lumen-navbar.hbar-app-ui-navbar-surface.hbar-app-ui-navbar-filter-list > main li > button:hover {
-    border-radius: 0.5rem;
+    border-radius: var(--lumen-radius-surface);
     background: var(--lumen-glass);
   }
 

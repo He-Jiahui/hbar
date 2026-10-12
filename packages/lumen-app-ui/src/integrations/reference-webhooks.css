@@ -12,8 +12,8 @@
   min-inline-size: 0;
   flex: 1 1 18rem;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border-inline-end: 0.0625rem solid var(--lumen-integration-border);
 }
 
@@ -24,7 +24,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-ui-integration-reference-webhooks-endpoints h2 {
@@ -36,7 +36,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow: auto;
 }
 
@@ -51,10 +51,10 @@
   min-inline-size: 0;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: transparent;
   color: var(--lumen-integration-text);
   cursor: pointer;
@@ -71,14 +71,14 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-integration-reference-webhooks-endpoint-title strong {
   display: inline-flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   font-size: 0.75rem;
   font-weight: 500;
   overflow-wrap: anywhere;
@@ -111,7 +111,7 @@
 }
 
 .hbar-app-ui-integration-reference-webhooks-head {
-  padding: 0.75rem 1.25rem;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-integration-border);
 }
 
@@ -120,7 +120,7 @@
   min-inline-size: 0;
   flex: 1 1 20rem;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-integration-reference-webhooks-url {
@@ -133,14 +133,14 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-ui-integration-reference-webhooks-topics li {
   display: inline-flex;
   min-inline-size: 0;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-integration-border);
   color: var(--lumen-integration-text);
   font-size: 0.6875rem;
@@ -152,7 +152,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-ui-integration-reference-webhooks-delivery-list {
@@ -180,8 +180,8 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border: 0;
   background: transparent;
   color: var(--lumen-integration-text);
@@ -209,10 +209,10 @@
 
 .hbar-app-ui-integration-reference-webhooks-payload {
   max-inline-size: 100%;
-  margin: 0 1.25rem 0.75rem;
-  padding: 0.875rem;
+  margin: 0 var(--lumen-space-16) var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-integration-border);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-integration-surface);
   color: var(--lumen-integration-muted);
   font-family: ui-monospace, monospace;
@@ -223,7 +223,7 @@
 
 .hbar-app-ui-integration-reference-webhooks-footer {
   flex: 0 0 auto;
-  padding: 0.75rem 1.25rem;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-integration-border);
   color: var(--lumen-integration-muted);
   font-size: 0.75rem;

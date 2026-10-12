@@ -1,19 +1,19 @@
 .lumen-prompt-reference-modes {
-  gap: 0.65rem;
+  gap: var(--lumen-space-12);
 }
 .lumen-prompt-mode-tabs {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.15rem;
+  gap: var(--lumen-space-2);
   min-inline-size: 0;
-  padding: 0.15rem;
-  border-radius: 0.5rem;
+  padding: var(--lumen-space-2);
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-glass);
 }
 .lumen-prompt-mode-tabs > button {
   border-color: transparent;
-  padding-inline: 0.6rem;
+  padding-inline: var(--lumen-space-8);
 }
 .lumen-prompt-mode-tabs > button[aria-selected='true'] {
   border-color: var(--lumen-edge);
@@ -28,7 +28,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
+  gap: var(--lumen-space-8) var(--lumen-space-16);
   min-inline-size: 0;
   color: var(--lumen-muted);
   font-size: 0.75rem;
@@ -37,13 +37,13 @@
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 .lumen-prompt-mode-hints kbd {
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.3rem;
-  padding: 0.1rem 0.35rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   color: var(--lumen-ink);
   font: inherit;
   white-space: nowrap;

@@ -8,7 +8,7 @@
   block-size: 100%;
   min-block-size: 0;
   overflow: auto;
-  padding: 0 24px;
+  padding: 0 var(--lumen-space-24);
   gap: 0;
   background: var(--lumen-contrast);
   font-family: ui-sans-serif, system-ui, sans-serif;
@@ -30,7 +30,7 @@
   margin: 0;
 }
 .lumen-usage-overage-heading {
-  margin-block-end: 12px;
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-usage-overage-heading h2 {
   font-size: 1rem;
@@ -38,35 +38,35 @@
   font-weight: 500;
 }
 .lumen-usage-overage-heading p {
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
 }
 .lumen-usage-overage-frame {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
-  padding: 4px;
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-4);
   background: var(--lumen-frost);
 }
 .lumen-usage-overage-summary,
 .lumen-usage-overage-picker,
 .lumen-usage-overage-footer {
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
 }
 .lumen-usage-overage-summary,
 .lumen-usage-overage-picker {
-  padding: 16px;
-  margin-block-end: 4px;
+  padding: var(--lumen-space-16);
+  margin-block-end: var(--lumen-space-4);
 }
 .lumen-usage-overage-value-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
@@ -82,9 +82,9 @@
 }
 .lumen-usage-overage-split-bar {
   display: flex;
-  margin-block-start: 12px;
+  margin-block-start: var(--lumen-space-12);
   block-size: 0.5rem;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   overflow: hidden;
 }
 .lumen-usage-overage-split-bar > div:first-child,
@@ -99,8 +99,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 16px;
-  margin-block-start: 12px;
+  gap: var(--lumen-space-4) var(--lumen-space-16);
+  margin-block-start: var(--lumen-space-12);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   color: var(--lumen-subtle);
@@ -108,7 +108,7 @@
 .lumen-usage-overage-legend > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 .lumen-usage-overage-legend > span > span {
@@ -125,8 +125,8 @@
 .lumen-usage-overage-plans {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-block-start: 12px;
+  gap: var(--lumen-space-8);
+  margin-block-start: var(--lumen-space-12);
 }
 .lumen-usage-overage-plans .lumen-usage-overage-plan {
   display: flex;
@@ -136,9 +136,9 @@
   gap: 0;
   min-inline-size: 0;
   min-block-size: 0;
-  padding: 12px;
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   font-weight: 400;
   font-size: 1rem;
   line-height: 1.5rem;
@@ -157,7 +157,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 500;
@@ -176,7 +176,7 @@
   color: var(--lumen-line);
 }
 .lumen-usage-overage-plan p {
-  margin-block-start: 4px;
+  margin-block-start: var(--lumen-space-4);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-variant-numeric: tabular-nums;
@@ -185,15 +185,15 @@
 .lumen-usage-overage-plan ul {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--lumen-space-4);
   list-style: none;
   padding: 0;
-  margin-block-start: 10px;
+  margin-block-start: var(--lumen-space-8);
 }
 .lumen-usage-overage-plan li {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: var(--lumen-space-4);
   font-size: 0.75rem;
   line-height: 1.125rem;
   color: var(--lumen-subtle);
@@ -201,7 +201,7 @@
 .lumen-usage-overage-plan li .lumen-usage-overage-glyph {
   inline-size: var(--lumen-icon-xs);
   block-size: var(--lumen-icon-xs);
-  margin-block-start: 2px;
+  margin-block-start: var(--lumen-space-2);
 }
 .lumen-usage-overage-plan li > span {
   min-inline-size: 0;
@@ -211,8 +211,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
 }
 .lumen-usage-overage-footer > p {
   min-inline-size: 0;
@@ -227,13 +227,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .lumen-usage-overage-actions button[data-size='s'] {
   --lumen-control-size: 2rem;
-  --lumen-control-padding-inline: 0.75rem;
-  border-radius: 0.5rem;
-  gap: 4px;
+  --lumen-control-padding-inline: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
+  gap: var(--lumen-space-4);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
 }
@@ -242,12 +242,12 @@
   color: var(--lumen-subtle);
 }
 .lumen-usage-overage-actions button:last-child {
-  padding-inline-end: 10px;
+  padding-inline-end: var(--lumen-space-8);
   font-weight: 500;
 }
 @media (width >= 40rem) {
   .lumen-usage.lumen-usage-overage-stage {
-    padding: 0 32px;
+    padding: 0 var(--lumen-space-32);
   }
   .lumen-usage-overage-plans {
     flex-direction: row;

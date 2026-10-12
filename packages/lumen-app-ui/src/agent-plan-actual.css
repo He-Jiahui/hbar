@@ -5,7 +5,7 @@
 .lumen-agent-plan.hbar-app-ui-agent-plan-actual {
   block-size: 100%;
   min-block-size: 0;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   gap: 0;
   background: var(--lumen-contrast);
   font-family: ui-sans-serif, system-ui, sans-serif;
@@ -15,8 +15,8 @@
   flex: 0 0 auto;
   align-items: center;
   min-inline-size: 0;
-  gap: 0.75rem;
-  margin-block-end: 0.75rem;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-plan-actual-heading h2 {
   flex: 1 1 0%;
@@ -40,22 +40,22 @@
 .lumen-plan-actual-card {
   display: flex;
   min-inline-size: 0;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
 }
 .lumen-plan-actual-metrics {
   flex: 0 0 auto;
-  gap: 0.25rem;
-  margin-block-end: 0.75rem;
+  gap: var(--lumen-space-4);
+  margin-block-end: var(--lumen-space-12);
 }
 .lumen-plan-actual-metrics > div {
   flex: 1 1 0%;
   min-inline-size: 0;
-  padding: 0.625rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
   overflow-wrap: anywhere;
 }
@@ -66,7 +66,7 @@
   font-weight: 500;
 }
 .lumen-plan-actual-metrics > div > p:last-child {
-  margin-block-start: 0.25rem;
+  margin-block-start: var(--lumen-space-4);
   font-size: 1.125rem;
   line-height: 1.75rem;
   font-weight: 500;
@@ -83,7 +83,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.625rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
   overflow: hidden;
 }
@@ -107,7 +107,7 @@
 }
 .lumen-plan-actual-table th,
 .lumen-plan-actual-table td {
-  padding: 0.5rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   text-align: end;
   font-weight: 400;
   font-size: 0.8125rem;
@@ -116,7 +116,7 @@
 }
 .lumen-plan-actual-table thead th {
   block-size: 2.25rem;
-  padding-block: 0.5rem;
+  padding-block: var(--lumen-space-8);
   color: var(--lumen-subtle);
   font-size: 0.75rem;
   line-height: 1rem;
@@ -164,7 +164,7 @@
   display: block;
   block-size: 0.25rem;
   inline-size: 100%;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   overflow: hidden;
   background: var(--lumen-line);
   color: var(--lumen-ink);
@@ -211,7 +211,7 @@
 }
 @media (width >= 40rem) {
   .lumen-agent-plan.hbar-app-ui-agent-plan-actual {
-    padding: 1.5rem;
+    padding: var(--lumen-space-24);
   }
   .lumen-plan-actual-table .lumen-plan-actual-duration-cell {
     display: table-cell;
@@ -220,10 +220,10 @@
     inline-size: 5rem;
   }
   .lumen-plan-actual-table th:first-child {
-    padding-inline: 1rem;
+    padding-inline: var(--lumen-space-16);
   }
   .lumen-plan-actual-table td:last-child,
   .lumen-plan-actual-table th:last-child {
-    padding-inline-end: 1rem;
+    padding-inline-end: var(--lumen-space-16);
   }
 }

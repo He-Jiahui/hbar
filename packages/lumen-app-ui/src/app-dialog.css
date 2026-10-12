@@ -15,7 +15,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   background: transparent;
   color: var(--lumen-ink);
 }
@@ -47,7 +47,7 @@
   align-items: center;
   justify-content: center;
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   background: color-mix(in srgb, var(--lumen-canvas) 42%, transparent);
   backdrop-filter: blur(0.25rem);
   min-inline-size: 0;
@@ -85,8 +85,8 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
 }
 .lumen-app-dialog-panel > header {
   border-block-end: 0.0625rem solid var(--lumen-edge);
@@ -95,7 +95,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-app-dialog-panel > footer {
   justify-content: flex-end;
@@ -107,9 +107,9 @@
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 .lumen-app-dialog-stage [data-hbar-app-ui-list-strategy='pane-scroll'] {
   max-block-size: 22rem;
@@ -117,7 +117,7 @@
   overscroll-behavior: contain;
 }
 .lumen-app-dialog-empty {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border: 0.0625rem dashed var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   text-align: center;
@@ -133,8 +133,8 @@
 .lumen-app-dialog-details > div {
   display: flex;
   min-inline-size: 0;
-  gap: 0.75rem;
-  padding: 0.625rem 0;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) 0;
   border-block-end: 0.0625rem solid var(--lumen-edge);
   flex-wrap: wrap;
 }
@@ -157,7 +157,7 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   margin: 0;
 }
 .lumen-app-dialog-plan s {
@@ -166,7 +166,7 @@
 .lumen-app-dialog-metrics {
   display: flex;
   min-inline-size: 0;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   flex-wrap: wrap;
 }
 .lumen-app-dialog-metrics > * {
@@ -176,8 +176,8 @@
 .lumen-app-dialog-metrics > div {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-glass);
@@ -192,7 +192,7 @@
 }
 .lumen-app-dialog-progress {
   display: flex;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
   flex-wrap: wrap;
 }
@@ -202,7 +202,7 @@
 }
 .lumen-app-dialog-progress > i {
   block-size: 0.25rem;
-  border-radius: 999rem;
+  border-radius: var(--lumen-radius-pill);
   background: var(--lumen-edge);
 }
 .lumen-app-dialog-progress > i[data-active='true'] {
@@ -212,8 +212,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-glass);
@@ -227,14 +227,14 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-app-dialog-review > span {
   display: flex;
   min-inline-size: 0;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.625rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .lumen-app-dialog-toggle {
@@ -242,13 +242,13 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 .lumen-app-dialog-toggle > span {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-app-dialog-toggle small {
   color: var(--lumen-muted);
@@ -257,19 +257,19 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .lumen-app-dialog-section > div {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
 }
 .lumen-app-dialog-section > div > .lumen-chip {
   color: var(--lumen-muted);
 }
 .lumen-app-dialog-section > p {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
 }
 .lumen-app-dialog-section > p > :nth-child(2n + 1) {
@@ -289,7 +289,7 @@
   min-block-size: 24rem;
   align-items: start;
   justify-content: end;
-  padding: clamp(1rem, 5vw, 4rem);
+  padding: var(--lumen-space-24);
   min-inline-size: 0;
 }
 .lumen-app-dialog-menu-anchor {

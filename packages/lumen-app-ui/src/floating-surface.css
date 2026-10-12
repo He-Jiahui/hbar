@@ -1,7 +1,7 @@
 :root {
   /* One shared top-level token for menus, comboboxes and transient dialogs. */
-  --lumen-floating-layer: 10000;
-  --lumen-floating-gap: 0.5rem;
+  --lumen-floating-layer: var(--lumen-layer-modal);
+  --lumen-floating-gap: var(--lumen-space-8);
 }
 
 .lumen-floating-surface,
@@ -14,7 +14,7 @@
 .lumen-floating-surface {
   position: fixed;
   inset: auto;
-  z-index: var(--lumen-floating-layer, 10000);
+  z-index: var(--lumen-floating-layer, var(--lumen-layer-modal));
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
@@ -25,7 +25,7 @@
   max-block-size: min(var(--lumen-floating-max-height, 26.25rem), var(--lumen-floating-limit, calc(100dvh - 2rem)));
   border: 0.0625rem solid
     var(--lumen-floating-border, var(--lumen-edge, color-mix(in srgb, CanvasText 20%, transparent)));
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-floating-background, var(--lumen-frost, var(--lumen-contrast, Canvas)));
   box-shadow: var(--lumen-floating-shadow, var(--lumen-shadow, 0 0.75rem 2rem rgb(0 0 0 / 35%)));
   text-align: start;
@@ -69,12 +69,12 @@
   inset: 0;
   inline-size: 100%;
   block-size: 100%;
-  z-index: var(--lumen-floating-layer, 10000);
+  z-index: var(--lumen-floating-layer, var(--lumen-layer-modal));
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border: 0;
   background: transparent;
   -webkit-backdrop-filter: none;
@@ -113,7 +113,7 @@
 }
 
 .lumen-floating-modal-root > .lumen-floating-surface {
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
 }
 
 @media (width < 40rem) and (pointer: coarse) {
@@ -122,8 +122,8 @@
     inline-size: 100%;
     max-inline-size: 100%;
     max-block-size: min(78dvh, 40rem);
-    padding: 1rem;
-    border-radius: var(--lumen-radius-surface, 0.75rem) var(--lumen-radius-surface, 0.75rem) 0 0;
+    padding: var(--lumen-space-16);
+    border-radius: var(--lumen-radius-surface) var(--lumen-radius-surface) 0 0;
   }
 }
 
@@ -132,8 +132,8 @@
   inline-size: 100%;
   max-inline-size: 100%;
   max-block-size: min(78dvh, 40rem);
-  padding: 1rem;
-  border-radius: var(--lumen-radius-surface, 0.75rem) var(--lumen-radius-surface, 0.75rem) 0 0;
+  padding: var(--lumen-space-16);
+  border-radius: var(--lumen-radius-surface) var(--lumen-radius-surface) 0 0;
 }
 
 .lumen-floating-surface[data-lumen-floating-mode='modal']::backdrop,
