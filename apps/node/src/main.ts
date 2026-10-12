@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { isIP } from 'node:net'
 import { HbarError } from '@hbar/contracts'
 import { nodeFloorSchema } from '@hbar/contracts/node'
 import {
@@ -21,12 +22,17 @@ import { nodeDataRoot, openNodeIdentity } from './bootstrap'
 export { runNodeCommand } from './cli'
 export { NodeConsoleService } from './console-service'
 export { WorkspaceNodeLink } from './link-service'
+function loopbackListen(listen: string): boolean {
+  const hostname = new URL('http://' + listen).hostname.toLowerCase()
+  return hostname === 'localhost' || hostname === '[::1]' || (isIP(hostname) === 4 && hostname.startsWith('127.'))
+}
 export async function runNode(
   argv: readonly string[],
   options: {
     command?: readonly [string, ...string[]]
     packaged?: RuntimeArtifactPackage
     registerSignals?: boolean
+    staticRoot?: string
   } = {},
 ) {
   const { values } = parseArgs({
@@ -41,6 +47,10 @@ export async function runNode(
       code: { type: 'string' },
       fingerprint: { type: 'string' },
       stdio: { type: 'boolean' },
+      cert: { type: 'string' },
+      key: { type: 'string' },
+      'public-host': { type: 'string' },
+      'web-root': { type: 'string' },
     },
   })
   if (values.role && values.role !== 'workspace') throw new HbarError('INVALID_ROLE', 'Node role must be workspace')
@@ -59,6 +69,7 @@ export async function runNode(
   let backend: NodeExecutionBackend | undefined
   let execution: LocalExecution | undefined
   let control: Awaited<ReturnType<typeof startNodeControlServer>> | undefined
+  let publicControl: Awaited<ReturnType<typeof startNodeControlServer>> | undefined
   let link: WorkspaceNodeLink | undefined
   let closeTask: Promise<void> | undefined
   const stop = () => {
@@ -77,6 +88,7 @@ export async function runNode(
           ...linkOutcomes,
           ...(await Promise.allSettled([
             control?.close(),
+            publicControl?.close(),
             node
               ? node.dispose()
               : Promise.resolve().then(async () => {
@@ -110,8 +122,29 @@ export async function runNode(
     })
     node = await WorkspaceNodeService.open(nodeIdFromPublicKey(identity.publicKey), dataRoot, state, execution, backend)
     link = new WorkspaceNodeLink(state, identity, node)
-    const service = new NodeConsoleService(state, identity, dataRoot, node, link)
-    control = await startNodeControlServer(dataRoot, service, values.listen)
+    const service = new NodeConsoleService(state, identity, dataRoot, node, link, link)
+    const staticRoot = resolve(
+      values['web-root'] ??
+        options.staticRoot ??
+        process.env.HBAR_WEB_ROOT ??
+        join(import.meta.dir, '../../../dist/web'),
+    )
+    if (Boolean(values.cert) !== Boolean(values.key))
+      throw new HbarError('INVALID_INPUT', 'Configure both --cert and --key for the public B console')
+    if ((values.cert || values.key || values['public-host']) && !values.listen)
+      throw new HbarError('INVALID_INPUT', 'Public B console options require --listen')
+    if ((values.cert || values.key || values['public-host']) && values.listen && loopbackListen(values.listen))
+      throw new HbarError('INVALID_INPUT', 'TLS public console options require a non-loopback --listen address')
+    if (values.listen && !loopbackListen(values.listen)) {
+      control = await startNodeControlServer(dataRoot, service, undefined, { staticRoot })
+      publicControl = await startNodeControlServer(dataRoot, service, values.listen, {
+        ...(values.cert && values.key ? { tls: { certPath: values.cert, keyPath: values.key } } : {}),
+        ...(values['public-host'] ? { publicHost: values['public-host'] } : {}),
+        writeControlFile: false,
+        allowBootstrapBearer: false,
+        staticRoot,
+      })
+    } else control = await startNodeControlServer(dataRoot, service, values.listen, { staticRoot })
     await link.start(
       values.join && values.code && values.fingerprint
         ? { url: values.join, code: values.code, fingerprint: values.fingerprint }
@@ -127,9 +160,17 @@ export async function runNode(
         nodeId: node.id,
         fingerprint: nodeFingerprint(identity.publicKey),
         control: control.connection.url,
+        ...(publicControl ? { publicControl: publicControl.connection.url } : {}),
       }),
     )
-    return { node, state, link, control: control.connection, close }
+    return {
+      node,
+      state,
+      link,
+      control: control.connection,
+      ...(publicControl ? { publicControl: publicControl.connection } : {}),
+      close,
+    }
   } catch (error) {
     await close()
     throw error

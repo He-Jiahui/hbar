@@ -20,6 +20,7 @@ async function fixture(
     nodeId: string
     session: Session
     child: Session
+    rootSession: Session
     local: Session
     other: Session
   }) => Promise<void>,
@@ -45,7 +46,10 @@ async function fixture(
         nodeId: node.nodeId,
         platform: 'linux',
         evaluator: SANDBOX_EVALUATOR_FINGERPRINT,
-        roots: [{ rootId: 'engine', name: 'Engine', nodePath: '/srv/' + name, access: 'write' }],
+        roots: [
+          { rootId: 'engine', name: 'Engine', nodePath: '/srv/' + name, access: 'write' },
+          { rootId: 'docs', name: 'Docs', nodePath: '/srv/' + name + '/docs', access: 'read' },
+        ],
         sandbox: { backends: ['none'], filesystem: 'none', network: 'none' },
         floor,
       }),
@@ -56,10 +60,12 @@ async function fixture(
     const nodeId = await register('first'),
       otherId = await register('second')
     const a = await storage.call('createNodeWorkspace', { nodeId, rootId: 'engine' })
+    const docs = await storage.call('createNodeWorkspace', { nodeId, rootId: 'docs' })
     const b = await storage.call('createNodeWorkspace', { nodeId: otherId, rootId: 'engine' })
     const c = await storage.call('createWorkspace', '/local', 'Local')
     const session = await storage.call('createSession', a.id, 'Parent'),
       child = await storage.call('createSession', a.id, 'Child', session.id)
+    const rootSession = await storage.call('createSession', docs.id, 'Docs session')
     const other = await storage.call('createSession', b.id, 'Other'),
       local = await storage.call('createSession', c.id, 'Local')
     const source: NodeObservationSource = {
@@ -78,6 +84,7 @@ async function fixture(
       nodeId,
       session,
       child,
+      rootSession,
       local,
       other,
     })
@@ -97,12 +104,14 @@ async function codeOf(value: Promise<unknown>) {
 }
 const signal = () => AbortSignal.timeout(5_000)
 
-test('node observations are workspace-scoped, include bound children and cannot invoke operator methods', async () => {
-  await fixture(async ({ observer, nodeId, session, child, local, other }) => {
+test('node observations are workspace-scoped, include root IDs and bound children, and cannot invoke operator methods', async () => {
+  await fixture(async ({ observer, nodeId, session, child, rootSession, local, other }) => {
     const page = nodeObservationMethods['observe.sessions.list'].output.parse(
       await observer.invoke(nodeId, 'observe.sessions.list', {}, signal()),
     )
-    expect(page.items.map((item) => item.id).sort()).toEqual([session.id, child.id].sort())
+    expect(page.items.map((item) => item.id).sort()).toEqual([session.id, child.id, rootSession.id].sort())
+    expect(page.items.find((item) => item.id === session.id)?.rootId).toBe('engine')
+    expect(page.items.find((item) => item.id === rootSession.id)?.rootId).toBe('docs')
     for (const sessionId of [local.id, other.id, 'missing']) {
       expect(await codeOf(observer.invoke(nodeId, 'observe.sessions.snapshot', { sessionId }, signal()))).toBe(
         'FORBIDDEN',
@@ -156,6 +165,7 @@ test('message, run and event projections omit provider metadata, arbitrary tool 
       await observer.invoke(nodeId, 'observe.sessions.snapshot', { sessionId: session.id }, signal()),
     )
     expect(snapshot.messages[0]?.content).toEqual([{ type: 'text', text: 'visible response' }])
+    expect(snapshot.session.rootId).toBe('engine')
     expect(snapshot.messages[1]?.content[0]).toMatchObject({ text: 'visible result' })
     expect(snapshot.runs[0]).toMatchObject({ id: run.id, status: 'queued' })
     const follow = nodeObservationMethods['observe.sessions.follow'].output.parse(
@@ -201,6 +211,60 @@ test('moving a session or revoking its node during content loading fences the de
     expect(
       await codeOf(revoked.invoke(nodeId, 'observe.sessions.follow', { sessionId: child.id, afterSeq: 0 }, signal())),
     ).toBe('FORBIDDEN')
+  })
+})
+
+test('root scope is rechecked across a page load and a moved session does not return its old root binding', async () => {
+  await fixture(async ({ source, storage, observer, nodeId, session, child }) => {
+    const docsWorkspace = await storage.call('createNodeWorkspace', { nodeId, rootId: 'docs' })
+    let moved = false,
+      workspaceLookups = 0
+    const changing = new NodeObservationService({
+      ...source,
+      workspace: async (workspaceId) => {
+        const workspace = await source.workspace(workspaceId)
+        if (!moved && workspaceLookups++ === 2) {
+          moved = true
+          await storage.call('moveSession', session.id, docsWorkspace.id)
+        }
+        return workspace
+      },
+    })
+    expect(await codeOf(changing.invoke(nodeId, 'observe.sessions.list', {}, signal()))).toBe(
+      'NODE_OBSERVATION_CHANGED',
+    )
+    const current = nodeObservationMethods['observe.sessions.snapshot'].output.parse(
+      await observer.invoke(nodeId, 'observe.sessions.snapshot', { sessionId: child.id }, signal()),
+    )
+    expect(current.session.rootId).toBe('engine')
+  })
+})
+
+test('node session list uses bounded batches when resolving root locations', async () => {
+  await fixture(async ({ source, storage, nodeId, session, rootSession }) => {
+    for (let index = 0; index < 70; index++) await storage.call('createSession', session.workspaceId, `Extra ${index}`)
+    let active = 0,
+      peak = 0
+    const measured = new NodeObservationService({
+      ...source,
+      workspace: async (workspaceId) => {
+        active++
+        peak = Math.max(peak, active)
+        try {
+          await Bun.sleep(2)
+          return await source.workspace(workspaceId)
+        } finally {
+          active--
+        }
+      },
+    })
+    const page = nodeObservationMethods['observe.sessions.list'].output.parse(
+      await measured.invoke(nodeId, 'observe.sessions.list', { limit: 100 }, signal()),
+    )
+    expect(page.items.length).toBe(73)
+    expect(page.items.every((item) => item.rootId === (item.id === rootSession.id ? 'docs' : 'engine'))).toBe(true)
+    expect(peak).toBeLessThanOrEqual(32)
+    expect(peak).toBeGreaterThan(1)
   })
 })
 

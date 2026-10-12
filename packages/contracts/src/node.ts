@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import { resolvedSandboxProfileSchema, sandboxSnapshotRefSchema } from './sandbox'
 import { nodeIdSchema, nodeRelativePathSchema, nodeRootIdSchema } from './node-address'
+import { nodeAdmissionSchema, nodeCallAuthoritySchema } from './node-authority'
+import { nodeBackendSchema } from './node-backend'
+export { nodeBackendSchema } from './node-backend'
 import {
   workspaceFindInputSchema,
   workspaceFindResultSchema,
@@ -12,6 +15,7 @@ import {
 import { sessionSchema } from './state/directory'
 import { sessionEventSchema, artifactSchema, runSchema, usageSchema, userInputRequestSchema } from './index'
 export * from './node-address'
+export { nodeAdmissionSchema, nodeCallAuthoritySchema } from './node-authority'
 
 export const NODE_PROTOCOL_VERSION = 1
 export const NODE_LIMITS = Object.freeze({
@@ -68,14 +72,6 @@ export const nodeJoinedSchema = z.strictObject({
   name: z.string().min(1).max(160),
   signature: nodeSignatureSchema,
 })
-export const nodeBackendSchema = z.enum([
-  'none',
-  'bwrap',
-  'container',
-  'seatbelt',
-  'windows-restricted',
-  'windows-elevated',
-])
 export const nodeRootSchema = z.strictObject({
   rootId: nodeRootIdSchema,
   name: z.string().min(1).max(160),
@@ -122,17 +118,6 @@ export const nodeCapabilitiesSchema = z.strictObject({
     network: z.enum(['enforced', 'env-only', 'none']),
   }),
   floor: nodeFloorSummarySchema,
-})
-export const nodeAdmissionSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('allow') }),
-  z.strictObject({ kind: z.literal('approved'), approvalId: entityId }),
-])
-export const nodeCallAuthoritySchema = z.strictObject({
-  sessionId: entityId,
-  runId: entityId,
-  callId: entityId,
-  sandbox: sandboxSnapshotRefSchema.nullable(),
-  admission: nodeAdmissionSchema,
 })
 const scoped = z.strictObject({
   rootId: nodeRootIdSchema,
@@ -281,6 +266,11 @@ export const nodeObservedMessageSchema = z.strictObject({
   seq: timestamp,
   createdAt: timestamp,
 })
+export const nodeObservedSessionSchema = sessionSchema.extend({ rootId: nodeRootIdSchema })
+export const nodeObservedSessionPageSchema = z.strictObject({
+  items: z.array(nodeObservedSessionSchema).max(100),
+  nextCursor: entityId.nullable(),
+})
 export const nodeObservedEventSchema = z.strictObject({ ...sessionEventSchema.shape, data: z.json() })
 export const nodeObservedRunSchema = runSchema
   .pick({
@@ -307,7 +297,7 @@ export const nodeObservedApprovalSchema = z.strictObject({
   decidedBy: entityId.optional(),
 })
 export const nodeObservedSnapshotSchema = z.strictObject({
-  session: sessionSchema,
+  session: nodeObservedSessionSchema,
   messages: z.array(nodeObservedMessageSchema).max(60),
   runs: z.array(nodeObservedRunSchema).max(500),
   approvals: z.array(nodeObservedApprovalSchema).max(500),
@@ -433,7 +423,7 @@ export const nodeWorkspaceMethods = {
 export const nodeObservationMethods = {
   'observe.sessions.list': {
     input: page,
-    output: z.strictObject({ items: z.array(sessionSchema).max(100), nextCursor: entityId.nullable() }),
+    output: nodeObservedSessionPageSchema,
   },
   'observe.sessions.snapshot': {
     input: sessionInput.extend({ beforeSeq: timestamp.optional(), limit: z.number().int().min(1).max(60).default(60) }),

@@ -70,6 +70,7 @@ export const CLI_OPTIONS = {
   port: { type: 'string' },
   cert: { type: 'string' },
   key: { type: 'string' },
+  'public-host': { type: 'string' },
   demo: { type: 'boolean' },
   role: { type: 'string' },
   name: { type: 'string' },

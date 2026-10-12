@@ -18,6 +18,7 @@ import {
   NODE_LIMITS,
   nodeObservationMethods,
   nodeObservedMessageSchema,
+  nodeObservedSessionSchema,
   nodeObservedRunSchema,
   nodeObservedApprovalSchema,
 } from '@hbar/contracts/node'
@@ -150,7 +151,11 @@ export class NodeObservationService {
     signal.throwIfAborted()
     if (!node || node.revokedAt !== null) throw new HbarError('FORBIDDEN', 'Node observation authority is unavailable')
   }
-  private async scope(nodeId: string, sessionId: string, signal: AbortSignal): Promise<Session> {
+  private async scope(
+    nodeId: string,
+    sessionId: string,
+    signal: AbortSignal,
+  ): Promise<{ session: Session; rootId: string }> {
     await this.node(nodeId, signal)
     const session = await this.source.session(sessionId)
     if (!session) throw new HbarError('FORBIDDEN', 'Session is outside this node observation scope')
@@ -159,7 +164,7 @@ export class NodeObservationService {
     const location = workspace ? workspaceLocationOf(workspace) : null
     if (!location || location.kind !== 'node' || location.nodeId !== nodeId)
       throw new HbarError('FORBIDDEN', 'Session is outside this node observation scope')
-    return session
+    return { session, rootId: location.rootId }
   }
   async invoke(nodeId: string, method: string, input: unknown, signal: AbortSignal): Promise<unknown> {
     if (!Object.hasOwn(nodeObservationMethods, method))
@@ -175,7 +180,34 @@ export class NodeObservationService {
         await this.node(nodeId, signal)
         const page = await this.source.list(nodeId, request.cursor, request.limit)
         await this.node(nodeId, signal)
-        result = page
+        const items: Array<z.infer<typeof nodeObservedSessionSchema>> = []
+        for (let offset = 0; offset < page.items.length; offset += 32) {
+          const batch = page.items.slice(offset, offset + 32)
+          const scoped = await Promise.all(
+            batch.map(async (item) => {
+              const current = await this.scope(nodeId, item.id, signal)
+              if (current.session.workspaceId !== item.workspaceId)
+                throw new HbarError('NODE_OBSERVATION_CHANGED', 'Session moved while its observation page was read')
+              return { ...current.session, rootId: current.rootId }
+            }),
+          )
+          items.push(...scoped)
+        }
+        for (let offset = 0; offset < items.length; offset += 32) {
+          const batch = items.slice(offset, offset + 32)
+          await Promise.all(
+            batch.map(async (item) => {
+              const resolved = await this.scope(nodeId, item.id, signal)
+              if (resolved.session.workspaceId !== item.workspaceId || resolved.rootId !== item.rootId)
+                throw new HbarError(
+                  'NODE_OBSERVATION_CHANGED',
+                  'Session root changed while its observation page was read',
+                )
+            }),
+          )
+        }
+        await this.node(nodeId, signal)
+        result = { items, nextCursor: page.nextCursor }
         break
       }
       case 'observe.sessions.snapshot': {
@@ -183,7 +215,7 @@ export class NodeObservationService {
         await this.scope(nodeId, request.sessionId, signal)
         const snapshot = await this.source.snapshot(request.sessionId, request.beforeSeq, request.limit)
         const current = await this.scope(nodeId, request.sessionId, signal)
-        if (current.id !== snapshot.session.id || current.workspaceId !== snapshot.session.workspaceId)
+        if (current.session.id !== snapshot.session.id || current.session.workspaceId !== snapshot.session.workspaceId)
           throw new HbarError('NODE_OBSERVATION_CHANGED', 'Session moved while its observation snapshot was read')
         for (const collection of [
           snapshot.messages,
@@ -195,7 +227,7 @@ export class NodeObservationService {
           if (collection.some((item) => item.sessionId !== request.sessionId))
             throw new HbarError('NODE_OBSERVATION_INVALID', 'Observation snapshot contains another session')
         result = {
-          session: snapshot.session,
+          session: { ...snapshot.session, rootId: current.rootId },
           messages: snapshot.messages.map(projectNodeMessage),
           runs: snapshot.runs.slice(0, 500).map(projectRun),
           approvals: snapshot.approvals.slice(0, 500).map(projectApproval),
@@ -226,18 +258,18 @@ export class NodeObservationService {
         const original = await this.scope(nodeId, request.sessionId, signal)
         const events = await this.source.events(request.sessionId, request.afterSeq, 201)
         const current = await this.scope(nodeId, request.sessionId, signal)
-        if (original.workspaceId !== current.workspaceId)
+        if (original.session.workspaceId !== current.session.workspaceId || original.rootId !== current.rootId)
           throw new HbarError('NODE_OBSERVATION_CHANGED', 'Session moved while observation events were read')
         if (events.some((event) => event.sessionId !== request.sessionId))
           throw new HbarError('NODE_OBSERVATION_INVALID', 'Observation events contain another session')
         const reset =
           events.length > 200 ||
-          request.afterSeq > current.seq ||
-          (events.length === 0 && request.afterSeq < current.seq) ||
-          events.some((event, index) => event.seq !== request.afterSeq + index + 1 || event.seq > current.seq)
+          request.afterSeq > current.session.seq ||
+          (events.length === 0 && request.afterSeq < current.session.seq) ||
+          events.some((event, index) => event.seq !== request.afterSeq + index + 1 || event.seq > current.session.seq)
         result = {
           events: reset ? [] : events.map((event) => ({ ...event, data: eventData(event) })),
-          cursor: reset ? current.seq : (events.at(-1)?.seq ?? request.afterSeq),
+          cursor: reset ? current.session.seq : (events.at(-1)?.seq ?? request.afterSeq),
           reset,
         }
         break

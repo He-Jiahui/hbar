@@ -1234,6 +1234,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           } })) return undefined
           return json(request, { error: 'WebSocket upgrade required' }, 426)
         }
+        if (url.pathname === '/node-info') return response(request, 'Not found', 404)
         if (url.pathname === '/livez') return json(request, { alive: true, instanceId: kernel.instanceId })
         if (url.pathname === '/healthz') {
           const runtime = options.runtime?.snapshot()

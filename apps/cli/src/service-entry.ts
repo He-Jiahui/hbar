@@ -22,6 +22,10 @@ export function publicServiceEntry(argv: readonly string[]): PublicServiceEntry 
     if (parsed.values.role !== undefined && parsed.values.role !== 'conversation' && parsed.values.role !== 'workspace')
       throw new Error('Invalid --role: use conversation or workspace')
     if (parsed.values.role !== 'workspace') return { kind: 'application' }
+    if (Boolean(parsed.values.cert) !== Boolean(parsed.values.key))
+      throw new Error('Configure both TLS certificate and key')
+    if (parsed.values['public-host'] && (!parsed.values.listen || !parsed.values.cert || !parsed.values.key))
+      throw new Error('--public-host requires --listen, --cert and --key for the workspace console')
     return { kind: 'workspace', argv: argv.filter((_value, index) => index !== command.index) }
   }
   return command.value === 'node'
@@ -31,7 +35,7 @@ export function publicServiceEntry(argv: readonly string[]): PublicServiceEntry 
 
 export function conversationHostArguments(args: CliArgs): readonly string[] {
   if (args.role !== undefined && args.role !== 'conversation') throw new Error('Host role must be conversation')
-  if (args.join || args.code || args.fingerprint || args.listen || args.stdio)
+  if (args.join || args.code || args.fingerprint || args.listen || args.publicHost || args.stdio)
     throw new Error('Node link and console options require --role workspace')
   if (Boolean(args.cert) !== Boolean(args.key)) throw new Error('Configure both TLS certificate and key')
   const port = args.port === undefined ? undefined : Number(args.port)

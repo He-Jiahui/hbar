@@ -16,6 +16,35 @@ test('service dispatch accepts global options before commands without interpreti
   expect(publicServiceEntry(['--role=workspace', 'serve', '--help'])).toEqual({ kind: 'application' })
   expect(() => publicServiceEntry(['--role', 'workspcae', 'serve'])).toThrow('Invalid --role')
   expect(() => publicServiceEntry(['--connect-only', 'serve', '--role', 'workspace'])).toThrow('--connect-only')
+  expect(
+    publicServiceEntry([
+      'serve',
+      '--role',
+      'workspace',
+      '--listen',
+      '0.0.0.0:443',
+      '--cert',
+      'node-cert.pem',
+      '--key',
+      'node-key.pem',
+      '--public-host',
+      'node.example.test',
+    ]),
+  ).toEqual({
+    kind: 'workspace',
+    argv: [
+      '--role',
+      'workspace',
+      '--listen',
+      '0.0.0.0:443',
+      '--cert',
+      'node-cert.pem',
+      '--key',
+      'node-key.pem',
+      '--public-host',
+      'node.example.test',
+    ],
+  })
 })
 
 test('conversation service preserves bind address, TLS, data paths and profile while refusing workspace-only options', () => {

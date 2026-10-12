@@ -16,6 +16,7 @@ export interface CliArgs {
   port?: string | undefined
   cert?: string | undefined
   key?: string | undefined
+  publicHost?: string | undefined
   project?: string | undefined
   workspace?: string | undefined
   session?: string | undefined
@@ -96,6 +97,7 @@ Usage:
   hbar serve                        Start a background Host
   hbar serve --role conversation --host <address> --port <port> --cert <pem> --key <pem>
   hbar serve --role workspace --home <node-data> --join <A-url> --code <8-digits> --fingerprint <A-fingerprint>
+  hbar serve --role workspace --listen <address> --cert <pem> --key <pem> --public-host <hostname>
   hbar node status|share|unshare|policy|pause|resume|kill|audit|unlink [--home <node-data>]
   hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
   hbar exec session.getBudget --session <id|name>
@@ -231,6 +233,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     port: values.port as string | undefined,
     cert: values.cert as string | undefined,
     key: values.key as string | undefined,
+    publicHost: values['public-host'] as string | undefined,
     project: values.project as string | undefined,
     workspace: values.workspace as string | undefined,
     session: values.session as string | undefined,

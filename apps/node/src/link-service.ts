@@ -1,4 +1,5 @@
 import { HbarError } from '@hbar/contracts'
+import { nodeObservationMethods, type NodeObservationMethod } from '@hbar/contracts/node'
 import { nodeFingerprintSchema } from '@hbar/contracts/node'
 import {
   nodeSavedLinkSchema,
@@ -9,6 +10,7 @@ import {
 import type { NodeStatePort } from '@hbar/contracts/node-state'
 import { nodeFingerprint, WorkspaceNodeProtocol, type NodeIdentity, type WorkspaceNodeService } from '@hbar/node-core'
 import { WorkspaceNodeClient, nodeWebSocketURL } from '@hbar/node-link'
+import { z } from 'zod'
 
 export interface NodeInitialJoin {
   readonly url: string
@@ -82,6 +84,13 @@ export class WorkspaceNodeLink {
   }
   get linked(): boolean {
     return this.saved !== null
+  }
+  observe<Method extends NodeObservationMethod>(
+    method: Method,
+    input: z.input<(typeof nodeObservationMethods)[Method]['input']>,
+    signal?: AbortSignal,
+  ): Promise<z.output<(typeof nodeObservationMethods)[Method]['output']>> {
+    return this.client.observe(method, input, signal)
   }
   private write(action: () => Promise<void>): Promise<void> {
     const task = this.writes.then(action)
