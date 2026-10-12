@@ -24,6 +24,7 @@
     "./decision": "./src/decision.ts",
     "./sandbox": "./src/sandbox.ts",
     "./commands": "./src/commands/index.ts",
+    "./commands/nodes": "./src/commands/nodes.ts",
     "./commands/surfaces": "./src/commands/surfaces.ts",
     "./commands/agents": "./src/commands/agents.ts",
     "./commands/agent-workspace": "./src/commands/agent-workspace.ts",

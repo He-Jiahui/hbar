@@ -31,6 +31,7 @@ import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, wai
 import { runTui } from './tui.ts'
 import { runRepl } from './repl.ts'
 import { hostProcessCommand } from './host-process.ts'
+import { isNodeManagementCommand, runNodeManagementCommand } from './node-management'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
@@ -186,6 +187,12 @@ try {
     } finally {
       client.disconnect()
     }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isNodeManagementCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try { await runNodeManagementCommand(args, client) }
+    finally { client.disconnect() }
     process.exit(0)
   }
   if (

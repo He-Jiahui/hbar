@@ -113,6 +113,7 @@ export async function runHost(
     const host = await startServer(runtime.kernel, {
       runtime,
       controller: runtime.controller,
+      nodeLink: runtime.nodeLink,
       diagnosticSink: diagnostics.sink,
       diagnosticScope: diagnostics.scope,
       diagnosticFull: diagnostics.snapshot().fullCoverage,

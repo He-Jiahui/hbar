@@ -72,6 +72,7 @@ export interface CliArgs {
   outputFormat: 'text' | 'jsonl'
   demo: boolean
   role?: string | undefined
+  name?: string | undefined
   join?: string | undefined
   fingerprint?: string | undefined
   listen?: string | undefined
@@ -234,6 +235,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'cache-root': { type: 'string' },
       demo: { type: 'boolean' },
       role: { type: 'string' },
+      name: { type: 'string' },
       join: { type: 'string' },
       fingerprint: { type: 'string' },
       listen: { type: 'string' },
@@ -275,6 +277,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     command,
     commandArgs,
     role: values.role as string | undefined,
+    name: values.name as string | undefined,
     join: values.join as string | undefined,
     fingerprint: values.fingerprint as string | undefined,
     listen: values.listen as string | undefined,

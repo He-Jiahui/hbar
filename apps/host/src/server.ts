@@ -21,6 +21,9 @@ import { CommandError } from '@hbar/commands/protocol'
 
 import { Auth, requestToken } from './auth.ts'
 import { DeviceAuthorization } from './device-authorization'
+import { createNodeCommands } from './node-commands'
+import { nodeCommands as nodeDefinitions } from '@hbar/contracts/commands/nodes'
+import { NodeSocketSurface, nodeRequestAllowed } from './node-sockets'
 import { resourceReadInputSchema } from '@hbar/contracts/commands/resources'
 import { createSystemCommands } from './system-commands.ts'
 
@@ -39,6 +42,7 @@ import { createHostRequestDiagnostics, safeDiagnosticId, type DiagnosticContextP
 
 interface SocketData {
   connectionId: string
+  nodeSource?: string
   token?: string | undefined
   deviceId?: string | undefined
   device?: Device | undefined
@@ -63,6 +67,7 @@ interface SocketData {
   schemaQueries: Map<string, AbortController>
 }
 export interface ServerOptions {
+  readonly nodeLink?: import('./runtime-node-link-contract').RuntimeNodeLinkPort
   readonly controller?: import('./runtime-controller-contract').RuntimeControllerPort
   readonly runtime?: import('./system-commands').RuntimeSystemPort
   readonly dataRootId?: string
@@ -87,6 +92,7 @@ export interface ServerOptions {
 }
 
 export async function startServer(kernel: KernelControllerPort, options: ServerOptions = {}) {
+  const nodeSockets = options.nodeLink ? new NodeSocketSurface(options.nodeLink) : null
   const performance = new PerformanceCollector(
     createHostPerformanceProvider(async () => {
       const runtime = options.runtime?.snapshot()
@@ -370,6 +376,12 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   for (const id of Object.keys(systemDefinitions)) {
     commandDispatchers.set(id, systemCommands.dispatch)
     commandDescribers.set(id, () => systemCommands.describe(id))
+  }
+  const nodeCommands = createNodeCommands(options.nodeLink)
+  commandServices.push({ commandIds: Object.keys(nodeDefinitions), service: nodeCommands })
+  for (const id of Object.keys(nodeDefinitions)) {
+    commandDispatchers.set(id, nodeCommands.dispatch)
+    commandDescribers.set(id, () => nodeCommands.describe(id))
   }
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
     if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
@@ -1209,6 +1221,18 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename, X-Content-Sha256, X-Artifact-Owner',
         })
       try {
+        if (url.pathname === '/node') {
+          const source = host.requestIP(request)?.address ?? 'unknown'
+          if (!nodeSockets) return json(request, { code: 'NODE_LINK_UNAVAILABLE', error: 'Node link owner is unavailable' }, 503)
+          if (!nodeRequestAllowed(request, source, secure))
+            return json(request, { code: 'NODE_TRANSPORT_REJECTED', error: 'Use a dedicated encrypted node connection' }, 403)
+          if (host.upgrade(request, { data: {
+            connectionId: crypto.randomUUID(), nodeSource: source, initialized: false, follows: new Set(),
+            operationFollows: new Set(), operationChains: new Map(), metricsFollowing: false,
+            schemaQueries: new Map(), pending: 0, terminals: new Set(),
+          } })) return undefined
+          return json(request, { error: 'WebSocket upgrade required' }, 426)
+        }
         if (url.pathname === '/livez') return json(request, { alive: true, instanceId: kernel.instanceId })
         if (url.pathname === '/healthz') {
           const runtime = options.runtime?.snapshot()
@@ -1374,6 +1398,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       idleTimeout: 120,
       sendPings: true,
       open(socket) {
+        if (socket.data.nodeSource) { nodeSockets?.open(socket); return }
         socket.data.connectionId = crypto.randomUUID()
         sockets.add(socket)
         allSockets.add(socket)
@@ -1382,6 +1407,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         }, 10_000)
       },
       message(socket, payload) {
+        if (socket.data.nodeSource) { nodeSockets?.message(socket, payload); return }
         void (async () => {
           let id: string | number | null = null
           let admitted = false
@@ -1521,6 +1547,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         })
       },
       close(socket) {
+        if (socket.data.nodeSource) { nodeSockets?.close(socket.data.connectionId); return }
         socket.data.runtimeDispose?.()
         socket.data.runtimeDispose = undefined
         clearTimeout(socket.data.timer)
@@ -1595,6 +1622,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     info: hostInfo,
     async close() {
       closing = true
+      nodeSockets?.closeAll()
       await application.dispose()
       metricsCommands.dispose()
       performance.stop()
@@ -1602,6 +1630,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       systemTerminals.closeAll()
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
       systemCommands.dispose()
+      nodeCommands.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })
