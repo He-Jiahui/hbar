@@ -13,6 +13,14 @@ import {
 import type { NotificationsRuntime, NotificationsState } from '@hbar/app-runtime'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useHbarRuntimeState } from './runtime'
+import {
+  notificationBellMessages,
+  notificationCenterMessages,
+  notificationPreferencesMessages,
+  type NotificationBellLabels,
+  type NotificationCenterLabels,
+  type NotificationPreferencesLabels,
+} from './notifications-messages'
 
 export interface HbarNotificationsLabels {
   readonly title: string
@@ -70,7 +78,7 @@ export interface HbarNotificationsProps {
 
 function preferencesContent(
   preferences: NotificationPreferences,
-  labels: HbarNotificationsLabels,
+  labels: NotificationPreferencesLabels,
   runtime: NotificationsRuntime,
 ): NonNullable<LumenNotificationsContent['preferences']> {
   return {
@@ -129,7 +137,8 @@ function preferencesContent(
 
 function content(
   state: NotificationsState,
-  labels: HbarNotificationsLabels,
+  centerLabels: NotificationCenterLabels,
+  bellLabels: NotificationBellLabels,
   runtime: NotificationsRuntime,
   pendingIds: ReadonlySet<string>,
   preferences: LumenNotificationsContent['preferences'],
@@ -139,9 +148,9 @@ function content(
     id: item.id,
     groupId: item.kind,
     kind: item.kind,
-    title: labels.eventKinds[item.kind],
+    title: centerLabels.eventKinds[item.kind],
     detail: item.detail,
-    time: labels.formatTime(item.createdAt),
+    time: centerLabels.formatTime(item.createdAt),
     unread: item.readAt === null,
     icon:
       item.kind === 'run.completed'
@@ -150,21 +159,24 @@ function content(
           ? ('security' as const)
           : ('review' as const),
   }))
-  const groups = [...new Set(visibleItems.map((item) => item.kind))].map((id) => ({ id, label: labels.eventKinds[id] }))
+  const groups = [...new Set(visibleItems.map((item) => item.kind))].map((id) => ({
+    id,
+    label: centerLabels.eventKinds[id],
+  }))
   return {
     center: {
       labels: {
-        title: labels.title,
-        unread: () => labels.unread(state.unreadCount),
-        markAll: labels.markAll,
-        filters: labels.filters,
-        all: labels.all,
-        unreadFilter: labels.unreadFilter,
-        mentions: labels.mentions,
-        markRead: labels.markRead,
-        markUnread: labels.markUnread,
-        dismiss: labels.dismiss,
-        empty: labels.empty,
+        title: centerLabels.title,
+        unread: () => centerLabels.unread(state.unreadCount),
+        markAll: centerLabels.markAll,
+        filters: centerLabels.filters,
+        all: centerLabels.all,
+        unreadFilter: centerLabels.unreadFilter,
+        mentions: centerLabels.mentions,
+        markRead: centerLabels.markRead,
+        markUnread: centerLabels.markUnread,
+        dismiss: centerLabels.dismiss,
+        empty: centerLabels.empty,
       },
       groups,
       entries,
@@ -176,7 +188,7 @@ function content(
       unreadCount: state.unreadCount,
       showDismiss: false,
       showMentions: false,
-      openLabel: labels.open,
+      openLabel: centerLabels.open,
     },
     bell: {
       presentation: 'trigger',
@@ -184,29 +196,29 @@ function content(
       labels: {
         brandMark: '',
         brand: '',
-        bell: labels.bell,
-        dialog: labels.title,
-        filter: labels.filters,
-        all: labels.all,
-        unread: labels.unreadFilter,
-        markAll: labels.markAll,
-        openCenter: labels.title,
-        settings: labels.preferenceTitle,
+        bell: bellLabels.bell,
+        dialog: bellLabels.title,
+        filter: bellLabels.filters,
+        all: bellLabels.all,
+        unread: bellLabels.unreadFilter,
+        markAll: bellLabels.markAll,
+        openCenter: bellLabels.title,
+        settings: bellLabels.preferenceTitle,
         hint: '',
-        empty: labels.empty,
-        unreadEmpty: labels.empty,
-        pending: labels.saving,
-        failed: labels.saveFailed,
-        unavailable: labels.saveUnavailable,
+        empty: bellLabels.empty,
+        unreadEmpty: bellLabels.empty,
+        pending: bellLabels.saving,
+        failed: bellLabels.saveFailed,
+        unavailable: bellLabels.saveUnavailable,
       },
       navItems: [],
       selectedNavId: '',
       avatar: '',
       messages: visibleItems.map((item) => ({
         id: item.id,
-        actor: labels.eventKinds[item.kind],
-        summary: labels.eventKinds[item.kind],
-        time: labels.formatTime(item.createdAt),
+        actor: bellLabels.eventKinds[item.kind],
+        summary: bellLabels.eventKinds[item.kind],
+        time: bellLabels.formatTime(item.createdAt),
         unread: item.readAt === null,
         icon: item.kind === 'run.completed' ? 'resolved' : item.kind === 'approval.pending' ? 'review' : 'security',
       })),
@@ -224,7 +236,146 @@ function content(
   }
 }
 
-export function HbarNotifications({ runtime, labels, onNavigate, variant = 1, onOpenCenter }: HbarNotificationsProps) {
+export function HbarNotifications({ labels, ...props }: HbarNotificationsProps) {
+  const centerMessages: NotificationCenterLabels = {
+    title: labels.title,
+    unread: labels.unread,
+    markAll: labels.markAll,
+    filters: labels.filters,
+    all: labels.all,
+    unreadFilter: labels.unreadFilter,
+    mentions: labels.mentions,
+    markRead: labels.markRead,
+    markUnread: labels.markUnread,
+    dismiss: labels.dismiss,
+    empty: labels.empty,
+    eventKinds: labels.eventKinds,
+    formatTime: labels.formatTime,
+    open: labels.open,
+    navigationFailed: labels.navigationFailed,
+  }
+  const preferencesMessages: NotificationPreferencesLabels = {
+    preferenceTitle: labels.preferenceTitle,
+    inApp: labels.inApp,
+    desktop: labels.desktop,
+    eventKinds: labels.eventKinds,
+    preferenceDetail: labels.preferenceDetail,
+    event: labels.event,
+    toggle: labels.toggle,
+    all: labels.all,
+    none: labels.none,
+    quietTitle: labels.quietTitle,
+    quietDetail: labels.quietDetail,
+    quietToggle: labels.quietToggle,
+    days: labels.days,
+    saved: labels.saved,
+    unsaved: labels.unsaved,
+    saving: labels.saving,
+    saveFailed: labels.saveFailed,
+    saveUnavailable: labels.saveUnavailable,
+    reset: labels.reset,
+    save: labels.save,
+    empty: labels.empty,
+  }
+  const bellMessages: NotificationBellLabels = {
+    bell: labels.bell,
+    title: labels.title,
+    filters: labels.filters,
+    all: labels.all,
+    unreadFilter: labels.unreadFilter,
+    markAll: labels.markAll,
+    preferenceTitle: labels.preferenceTitle,
+    empty: labels.empty,
+    saving: labels.saving,
+    saveFailed: labels.saveFailed,
+    saveUnavailable: labels.saveUnavailable,
+    eventKinds: labels.eventKinds,
+    formatTime: labels.formatTime,
+  }
+  return (
+    <notificationCenterMessages.Provider messages={centerMessages}>
+      <notificationPreferencesMessages.Provider messages={preferencesMessages}>
+        <notificationBellMessages.Provider messages={bellMessages}>
+          <HbarNotificationsContent {...props} />
+        </notificationBellMessages.Provider>
+      </notificationPreferencesMessages.Provider>
+    </notificationCenterMessages.Provider>
+  )
+}
+
+function HbarNotificationsContent({
+  runtime,
+  onNavigate,
+  variant = 1,
+  onOpenCenter,
+}: Omit<HbarNotificationsProps, 'labels'>) {
+  const { t: center } = notificationCenterMessages.useMessages()
+  const { t: preferencesCopy } = notificationPreferencesMessages.useMessages()
+  const { t: bell } = notificationBellMessages.useMessages()
+  const centerLabels = useMemo<NotificationCenterLabels>(
+    () => ({
+      title: center('title'),
+      unread: center('unread'),
+      markAll: center('markAll'),
+      filters: center('filters'),
+      all: center('all'),
+      unreadFilter: center('unreadFilter'),
+      mentions: center('mentions'),
+      markRead: center('markRead'),
+      markUnread: center('markUnread'),
+      dismiss: center('dismiss'),
+      empty: center('empty'),
+      eventKinds: center('eventKinds'),
+      formatTime: center('formatTime'),
+      open: center('open'),
+      navigationFailed: center('navigationFailed'),
+    }),
+    [center],
+  )
+  const preferencesLabels = useMemo<NotificationPreferencesLabels>(
+    () => ({
+      preferenceTitle: preferencesCopy('preferenceTitle'),
+      inApp: preferencesCopy('inApp'),
+      desktop: preferencesCopy('desktop'),
+      eventKinds: preferencesCopy('eventKinds'),
+      preferenceDetail: preferencesCopy('preferenceDetail'),
+      event: preferencesCopy('event'),
+      toggle: preferencesCopy('toggle'),
+      all: preferencesCopy('all'),
+      none: preferencesCopy('none'),
+      quietTitle: preferencesCopy('quietTitle'),
+      quietDetail: preferencesCopy('quietDetail'),
+      quietToggle: preferencesCopy('quietToggle'),
+      days: preferencesCopy('days'),
+      saved: preferencesCopy('saved'),
+      unsaved: preferencesCopy('unsaved'),
+      saving: preferencesCopy('saving'),
+      saveFailed: preferencesCopy('saveFailed'),
+      saveUnavailable: preferencesCopy('saveUnavailable'),
+      reset: preferencesCopy('reset'),
+      save: preferencesCopy('save'),
+      empty: preferencesCopy('empty'),
+    }),
+    [preferencesCopy],
+  )
+  const bellLabels = useMemo<NotificationBellLabels>(
+    () => ({
+      bell: bell('bell'),
+      title: bell('title'),
+      filters: bell('filters'),
+      all: bell('all'),
+      unreadFilter: bell('unreadFilter'),
+      markAll: bell('markAll'),
+      preferenceTitle: bell('preferenceTitle'),
+      empty: bell('empty'),
+      saving: bell('saving'),
+      saveFailed: bell('saveFailed'),
+      saveUnavailable: bell('saveUnavailable'),
+      eventKinds: bell('eventKinds'),
+      formatTime: bell('formatTime'),
+    }),
+    [bell],
+  )
   const state = useHbarRuntimeState(runtime.reader)
   const [actionError, setActionError] = useState<string | null>(null)
   const mounted = useRef(true)
@@ -249,13 +400,17 @@ export function HbarNotifications({ runtime, labels, onNavigate, variant = 1, on
   const preferences = useMemo(
     () =>
       preferenceSnapshot
-        ? preferencesContent(notificationPreferencesSchema.parse(JSON.parse(preferenceSnapshot)), labels, runtime)
+        ? preferencesContent(
+            notificationPreferencesSchema.parse(JSON.parse(preferenceSnapshot)),
+            preferencesLabels,
+            runtime,
+          )
         : undefined,
-    [preferenceSnapshot, labels, runtime],
+    [preferenceSnapshot, preferencesLabels, runtime],
   )
   const view = useMemo(
-    () => content(state, labels, runtime, pendingIds, preferences),
-    [labels, runtime, state, pendingIds, preferences],
+    () => content(state, centerLabels, bellLabels, runtime, pendingIds, preferences),
+    [centerLabels, bellLabels, runtime, state, pendingIds, preferences],
   )
   return (
     <>
@@ -282,7 +437,7 @@ export function HbarNotifications({ runtime, labels, onNavigate, variant = 1, on
               void Promise.resolve()
                 .then(() => onNavigate(target))
                 .catch(() => {
-                  if (mounted.current) setActionError(labels.navigationFailed)
+                  if (mounted.current) setActionError(center('navigationFailed'))
                 })
             }
           }
