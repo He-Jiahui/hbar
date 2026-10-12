@@ -5,6 +5,7 @@ import { HbarError } from '@hbar/contracts'
 import { nodeRelativePathSchema, type NodeFloor } from '@hbar/contracts/node'
 import type { SandboxPathPort } from '@hbar/sandbox'
 import { isPathWithin } from '@hbar/contracts/path-containment'
+import type { ProcessPermissionPathPort } from './process-permissions'
 
 export async function canonicalNodePath(path: string): Promise<string> {
   const missing: string[] = []
@@ -29,6 +30,18 @@ export const localNodePaths: SandboxPathPort = {
   isAbsolute,
   separator: process.platform === 'win32' ? '\\' : '/',
   caseInsensitive: process.platform === 'win32' || process.platform === 'darwin',
+}
+export const localProcessPermissionPaths: ProcessPermissionPathPort = {
+  ...localNodePaths,
+  exists: async (path) => {
+    try {
+      await stat(path)
+      return true
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && ['ENOENT', 'ENOTDIR'].includes(String(error.code))) return false
+      throw error
+    }
+  },
 }
 function inside(root: string, path: string, protectedPath = false): boolean {
   return isPathWithin(root, path, { separator: localNodePaths.separator, caseInsensitive: protectedPath })

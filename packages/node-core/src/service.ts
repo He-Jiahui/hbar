@@ -26,7 +26,14 @@ import {
   verifySandboxSnapshot,
   SANDBOX_EVALUATOR_FINGERPRINT,
 } from '@hbar/sandbox'
-import { nodeOwnedPath, localNodePaths, validateNodeRoots, nodeProtectedPaths } from './paths'
+import {
+  nodeOwnedPath,
+  localNodePaths,
+  localProcessPermissionPaths,
+  validateNodeRoots,
+  nodeProtectedPaths,
+} from './paths'
+import { createProcessPermissionManifest } from './process-permissions'
 import type { NodeExecutionBackend } from './execution-backend'
 export type { NodeExecutionBackend, NodeExecutionBackendOptions, NodeArgvResult } from './execution-backend'
 
@@ -434,18 +441,20 @@ export class WorkspaceNodeService {
           const environment = profile?.environment.set ?? {}
           if (Object.keys(environment).some((name) => dangerousEnvironment.test(name)))
             throw new HbarError('NODE_DENIED', 'The snapshot contains an unsafe process environment variable')
-          const readOnlyProfile =
-            profile &&
-            (profile.filesystem.default !== 'write' ||
-              profile.filesystem.grants.some((grant) => grant.access !== 'write'))
-          // A backend must support exclusions before granting broad workspace writes.
-          const writableRoots = target.registration.access === 'write' && !readOnlyProfile ? [target.root] : []
+          const manifest = await createProcessPermissionManifest({
+            root: target.root,
+            cwd: target.path,
+            registrationAccess: target.registration.access,
+            profile,
+            floorProtectedPaths: nodeProtectedPaths(this.floor, this.dataRoot),
+            paths: localProcessPermissionPaths,
+          })
           const confinement: OsConfinementOptions | null =
             requireConfinement || (this.floor.osConfinement === 'preferred' && this.backend.filesystem)
               ? {
                   level: 'elevated',
-                  readableRoots: [target.root],
-                  writableRoots,
+                  readableRoots: [...manifest.readableRoots],
+                  writableRoots: [...manifest.writableRoots],
                   networkEnabled: network,
                   envOverrides: environment,
                 }
@@ -468,7 +477,8 @@ export class WorkspaceNodeService {
                   timeoutMs,
                   environment,
                   confinement,
-                  protectedPaths: nodeProtectedPaths(this.floor, this.dataRoot),
+                  protectedPaths: [...manifest.protectedPaths],
+                  readOnlyPaths: [...manifest.readOnlyPaths],
                   environmentAllowlist: this.floor.environmentAllowlist,
                 })
                 const details = z

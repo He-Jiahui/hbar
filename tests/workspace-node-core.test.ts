@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { nodeFloorSchema, type NodeCallAuthority, type NodeExecStart, type NodeReceipt } from '@hbar/contracts/node'
@@ -18,6 +18,7 @@ import {
   verifyNode,
   validateNodeIdentity,
   type NodeExecutionBackend,
+  type NodeExecutionBackendOptions,
   WorkspaceNodeProtocol,
 } from '@hbar/node-core'
 import { resolveSandboxProfile, sandboxSnapshotContent } from '@hbar/sandbox'
@@ -46,6 +47,7 @@ async function fixture(
   const workspace = join(root, 'workspace'),
     data = join(root, 'data')
   await mkdir(workspace)
+  await mkdir(join(workspace, '.git/hooks'), { recursive: true })
   await mkdir(data)
   await writeFile(join(workspace, 'file.txt'), 'old')
   const state = new NodeStateStorage(join(data, 'node.sqlite'))
@@ -58,6 +60,11 @@ async function fixture(
   })
   await state.call('floor.set', floor)
   const calls: string[] = []
+  const executions: Array<{
+    confinement: NodeExecutionBackendOptions['confinement']
+    protectedPaths: readonly string[]
+    readOnlyPaths?: readonly string[]
+  }> = []
   const confined = options.confined ?? true
   const backend: NodeExecutionBackend = {
     name: confined ? 'bwrap' : 'none',
@@ -66,6 +73,7 @@ async function fixture(
     processTree: true,
     exec: async (_workspace, command, signal, input) => {
       calls.push(command)
+      executions.push(input)
       expect(input.timeoutMs).toBeLessThanOrEqual(floor.maxTimeoutMs)
       if (options.hold)
         await new Promise<void>((_resolve, reject) => {
@@ -110,7 +118,7 @@ async function fixture(
     command: 'echo safe',
     timeoutMs: 2_000,
   })
-  return { root, workspace, data, state, node, backend, calls, request }
+  return { root, workspace, data, state, node, backend, calls, executions, request }
 }
 async function until(check: () => Promise<boolean>): Promise<void> {
   const deadline = Date.now() + 5_000
@@ -174,6 +182,57 @@ test('snapshot tampering is refused, node reevaluation keeps ask/deny stricter t
     result: { details: { code: 'NODE_DENIED' } },
   })
   expect(f.calls).toEqual([])
+})
+
+test('process start passes the canonical snapshot intersection with node floors to the OS backend', async () => {
+  const f = await fixture()
+  await mkdir(join(f.workspace, '.git/hooks'), { recursive: true })
+  await mkdir(join(f.workspace, '.hbar'), { recursive: true })
+  const nodePrivate = join(f.workspace, 'node-private')
+  await mkdir(nodePrivate)
+  await f.node.setPolicy({ ...f.node.policy, protectedPaths: [nodePrivate] })
+  const profile = await resolveSandboxProfile(':workspace-write', async () => null)
+  const admittedProfile = { ...profile, commands: { rules: [{ pattern: 'echo safe', decision: 'allow' as const }] } }
+  const ref = { profileId: admittedProfile.profileId, digest: sandboxSnapshotContent(admittedProfile).digest }
+  f.node.putSnapshot(ref, admittedProfile)
+  expect(await f.node.start({ ...f.request(), sandbox: ref })).toMatchObject({ state: 'started' })
+  await settlement(f.node, 'run:call')
+  expect(f.executions[0]).toMatchObject({
+    confinement: {
+      readableRoots: [f.workspace],
+      writableRoots: [f.workspace],
+    },
+    readOnlyPaths: [join(f.workspace, '.git'), join(f.workspace, '.hbar')],
+  })
+  for (const protectedPath of [
+    f.data,
+    join(f.workspace, '.git/hooks'),
+    nodePrivate,
+    join(homedir(), '.ssh'),
+    join(homedir(), '.aws'),
+    join(homedir(), '.config/gh'),
+  ])
+    expect(f.executions[0]?.protectedPaths).toContain(protectedPath)
+})
+
+test('unsupported snapshot permission mapping is audited and refused before operation start', async () => {
+  const f = await fixture()
+  const profile = await resolveSandboxProfile(':read-only', async () => null)
+  const unsupported = {
+    ...profile,
+    commands: { rules: [{ pattern: 'echo safe', decision: 'allow' as const }] },
+    filesystem: { ...profile.filesystem, grants: [{ path: '**/*.secret', access: 'none' as const }] },
+  }
+  const ref = { profileId: profile.profileId, digest: sandboxSnapshotContent(unsupported).digest }
+  f.node.putSnapshot(ref, unsupported)
+  expect(await f.node.start({ ...f.request(), sandbox: ref })).toMatchObject({
+    state: 'settled',
+    result: { isError: true, details: { code: 'NODE_PERMISSION_UNSUPPORTED', executionStarted: false } },
+  })
+  expect(f.calls).toEqual([])
+  expect(await f.state.call('audit.list', {})).toMatchObject([
+    { tool: 'shell', decision: 'deny', code: 'NODE_PERMISSION_UNSUPPORTED' },
+  ])
 })
 test('relative paths, readonly roots, protected directories and symlinks cannot escape the node floor', async () => {
   const f = await fixture()
