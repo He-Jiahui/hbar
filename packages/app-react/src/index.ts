@@ -266,3 +266,4 @@ export { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent
 export { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
 export { projectGoalLifecycleRows, type GoalLifecycleAction, type GoalLifecycleRow } from './goal-lifecycle-model'
 export { HbarWorkspaceFoldersDialog, WorkspaceFoldersDialog, type WorkspaceFoldersLabels } from './workspace-folders'
+export { VIEWPORT_BREAKPOINTS_REM, WORKSPACE_VIEWPORT_MEDIA, workspaceViewportTier, type WorkspaceViewportTier } from './responsive-contract'

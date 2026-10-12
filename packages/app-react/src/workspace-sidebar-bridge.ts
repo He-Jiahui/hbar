@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 
+import { WORKSPACE_VIEWPORT_MEDIA } from './responsive-contract'
+
 import { useHbarRuntime, useHbarRuntimeSelector } from './runtime'
 
 import type { HbarWorkspaceShellProps } from './workspace-shell-contract'
@@ -8,7 +10,7 @@ export function useWorkspaceSidebarBridge(props: HbarWorkspaceShellProps) {
   const runtime = useHbarRuntime()
   const sidebarOpen = useHbarRuntimeSelector(runtime.state.presentation, (state) => state.sidebarOpen)
   const [sidebarViewportNarrow, setSidebarViewportNarrow] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 63.9375rem)').matches,
+    () => typeof window !== 'undefined' && window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches,
   )
   const sidebarChoiceRevision = useRef(0)
   const railCollapsed = props.sidebarRailWidthRem !== undefined && !sidebarViewportNarrow && !sidebarOpen
