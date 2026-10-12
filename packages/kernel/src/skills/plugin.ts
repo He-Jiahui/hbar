@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, LOCAL_EXECUTION_ENABLED } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { appendModelContext, definePlugin } from '@hbar/plugin-sdk'
 import type { ToolContext, ToolResult } from '@hbar/plugin-sdk'
 import { createRuntimeSkillCatalog, skillReadInputSchema, skillSearchInputSchema } from './catalog'
@@ -20,7 +21,10 @@ function failure(error: unknown): never {
     throw new HbarError('SKILL_RESOURCE_NOT_FOUND', 'Skill resource is missing; refresh skill discovery')
   throw new HbarError('SKILL_READ_FAILED', 'Skill resource could not be read')
 }
-export function runtimeSkillsPlugin(globalRoot: string) {
+export function runtimeSkillsPlugin(
+  globalRoot: string,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
+) {
   return definePlugin({
     manifest: {
       id: 'tools.skills',
@@ -33,7 +37,7 @@ export function runtimeSkillsPlugin(globalRoot: string) {
     },
     apply(ctx) {
       const api = ctx.hbar.api
-      const catalog = createRuntimeSkillCatalog(globalRoot)
+      const catalog = createRuntimeSkillCatalog(globalRoot, localExecutionPolicy)
       const observations = createSkillReadObservation()
       ctx.effect(() => () => observations.dispose())
       ctx.effect(() => () => catalog.dispose())

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, unlink } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, unlink, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { z } from 'zod'
@@ -10,6 +10,7 @@ import { WorkspaceFolderService } from './workspace-folders'
 import { WorkspaceSandboxService } from './workspace-sandbox'
 import { resolveSandboxProfile } from './sandbox-policy'
 import { evaluateSandboxCall } from './sandbox-gate'
+import { LOCAL_EXECUTION_DISABLED } from '@hbar/contracts/local-execution-policy'
 
 async function denied(operation: Promise<unknown>) {
   const error = await operation.then(
@@ -163,6 +164,33 @@ test('virtual roots retain deny/readonly rules and reject traversal, symlink esc
     expect(await readFile(join(outside, 'secret.txt'), 'utf8')).toBe('outside')
   } finally {
     execution.dispose()
+    await storage.close()
+    await rm(base, { recursive: true, force: true })
+  }
+})
+
+test('disabled local execution rejects workspace mount preparation before touching the workspace or cache', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'hbar-local-exec-disabled-'))
+  const storage = new Storage(join(base, 'state.sqlite'))
+  try {
+    const workspacePath = join(base, 'workspace')
+    const cachePath = join(base, 'mount-cache')
+    await mkdir(workspacePath)
+    const sentinel = join(workspacePath, 'keep.txt')
+    await writeFile(sentinel, 'sentinel')
+    const created = await new WorkspaceFolderService(storage, []).apply(
+      'actor',
+      'create',
+      { operation: 'create', input: { folders: [{ id: 'root', alias: 'root', path: workspacePath }] } },
+      new AbortController().signal,
+    )
+    const sandboxes = new WorkspaceSandboxService(storage, cachePath, LOCAL_EXECUTION_DISABLED)
+    await expect(sandboxes.prepare(created.workspace.id, created.workspace.path, new AbortController().signal)).rejects.toMatchObject({
+      code: 'LOCAL_EXECUTION_DISABLED',
+    })
+    expect(await readFile(sentinel, 'utf8')).toBe('sentinel')
+    await expect(stat(cachePath)).rejects.toMatchObject({ code: 'ENOENT' })
+  } finally {
     await storage.close()
     await rm(base, { recursive: true, force: true })
   }

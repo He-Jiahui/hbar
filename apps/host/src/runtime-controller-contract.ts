@@ -28,6 +28,7 @@ export const runtimeControllerInvokeSchema = z.strictObject({
 export const runtimeControllerConfigurationSchema = z.strictObject({
   instanceId: z.string().min(1).max(160),
   demo: z.boolean(),
+  noLocalExec: z.boolean().default(false),
   dataRoot: z.string().min(1).max(4_000),
   cacheRoot: z.string().min(1).max(4_000),
   pointerFile: z.string().min(1).max(4_000),

@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import { LOCAL_EXECUTION_DISABLED } from '@hbar/contracts/local-execution-policy'
 import { nodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { nodeCapabilitiesSchema, nodeFloorSchema } from '@hbar/contracts/node'
 import { workspaceFindInputSchema, workspaceSearchInputSchema } from '@hbar/contracts/workspace-query'
@@ -110,6 +111,52 @@ test('Git and system terminal cannot spawn locally for a remote workspace', asyn
       terminals.open('operator', 'workspace', remote, 80, 24, { onOutput: () => {}, onExit: () => {} }),
     )
     expect(terminals.list('operator')).toEqual([])
+  })
+})
+
+test('disabled local execution preserves workspace files and rejects terminal and worktree starts before side effects', async () => {
+  await fixture(async (root) => {
+    const sentinel = join(root, 'sentinel.txt')
+    const mountCache = join(root, 'mount-cache')
+    await writeFile(sentinel, 'unchanged')
+    const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+    await ensurePathLayout(layout)
+    const storage = new Storage(layout.database, layout)
+    await storage.call('ready')
+    let gitStarts = 0
+    const launch = new SessionLaunchTargetService(
+      storage,
+      layout,
+      async () => {
+        gitStarts++
+        return { code: 0, stdout: '', stderr: '' }
+      },
+      undefined,
+      LOCAL_EXECUTION_DISABLED,
+    )
+    const mounts = new WorkspaceSandboxService(storage, mountCache, LOCAL_EXECUTION_DISABLED)
+    const terminals = new SystemTerminalManager(LOCAL_EXECUTION_DISABLED)
+    try {
+      await expect(mounts.prepare('workspace', root, signal)).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+      await expect(launch.branchTargetGit(root, ['status'], signal)).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+      let terminalFailure: unknown
+      try {
+        terminals.open('operator', 'workspace', root, 80, 24, { onOutput: () => {}, onExit: () => {} })
+      } catch (error) {
+        terminalFailure = error
+      }
+      expect(terminalFailure).toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+      expect(terminals.list('operator')).toEqual([])
+      expect(gitStarts).toBe(0)
+      expect(await readFile(sentinel, 'utf8')).toBe('unchanged')
+      await expect(stat(mountCache)).rejects.toMatchObject({ code: 'ENOENT' })
+      const folders = new WorkspaceFolderService(storage, [], LOCAL_EXECUTION_DISABLED)
+      await expect(folders.browse({ path: root }, signal)).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+      expect(await readFile(sentinel, 'utf8')).toBe('unchanged')
+    } finally {
+      await launch.close()
+      await storage.close()
+    }
   })
 })
 

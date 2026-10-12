@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
-import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
+import { APP_VERSION, createLocalExecutionPolicy, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { Device, DiagnosticScopePort, DiagnosticSink, HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 
@@ -222,7 +222,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     storageFatal = event
     for (const socket of sockets) socket.close(1012, 'Storage is unavailable; reconnect after Host recovery')
   })
-  const systemTerminals = new SystemTerminalManager()
+  const localExecutionPolicy = createLocalExecutionPolicy(kernel.options.noLocalExec)
+  const systemTerminals = new SystemTerminalManager(localExecutionPolicy)
   let broadcastFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void = () =>
     undefined
   const notificationTasks = new Set<Promise<void>>()

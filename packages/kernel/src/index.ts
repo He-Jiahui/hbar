@@ -45,6 +45,7 @@ import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { nodeCallAuthoritySchema, type NodeCallAuthority } from '@hbar/contracts/node'
 import { nodeWorkspaceCreateSchema, type NodeWorkspaceCreate } from '@hbar/contracts/node-workspaces'
+import { createLocalExecutionPolicy, type LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import {
   WorkspaceExecutionScopes,
   remoteSandboxPathPort,
@@ -373,6 +374,7 @@ export interface KernelOptions {
   layout?: PathLayout | undefined
   demo?: boolean | undefined
   workspace?: string | undefined
+  noLocalExec?: boolean | undefined
   secrets?: SecretStore | undefined
   profile?: KernelProfile | undefined
   /** Stop a Run after this much time without model output or completed work. */
@@ -487,6 +489,7 @@ type ApprovalResolution =
 
 export class Kernel {
   private readonly executionScope: KernelExecutionScope
+  private readonly localExecutionPolicy: LocalExecutionPolicy
   private readonly workspaceExecutionScopes = new WorkspaceExecutionScopes()
   private readonly sessionSummaryCoordinator: SessionSummaryCoordinator
   private readonly runtimeRecovery: RuntimeRecoveryService
@@ -541,6 +544,7 @@ export class Kernel {
     readonly options: ResolvedKernelOptions,
     storage?: StoragePort,
   ) {
+    this.localExecutionPolicy = createLocalExecutionPolicy(options.noLocalExec ?? false)
     this.instanceId = z.string().min(1).max(160).parse(options.instanceId ?? crypto.randomUUID())
     this.executionDiagnostics = createKernelExecutionDiagnostics({ ...(options.diagnostics ? { sink: options.diagnostics } : {}), ...(options.diagnosticScope ? { scope: options.diagnosticScope } : {}), instanceId: this.instanceId })
     this.preparing = options.lifecycle === 'candidate'
@@ -579,12 +583,14 @@ export class Kernel {
     this.workspaceSandboxes = new WorkspaceSandboxService(
       this.storage,
       join(options.layout.cacheRoot, 'workspace-sandboxes'),
+      this.localExecutionPolicy,
     )
     this.sessionLaunchTargets = new SessionLaunchTargetService(
       this.storage,
       options.layout,
       undefined,
       (_sessionId, targetPath, signal) => this.assertSharedCheckoutIdle(targetPath, signal),
+      this.localExecutionPolicy,
     )
     this.sessionLaunchPreparations = new SessionLaunchTargetPreparationService(
       this.storage,
@@ -834,6 +840,7 @@ export class Kernel {
     if (options.lifecycle !== 'candidate') await ensurePathLayout(layout)
     const resolved: ResolvedKernelOptions = {
       ...options,
+      noLocalExec: options.noLocalExec ?? false,
       home: layout.dataRoot,
       layout,
       runIdleTimeoutMs,
@@ -1072,6 +1079,7 @@ export class Kernel {
           verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
         },
         this.workspaceSandboxes,
+        this.localExecutionPolicy,
       ),
     )
     this.plugins.add(
@@ -1149,7 +1157,7 @@ export class Kernel {
       this.plugins.add(browserPlugin)
       this.plugins.add(computerPlugin)
     }
-    this.plugins.add(runtimeSkillsPlugin(this.options.layout.globalSkills))
+    this.plugins.add(runtimeSkillsPlugin(this.options.layout.globalSkills, this.localExecutionPolicy))
   }
   subscribe(listener: (event: WireNotification) => unknown) {
     this.listeners.add(listener)
@@ -1821,19 +1829,27 @@ export class Kernel {
       const admittedSession = await this.storage.call('session', sessionId)
       const admittedWorkspace = await this.storage.call('workspace', admittedSession.workspaceId)
       const remoteWorkspace = admittedWorkspace.location?.kind === 'node'
+      const noLocalExecution = !this.localExecutionPolicy.enabled
       if (remoteWorkspace && (await this.getSessionLaunchTarget(sessionId)).selection.mode !== 'shared-current')
         throw new HbarError('REMOTE_WORKTREE_UNSUPPORTED', 'Worktree execution is not available for workspace nodes')
       const run = await this.withSessionLaunchTargetLock(
         sessionId,
         () => {
           const enqueue = async () => {
-            const binding = remoteWorkspace
+            if (noLocalExecution && !remoteWorkspace) {
+              const target = await this.getSessionLaunchTarget(sessionId)
+              if (target.selection.mode !== 'shared-current')
+                throw new HbarError('LOCAL_EXECUTION_DISABLED', 'Local worktree targets are disabled by the Host runtime configuration')
+              if (expectedLaunchTargetRevision !== undefined && target.revision !== expectedLaunchTargetRevision)
+                throw new HbarError('VERSION_CONFLICT', 'The session launch target changed; refresh and try again')
+            }
+            const binding = remoteWorkspace || noLocalExecution
               ? undefined
               : await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
             signal?.throwIfAborted()
             return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
           }
-          return remoteWorkspace
+          return remoteWorkspace || noLocalExecution
             ? enqueue()
             : this.withSharedCheckoutLock(
             sessionId,
@@ -1999,10 +2015,11 @@ export class Kernel {
       const workspace = await this.storage.call('workspace', session.workspaceId)
       idleTimeout.progress()
       const remoteWorkspace = workspace.location?.kind === 'node'
+      const noLocalExecution = !this.localExecutionPolicy.enabled
       let workspaceForRun: Workspace
-      if (remoteWorkspace) {
-        // A node-owned workspace stays bound to its B path. Local worktree and
-        // materialized-sandbox preparation would silently move execution to A.
+      if (remoteWorkspace || noLocalExecution) {
+        // Node-owned Runs stay bound to B. Conversation-only local Runs use the
+        // shared-current root without touching local Git or mounting the workspace.
         workspaceForRun = workspace
       } else {
         const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)

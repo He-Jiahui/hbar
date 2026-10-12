@@ -2,7 +2,8 @@ import { opendir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { CommandError, type CommandRegistry } from '@hbar/commands'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, LOCAL_EXECUTION_ENABLED, assertLocalExecutionAllowed } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import {
@@ -28,9 +29,11 @@ export class WorkspaceFolderService {
   constructor(
     private readonly storage: StoragePort,
     private readonly protectedPaths: readonly string[],
+    private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
   ) {}
 
   async canonicalFolders(folders: readonly WorkspaceFolder[], signal: AbortSignal) {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace folder filesystem access')
     for (const folder of folders) assertLocalWorkspace(folder.path)
     const protectedRoots = await Promise.all(
       this.protectedPaths.map((path) => realpath(path).catch(() => resolve(path))),
@@ -62,6 +65,7 @@ export class WorkspaceFolderService {
     input: { readonly path?: string | undefined; readonly after?: string | undefined },
     signal: AbortSignal,
   ): Promise<WorkspaceDirectoryPage> {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace directory browsing')
     signal.throwIfAborted()
     if (input.path !== undefined) assertLocalWorkspace(input.path)
     let path: string
@@ -137,6 +141,7 @@ export class WorkspaceFolderService {
   }
 
   async apply(actorId: string, key: string, request: WorkspaceFolderMutation, signal: AbortSignal) {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace folder mutation')
     signal.throwIfAborted()
     const previous = await this.storage.call('workspaceFolderReceipt', actorId, key, request)
     if (previous) return previous.result
@@ -153,8 +158,9 @@ export function registerWorkspaceFolderCommands(
   storage: StoragePort,
   protectedPaths: readonly string[],
   changed: () => void,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
 ) {
-  const service = new WorkspaceFolderService(storage, protectedPaths)
+  const service = new WorkspaceFolderService(storage, protectedPaths, localExecutionPolicy)
   const translate = async <Value>(operation: () => Promise<Value>) => {
     try {
       return await operation()

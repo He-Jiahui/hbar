@@ -246,6 +246,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       instanceId,
       layout: options.layout,
       demo: options.demo ?? false,
+      noLocalExec: options.noLocalExec ?? false,
       storage: this.storage,
       coordinator: this.coordinator,
       current: () => this.currentKernel(),
@@ -1094,12 +1095,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         : artifact.unitId === 'maintenance'
           ? { ...paths, workerPath: join(this.artifacts.root, artifact.id, 'maintenance-worker.js') }
           : artifact.unitId === 'controller'
-            ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false }
+            ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false, noLocalExec: this.options.noLocalExec ?? false }
             : artifact.unitId === 'kernel'
               ? {
                   ...paths,
                   instanceId: this.instanceId,
                   demo: this.options.demo ?? false,
+                  noLocalExec: this.options.noLocalExec ?? false,
                   isolatedPlugins: this.buildUnits.some((unit) => unit.descriptor.kind === 'plugin'),
                   diagnosticsEnabled: Boolean(this.options.diagnostics),
                   diagnosticsFullCoverage: this.options.diagnosticFullCoverage ?? false,

@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
 import { realpath } from 'node:fs/promises'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, LOCAL_EXECUTION_ENABLED } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { z } from 'zod'
 import {
@@ -50,7 +51,10 @@ function fingerprint(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 24)
 }
 
-export function createRuntimeSkillCatalog(globalRoot: string) {
+export function createRuntimeSkillCatalog(
+  globalRoot: string,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
+) {
   const cache = new Map<string, { savedAt: number; snapshot: SkillCatalogSnapshot }>()
   let active = 0
   async function operation<T>(signal: AbortSignal | undefined, execute: () => Promise<T>): Promise<T> {
@@ -66,18 +70,20 @@ export function createRuntimeSkillCatalog(globalRoot: string) {
     }
   }
   async function discover(workspace: string, signal?: AbortSignal): Promise<SkillCatalogSnapshot> {
-    const boundary = await realpath(workspace)
-    const roots = [
-      ...[
+    const roots: { path: string; scope: RuntimeSkill['scope']; boundary: string | undefined }[] = []
+    if (localExecutionPolicy.enabled) {
+      const boundary = await realpath(workspace)
+      for (const path of [
         '.hbar/skills',
         '.agents/skills',
         '.claude/skills',
         '.codex/skills',
         '.opencode/skills',
         '.opencode/skill',
-      ].map((path) => ({ path: resolve(workspace, path), scope: 'workspace' as const, boundary })),
-      { path: resolve(globalRoot), scope: 'global' as const, boundary: undefined },
-    ]
+      ])
+        roots.push({ path: resolve(workspace, path), scope: 'workspace', boundary })
+    }
+    roots.push({ path: resolve(globalRoot), scope: 'global', boundary: undefined })
     const skills: RuntimeSkill[] = []
     const warnings: string[] = []
     const names = new Set<string>()
@@ -160,8 +166,8 @@ export function createRuntimeSkillCatalog(globalRoot: string) {
   }
   async function snapshot(workspace: string, signal?: AbortSignal, refresh = false): Promise<SkillCatalogSnapshot> {
     checkSkillSignal(signal)
-    assertLocalWorkspace(workspace)
-    const key = resolve(workspace)
+    if (localExecutionPolicy.enabled) assertLocalWorkspace(workspace)
+    const key = localExecutionPolicy.enabled ? resolve(workspace) : '<host-global-skills-only>'
     const saved = cache.get(key)
     if (!refresh && saved && Date.now() - saved.savedAt < SKILL_LIMITS.cacheMilliseconds) return saved.snapshot
     return operation(signal, async () => {
@@ -239,6 +245,14 @@ export function createRuntimeSkillCatalog(globalRoot: string) {
       }
     })
   }
-  return { snapshot, search, read, resources: skillResourceFiles, dispose: () => cache.clear() }
+  return {
+    snapshot,
+    search,
+    read,
+    resources: (skillDirectory: string, signal?: AbortSignal) => {
+      return skillResourceFiles(skillDirectory, signal)
+    },
+    dispose: () => cache.clear(),
+  }
 }
 export type RuntimeSkillCatalog = ReturnType<typeof createRuntimeSkillCatalog>

@@ -5,7 +5,8 @@ import { z } from 'zod'
 import { definePlugin, provide, resolveToolTimeoutMs } from '@hbar/plugin-sdk'
 import type { ExecOptions, ExecutionProvider, ToolResult, WorkspaceQueryProvider } from '@hbar/plugin-sdk'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
-import { HbarError } from '@hbar/contracts'
+import { assertLocalExecutionAllowed, HbarError, LOCAL_EXECUTION_ENABLED } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { isPathWithin } from '@hbar/contracts/path-containment'
 import {
@@ -211,15 +212,41 @@ export class LocalExecution implements ExecutionProvider {
     private readonly managedWorkspace?: VerifiedManagedWorkspaceAccess,
     private readonly mounts?: WorkspaceMountAccess,
     private readonly additionalBlocked?: { get(workspace: string): readonly string[] },
+    private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
   ) {
-    const query = new WorkspaceQueryRuntime(
+    const queryRuntime = new WorkspaceQueryRuntime(
       blocked,
       (workspace, path) => this.workspacePath(workspace, path, false),
       {},
       (workspace) => this.blockedForWorkspace(workspace),
       (workspace, path) => this.workspacePath(workspace, path, true),
     )
-    this.workspaceQuery = mounts ? mountedWorkspaceQuery(query, mounts) : query
+    const query = mounts ? mountedWorkspaceQuery(queryRuntime, mounts) : queryRuntime
+    const executionPolicy = this.localExecutionPolicy
+    const guardedQuery: WorkspaceQueryProvider = {
+      async search(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace search')
+        return query.search(...args)
+      },
+      async find(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace file search')
+        return query.find(...args)
+      },
+      async readRange(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace range read')
+        return query.readRange(...args)
+      },
+      async invalidate(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace query invalidation')
+        return query.invalidate(...args)
+      },
+      dispose: () => query.dispose(),
+    }
+    this.workspaceQuery = guardedQuery
+  }
+
+  private assertLocalExecution(operation: string): void {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, operation)
   }
 
   private async blockedForWorkspace(workspace: string) {
@@ -243,6 +270,7 @@ export class LocalExecution implements ExecutionProvider {
   }
 
   async list(workspace: string, requested: string): Promise<Awaited<ReturnType<ExecutionProvider['list']>>> {
+    this.assertLocalExecution('Local workspace directory listing')
     assertLocalWorkspace(workspace)
     const mount = this.mounts?.get(workspace)
     if (mount) {
@@ -264,6 +292,7 @@ export class LocalExecution implements ExecutionProvider {
       .sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name))
   }
   async resolveDirectory(workspace: string, requested: string) {
+    this.assertLocalExecution('Local workspace directory resolution')
     const path = await this.workspacePath(workspace, requested)
     if (!(await stat(path)).isDirectory()) throw new HbarError('INVALID_WORKSPACE', 'Working directory is unavailable')
     return path
@@ -272,6 +301,7 @@ export class LocalExecution implements ExecutionProvider {
     return decodeUtf8(await this.readBytes(workspace, requested))
   }
   async readBytes(workspace: string, requested: string) {
+    this.assertLocalExecution('Local workspace file read')
     const path = await this.workspacePath(workspace, requested)
     const info = await stat(path)
     if (!info.isFile() || info.size > 2 * 1024 * 1024)
@@ -279,6 +309,7 @@ export class LocalExecution implements ExecutionProvider {
     return readFile(path)
   }
   async write(workspace: string, requested: string, text: string, options?: { expectedRevision?: string }) {
+    this.assertLocalExecution('Local workspace file write')
     const path = await this.workspacePath(workspace, requested, true)
     return this.fileMutations.run([path], () => this.writeUnlocked(workspace, requested, text, options))
   }
@@ -321,6 +352,7 @@ export class LocalExecution implements ExecutionProvider {
     return { before, after: text, path: recordedPath, revision: revision(text), created }
   }
   async restoreFiles(workspace: string, changes: readonly ToolFileChange[], signal: AbortSignal): Promise<void> {
+    this.assertLocalExecution('Local workspace file restore')
     assertLocalWorkspace(workspace)
     const paths = await Promise.all(changes.map((file) => this.workspacePath(workspace, file.path, true)))
     await this.fileMutations.run(paths, () =>
@@ -349,6 +381,7 @@ export class LocalExecution implements ExecutionProvider {
     )
   }
   async exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
+    this.assertLocalExecution('Local workspace process execution')
     signal.throwIfAborted()
     assertLocalWorkspace(workspace)
     if (options?.osConfinement && process.platform !== 'win32')
@@ -566,6 +599,7 @@ export function localExecutionPlugin(
   blocked: string[] = [],
   managedWorkspace?: VerifiedManagedWorkspaceAccess,
   mounts?: WorkspaceMountAccess,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
 ) {
   return definePlugin({
     manifest: {
@@ -580,7 +614,7 @@ export function localExecutionPlugin(
       permissions: ['fs', 'process'],
     },
     apply(ctx) {
-      const execution = new LocalExecution(blocked, managedWorkspace, mounts)
+      const execution = new LocalExecution(blocked, managedWorkspace, mounts, undefined, localExecutionPolicy)
       ctx.effect(() => () => execution.dispose())
       provide(ctx, 'execution', execution)
       provide<WorkspaceDirectoryService>(ctx, 'workspace-directories', {

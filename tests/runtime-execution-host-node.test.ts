@@ -41,6 +41,7 @@ test('the owned Host Kernel routes fake-model workspace reads and writes to B wi
     sourceRoot: process.cwd(),
     workspace: hostWorkspace,
     demo: true,
+    noLocalExec: true,
     secrets: new MemorySecrets(),
   })
   let host: Awaited<ReturnType<typeof startServer>> | undefined
@@ -66,6 +67,33 @@ test('the owned Host Kernel routes fake-model workspace reads and writes to B wi
     )
 
     const workspace = await runtime.kernel.createNodeWorkspace({ nodeId: liveNode.node.id, rootId: 'engine' })
+    expect(runtime.kernel.options.noLocalExec).toBe(true)
+    const localWorkspace = (await runtime.storage.call('workspaces')).find((item) => item.path === hostWorkspace)
+    if (!localWorkspace) throw new Error('The conversation-only Host fixture has no registered local placeholder')
+    const localSession = await runtime.storage.call('createSession', localWorkspace.id)
+    const conversation = await runtime.kernel.submit(
+      localSession.id,
+      'conversation-without-local-execution',
+      { text: 'Model-only conversation', images: [] },
+      'local-fixture',
+    )
+    await runtime.waitForIdle()
+    expect((await runtime.storage.call('run', conversation.id)).status).toBe('completed')
+    const forbidden = await runtime.kernel.submit(
+      localSession.id,
+      'local-write-disabled',
+      { text: '/tool write_file {"path":"remote-output.txt","text":"must be refused"}', images: [], approval: 'allow' },
+      'local-fixture',
+    )
+    await runtime.waitForIdle()
+    const refused = (await runtime.storage.call('snapshot', localSession.id)).messages
+      .filter((message) => message.runId === forbidden.id)
+      .flatMap((message) => message.content)
+      .find((block) => block.type === 'tool_result' && block.name === 'write_file')
+    expect(refused).toMatchObject({ type: 'tool_result', isError: true })
+    if (!refused || refused.type !== 'tool_result') throw new Error('The refused managed local tool has no result')
+    expect(refused.text).toContain('Local workspace execution is disabled')
+    expect(await Bun.file(join(hostWorkspace, 'remote-output.txt')).exists()).toBe(false)
     const session = await runtime.storage.call('createSession', workspace.id)
     await runtime.kernel.setPermissionMode('allow')
 

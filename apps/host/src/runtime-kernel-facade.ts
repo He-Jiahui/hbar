@@ -21,6 +21,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly instanceId: string
   readonly layout: PathLayout
   readonly demo: boolean
+  readonly noLocalExec?: boolean
   readonly storage: StoragePort
   readonly coordinator: RuntimeCoordinator
   readonly current: () => RuntimeKernelEndpoint
@@ -97,7 +98,7 @@ export class RuntimeKernelFacade {
         changePluginTree: async () => { throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Changing the plugin capability graph requires an explicit restart') },
       } : {}),
       instanceId: options.instanceId,
-      options: { layout: options.layout, demo: options.demo },
+      options: { layout: options.layout, demo: options.demo, noLocalExec: options.noLocalExec ?? false },
       storage: options.storage,
       storageHealth: () => ({ ready: options.endpoints().some((endpoint) => endpoint.process.snapshot().phase === 'serving') }),
       ...(options.cancel ? { cancel: options.cancel } : {}),

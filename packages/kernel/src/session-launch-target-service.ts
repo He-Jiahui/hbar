@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto'
 import { lstat, mkdir, realpath } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { PathLayout, StoragePort } from '@hbar/storage'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, LOCAL_EXECUTION_ENABLED, assertLocalExecutionAllowed } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { sessionLaunchDerivedBranchNameSchema } from '@hbar/contracts/commands/session-launch-target'
 import type { SessionLaunchSelection, SessionLaunchTarget } from '@hbar/contracts/commands/session-launch-target'
@@ -275,6 +276,7 @@ export class SessionLaunchTargetService {
     private readonly layout: PathLayout,
     private readonly executeGit = runGit,
     private readonly guardSharedBranchCheckout?: SharedBranchCheckoutGuard,
+    private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
   ) {}
 
   async get(sessionId: string): Promise<SessionLaunchTarget> {
@@ -314,6 +316,11 @@ export class SessionLaunchTargetService {
   }
 
   private trackOperation<Value>(action: () => Promise<Value>): Promise<Value> {
+    try {
+      assertLocalExecutionAllowed(this.localExecutionPolicy, 'Local worktree operation')
+    } catch (error) {
+      return Promise.reject(error)
+    }
     if (this.closing) return Promise.reject(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
     const operation = action()
     this.trackedOperations.add(operation)
@@ -409,6 +416,7 @@ export class SessionLaunchTargetService {
   }
 
   async prepare(sessionId: string, expectedRevision: number, signal?: AbortSignal): Promise<SessionLaunchTarget> {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Local worktree preparation')
     if (this.closing) throw new HbarError('BUSY', 'Host is shutting down')
     const externalSignal = signal
     if (externalSignal?.aborted) throw abortError()

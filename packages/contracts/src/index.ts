@@ -1,4 +1,5 @@
 import { z } from 'zod'
+export { HbarError } from './errors'
 import { runRecoverySchema, runtimeWatchInputSchema } from './runtime'
 import { toolActivitySchema } from './tool-activity'
 import { toolFileChangesSchema, runFileChangesSummarySchema } from './run-file-changes'
@@ -62,6 +63,13 @@ import type { PlanState } from './plan'
 export * from './state/directory'
 export * from './node-address'
 export { deviceSchema, deviceAccessSchema, deviceRoleSchema, type Device, type DeviceRole, type DeviceAccess } from './device'
+export {
+  assertLocalExecutionAllowed,
+  createLocalExecutionPolicy,
+  LOCAL_EXECUTION_DISABLED,
+  LOCAL_EXECUTION_ENABLED,
+  type LocalExecutionPolicy,
+} from './local-execution-policy'
 import type { Device } from './device'
 export * from './plan'
 export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './commands/goal-history'
@@ -1726,15 +1734,4 @@ export const rpcRequestSchema = z.object({
   method: z.string().max(100),
   params: z.unknown().default({}),
 })
-export class HbarError extends Error {
-  constructor(
-    public code: string,
-    message: string,
-    options?: ErrorOptions,
-  ) {
-    super(message, options)
-    this.name = 'HbarError'
-  }
-}
-
 export * from './workflow'

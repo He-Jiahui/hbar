@@ -155,6 +155,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     return Kernel.create({
       layout,
       demo: configuration.demo,
+      noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
       onFatal: () => process.exit(76),

@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { createLocalExecutionPolicy, HbarError } from '@hbar/contracts'
 import {
   SettingsService,
   createAgentCommands,
@@ -139,7 +139,8 @@ export function createControllerApplication(
     readonly background?: boolean
   },
 ) {
-  const agentCommands = createAgentCommands(kernel.plugins.get('agent'))
+  const localExecutionPolicy = createLocalExecutionPolicy(kernel.options.noLocalExec)
+  const agentCommands = createAgentCommands(kernel.plugins.get('agent'), localExecutionPolicy)
   const browserCommands = createBrowserCommands(kernel.plugins.get('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get('computer'))
   const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
@@ -170,7 +171,7 @@ export function createControllerApplication(
     storage: kernel.storage,
     resolveSessionPath: (sessionId, workspacePath, signal) =>
       kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  })
+  }, localExecutionPolicy)
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),

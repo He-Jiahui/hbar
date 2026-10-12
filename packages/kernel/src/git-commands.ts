@@ -1,5 +1,8 @@
-import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
-import { HbarError } from '@hbar/contracts'
+import { CommandError, CommandRegistry, createCommandClient, type CommandHandler } from '@hbar/commands'
+import { HbarError, LOCAL_EXECUTION_ENABLED, assertLocalExecutionAllowed } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
+import type { CommandDefinition } from '@hbar/commands/protocol'
+import { z } from 'zod'
 import { gitCommands, sessionGitDiffSchema } from '@hbar/contracts/commands/git'
 import type { SessionGitTarget } from '@hbar/contracts/commands/git'
 import type { GitBranchOperation, GitService, GitWorktreeOperation } from '@hbar/plugin-sdk'
@@ -12,8 +15,29 @@ export interface SessionGitWorkspaceResolver extends SessionWorkspaceResolver {
   readonly storage: StoragePort
 }
 
-export function createGitCommands(service: GitService, sessionWorkspace?: SessionGitWorkspaceResolver) {
+export function createGitCommands(
+  service: GitService,
+  sessionWorkspace?: SessionGitWorkspaceResolver,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
+) {
   const registry = new CommandRegistry({ execution: 'host' })
+  const register = <Input extends z.ZodType, Output extends z.ZodType>(
+    definition: CommandDefinition<Input, Output>,
+    handler: CommandHandler<Input, Output>,
+    options: { readonly durable?: boolean } = {},
+  ) => registry.register(
+    definition,
+    async (input, context) => {
+      try {
+        assertLocalExecutionAllowed(localExecutionPolicy, 'Git workspace access')
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
+      return handler(input, context)
+    },
+    options,
+  )
   const sessionContext = sessionWorkspace
     ? createSessionWorkspaceContext(sessionWorkspace.storage, sessionWorkspace)
     : null
@@ -74,7 +98,7 @@ export function createGitCommands(service: GitService, sessionWorkspace?: Sessio
     }
   }
 
-  registry.register(gitCommands['sessionGit.info'], (input, context) =>
+  register(gitCommands['sessionGit.info'], (input, context) =>
     translate(async () => {
       const target = await resolveSession(input, context.signal)
       const info = await service.info(target.path, context.signal)
@@ -82,7 +106,7 @@ export function createGitCommands(service: GitService, sessionWorkspace?: Sessio
       return info
     }),
   )
-  registry.register(gitCommands['sessionGit.status'], (input, context) =>
+  register(gitCommands['sessionGit.status'], (input, context) =>
     translate(async () => {
       const target = await resolveSession(input, context.signal)
       const status = await service.status(target.path, context.signal)
@@ -90,7 +114,7 @@ export function createGitCommands(service: GitService, sessionWorkspace?: Sessio
       return projectSessionGitStatus(input, status, target.path)
     }),
   )
-  registry.register(gitCommands['sessionGit.diff'], (input, context) =>
+  register(gitCommands['sessionGit.diff'], (input, context) =>
     translate(async () => {
       const target = await resolveSession(input, context.signal)
       const result = await service.diff(
@@ -113,19 +137,19 @@ export function createGitCommands(service: GitService, sessionWorkspace?: Sessio
     }),
   )
 
-  registry.register(gitCommands['git.info'], (input, context) =>
+  register(gitCommands['git.info'], (input, context) =>
     translate(() => service.info(input.cwd, context.signal)),
   )
-  registry.register(gitCommands['git.status'], (input, context) =>
+  register(gitCommands['git.status'], (input, context) =>
     translate(() => service.status(input.cwd, context.signal)),
   )
-  registry.register(gitCommands['git.diff'], (input, context) =>
+  register(gitCommands['git.diff'], (input, context) =>
     translate(() => service.diff(input.cwd, { cached: input.cached, paths: input.paths }, context.signal)),
   )
-  registry.register(gitCommands['git.log'], (input, context) =>
+  register(gitCommands['git.log'], (input, context) =>
     translate(() => service.log(input.cwd, input.limit, context.signal)),
   )
-  registry.register(gitCommands['git.stats'], (input, context) =>
+  register(gitCommands['git.stats'], (input, context) =>
     translate(() =>
       service.stats(
         input.cwd,
@@ -140,7 +164,7 @@ export function createGitCommands(service: GitService, sessionWorkspace?: Sessio
       ),
     ),
   )
-  registry.register(
+  register(
     gitCommands['git.commit'],
     (input, context) =>
       translateExternal(() =>
@@ -162,17 +186,17 @@ export function createGitCommands(service: GitService, sessionWorkspace?: Sessio
       ),
     { durable: true },
   )
-  registry.register(
+  register(
     gitCommands['git.branch'],
     (input, context) => translateExternal(() => service.branch(input.cwd, branchOperation(input), context.signal)),
     { durable: true },
   )
-  registry.register(
+  register(
     gitCommands['git.worktree'],
     (input, context) => translateExternal(() => service.worktree(input.cwd, worktreeOperation(input), context.signal)),
     { durable: true },
   )
-  registry.register(gitCommands['git.diffToRemote'], (input, context) =>
+  register(gitCommands['git.diffToRemote'], (input, context) =>
     translate(() => service.diffToRemote(input.cwd, context.signal)),
   )
   return {

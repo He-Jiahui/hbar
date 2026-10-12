@@ -1,9 +1,14 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import { HbarClient, createDirectoryQueryAdapter } from '@hbar/client'
+import {
+  HbarClient,
+  createDirectoryQueryAdapter,
+  createGitCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { pathPointerSchema } from '@hbar/storage'
 import { startServer } from '../apps/host/src/server.ts'
@@ -12,12 +17,13 @@ const cleanups: (() => Promise<void>)[] = []
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
 })
-async function fixture(desktop = false) {
+async function fixture(desktop = false, noLocalExec = false) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-server-'))
   const kernel = await Kernel.create({
     home: join(root, 'data'),
     pointerFile: join(root, 'system', 'paths.json'),
     demo: true,
+    noLocalExec,
     workspace: root,
     secrets: new MemorySecrets(),
   })
@@ -156,6 +162,30 @@ test('system terminal opens a scoped PTY and streams shell output', async () => 
   } finally {
     unsubscribe()
   }
+})
+
+test('no-local-exec rejects Host file and terminal RPCs before local effects', async () => {
+  const { root, client } = await fixture(false, true)
+  const bootstrap = await client.call('system.bootstrap', {})
+  const workspace = bootstrap.workspaces[0]
+  if (!workspace) throw new Error('Missing fixture workspace')
+  const sentinel = join(root, 'local-sentinel.txt')
+  await writeFile(sentinel, 'unchanged')
+
+  await expect(
+    client.call('file.write', { workspaceId: workspace.id, path: 'local-sentinel.txt', text: 'changed' }),
+  ).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+  await expect(
+    createWorkspaceSessionCommandClient(client).execute('workspace.folders.browse', { path: root }),
+  ).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+  await expect(createGitCommandClient(client).execute('git.status', { cwd: root })).rejects.toMatchObject({
+    code: 'LOCAL_EXECUTION_DISABLED',
+  })
+  await expect(client.call('terminal.open', { workspaceId: workspace.id, cols: 80, rows: 24 })).rejects.toMatchObject({
+    code: 'LOCAL_EXECUTION_DISABLED',
+  })
+  expect(await client.call('terminal.list', {})).toEqual([])
+  expect(await readFile(sentinel, 'utf8')).toBe('unchanged')
 })
 
 test('paged directory queries and two application runtimes use one real Host without sharing selection', async () => {

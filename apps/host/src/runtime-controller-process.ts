@@ -47,6 +47,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         }),
         configuration.data.demo,
         configuration.data.instanceId,
+        configuration.data.noLocalExec,
       )
     : null
   const maintenance = new CommandRegistry({ execution: 'host' })

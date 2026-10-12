@@ -1,12 +1,16 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
-import { HbarError } from '@hbar/contracts'
+import { createLocalExecutionPolicy, HbarError } from '@hbar/contracts'
 import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import type { WorkspaceSessionCommandKernelPort } from './controller-port'
 import { registerWorkspaceOrganizationCommands } from './workspace-organization-commands'
 import { registerWorkspaceDisplayNamesCommands } from './workspace-display-names-commands'
 import { registerWorkspaceFolderCommands } from './workspace-folders'
 
-export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKernelPort) {
+type WorkspaceSessionCommandKernelWithPolicy = Omit<WorkspaceSessionCommandKernelPort, 'options'> & {
+  readonly options: WorkspaceSessionCommandKernelPort['options'] & { readonly noLocalExec?: boolean | undefined }
+}
+
+export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKernelWithPolicy) {
   const registry = new CommandRegistry({ execution: 'host' })
   registerWorkspaceFolderCommands(
     registry,
@@ -16,6 +20,7 @@ export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKe
       kernel.changed('workspace-folders')
       kernel.changed('workspaces')
     },
+    createLocalExecutionPolicy(kernel.options.noLocalExec),
   )
   registerWorkspaceOrganizationCommands(registry, kernel.storage, () => kernel.changed('workspace-organization'))
   registerWorkspaceDisplayNamesCommands(registry, kernel.storage, () => kernel.changed('workspace-display-names'))

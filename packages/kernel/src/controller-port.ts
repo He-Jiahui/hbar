@@ -137,7 +137,7 @@ export interface KernelControllerPort
     WorkspaceSessionCommandKernelPort,
     SessionLaunchTargetCommandKernelPort,
     SessionBranchTargetCommandKernelPort {
-  readonly options: Pick<Kernel['options'], 'layout' | 'demo'>
+  readonly options: Pick<Kernel['options'], 'layout' | 'demo' | 'noLocalExec'>
   readonly active: { readonly size: number; has(sessionId: string): boolean }
   readonly streams: ReadonlyMap<string, LiveStream>
   readonly plugins: KernelPluginControllerPort

@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto'
 import { mkdir, lstat, realpath, symlink } from 'node:fs/promises'
 import { join, resolve, isAbsolute } from 'node:path'
 import { mountedPath } from '@hbar/local-tools/workspace-mounts'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, LOCAL_EXECUTION_ENABLED, assertLocalExecutionAllowed } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type { StoragePort } from '@hbar/storage'
 import type { WorkspaceMount, WorkspaceMountAccess } from '@hbar/local-tools/workspace-mounts'
@@ -15,6 +16,7 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
   constructor(
     private readonly storage: StoragePort,
     private readonly base: string,
+    private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
   ) {}
   get(root: string) {
     return this.mounts.get(key(root))
@@ -29,6 +31,7 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
       : ''
   }
   grantPaths(root: string, path: string): string[] {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace mount path resolution')
     assertLocalWorkspace(root)
     if (isAbsolute(path) || /^[a-z]:/i.test(path)) return [path]
     const mount = this.get(root)
@@ -41,6 +44,7 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
   }
 
   async verify(mount: WorkspaceMount, signal?: AbortSignal) {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace mount verification')
     signal?.throwIfAborted()
     assertLocalWorkspace(mount.root)
     for (const folder of mount.folders) assertLocalWorkspace(folder.path)
@@ -56,6 +60,7 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
   }
 
   async prepare(workspaceId: string, checkoutPath: string, signal: AbortSignal): Promise<string> {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace mount preparation')
     signal.throwIfAborted()
     assertLocalWorkspace(checkoutPath)
     const owner = await this.storage.call('workspace', workspaceId)

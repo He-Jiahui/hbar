@@ -14,6 +14,7 @@ export const runtimeKernelConfigurationSchema = z.strictObject({
   pointerFile: z.string().min(1).max(4_000), settingsRoot: z.string().min(1).max(4_000),
   sessionsRoot: z.string().min(1).max(4_000), skillsRoot: z.string().min(1).max(4_000), identityRoot: z.string().min(1).max(4_000),
   demo: z.boolean(),
+  noLocalExec: z.boolean().default(false),
   profileModule: z.string().min(1).max(4_000).optional(),
   isolatedPlugins: z.boolean().optional(),
   diagnosticsEnabled: z.boolean().optional(), diagnosticsFullCoverage: z.boolean().optional(),

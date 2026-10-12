@@ -27,6 +27,7 @@ export class RuntimeControllerKernel {
     layout: PathLayout,
     demo: boolean,
     instanceId: string,
+    noLocalExec = false,
   ) {
     const directory = new CommandRegistry({ execution: 'host' })
     for (const definition of Object.values(directoryCommands))
@@ -64,7 +65,7 @@ export class RuntimeControllerKernel {
       ...this.methods('kernel'),
       createNodeWorkspace: (input) => this.call('kernel.createNodeWorkspace', [input]),
       instanceId,
-      options: { layout, demo },
+      options: { layout, demo, noLocalExec },
       storage,
       storageHealth: () => { this.current(); return { ready: true } },
       get recovered() {
