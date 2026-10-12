@@ -8,12 +8,38 @@ import {
   nodeExecResultSchema,
   NODE_LIMITS,
   nodeOperationIdSchema,
+  nodePublicKeySchema,
 } from './node'
 
 const empty = z.strictObject({})
 const operationId = nodeOperationIdSchema
 const digest = z.string().regex(/^[a-f0-9]{64}$/)
 const timestamp = z.number().int().nonnegative().safe()
+const nodeConsoleDeviceRoleSchema = z.enum(['operator', 'observer'])
+const nodeConsoleRootScopeSchema = z
+  .array(nodeRootIdSchema)
+  .max(64)
+  .refine((roots) => new Set(roots).size === roots.length)
+export const nodeConsoleDeviceSchema = z.strictObject({
+  deviceId: z.string().min(1).max(160),
+  name: z.string().min(1).max(160),
+  publicKey: nodePublicKeySchema,
+  role: nodeConsoleDeviceRoleSchema,
+  roots: nodeConsoleRootScopeSchema,
+  createdAt: timestamp,
+  lastSeenAt: timestamp.nullable(),
+  revokedAt: timestamp.nullable(),
+})
+export const nodeConsoleInviteSchema = z.strictObject({
+  inviteId: z.string().min(1).max(160),
+  codeDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  role: nodeConsoleDeviceRoleSchema,
+  roots: nodeConsoleRootScopeSchema,
+  createdAt: timestamp,
+  expiresAt: timestamp,
+  consumedAt: timestamp.nullable(),
+  deviceId: z.string().min(1).max(160).nullable(),
+})
 export const nodeStoredOperationSchema = z.strictObject({
   operationId,
   argumentsDigest: digest,
@@ -39,7 +65,7 @@ export const nodeStoredOperationSchema = z.strictObject({
     .nullable(),
 })
 export const nodeStateMethods = {
-  ready: { input: empty, output: z.strictObject({ version: z.literal(2) }) },
+  ready: { input: empty, output: z.strictObject({ version: z.literal(3) }) },
   'floor.get': { input: empty, output: nodeFloorSchema.nullable() },
   'floor.set': { input: nodeFloorSchema, output: nodeFloorSchema },
   'config.get': { input: z.strictObject({ key: z.enum(['identity', 'link', 'paused']) }), output: z.json().nullable() },
@@ -70,6 +96,43 @@ export const nodeStateMethods = {
   'audit.list': {
     input: z.strictObject({ after: timestamp.default(0), limit: z.number().int().min(1).max(500).default(100) }),
     output: z.array(nodeAuditEntrySchema).max(500),
+  },
+  'console.devices.list': { input: empty, output: z.array(nodeConsoleDeviceSchema).max(256) },
+  'console.device.get': {
+    input: z.strictObject({ deviceId: z.string().min(1).max(160) }),
+    output: nodeConsoleDeviceSchema.nullable(),
+  },
+  'console.device.revoke': {
+    input: z.strictObject({ deviceId: z.string().min(1).max(160), revokedAt: timestamp }),
+    output: nodeConsoleDeviceSchema.nullable(),
+  },
+  'console.device.touch': {
+    input: z.strictObject({ deviceId: z.string().min(1).max(160), lastSeenAt: timestamp }),
+    output: nodeConsoleDeviceSchema.nullable(),
+  },
+  'console.pairing.create': {
+    input: z.strictObject({
+      inviteId: z.string().min(1).max(160),
+      codeDigest: nodeConsoleInviteSchema.shape.codeDigest,
+      role: nodeConsoleDeviceRoleSchema,
+      roots: nodeConsoleRootScopeSchema,
+      createdAt: timestamp,
+    }),
+    output: nodeConsoleInviteSchema,
+  },
+  'console.pairing.consume': {
+    input: z.strictObject({
+      codeDigest: nodeConsoleInviteSchema.shape.codeDigest,
+      deviceId: z.string().min(1).max(160),
+      publicKey: nodePublicKeySchema,
+      name: z.string().min(1).max(160),
+      now: timestamp,
+    }),
+    output: nodeConsoleDeviceSchema,
+  },
+  'console.pairing.attempt': {
+    input: z.strictObject({ sourceKey: z.string().min(1).max(128), now: timestamp }),
+    output: z.strictObject({ allowed: z.boolean() }),
   },
   close: { input: empty, output: z.strictObject({ closed: z.literal(true) }) },
 } as const

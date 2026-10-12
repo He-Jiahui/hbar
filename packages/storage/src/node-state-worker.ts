@@ -2,7 +2,13 @@ import { Database } from 'bun:sqlite'
 import { parentPort, workerData } from 'node:worker_threads'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { nodeStateMethods, nodeStoredOperationSchema, type NodeStateMethod } from '@hbar/contracts/node-state'
+import {
+  nodeStateMethods,
+  nodeStoredOperationSchema,
+  nodeConsoleDeviceSchema,
+  nodeConsoleInviteSchema,
+  type NodeStateMethod,
+} from '@hbar/contracts/node-state'
 import {
   NODE_LIMITS,
   nodeFloorSchema,
@@ -15,7 +21,7 @@ const configuration = z.strictObject({ path: z.string().min(1).max(4_000) }).par
 const db = new Database(configuration.path, { create: true, strict: true })
 db.exec('PRAGMA busy_timeout=1000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;')
 const current = z.object({ user_version: z.number().int() }).parse(db.query('PRAGMA user_version').get()).user_version
-if (current > 2) throw new Error('Unsupported workspace-node database version')
+if (current > 3) throw new Error('Unsupported workspace-node database version')
 if (current === 0)
   db.transaction(() => {
     db.exec(`
@@ -35,6 +41,27 @@ if (current < 2)
     db.exec(
       'ALTER TABLE operations ADD COLUMN target TEXT CHECK(target IS NULL OR json_valid(target)); PRAGMA user_version=2;',
     )
+  }).immediate()
+if (current < 3)
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE console_devices(
+        deviceId TEXT PRIMARY KEY,
+        publicKey TEXT NOT NULL UNIQUE,
+        data TEXT NOT NULL CHECK(json_valid(data))
+      ) STRICT;
+      CREATE TABLE console_invites(
+        inviteId TEXT PRIMARY KEY,
+        codeDigest TEXT NOT NULL UNIQUE,
+        data TEXT NOT NULL CHECK(json_valid(data))
+      ) STRICT;
+      CREATE TABLE console_pairing_attempts(
+        sourceKey TEXT PRIMARY KEY,
+        windowStartedAt INTEGER NOT NULL,
+        attempts INTEGER NOT NULL CHECK(attempts>=0)
+      ) STRICT;
+      PRAGMA user_version=3;
+    `)
   }).immediate()
 // A process lost across node restart has an unknown effect. Acceptance without start is safe to refuse/retry.
 db.transaction(() => {
@@ -116,10 +143,27 @@ function saveConfig(key: string, value: unknown): void {
     JSON.stringify(value),
   )
 }
+function consoleDevice(deviceId: string) {
+  const row = db.query<{ data: string }, [string]>('SELECT data FROM console_devices WHERE deviceId=?').get(deviceId)
+  return row ? nodeConsoleDeviceSchema.parse(JSON.parse(row.data)) : null
+}
+function insertConsoleDevice(device: ReturnType<typeof nodeConsoleDeviceSchema.parse>): void {
+  db.query('INSERT INTO console_devices(deviceId,publicKey,data) VALUES(?,?,?)').run(
+    device.deviceId,
+    device.publicKey,
+    JSON.stringify(device),
+  )
+}
+function updateConsoleDevice(device: ReturnType<typeof nodeConsoleDeviceSchema.parse>): void {
+  const changed = db
+    .query('UPDATE console_devices SET data=? WHERE deviceId=? AND publicKey=?')
+    .run(JSON.stringify(device), device.deviceId, device.publicKey)
+  if (changed.changes !== 1) throw new HbarError('INVALID_STATE', 'B console device identity changed unexpectedly')
+}
 function dispatch(method: NodeStateMethod, value: unknown): unknown {
   switch (method) {
     case 'ready':
-      return { version: 2 }
+      return { version: 3 }
     case 'floor.get': {
       const value = config('floor')
       return value === null ? null : nodeFloorSchema.parse(value)
@@ -253,6 +297,144 @@ function dispatch(method: NodeStateMethod, value: unknown): unknown {
             seq: row.seq,
           }),
         )
+    }
+    case 'console.devices.list':
+      return db
+        .query<{ data: string }, []>(
+          "SELECT data FROM console_devices ORDER BY json_extract(data,'$.createdAt'),deviceId LIMIT 256",
+        )
+        .all()
+        .map((row) => nodeConsoleDeviceSchema.parse(JSON.parse(row.data)))
+    case 'console.device.get':
+      return consoleDevice(nodeStateMethods[method].input.parse(value).deviceId)
+    case 'console.device.revoke': {
+      const input = nodeStateMethods[method].input.parse(value)
+      const current = consoleDevice(input.deviceId)
+      if (!current) return null
+      const revoked = nodeConsoleDeviceSchema.parse({ ...current, revokedAt: current.revokedAt ?? input.revokedAt })
+      updateConsoleDevice(revoked)
+      return revoked
+    }
+    case 'console.device.touch': {
+      const input = nodeStateMethods[method].input.parse(value)
+      const current = consoleDevice(input.deviceId)
+      if (!current || current.revokedAt !== null) return null
+      const touched = nodeConsoleDeviceSchema.parse({
+        ...current,
+        lastSeenAt: Math.max(current.lastSeenAt ?? 0, input.lastSeenAt),
+      })
+      updateConsoleDevice(touched)
+      return touched
+    }
+    case 'console.pairing.create': {
+      const input = nodeStateMethods[method].input.parse(value)
+      return db
+        .transaction(() => {
+          db.query(
+            "DELETE FROM console_invites WHERE json_extract(data,'$.expiresAt')<? OR json_extract(data,'$.consumedAt')<?",
+          ).run(input.createdAt - 24 * 60 * 60_000, input.createdAt - 24 * 60 * 60_000)
+          const active = z
+            .object({ count: z.number() })
+            .parse(
+              db
+                .query(
+                  "SELECT COUNT(*) AS count FROM console_invites WHERE json_extract(data,'$.expiresAt')>? AND json_extract(data,'$.consumedAt') IS NULL",
+                )
+                .get(input.createdAt),
+            ).count
+          if (active >= 8) throw new HbarError('RATE_LIMIT', 'Too many active console pairing invitations')
+          const recent = z
+            .object({ count: z.number() })
+            .parse(
+              db
+                .query("SELECT COUNT(*) AS count FROM console_invites WHERE json_extract(data,'$.createdAt')>? ")
+                .get(input.createdAt - 15 * 60_000),
+            ).count
+          if (recent >= 8) throw new HbarError('RATE_LIMIT', 'Console pairing invitation rate limit reached')
+          const retained = z
+            .object({ count: z.number() })
+            .parse(db.query('SELECT COUNT(*) AS count FROM console_invites').get()).count
+          if (retained >= 256) throw new HbarError('NODE_BUSY', 'B console invitation capacity is full')
+          const invite = nodeConsoleInviteSchema.parse({
+            ...input,
+            expiresAt: input.createdAt + 5 * 60_000,
+            consumedAt: null,
+            deviceId: null,
+          })
+          db.query('INSERT INTO console_invites(inviteId,codeDigest,data) VALUES(?,?,?)').run(
+            invite.inviteId,
+            invite.codeDigest,
+            JSON.stringify(invite),
+          )
+          return invite
+        })
+        .immediate()
+    }
+    case 'console.pairing.consume': {
+      const input = nodeStateMethods[method].input.parse(value)
+      return db
+        .transaction(() => {
+          const row = db
+            .query<{ data: string }, [string]>('SELECT data FROM console_invites WHERE codeDigest=?')
+            .get(input.codeDigest)
+          const invite = row ? nodeConsoleInviteSchema.parse(JSON.parse(row.data)) : null
+          if (!invite || invite.consumedAt !== null || invite.expiresAt <= input.now)
+            throw new HbarError('PAIRING_CODE_INVALID', 'The B console pairing code is invalid or expired')
+          const prior = db
+            .query<{ deviceId: string; publicKey: string }, [string, string]>(
+              'SELECT deviceId,publicKey FROM console_devices WHERE deviceId=? OR publicKey=? LIMIT 1',
+            )
+            .get(input.deviceId, input.publicKey)
+          if (prior) throw new HbarError('DEVICE_ALREADY_PAIRED', 'This B console device key is already registered')
+          const count = z
+            .object({ count: z.number() })
+            .parse(db.query('SELECT COUNT(*) AS count FROM console_devices').get()).count
+          if (count >= 256) throw new HbarError('NODE_BUSY', 'B console device capacity is full')
+          const device = nodeConsoleDeviceSchema.parse({
+            deviceId: input.deviceId,
+            name: input.name,
+            publicKey: input.publicKey,
+            role: invite.role,
+            roots: invite.roots,
+            createdAt: input.now,
+            lastSeenAt: input.now,
+            revokedAt: null,
+          })
+          insertConsoleDevice(device)
+          const consumed = nodeConsoleInviteSchema.parse({
+            ...invite,
+            consumedAt: input.now,
+            deviceId: device.deviceId,
+          })
+          db.query('UPDATE console_invites SET data=? WHERE inviteId=?').run(JSON.stringify(consumed), invite.inviteId)
+          return device
+        })
+        .immediate()
+    }
+    case 'console.pairing.attempt': {
+      const input = nodeStateMethods[method].input.parse(value)
+      return db
+        .transaction(() => {
+          db.query('DELETE FROM console_pairing_attempts WHERE windowStartedAt<?').run(input.now - 24 * 60 * 60_000)
+          const row = db
+            .query<{ windowStartedAt: number; attempts: number }, [string]>(
+              'SELECT windowStartedAt,attempts FROM console_pairing_attempts WHERE sourceKey=?',
+            )
+            .get(input.sourceKey)
+          const freshWindow = !row || input.now - row.windowStartedAt >= 15 * 60_000
+          const windowStartedAt = freshWindow ? input.now : row.windowStartedAt
+          const attempts = freshWindow ? 0 : row.attempts
+          const sourceCount = z
+            .object({ count: z.number() })
+            .parse(db.query('SELECT COUNT(*) AS count FROM console_pairing_attempts').get()).count
+          const allowed = attempts < 5 && (!!row || sourceCount < 4_096)
+          if (allowed)
+            db.query(
+              'INSERT INTO console_pairing_attempts(sourceKey,windowStartedAt,attempts) VALUES(?,?,?) ON CONFLICT(sourceKey) DO UPDATE SET windowStartedAt=excluded.windowStartedAt,attempts=excluded.attempts',
+            ).run(input.sourceKey, windowStartedAt, attempts + 1)
+          return { allowed }
+        })
+        .immediate()
     }
     case 'close':
       db.close()

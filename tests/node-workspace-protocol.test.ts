@@ -524,7 +524,7 @@ test('node state migration 2 preserves old receipts but refuses unscoped legacy 
   old.close()
   const state = new NodeStateStorage(path)
   try {
-    expect(await state.call('ready', {})).toEqual({ version: 2 })
+    expect(await state.call('ready', {})).toEqual({ version: 3 })
     expect(await state.call('operation.get', { operationId: 'run:old' })).toMatchObject({
       target: null,
       versions: { before: 'before' },
