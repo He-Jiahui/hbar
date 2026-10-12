@@ -12,7 +12,7 @@ import type { AgentService, HookEvents, SessionService, ToolContext, ToolDefinit
 
 export const AGENT_TOOL_NAME = 'agent'
 export const AGENT_TOOL_INSTRUCTIONS =
-  'For a user `/agent <subagent_type> <prompt>` request, use the `agent` tool. Set `subagent_type` to the token after `/agent` and pass the exact remaining prompt unchanged as `prompt`. Assess task difficulty as simple, medium, or complex. Host selects the highest-priority configured model and effort in that tier; empty tiers inherit the parent. Permissions always inherit the admitted parent Run.'
+  'For a user `/agent <subagent_type> <prompt>` request, use the `agent` tool. Set `subagent_type` to the token after `/agent` and pass the exact remaining prompt unchanged as `prompt`. Assess task difficulty as simple, medium, or complex. Host selects the highest-priority configured model and effort in that tier; empty tiers inherit the parent. Permissions always inherit the admitted parent Run. This ordinary Agent tool does not create an isolated patchTask worktree. For an explicit `agent.create` patchTask request, process tools stay disabled unless `patchTask.allowProcessTools` is true and the tool is listed in scope; process effects are not confined by file paths and still require Host policy and the child Run approval mode.'
 const MAX_ADVERTISED_INSTRUCTIONS = 16_000
 
 export const agentToolInputSchema = z.strictObject({
@@ -82,7 +82,7 @@ export function createAgentTool(agents: AgentService, sessions: SessionService):
   return {
     name: AGENT_TOOL_NAME,
     description:
-      'Create a bounded read-only child Agent. Preserve the exact user prompt and choose the requested Agent profile.',
+      'Create an ordinary child Agent using the parent Run permission context. This tool does not create an isolated patchTask worktree. Preserve the exact user prompt and choose the requested Agent profile.',
     inputSchema: agentToolInputSchema,
     effect: 'write',
     execute: async (rawArgs, context) => {
