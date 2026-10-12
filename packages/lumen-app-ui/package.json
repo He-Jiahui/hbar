@@ -6,7 +6,9 @@
   "files": [
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "DESIGN.md",
+    "source-manifest.json"
   ],
   "sideEffects": [
     "**/*.css"
@@ -220,7 +222,8 @@
     "validate-boundaries": "bun scripts/validate-lumen-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
-    "build": "bun scripts/sync-workbench-styles.ts && vite build && vite build --config vite.styles.config.ts && tsc -p tsconfig.build.json && bun scripts/verify-package-exports.ts"
+    "build": "bun scripts/sync-workbench-styles.ts && vite build && vite build --config vite.styles.config.ts && tsc -p tsconfig.build.json && bun scripts/verify-package-exports.ts",
+    "pack": "bun run build && bun scripts/pack.ts"
   },
   "peerDependencies": {
     "@emotion/react": "^11.14.0",

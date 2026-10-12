@@ -100,12 +100,15 @@ is in the ignored `tmp/lumen-source-snapshot` directory. This source is MIT
 licensed; see [LICENSE](LICENSE).
 
 The package is private and is not published. Its source exports are the
-workspace contract. `pnpm -F @lumen/app-ui build` creates a standalone ESM
-bundle, CSS, and declaration files, while `pnpm -F @lumen/app-ui pack` applies
-the host-facing `publishConfig` exports. Material UI, Emotion, React, and React
-DOM stay peer dependencies so a host uses one runtime instance; build tooling
-comes from this pnpm workspace rather than becoming part of a file consumer's
-dependency graph. Lumen's glass filter applies to the background layer, so
+workspace contract. Run `bun install`, `bun run typecheck`, and `bun run test`
+in the package checkout. `bun run build` creates standalone ESM modules, separate
+workbench/catalog CSS, and declaration files, then checks every public export.
+`bun run pack` writes an installable local archive under `artifacts/packages`.
+Packing uses a temporary distribution manifest whose exports point to built
+files; this also works with Bun, which preserves source exports when packing
+the source manifest directly. The checkout manifest stays usable by the workspace.
+Material UI, Emotion, React, and React DOM stay peer dependencies so a host uses
+one runtime instance. Lumen's glass filter applies to the background layer, so
 foreground text stays sharp. Unsupported browsers render frosted glass.
 
 `LumenSlider` accepts a numeric controlled value and callback and normalizes its
