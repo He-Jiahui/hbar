@@ -21,3 +21,6 @@ export const deviceSchema = z.strictObject({
 export type Device = z.input<typeof deviceSchema>
 export type DeviceRole = z.infer<typeof deviceRoleSchema>
 export type DeviceAccess = z.infer<typeof deviceAccessSchema>
+export function deviceAccessOf(device: Device): DeviceAccess {
+  return deviceAccessSchema.parse({ role: device.role, workspaceIds: device.workspaceIds })
+}

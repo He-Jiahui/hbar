@@ -111,7 +111,7 @@ test('a second activated process cannot write while the existing Worker owner st
   f.install(first)
   expect(await outcome(candidate.activate())).toMatchObject({ code: 'STORAGE_WRITER_ACTIVE' })
   await candidate.dispose()
-  expect(await f.port.call('ready')).toEqual({ version: 25 })
+  expect(await f.port.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
 })
 
 test('the public storage RPC catalog contains every declared method exactly once', async () => {

@@ -2,14 +2,17 @@ import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto
 import { HbarError, PAIRING_CODE_LENGTH, DEVICE_NAME_MAX_LENGTH } from '@hbar/contracts'
 import type { Device } from '@hbar/contracts'
 import type { StoragePort } from '@hbar/storage'
+import { deviceAccessSchema, type DeviceAccess } from '@hbar/contracts/device'
 
 export class Auth {
   private pairing = { code: '', expiresAt: 0 }
+  private pairingAccess: DeviceAccess = { role: 'operator', workspaceIds: null }
   private attempts = new Map<string, { count: number; resetAt: number }>()
   private internalDevices = new Map<string, Device>()
   private verifiedDevices = new Map<string, Device>()
   constructor(private storage: StoragePort, private readonly options: { available?(): boolean } = {}) {}
-  createPairing() {
+  createPairing(access: Partial<DeviceAccess> = {}) {
+    this.pairingAccess = deviceAccessSchema.parse(access)
     this.pairing = {
       code: String(randomInt(10 ** (PAIRING_CODE_LENGTH - 1), 10 ** PAIRING_CODE_LENGTH)),
       expiresAt: Date.now() + 5 * 60_000,
@@ -32,16 +35,19 @@ export class Auth {
       this.pairing.expiresAt < now
     )
       throw new HbarError('PAIRING_FAILED', 'Invalid or expired pairing code')
+    const access = this.pairingAccess
     this.pairing = { code: '', expiresAt: 0 }
-    return this.createDevice(name)
+    return this.createDevice(name, access)
   }
-  async createDevice(name: string) {
+  async createDevice(name: string, access: Partial<DeviceAccess> = {}) {
+    const permissions = deviceAccessSchema.parse(access)
     const token = randomBytes(32).toString('base64url')
     const device = {
       id: crypto.randomUUID(),
       name: name.slice(0, DEVICE_NAME_MAX_LENGTH),
       createdAt: Date.now(),
       lastSeenAt: Date.now(),
+      ...permissions,
     }
     await this.storage.call('putDevice', device, this.hash(token))
     return { token, device }

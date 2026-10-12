@@ -4,7 +4,7 @@ import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
-import type { DiagnosticScopePort, DiagnosticSink, HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
+import type { Device, DiagnosticScopePort, DiagnosticSink, HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 
 import { queuedRunGuidedOperationId as guidedOperationId, admitOperationRecovery } from '@hbar/contracts/commands/run'
@@ -20,6 +20,8 @@ import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
 
 import { Auth, requestToken } from './auth.ts'
+import { DeviceAuthorization } from './device-authorization'
+import { resourceReadInputSchema } from '@hbar/contracts/commands/resources'
 import { createSystemCommands } from './system-commands.ts'
 
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
@@ -39,6 +41,7 @@ interface SocketData {
   connectionId: string
   token?: string | undefined
   deviceId?: string | undefined
+  device?: Device | undefined
   initialized: boolean
   follows: Set<string>
   operationFollows: Set<string>
@@ -145,6 +148,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   }
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage, { available: () => options.runtime?.authenticationAvailable?.() ?? true })
+  const authorization = new DeviceAuthorization(kernel.storage,
+    id => commandDescribers.get(id)?.() ?? application.resolveCommand?.(id)?.describe(id))
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
   const allSockets = new Set<ServerWebSocket<SocketData>>()
@@ -326,7 +331,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   }
   broadcastFresh = (event) => {
     for (const socket of sockets)
-      if (socket.data.initialized) send(socket, { jsonrpc: '2.0', method: 'notifications.created', params: event })
+      if (socket.data.initialized && !authorization.restricted(socket.data.device))
+        send(socket, { jsonrpc: '2.0', method: 'notifications.created', params: event })
   }
   const systemCommands = createSystemCommands({
     hostInfo,
@@ -358,7 +364,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         }
       return { revoked: true }
     },
-    createPairing: () => auth.createPairing(),
+    createPairing: (access) => auth.createPairing(access),
     ...(options.restart ? { restart: options.restart } : {}),
   })
   for (const id of Object.keys(systemDefinitions)) {
@@ -402,6 +408,17 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     socket: ServerWebSocket<SocketData>,
     rpcId: string | number,
   ): Promise<unknown> {
+    if (method !== 'system.hello') {
+      const device = socket.data.device
+      if (!device) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+      await authorization.authorize(device, method, raw)
+      if (method === 'workspace.list' ||
+        (method === 'command.execute' && rpcSchemas[method].parse(raw).commandId === 'workspace.list')) {
+        const input = method === 'command.execute' ? rpcSchemas[method].parse(raw).input : raw
+        const filtered = await authorization.workspacePage(device, input)
+        if (filtered) return filtered
+      }
+    }
     switch (method) {
       case 'system.runtime.watch': {
         const input = rpcSchemas[method].parse(raw)
@@ -687,6 +704,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         socket.data.scope = scope
         socket.data.token = token
         socket.data.deviceId = device.id
+        socket.data.device = device
         socket.data.initialized = true
         const terminalCallbacks = {
           onOutput: (terminalId: string, data: string) =>
@@ -708,8 +726,17 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         return kernel.directoryQueries.execute('session.list', rpcSchemas['session.list'].parse(raw))
       case 'session.get':
         return kernel.directoryQueries.execute('session.get', rpcSchemas['session.get'].parse(raw))
-      case 'system.bootstrap':
-        return kernel.bootstrap(hostInfo())
+      case 'system.bootstrap': {
+        const bootstrap = await kernel.bootstrap(hostInfo())
+        const device = socket.data.device
+        if (!device || !authorization.restricted(device)) return bootstrap
+        const allowed = device.workspaceIds
+        return { ...bootstrap,
+          workspaces: bootstrap.workspaces.filter(workspace => allowed == null || allowed.includes(workspace.id)),
+          sessions: bootstrap.sessions.filter(session => allowed == null || allowed.includes(session.workspaceId)),
+          plugins: [], panels: [],
+        }
+      }
       case 'system.diagnose':
         return systemCommands.execute('system.diagnose', {})
       case 'system.skills.list':
@@ -1256,6 +1283,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         }
         if (url.pathname.startsWith('/api/')) {
           const device = await auth.authenticate(requestToken(request))
+          if (authorization.restricted(device) && url.pathname !== '/api/resource-media')
+            throw new HbarError('FORBIDDEN', 'Use scoped resource reads for this device')
           const clientPlugin = /^\/api\/plugins\/([^/]+)\/client\.js$/.exec(url.pathname)
           if (clientPlugin && request.method === 'GET')
             return response(request, await kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
@@ -1297,7 +1326,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           if (url.pathname === '/api/resource-media' && request.method === 'POST') {
             const body = await request.text()
             if (body.length > 24_000) throw new HbarError('INVALID_INPUT', 'Resource request is oversized')
-            const media = await resourceCommands.readMedia(JSON.parse(body), request.signal)
+            const input = resourceReadInputSchema.parse(JSON.parse(body))
+            await authorization.assertTargets(device, input, true)
+            const media = await resourceCommands.readMedia(input, request.signal)
             return response(request, new Blob([new Uint8Array(media.bytes)], { type: media.mime }), 200, {
               'Content-Type': media.mime,
               'Cache-Control': 'no-store',
@@ -1368,7 +1399,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                 const envelope = rpcRequestSchema.safeParse(JSON.parse(text))
                 if (envelope.success) {
                   id = envelope.data.id
-                  stable = isStableRpc(envelope.data.method, envelope.data.params)
+                  stable = isStableRpc(envelope.data.method, envelope.data.params) || authorization.restricted(socket.data.device)
                   if (!stable) {
                     span = requestDiagnostics.begin({ method: envelope.data.method, rpcId: envelope.data.id,
                       connectionId: socket.data.connectionId, bytesIn, pending: socket.data.pending })
@@ -1389,7 +1420,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                         throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
                       if (isRecoveryControl(request.method, request.params))
                         await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
-                      else await auth.authenticate(socket.data.token)
+                      else socket.data.device = await auth.authenticate(socket.data.token)
                     }
                     signal.throwIfAborted()
                     return invoke(request.method, rpcSchemas[request.method].parse(request.params), socket, request.id)
@@ -1400,7 +1431,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                       throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
                     if (isRecoveryControl(request.method, request.params))
                       await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
-                    else await auth.authenticate(socket.data.token)
+                    else socket.data.device = await auth.authenticate(socket.data.token)
+                    if (socket.data.device) await authorization.authorize(socket.data.device, request.method, request.params)
                     signal.throwIfAborted()
                     return { actorId: socket.data.deviceId, host: hostInfo() }
                   },
@@ -1446,7 +1478,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                 requestSpan.stage('auth', socket.data.pending)
                 if (isRecoveryControl(request.method, request.params))
                   await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
-                else await auth.authenticate(socket.data.token)
+                else socket.data.device = await auth.authenticate(socket.data.token)
               }
               const method = request.method as RpcMethod
               requestSpan.stage('validate', socket.data.pending)
@@ -1534,6 +1566,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     }
     for (const socket of sockets) {
       if (!socket.data.initialized) continue
+      authorization.revokeMovedSubscription(socket.data.device, socket.data.follows, event)
+      if (!authorization.notification(socket.data.device, socket.data.follows, event)) continue
       if (event.method === 'session.event' || event.method === 'stream.update') {
         const bySession = socket.data.follows.has(event.params.sessionId)
         if (event.method === 'session.event')

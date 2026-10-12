@@ -4,7 +4,7 @@ import { idSchema, PAIRING_CODE_LENGTH } from '../index'
 import { pluginInfoSchema } from './extensions'
 import { storageLocationApplySchema, storageLocationSnapshotSchema } from './storage-locations'
 import { runtimeSnapshotSchema, runtimeReloadSchema, runtimeUnitIdSchema } from '../runtime'
-import { deviceSchema } from '../device'
+import { deviceSchema, deviceAccessSchema } from '../device'
 
 export const hostInfoSchema = z.strictObject({
   version: z.string().min(1).max(64),
@@ -135,8 +135,10 @@ export const systemCommands = {
     z.strictObject({ revoked: z.boolean() }),
   ),
   'pairing.create': defineCommand(
-    metadata('pairing.create', 'command', 'persistent'),
-    z.strictObject({}),
+    { ...metadata('pairing.create', 'command', 'persistent'), cli: { arguments: [
+      { field: 'role', type: 'string', flag: 'role' }, { field: 'workspaceIds', type: 'json', flag: 'workspaces' },
+    ] } },
+    deviceAccessSchema,
     z.strictObject({
       code: z.string().length(PAIRING_CODE_LENGTH).regex(/^\d+$/),
       expiresAt: z.number().int().positive(),

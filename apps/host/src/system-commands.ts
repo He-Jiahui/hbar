@@ -46,7 +46,7 @@ export interface SystemCommandDependencies {
   applyStorageLocations(input: StorageLocationApply): Promise<StorageLocationSnapshot>
   devices(): Promise<Device[]>
   revokeDevice(id: string): Promise<{ revoked: boolean }>
-  createPairing(): { code: string; expiresAt: number }
+  createPairing(access?: import('@hbar/contracts/device').DeviceAccess): { code: string; expiresAt: number }
   restart?(): boolean | Promise<boolean>
   runtime?: RuntimeSystemPort
 }
@@ -99,7 +99,7 @@ export function createSystemCommands(dependencies: SystemCommandDependencies) {
   registry.register(systemCommands['device.revoke'], ({ id }) => translate(() => dependencies.revokeDevice(id)), {
     durable: true,
   })
-  registry.register(systemCommands['pairing.create'], () => translate(() => dependencies.createPairing()), {
+  registry.register(systemCommands['pairing.create'], (access) => translate(() => dependencies.createPairing(access)), {
     durable: true,
   })
 

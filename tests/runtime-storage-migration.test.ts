@@ -3,7 +3,7 @@ import { Database } from 'bun:sqlite'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Storage } from '@hbar/storage'
+import { Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 
 for (const previous of ['file-changes', 'runtime-recovery'] as const) {
   test(`migration 25 preserves data and completes the ${previous} version 24 layout`, async () => {
@@ -23,7 +23,7 @@ for (const previous of ['file-changes', 'runtime-recovery'] as const) {
         database.exec('PRAGMA user_version=24')
       } finally { database.close() }
       storage = new Storage(path)
-      expect(await storage.call('ready')).toEqual({ version: 25 })
+      expect(await storage.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
       expect((await storage.call('session', session.id)).title).toBe('retained')
       await storage.close()
       const upgraded = new Database(path, { readonly: true })
@@ -34,7 +34,7 @@ for (const previous of ['file-changes', 'runtime-recovery'] as const) {
         expect(upgraded.query('PRAGMA quick_check').get()).toEqual({ quick_check: 'ok' })
       } finally { upgraded.close() }
       storage = new Storage(path, undefined, { preflight: true })
-      expect(await storage.call('ready')).toEqual({ version: 25 })
+      expect(await storage.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
     } finally {
       await storage.close()
       await rm(root, { recursive: true, force: true })

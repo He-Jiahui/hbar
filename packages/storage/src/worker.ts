@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite'
+import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { readContextCompactionMarkers } from './context-compaction-markers'
 import {
   RUN_FILE_CHANGES_SQL,
@@ -67,7 +68,6 @@ import type { UsageReadInput, UsageReadRow } from '@hbar/usage'
 import type {
   Approval,
   ContentBlock,
-  Device,
   Message,
   Run,
   Session,
@@ -277,7 +277,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 25
+const LATEST_SCHEMA_VERSION = 26
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
@@ -506,6 +506,7 @@ for (const [version, sql] of [
   [23, CHAT_DATABASE_SQL],
   [24, RUN_FILE_CHANGES_SQL],
   [25, RUNTIME_STATE_SQL + RUN_FILE_CHANGES_SQL],
+  [26, DEVICE_ACCESS_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -544,6 +545,7 @@ const chatDatabaseResources = createChatDatabaseResourceLedger(db, sessionsRoot,
   releaseClaim: (...args) => chatDatabaseArtifacts.releaseClaim(...args),
 })
 const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot, chatDatabaseResources, { readOnly: preflight && !shadowMemory })
+const deviceStorage = createDeviceStorage(db, id => chatDatabaseArtifacts.unknownDevice(id, false))
 const chatDatabaseJournal = createChatDatabaseJournal(db)
 const chatDatabaseAutomaticPlan = createChatDatabaseAutomaticPlan(db, chatDatabaseJournal)
 const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
@@ -2859,19 +2861,10 @@ const methods: StorageMethods = {
     if (recovered) return recovered
     throw new HbarError('NOT_FOUND', 'Artifact not found')
   },
-  putDevice(device, tokenHash) {
-    db.transaction(() => {
-      db.query('INSERT INTO devices VALUES(?,?,?,?,?)').run(device.id, device.name, tokenHash, device.createdAt, device.lastSeenAt)
-      chatDatabaseArtifacts.unknownDevice(device.id, false)
-    }).immediate()
-  },
-  deviceByHash(hash) {
-    return db.query('SELECT id,name,createdAt,lastSeenAt FROM devices WHERE tokenHash=?').get(hash) as Device | null
-  },
-  devices: () => db.query('SELECT id,name,createdAt,lastSeenAt FROM devices ORDER BY createdAt').all() as Device[],
-  revokeDevice(id) {
-    db.query('DELETE FROM devices WHERE id=?').run(id)
-  },
+  putDevice: (device, tokenHash) => deviceStorage.put(device, tokenHash),
+  deviceByHash: (hash) => deviceStorage.byHash(hash),
+  devices: () => deviceStorage.list(),
+  revokeDevice: (id) => deviceStorage.revoke(id),
   setPlugin(id, enabled, config, path, projectId) {
     db.query(
       'INSERT INTO plugins(id,projectId,enabled,config,path) VALUES(?,?,?,?,?) ON CONFLICT(id,projectId) DO UPDATE SET enabled=excluded.enabled,config=excluded.config,path=COALESCE(excluded.path,plugins.path)',

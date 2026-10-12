@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Storage } from '@hbar/storage'
+import { Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import type { ExecutionOwnership, RuntimeOwner } from '@hbar/contracts/runtime'
 
 const fixtures: { root: string; storage: Storage }[] = []
@@ -28,7 +28,7 @@ async function fixture() {
   const storage = new Storage(join(root, 'test.sqlite'))
   const fixture = { root, storage }
   fixtures.push(fixture)
-  expect(await storage.call('ready')).toEqual({ version: 25 })
+  expect(await storage.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
   const workspace = await storage.call('createWorkspace', root, 'runtime')
   const session = await storage.call('createSession', workspace.id)
   async function queue(request: string, source?: 'goal') {
