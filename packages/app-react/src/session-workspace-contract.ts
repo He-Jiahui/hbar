@@ -172,3 +172,14 @@ export interface SessionComposerProps extends HbarSessionWorkspaceProps {
   readonly composerWrites: import('react').RefObject<Map<string, Set<Promise<unknown>>>>
   readonly toggleTool: SessionToolToggle
 }
+
+export interface SessionWorkspaceHeaderProps extends Pick<
+  HbarSessionWorkspaceProps,
+  'sessionTitle' | 'workspaceName' | 'labels' | 'connected' | 'showFilesInHeader'
+> {
+  readonly find: Pick<
+    ReturnType<typeof import('./session-find').useSessionFind>,
+    'trigger' | 'disabled' | 'open' | 'activate'
+  >
+  readonly toolActions: ReturnType<typeof import('./session-tool-actions').useSessionToolActions>
+}
