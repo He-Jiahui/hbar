@@ -1,6 +1,6 @@
 # Lumen composition package
 
-Private workspace package for the Lumen design language. Import
+Independent source and distribution package for the Lumen design language. Import
 `LumenSurface`, `LumenIndicator`, `LumenField`, `LumenSlider`, the application
 primitives, and `createLumenTheme` from `@lumen/app-ui`;
 import `@lumen/app-ui/styles.css` once in the host application. Material UI
@@ -55,8 +55,7 @@ without persisting any preference itself. It installs the MUI theme and an
 optional transparent `CssBaseline`, leaving the window or browser host in
 control of the actual app background.
 
-The [package design contract](./DESIGN.md) and project skill at
-`.agents/skills/lumen-design-language/SKILL.md` describe a quiet reading language
+The [package design contract](./DESIGN.md) describes a quiet reading language
 with MUI contained, outlined and text variants. Glow follows the control contour;
 blue breathing represents active work. Surface roles are independent of glass,
 frost and solid materials. Existing calls without a role keep their appearance.
@@ -160,6 +159,12 @@ transitions and loops. Forced colors use system focus and contour colors.
 Core consumers can use public `appearance`, `provider`, `primitives`, `forms`,
 `range`, and `toggle-button` subpaths. Their source and packed ESM/type exports
 match, so using core controls does not require importing the catalog barrel.
+
+Virtual conversation rows preserve the horizontal reading positions of unchanged
+nested tables and code blocks when rows leave and re-enter the rendered window.
+Memory is scoped to the conversation component and message identity, holds at
+most 128 rows, and clears when the component unmounts. Changes to one nested
+block invalidate that block's saved position without moving unchanged neighbors.
 
 `LumenAgentApproval03` renders a host-controlled, ordered approval queue.
 Supply `labels.waiting(count)`, `hideRequest`, per-request `requestText`, typed
