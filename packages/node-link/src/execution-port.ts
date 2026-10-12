@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { Workspace } from '@hbar/contracts'
+import type { WorkspaceExecutionScope } from '@hbar/plugin-sdk'
 import type {
   NodeCallAuthority,
   NodeWorkspaceLocation,
@@ -16,12 +16,7 @@ export interface NodeExecutionPort {
     signal?: AbortSignal,
   ): Promise<z.output<(typeof nodeWorkspaceMethods)[Method]['output']>>
 }
-export interface NodeExecutionScope {
-  readonly workspace: Pick<Workspace, 'path' | 'location'>
-  /** Omitted only while the Host prepares owner-path metadata before admission. */
-  readonly authority?: NodeCallAuthority
-  readonly signal: AbortSignal
-}
+export type NodeExecutionScope = WorkspaceExecutionScope
 export interface NodeExecutionTarget {
   readonly location: NodeWorkspaceLocation
   readonly authority: NodeCallAuthority

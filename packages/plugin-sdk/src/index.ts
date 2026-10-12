@@ -133,6 +133,13 @@ export interface ToolContext {
   /** Host-owned identities, pinned sandbox and completed admission for workspace routing. */
   nodeAuthority?: NodeCallAuthority
 }
+/** Host-owned workspace identity and cancellation scope for resolving execution-owner paths. */
+export interface WorkspaceExecutionScope {
+  readonly workspace: Pick<Workspace, 'path' | 'location'>
+  /** Absent only before the Host completes tool admission; execution effects require it. */
+  readonly authority?: NodeCallAuthority
+  readonly signal: AbortSignal
+}
 export interface ToolSequenceCall {
   name: string
   arguments: Record<string, unknown>
