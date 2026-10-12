@@ -6,6 +6,7 @@ import type { z } from 'zod'
 import type { providerContextFieldSchema } from '@hbar/contracts/commands/configuration'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { HbarProviderContextNumber } from './provider-context-number'
+import { createMessageScope } from './messages'
 
 type Field = z.output<typeof providerContextFieldSchema>
 export interface HbarProviderContextRulesLabels {
@@ -20,6 +21,8 @@ export interface HbarProviderContextRulesLabels {
   readonly invalid: (code: string) => string
   readonly required: string
 }
+export type HbarProviderContextRulesMessages = HbarProviderContextRulesLabels
+export const HbarProviderContextRulesMessageScope = createMessageScope<HbarProviderContextRulesMessages>()
 export type HbarProviderContextIntent =
   | { readonly kind: 'add-context-tier'; readonly modelId: string }
   | { readonly kind: 'remove-context-tier'; readonly modelId: string; readonly tierId: string }
@@ -43,6 +46,23 @@ export function HbarProviderContextRules({
   readonly disabled: boolean
   readonly onIntent: (intent: HbarProviderContextIntent) => void
 }) {
+  return (
+    <HbarProviderContextRulesMessageScope.Provider messages={labels}>
+      <HbarProviderContextRulesView editor={editor} disabled={disabled} onIntent={onIntent} />
+    </HbarProviderContextRulesMessageScope.Provider>
+  )
+}
+
+export function HbarProviderContextRulesView({
+  editor,
+  disabled,
+  onIntent,
+}: {
+  readonly editor: ProviderEditorState
+  readonly disabled: boolean
+  readonly onIntent: (intent: HbarProviderContextIntent) => void
+}) {
+  const { t } = HbarProviderContextRulesMessageScope.useMessages()
   const prefix = useId()
   const [expanded, setExpanded] = useState(false)
   const description = editor.description.contextPricing
@@ -85,10 +105,10 @@ export function HbarProviderContextRules({
           <LumenFormField
             key={field.name}
             controlId={id}
-            label={labels.field(field.labelKey)}
+            label={t('field')(field.labelKey)}
             required={field.required}
-            requiredIndicator={labels.required}
-            {...(issue ? { error: labels.invalid(issue.code) } : {})}
+            requiredIndicator={t('required')}
+            {...(issue ? { error: t('invalid')(issue.code) } : {})}
           >
             <HbarProviderContextNumber
               id={id}
@@ -116,32 +136,32 @@ export function HbarProviderContextRules({
   }
   return (
     <HbarLumenDisclosure
-      label={labels.title}
+      label={t('title')}
       className="hbar-provider-context-rules"
       open={expanded || issues.length > 0}
       onOpenChange={setExpanded}
     >
       <LumenContentText context="section.description" className="hbar-provider-context-description">
-        {labels.description}
+        {t('description')}
       </LumenContentText>
-      <LumenContentText context="section.title">{labels.standard}</LumenContentText>
+      <LumenContentText context="section.title">{t('standard')}</LumenContentText>
       <LumenFrame className="hbar-provider-context-fields">{fields(description.fields)}</LumenFrame>
       {tiers.length === 0 && (
         <LumenContentText context="section.description" className="hbar-provider-context-description">
-          {labels.empty}
+          {t('empty')}
         </LumenContentText>
       )}
       {tiers.map((tier, index) => (
         <LumenFrame key={tier.id} as="section" className="hbar-provider-context-tier">
           <LumenFrame as="header" className="hbar-provider-context-tier-heading">
-            <LumenContentText context="section.title">{labels.tier(index + 1, tier.contextWindow)}</LumenContentText>
+            <LumenContentText context="section.title">{t('tier')(index + 1, tier.contextWindow)}</LumenContentText>
             <LumenButton
               type="button"
               variant="text"
               indicator="none"
               size="s"
               disabled={disabled}
-              aria-label={labels.remove(index + 1)}
+              aria-label={t('remove')(index + 1)}
               onClick={() => onIntent({ kind: 'remove-context-tier', modelId: model.id, tierId: tier.id })}
             >
               <LumenIcon icon={Trash2} tier="sm" />
@@ -152,7 +172,7 @@ export function HbarProviderContextRules({
       ))}
       {issues.some((issue) => /\.contextTiers(?:\.\d+)?$/.test(issue.path)) && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.invalid('custom')}
+          {t('invalid')('custom')}
         </LumenContentText>
       )}
       <LumenButton
@@ -166,7 +186,7 @@ export function HbarProviderContextRules({
         onClick={() => onIntent({ kind: 'add-context-tier', modelId: model.id })}
       >
         <LumenIcon icon={Plus} tier="sm" />
-        {labels.add}
+        {t('add')}
       </LumenButton>
     </HbarLumenDisclosure>
   )

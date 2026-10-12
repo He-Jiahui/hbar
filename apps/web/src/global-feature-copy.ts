@@ -22,7 +22,7 @@ export interface GlobalFeatureCopy {
 export function globalFeatureCopy(locale: ShellLocale): GlobalFeatureCopy {
   const zh = locale === 'zh-CN'
   return {
-    navigation: zh ? '更多页面' : 'More pages',
+    navigation: zh ? '更多' : 'More',
     titles: {
       'run-board': zh ? '运行看板' : 'Run board',
       schedules: zh ? '排期' : 'Schedules',

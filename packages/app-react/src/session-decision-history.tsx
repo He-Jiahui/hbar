@@ -3,6 +3,7 @@ import { LumenContentText, LumenFrame, LumenButton } from '@lumen/app-ui'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import type { SessionDecision } from '@hbar/app-runtime'
 import './session-decision-history.css'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionDecisionHistoryLabels {
   readonly title: string
@@ -15,17 +16,19 @@ export interface HbarSessionDecisionHistoryProps {
   readonly labels: HbarSessionDecisionHistoryLabels
   readonly renderDecision: (decision: SessionDecision) => ReactNode
 }
+const { Provider: DecisionHistoryMessagesProvider, useMessages: useDecisionHistoryMessages } =
+  createMessageScope<HbarSessionDecisionHistoryLabels>()
 
-/** Collapsed by default so settled decisions remain available without flooding the activity area. */
-export function HbarSessionDecisionHistory({ decisions, labels, renderDecision }: HbarSessionDecisionHistoryProps) {
+function DecisionHistoryContent({ decisions, renderDecision }: Omit<HbarSessionDecisionHistoryProps, 'labels'>) {
+  const { t } = useDecisionHistoryMessages()
   const pageSize = 10
   const [visibleCount, setVisibleCount] = useState(pageSize)
   if (decisions.length === 0) return null
   const visible = decisions.slice(0, visibleCount)
   return (
-    <HbarLumenDisclosure className="hbar-session-decision-history-disclosure" label={labels.title}>
+    <HbarLumenDisclosure className="hbar-session-decision-history-disclosure" label={t('title')}>
       <LumenFrame className="hbar-session-decision-history" data-visible-count={visible.length}>
-        <LumenContentText context="section.description">{labels.count(decisions.length)}</LumenContentText>
+        <LumenContentText context="section.description">{t('count')(decisions.length)}</LumenContentText>
         {visible.map((decision) => (
           <Fragment key={`${decision.kind}:${decision.id}`}>{renderDecision(decision)}</Fragment>
         ))}
@@ -36,10 +39,19 @@ export function HbarSessionDecisionHistory({ decisions, labels, renderDecision }
             size="s"
             onClick={() => setVisibleCount((count) => count + pageSize)}
           >
-            {labels.loadMore}
+            {t('loadMore')}
           </LumenButton>
         ) : null}
       </LumenFrame>
     </HbarLumenDisclosure>
+  )
+}
+
+/** Collapsed by default so settled decisions remain available without flooding the activity area. */
+export function HbarSessionDecisionHistory({ decisions, labels, renderDecision }: HbarSessionDecisionHistoryProps) {
+  return (
+    <DecisionHistoryMessagesProvider messages={labels}>
+      <DecisionHistoryContent decisions={decisions} renderDecision={renderDecision} />
+    </DecisionHistoryMessagesProvider>
   )
 }

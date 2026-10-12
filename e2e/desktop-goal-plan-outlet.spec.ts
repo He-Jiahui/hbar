@@ -20,6 +20,11 @@ for (const theme of ['dark', 'light'] as const) {
     page.on('console', onConsoleError)
     try {
       await page.setViewportSize({ width: 1440, height: 760 })
+      // The runtime creates request IDs with Web Crypto; use a trusted fixture
+      // origin instead of the opaque about:blank document.
+      const fixtureUrl = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/desktop-goal-plan-fixture`
+      await page.route(fixtureUrl, (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }))
+      await page.goto(fixtureUrl)
       await mountLumenFixture(page, 'tests/fixtures/desktop-goal-plan-outlet-browser.tsx', {
         theme,
         locale: 'zh-CN',

@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# Retired MUI fork checkouts are outside the maintained workspace.
+/hbar-ui/
 .pnpm-store/
 
 # Build output
@@ -13,6 +15,7 @@ packages/runtime-native/native/*.node
 # Local runtime data and generated reports
 .hbar/
 .dev/
+.hbar-worktrees/
 artifacts/
 coverage/
 test-results/

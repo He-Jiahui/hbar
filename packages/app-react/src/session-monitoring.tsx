@@ -7,13 +7,14 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { HbarSessionRunHistory, type HbarSessionRunHistoryLabels } from './session-run-history'
 import { HbarSessionRequestDetails, type HbarSessionRequestLabels } from './session-request-details'
-import { HbarSessionMonitoringUsage, type HbarSessionMonitoringUsageLabels } from './session-monitoring-usage'
+import { sessionMonitoringUsageMessages, SessionMonitoringUsageView, type HbarSessionMonitoringUsageLabels } from './session-monitoring-usage'
 import { HbarGoalExecutionState, type HbarGoalExecutionLabels } from './goal-execution-state'
 import { HbarSessionDecisionHistory, type HbarSessionDecisionHistoryLabels } from './session-decision-history'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { monitoringDecisions } from './session-monitoring-decisions'
 import './session-monitoring.css'
 import { HbarSessionObservability, type HbarSessionObservabilityLabels } from './session-observability'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionMonitoringLabels extends HbarSessionMonitoringUsageLabels {
   readonly observability: HbarSessionObservabilityLabels
@@ -36,18 +37,19 @@ export interface HbarSessionMonitoringLabels extends HbarSessionMonitoringUsageL
   readonly gap: string
 }
 
+const sessionMonitoringMessages = createMessageScope<HbarSessionMonitoringLabels>()
+
 /** One captured session owns execution, goal, request and usage details; the pane owns their scrolling. */
-export function HbarSessionMonitoring({
-  labels,
+function SessionMonitoringView({
   instanceId: requestedInstanceId,
   targetLabel,
   connected = false,
 }: {
-  readonly labels: HbarSessionMonitoringLabels
   readonly instanceId?: string
   readonly targetLabel?: string | undefined
   readonly connected?: boolean
 }) {
+  const { t } = sessionMonitoringMessages.useMessages()
   const runtime = useHbarRuntime()
   const controls = useHbarRuntimeState(runtime.state.controls)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
@@ -68,7 +70,7 @@ export function HbarSessionMonitoring({
   const selected = view?.sessionId === sessionId ? view.selected : 'overview'
   const tabs = (['overview', 'requests', 'messages'] as const).map((id) => ({
     id,
-    label: labels.tabs[id],
+    label: t('tabs')[id],
     tabId: `${namespace}-${id}-tab`,
     panelId: `${namespace}-${id}-panel`,
   }))
@@ -112,17 +114,17 @@ export function HbarSessionMonitoring({
   const readOnly = () => {}
   return (
     <LumenToolPane
-      title={labels.title}
+      title={t('title')}
       targetLabel={targetLabel}
-      description={labels.description}
+      description={t('description')}
       icon={ChartNoAxesColumnIncreasing}
-      closeLabel={labels.close}
+      closeLabel={t('close')}
       onClose={close}
       className="hbar-app-react-session-monitoring"
     >
       <LumenFrame as="main" key={sessionId} className="hbar-monitoring-content">
         <LumenTabs
-          label={labels.title}
+          label={t('title')}
           items={tabs}
           selectedId={selected}
           onChange={(id) => {
@@ -142,11 +144,11 @@ export function HbarSessionMonitoring({
           hidden={selected !== 'overview'}
           className="hbar-monitoring-overview"
         >
-          <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={labels.history} />
+          <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={t('history')} />
           {connected && facts?.status === 'error' && (
             <LumenFrame className="hbar-monitoring-context-recovery">
               <LumenContentText context="feedback.message" role="alert">
-                {labels.goal.error(facts.error ?? 'EXECUTION_FAILED')}
+                {t('goal').error(facts.error ?? 'EXECUTION_FAILED')}
               </LumenContentText>
               <LumenButton
                 size="s"
@@ -157,7 +159,7 @@ export function HbarSessionMonitoring({
                   if (sessionId) void runtime.commands.execute('composerIntent.refresh', { sessionId }).catch(() => {})
                 }}
               >
-                {labels.goal.refresh}
+                {t('goal').refresh}
               </LumenButton>
             </LumenFrame>
           )}
@@ -166,9 +168,9 @@ export function HbarSessionMonitoring({
               className="hbar-monitoring-goal"
               label={
                 <LumenFrame as="span" className="hbar-monitoring-section-heading">
-                  <LumenContentText context="control.label">{labels.goal.title}</LumenContentText>
+                  <LumenContentText context="control.label">{t('goal').title}</LumenContentText>
                   <LumenContentText context="control.label" tone="muted">
-                    {labels.goal.status(goal.status)}
+                    {t('goal').status(goal.status)}
                   </LumenContentText>
                 </LumenFrame>
               }
@@ -179,13 +181,13 @@ export function HbarSessionMonitoring({
               <HbarGoalExecutionState
                 goal={goal}
                 remainingTokens={snapshot?.remainingTokens ?? null}
-                labels={labels.goal.execution}
+                labels={t('goal').execution}
               />
             </HbarLumenDisclosure>
           )}
           {report?.gap && !runtime.state.sessionObservability.available && (
             <LumenContentText context="feedback.message" className="hbar-app-react-monitoring-gap" role="status">
-              {labels.gap}
+              {t('gap')}
             </LumenContentText>
           )}
           {sessionId && runtime.state.sessionObservability.available ? (
@@ -193,24 +195,24 @@ export function HbarSessionMonitoring({
               sessionId={sessionId}
               connected={connected}
               active={selected === 'overview'}
-              labels={labels.observability}
+              labels={t('observability')}
             />
           ) : report ? (
-            <HbarSessionMonitoringUsage key={`usage:${sessionId}`} report={report} labels={labels} />
+            <SessionMonitoringUsageView key={`usage:${sessionId}`} report={report} />
           ) : (
             <LumenContentText context="section.description" className="hbar-app-react-monitoring-empty">
-              {labels.empty}
+              {t('empty')}
             </LumenContentText>
           )}
           <HbarSessionDecisionHistory
             key={`decisions:${sessionId}`}
             decisions={settled}
-            labels={labels.decisionHistory}
+            labels={t('decisionHistory')}
             renderDecision={(decision) => (
               <HbarSessionDecision
                 copyOwner={runtime}
                 decision={decision}
-                labels={labels.decisions}
+                labels={t('decisions')}
                 connected={false}
                 onDecision={readOnly}
                 onPlanExit={readOnly}
@@ -234,15 +236,33 @@ export function HbarSessionMonitoring({
               <HbarSessionRequestDetails
                 sessionId={sessionId}
                 connected={connected}
-                labels={labels.requests}
+                labels={t('requests')}
                 view={id}
               />
             ) : !sessionId ? (
-              <LumenContentText context="feedback.detail">{labels.empty}</LumenContentText>
+              <LumenContentText context="feedback.detail">{t('empty')}</LumenContentText>
             ) : null}
           </LumenFrame>
         ))}
       </LumenFrame>
     </LumenToolPane>
+  )
+}
+
+export function HbarSessionMonitoring({
+  labels,
+  ...props
+}: {
+  readonly labels: HbarSessionMonitoringLabels
+  readonly instanceId?: string
+  readonly targetLabel?: string | undefined
+  readonly connected?: boolean
+}) {
+  return (
+    <sessionMonitoringMessages.Provider messages={labels}>
+      <sessionMonitoringUsageMessages.Provider messages={labels}>
+        <SessionMonitoringView {...props} />
+      </sessionMonitoringUsageMessages.Provider>
+    </sessionMonitoringMessages.Provider>
   )
 }

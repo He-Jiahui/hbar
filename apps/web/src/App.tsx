@@ -1,3 +1,4 @@
+import { SessionPanel, isSessionPanelSection } from './SessionPanel'
 import {
   Suspense,
   useCallback,
@@ -13,6 +14,8 @@ import {
   HbarCommandPalette,
   HbarChatSearchView,
   HbarRuntimeProvider,
+  HbarComposerFeedbackRegistryProvider,
+  WORKSPACE_VIEWPORT_MEDIA,
   HbarSessionLaunchLocation,
   HbarSessionWorkspace,
   HbarWorkspaceShell,
@@ -195,8 +198,8 @@ const ProviderSettings = lazySurface<ComponentProps<typeof import('@hbar/app-rea
 const ProviderDialog = lazySurface<ComponentProps<typeof import('@hbar/app-react/providers').HbarProviderDialog>>(() =>
   import('@hbar/app-react/providers').then((m) => ({ default: m.HbarProviderDialog })),
 )
-const StatusWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/status').HbarStatusWorkspace>>(() =>
-  import('@hbar/app-react/status').then((m) => ({ default: m.HbarStatusWorkspace })),
+const StatusWorkspace = lazySurface<ComponentProps<typeof import('./StatusCenter').StatusCenter>>(() =>
+  import('./StatusCenter').then((m) => ({ default: m.StatusCenter })),
 )
 const UsageFeatures = lazySurface<ComponentProps<typeof import('./StatusUsageFeatures').StatusUsageFeatures>>(() =>
   import('./StatusUsageFeatures').then((m) => ({ default: m.StatusUsageFeatures })),
@@ -805,6 +808,8 @@ function WorkspaceBodyContent({
   if (presentation.page.kind === 'status') {
     return (
       <StatusWorkspace
+        locale={locale}
+        connected={connected}
         labels={copy.status}
         instanceId={presentation.page.instanceId}
         usageDetails={<UsageFeatures locale={locale} instanceId={presentation.page.instanceId} />}
@@ -834,7 +839,6 @@ function WorkspaceBodyContent({
           { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
           { id: 'skills', label: copy.settings.resolve('i18n:settings.groups.skills'), order: 39 },
           { id: 'usage', label: copy.settingsUsage.title, order: 85 },
-          { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
         ]}
         renderGroup={(groupId, context) => {
           if (groupId === 'chatDatabase' && context.scope && context.instanceId)
@@ -1167,8 +1171,10 @@ function WorkspaceTool({
         }
       />
     )
-  if (panel.panelId === 'monitoring')
-    return (
+  if (isSessionPanelSection(panel.panelId)) {
+    const content = (() => {
+    if (panel.panelId === 'monitoring')
+      return (
       <SessionMonitoring
         labels={copy.monitoring}
         instanceId={instanceId}
@@ -1176,8 +1182,8 @@ function WorkspaceTool({
         connected={connected}
       />
     )
-  if (panel.panelId === 'activity')
-    return (
+    if (panel.panelId === 'activity')
+      return (
       <SessionActivityWorkspace
         labels={copy.activity}
         connected={connected}
@@ -1185,14 +1191,18 @@ function WorkspaceTool({
         targetLabel={targetLabel}
       />
     )
-  if (panel.panelId === 'agents')
-    return (
+    if (panel.panelId === 'agents')
+      return (
       <AgentWorkspace labels={copy.agents} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
     )
-  if (panel.panelId === 'goals')
-    return (
+    if (panel.panelId === 'goals')
+      return (
       <GoalPlanWorkspace labels={copy.goals} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
     )
+    return null
+    })()
+    return <SessionPanel panel={panel} labels={copy.session.tools}>{content}</SessionPanel>
+  }
 
   return null
 }
@@ -1635,9 +1645,9 @@ export default function App({
   const [systemPrefersReducedMotion, setSystemPrefersReducedMotion] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
-  const [desktopViewport, setDesktopViewport] = useState(() => window.matchMedia('(min-width: 768px)').matches)
+  const [desktopViewport, setDesktopViewport] = useState(() => window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.wide).matches)
   useEffect(() => {
-    const media = window.matchMedia('(min-width: 768px)')
+    const media = window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.wide)
     const update = (event: MediaQueryListEvent | MediaQueryList) => setDesktopViewport(event.matches)
     update(media)
     media.addEventListener('change', update)
@@ -1868,7 +1878,7 @@ export default function App({
     ],
   )
   const openFeaturePanel = (
-    panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding',
+    panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding' | 'status' | 'commands',
   ) => {
     const current = runtime.view.state.navigation.getSnapshot()
     void runtime.view.commands
@@ -1883,7 +1893,7 @@ export default function App({
         if (
           currentPage.kind !== 'session' &&
           currentPage.instanceId === opened.instanceId &&
-          window.matchMedia('(max-width: 63.9375rem)').matches
+          window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches
         )
           return runtime.view.commands.execute('app.setSidebarVisible', { visible: false })
         return undefined
@@ -2014,6 +2024,7 @@ export default function App({
           />
         )}
       >
+        <HbarComposerFeedbackRegistryProvider>
         <ResourceBrowserLayer controller={resourceBrowser}>
         <HbarMessageResourceLayer model={messageResources} labels={resourceCopy(locale)}>
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
@@ -2065,14 +2076,17 @@ export default function App({
               onOpen={() => openFeaturePanel('notifications')}
             />
           }
-          featureNavigation={
-            <GlobalFeatureNavigation
-              locale={locale}
-              connected={connection === 'connected'}
-              hasWorkspace={Boolean(activeNavigation.workspaceId)}
-              onOpen={openFeaturePanel}
-            />
-          }
+          featureNavigation={(compact) => (
+                <GlobalFeatureNavigation
+                  compact={compact}
+                  locale={locale}
+                  connected={connection === 'connected'}
+                  hasWorkspace={Boolean(activeNavigation.workspaceId)}
+                  onOpen={openFeaturePanel}
+                  onStatus={() => openFeaturePanel('status')}
+                  onCommands={() => openFeaturePanel('commands')}
+                />
+              )}
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
           desktopToolPresentation={desktopLayoutModel.layout.children?.some((node) => node.id === 'session-tool') ? 'split' : 'drawer'}
           toolWidthRem={toolLayout.size.preferredRem}
@@ -2188,6 +2202,7 @@ export default function App({
         </HbarWorkspaceShell>
         </HbarMessageResourceLayer>
         </ResourceBrowserLayer>
+        </HbarComposerFeedbackRegistryProvider>
       </HbarRuntimeProvider>
     </LumenProvider>
   )

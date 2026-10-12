@@ -308,6 +308,12 @@ export async function startWebSessionHost(
   }>,
 ): Promise<WebSessionHost> {
   const port = resolveWebSessionHostPort(options.port)
+  const startupTimeout = z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(120_000)
+    .parse(process.env.HBAR_E2E_HOST_STARTUP_TIMEOUT_MS ?? (options.fixture === 'runtime-status' ? 120_000 : 20_000))
   const child = spawn(
     bunExecutable(),
     [
@@ -317,7 +323,7 @@ export async function startWebSessionHost(
           ? 'scripts/e2e-chat-database-host.ts'
           : options.fixture === 'file-changes'
             ? 'scripts/e2e-run-file-changes-host.ts'
-          : 'scripts/e2e-session-host.ts',
+            : 'scripts/e2e-session-host.ts',
     ],
     {
       cwd: options.sourceRoot ?? process.cwd(),
@@ -342,7 +348,7 @@ export async function startWebSessionHost(
   const diagnostics = createWebSessionHostLifecycleDiagnostics(child)
   let ready: WebSessionHostReady
   try {
-    ready = await waitForWebSessionHostReady(child, options.fixture === 'runtime-status' ? 120_000 : 20_000)
+    ready = await waitForWebSessionHostReady(child, startupTimeout)
     diagnostics.mark('ready')
   } catch (error) {
     diagnostics.mark('startup_failed')

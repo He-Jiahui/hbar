@@ -1,12 +1,12 @@
 /* The project tree owns vertical scrolling; each flex row yields to the pane. */
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   overflow-x: hidden;
   text-align: start;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item,
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.item"],
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.group"],
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-agent-branch,
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-list {
   min-inline-size: 0;
@@ -14,12 +14,12 @@
   align-items: stretch;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item > .lumen-tree-row {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.item"] > [data-lumen-part~="tree.row"] {
   box-sizing: border-box;
   min-inline-size: 0;
   max-inline-size: 100%;
   justify-content: flex-start;
-  padding: 0.25em 0.5em;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   overflow: hidden;
   border-radius: var(--lumen-radius-control);
   color: var(--lumen-muted);
@@ -29,44 +29,44 @@
     color var(--lumen-state-duration) var(--lumen-state-easing);
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item > .lumen-tree-row:hover {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.item"] > [data-lumen-part~="tree.row"]:hover {
   background: color-mix(in srgb, var(--lumen-ink) 5%, transparent);
   color: var(--lumen-ink);
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item[aria-selected='true'] > .lumen-tree-row {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.item"][aria-selected='true'] > [data-lumen-part~="tree.row"] {
   background: color-mix(in srgb, var(--lumen-ink) 9%, transparent);
   color: var(--lumen-ink);
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.group"] {
   border-inline-start: 0;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group:not([data-flat-depth='true']) {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.group"]:not([data-flat-depth='true']) {
   margin-inline-start: 0;
-  padding-inline-start: calc(var(--hbar-app-ui-icon-md) + 0.5rem);
+  padding-inline-start: calc(var(--lumen-icon-md) + var(--lumen-space-8));
 }
 
 /* Root project children share the full row surface; disclosure slots supply the text indent. */
 .hbar-app-react-sidebar-surface
   .hbar-app-react-project-tree
-  .lumen-tree-item[data-sidebar-level='project']
-  > .lumen-tree-group {
+  [data-lumen-part~="tree.item"][data-sidebar-level='project']
+  > [data-lumen-part~="tree.group"] {
   padding-inline-start: 0;
 }
 
 .hbar-app-react-sidebar-surface
   .hbar-app-react-project-tree
-  .lumen-tree-item[data-sidebar-level='project']
-  > .lumen-tree-row
-  > .lumen-tree-disclosure {
+  [data-lumen-part~="tree.item"][data-sidebar-level='project']
+  > [data-lumen-part~="tree.row"]
+  > [data-lumen-part~="tree.disclosure"] {
   display: none;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-icon[data-tier='md'] {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="icon"][data-tier='md'] {
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-workspace-row,
@@ -82,24 +82,24 @@
 .hbar-app-react-sidebar-surface
   .hbar-app-react-project-tree:not([aria-multiselectable='true'])
   .hbar-app-react-session-target
-  > .lumen-icon {
+  > [data-lumen-part~="icon"] {
   display: none;
 }
 
 /* Inline actions and status keep their own space when the caption is clipped. */
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-action-menu-trigger {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="menu.trigger"] {
   box-sizing: border-box;
   padding: 0;
   border: 0.0625rem solid transparent;
   border-radius: var(--lumen-radius-control);
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-action-menu-trigger:focus-visible {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="menu.trigger"]:focus-visible {
   outline: 0.125rem solid var(--lumen-info);
   outline-offset: -0.125rem;
 }
 
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-row > .lumen-action-menu,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-row > [data-lumen-part~="menu.root"],
 .hbar-app-react-sidebar-surface
   .hbar-app-react-project-tree
   .hbar-app-react-workspace-line
@@ -108,7 +108,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item > .lumen-tree-row {
+  .hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.item"] > [data-lumen-part~="tree.row"] {
     transition: none;
   }
 }
@@ -116,16 +116,16 @@
 [data-lumen-motion='off']
   .hbar-app-react-sidebar-surface
   .hbar-app-react-project-tree
-  .lumen-tree-item
-  > .lumen-tree-row {
+  [data-lumen-part~="tree.item"]
+  > [data-lumen-part~="tree.row"] {
   transition: none;
 }
 
 @media (forced-colors: active) {
   .hbar-app-react-sidebar-surface
     .hbar-app-react-project-tree
-    .lumen-tree-item[aria-selected='true']
-    > .lumen-tree-row {
+    [data-lumen-part~="tree.item"][aria-selected='true']
+    > [data-lumen-part~="tree.row"] {
     outline: 0.125rem solid Highlight;
     outline-offset: -0.125rem;
   }

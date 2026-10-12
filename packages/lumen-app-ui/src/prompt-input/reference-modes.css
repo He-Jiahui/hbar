@@ -1,0 +1,58 @@
+.lumen-prompt-reference-modes {
+  gap: var(--lumen-space-12);
+}
+.lumen-prompt-mode-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-2);
+  min-inline-size: 0;
+  padding: var(--lumen-space-2);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+}
+.lumen-prompt-mode-tabs > button {
+  border-color: transparent;
+  padding-inline: var(--lumen-space-8);
+}
+.lumen-prompt-mode-tabs > button[aria-selected='true'] {
+  border-color: var(--lumen-edge);
+  background: var(--lumen-contrast);
+}
+.lumen-prompt-mode-description {
+  color: var(--lumen-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.lumen-prompt-mode-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-8) var(--lumen-space-16);
+  min-inline-size: 0;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-prompt-mode-hints > span {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  min-inline-size: 0;
+}
+.lumen-prompt-mode-hints kbd {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  color: var(--lumen-ink);
+  font: inherit;
+  white-space: nowrap;
+}
+@media (width < 40rem) {
+  .lumen-prompt-mode-tabs {
+    flex: 1 1 100%;
+  }
+  .lumen-prompt-mode-tabs > button {
+    flex: 1 1 0;
+  }
+}

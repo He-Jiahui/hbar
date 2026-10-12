@@ -174,11 +174,15 @@ for (const [locale, width] of [
       await expectComposerText(input, draft)
 
       await gate.offline()
-      await expect(viewport.getByText(copy.session.disconnected, { exact: true })).toBeVisible()
+      await expect(
+        page.locator('.hbar-composer-primary-notice').getByText(copy.session.disconnected, { exact: true }),
+      ).toBeVisible()
       await scrollToHistoryTop(page)
       expect(gate.reads).toHaveLength(3)
       gate.online()
-      await expect(viewport.getByText(copy.session.disconnected, { exact: true })).toHaveCount(0)
+      await expect(
+        page.locator('.hbar-composer-primary-notice').getByText(copy.session.disconnected, { exact: true }),
+      ).toHaveCount(0)
       await expect(list).toHaveAttribute('data-hbar-app-ui-message-count', '180')
 
       // Only the original Session owns a delayed older page.

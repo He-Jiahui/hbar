@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { getLumenVariantComponent } from '../hbar-ui/packages/lumen-app-ui/src/catalog'
+import { getLumenVariantComponent } from '../packages/lumen-app-ui/src/catalog'
 import type {
   LumenChatComposerFlow,
   LumenChatContent,
   LumenChatDirectReferenceFlow,
   LumenChatSocialReferenceFlow,
-} from '../hbar-ui/packages/lumen-app-ui/src/index'
+} from '@lumen/app-ui/catalog'
 import { createChatDirectReferenceFixture } from './fixtures/hbar-app-ui-chat-direct-reference-fixtures'
 import { createChatSocialReferenceFixture } from './fixtures/hbar-app-ui-chat-social-reference-fixtures'
 

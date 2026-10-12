@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenChat, type LumenChatComposerFlow, type LumenChatContent } from '@lumen/app-ui'
+import { LumenChat, type LumenChatComposerFlow, type LumenChatContent } from '@lumen/app-ui/catalog'
 import { createChatGroupReferenceFixture } from './fixtures/hbar-app-ui-chat-group-reference-fixtures'
 import { createChatSupportReferenceFixture } from './fixtures/hbar-app-ui-chat-support-reference-fixtures'
 

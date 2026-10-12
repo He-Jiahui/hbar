@@ -4,11 +4,21 @@ import {
   auditProductionCss,
   auditProductionDesignSystem,
   auditProductionTsx,
+  collectProductionAppSourceFiles,
 } from '../scripts/verify-design-system-boundaries'
 
 test('Desktop build, application composition and compatibility preview elements respect Lumen and declared renderers', async () => {
   expect(await auditProductionDesignSystem()).toEqual([])
 }, 30_000)
+
+test('production source coverage retains delayed business surfaces while excluding package unit fixtures', async () => {
+  const files = (await collectProductionAppSourceFiles()).map((file) => file.replaceAll('\\', '/'))
+  expect(files.some((file) => file.endsWith('/apps/web/src/schedules-page.tsx'))).toBe(true)
+  expect(files.some((file) => file.endsWith('/packages/app-react/src/message-markdown.tsx'))).toBe(true)
+  expect(files.some((file) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file))).toBe(false)
+  expect(files.some((file) => file.includes('/react-bits/reference/'))).toBe(false)
+  expect(files.some((file) => file.includes('/hbar-ui/'))).toBe(false)
+})
 
 test('design-system boundary guard rejects native visible elements, numeric sizes, and page-owned primitive visuals', () => {
   expect(

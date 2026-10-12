@@ -1,0 +1,301 @@
+/* Reference previews grow with their plan; product-host sizing stays unchanged. */
+.lumen-agent-plan-root-surface.lumen-agent-plan-preview-root {
+  inline-size: 100%;
+  block-size: auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-plan.lumen-agent-plan-preview {
+  block-size: auto;
+  flex: 0 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview > p[role='status'] {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-plan-preview :is(h2, h3, p, dt, dd) {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-plan-preview
+  :is(
+    .hbar-app-ui-agent-plan-checklist-heading,
+    .lumen-plan-tree-heading,
+    .lumen-plan-actual-heading,
+    .lumen-plan-board-heading,
+    .lumen-plan-summary-heading,
+    .lumen-plan-review > header,
+    .lumen-plan-review > footer
+  ) {
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.lumen-agent-plan-preview
+  :is(
+    .hbar-app-ui-agent-plan-checklist-heading h2,
+    .lumen-plan-tree-heading h2,
+    .lumen-plan-actual-heading h2,
+    .lumen-plan-board-heading h2,
+    .lumen-plan-summary-heading h2,
+    .lumen-plan-review > header h2
+  ) {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lumen-agent-plan-preview
+  :is(
+    .lumen-plan-tree-heading > span,
+    .lumen-plan-actual-heading > span,
+    .lumen-plan-board-heading > span,
+    .lumen-plan-summary-heading > span,
+    .lumen-plan-review > header > span
+  ) {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-agent-plan-preview
+  :is(
+    .hbar-app-ui-agent-plan-step-title,
+    .lumen-plan-tree-title,
+    .lumen-plan-review-title,
+    .lumen-plan-board-column h3 > span:first-child,
+    .lumen-plan-board-list-frame li > p:first-child,
+    .lumen-plan-summary-breakdown > li > span:nth-child(2)
+  ) {
+  min-inline-size: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lumen-agent-plan-preview
+  :is(
+    .hbar-app-ui-agent-plan-step-title,
+    .lumen-plan-tree-title,
+    .lumen-plan-review-title,
+    .lumen-plan-summary-breakdown > li > span:nth-child(2)
+  ) {
+  flex: 1 1 10rem;
+}
+
+.lumen-agent-plan-preview
+  :is(
+    .hbar-app-ui-agent-plan-checklist-status,
+    .lumen-plan-tree-count,
+    .lumen-plan-tree-status,
+    .lumen-plan-review-row-actions
+  ) {
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.lumen-agent-plan-preview .hbar-app-ui-agent-plan-checklist-pane,
+.lumen-agent-plan-preview .lumen-plan-tree-card,
+.lumen-agent-plan-preview .lumen-plan-actual-card,
+.lumen-agent-plan-preview .lumen-plan-board-frame,
+.lumen-agent-plan-preview .lumen-plan-summary-frame,
+.lumen-agent-plan-preview .hbar-app-ui-agent-plan-editable-content {
+  block-size: auto;
+  flex: 0 1 auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview
+  :is(
+    .hbar-app-ui-agent-plan-checklist-scroll-frame,
+    .lumen-plan-tree-scroll-frame,
+    .lumen-plan-actual-scroll-frame,
+    .lumen-plan-board-list-frame
+  ) {
+  block-size: auto;
+  flex: 0 1 auto;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview .hbar-app-ui-agent-plan-checklist-scroll-frame > ol,
+.lumen-agent-plan-preview .lumen-plan-tree-list,
+.lumen-agent-plan-preview .lumen-plan-actual-scroll,
+.lumen-agent-plan-preview .lumen-plan-board-list-frame ol {
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview
+  .hbar-app-ui-agent-plan-checklist-pane[data-hbar-app-ui-list-strategy='pane-scroll']
+  > .hbar-app-ui-agent-plan-checklist-scroll-frame,
+.lumen-agent-plan-preview
+  .lumen-plan-tree-card[data-hbar-app-ui-list-strategy='pane-scroll']
+  > .lumen-plan-tree-scroll-frame,
+.lumen-agent-plan-preview
+  .lumen-plan-actual-card[data-hbar-app-ui-list-strategy='pane-scroll']
+  > .lumen-plan-actual-scroll-frame {
+  max-block-size: min(70dvh, 48rem);
+  overflow: hidden;
+}
+
+.lumen-agent-plan-preview
+  .hbar-app-ui-agent-plan-checklist-pane[data-hbar-app-ui-list-strategy='pane-scroll']
+  > .hbar-app-ui-agent-plan-checklist-scroll-frame
+  > ol,
+.lumen-agent-plan-preview
+  .lumen-plan-tree-card[data-hbar-app-ui-list-strategy='pane-scroll']
+  > .lumen-plan-tree-scroll-frame
+  > .lumen-plan-tree-list,
+.lumen-agent-plan-preview
+  .lumen-plan-actual-card[data-hbar-app-ui-list-strategy='pane-scroll']
+  > .lumen-plan-actual-scroll-frame
+  > .lumen-plan-actual-scroll {
+  max-block-size: inherit;
+  overflow: auto;
+}
+
+.lumen-agent-plan-preview .hbar-app-ui-agent-plan-checklist-pane li > button,
+.lumen-agent-plan-preview .lumen-plan-tree-group,
+.lumen-agent-plan-preview .lumen-plan-tree-children > li,
+.lumen-agent-plan-preview .lumen-plan-review li {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-plan-preview .lumen-plan-tree-status {
+  flex: 0 1 5rem;
+  inline-size: auto;
+  text-align: start;
+}
+
+.lumen-agent-plan-preview .lumen-plan-actual-metrics {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-plan-preview .lumen-plan-actual-metrics > div {
+  flex: 1 1 8rem;
+}
+
+.lumen-agent-plan-preview .lumen-plan-actual-table thead th {
+  block-size: auto;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-agent-plan-preview .lumen-plan-actual-table tbody tr {
+  block-size: auto;
+}
+
+.lumen-agent-plan-preview .lumen-plan-actual-table tbody th {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lumen-agent-plan-preview .lumen-plan-board-columns {
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview .lumen-plan-board-column {
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview
+  .lumen-plan-board-frame[data-hbar-app-ui-list-strategy='pane-scroll']
+  > .lumen-plan-board-columns {
+  max-block-size: min(70dvh, 48rem);
+  overflow: auto;
+}
+
+.lumen-agent-plan-preview .lumen-plan-review,
+.lumen-agent-plan-preview .lumen-plan-review-card,
+.lumen-agent-plan-preview .lumen-plan-review-frame {
+  block-size: auto;
+  flex: 0 1 auto;
+  min-block-size: 0;
+}
+
+.lumen-agent-plan-preview .lumen-plan-review-frame {
+  max-block-size: min(70dvh, 48rem);
+}
+
+.lumen-agent-plan-preview .lumen-plan-review-scroll {
+  block-size: auto;
+  max-block-size: inherit;
+}
+
+.lumen-agent-plan-preview .lumen-plan-editor,
+.lumen-agent-plan-preview .lumen-plan-editor > main {
+  flex: 0 1 auto;
+  min-block-size: 0;
+}
+
+.lumen-agent-plan-preview .lumen-plan-editor > header,
+.lumen-agent-plan-preview .lumen-plan-editor > footer,
+.lumen-agent-plan-preview .lumen-plan-editor li {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-plan-preview .lumen-plan-card[data-list-strategy='content-grown'] {
+  max-block-size: none;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview .lumen-plan-card[data-list-strategy='pane-scroll'] {
+  max-block-size: min(70dvh, 48rem);
+  overflow: auto;
+}
+
+.lumen-agent-plan-preview .lumen-plan-summary-scroll {
+  block-size: auto;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.lumen-agent-plan-preview .lumen-plan-summary-scroll[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: min(70dvh, 48rem);
+  overflow: auto;
+}
+
+.lumen-agent-plan-preview .lumen-plan-summary-footer {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.lumen-agent-plan-preview .lumen-plan-summary-footer > p {
+  display: block;
+  flex: 1 1 12rem;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lumen-agent-plan-preview .lumen-plan-summary-footer > button {
+  flex: 0 1 auto;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-agent-plan-preview .lumen-plan-summary-breakdown > li {
+  flex-wrap: wrap;
+}

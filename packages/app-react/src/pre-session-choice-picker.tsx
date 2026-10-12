@@ -7,6 +7,8 @@ import {
   visiblePreSessionChoices,
 } from './pre-session-choice-model'
 import type { HbarPreSessionChoice } from './pre-session-choice-model'
+import { WORKSPACE_VIEWPORT_MEDIA } from './responsive-contract'
+import { createMessageScope } from './messages'
 import './pre-session-choice-picker.css'
 
 export { visiblePreSessionChoices } from './pre-session-choice-model'
@@ -44,12 +46,22 @@ export interface HbarPreSessionChoicePickerProps {
   readonly extra?: ReactNode | ((close: () => void) => ReactNode)
 }
 
+const PreSessionChoiceMessages = createMessageScope<HbarPreSessionChoiceLabels>()
+
 /** Host-supplied choices reveal in 60-row increments, with explicit remote pagination. */
 export const PRE_SESSION_CHOICE_PAGE_SIZE = 60
 
-export function HbarPreSessionChoicePicker({
+export function HbarPreSessionChoicePicker(props: HbarPreSessionChoicePickerProps) {
+  const { labels, ...viewProps } = props
+  return (
+    <PreSessionChoiceMessages.Provider messages={labels}>
+      <HbarPreSessionChoicePickerView {...viewProps} />
+    </PreSessionChoiceMessages.Provider>
+  )
+}
+
+function HbarPreSessionChoicePickerView({
   icon,
-  labels,
   items,
   selectedId,
   unavailableLabel,
@@ -62,7 +74,8 @@ export function HbarPreSessionChoicePicker({
   onMore,
   onChoose,
   extra,
-}: HbarPreSessionChoicePickerProps) {
+}: Omit<HbarPreSessionChoicePickerProps, 'labels'>) {
+  const { t } = PreSessionChoiceMessages.useMessages()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(PRE_SESSION_CHOICE_PAGE_SIZE)
@@ -109,7 +122,7 @@ export function HbarPreSessionChoicePicker({
     if (!view || !popup.current?.matches(':popover-open')) return
     const target = preSessionChoiceInitialFocus(
       menuPresentation,
-      view.matchMedia('(max-width: 40rem)').matches,
+      view.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrow).matches,
       view.matchMedia('(pointer: coarse)').matches,
     )
     if (target === 'close') popup.current.querySelector<HTMLButtonElement>('.hbar-pre-session-choice-close')?.focus()
@@ -260,8 +273,8 @@ export function HbarPreSessionChoicePicker({
           ref={search}
           type="search"
           variant="plain"
-          aria-label={labels.search}
-          placeholder={labels.search}
+          aria-label={t('search')}
+          placeholder={t('search')}
           value={query}
           onChange={(event) => {
             setQuery(event.currentTarget.value)
@@ -279,7 +292,7 @@ export function HbarPreSessionChoicePicker({
             size="s"
             variant="text"
             indicator="none"
-            aria-label={labels.clearSearch}
+            aria-label={t('clearSearch')}
             onClick={() => {
               setQuery('')
               setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
@@ -290,7 +303,7 @@ export function HbarPreSessionChoicePicker({
           </LumenButton>
         )}
       </LumenFrame>
-      <LumenFrame className="hbar-pre-session-choice-list" aria-label={labels.title}>
+      <LumenFrame className="hbar-pre-session-choice-list" aria-label={t('title')}>
         {sections.flatMap((section) =>
           section.label
             ? [
@@ -310,7 +323,7 @@ export function HbarPreSessionChoicePicker({
         )}
         {rows.length === 0 && (
           <LumenContentText context="popover.body">
-            {unique.length === 0 ? labels.empty : labels.noMatches}
+            {unique.length === 0 ? t('empty') : t('noMatches')}
           </LumenContentText>
         )}
         {(remaining > 0 || hasMore) && onMore && (
@@ -323,13 +336,13 @@ export function HbarPreSessionChoicePicker({
               else onMore()
             }}
           >
-            {labels.more(hasMore && remaining === 0 ? null : remaining)}
+            {t('more')(hasMore && remaining === 0 ? null : remaining)}
           </LumenButton>
         )}
       </LumenFrame>
       {error && (
         <LumenContentText context="feedback.detail" role="alert">
-          {labels.error(error)}
+          {t('error')(error)}
         </LumenContentText>
       )}
       {typeof extra === 'function' ? extra(close) : extra}
@@ -347,14 +360,14 @@ export function HbarPreSessionChoicePicker({
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={unavailableLabel ?? labels.trigger(selectedTriggerLabel)}
-        title={unavailableLabel ?? selectedTriggerLabel ?? labels.title}
+        aria-label={unavailableLabel ?? t('trigger')(selectedTriggerLabel)}
+        title={unavailableLabel ?? selectedTriggerLabel ?? t('title')}
         popoverTarget={placement === 'composer' ? popupId : undefined}
         onClick={placement === 'dialog' ? () => setOpen(true) : undefined}
       >
         {icon && <LumenIcon icon={icon} tier="sm" />}
         <LumenContentText context="control.label">
-          {unavailableLabel ?? selectedTriggerLabel ?? labels.title}
+          {unavailableLabel ?? selectedTriggerLabel ?? t('title')}
         </LumenContentText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
@@ -387,7 +400,7 @@ export function HbarPreSessionChoicePicker({
         >
           <LumenFrame className="hbar-pre-session-choice-heading">
             <LumenContentText context="popover.title" id={popupTitleId}>
-              {labels.title}
+              {t('title')}
             </LumenContentText>
             <LumenButton
               type="button"
@@ -395,7 +408,7 @@ export function HbarPreSessionChoicePicker({
               variant="text"
               indicator="none"
               className="hbar-pre-session-choice-close"
-              aria-label={labels.close}
+              aria-label={t('close')}
               onClick={close}
             >
               <LumenIcon icon={X} tier="sm" />
@@ -406,8 +419,8 @@ export function HbarPreSessionChoicePicker({
       ) : open ? (
         <LumenDialog
           open
-          title={labels.title}
-          closeLabel={labels.close}
+          title={t('title')}
+          closeLabel={t('close')}
           onClose={close}
           className="hbar-pre-session-choice-dialog"
           appearance="panel"

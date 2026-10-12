@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { LumenPromptReferenceViewModel } from '@lumen/app-ui'
+import type { LumenPromptReferenceViewModel } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant, HbarAppUiPromptInputProvider } from '../packages/hbar-app-ui/src/index'
 import { HbarAppUiPromptProvider } from '../packages/hbar-app-ui/src/catalog'
 import { createPrompt1ReferenceFixture } from './fixtures/hbar-app-ui-prompt-input-1-reference-fixture'

@@ -1,0 +1,221 @@
+.hbar-app-ui-billing-reference-plans-page {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.hbar-app-ui-billing-reference-plans-topbar,
+.hbar-app-ui-billing-reference-plans-topbar > div,
+.hbar-app-ui-billing-reference-plans-save-state,
+.hbar-app-ui-billing-reference-plans-save-copy,
+.hbar-app-ui-billing-reference-plans-save-actions,
+.hbar-app-ui-billing-reference-plans-card-header,
+.hbar-app-ui-billing-reference-plans-card-header > div,
+.hbar-app-ui-billing-reference-plans-price,
+.hbar-app-ui-billing-reference-plans-section,
+.hbar-app-ui-billing-reference-plans-features,
+.hbar-app-ui-billing-reference-plans-features li,
+.hbar-app-ui-billing-reference-plans-feature-name,
+.hbar-app-ui-billing-reference-plans-toggle-panel,
+.hbar-app-ui-billing-reference-plans-toggle-row {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-billing-reference-plans-topbar {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hbar-app-ui-billing-reference-plans-topbar > div {
+  flex: 1 1 15rem;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+
+.hbar-app-ui-billing-reference-plans-topbar h1 {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.hbar-app-ui-billing-reference-plans-topbar p,
+.hbar-app-ui-billing-reference-plans-card-header small,
+.hbar-app-ui-billing-reference-plans-price small,
+.hbar-app-ui-billing-reference-plans-kicker,
+.hbar-app-ui-billing-reference-plans-feature-value,
+.hbar-app-ui-billing-reference-plans-error {
+  color: var(--lumen-billing-subtle);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.hbar-app-ui-billing-reference-plans-save-state {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hbar-app-ui-billing-reference-plans-save-copy {
+  flex: 1 1 20rem;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+
+.hbar-app-ui-billing-reference-plans-save-copy p {
+  color: var(--lumen-billing-subtle);
+  font-size: 0.8125rem;
+}
+
+.hbar-app-ui-billing-reference-plans-save-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.hbar-app-ui-billing-reference-plans-error {
+  color: var(--lumen-billing-danger);
+}
+
+.hbar-app-ui-billing-reference-plans-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 1rem;
+}
+
+.hbar-app-ui-billing-reference-plans-list[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  min-block-size: 0;
+  max-block-size: min(65vh, 48rem);
+  overflow: auto;
+  align-content: flex-start;
+}
+
+.hbar-app-ui-billing-reference-plans-column {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 18rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.hbar-app-ui-billing-reference-plans-card {
+  flex: 1 1 auto;
+  gap: 1rem;
+}
+
+.hbar-app-ui-billing-reference-plans-card-header {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hbar-app-ui-billing-reference-plans-card-header > div {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.hbar-app-ui-billing-reference-plans-card h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-billing-reference-plans-card-header small {
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-billing-reference-plans-price {
+  align-items: baseline;
+  gap: 0.375rem;
+}
+
+.hbar-app-ui-billing-reference-plans-price strong {
+  font-size: 1.875rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.hbar-app-ui-billing-reference-plans-price small {
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-billing-reference-plans-section {
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.hbar-app-ui-billing-reference-plans-kicker {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.hbar-app-ui-billing-reference-plans-features {
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.hbar-app-ui-billing-reference-plans-features li {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.hbar-app-ui-billing-reference-plans-feature-name {
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-app-ui-billing-reference-plans-feature-name strong,
+.hbar-app-ui-billing-reference-plans-feature-value {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-billing-reference-plans-feature-name strong {
+  font-weight: 400;
+}
+
+.hbar-app-ui-billing-reference-plans-feature-value {
+  flex: 0 1 auto;
+  text-align: end;
+}
+
+.hbar-app-ui-billing-reference-plans-toggle-panel {
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.hbar-app-ui-billing-reference-plans-toggle-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 40rem) {
+  .hbar-app-ui-billing-reference-plans-page {
+    padding: 1rem;
+  }
+
+  .hbar-app-ui-billing-reference-plans-save-actions {
+    inline-size: 100%;
+    justify-content: flex-end;
+    margin-inline-start: 0;
+  }
+}

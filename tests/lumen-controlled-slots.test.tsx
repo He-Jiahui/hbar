@@ -2,14 +2,9 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LumenAiChat01 } from '@lumen/app-ui'
 import { LumenPromptInput01, LumenPromptInput04, LumenPromptInput07 } from '@lumen/app-ui'
-import {
-  LumenAgentActivity03,
-  LumenAgentActivity05,
-  LumenAgentActivity07,
-  LumenToolCalls01,
-  LumenToolCalls06,
-} from '@lumen/app-ui'
-import { LumenAgentApproval01, LumenAgentApproval02, LumenAgentApproval06 } from '@lumen/app-ui'
+import { LumenAgentActivity03, LumenAgentActivity05, LumenAgentActivity07, LumenToolCalls01, LumenToolCalls06 } from '@lumen/app-ui/catalog'
+import { LumenAgentApproval01 } from '@lumen/app-ui'
+import { LumenAgentApproval02, LumenAgentApproval06 } from '@lumen/app-ui/catalog'
 import { HbarPromptComposer } from '../packages/app-react/src/prompt-composer'
 
 const labels = {

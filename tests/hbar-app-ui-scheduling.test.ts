@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {groupLumenTimelineIntervals, snapLumenTimelineMinutes} from '@lumen/app-ui'
+import { groupLumenTimelineIntervals, snapLumenTimelineMinutes } from '@lumen/app-ui/catalog'
 import {createSchedulingBookingPreviewStore} from '../apps/hbar-app-ui-preview/src/schedulingBookingPreviewStore'
 import {createSchedulingTimelinePreviewStore, timelinePreviewProjection} from '../apps/hbar-app-ui-preview/src/schedulingTimelinePreviewStore'
 import {

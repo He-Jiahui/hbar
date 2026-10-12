@@ -23,7 +23,7 @@
 
 .hbar-composer-mention-editor .cm-content {
   min-block-size: 4.5rem;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   font: inherit;
   overflow-wrap: anywhere;
 }
@@ -31,7 +31,7 @@
 .hbar-composer-mention-editor .cm-focused {
   outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 45%, transparent);
   outline-offset: -0.125rem;
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
 }
 
 .hbar-composer-mention-editor .cm-content {
@@ -57,8 +57,8 @@
 
 .hbar-composer-mention-pill {
   display: inline-flex;
-  padding: 0.0625rem 0.35rem;
-  border-radius: 0.3rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
   color: var(--lumen-ink);
   white-space: nowrap;
@@ -78,11 +78,11 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-composer-mention-heading {
-  padding: 0.4rem 0.65rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-bottom: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-muted);
   font-size: 0.75rem;
@@ -98,7 +98,7 @@
 .hbar-composer-mention-results {
   min-block-size: 0;
   overflow: auto;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
 }
 
 .hbar-composer-mention-choice {
@@ -107,7 +107,7 @@
   flex: 1;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   white-space: nowrap;
   text-align: start;
 }
@@ -130,7 +130,7 @@
 
 .hbar-composer-mention-feedback,
 .hbar-composer-mention-footer {
-  padding: 0.5rem 0.7rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   color: var(--lumen-muted);
   font-size: 0.75rem;
   overflow-wrap: anywhere;

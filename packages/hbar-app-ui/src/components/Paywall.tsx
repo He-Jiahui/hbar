@@ -1,4 +1,4 @@
-import { LumenPaywall, LumenPaywallProvider as HbarAppUiPaywallProvider, type LumenPaywallContent } from '@lumen/app-ui'
+import { LumenPaywall, LumenPaywallProvider as HbarAppUiPaywallProvider, type LumenPaywallContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiPaywallProps = HbarAppUiVariantProps & {
@@ -6,27 +6,8 @@ export type HbarAppUiPaywallProps = HbarAppUiVariantProps & {
 }
 
 export { HbarAppUiPaywallProvider }
-export {
-  uniqueLumenPaywallItems as uniqueHbarAppUiPaywallItems,
-  useLumenPaywallContent as useHbarAppUiPaywallContent,
-} from '@lumen/app-ui'
-export type {
-  LumenPaywallAdmin as HbarAppUiPaywallAdmin,
-  LumenPaywallArticleContent as HbarAppUiPaywallArticleContent,
-  LumenPaywallContent as HbarAppUiPaywallContent,
-  LumenPaywallFeature as HbarAppUiPaywallFeature,
-  LumenPaywallFeatureGateContent as HbarAppUiPaywallFeatureGateContent,
-  LumenPaywallListStrategy as HbarAppUiPaywallListStrategy,
-  LumenPaywallPlan as HbarAppUiPaywallPlan,
-  LumenPaywallPlanContent as HbarAppUiPaywallPlanContent,
-  LumenPaywallProviderProps as HbarAppUiPaywallProviderProps,
-  LumenPaywallReadsContent as HbarAppUiPaywallReadsContent,
-  LumenPaywallSeatContent as HbarAppUiPaywallSeatContent,
-  LumenPaywallTrialContent as HbarAppUiPaywallTrialContent,
-  LumenPaywallTrialRow as HbarAppUiPaywallTrialRow,
-  LumenPaywallUsageContent as HbarAppUiPaywallUsageContent,
-  LumenPaywallUsageMeter as HbarAppUiPaywallUsageMeter,
-} from '@lumen/app-ui'
+export { uniqueLumenPaywallItems as uniqueHbarAppUiPaywallItems, useLumenPaywallContent as useHbarAppUiPaywallContent } from '@lumen/app-ui/catalog'
+export type { LumenPaywallAdmin as HbarAppUiPaywallAdmin, LumenPaywallArticleContent as HbarAppUiPaywallArticleContent, LumenPaywallContent as HbarAppUiPaywallContent, LumenPaywallFeature as HbarAppUiPaywallFeature, LumenPaywallFeatureGateContent as HbarAppUiPaywallFeatureGateContent, LumenPaywallListStrategy as HbarAppUiPaywallListStrategy, LumenPaywallPlan as HbarAppUiPaywallPlan, LumenPaywallPlanContent as HbarAppUiPaywallPlanContent, LumenPaywallProviderProps as HbarAppUiPaywallProviderProps, LumenPaywallReadsContent as HbarAppUiPaywallReadsContent, LumenPaywallSeatContent as HbarAppUiPaywallSeatContent, LumenPaywallTrialContent as HbarAppUiPaywallTrialContent, LumenPaywallTrialRow as HbarAppUiPaywallTrialRow, LumenPaywallUsageContent as HbarAppUiPaywallUsageContent, LumenPaywallUsageMeter as HbarAppUiPaywallUsageMeter } from '@lumen/app-ui/catalog'
 
 export function Paywall({ spec, onAction, paywallContent, className }: HbarAppUiPaywallProps) {
   return (

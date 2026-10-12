@@ -98,7 +98,7 @@ for (const entryMode of ['plan', 'goal'] as const satisfies readonly EntryMode[]
         const filesAction = addMenu.getByRole('button', { name: copy.session.addMenu.files, exact: true })
         await expect(filesAction).toBeVisible()
         await filesAction.click()
-        const fileInput = page.locator('.hbar-composer-attachment-target input[type="file"]')
+        const fileInput = page.locator('.hbar-composer-add-root input[type="file"]')
         await fileInput.setInputFiles(
           entryMode === 'plan'
             ? [

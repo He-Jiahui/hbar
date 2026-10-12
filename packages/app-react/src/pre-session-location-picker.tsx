@@ -8,6 +8,7 @@ import type {
 } from '@hbar/app-runtime'
 import { visiblePreSessionChoices, type HbarPreSessionChoice } from './pre-session-choice-picker'
 import { launchSelectionBranchName } from './pre-session-launch-model'
+import { createMessageScope } from './messages'
 export { launchSelectionBranchName } from './pre-session-launch-model'
 import './pre-session-location-picker.css'
 
@@ -93,8 +94,24 @@ export interface HbarPreSessionLocationPickerProps {
   readonly onCancelBranchCreate: () => Promise<PreSessionLaunchBranchCreationEntry | null>
 }
 
+type PreSessionLocationMessageLabels = Pick<
+  HbarPreSessionLocationLabels,
+  Exclude<keyof HbarPreSessionLocationLabels, 'sharedBranchHint'>
+>
+const PreSessionLocationMessages = createMessageScope<PreSessionLocationMessageLabels>()
+
 export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPickerProps) {
-  const { labels, page, selection, loading, disabled } = props
+  const { labels, ...viewProps } = props
+  return (
+    <PreSessionLocationMessages.Provider messages={labels}>
+      <HbarPreSessionLocationPickerView {...viewProps} />
+    </PreSessionLocationMessages.Provider>
+  )
+}
+
+function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPickerProps, 'labels'>) {
+  const { t } = PreSessionLocationMessages.useMessages()
+  const { page, selection, loading, disabled } = props
   const workspaceChangeAvailable = props.workspaceChangeAvailable ?? true
   const id = useId()
   const titleId = useId()
@@ -128,7 +145,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
   const head = page?.repository.kind === 'repository' ? page.repository.head : null
   const isolated = selection.mode === 'isolated-worktree'
   const branchName = launchSelectionBranchName(selection) ?? (head && 'name' in head ? head.name : null)
-  const triggerLabel = labels.trigger(directory?.label ?? null, branchName, isolated)
+  const triggerLabel = t('trigger')(directory?.label ?? null, branchName, isolated)
   const repositoryRoot = page?.repository.kind === 'repository' && page.repository.workspaceScope === 'repository-root'
   const selectedBaseRef =
     selection.mode === 'shared-branch'
@@ -148,7 +165,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
     Boolean(props.branchCreation?.baseOid) &&
     (props.branchCreation?.phase === 'ready' || props.branchCreation?.phase === 'failed') &&
     Boolean(newBranchName.trim())
-  const moreName = (name: string | null) => (name ? name.slice('refs/heads/'.length) : labels.detached)
+  const moreName = (name: string | null) => (name ? name.slice('refs/heads/'.length) : t('detached'))
   const directories = visiblePreSessionChoices(props.directories, query, limit)
   const close = () => {
     restoreFocus.current = true
@@ -250,7 +267,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
         title={triggerLabel}
       >
         <LumenIcon icon={isolated ? GitFork : Folder} tier="sm" />
-        <LumenContentText context="control.label">{directory?.label ?? labels.chooseDirectory}</LumenContentText>
+        <LumenContentText context="control.label">{directory?.label ?? t('chooseDirectory')}</LumenContentText>
         {branchName && <LumenContentText context="choice.description">{branchName}</LumenContentText>}
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
@@ -301,7 +318,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
               size="s"
               variant="text"
               indicator="none"
-              aria-label={view === 'new-branch' ? labels.backToBranches : labels.back}
+              aria-label={view === 'new-branch' ? t('backToBranches') : t('back')}
               onClick={() => {
                 if (view === 'new-branch') {
                   returnToBranchList()
@@ -317,14 +334,14 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
           )}
           <LumenContentText context="record.title" id={titleId}>
             {view === 'root'
-              ? labels.title
+              ? t('title')
               : view === 'directory'
-                ? labels.chooseDirectory
+                ? t('chooseDirectory')
                 : view === 'branch'
-                  ? labels.chooseBranch
-                  : labels.newBranch}
+                  ? t('chooseBranch')
+                  : t('newBranch')}
           </LumenContentText>
-          <LumenButton type="button" size="s" variant="text" indicator="none" aria-label={labels.close} onClick={close}>
+          <LumenButton type="button" size="s" variant="text" indicator="none" aria-label={t('close')} onClick={close}>
             <LumenIcon icon={X} tier="sm" />
           </LumenButton>
         </LumenFrame>
@@ -346,9 +363,9 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                 >
                   <LumenIcon icon={Folder} tier="md" />
                   <LumenFrame>
-                    <LumenContentText context="choice.title">{labels.directory}</LumenContentText>
+                    <LumenContentText context="choice.title">{t('directory')}</LumenContentText>
                     <LumenContentText context="choice.description">
-                      {directory?.label ?? labels.chooseDirectory}
+                      {directory?.label ?? t('chooseDirectory')}
                     </LumenContentText>
                   </LumenFrame>
                   <LumenIcon icon={ChevronRight} tier="sm" />
@@ -357,9 +374,9 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                 <LumenFrame className="hbar-pre-session-location-row hbar-pre-session-location-workspace-context">
                   <LumenIcon icon={Folder} tier="md" />
                   <LumenFrame>
-                    <LumenContentText context="record.title">{labels.directory}</LumenContentText>
+                    <LumenContentText context="record.title">{t('directory')}</LumenContentText>
                     <LumenContentText context="record.description">
-                      {directory?.label ?? labels.chooseDirectory}
+                      {directory?.label ?? t('chooseDirectory')}
                     </LumenContentText>
                   </LumenFrame>
                 </LumenFrame>
@@ -380,13 +397,13 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                 >
                   <LumenIcon icon={GitBranch} tier="md" />
                   <LumenFrame>
-                    <LumenContentText context="choice.title">{labels.branch}</LumenContentText>
-                    <LumenContentText context="choice.description">{branchName ?? labels.detached}</LumenContentText>
+                    <LumenContentText context="choice.title">{t('branch')}</LumenContentText>
+                    <LumenContentText context="choice.description">{branchName ?? t('detached')}</LumenContentText>
                   </LumenFrame>
                   <LumenIcon icon={ChevronRight} tier="sm" />
                 </LumenButton>
               )}
-              <LumenFrame role="radiogroup" aria-label={labels.title} className="hbar-pre-session-location-modes">
+              <LumenFrame role="radiogroup" aria-label={t('title')} className="hbar-pre-session-location-modes">
                 <LumenButton
                   type="button"
                   role="radio"
@@ -415,8 +432,8 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                 >
                   <LumenIcon icon={!isolated ? Check : Folder} tier="sm" />
                   <LumenFrame>
-                    <LumenContentText context="choice.title">{labels.shared}</LumenContentText>
-                    <LumenContentText context="choice.description">{labels.sharedHint}</LumenContentText>
+                    <LumenContentText context="choice.title">{t('shared')}</LumenContentText>
+                    <LumenContentText context="choice.description">{t('sharedHint')}</LumenContentText>
                   </LumenFrame>
                 </LumenButton>
                 <LumenButton
@@ -441,13 +458,13 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                 >
                   <LumenIcon icon={isolated ? Check : GitFork} tier="sm" />
                   <LumenFrame>
-                    <LumenContentText context="choice.title">{labels.isolated}</LumenContentText>
+                    <LumenContentText context="choice.title">{t('isolated')}</LumenContentText>
                     <LumenContentText context="choice.description">
                       {!repositoryRoot
-                        ? labels.isolatedUnavailable
+                        ? t('isolatedUnavailable')
                         : !selectedBaseRef
-                          ? labels.branchCreateBaseUnavailable
-                          : labels.isolatedHint}
+                          ? t('branchCreateBaseUnavailable')
+                          : t('isolatedHint')}
                     </LumenContentText>
                   </LumenFrame>
                 </LumenButton>
@@ -456,13 +473,13 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
           ) : view === 'new-branch' ? (
             <LumenFrame className="hbar-pre-session-location-new-branch">
               <LumenFrame as="label" htmlFor={`${id}-branch-name`}>
-                {labels.branchName}
+                {t('branchName')}
               </LumenFrame>
               <LumenInput
                 id={`${id}-branch-name`}
                 variant="boxed"
                 value={newBranchName}
-                placeholder={labels.branchNamePlaceholder}
+                placeholder={t('branchNamePlaceholder')}
                 disabled={
                   disabled ||
                   props.branchCreation?.phase === 'creating' ||
@@ -479,70 +496,70 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                 }}
               />
               <LumenContentText context="record.description">
-                {labels.startsFrom(moreName(props.branchCreation?.baseRef ?? selectedBaseRef))}
+                {t('startsFrom')(moreName(props.branchCreation?.baseRef ?? selectedBaseRef))}
               </LumenContentText>
               {props.branchCreation?.phase === 'capturing' && (
                 <LumenContentText context="feedback.message" role="status">
-                  {labels.captureBase}
+                  {t('captureBase')}
                 </LumenContentText>
               )}
               {props.branchCreation?.phase === 'creating' && (
                 <LumenContentText context="feedback.message" role="status">
-                  {labels.creating}
+                  {t('creating')}
                 </LumenContentText>
               )}
               {props.branchCreation?.phase === 'unknown' && (
                 <LumenContentText context="feedback.message" role="status">
                   {props.branchCreation.checkResult === 'not-found'
-                    ? labels.branchCreateNotFound
+                    ? t('branchCreateNotFound')
                     : props.branchCreation.checkResult === 'different-oid'
-                      ? labels.branchCreateDifferentOid
+                      ? t('branchCreateDifferentOid')
                       : props.branchCreation.checkResult === 'incomplete'
-                        ? labels.branchCreateIncomplete
-                        : labels.branchCreateUnknown}
+                        ? t('branchCreateIncomplete')
+                        : t('branchCreateUnknown')}
                 </LumenContentText>
               )}
               {props.branchCreation?.phase === 'verified' && (
                 <LumenContentText context="feedback.message" role="status">
-                  {labels.branchCreateVerified}
+                  {t('branchCreateVerified')}
                 </LumenContentText>
               )}
               {props.branchCreation?.phase === 'created' && (
                 <LumenContentText context="feedback.message" role="status">
-                  {labels.branchCreateCreatedNotSelected}
+                  {t('branchCreateCreatedNotSelected')}
                 </LumenContentText>
               )}
               {props.branchCreation?.phase === 'failed' && props.branchCreation.error && (
                 <LumenContentText context="feedback.message" role="alert">
-                  {labels.branchCreateError(props.branchCreation.error)}
+                  {t('branchCreateError')(props.branchCreation.error)}
                 </LumenContentText>
               )}
               {!props.branchCreationAvailable && (
                 <LumenContentText context="feedback.message" role="status">
-                  {labels.branchCreateUnavailable}
+                  {t('branchCreateUnavailable')}
                 </LumenContentText>
               )}
               {page?.repository.kind === 'repository' && page.repository.workspaceScope !== 'repository-root' && (
                 <LumenContentText context="feedback.message" role="status">
-                  {labels.isolatedUnavailable}
+                  {t('isolatedUnavailable')}
                 </LumenContentText>
               )}
               {(props.error || actionError) && props.branchCreation?.phase !== 'failed' && (
                 <LumenContentText context="feedback.message" role="alert">
-                  {labels.error(actionError ?? props.error ?? 'EXECUTION_FAILED')}
+                  {t('error')(actionError ?? props.error ?? 'EXECUTION_FAILED')}
                 </LumenContentText>
               )}
               <LumenFrame className="hbar-pre-session-location-new-branch-actions">
                 <LumenButton type="button" variant="text" indicator="none" onClick={returnToBranchList}>
-                  {labels.cancel}
+                  {t('cancel')}
                 </LumenButton>
                 {props.branchCreation?.phase === 'unknown' ? (
                   <LumenButton type="button" disabled={pending || disabled} onClick={reconcileBranch}>
-                    {labels.verifyBranch}
+                    {t('verifyBranch')}
                   </LumenButton>
                 ) : props.branchCreation?.phase === 'verified' ? (
                   <LumenButton type="button" disabled={pending || disabled} onClick={adoptBranch}>
-                    {labels.useCreatedBranch}
+                    {t('useCreatedBranch')}
                   </LumenButton>
                 ) : props.branchCreation?.phase === 'created' ? null : (
                   <>
@@ -561,7 +578,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                             )
                         }}
                       >
-                        {labels.retry}
+                        {t('retry')}
                       </LumenButton>
                     )}
                     <LumenButton
@@ -569,7 +586,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                       disabled={pending || disabled || !canSubmitBranchCreate}
                       onClick={createBranch}
                     >
-                      {labels.create}
+                      {t('create')}
                     </LumenButton>
                   </>
                 )}
@@ -581,8 +598,8 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                 type="search"
                 variant="boxed"
                 value={query}
-                aria-label={view === 'directory' ? labels.searchDirectories : labels.searchBranches}
-                placeholder={view === 'directory' ? labels.searchDirectories : labels.searchBranches}
+                aria-label={view === 'directory' ? t('searchDirectories') : t('searchBranches')}
+                placeholder={view === 'directory' ? t('searchDirectories') : t('searchBranches')}
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
                   event.preventDefault()
@@ -625,7 +642,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                       </LumenButton>
                     ))}
                     {directories.rows.length === 0 && (
-                      <LumenContentText context="section.description">{labels.noDirectories}</LumenContentText>
+                      <LumenContentText context="section.description">{t('noDirectories')}</LumenContentText>
                     )}
                     {(directories.remaining > 0 || props.hasMoreDirectories) && (
                       <LumenButton
@@ -634,7 +651,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                         disabled={pending || loading}
                         onClick={() => (directories.remaining > 0 ? setLimit(limit + 60) : props.onMoreDirectories())}
                       >
-                        {labels.more}
+                        {t('more')}
                       </LumenButton>
                     )}
                   </>
@@ -651,12 +668,12 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                           : branch.ref === selectedBaseRef
                       const disabledReason = isolated
                         ? !available
-                          ? labels.isolatedUnavailable
+                          ? t('isolatedUnavailable')
                           : undefined
                         : branch.availability.sharedCurrent.state === 'disabled'
-                          ? labels.sharedBranchUnavailable(branch.availability.sharedCurrent.reason)
+                          ? t('sharedBranchUnavailable')(branch.availability.sharedCurrent.reason)
                           : branch.availability.sharedCurrent.state === 'unknown'
-                            ? labels.sharedBranchUnavailable(branch.availability.sharedCurrent.reason)
+                            ? t('sharedBranchUnavailable')(branch.availability.sharedCurrent.reason)
                             : undefined
                       return (
                         <LumenButton
@@ -694,10 +711,10 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                             <LumenContentText context="choice.description">
                               {disabledReason ??
                                 (branch.current
-                                  ? labels.currentBranch
+                                  ? t('currentBranch')
                                   : isolated
-                                    ? labels.baseBranch
-                                    : labels.sharedBranch)}
+                                    ? t('baseBranch')
+                                    : t('sharedBranch'))}
                             </LumenContentText>
                           </LumenFrame>
                           {selected && <LumenIcon icon={Check} tier="sm" />}
@@ -705,11 +722,11 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                       )
                     })}
                     {!loading && !page?.branches.length && (
-                      <LumenContentText context="section.description">{labels.noBranches}</LumenContentText>
+                      <LumenContentText context="section.description">{t('noBranches')}</LumenContentText>
                     )}
                     {page?.nextCursor && (
                       <LumenButton type="button" size="s" disabled={pending || loading} onClick={props.onMoreBranches}>
-                        {labels.more}
+                        {t('more')}
                       </LumenButton>
                     )}
                   </>
@@ -721,10 +738,10 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                   {!canCreateBranch && (
                     <LumenContentText context="feedback.message" role="status">
                       {!props.branchCreationAvailable
-                        ? labels.branchCreateUnavailable
+                        ? t('branchCreateUnavailable')
                         : !repositoryRoot
-                          ? labels.isolatedUnavailable
-                          : labels.branchCreateBaseUnavailable}
+                          ? t('isolatedUnavailable')
+                          : t('branchCreateBaseUnavailable')}
                     </LumenContentText>
                   )}
                   <LumenButton
@@ -732,11 +749,11 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                     variant="text"
                     indicator="none"
                     disabled={pending || disabled || loading || !canCreateBranch}
-                    title={!canCreateBranch ? labels.branchCreateBaseUnavailable : undefined}
+                    title={!canCreateBranch ? t('branchCreateBaseUnavailable') : undefined}
                     onClick={startBranchForm}
                   >
                     <LumenIcon icon={Plus} tier="sm" />
-                    {labels.newBranch}
+                    {t('newBranch')}
                   </LumenButton>
                 </LumenFrame>
               )}
@@ -744,17 +761,17 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
           )}
           {loading && (
             <LumenContentText context="feedback.message" role="status">
-              {labels.loading}
+              {t('loading')}
             </LumenContentText>
           )}
           {(props.error || actionError) && (
             <LumenFrame className="hbar-pre-session-location-error">
               <LumenContentText context="feedback.message" role="alert">
-                {labels.error(actionError ?? props.error ?? 'EXECUTION_FAILED')}
+                {t('error')(actionError ?? props.error ?? 'EXECUTION_FAILED')}
               </LumenContentText>
               {props.error && (
                 <LumenButton type="button" size="s" disabled={loading} onClick={props.onOpen}>
-                  {labels.retry}
+                  {t('retry')}
                 </LumenButton>
               )}
             </LumenFrame>

@@ -8,7 +8,7 @@ export function settingsUsageCopy(locale: ShellLocale): HbarSettingsUsageLabels 
   const currency = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 4 })
   const date = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   return {
-    title: text('Token 用量', 'Token usage'),
+    title: text('词元用量', 'Token usage'),
     description: text(
       '当前服务端的使用记录，包含所有工程与会话。',
       'Usage recorded by this Host across all projects and sessions.',
@@ -23,14 +23,14 @@ export function settingsUsageCopy(locale: ShellLocale): HbarSettingsUsageLabels 
       'Records or samples are incomplete; some usage may be missing.',
     ),
     summary: text('用量摘要', 'Usage summary'),
-    tokens: text('输入 + 输出 Token', 'Input + output tokens'),
-    input: text('输入 Token', 'Input tokens'),
-    output: text('输出 Token', 'Output tokens'),
+    tokens: text('输入 + 输出词元', 'Input + output tokens'),
+    input: text('输入词元', 'Input tokens'),
+    output: text('输出词元', 'Output tokens'),
     cost: text('费用', 'Cost'),
     costUnavailable: text('无可用价格数据', 'Pricing unavailable'),
     costEmpty: text('暂无费用数据', 'No cost data'),
     estimated: (value) => text(`估算 ${value}`, `Estimated ${value}`),
-    activity: text('Token 活动', 'Token activity'),
+    activity: text('词元使用情况', 'Token activity'),
     windowsLabel: text('用量时间范围', 'Usage time range'),
     windows: [
       { id: '1h', label: text('近 1 小时', 'Last hour') },

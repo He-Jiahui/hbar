@@ -3,6 +3,7 @@ import { LumenContentText, LumenButton, LumenDisclosure, LumenFrame, LumenIcon }
 import type { SessionDraftState } from '@hbar/app-runtime'
 import { HbarComposerFeedback } from './composer-feedback'
 import './composer-workspace-contexts.css'
+import { createMessageScope } from './messages'
 
 type WorkspaceContext = NonNullable<SessionDraftState['workspaceContexts']>[number]
 
@@ -28,6 +29,11 @@ export interface HbarComposerWorkspaceContextsProps {
   readonly onRemoveAttachment: (attachment: SessionDraftState['attachments'][number]) => void
 }
 
+const WorkspaceContextMessages = createMessageScope<{
+  readonly workspaceContexts: HbarComposerWorkspaceContextLabels
+  readonly removeAttachmentLabel: HbarComposerWorkspaceContextsProps['removeAttachmentLabel']
+}>()
+
 /** Compact, host-labelled references in canonical draft state; quote text is disclosed only on demand. */
 export function HbarComposerWorkspaceContexts({
   contexts,
@@ -39,6 +45,31 @@ export function HbarComposerWorkspaceContexts({
   onRemove,
   onRemoveAttachment,
 }: HbarComposerWorkspaceContextsProps) {
+  return (
+    <WorkspaceContextMessages.Provider messages={{ workspaceContexts: labels, removeAttachmentLabel }}>
+      <HbarComposerWorkspaceContextsContent
+        contexts={contexts}
+        attachments={attachments}
+        removeDisabled={removeDisabled}
+        error={error}
+        onRemove={onRemove}
+        onRemoveAttachment={onRemoveAttachment}
+      />
+    </WorkspaceContextMessages.Provider>
+  )
+}
+
+function HbarComposerWorkspaceContextsContent({
+  contexts,
+  attachments,
+  removeDisabled,
+  error,
+  onRemove,
+  onRemoveAttachment,
+}: Omit<HbarComposerWorkspaceContextsProps, 'labels' | 'removeAttachmentLabel'>) {
+  const { t } = WorkspaceContextMessages.useMessages()
+  const labels = t('workspaceContexts')
+  const removeAttachmentLabel = t('removeAttachmentLabel')
   if (contexts.length === 0 && attachments.length === 0 && !error) return null
 
   return (

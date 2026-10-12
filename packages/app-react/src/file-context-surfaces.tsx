@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { MessageCircle, MessageSquare } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenTextarea } from '@lumen/app-ui'
 import type { FileComposerContextSelection } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 import './file-context-surfaces.css'
 
 export interface HbarFileContextLabels {
@@ -16,6 +17,9 @@ export interface HbarFileContextLabels {
   readonly commentLine: (path: string, line: number, side?: 'old' | 'new') => string
   readonly incompatible: string
 }
+
+const { Provider: FileContextMessagesProvider, useMessages: useFileContextMessages } =
+  createMessageScope<HbarFileContextLabels>()
 
 export function HbarFileCommentEditor({
   labels,
@@ -34,6 +38,36 @@ export function HbarFileCommentEditor({
   readonly onCancel: () => void
   readonly onSubmit: (note: string) => Promise<boolean>
 }) {
+  return (
+    <FileContextMessagesProvider messages={labels}>
+      <FileCommentEditorView
+        rangeLabel={rangeLabel}
+        disabled={disabled}
+        note={note}
+        onNote={onNote}
+        onCancel={onCancel}
+        onSubmit={onSubmit}
+      />
+    </FileContextMessagesProvider>
+  )
+}
+
+function FileCommentEditorView({
+  rangeLabel,
+  disabled,
+  note,
+  onNote,
+  onCancel,
+  onSubmit,
+}: {
+  readonly rangeLabel: string
+  readonly disabled: boolean
+  readonly note: string
+  readonly onNote: (note: string) => void
+  readonly onCancel: () => void
+  readonly onSubmit: (note: string) => Promise<boolean>
+}) {
+  const { t } = useFileContextMessages()
   const [submitting, setSubmitting] = useState(false)
   const submit = () => {
     if (disabled || submitting || !note.trim()) return
@@ -44,13 +78,13 @@ export function HbarFileCommentEditor({
     <LumenFrame className="hbar-file-comment-editor">
       <LumenFrame className="hbar-file-comment-heading">
         <LumenIcon icon={MessageSquare} tier="sm" />
-        <LumenContentText context="record.title">{labels.commentTitle}</LumenContentText>
+        <LumenContentText context="record.title">{t('commentTitle')}</LumenContentText>
         <LumenContentText context="record.description">{rangeLabel}</LumenContentText>
       </LumenFrame>
       <LumenTextarea
         variant="plain"
-        aria-label={labels.note}
-        placeholder={labels.placeholder}
+        aria-label={t('note')}
+        placeholder={t('placeholder')}
         value={note}
         rows={3}
         maxLength={4000}
@@ -69,10 +103,10 @@ export function HbarFileCommentEditor({
       />
       <LumenFrame className="hbar-file-comment-actions">
         <LumenButton variant="text" disabled={submitting} onClick={onCancel}>
-          {labels.cancel}
+          {t('cancel')}
         </LumenButton>
         <LumenButton tone="primary" disabled={disabled || submitting || !note.trim()} onClick={submit}>
-          {labels.addComment}
+          {t('addComment')}
         </LumenButton>
       </LumenFrame>
     </LumenFrame>
@@ -189,6 +223,39 @@ export function HbarFileSourceSurface({
   readonly revealedLine?: number | undefined
   readonly onAdd: (selection: FileComposerContextSelection) => Promise<boolean>
 }) {
+  return (
+    <FileContextMessagesProvider messages={labels}>
+      <FileSourceSurfaceView
+        path={path}
+        value={value}
+        sha256={sha256}
+        previewLabel={previewLabel}
+        disabled={disabled}
+        revealedLine={revealedLine}
+        onAdd={onAdd}
+      />
+    </FileContextMessagesProvider>
+  )
+}
+
+function FileSourceSurfaceView({
+  path,
+  value,
+  sha256,
+  previewLabel,
+  disabled,
+  revealedLine,
+  onAdd,
+}: {
+  readonly path: string
+  readonly value: string
+  readonly sha256: string | null
+  readonly previewLabel: string
+  readonly disabled: boolean
+  readonly revealedLine?: number | undefined
+  readonly onAdd: (selection: FileComposerContextSelection) => Promise<boolean>
+}) {
+  const { t } = useFileContextMessages()
   const root = useRef<HTMLDivElement>(null)
   const buttons = useRef(new Map<number, HTMLButtonElement>())
   const [selection, setSelection] = useState<TextSelection | null>(null)
@@ -239,7 +306,7 @@ export function HbarFileSourceSurface({
               variant="text"
               indicator="none"
               className="hbar-file-line-control"
-              aria-label={labels.commentLine(path, index + 1)}
+              aria-label={t('commentLine')(path, index + 1)}
               aria-pressed={index >= startLine && index <= endLine}
               disabled={disabled || !sha256 || !line}
               onClick={(event) => {
@@ -256,10 +323,9 @@ export function HbarFileSourceSurface({
             </LumenContentText>
           </LumenFrame>
           {comment && endLine === index && (
-            <HbarFileCommentEditor
+            <FileCommentEditorView
               key={`${startLine}:${endLine}`}
-              labels={labels}
-              rangeLabel={labels.range(startLine + 1, endLine + 1)}
+              rangeLabel={t('range')(startLine + 1, endLine + 1)}
               disabled={disabled}
               note={comment.note}
               onNote={(note) => setComment((current) => (current ? { ...current, note } : null))}
@@ -283,7 +349,7 @@ export function HbarFileSourceSurface({
       {selection && (
         <SelectionMenu
           selection={selection}
-          label={labels.addSelection}
+          label={t('addSelection')}
           disabled={disabled}
           onDismiss={dismiss}
           onAdd={() => {

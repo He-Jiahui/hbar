@@ -106,7 +106,7 @@ V3 外观新增 hover-invalid 断言首次失败：更高 specificity 的 hover 
 - 最终一次本机 40 组 get/apply 测量：get p95 0.3990ms / max 0.7332ms，apply p95 0.9376ms / max 1.8403ms；不作为其他环境的时延承诺。
 - 原生依赖构建通过；使用 `using-vsdevcmd` 的 x64 环境（VS 18.4.2），仅构建仓库查询依赖，不重建或停止用户桌面启动器。
 - Vite 构建通过，3120 modules；单独输出到 `artifacts/project-display-names/web`，JS `index-DspL3nH9.js` / CSS `index-BoYVj6Fm.css`。已有大 chunk warning 保留。
-- 全仓 lint 实际失败：未改动的 `hbar-ui/packages/lumen-app-ui/src/authentication/primitives.tsx:44` 引用未注册规则 `react/no-unused-prop-types`。本单元不夹带修订该组件或降低 lint。
+- 全仓 lint 实际失败：未改动的 `packages/lumen-app-ui/src/authentication/primitives.tsx:44` 引用未注册规则 `react/no-unused-prop-types`。本单元不夹带修订该组件或降低 lint。
 - 根 `bun run typecheck` 最终通过；首轮新测试在预期 snapshot 中混用了 nullable alias，已通过真实 non-null guard 缩窄修正，没有放宽产品类型或删除断言。所有本单元 TypeScript 的严格 scoped ESLint 通过，Prettier 与差异空白检查通过。
 - 全仓基础测试：`bun test tests --timeout 20000`，2522 pass / 1 fail / 26566 assertions，380 files，277.38s。唯一失败仍为既有 `tests/lumen-canonical-boundary.test.ts`，报告未改动的 Invitation/PasswordReset/Quote/WorkspacePicker authentication 原生可见控件；新别名、旧隐藏状态与编译 CLI 回归均通过。完整日志 `artifacts/project-display-names/full-tests.log`。因此不宣称全仓 check 全绿。
 

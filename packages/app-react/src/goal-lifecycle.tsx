@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Target } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { GoalHistoryProjection, GoalHistorySnapshot } from '@hbar/app-runtime'
 import type { GoalLifecycleAction, GoalLifecycleRow } from './goal-lifecycle-model'
+import { createMessageScope } from './messages'
 import { excerptGoalObjective, goalObjectiveDiff, type GoalObjectiveFragment } from './goal-objective-diff'
 import './goal-lifecycle.css'
 
@@ -28,15 +29,38 @@ export interface HbarGoalLifecycleLabels {
   readonly hideComparison: string
 }
 
+const { Provider: GoalLifecycleMessagesProvider, useMessages: useGoalLifecycleMessages } =
+  createMessageScope<HbarGoalLifecycleLabels>()
+
 function GoalReplacementObjectives({
   previous,
   current,
-  labels,
 }: {
   readonly previous: string
   readonly current: string
-  readonly labels: HbarGoalLifecycleLabels
 }) {
+  const { t } = useGoalLifecycleMessages()
+  const labels: HbarGoalLifecycleLabels = {
+    titles: t('titles'),
+    statuses: t('statuses'),
+    accessible: t('accessible'),
+    objective: t('objective'),
+    cleared: t('cleared'),
+    budget: t('budget'),
+    continuations: t('continuations'),
+    timestamp: t('timestamp'),
+    showObjective: t('showObjective'),
+    hideObjective: t('hideObjective'),
+    comparison: t('comparison'),
+    previousObjective: t('previousObjective'),
+    nextObjective: t('nextObjective'),
+    removed: t('removed'),
+    added: t('added'),
+    omission: t('omission'),
+    omitted: t('omitted'),
+    showComparison: t('showComparison'),
+    hideComparison: t('hideComparison'),
+  }
   const [full, setFull] = useState(false)
   const id = useId()
   const difference = useMemo(() => goalObjectiveDiff(previous, current), [previous, current])
@@ -130,13 +154,33 @@ export interface HbarGoalHistoryLabels {
 }
 
 /** One immutable historical fact; disclosure is local, with no Goal mutation or message actions. */
-export function HbarGoalLifecycleCard({
+function GoalLifecycleCardView({
   row,
-  labels,
 }: {
   readonly row: GoalLifecycleRow
-  readonly labels: HbarGoalLifecycleLabels
 }) {
+  const { t } = useGoalLifecycleMessages()
+  const labels: HbarGoalLifecycleLabels = {
+    titles: t('titles'),
+    statuses: t('statuses'),
+    accessible: t('accessible'),
+    objective: t('objective'),
+    cleared: t('cleared'),
+    budget: t('budget'),
+    continuations: t('continuations'),
+    timestamp: t('timestamp'),
+    showObjective: t('showObjective'),
+    hideObjective: t('hideObjective'),
+    comparison: t('comparison'),
+    previousObjective: t('previousObjective'),
+    nextObjective: t('nextObjective'),
+    removed: t('removed'),
+    added: t('added'),
+    omission: t('omission'),
+    omitted: t('omitted'),
+    showComparison: t('showComparison'),
+    hideComparison: t('hideComparison'),
+  }
   const [expanded, setExpanded] = useState(true)
   const [fullObjective, setFullObjective] = useState(false)
   const bodyId = useId()
@@ -183,7 +227,7 @@ export function HbarGoalLifecycleCard({
       </LumenButton>
       <LumenFrame id={bodyId} className="hbar-goal-lifecycle-body" hidden={!expanded}>
         {row.action === 'replaced' && typeof previousObjective === 'string' && goal ? (
-          <GoalReplacementObjectives previous={previousObjective} current={goal.objective} labels={labels} />
+          <GoalReplacementObjectives previous={previousObjective} current={goal.objective} />
         ) : (
           <>
             <LumenContentText
@@ -224,5 +268,20 @@ export function HbarGoalLifecycleCard({
         )}
       </LumenFrame>
     </LumenFrame>
+  )
+}
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarGoalLifecycleCard({
+  row,
+  labels,
+}: {
+  readonly row: GoalLifecycleRow
+  readonly labels: HbarGoalLifecycleLabels
+}) {
+  return (
+    <GoalLifecycleMessagesProvider messages={labels}>
+      <GoalLifecycleCardView row={row} />
+    </GoalLifecycleMessagesProvider>
   )
 }

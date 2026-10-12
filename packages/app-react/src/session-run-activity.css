@@ -2,7 +2,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--lumen-space-4);
   color: var(--lumen-muted);
   font-size: calc(var(--lumen-font-size) * 0.928571);
 }
@@ -13,11 +13,11 @@
   min-inline-size: 0;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 
-.hbar-session-run-current > .lumen-button,
-.hbar-session-run-row > .lumen-button {
+.hbar-session-run-current > [data-lumen-part~="button"],
+.hbar-session-run-row > [data-lumen-part~="button"] {
   margin-inline-start: auto;
 }
 
@@ -32,7 +32,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -42,8 +42,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 4px;
-  padding-block: 8px;
+  gap: var(--lumen-space-4);
+  padding-block: var(--lumen-space-8);
   border-block-start: 0.0625rem solid var(--lumen-edge);
   overflow-wrap: anywhere;
 }
@@ -75,7 +75,7 @@
   flex-direction: row;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-session-run-plan [role='listitem'] > span {
@@ -92,7 +92,7 @@
 .hbar-session-run-plan-label {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-session-run-history .hbar-lumen-disclosure-content,
@@ -100,7 +100,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-session-run-activity [hidden] {

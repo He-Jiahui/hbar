@@ -1,0 +1,89 @@
+.lumen-prompt-reference-hero {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.lumen-prompt-reference-hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--lumen-space-16);
+  inline-size: min(100%, 42rem);
+  margin-inline: auto;
+  padding: var(--lumen-space-24);
+  min-inline-size: 0;
+}
+
+.lumen-prompt-reference-hero-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  align-items: center;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.lumen-prompt-reference-hero-heading h2,
+.lumen-prompt-reference-hero-heading p {
+  margin: 0;
+}
+
+.lumen-prompt-reference-hero-heading h2 {
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.lumen-prompt-reference-hero-heading p {
+  color: var(--lumen-muted);
+  line-height: 1.5;
+}
+
+.lumen-prompt-reference-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--lumen-space-8);
+  min-inline-size: 0;
+}
+
+.lumen-prompt-reference-suggestions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lumen-space-8);
+  min-block-size: 2.25rem;
+  max-inline-size: 100%;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-pill);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.lumen-prompt-reference-suggestions button:hover {
+  background: var(--lumen-glass);
+}
+
+.lumen-prompt-reference-suggestions button:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.lumen-prompt-reference-icon {
+  flex: 0 0 auto;
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
+  stroke-width: 1.6;
+}
+
+@media (width < 40rem) {
+  .lumen-prompt-reference-suggestions button {
+    flex: 1 1 calc(50% - 0.5rem);
+  }
+}

@@ -1,8 +1,5 @@
-import {
-  LumenFrame,
-  LumenOption,
-  LumenText,
- LumenInput, LumenSelect } from '@lumen/app-ui'
+import { LumenFrame, LumenText, LumenInput, LumenSelect } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {ArrowLeft, ArrowRight, Check, CreditCard} from 'lucide-react'

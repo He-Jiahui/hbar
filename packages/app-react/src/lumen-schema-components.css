@@ -1,11 +1,14 @@
 .hbar-app-react-schema-resource {
+  container-name: schema-resource;
+  container-type: inline-size;
   display: flex;
+  flex-wrap: wrap;
   min-inline-size: 0;
   align-items: stretch;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
-.hbar-app-react-schema-resource > .lumen-control {
+.hbar-app-react-schema-resource > [data-lumen-part~="control"] {
   min-inline-size: 0;
   flex: 1 1 auto;
 }
@@ -14,17 +17,21 @@
   flex: 0 0 auto;
 }
 
-@media (max-width: 32rem) {
-  .hbar-app-react-schema-resource {
-    align-items: stretch;
-    flex-direction: column;
+@container schema-resource (width < 40rem) {
+  .hbar-app-react-schema-resource > [data-lumen-part~="control"],
+  .hbar-app-react-schema-resource > button {
+    flex-basis: 100%;
+  }
+
+  .hbar-app-react-schema-resource > button {
+    inline-size: 100%;
   }
 }
 .hbar-schema-time-picker {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-schema-weekday-picker {
@@ -32,6 +39,6 @@
 }
 
 .hbar-schema-timezone-value {
-  margin-inline-start: 0.375rem;
+  margin-inline-start: var(--lumen-space-4);
   overflow-wrap: anywhere;
 }

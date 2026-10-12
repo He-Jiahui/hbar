@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAgentApproval05, type LumenAgentApprovalCostContent } from '@lumen/app-ui'
+import { LumenAgentApproval05, type LumenAgentApprovalCostContent } from '@lumen/app-ui/catalog'
 import { createCostPreviewStore, projectCostPreviewContent } from '../apps/hbar-app-ui-preview/src/cost-preview-model'
 import {
   HBAR_APP_UI_AGENT_APPROVAL_FIXTURES,

@@ -3,7 +3,7 @@
  * overflow, transform or stacking context can never reshape the popup. */
 .floating-layer {
   position: fixed !important;
-  z-index: 10000 !important;
+  z-index: var(--lumen-layer-modal) !important;
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
   max-height: calc(100dvh - 16px);
@@ -20,7 +20,7 @@
 .floating-layer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 9990;
+  z-index: var(--lumen-layer-backdrop);
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--hbar-overlay) 32%, transparent);
@@ -90,8 +90,8 @@
 
 .session-context-menu {
   min-width: 175px;
-  padding: 5px;
-  border-radius: var(--radius-sm);
+  padding: var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
 }
 
 /* Tool-rail labels are deliberately rendered by the same body portal as
@@ -101,10 +101,10 @@
 .floating-layer.floating-tooltip {
   width: max-content;
   max-width: min(220px, calc(100vw - 16px));
-  padding: 4px 8px;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   overflow: hidden;
   border: 1px solid var(--hbar-bd2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--lumen-radius-control);
   background: color-mix(in srgb, var(--hbar-s1) calc(var(--hbar-glass-opacity) * 100%), transparent) !important;
   box-shadow: var(--dsh-shadow-panel);
   color: var(--hbar-t1);
@@ -136,7 +136,7 @@
 .command-palette-backdrop,
 .mobile-more-backdrop {
   position: fixed !important;
-  z-index: 9990 !important;
+  z-index: var(--lumen-layer-backdrop) !important;
 }
 
 .floating-layer.model-picker-menu,

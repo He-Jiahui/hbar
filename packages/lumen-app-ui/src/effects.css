@@ -1,0 +1,261 @@
+/* Only light intensity animates. The control and its content stay in normal flow. */
+@property --lumen-effect-level {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --lumen-press-level {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+:root {
+  --lumen-state-duration: 240ms;
+  --lumen-press-duration: 120ms;
+  --lumen-state-easing: cubic-bezier(0.2, 0, 0, 1);
+  --lumen-running-duration: 2.6s;
+  --lumen-glow-rest: 0.1;
+  --lumen-glow-hover: 0.28;
+  --lumen-glow-selected: 0.22;
+  --lumen-glow-focus: 0.36;
+  --lumen-glow-pressed: 0.4;
+  --lumen-glow-running-min: 0.16;
+  --lumen-glow-running-max: 0.36;
+  --lumen-state-transition:
+    --lumen-effect-level var(--lumen-state-duration) var(--lumen-state-easing),
+    --lumen-press-level var(--lumen-press-duration) var(--lumen-state-easing),
+    background-color var(--lumen-state-duration) var(--lumen-state-easing),
+    border-color var(--lumen-state-duration) var(--lumen-state-easing),
+    color var(--lumen-state-duration) var(--lumen-state-easing),
+    outline-color var(--lumen-state-duration) var(--lumen-state-easing);
+}
+
+[data-lumen-mode][data-lumen-motion='off'] {
+  --lumen-state-duration: 0ms;
+  --lumen-press-duration: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lumen-mode] {
+    --lumen-state-duration: 0ms;
+    --lumen-press-duration: 0ms;
+  }
+}
+
+:where(
+  .lumen-effect,
+  [data-lumen-mode] .MuiButton-root,
+  [data-lumen-mode] .MuiIconButton-root,
+  [data-lumen-mode] .MuiInputBase-root,
+  [data-lumen-mode] .MuiCheckbox-root,
+  [data-lumen-mode] .MuiRadio-root,
+  [data-lumen-mode] .MuiSwitch-switchBase,
+  [data-lumen-mode] .MuiSlider-root,
+  [data-lumen-mode] .MuiSlider-thumb
+) {
+  --lumen-effect-color: var(--lumen-ink);
+  --lumen-effect-enabled: 1;
+  --lumen-press-ink: var(--lumen-effect-color);
+  --lumen-press-light: color-mix(
+    in srgb,
+    var(--lumen-press-ink) calc(var(--lumen-press-level) * 66.666667%),
+    transparent
+  );
+  --lumen-press-layer: linear-gradient(var(--lumen-press-light), var(--lumen-press-light));
+  --lumen-effect-light: color-mix(
+    in srgb,
+    var(--lumen-effect-color)
+      calc(
+        var(--lumen-glow, 0.65) * var(--lumen-glow-mode-scale, 1) * var(--lumen-effect-enabled) *
+          min(var(--lumen-glow-pressed), calc(var(--lumen-effect-level) + var(--lumen-press-level))) * 100%
+      ),
+    transparent
+  );
+  --lumen-effect-shadow:
+    0 0 var(--lumen-glow-near, 0.25rem) var(--lumen-effect-light),
+    0 0 var(--lumen-glow-far, 0.75rem) var(--lumen-effect-light);
+  --lumen-content-shadow: 0 0 var(--lumen-glow-near, 0.25rem) var(--lumen-effect-light);
+  transition: var(--lumen-state-transition);
+}
+
+:where(.lumen-action[data-lumen-variant='contained'], [data-lumen-mode] .MuiButton-contained) {
+  --lumen-effect-level: var(--lumen-glow-rest);
+}
+
+:where(.lumen-action, [data-lumen-mode] .MuiButton-root, [data-lumen-mode] .MuiIconButton-root):is(
+  [data-lumen-state='selected'],
+  [aria-pressed='true'],
+  [aria-current='page'],
+  .Mui-selected
+) {
+  --lumen-effect-level: var(--lumen-glow-selected);
+}
+
+@media (hover: hover) {
+  :where(.lumen-action, [data-lumen-mode] .MuiButton-root, [data-lumen-mode] .MuiIconButton-root):hover:not(:disabled) {
+    --lumen-effect-level: var(--lumen-glow-hover);
+  }
+}
+
+:where(.lumen-action, [data-lumen-mode] .MuiButton-root, [data-lumen-mode] .MuiIconButton-root):is(
+  :focus-visible,
+  .Mui-focusVisible
+) {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  outline: 0.125rem solid var(--lumen-effect-color);
+  outline-offset: 0.125rem;
+}
+
+:where(.lumen-action, [data-lumen-mode] .MuiButton-root, [data-lumen-mode] .MuiIconButton-root):active:not(:disabled) {
+  --lumen-press-level: calc(var(--lumen-glow-pressed) - var(--lumen-glow-hover));
+}
+
+:where(.lumen-effect, [data-lumen-mode] .MuiButton-root, [data-lumen-mode] .MuiIconButton-root):is(
+  [data-lumen-state='running'],
+  .Mui-loading
+) {
+  animation: lumen-breathe var(--lumen-running-duration) ease-in-out infinite;
+}
+
+:where(.lumen-action):is([data-lumen-state='failed']) {
+  --lumen-effect-color: var(--lumen-danger);
+  --lumen-effect-level: var(--lumen-glow-selected);
+}
+
+:where(.lumen-action[data-lumen-indicator='none']) {
+  --lumen-effect-enabled: 0;
+}
+
+:where(.lumen-action, [data-lumen-mode] .MuiButton-root, [data-lumen-mode] .MuiIconButton-root):disabled:not(
+    [data-lumen-state='running'],
+    .Mui-loading
+  ) {
+  --lumen-effect-level: 0;
+  animation: none;
+}
+
+:where(
+  .lumen-action[data-lumen-variant='text'],
+  [data-lumen-mode] .MuiButton-text,
+  [data-lumen-mode] .MuiIconButton-root
+) {
+  text-shadow: var(--lumen-content-shadow);
+}
+
+:where(
+    .lumen-action[data-lumen-variant='text'],
+    [data-lumen-mode] .MuiButton-text,
+    [data-lumen-mode] .MuiIconButton-root
+  )
+  svg {
+  filter: drop-shadow(0 0 var(--lumen-glow-near, 0.25rem) var(--lumen-effect-light));
+}
+
+@keyframes lumen-breathe {
+  0%,
+  100% {
+    --lumen-effect-level: var(--lumen-glow-running-min);
+  }
+  50% {
+    --lumen-effect-level: var(--lumen-glow-running-max);
+  }
+}
+
+[data-lumen-mode][data-lumen-motion='off']
+  :is(
+    .lumen-effect,
+    .MuiButton-root,
+    .MuiIconButton-root,
+    .MuiInputBase-root,
+    .MuiCheckbox-root,
+    .MuiRadio-root,
+    .MuiSwitch-switchBase,
+    .MuiSlider-root,
+    .MuiSlider-thumb
+  ) {
+  animation: none;
+  transition: none;
+}
+
+[data-lumen-motion='off'] :is(.MuiCircularProgress-root, .MuiCircularProgress-circle) {
+  animation: none;
+  transition: none;
+}
+
+[data-lumen-mode][data-lumen-motion='off']
+  :is(.MuiInputBase-root, .MuiInputLabel-root, .MuiCheckbox-root, .MuiRadio-root, .MuiSwitch-root, .MuiSlider-root),
+[data-lumen-mode][data-lumen-motion='off']
+  :is(.MuiInputBase-root, .MuiCheckbox-root, .MuiRadio-root, .MuiSwitch-root, .MuiSlider-root)
+  *,
+[data-lumen-mode][data-lumen-motion='off'] .MuiInputBase-root::before,
+[data-lumen-mode][data-lumen-motion='off'] .MuiInputBase-root::after {
+  animation: none;
+  transition: none;
+}
+
+[data-lumen-mode][data-lumen-motion='off']
+  :is(.lumen-effect, .MuiButton-root, .MuiIconButton-root):is([data-lumen-state='running'], .Mui-loading) {
+  --lumen-effect-level: var(--lumen-glow-selected);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lumen-mode]
+    :is(.MuiInputBase-root, .MuiInputLabel-root, .MuiCheckbox-root, .MuiRadio-root, .MuiSwitch-root, .MuiSlider-root),
+  [data-lumen-mode] :is(.MuiInputBase-root, .MuiCheckbox-root, .MuiRadio-root, .MuiSwitch-root, .MuiSlider-root) *,
+  [data-lumen-mode] .MuiInputBase-root::before,
+  [data-lumen-mode] .MuiInputBase-root::after {
+    animation: none;
+    transition: none;
+  }
+  [data-lumen-mode] :is(.MuiCircularProgress-root, .MuiCircularProgress-circle) {
+    animation: none;
+    transition: none;
+  }
+  [data-lumen-mode]
+    :is(
+      .lumen-effect,
+      .MuiButton-root,
+      .MuiIconButton-root,
+      .MuiInputBase-root,
+      .MuiCheckbox-root,
+      .MuiRadio-root,
+      .MuiSwitch-switchBase,
+      .MuiSlider-root,
+      .MuiSlider-thumb
+    ) {
+    animation: none;
+    transition: none;
+  }
+  [data-lumen-mode]
+    :is(.lumen-effect, .MuiButton-root, .MuiIconButton-root):is([data-lumen-state='running'], .Mui-loading) {
+    --lumen-effect-level: var(--lumen-glow-selected);
+  }
+}
+
+@media (forced-colors: active) {
+  [data-lumen-mode]
+    :is(
+      .lumen-effect,
+      .MuiButton-root,
+      .MuiIconButton-root,
+      .MuiInputBase-root,
+      .MuiCheckbox-root,
+      .MuiRadio-root,
+      .MuiSwitch-switchBase,
+      .MuiSlider-root,
+      .MuiSlider-thumb
+    ) {
+    --lumen-effect-enabled: 0;
+    animation: none;
+    transition: none;
+    text-shadow: none;
+  }
+  :where(.lumen-action, [data-lumen-mode] .MuiButton-root, [data-lumen-mode] .MuiIconButton-root):is(
+    :focus-visible,
+    .Mui-focusVisible
+  ) {
+    outline-color: Highlight;
+  }
+}

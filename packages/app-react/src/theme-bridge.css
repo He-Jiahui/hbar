@@ -1,0 +1,53 @@
+/* Host reading and syntax roles map to the canonical Lumen palette and typography here. */
+
+.hbar-session-message-blocks,
+.hbar-session-activity {
+  --hbar-session-body: color-mix(in srgb, var(--lumen-ink) 94%, var(--lumen-info));
+  --hbar-session-secondary: color-mix(in srgb, var(--lumen-ink) 68%, var(--lumen-info));
+  --hbar-session-heading: color-mix(in srgb, var(--lumen-info) 78%, var(--lumen-ink));
+  --hbar-session-emphasis: color-mix(in srgb, var(--lumen-warning) 80%, var(--lumen-ink));
+  --hbar-session-code: color-mix(in srgb, var(--lumen-success) 70%, var(--lumen-info));
+  --hbar-session-file: color-mix(in srgb, var(--lumen-info) 65%, var(--lumen-success));
+}
+.hbar-session-message-prose,
+.hbar-session-thinking-content {
+  --hbar-session-live-wash: color-mix(in srgb, var(--lumen-info) calc(var(--lumen-effect-level) * 10%), transparent);
+}
+.hbar-session-tool {
+  --hbar-session-tool-color: var(--hbar-session-heading);
+}
+.hbar-session-tool:is([data-presentation-icon='file'], [data-presentation-icon='directory']) {
+  --hbar-session-tool-color: var(--hbar-session-file);
+}
+.hbar-session-tool:is([data-presentation-icon='file-write'], [data-presentation-icon='file-edit']) {
+  --hbar-session-tool-color: var(--hbar-session-emphasis);
+}
+
+.hbar-session-message-blocks,
+.hbar-session-activity {
+  --hbar-session-prose-size: calc(var(--lumen-font-size) * 1.05);
+  --hbar-session-detail-size: calc(var(--lumen-font-size) * 0.95);
+  --hbar-session-caption-size: calc(var(--lumen-font-size) * 0.9);
+}
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) {
+  --hbar-session-pane-body-size: calc(var(--lumen-font-size, 0.875rem) * 13 / 14);
+  --hbar-session-pane-meta-size: calc(var(--lumen-font-size, 0.875rem) * 12 / 14);
+  --hbar-session-pane-heading-size: var(--lumen-font-size, 0.875rem);
+}
+[data-lumen-mode] {
+  --hbar-code-comment: color-mix(in srgb, var(--lumen-ink) 55%, var(--lumen-muted));
+  --hbar-code-string: color-mix(in srgb, var(--lumen-success) 80%, var(--lumen-ink));
+  --hbar-code-keyword: color-mix(in srgb, var(--lumen-danger) 65%, var(--lumen-warning));
+  --hbar-code-function: color-mix(in srgb, var(--lumen-info) 80%, var(--lumen-ink));
+  --hbar-code-type: color-mix(in srgb, var(--lumen-warning) 80%, var(--lumen-ink));
+  --hbar-code-number: color-mix(in srgb, var(--lumen-success) 55%, var(--lumen-info));
+  --hbar-code-property: color-mix(in srgb, var(--lumen-warning) 65%, var(--lumen-ink));
+  --hbar-code-punctuation: color-mix(in srgb, var(--lumen-ink) 65%, var(--lumen-muted));
+  --hbar-code-inserted: var(--lumen-success);
+  --hbar-code-deleted: var(--lumen-danger);
+}
+[data-hbar-app-ui-shell='app'] {
+  --hbar-workbench-brand-size: calc(var(--lumen-font-size) * 1.35);
+  --hbar-workbench-title-size: calc(var(--lumen-font-size) * 1.65);
+  --hbar-workbench-caption-size: calc(var(--lumen-font-size) * 0.9);
+}

@@ -1,4 +1,4 @@
-import type { LumenAppShellInboxContent, LumenInboxConversation } from '@lumen/app-ui'
+import type { LumenAppShellInboxContent, LumenInboxConversation } from '@lumen/app-ui/catalog'
 
 export interface InboxPreviewRecord extends LumenInboxConversation {
   readonly assigned: boolean

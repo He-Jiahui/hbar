@@ -3,6 +3,7 @@ import { QUEUED_USER_RUNS_PAGE_SIZE, type QueuedUserRunsState } from '@hbar/app-
 import { CornerDownRight, Pencil, Trash2 } from 'lucide-react'
 import { HbarComposerFeedback } from './composer-feedback'
 import './queued-user-runs.css'
+import { createMessageScope } from './messages'
 
 export interface HbarQueuedUserRunsLabels {
   readonly queued: string
@@ -40,13 +41,22 @@ export interface HbarQueuedUserRunsLabels {
   readonly dismissRemoval: string
 }
 
+const QueuedUserRunsMessages = createMessageScope<{ readonly queuedUserRuns: HbarQueuedUserRunsLabels }>()
+
 /** Host-confirmed, paged queue with target-bound edit and removal actions. */
-export function HbarQueuedUserRuns({
+export function HbarQueuedUserRuns(props: Parameters<typeof HbarQueuedUserRunsContent>[0]) {
+  return (
+    <QueuedUserRunsMessages.Provider messages={{ queuedUserRuns: props.labels }}>
+      <HbarQueuedUserRunsContent {...props} />
+    </QueuedUserRunsMessages.Provider>
+  )
+}
+
+function HbarQueuedUserRunsContent({
   state,
   sessionId,
   connected,
   activeRunId,
-  labels,
   onRefresh,
   onPrevious,
   onNext,
@@ -82,6 +92,8 @@ export function HbarQueuedUserRuns({
   readonly onRetryRemoval: (operationId: string) => void
   readonly onDismissRemoval: () => void
 }) {
+  const { t } = QueuedUserRunsMessages.useMessages()
+  const labels = t('queuedUserRuns')
   const current = state.sessionId === sessionId ? state : null
   const notice = !connected ? (
     <HbarComposerFeedback>

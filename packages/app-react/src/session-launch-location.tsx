@@ -3,7 +3,6 @@ import {
   RuntimeCommandError,
   parseWorkspacePage,
   workspaceDisplayName,
-  type SessionLaunchDraftEntry,
   type SessionLaunchSelection,
   type SessionWorkspaceMoveEntry,
   type SessionWorkspaceMovePhase,
@@ -12,6 +11,7 @@ import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import { HbarPreSessionLocationPicker, type HbarPreSessionLocationLabels } from './pre-session-location-picker'
 import type { HbarPreSessionLaunchStatusLabels } from './pre-session-launch-status'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { createMessageScope } from './messages'
 import './session-launch-location.css'
 
 export interface HbarSessionWorkspaceMoveLabels {
@@ -43,33 +43,36 @@ export interface HbarSessionLaunchLocationProps {
   readonly moveLabels: HbarSessionWorkspaceMoveLabels
 }
 
+type SessionLaunchMessages = {
+  readonly phases: HbarSessionWorkspaceMoveLabels['phases']
+  readonly moveUnavailable: string
+  readonly moveUnknown: string
+  readonly movePaused: string
+  readonly moveCancelled: string
+  readonly moveSucceeded: HbarSessionWorkspaceMoveLabels['succeeded']
+  readonly moveError: HbarSessionWorkspaceMoveLabels['error']
+  readonly moveAllowConfirmation: string
+  readonly moveConfirmAllow: string
+  readonly moveUnresolvedMentions: HbarSessionWorkspaceMoveLabels['unresolvedMentions']
+  readonly moveConfirmUnresolvedMentions: string
+  readonly moveContinue: string
+  readonly moveRetry: string
+  readonly moveCancel: string
+  readonly moveRetryDirectories: string
+  readonly statusUnknown: string
+  readonly statusPaused: string
+  readonly statusCancelled: string
+  readonly statusCancelRequested: string
+  readonly statusError: HbarPreSessionLaunchStatusLabels['error']
+  readonly statusPreparing: string
+  readonly statusCheck: string
+  readonly statusCancel: string
+  readonly locationError: HbarPreSessionLocationLabels['error']
+}
+const sessionLaunchMessages = createMessageScope<SessionLaunchMessages>()
+
 const preparationBusyPhases = new Set(['queued', 'starting', 'preparing', 'cancel-requested', 'reconciling'])
 const lockedPhases = new Set([...preparationBusyPhases, 'unknown', 'paused-navigation'])
-
-function preparationStatus(entry: SessionLaunchDraftEntry, labels: HbarPreSessionLaunchStatusLabels): string | null {
-  switch (entry.phase) {
-    case 'idle':
-    case 'ready':
-      return null
-    case 'unknown':
-      return labels.unknown
-    case 'paused-navigation':
-      return labels.paused
-    case 'cancelled':
-      return labels.cancelled
-    case 'cancel-requested':
-      return labels.cancelRequested
-    case 'failed':
-      return labels.error(entry.error ?? 'EXECUTION_FAILED')
-    case 'queued':
-    case 'starting':
-    case 'preparing':
-    case 'reconciling':
-      return labels.preparing
-    case 'selection':
-      return labels.preparing
-  }
-}
 
 function errorCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -84,6 +87,43 @@ function moveIsLocked(entry: SessionWorkspaceMoveEntry | undefined): boolean {
 }
 
 export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps) {
+  const { statusLabels, moveLabels } = props
+  return (
+    <sessionLaunchMessages.Provider
+      messages={{
+        phases: moveLabels.phases,
+        moveUnavailable: moveLabels.unavailable,
+        moveUnknown: moveLabels.unknown,
+        movePaused: moveLabels.paused,
+        moveCancelled: moveLabels.cancelled,
+        moveSucceeded: moveLabels.succeeded,
+        moveError: moveLabels.error,
+        moveAllowConfirmation: moveLabels.allowConfirmation,
+        moveConfirmAllow: moveLabels.confirmAllow,
+        moveUnresolvedMentions: moveLabels.unresolvedMentions,
+        moveConfirmUnresolvedMentions: moveLabels.confirmUnresolvedMentions,
+        moveContinue: moveLabels.continue,
+        moveRetry: moveLabels.retry,
+        moveCancel: moveLabels.cancel,
+        moveRetryDirectories: moveLabels.retryDirectories,
+        statusUnknown: statusLabels.unknown,
+        statusPaused: statusLabels.paused,
+        statusCancelled: statusLabels.cancelled,
+        statusCancelRequested: statusLabels.cancelRequested,
+        statusError: statusLabels.error,
+        statusPreparing: statusLabels.preparing,
+        statusCheck: statusLabels.check,
+        statusCancel: statusLabels.cancel,
+        locationError: props.labels.error,
+      }}
+    >
+      <SessionLaunchLocationContent {...props} />
+    </sessionLaunchMessages.Provider>
+  )
+}
+
+function SessionLaunchLocationContent(props: HbarSessionLaunchLocationProps) {
+  const { t } = sessionLaunchMessages.useMessages()
   const runtime = useHbarRuntime()
   const launchDrafts = useHbarRuntimeState(runtime.state.sessionLaunchDrafts)
   const branches = useHbarRuntimeState(runtime.state.preSessionLaunchBranches)
@@ -283,7 +323,31 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
       .finally(() => setCancelCommandPending(false))
   }
 
-  const status = currentEntry ? preparationStatus(currentEntry, props.statusLabels) : null
+  const status = currentEntry
+    ? (() => {
+        switch (currentEntry.phase) {
+          case 'idle':
+          case 'ready':
+            return null
+          case 'unknown':
+            return t('statusUnknown')
+          case 'paused-navigation':
+            return t('statusPaused')
+          case 'cancelled':
+            return t('statusCancelled')
+          case 'cancel-requested':
+            return t('statusCancelRequested')
+          case 'failed':
+            return t('statusError')(currentEntry.error ?? 'EXECUTION_FAILED')
+          case 'queued':
+          case 'starting':
+          case 'preparing':
+          case 'reconciling':
+          case 'selection':
+            return t('statusPreparing')
+        }
+      })()
+    : null
   const showReconcile =
     currentEntry && ['unknown', 'paused-navigation', 'cancel-requested'].includes(currentEntry.phase)
   const showCancel = currentEntry && preparationBusyPhases.has(currentEntry.phase)
@@ -292,23 +356,23 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
     moveEntry?.status === 'failed' && moveEntry.error === 'UNRESOLVED_MENTIONS_CONFIRMATION_REQUIRED'
   const moveStatus = moveEntry
     ? moveEntry.status === 'busy'
-      ? props.moveLabels.phases[moveEntry.phase]
+      ? t('phases')[moveEntry.phase]
       : moveEntry.status === 'unknown'
-        ? props.moveLabels.unknown
+        ? t('moveUnknown')
         : moveEntry.status === 'paused'
-          ? props.moveLabels.paused
+          ? t('movePaused')
           : moveEntry.status === 'cancelled'
-            ? props.moveLabels.cancelled
+            ? t('moveCancelled')
             : moveEntry.status === 'succeeded'
-              ? props.moveLabels.succeeded(
+              ? t('moveSucceeded')(
                   workspaceChoices.find((workspace) => workspace.id === moveEntry.targetWorkspaceId)?.label ??
                     moveEntry.targetWorkspaceId,
                 )
               : moveNeedsAllowConfirmation
-                ? props.moveLabels.allowConfirmation
+                ? t('moveAllowConfirmation')
                 : moveNeedsMentionConfirmation
-                  ? props.moveLabels.unresolvedMentions(moveEntry.unresolvedMentionCount)
-                  : props.moveLabels.error(moveEntry.error ?? 'EXECUTION_FAILED')
+                  ? t('moveUnresolvedMentions')(moveEntry.unresolvedMentionCount)
+                  : t('moveError')(moveEntry.error ?? 'EXECUTION_FAILED')
     : null
   const hasMoveStatus = Boolean(
     moveStatus || moveActionError || directoryError || (!workspaceMoves.available && props.connected),
@@ -320,11 +384,11 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
         role={moveActionError || moveEntry?.status === 'failed' ? 'alert' : 'status'}
       >
         {!workspaceMoves.available
-          ? props.moveLabels.unavailable
+          ? t('moveUnavailable')
           : moveActionError
-            ? props.moveLabels.error(moveActionError)
+            ? t('moveError')(moveActionError)
             : directoryError
-              ? props.labels.error(directoryError)
+              ? t('locationError')(directoryError)
               : moveStatus}
       </LumenContentText>
       {directoryError && (
@@ -334,7 +398,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
           disabled={!props.connected || directoryLoading}
           onClick={() => setDirectoryRefresh((refresh) => refresh + 1)}
         >
-          {props.moveLabels.retryDirectories}
+          {t('moveRetryDirectories')}
         </LumenButton>
       )}
       {moveNeedsAllowConfirmation && moveEntry && (
@@ -347,7 +411,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
             void runMove({ targetWorkspaceId: moveEntry.targetWorkspaceId, confirmAllow: true })
           }}
         >
-          {props.moveLabels.confirmAllow}
+          {t('moveConfirmAllow')}
         </LumenButton>
       )}
       {moveNeedsMentionConfirmation && moveEntry && (
@@ -363,7 +427,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
             })
           }
         >
-          {props.moveLabels.confirmUnresolvedMentions}
+          {t('moveConfirmUnresolvedMentions')}
         </LumenButton>
       )}
       {moveEntry &&
@@ -374,12 +438,12 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
           moveEntry.status === 'paused' ||
           moveEntry.status === 'cancelled') && (
           <LumenButton type="button" size="s" disabled={!props.connected || moveCommandPending} onClick={continueMove}>
-            {props.moveLabels.continue}
+            {t('moveContinue')}
           </LumenButton>
         )}
       {moveEntry && moveEntry.status !== 'succeeded' && moveEntry.status !== 'cancelled' && (
         <LumenButton type="button" size="s" disabled={!props.connected || cancelCommandPending} onClick={cancelMove}>
-          {props.moveLabels.cancel}
+          {t('moveCancel')}
         </LumenButton>
       )}
       {moveEntry &&
@@ -398,7 +462,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
               })
             }
           >
-            {props.moveLabels.retry}
+            {t('moveRetry')}
           </LumenButton>
         )}
       {moveEntry && moveEntry.status === 'cancelled' && moveEntry.targetSessionId === null && (
@@ -413,7 +477,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
             })
           }
         >
-          {props.moveLabels.retry}
+          {t('moveRetry')}
         </LumenButton>
       )}
     </LumenFrame>
@@ -505,21 +569,21 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
             }
           >
             {!launchDrafts.available
-              ? props.statusLabels.error('CAPABILITY_UNAVAILABLE')
+              ? t('statusError')('CAPABILITY_UNAVAILABLE')
               : openError
-                ? props.labels.error(openError)
+                ? t('locationError')(openError)
                 : actionError
-                  ? props.statusLabels.error(actionError)
+                  ? t('statusError')(actionError)
                   : status}
           </LumenContentText>
           {showReconcile && (
             <LumenButton type="button" size="s" disabled={!props.connected || pending} onClick={reconcile}>
-              {props.statusLabels.check}
+              {t('statusCheck')}
             </LumenButton>
           )}
           {showCancel && (
             <LumenButton type="button" size="s" disabled={!props.connected || pending} onClick={cancelFirstSend}>
-              {props.statusLabels.cancel}
+              {t('statusCancel')}
             </LumenButton>
           )}
         </LumenFrame>

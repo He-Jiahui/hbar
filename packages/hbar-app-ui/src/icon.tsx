@@ -12,7 +12,7 @@ export function HbarAppUiIcon({
   readonly icon: LucideIcon
   readonly tier?: HbarAppUiIconTier
 } & Omit<LucideProps, 'size'>) {
-  const dimension = `var(--hbar-app-ui-icon-${tier})`
+  const dimension = `var(--lumen-icon-${tier})`
   return (
     <Icon
       aria-hidden={props['aria-label'] ? undefined : true}

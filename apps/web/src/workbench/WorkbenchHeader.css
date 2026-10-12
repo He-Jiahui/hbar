@@ -3,16 +3,16 @@
   isolation: isolate;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--lumen-space-8);
   min-width: 0;
-  padding: 0 11px 0 9px;
+  padding: 0 var(--lumen-space-12) 0 var(--lumen-space-8);
   background: var(--hbar-s1);
 }
 
 .rb-shell-header > .chrome-glass {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: var(--lumen-layer-underlay);
   border: 0;
   border-radius: 0;
   background: color-mix(in srgb, var(--hbar-s1) 92%, transparent);
@@ -26,7 +26,7 @@
 
 .rb-shell-header > :not(.chrome-glass) {
   position: relative;
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
 }
 
 .shell-header-leading,
@@ -40,7 +40,7 @@
 
 .shell-header-leading {
   min-width: max-content;
-  gap: 7px;
+  gap: var(--lumen-space-8);
 }
 
 .shell-header-leading .sidebar-toggle {
@@ -57,19 +57,19 @@
 }
 
 .rb-shell-header .brand {
-  padding: 0 3px;
+  padding: 0 var(--lumen-space-2);
 }
 
 .rb-shell-header .top-divider {
   flex: 0 0 1px;
-  margin: 0 2px;
+  margin: 0 var(--lumen-space-2);
   background: var(--hbar-bd2);
 }
 
 .shell-scope {
   flex: 0 1 min(280px, 28vw);
   min-width: 0;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 }
 
 .workspace-switcher,
@@ -88,10 +88,10 @@
   flex-direction: row;
   min-width: 0;
   min-height: 32px;
-  gap: 5px;
-  padding: 2px 6px 2px 8px;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-2) var(--lumen-space-4) var(--lumen-space-2) var(--lumen-space-8);
   border: 1px solid transparent;
-  border-radius: var(--control-radius);
+  border-radius: var(--lumen-radius-control);
   cursor: pointer;
 }
 
@@ -121,7 +121,7 @@
   -webkit-appearance: none;
   max-width: min(240px, 24vw);
   min-height: 21px;
-  padding: 1px 17px 1px 0;
+  padding: var(--lumen-space-2) var(--lumen-space-16) var(--lumen-space-2) 0;
   border: 0;
   background: transparent;
   font-size: var(--hbar-font-size-ui);
@@ -162,10 +162,10 @@
 
 .rb-shell-header .top-command {
   min-height: 30px;
-  gap: 7px;
-  padding: 4px 8px;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   border: 1px solid transparent;
-  border-radius: var(--control-radius);
+  border-radius: var(--lumen-radius-control);
   color: var(--hbar-t2);
   white-space: nowrap;
 }
@@ -178,19 +178,19 @@
 }
 
 .rb-shell-header .top-command kbd {
-  padding: 2px 4px;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   border: 1px solid color-mix(in srgb, var(--hbar-bd2) 80%, transparent);
-  border-radius: 4px;
+  border-radius: var(--lumen-radius-control);
   color: var(--hbar-t3);
   font: var(--hbar-font-size-small) var(--mono);
 }
 
 .rb-shell-header .host-status {
   min-height: 27px;
-  gap: 6px;
-  padding: 0 9px;
+  gap: var(--lumen-space-4);
+  padding: 0 var(--lumen-space-8);
   border: 1px solid color-mix(in srgb, var(--hbar-bd2) 86%, transparent);
-  border-radius: var(--radius-full);
+  border-radius: var(--lumen-radius-pill);
   background: color-mix(in srgb, var(--hbar-s0) 82%, transparent);
   font-size: var(--hbar-font-size-label);
   white-space: nowrap;
@@ -204,10 +204,10 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
 }
 
-@media (max-width: 899px) {
+@media (width < 64rem) {
   .rb-shell-header {
-    gap: 6px;
-    padding-right: 7px;
+    gap: var(--lumen-space-4);
+    padding-right: var(--lumen-space-8);
   }
 
   .rb-shell-header .brand {
@@ -224,12 +224,12 @@
   .rb-shell-header .workspace-select {
     max-width: 34vw;
     min-height: 27px;
-    padding-right: 15px;
+    padding-right: var(--lumen-space-16);
   }
 
   .workspace-switcher {
     min-height: 30px;
-    padding-left: 5px;
+    padding-left: var(--lumen-space-4);
   }
 
   .rb-shell-header .top-command {
@@ -253,7 +253,7 @@
   }
 }
 
-@media (max-width: 1180px) and (min-width: 900px) {
+@media (width < 64rem) and (width >= 48rem) {
   .rb-shell-header .shell-scope {
     flex-basis: min(230px, 24vw);
   }
@@ -267,17 +267,17 @@
   }
 
   .rb-shell-header .top-command {
-    gap: 5px;
-    padding-inline: 6px;
+    gap: var(--lumen-space-4);
+    padding-inline: var(--lumen-space-4);
   }
 
   .rb-shell-header .host-status {
-    gap: 5px;
-    padding-inline: 6px;
+    gap: var(--lumen-space-4);
+    padding-inline: var(--lumen-space-4);
   }
 }
 
-@media (max-width: 1040px) and (min-width: 900px) {
+@media (width < 64rem) and (width >= 48rem) {
   .rb-shell-header .top-command span {
     display: none;
   }

@@ -1,4 +1,6 @@
 .hbar-app-react-status-workspace {
+  container-name: status-workspace;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   min-inline-size: 0;
@@ -11,10 +13,10 @@
 
 .hbar-app-react-status-lumen-usage {
   min-inline-size: 0;
-  margin-block: 0.75rem;
+  margin-block: var(--lumen-space-12);
 }
 
-.hbar-app-react-status-workspace > .lumen-page-header {
+.hbar-app-react-status-workspace > [data-lumen-part~="page-header.root"] {
   flex: 0 0 auto;
   flex-direction: row;
   flex-wrap: wrap;
@@ -22,7 +24,7 @@
   min-block-size: 3.75rem;
 }
 
-.hbar-app-react-status-workspace > .lumen-page-header > .lumen-page-heading {
+.hbar-app-react-status-workspace > [data-lumen-part~="page-header.root"] > [data-lumen-part~="page-header.heading"] {
   flex-basis: 0;
 }
 
@@ -31,27 +33,27 @@
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-status-controls > .lumen-form-field,
-.hbar-app-react-status-filter-details .lumen-form-field {
+.hbar-app-react-status-controls > [data-lumen-part~="field.group"],
+.hbar-app-react-status-filter-details [data-lumen-part~="field.group"] {
   display: flex;
   min-inline-size: min(100%, 12rem);
   flex: 1 1 14rem;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
-.hbar-app-react-status-controls .lumen-popup-select {
+.hbar-app-react-status-controls [data-lumen-part~="select.root"] {
   min-inline-size: 0;
   inline-size: 100%;
 }
 
-.hbar-app-react-status-controls .lumen-popup-select-label {
+.hbar-app-react-status-controls [data-lumen-part~="select.label"] {
   text-overflow: clip;
 
   min-inline-size: max-content;
@@ -59,13 +61,13 @@
   white-space: nowrap;
 }
 
-.hbar-app-react-status-controls .lumen-checkbox {
+.hbar-app-react-status-controls [data-lumen-part~="checkbox"] {
   align-self: center;
   min-inline-size: min(100%, 12rem);
   flex: 1 1 14rem;
 }
 
-.hbar-app-react-usage-controls > .lumen-form-field {
+.hbar-app-react-usage-controls > [data-lumen-part~="field.group"] {
   min-inline-size: min(100%, 12rem);
   flex: 1 1 12rem;
 }
@@ -76,7 +78,7 @@
 }
 
 .hbar-app-react-status-export-warning {
-  margin-inline-start: 0.25rem;
+  margin-inline-start: var(--lumen-space-4);
   color: var(--lumen-warning);
 }
 
@@ -84,7 +86,7 @@
   display: flex;
   min-block-size: 1.75rem;
   align-items: center;
-  padding-inline: 0.5rem;
+  padding-inline: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -111,29 +113,29 @@
   min-inline-size: 0;
   inline-size: 100%;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  padding-block-start: 0.5rem;
+  gap: var(--lumen-space-12);
+  padding-block-start: var(--lumen-space-8);
 }
 
-.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-content > div > .lumen-form-field {
+.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-content > div > [data-lumen-part~="field.group"] {
   flex: 1 1 14rem;
 }
 
-.hbar-app-react-git-source-options > .lumen-checkbox {
+.hbar-app-react-git-source-options > [data-lumen-part~="checkbox"] {
   flex: 1 1 10rem;
 }
 
-.hbar-app-react-git-controls > .lumen-form-field > label {
+.hbar-app-react-git-controls > [data-lumen-part~="field.group"] > label {
   min-inline-size: max-content;
   max-inline-size: none;
   white-space: nowrap;
 }
 
-.hbar-app-react-status-controls > .lumen-action-menu {
+.hbar-app-react-status-controls > [data-lumen-part~="menu.root"] {
   margin-inline-start: auto;
 }
 
-.hbar-app-react-status-controls > .lumen-action-menu + p {
+.hbar-app-react-status-controls > [data-lumen-part~="menu.root"] + p {
   flex: 1 1 100%;
   min-inline-size: 100%;
 }
@@ -142,8 +144,8 @@
   display: flex;
   flex: 0 0 auto;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  padding: 0.5rem 1rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -159,15 +161,15 @@
   flex: 1 1 auto;
   min-block-size: 0;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 
 .hbar-app-react-status-workspace > main > section {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-react-status-workspace > main > section > h2,
@@ -178,7 +180,7 @@
 }
 
 .hbar-app-react-status-gap {
-  padding: 0.5rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   color: var(--lumen-warning);
@@ -190,7 +192,7 @@
 }
 
 .hbar-app-react-status-details > .hbar-lumen-disclosure-trigger {
-  padding-block: 0.75rem;
+  padding-block: var(--lumen-space-12);
 }
 
 .hbar-app-react-status-details[data-open='true'] > .hbar-lumen-disclosure-trigger {
@@ -202,13 +204,13 @@
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 
 .hbar-app-react-performance-charts {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-react-performance-charts article {
@@ -216,8 +218,8 @@
   min-inline-size: min(100%, 18rem);
   flex: 1 1 24rem;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-line);
   background: transparent;
 }
@@ -230,7 +232,7 @@
 .hbar-app-react-usage-models {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -240,9 +242,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -252,14 +254,14 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-app-react-usage-latency .lumen-compact-metrics > div {
+.hbar-app-react-usage-latency [data-lumen-part~="metrics.compact"] > div {
   flex-basis: 14rem;
 }
 
 .hbar-app-react-git-charts {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-react-git-charts article {
@@ -267,24 +269,24 @@
   min-inline-size: min(100%, 15rem);
   flex: 1 1 18rem;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
 }
 
-.hbar-app-react-git-charts .lumen-bar-series {
+.hbar-app-react-git-charts [data-lumen-part~="metrics.bars"] {
   min-block-size: 6rem;
 }
 
-.hbar-app-react-git-charts .is-files .lumen-bar-series > i,
-.hbar-app-react-git-charts .is-files .lumen-bar-series > button {
+.hbar-app-react-git-charts .is-files [data-lumen-part~="metrics.bars"] > i,
+.hbar-app-react-git-charts .is-files [data-lumen-part~="metrics.bars"] > button {
   background: var(--lumen-success);
 }
 
-.hbar-app-react-git-charts .is-changes .lumen-bar-series > i,
-.hbar-app-react-git-charts .is-changes .lumen-bar-series > button {
+.hbar-app-react-git-charts .is-changes [data-lumen-part~="metrics.bars"] > i,
+.hbar-app-react-git-charts .is-changes [data-lumen-part~="metrics.bars"] > button {
   background: var(--lumen-warning);
 }
 
@@ -292,11 +294,11 @@
   color: var(--lumen-muted);
 }
 
-.hbar-app-react-git-status > .hbar-app-react-status-details .lumen-compact-metrics > div:first-child {
+.hbar-app-react-git-status > .hbar-app-react-status-details [data-lumen-part~="metrics.compact"] > div:first-child {
   flex-basis: 24rem;
 }
 
-.hbar-app-react-git-status > .hbar-app-react-status-details .lumen-compact-metrics > div:first-child dd {
+.hbar-app-react-git-status > .hbar-app-react-status-details [data-lumen-part~="metrics.compact"] > div:first-child dd {
   text-align: start;
 }
 
@@ -305,8 +307,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 0.75rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--lumen-space-8) var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -319,14 +321,14 @@
 }
 
 .hbar-app-react-git-commits .hbar-lumen-disclosure {
-  padding: 0.5rem 0;
+  padding: var(--lumen-space-8) 0;
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
 .hbar-app-react-git-commits .hbar-lumen-disclosure-trigger {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-react-git-commits .hbar-lumen-disclosure-trigger code {
@@ -338,7 +340,7 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-react-git-commits .hbar-lumen-disclosure-trigger small {
@@ -354,8 +356,8 @@
 .hbar-app-react-git-commits dl {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.5rem 0 0;
+  gap: var(--lumen-space-8);
+  margin: var(--lumen-space-8) 0 0;
 }
 
 .hbar-app-react-git-commits dl div {
@@ -375,11 +377,11 @@
   color: var(--lumen-danger);
 }
 
-@media (max-width: 42rem) {
+@container status-workspace (width < 48rem) {
   .hbar-app-react-usage-models li {
     align-items: flex-start;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--lumen-space-4);
   }
 
   .hbar-app-react-usage-models strong {

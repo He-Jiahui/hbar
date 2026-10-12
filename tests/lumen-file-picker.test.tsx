@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenFilePicker } from '@lumen/app-ui'
+import { LumenFilePicker } from '@lumen/app-ui/catalog'
 
 for (const disabled of [false, true]) {
   test(`file picker separates its visible named action from the native input (disabled=${disabled})`, () => {

@@ -1,7 +1,7 @@
 .hbar-app-react-session-activity-indicator {
   display: inline-flex;
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;

@@ -1,4 +1,4 @@
-import type { LumenFileManagerReferenceContent as Content, LumenFileManagerReferenceLabels } from '@lumen/app-ui'
+import type { LumenFileManagerReferenceContent as Content, LumenFileManagerReferenceLabels } from '@lumen/app-ui/catalog'
 import { HBAR_APP_UI_FILE_MANAGER_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-file-manager-fixtures'
 
 const labels: LumenFileManagerReferenceLabels = {

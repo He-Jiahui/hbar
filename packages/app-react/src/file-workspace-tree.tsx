@@ -11,6 +11,7 @@ import {
 } from '@lumen/app-ui'
 import type { FileWorkspaceEntryState } from '@hbar/app-runtime'
 import { fileSearchFocusIndex } from './file-search-focus'
+import { fileTreeMessages } from './file-workspace-messages'
 
 type Item = FileWorkspaceEntryState['items'][number]
 type Node = FileWorkspaceEntryState['tree']['nodes'][string]
@@ -44,20 +45,7 @@ export interface HbarFileTreeLabels {
 
 const MAX_INLINE_DEPTH = 6
 
-export function HbarFileTree({
-  entry,
-  labels,
-  connected,
-  selectedPath,
-  onFilter,
-  onToggle,
-  onRefreshNode,
-  onMoreNode,
-  onOpenFile,
-  onNavigateFolder,
-  onMoreRoot,
-  onRefreshRoot,
-}: {
+type HbarFileTreeProps = {
   readonly entry: FileWorkspaceEntryState | undefined
   readonly labels: HbarFileTreeLabels
   readonly connected: boolean
@@ -70,7 +58,33 @@ export function HbarFileTree({
   readonly onNavigateFolder: (path: string) => void
   readonly onMoreRoot: () => void
   readonly onRefreshRoot: () => void
-}) {
+}
+
+export function HbarFileTree(props: HbarFileTreeProps) {
+  const { labels, ...contentProps } = props
+  return (
+    <fileTreeMessages.Provider messages={labels}>
+      <FileTreeContent {...contentProps} />
+    </fileTreeMessages.Provider>
+  )
+}
+
+type FileTreeContentProps = Omit<HbarFileTreeProps, 'labels'>
+
+function FileTreeContent({
+  entry,
+  connected,
+  selectedPath,
+  onFilter,
+  onToggle,
+  onRefreshNode,
+  onMoreNode,
+  onOpenFile,
+  onNavigateFolder,
+  onMoreRoot,
+  onRefreshRoot,
+}: FileTreeContentProps) {
+  const { t } = fileTreeMessages.useMessages()
   const searchInput = useRef<HTMLInputElement>(null)
   const searchResults = useRef<HTMLUListElement>(null)
   const focusedResult = useRef<HTMLButtonElement | null>(null)
@@ -121,7 +135,7 @@ export function HbarFileTree({
   }
 
   const renderRows = (items: readonly Item[], depth: number, busy: boolean) => (
-    <LumenCollection as="ul" className="hbar-file-tree-list" aria-label={depth === 0 ? labels.all : undefined}>
+    <LumenCollection as="ul" className="hbar-file-tree-list" aria-label={depth === 0 ? t('all') : undefined}>
       {[...items]
         // Host pages use path order for a correct cursor; presentation keeps folders first.
         .sort((left, right) => Number(right.directory) - Number(left.directory) || left.name.localeCompare(right.name))
@@ -133,9 +147,9 @@ export function HbarFileTree({
           const caption = folder
             ? inline
               ? expanded
-                ? labels.collapse(item.path)
-                : labels.expand(item.path)
-              : labels.openFolder(item.path)
+                ? t('collapse')(item.path)
+                : t('expand')(item.path)
+              : t('openFolder')(item.path)
             : item.name
           return (
             <LumenCollectionItem as="li" key={item.path}>
@@ -161,13 +175,13 @@ export function HbarFileTree({
                 <LumenFrame className="hbar-file-tree-children">
                   {node?.status === 'loading' && (
                     <LumenContentText context="feedback.message" role="status">
-                      {labels.loading}
+                      {t('loading')}
                     </LumenContentText>
                   )}
                   {node?.error && (
                     <LumenFrame className="hbar-file-tree-feedback">
                       <LumenContentText context="feedback.message" role="alert">
-                        {labels.error(node.error)}
+                        {t('error')(node.error)}
                       </LumenContentText>
                       <LumenButton
                         disabled={!connected || node.status === 'loading'}
@@ -175,19 +189,19 @@ export function HbarFileTree({
                           node.nextCursor && node.items.length ? onMoreNode(item.path) : onRefreshNode(item.path)
                         }
                       >
-                        {labels.retry}
+                        {t('retry')}
                       </LumenButton>
                     </LumenFrame>
                   )}
                   {node?.status === 'ready' && node.items.length === 0 && (
-                    <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+                    <LumenContentText context="section.description">{t('empty')}</LumenContentText>
                   )}
                   {node &&
                     node.items.length > 0 &&
                     renderRows(node.items, depth + 1, busy || node.status === 'loading')}
                   {node?.nextCursor && node.items.length >= 500 && (
                     <LumenContentText context="feedback.message" role="status">
-                      {labels.folderLimit}
+                      {t('folderLimit')}
                     </LumenContentText>
                   )}
                   {node?.nextCursor && node.items.length < 500 && (
@@ -195,7 +209,7 @@ export function HbarFileTree({
                       disabled={!connected || node.status === 'loading'}
                       onClick={() => onMoreNode(item.path)}
                     >
-                      {labels.loadMore}
+                      {t('loadMore')}
                     </LumenButton>
                   )}
                 </LumenFrame>
@@ -212,8 +226,8 @@ export function HbarFileTree({
         <LumenIcon icon={Search} tier="sm" />
         <LumenInput
           ref={searchInput}
-          aria-label={labels.filter}
-          placeholder={labels.filter}
+          aria-label={t('filter')}
+          placeholder={t('filter')}
           maxLength={160}
           value={tree?.filter ?? ''}
           onChange={(event) => onFilter(event.currentTarget.value)}
@@ -236,8 +250,8 @@ export function HbarFileTree({
             size="s"
             variant="text"
             indicator="none"
-            aria-label={labels.clearSearch}
-            title={labels.clearSearch}
+            aria-label={t('clearSearch')}
+            title={t('clearSearch')}
             onClick={clearSearch}
           >
             <LumenIcon icon={X} tier="sm" />
@@ -248,8 +262,8 @@ export function HbarFileTree({
           size="s"
           variant="text"
           indicator="none"
-          aria-label={searching ? labels.refreshSearch : labels.refresh}
-          title={searching ? labels.refreshSearch : labels.refresh}
+          aria-label={searching ? t('refreshSearch') : t('refresh')}
+          title={searching ? t('refreshSearch') : t('refresh')}
           disabled={!connected || rootLoading}
           onClick={searching ? () => onFilter(tree?.filter ?? '') : onRefreshRoot}
         >
@@ -257,11 +271,11 @@ export function HbarFileTree({
         </LumenButton>
       </LumenFrame>
       <LumenContentText context="record.description" className="hbar-file-tree-scope">
-        {searching ? labels.searchScope : labels.filterScope}
+        {searching ? t('searchScope') : t('filterScope')}
       </LumenContentText>
       {!searching && segments.length > 0 && (
-        <LumenFrame as="nav" aria-label={labels.navigation} className="hbar-file-tree-breadcrumbs">
-          <LumenButton onClick={() => onNavigateFolder('.')}>{labels.root}</LumenButton>
+        <LumenFrame as="nav" aria-label={t('navigation')} className="hbar-file-tree-breadcrumbs">
+          <LumenButton onClick={() => onNavigateFolder('.')}>{t('root')}</LumenButton>
           {segments.map((segment, index) => (
             <LumenButton
               key={index}
@@ -275,44 +289,44 @@ export function HbarFileTree({
       )}
       {!searching && tree?.error && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error(tree.error)}
+          {t('error')(tree.error)}
         </LumenContentText>
       )}
       {!searching && rootLoading && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {!searching && entry?.status === 'error' && (
         <LumenFrame className="hbar-file-tree-feedback">
           <LumenContentText context="feedback.message" role="alert">
-            {labels.error(entry.error ?? 'EXECUTION_FAILED')}
+            {t('error')(entry.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton disabled={!connected} onClick={onRefreshRoot}>
-            {labels.retry}
+            {t('retry')}
           </LumenButton>
         </LumenFrame>
       )}
       {searching && tree?.search.status === 'loading' && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.searching}
+          {t('searching')}
         </LumenContentText>
       )}
       {searching && tree?.search.status === 'error' && (
         <LumenFrame className="hbar-file-tree-feedback">
           <LumenContentText context="feedback.message" role="alert">
-            {labels.searchError(tree.search.error ?? 'EXECUTION_FAILED')}
+            {t('searchError')(tree.search.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton disabled={!connected} onClick={() => onFilter(tree.filter)}>
-            {labels.refreshSearch}
+            {t('refreshSearch')}
           </LumenButton>
         </LumenFrame>
       )}
       {searching && tree?.search.status === 'ready' && results.length === 0 && (
-        <LumenContentText context="section.description">{labels.noMatches}</LumenContentText>
+        <LumenContentText context="section.description">{t('noMatches')}</LumenContentText>
       )}
       {!searching && entry?.status === 'ready' && rootItems.length === 0 && (
-        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+        <LumenContentText context="section.description">{t('empty')}</LumenContentText>
       )}
       <LumenFrame className="hbar-file-tree-scroll">
         {searching
@@ -322,7 +336,7 @@ export function HbarFileTree({
                 key={`${searchOwner}:${tree.filter}`}
                 as="ul"
                 className="hbar-file-tree-list"
-                aria-label={labels.searchResults}
+                aria-label={t('searchResults')}
               >
                 {results.map((path) => (
                   <LumenCollectionItem as="li" key={path}>
@@ -357,7 +371,7 @@ export function HbarFileTree({
                       <LumenFrame className="hbar-file-search-path">
                         <LumenContentText context="control.label">{path.split('/').at(-1)}</LumenContentText>
                         <LumenContentText context="choice.description">
-                          {path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : labels.root}
+                          {path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : t('root')}
                         </LumenContentText>
                       </LumenFrame>
                     </LumenButton>
@@ -368,17 +382,17 @@ export function HbarFileTree({
           : renderRows(rootItems, 0, rootLoading || entry?.status === 'error')}
         {searching && tree?.search.status === 'ready' && tree.search.truncated && (
           <LumenContentText context="feedback.message" role="status">
-            {labels.searchLimit}
+            {t('searchLimit')}
           </LumenContentText>
         )}
         {!searching && entry?.rootLimitReached && (
           <LumenContentText context="feedback.message" role="status">
-            {labels.rootLimit}
+            {t('rootLimit')}
           </LumenContentText>
         )}
         {!searching && entry?.nextCursor && (
           <LumenButton disabled={!connected || rootLoading} onClick={onMoreRoot}>
-            {labels.loadMore}
+            {t('loadMore')}
           </LumenButton>
         )}
       </LumenFrame>

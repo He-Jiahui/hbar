@@ -1,11 +1,6 @@
 /* Host composition of the user-selected DESIGN.md family. Lumen owns action paint and motion. */
-[data-hbar-app-ui-shell='app'] {
-  --hbar-workbench-brand-size: calc(var(--lumen-font-size) * 1.35);
-  --hbar-workbench-title-size: calc(var(--lumen-font-size) * 1.65);
-  --hbar-workbench-caption-size: calc(var(--lumen-font-size) * 0.9);
-}
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.root"] {
   border-inline-end-color: var(--lumen-line);
 }
 
@@ -21,31 +16,31 @@
   white-space: nowrap;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar > header {
-  gap: 1rem;
-  padding: 1rem;
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.header"] {
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-brand {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.brand"] {
   font-size: var(--hbar-workbench-brand-size);
   font-weight: 600;
   line-height: 1.4;
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-sidebar-primary {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-sidebar-query-actions {
-  padding-block: 0.625rem;
+  padding-block: var(--lumen-space-8);
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-title {
-  padding-inline: 1rem;
-  padding-block: 0.5rem;
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.title"] {
+  padding-inline: var(--lumen-space-16);
+  padding-block: var(--lumen-space-8);
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-title h2 {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.title"] h2 {
   color: var(--lumen-muted);
   font-size: var(--hbar-workbench-caption-size);
   font-weight: 500;
@@ -53,19 +48,19 @@
   text-transform: none;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-content {
-  padding-inline: 0.75rem;
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.content"] {
+  padding-inline: var(--lumen-space-12);
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-app-sidebar > footer {
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.footer"] {
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-start-color: var(--lumen-line);
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-hero {
-  gap: 1rem;
-  padding-inline: 1.5rem;
+  gap: var(--lumen-space-16);
+  padding-inline: var(--lumen-space-24);
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-mark {
@@ -87,27 +82,27 @@
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing-footer {
-  padding-block-end: 1.5rem;
+  padding-block-end: var(--lumen-space-24);
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"] {
   border-color: var(--lumen-line);
   border-radius: var(--lumen-radius-surface);
   outline: none;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:not([data-lumen-state='disabled']):focus-within {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"]:not([data-lumen-state='disabled']):focus-within {
   --lumen-effect-level: var(--lumen-glow-focus);
   border-color: var(--lumen-effect-color);
   outline: 0.125rem solid color-mix(in srgb, var(--lumen-effect-color) 45%, transparent);
   outline-offset: 0.125rem;
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:not([data-lumen-state='failed']):focus-within {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"]:not([data-lumen-state='failed']):focus-within {
   --lumen-effect-color: var(--lumen-info);
 }
 
-[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface[data-lumen-state='failed'] {
+[data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"][data-lumen-state='failed'] {
   border-color: var(--lumen-danger);
 }
 
@@ -116,15 +111,15 @@
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing .hbar-prompt-composer {
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
 }
 
 /* The composed form owns this editor's keyboard focus boundary. */
 [data-hbar-app-ui-shell='app'] .hbar-prompt-composer .hbar-pre-session-slash-editor-input,
 [data-hbar-app-ui-shell='app'] .hbar-prompt-composer > textarea {
   min-block-size: 4.5rem;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -142,8 +137,8 @@
 
 @media (max-height: 40rem) {
   [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-hero {
-    gap: 0.5rem;
-    padding-block: 0.5rem;
+    gap: var(--lumen-space-8);
+    padding-block: var(--lumen-space-8);
   }
 
   [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-mark {
@@ -152,18 +147,18 @@
   }
 }
 
-@media (max-width: 40rem) {
+@container pre-session-landing (width < 40rem) {
   [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing .hbar-prompt-composer {
-    padding: 0.75rem;
+    padding: var(--lumen-space-12);
   }
 }
 
 @media (forced-colors: active) {
-  [data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface {
+  [data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"] {
     border-color: CanvasText;
   }
 
-  [data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:focus-within {
+  [data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"]:focus-within {
     border-color: Highlight;
     outline-color: Highlight;
   }

@@ -1,3 +1,4 @@
+import { openSessionTool } from './support/session-tools-menu'
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient, createRunCommandClient } from '@hbar/client'
 import type { PlanStep } from '@hbar/contracts'
@@ -82,7 +83,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await expect(details.getByRole('listitem')).toHaveCount(3)
       await expect(details.getByRole('progressbar')).toHaveAttribute('value', '1')
       await expect(details.locator('.hbar-session-live-status-objective')).toContainText(objective)
-      await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'activity')
       const activity = page.locator('.hbar-session-activity-workspace')
       const activityTasks = activity.locator('.hbar-activity-tasks')
       await expect(activityTasks.getByRole('listitem')).toHaveCount(3)

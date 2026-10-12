@@ -3,6 +3,7 @@ import { FileText, PencilLine, Play, RefreshCw } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenTextarea } from '@lumen/app-ui'
 import { MessageMarkdown, type MessageCodeContext } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
+import { createMessageScope } from './messages'
 import './proposed-plan.css'
 
 export interface HbarProposedPlanTarget {
@@ -51,17 +52,20 @@ export interface HbarProposedPlanProps {
   readonly onReconcile: (target: HbarProposedPlanTarget) => void
 }
 
+const { Provider: ProposedPlanMessagesProvider, useMessages: useProposedPlanMessages } =
+  createMessageScope<HbarProposedPlanLabels>()
+
 function ProposedPlanContent({
   target,
   markdown,
   findSegmentId,
   code,
   fileReferences,
-  labels,
   state,
   onSubmit,
   onReconcile,
-}: HbarProposedPlanProps) {
+}: Omit<HbarProposedPlanProps, 'labels'>) {
+  const { t } = useProposedPlanMessages()
   const [feedback, setFeedback] = useState('')
   const feedbackId = useId()
   const scopeId = useId()
@@ -120,19 +124,19 @@ function ProposedPlanContent({
       }}
       tabIndex={-1}
       className="hbar-proposed-plan"
-      aria-label={labels.title}
+      aria-label={t('title')}
       aria-describedby={state.status === 'accepted' ? statusId : undefined}
       aria-busy={state.status === 'submitting' || state.reconciling || undefined}
       data-proposal-message={target.messageId}
     >
       <LumenFrame className="hbar-proposed-plan-heading">
         <LumenIcon icon={FileText} tier="md" />
-        <LumenContentText context="record.title">{labels.title}</LumenContentText>
+        <LumenContentText context="record.title">{t('title')}</LumenContentText>
       </LumenFrame>
       <LumenFrame
         className="hbar-proposed-plan-document"
         role="region"
-        aria-label={labels.document}
+        aria-label={t('document')}
         tabIndex={0}
         data-session-find-segment={findSegmentId}
       >
@@ -140,19 +144,19 @@ function ProposedPlanContent({
       </LumenFrame>
       {state.status !== 'accepted' && (
         <LumenContentText context="section.description" id={scopeId} className="hbar-proposed-plan-scope" tone="muted">
-          {labels.scope}
+          {t('scope')}
         </LumenContentText>
       )}
       {state.status !== 'accepted' ? (
         <LumenFrame className="hbar-proposed-plan-feedback">
-          <LumenFormField label={labels.feedback} controlId={feedbackId}>
+          <LumenFormField label={t('feedback')} controlId={feedbackId}>
             <LumenTextarea
               id={feedbackId}
               className="hbar-proposed-plan-feedback-input"
               variant="plain"
               value={feedback}
               onChange={(event) => setFeedback(event.currentTarget.value)}
-              placeholder={labels.feedbackPlaceholder}
+              placeholder={t('feedbackPlaceholder')}
               rows={3}
               maxLength={4000}
               disabled={blocked}
@@ -175,7 +179,7 @@ function ProposedPlanContent({
             }}
           >
             <LumenIcon icon={Play} tier="sm" />
-            {labels.implement}
+            {t('implement')}
           </LumenButton>
           <LumenButton
             type="button"
@@ -190,7 +194,7 @@ function ProposedPlanContent({
             }}
           >
             <LumenIcon icon={PencilLine} tier="sm" />
-            {labels.continuePlanning}
+            {t('continuePlanning')}
           </LumenButton>
           {state.status === 'unknown' ? (
             <LumenButton
@@ -205,7 +209,7 @@ function ProposedPlanContent({
               }}
             >
               <LumenIcon icon={RefreshCw} tier="sm" />
-              {state.phase === 'mode' ? labels.reconcilePlanExit : labels.reconcile}
+              {state.phase === 'mode' ? t('reconcilePlanExit') : t('reconcile')}
             </LumenButton>
           ) : null}
         </LumenFrame>
@@ -214,17 +218,17 @@ function ProposedPlanContent({
         <LumenContentText id={statusId} className="hbar-proposed-plan-status" context="feedback.message" role="status">
           {state.status === 'submitting'
             ? state.phase === 'mode'
-              ? labels.exitingPlan
-              : labels.submitting
+              ? t('exitingPlan')
+              : t('submitting')
             : state.status === 'accepted'
-              ? labels.accepted
+              ? t('accepted')
               : state.reconciling
                 ? state.phase === 'mode'
-                  ? labels.checkingPlanExit
-                  : labels.checking
+                  ? t('checkingPlanExit')
+                  : t('checking')
                 : state.phase === 'mode'
-                  ? labels.unknownPlanExit
-                  : labels.unknown}
+                  ? t('unknownPlanExit')
+                  : t('unknown')}
         </LumenContentText>
       ) : null}
       {state.error ? (
@@ -246,10 +250,13 @@ function ProposedPlanContent({
 
 /** The host owns acceptance; local state is only this proposal's editable refinement feedback. */
 export function HbarProposedPlan(props: HbarProposedPlanProps) {
+  const { labels, ...plan } = props
   return (
-    <ProposedPlanContent
-      key={JSON.stringify([props.target.sessionId, props.target.messageId, props.target.fingerprint])}
-      {...props}
-    />
+    <ProposedPlanMessagesProvider messages={labels}>
+      <ProposedPlanContent
+        key={JSON.stringify([props.target.sessionId, props.target.messageId, props.target.fingerprint])}
+        {...plan}
+      />
+    </ProposedPlanMessagesProvider>
   )
 }

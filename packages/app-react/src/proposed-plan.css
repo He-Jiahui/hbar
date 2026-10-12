@@ -15,9 +15,9 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   flex-wrap: wrap;
-  padding: 12px;
+  padding: var(--lumen-space-12);
   background: var(--lumen-reading);
 }
 .hbar-proposed-plan-heading {
@@ -28,7 +28,7 @@
   max-block-size: 32.5rem;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 16px;
+  padding: var(--lumen-space-16);
   border-block: 0.0625rem solid var(--lumen-edge);
   font-size: var(--lumen-font-size);
   line-height: 1.65;
@@ -48,10 +48,10 @@
   line-height: 1.5;
 }
 .hbar-proposed-plan-document :is(h1, h2, h3, h4, h5, h6) {
-  margin-block: 12px 6px;
+  margin-block: var(--lumen-space-12) var(--lumen-space-4);
 }
 .hbar-proposed-plan-document :is(p, ul, ol) {
-  margin-block: 6px;
+  margin-block: var(--lumen-space-4);
 }
 .hbar-proposed-plan-document > :first-child {
   margin-block-start: 0;
@@ -74,8 +74,8 @@
   overflow: auto;
 }
 .hbar-proposed-plan-feedback {
-  gap: 6px;
-  padding: 12px;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
 }
 .hbar-proposed-plan-feedback-input {
   inline-size: 100%;
@@ -83,7 +83,7 @@
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-contrast);
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   resize: vertical;
 }
 .hbar-proposed-plan-actions > button {
@@ -99,7 +99,7 @@
 .hbar-proposed-plan-status,
 .hbar-proposed-plan-scope {
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }

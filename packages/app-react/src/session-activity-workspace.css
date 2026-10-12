@@ -6,13 +6,13 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-session-activity-body {
   min-block-size: 0;
   flex: 1 1 auto;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -27,12 +27,12 @@
   }
 }
 
-.hbar-session-activity-workspace > .lumen-tool-pane-body {
+.hbar-session-activity-workspace > [data-lumen-part~="tool-pane.body"] {
   overflow: hidden;
 }
 
 .hbar-session-activity-workspace > header {
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   overflow: visible;
 }
 
@@ -47,14 +47,14 @@
 }
 
 .hbar-activity-tasks + .hbar-session-activity-runs {
-  padding-block-start: 0.5rem;
+  padding-block-start: var(--lumen-space-8);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
 .hbar-session-activity-list > li {
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 
 .hbar-session-activity-row-heading {
@@ -63,7 +63,7 @@
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-session-activity-row-heading strong,

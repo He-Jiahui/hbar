@@ -12,7 +12,6 @@ import { createAppRuntime } from '@hbar/app-runtime'
 import { getShellCopy } from '../../apps/web/src/shell-copy'
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
 import '@lumen/app-ui/styles.css'
-import '../../packages/hbar-app-ui/src/theme.css'
 
 const copy = getShellCopy('zh-CN')
 const labels: HbarWorkspaceShellLabels = copy.shell
@@ -135,7 +134,14 @@ function Fixture() {
   }, [])
   useEffect(() => {
     let mounted = true
-    void runtime.view.commands.execute('app.setSession', { sessionId: session.id }).catch(() => {
+    const loadSession = async () => {
+      await runtime.ready
+      await runtime.view.commands.execute('workspaceActivity.refresh', {})
+      await runtime.view.commands.execute('workspaceActivity.refresh', { workspaceId: workspace.id })
+      await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    }
+    void loadSession().catch((error: unknown) => {
+      console.error('Desktop Goal/Plan fixture startup failed:', error)
       if (mounted) setSessionLoadFailed(true)
     })
     return () => {

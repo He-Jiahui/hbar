@@ -17,6 +17,7 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { SessionArchiveFeedback, type SessionArchiveLabels } from './session-archive'
 import { SessionActivityIndicator, type SessionActivityIndicatorContent } from './session-activity-indicator'
 import { SidebarCaption } from './sidebar-caption'
+import { useSessionNavigationRowMessages } from './workspace-shell-messages'
 
 export interface SessionRenameLabels {
   readonly form: (title: string) => string
@@ -52,12 +53,11 @@ export interface SessionNavigationRowMetadata {
 
 /** A filtered/removed row must not make its pending intent impossible to resolve. */
 export function SessionRenameRecovery({
-  labels,
   connected,
 }: {
-  readonly labels: SessionRenameLabels
   readonly connected: boolean
 }) {
+  const { t } = useSessionNavigationRowMessages()
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
   const directory = useHbarRuntimeState(runtime.state.directory)
@@ -77,25 +77,25 @@ export function SessionRenameRecovery({
     <LumenFrame
       className="hbar-app-react-session-rename hbar-app-react-session-rename-recovery"
       role="group"
-      aria-label={labels.form(target.originalTitle)}
+      aria-label={t('renameEditor').form(target.originalTitle)}
     >
-      <LumenContentText context="record.title">{labels.form(target.originalTitle)}</LumenContentText>
-      <LumenInput aria-label={labels.title} value={rename.draft} readOnly />
+      <LumenContentText context="record.title">{t('renameEditor').form(target.originalTitle)}</LumenContentText>
+      <LumenInput aria-label={t('renameEditor').title} value={rename.draft} readOnly />
       <LumenContentText context="feedback.message" role={busy ? 'status' : 'alert'}>
         {checking
-          ? labels.checking
+          ? t('renameEditor').checking
           : busy
-            ? labels.saving
+            ? t('renameEditor').saving
             : unknown
-              ? labels.unknown
-              : labels.error(rename.error ?? 'STALE_TARGET')}
+              ? t('renameEditor').unknown
+              : t('renameEditor').error(rename.error ?? 'STALE_TARGET')}
       </LumenContentText>
       <LumenButton
         size="s"
         disabled={busy || (unknown && !connected)}
         onClick={() => invoke(unknown ? 'reconcile' : 'cancel')}
       >
-        {unknown ? labels.reconcile : labels.cancel}
+        {unknown ? t('renameEditor').reconcile : t('renameEditor').cancel}
       </LumenButton>
     </LumenFrame>
   )
@@ -105,7 +105,6 @@ export function SessionNavigationRow({
   session,
   selected,
   connected,
-  labels,
   now,
   onOpen,
   batchSelecting = false,
@@ -121,7 +120,6 @@ export function SessionNavigationRow({
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
   readonly connected: boolean
-  readonly labels: SessionNavigationRowLabels
   readonly now: number
   readonly onOpen: () => void
   readonly batchSelecting?: boolean
@@ -134,6 +132,7 @@ export function SessionNavigationRow({
   readonly treeNode?: Omit<LumenTreeItemProps, 'content' | 'label' | 'selected' | 'onActivate'> | undefined
   readonly treeAdornment?: ReactNode
 }) {
+  const { t } = useSessionNavigationRowMessages()
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
   const { mutation: archive, batch: archiveBatch } = useHbarRuntimeState(runtime.state.sessionArchive)
@@ -154,7 +153,7 @@ export function SessionNavigationRow({
   const input = useRef<HTMLInputElement>(null)
   const wasEditing = useRef(false)
   const restoreFocus = useRef(false)
-  const copy = labels.renameEditor
+  const copy = t('renameEditor')
   const timestamp = responseTime ? responseTime.at : session.updatedAt
   const sessionTime =
     own && rename.status === 'succeeded' && session.title === rename.draft.trim() ? (
@@ -180,14 +179,14 @@ export function SessionNavigationRow({
             ? new Date(timestamp).toISOString()
             : undefined
         }
-        title={labels.sessionUpdatedAtFull(timestamp)}
+        title={t('sessionUpdatedAtFull')(timestamp)}
       >
-        {labels.sessionUpdatedAt(timestamp, now)}
+        {t('sessionUpdatedAt')(timestamp, now)}
       </LumenText>
     )
   const openActions = (): boolean => {
     if (batchSelecting || editing || archiving) return false
-    const trigger = row.current?.querySelector<HTMLButtonElement>('.lumen-action-menu-trigger')
+    const trigger = row.current?.querySelector<HTMLButtonElement>("[data-lumen-part~=\"menu.trigger\"]")
     if (!trigger || trigger.disabled) return false
     trigger.click()
     return true
@@ -283,7 +282,7 @@ export function SessionNavigationRow({
       onKeyDown={onKeyDown}
     >
       {archiving ? (
-        <SessionArchiveFeedback labels={labels.archive} connected={connected} focusCancel />
+        <SessionArchiveFeedback labels={t('archive')} connected={connected} focusCancel />
       ) : editing ? (
         <LumenFrame
           as="form"
@@ -376,7 +375,7 @@ export function SessionNavigationRow({
               variant="text"
               selected={batchSelecting ? batchSelected : selected}
               indicatorEdge="left"
-              aria-label={batchSelecting ? labels.selectSession(session.title) : labels.openSession(session.title)}
+        aria-label={batchSelecting ? t('selectSession')(session.title) : t('openSession')(session.title)}
               aria-pressed={batchSelecting ? batchSelected : undefined}
               title={session.title}
               onClick={batchSelecting && onToggleBatchSelection ? onToggleBatchSelection : onOpen}
@@ -386,16 +385,16 @@ export function SessionNavigationRow({
           )}
           {!batchSelecting && (
             <LumenActionMenu
-              label={labels.sessionActions(session.title)}
+          label={t('sessionActions')(session.title)}
               items={[
                 {
                   id: 'rename',
-                  label: labels.renameSession,
+            label: t('renameSession'),
                   disabled: !['idle', 'succeeded'].includes(rename.status) || archiveLocked,
                 },
                 {
                   id: 'archive',
-                  label: labels.archiveSession,
+            label: t('archiveSession'),
                   disabled: !connected || archiveLocked || !['idle', 'succeeded'].includes(rename.status),
                   tone: 'danger',
                 },

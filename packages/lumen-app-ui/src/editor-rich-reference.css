@@ -1,0 +1,228 @@
+.lumen-editor-root-surface:has(.lumen-rich-editor-reference) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-editor.lumen-rich-editor-reference {
+  flex-direction: column;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #fff);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.lumen-rich-editor-reference button,
+.lumen-rich-editor-reference input,
+.lumen-rich-editor-reference textarea {
+  font-family: inherit;
+}
+.lumen-rich-editor-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  border-block-end: 0.0625rem solid light-dark(#e5e5e5, #262626);
+}
+.lumen-rich-editor-reference button {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--lumen-radius-surface);
+  background: transparent;
+  color: light-dark(#525252, #d4d4d4);
+  cursor: pointer;
+}
+.lumen-rich-editor-reference button:hover {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-rich-editor-reference button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.lumen-rich-editor-icon {
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lumen-rich-editor-block-owner {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.lumen-rich-editor-reference .lumen-rich-editor-block-trigger {
+  inline-size: 8.25rem;
+  max-inline-size: 100%;
+  block-size: 2rem;
+  justify-content: space-between;
+  gap: var(--lumen-space-8);
+  border-color: light-dark(#e5e5e5, #262626);
+  padding: 0 var(--lumen-space-8);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.lumen-rich-editor-block-trigger > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-rich-editor-block-trigger > svg {
+  color: #a3a3a3;
+}
+.lumen-rich-editor-separator {
+  inline-size: 0.0625rem;
+  block-size: 1.25rem;
+  flex: 0 0 auto;
+  margin: 0 var(--lumen-space-4);
+  background: light-dark(#e5e5e5, #262626);
+}
+.lumen-rich-editor-tool {
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0;
+}
+.lumen-rich-editor-reference .lumen-rich-editor-tool[aria-pressed='true'] {
+  background: light-dark(#171717, #fff);
+  border-color: light-dark(#171717, #fff);
+  color: light-dark(#fff, #171717);
+}
+.lumen-rich-editor-status {
+  min-inline-size: 0;
+  margin-inline-start: auto;
+  padding-inline-end: var(--lumen-space-4);
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* Observed menu participates in toolbar flow, increasing the header and centering sibling tools. */
+.lumen-rich-editor-block-menu {
+  display: flex;
+  flex-direction: column;
+  inline-size: 11.25rem;
+  max-inline-size: calc(100vw - 1.5rem);
+  max-block-size: min(22rem, 60vh);
+  overflow: auto;
+  padding: var(--lumen-space-4);
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: var(--lumen-radius-panel);
+  background: light-dark(#fff, #171717);
+  box-shadow: 0 0.75rem 2rem -1rem #0005;
+}
+.lumen-rich-editor-block-menu button {
+  flex: 0 0 auto;
+  min-block-size: 2rem;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-8);
+  border: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.lumen-rich-editor-block-menu button[aria-checked='true'] {
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#171717, #fff);
+}
+.lumen-rich-editor-block-menu button > svg:first-child {
+  color: #a3a3a3;
+}
+.lumen-rich-editor-block-menu button > svg:last-child {
+  margin-inline-start: auto;
+}
+.lumen-rich-editor-menu-icon-placeholder {
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
+  flex: 0 0 auto;
+}
+.lumen-rich-editor-icon[data-icon-tier='md'] {
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
+}
+.lumen-rich-editor-main {
+  flex: 1 1 0%;
+  min-block-size: 0;
+  overflow: auto;
+}
+.lumen-rich-editor-document {
+  display: flex;
+  flex-direction: column;
+  inline-size: min(100%, 45rem);
+  min-inline-size: 0;
+  margin-inline: auto;
+  padding: var(--lumen-space-32);
+}
+.lumen-rich-editor-document > input {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 2.03125rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.625rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.lumen-rich-editor-document > p {
+  margin: var(--lumen-space-4) 0 0;
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* Native textarea owns its observed 20rem editing viewport; text remains scrollable. */
+.lumen-rich-editor-document > textarea {
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 20rem;
+  flex: 0 0 auto;
+  overflow: auto;
+  resize: none;
+  border: 0;
+  margin-block-start: var(--lumen-space-24);
+  padding: 0;
+  background: transparent;
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.9375rem;
+  line-height: 1.75rem;
+}
+.lumen-rich-editor-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-16);
+  border-block-start: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.lumen-rich-editor-footer > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-16);
+  overflow-wrap: anywhere;
+}
+@media (width < 40rem) {
+  .lumen-rich-editor-document {
+    padding-inline: var(--lumen-space-24);
+  }
+  .lumen-rich-editor-note {
+    display: none;
+  }
+}

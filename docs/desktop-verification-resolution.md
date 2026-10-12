@@ -10,7 +10,7 @@
   但不能作为默认命令已通过的证明。
 - 新回归用 TypeScript 的真实 `resolveModuleName`，从根测试／preview／E2E 的
   实际存在文件解析三个入口；修改前 public resolution 为 undefined，两条红测失败。
-- 只读 `hbar-ui/packages/lumen-app-ui/package.json` 已公开 `.`、`./catalog`、
+- 只读 `packages/lumen-app-ui/package.json` 已公开 `.`、`./catalog`、
   `./variants`。Web/package 自身的依赖解析可用，根目录未链接同名依赖；不是
   fixture 应被排除或需要消除 strict 的证据。
 - 修复根解析后，直接 Bun React 测试仍拾取上游 `hbar-ui/tsconfig.json` 的 MUI

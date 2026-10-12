@@ -23,7 +23,7 @@ export function usageFeatureCopy(locale: ShellLocale): HbarUsageFeaturesLabels {
         : code === 'COMMAND_CONFLICT'
           ? text('预算已被更新，请重新读取。', 'The budget changed. Reload before saving.')
           : code === 'INVALID_INPUT'
-            ? text('请输入有效的正整数令牌上限。', 'Enter a valid positive whole token limit.')
+      ? text('请输入有效的正整数词元上限。', 'Enter a valid positive whole token limit.')
             : code === 'INVALID_OUTPUT'
               ? text(
                   '返回结果未能确认，请核对原操作。',
@@ -45,7 +45,7 @@ export function usageFeatureCopy(locale: ShellLocale): HbarUsageFeaturesLabels {
         { id: 'compaction', label: text('上下文压缩', 'Context compaction') },
       ],
       model: text('模型', 'Model'),
-      tokens: text('令牌', 'Tokens'),
+      tokens: text('词元', 'Tokens'),
       latency: text('延迟', 'Latency'),
       cost: text('费用', 'Cost'),
       empty: text('当前范围没有请求记录。', 'No requests in this window.'),
@@ -77,8 +77,8 @@ export function usageFeatureCopy(locale: ShellLocale): HbarUsageFeaturesLabels {
     },
     budget: {
       title: text('会话预算', 'Session budget'),
-      description: text('为此会话设置令牌上限。', 'Set a token limit for this session.'),
-      cap: text('令牌上限', 'Token limit'),
+    description: text('为此会话设置词元上限。', 'Set a token limit for this session.'),
+    cap: text('词元上限', 'Token limit'),
       save: text('保存预算', 'Save budget'),
       saving: text('保存中…', 'Saving…'),
       unknown: text('原操作结果尚未确认', 'Original result unconfirmed'),

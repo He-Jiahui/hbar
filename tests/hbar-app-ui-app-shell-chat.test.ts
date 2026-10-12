@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAppShell09, type LumenAppShellChatContent } from '@lumen/app-ui'
+import { LumenAppShell09 } from '@lumen/app-ui'
+import { type LumenAppShellChatContent } from '@lumen/app-ui/catalog'
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from './fixtures/hbar-app-ui-app-shell-fixtures'
 import { appShellChatFixture } from './fixtures/hbar-app-ui-app-shell-chat-fixtures'
 import {

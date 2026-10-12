@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenAppSidebarWorkflowsProvider,
-  type LumenAppSidebarContent,
-  type LumenAppSidebarWorkflowAction,
-} from '@lumen/app-ui'
+import { LumenAppSidebarWorkflowsProvider, type LumenAppSidebarContent, type LumenAppSidebarWorkflowAction } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createAppSidebarPreviewStore } from './appSidebarPreviewStore'
 import { createAppSidebarPreviewCopy } from './appSidebarPreviewCopy'

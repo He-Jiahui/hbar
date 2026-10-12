@@ -1,4 +1,4 @@
-import type { LumenNavbarContent } from '@lumen/app-ui'
+import type { LumenNavbarContent } from '@lumen/app-ui/catalog'
 import { createNavbarPreviewSeed, matchNavbarSearchItems, type NavbarPreviewCopy } from './navbarPreviewFixtures'
 import type { NavbarPreviewModelState, NavbarPreviewStoreApi } from './navbarPreviewModel'
 

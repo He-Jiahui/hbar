@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
-import { createRunCommandClient } from '@hbar/client'
+import { createBudgetCommandClient, createRunCommandClient } from '@hbar/client'
+import { diagnosticEventSchema, type DiagnosticEvent } from '@hbar/contracts'
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -43,7 +44,14 @@ interface Fixture {
   readonly requests: string[]
   readonly uploads: string[]
   readonly productionAsset: string
-  readonly consoleDiagnostics: { readonly type: string; readonly text: string }[]
+  readonly consoleDiagnosticReads: readonly Promise<void>[]
+  readonly consoleDiagnostics: readonly CapturedConsoleDiagnostic[]
+}
+
+interface CapturedConsoleDiagnostic {
+  readonly type: string
+  readonly text: string
+  details?: DiagnosticEvent | undefined
 }
 
 test.beforeAll(() => mkdir(evidence, { recursive: true }))
@@ -62,18 +70,43 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
   try {
     // Real demo Kernel/Host, with 180 deliberately synthetic canonical stored
     // messages. Only the streaming case submits a Run to its local fixture model.
-    host = await startWebSessionHost({ root, port, sessionCount: 2, historyCount: 180, goalAutoContinue: false })
+    host = await startWebSessionHost({
+      root,
+      port,
+      sessionCount: 2,
+      historyCount: 180,
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     expect((await context.request.post(`${origin}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     page.setDefaultTimeout(15_000)
     const errors: string[] = []
     const requests: string[] = []
     const uploads: string[] = []
-    const consoleDiagnostics: { type: string; text: string }[] = []
+    const consoleDiagnostics: CapturedConsoleDiagnostic[] = []
+    const consoleDiagnosticReads: Promise<void>[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     page.on('console', (message) => {
-      if (message.type() === 'warning' || message.type() === 'error')
-        consoleDiagnostics.push({ type: message.type(), text: message.text() })
+      if (message.type() === 'warning' || message.type() === 'error') {
+        const diagnostic: CapturedConsoleDiagnostic = { type: message.type(), text: message.text() }
+        consoleDiagnostics.push(diagnostic)
+        if (diagnostic.text.startsWith('[hbar diagnostic]')) {
+          const argument = message.args()[1]
+          if (argument) {
+            consoleDiagnosticReads.push(
+              argument
+                .jsonValue()
+                .then((value) => {
+                  const raw: unknown = value
+                  const parsed = diagnosticEventSchema.safeParse(raw)
+                  if (parsed.success) diagnostic.details = parsed.data
+                })
+                .catch(() => undefined),
+            )
+          }
+        }
+      }
       if (consoleDiagnostics.length > 200)
         throw new Error('Session Find console diagnostics exceeded the fixture bound')
     })
@@ -96,9 +129,28 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     const productionAsset = await page.locator('script[type="module"][src]').getAttribute('src')
     if (!productionAsset) throw new Error('The production application module asset is missing')
     if (expectedAsset) expect(new URL(productionAsset, origin).pathname.split('/').at(-1)).toBe(expectedAsset)
-    const fixture = { root, host, context, page, copy, errors, requests, uploads, productionAsset, consoleDiagnostics }
+    const fixture = {
+      root,
+      host,
+      context,
+      page,
+      copy,
+      errors,
+      requests,
+      uploads,
+      productionAsset,
+      consoleDiagnosticReads,
+      consoleDiagnostics,
+    }
     await showSidebar(fixture, true)
-    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    const session = page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })
+    if (!(await session.isVisible())) {
+      const project = page.locator('[role="treeitem"][aria-level="1"]').first()
+      await expect(project).toBeVisible()
+      if ((await project.getAttribute('aria-expanded')) === 'false') await project.click()
+      await expect(session).toBeVisible()
+    }
+    await session.click()
     await showSidebar(fixture, false)
     await expect(page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')).toHaveAttribute(
       'data-hbar-app-ui-message-count',
@@ -137,12 +189,36 @@ async function stop(fixture: Fixture): Promise<void> {
 }
 
 async function showSidebar({ page, copy }: Fixture, open: boolean): Promise<void> {
+  const shell = page.locator('[data-hbar-sidebar-expanded]')
   const trigger = page.getByRole('button', {
     name: open ? copy.shell.showSidebar : copy.shell.hideSidebar,
     exact: true,
   })
-  if (await trigger.isVisible()) await trigger.click()
-  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
+  if ((await shell.getAttribute('data-hbar-sidebar-expanded')) !== String(open)) await trigger.click()
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
+}
+
+async function expectFixtureConsoleCleanliness(fixture: Fixture): Promise<void> {
+  await Promise.all(fixture.consoleDiagnosticReads)
+  expect(fixture.consoleDiagnostics).toHaveLength(1)
+  expect(fixture.consoleDiagnostics).toMatchObject([
+    {
+      type: 'error',
+      text: expect.stringContaining('[hbar diagnostic]'),
+      details: {
+        component: 'client',
+        level: 'error',
+        event: 'rpc.error',
+        phase: 'response',
+        method: 'system.runtime.watch',
+        errorCode: 'RUNTIME_RESTART_REQUIRED',
+        outcome: 'failure',
+      },
+    },
+  ])
+  await expect(
+    fixture.page.getByRole('status').filter({ hasText: fixture.copy.diagnostics.runtime.phases.unavailable }),
+  ).toBeVisible()
 }
 
 function findControls({ page, copy }: Fixture) {
@@ -487,7 +563,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(fixture.requests.filter((request) => writeCommands.has(request))).toEqual([])
         expect(fixture.uploads).toHaveLength(1)
         expect(fixture.errors).toEqual([])
-        expect(fixture.consoleDiagnostics).toEqual([])
+        await expectFixtureConsoleCleanliness(fixture)
         await record(fixture, `history-${locale}-${width}`, { explicitFixtureRunWrites: 0, locale, width })
       } finally {
         try {
@@ -508,6 +584,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const find = findControls(fixture)
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     try {
+      // The 180-message fixture and two intentionally rich Runs exceed the
+      // generic 100k budget. This scenario verifies Find during real streams,
+      // so give only this isolated local Host enough room to complete them.
+      await createBudgetCommandClient(host.client).execute(
+        'session.setBudget',
+        { sessionId: host.ready.sessionId, tokens: 500_000 },
+        { idempotencyKey: crypto.randomUUID() },
+      )
       await prompt.fill(draft)
       await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
       const files = page.locator('.hbar-app-react-file-workspace:not(.hbar-app-react-file-workbench)')
@@ -699,6 +783,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       }
       expect(
         codeEvidence.layout.whiteSpace === 'pre-wrap' ||
+          codeEvidence.layout.overflowWrap === 'anywhere' ||
           codeEvidence.layout.scrollWidth > codeEvidence.layout.clientWidth,
       ).toBe(true)
       await page.screenshot({ path: `${evidence}/code-last-token-${locale}-320.png` })
@@ -708,7 +793,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(fixture.requests.filter((request) => writeCommands.has(request))).toEqual([])
       expect(fixture.uploads).toHaveLength(0)
       expect(fixture.errors).toEqual([])
-      expect(fixture.consoleDiagnostics).toEqual([])
+      await expectFixtureConsoleCleanliness(fixture)
       await record(fixture, `stream-${locale}`, {
         explicitFixtureRunWrites: 2,
         model: 'local-fixture',

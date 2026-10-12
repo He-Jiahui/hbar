@@ -1,9 +1,6 @@
 import { useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenAgentPlanProvider as HbarAppUiAgentPlanProvider,
-  type LumenAgentPlanContent as HbarAppUiAgentPlanContent,
-} from '@lumen/app-ui'
+import { LumenAgentPlanProvider as HbarAppUiAgentPlanProvider, type LumenAgentPlanContent as HbarAppUiAgentPlanContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createChecklistPreviewStore, projectChecklistPreviewContent } from './checklist-preview-model'
 import { createPlanReviewPreviewStore, projectPlanReviewPreviewContent } from './plan-review-preview-model'

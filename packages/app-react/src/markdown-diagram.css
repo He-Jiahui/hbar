@@ -4,7 +4,7 @@
   min-inline-size: 0;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 4px 8px;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
 
   overflow-x: auto;
 }
@@ -26,7 +26,7 @@
   max-inline-size: 100%;
   max-block-size: 25rem;
   overflow: auto;
-  padding: 16px;
+  padding: var(--lumen-space-16);
   border-radius: 0;
 }
 .hbar-diagram-svg {
@@ -52,8 +52,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  padding: 16px;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
 }
 .hbar-diagram-status > p,
 .hbar-diagram-help {
@@ -63,7 +63,7 @@
 .hbar-diagram-preview-tools {
   flex: 0 0 auto;
   justify-content: flex-end;
-  padding: 8px 16px;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
 }
 .hbar-diagram-preview-viewport {
   min-block-size: 0;
@@ -77,13 +77,13 @@
 .hbar-diagram-zoom-canvas {
   flex: 0 0 auto;
   margin: auto;
-  padding: 16px;
+  padding: var(--lumen-space-16);
   box-sizing: content-box;
   user-select: none;
 }
 .hbar-diagram-help {
   flex: 0 0 auto;
-  padding: 8px 16px;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   font-size: 0.75rem;
 }
 /* Private temporary render surface, never an ordinary content layout. */

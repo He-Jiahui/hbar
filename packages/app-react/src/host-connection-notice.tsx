@@ -1,5 +1,6 @@
 import { LoaderCircle, RefreshCw, WifiOff } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
+import { createMessageScope } from './messages'
 import './host-connection-notice.css'
 
 export type HbarHostConnection = 'connected' | 'connecting' | 'pairing' | 'disconnected'
@@ -11,17 +12,24 @@ export interface HbarHostConnectionNoticeLabels {
   readonly preserved: string
   readonly reconnect: string
 }
+const hostConnectionMessages = createMessageScope<HbarHostConnectionNoticeLabels>()
 
 /** One workbench-level notice owns connection recovery; loaded views retain their content. */
-export function HbarHostConnectionNotice({
-  connection,
-  labels,
-  onReconnect,
-}: {
+export function HbarHostConnectionNotice(props: {
   readonly connection: HbarHostConnection
   readonly labels: HbarHostConnectionNoticeLabels
   readonly onReconnect: () => void
 }) {
+  const { labels, ...viewProps } = props
+  return (
+    <hostConnectionMessages.Provider messages={labels}>
+      <HostConnectionNoticeContent {...viewProps} />
+    </hostConnectionMessages.Provider>
+  )
+}
+
+function HostConnectionNoticeContent({ connection, onReconnect }: Omit<Parameters<typeof HbarHostConnectionNotice>[0], 'labels'>) {
+  const { t } = hostConnectionMessages.useMessages()
   if (connection === 'connected') return null
   return (
     <LumenFrame className="hbar-host-connection-notice" role="status" aria-live="polite" aria-atomic="true">
@@ -33,13 +41,13 @@ export function HbarHostConnectionNotice({
       <LumenFrame className="hbar-host-connection-message">
         <LumenContentText context="feedback.message">
           {connection === 'connecting'
-            ? labels.connecting
+            ? t('connecting')
             : connection === 'pairing'
-              ? labels.pairing
-              : labels.interrupted}
+              ? t('pairing')
+              : t('interrupted')}
         </LumenContentText>
         <LumenContentText context="section.description" tone="muted">
-          {labels.preserved}
+          {t('preserved')}
         </LumenContentText>
       </LumenFrame>
       <LumenButton
@@ -50,7 +58,7 @@ export function HbarHostConnectionNotice({
         onClick={onReconnect}
       >
         <LumenIcon icon={RefreshCw} tier="sm" />
-        <LumenContentText context="control.label">{labels.reconnect}</LumenContentText>
+        <LumenContentText context="control.label">{t('reconnect')}</LumenContentText>
       </LumenButton>
     </LumenFrame>
   )

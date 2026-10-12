@@ -302,7 +302,15 @@ test('unknown direct Agent create is restored after reload and retries the same 
       draftText: input.draftText,
       draftRevision: input.draftRevision,
     })
-    expect(second.view.state.drafts.getSnapshot()[parent.id]).toBeUndefined()
+    expect(second.view.state.drafts.getSnapshot()[parent.id]).toMatchObject({
+      sessionId: parent.id,
+      text: '',
+      revision: 0,
+      status: 'idle',
+      attachments: [],
+      attachmentTransfers: [],
+      lastOperationId: null,
+    })
     await second.view.commands.execute('agentComposer.invoke', {
       sessionId: recovered.sessionId,
       workspaceId: recovered.workspaceId,

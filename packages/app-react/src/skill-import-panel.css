@@ -5,7 +5,7 @@
   flex-direction: column;
   align-items: stretch;
   min-width: 0;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 .hbar-skill-import {
   flex-shrink: 0;
@@ -22,12 +22,12 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .hbar-skill-import-candidates {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -35,9 +35,9 @@
 .hbar-skill-import-candidates li {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--lumen-space-4);
   min-width: 0;
-  padding-block: 0.5rem;
+  padding-block: var(--lumen-space-8);
   overflow-wrap: anywhere;
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }

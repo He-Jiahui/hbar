@@ -3,6 +3,7 @@ import { Check, Copy, LoaderCircle, RotateCcw } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { copyToolResultText, MAX_TOOL_RESULT_COPY_CHARACTERS, type ToolResultCopyInput } from './tool-result-copy'
+import { createMessageScope } from './messages'
 
 export interface HbarToolResultCopyLabels {
   readonly copy: string
@@ -12,6 +13,20 @@ export interface HbarToolResultCopyLabels {
   readonly unavailable: string
   readonly tooLarge: (limit: number) => string
   readonly retry: string
+}
+const { Provider: ToolResultCopyMessagesProvider, useMessages: useToolResultCopyMessages } =
+  createMessageScope<HbarToolResultCopyLabels>()
+function useToolResultCopyLabels(): HbarToolResultCopyLabels {
+  const { t } = useToolResultCopyMessages()
+  return {
+    copy: t('copy'),
+    copying: t('copying'),
+    copied: t('copied'),
+    failed: t('failed'),
+    unavailable: t('unavailable'),
+    tooLarge: t('tooLarge'),
+    retry: t('retry'),
+  }
 }
 
 interface ToolResultCopyActionProps extends ToolResultCopyInput {
@@ -30,7 +45,8 @@ function browserClipboard(): MessageClipboardPort | null {
   }
 }
 
-function ToolResultCopyActionContent({ labels, clipboard, ...input }: ToolResultCopyActionProps) {
+function ToolResultCopyActionContent({ clipboard, ...input }: Omit<ToolResultCopyActionProps, 'labels'>) {
+  const labels = useToolResultCopyLabels()
   const [receipt, setReceipt] = useState<{ readonly text: string; readonly status: CopyStatus }>({
     text: input.text,
     status: 'idle',
@@ -124,10 +140,13 @@ function ToolResultCopyActionContent({ labels, clipboard, ...input }: ToolResult
 
 /** Local output action; no execution permission or Host mutation is involved. */
 export function ToolResultCopyAction(props: ToolResultCopyActionProps) {
+  const { labels, ...input } = props
   return (
-    <ToolResultCopyActionContent
-      key={JSON.stringify([props.sessionId, props.messageId, props.callId, props.toolName])}
-      {...props}
-    />
+    <ToolResultCopyMessagesProvider messages={labels}>
+      <ToolResultCopyActionContent
+        key={JSON.stringify([props.sessionId, props.messageId, props.callId, props.toolName])}
+        {...input}
+      />
+    </ToolResultCopyMessagesProvider>
   )
 }

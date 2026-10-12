@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenPaywall6Reference,
-  type LumenPaywall6ReferenceContent,
-  type LumenPaywall6ReferenceViewModel,
-} from '@lumen/app-ui'
+import { LumenPaywall6Reference, type LumenPaywall6ReferenceContent, type LumenPaywall6ReferenceViewModel } from '@lumen/app-ui/catalog'
 import {
   createPaywall6PreviewFixture,
   type Paywall6PreviewCapacity,

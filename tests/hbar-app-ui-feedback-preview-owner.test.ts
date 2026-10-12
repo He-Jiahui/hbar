@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { useLumenFeedbackContent } from '@lumen/app-ui'
+import { useLumenFeedbackContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant } from '../packages/hbar-app-ui/src/index'
 import { FeedbackPreviewHost } from '../apps/hbar-app-ui-preview/src/FeedbackPreviewHost'
 import { createFeedbackWidgetPreviewStore } from '../apps/hbar-app-ui-preview/src/feedbackWidgetPreviewStore'

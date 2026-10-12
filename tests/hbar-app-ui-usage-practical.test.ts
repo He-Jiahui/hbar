@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenUsage, uniqueLumenUsageItems } from '@lumen/app-ui'
+import { LumenUsage, uniqueLumenUsageItems } from '@lumen/app-ui/catalog'
 import { createUsageIntentPreviewStore } from '../apps/hbar-app-ui-preview/src/usageIntentPreviewStore'
 import { createUsagePreviewCopy } from '../apps/hbar-app-ui-preview/src/usagePreviewCopy'
 import { usageCompactFixture } from './fixtures/hbar-app-ui-usage-compact-fixtures'

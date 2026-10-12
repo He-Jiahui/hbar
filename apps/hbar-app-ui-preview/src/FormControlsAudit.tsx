@@ -1,10 +1,5 @@
-import {
-  DEFAULT_LUMEN_APPEARANCE,
-  LumenFrame,
-  LumenOption,
-  LumenProvider,
-  LumenText,
-} from '@lumen/app-ui'
+import { DEFAULT_LUMEN_APPEARANCE, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {

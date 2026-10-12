@@ -26,7 +26,7 @@ export function extensionDetailCopy(
       retry: choose('重新加载详情', 'Reload details'),
       loading: choose('正在加载插件详情…', 'Loading plugin details…'),
       missing: choose(
-        '此插件已不在当前 Host 中。返回列表并刷新以查看最新状态。',
+        '此插件已不在当前宿主中。返回列表并刷新以查看最新状态。',
         'This plugin is no longer on the current Host. Return to the list and refresh to see the current state.',
       ),
       readOnly: choose(
@@ -34,7 +34,7 @@ export function extensionDetailCopy(
         'The contributions below are reported by the plugin. Viewing them does not execute their commands.',
       ),
       required: choose(
-        '此插件为 Host 必需，不能在此禁用。',
+        '此插件为宿主必需，不能在此禁用。',
         'This plugin is required by the Host and cannot be disabled here.',
       ),
       commands: choose('命令', 'Commands'),
@@ -58,7 +58,7 @@ export function extensionDetailCopy(
         disabled: choose('已禁用', 'Disabled'),
         failed: choose('失败', 'Failed'),
       },
-      installScope: { global: choose('Host 全局', 'Host-wide'), project: choose('项目', 'Project') },
+      installScope: { global: choose('宿主全局', 'Host-wide'), project: choose('项目', 'Project') },
       runtimeScope: {
         host: 'Host',
         workspace: choose('工作区', 'Workspace'),
@@ -79,13 +79,13 @@ export function extensionDetailCopy(
       actions: {
         title: choose('插件启停', 'Plugin activation'),
         scope: choose(
-          '更改当前 Host 上的此插件；安装与运行范围见上方。',
+          '更改当前宿主上的此插件；安装与运行范围见上方。',
           'Change this plugin on the current Host; installation and runtime scopes are shown above.',
         ),
         enable: choose('启用插件', 'Enable plugin'),
         disable: choose('禁用插件', 'Disable plugin'),
         pending: choose('正在更改插件…', 'Changing plugin…'),
-        confirmed: choose('Host 已确认本次更改。', 'The Host confirmed this change.'),
+        confirmed: choose('宿主已确认本次更改。', 'The Host confirmed this change.'),
         unknown: choose(
           '尚无法确认原操作。可读取当前状态，但不会重新发送更改。',
           'The original operation is still unconfirmed. You can read the current state; the change will not be resent.',
@@ -99,7 +99,7 @@ export function extensionDetailCopy(
             )
           if (code === 'BUSY')
             return choose(
-              'Host 仍有活动或排队运行；等待结束后再试。',
+              '宿主仍有活动或排队运行；等待结束后再试。',
               'The Host has active or queued runs. Wait for them to finish, then try again.',
             )
           if (code === 'REQUIRED_PLUGIN' || code === 'INVALID_INPUT')
@@ -109,7 +109,7 @@ export function extensionDetailCopy(
             )
           if (code === 'RESTART_REQUIRED')
             return choose(
-              '此插件需通过启动配置更改并重启 Host。',
+              '此插件需通过启动配置更改并重启宿主。',
               'Change this plugin through the startup profile and restart the Host.',
             )
           if (code === 'PLUGIN_DEPENDENCY' || code === 'PLUGIN_VERSION' || code === 'PLUGIN_CYCLE')
@@ -119,7 +119,7 @@ export function extensionDetailCopy(
             )
           if (code === 'NOT_FOUND')
             return choose(
-              '插件已不在此 Host 中；请返回列表并刷新。',
+              '插件已不在此宿主中；请返回列表并刷新。',
               'The plugin is no longer on this Host. Return to the list and refresh.',
             )
           if (code === 'PERMISSION_DENIED' || code === 'UNAUTHORIZED')

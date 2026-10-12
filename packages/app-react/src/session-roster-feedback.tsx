@@ -1,5 +1,6 @@
 import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { SessionRosterRefreshEntry } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 
 export interface SessionRosterRefreshLabels {
   readonly refreshExpanded: string
@@ -12,18 +13,19 @@ export interface SessionRosterRefreshLabels {
   readonly failure: (code: string) => string
   readonly retry: string
 }
+const { Provider: RosterFeedbackMessagesProvider, useMessages: useRosterFeedbackMessages } =
+  createMessageScope<SessionRosterRefreshLabels>()
 
-export function SessionRosterFeedback({
+function RosterFeedbackContent({
   entry,
-  labels,
   connected,
   onRefresh,
 }: {
   readonly entry: SessionRosterRefreshEntry | undefined
-  readonly labels: SessionRosterRefreshLabels
   readonly connected: boolean
   readonly onRefresh: () => void
 }) {
+  const { t } = useRosterFeedbackMessages()
   if (
     !entry ||
     entry.status === 'idle' ||
@@ -42,22 +44,40 @@ export function SessionRosterFeedback({
         tone={entry.status === 'error' ? 'danger' : 'muted'}
       >
         {entry.status === 'loading'
-          ? labels.refreshing
+          ? t('refreshing')
           : entry.status === 'error'
-            ? labels.failure(entry.error ?? 'EXECUTION_FAILED')
+            ? t('failure')(entry.error ?? 'EXECUTION_FAILED')
             : entry.skipped > 0
-              ? labels.capacity(entry.skipped)
+              ? t('capacity')(entry.skipped)
               : entry.truncated
-                ? labels.limited
+                ? t('limited')
                 : entry.remaining > 0
-                  ? labels.remaining(entry.remaining)
-                  : labels.refreshed}
+                  ? t('remaining')(entry.remaining)
+                  : t('refreshed')}
       </LumenContentText>
       {entry.status === 'error' && (
         <LumenButton size="s" variant="text" disabled={!connected} onClick={onRefresh}>
-          {labels.retry}
+          {t('retry')}
         </LumenButton>
       )}
     </LumenFrame>
+  )
+}
+
+export function SessionRosterFeedback({
+  entry,
+  labels,
+  connected,
+  onRefresh,
+}: {
+  readonly entry: SessionRosterRefreshEntry | undefined
+  readonly labels: SessionRosterRefreshLabels
+  readonly connected: boolean
+  readonly onRefresh: () => void
+}) {
+  return (
+    <RosterFeedbackMessagesProvider messages={labels}>
+      <RosterFeedbackContent entry={entry} connected={connected} onRefresh={onRefresh} />
+    </RosterFeedbackMessagesProvider>
   )
 }

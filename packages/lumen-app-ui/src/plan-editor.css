@@ -1,0 +1,150 @@
+.lumen-plan-editor,
+.lumen-plan-editor > main,
+.lumen-plan-card,
+.lumen-plan-step-fields {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.lumen-plan-editor {
+  gap: var(--lumen-space-12);
+}
+
+.lumen-plan-editor > header,
+.lumen-plan-editor > footer,
+.lumen-plan-editor li,
+.lumen-plan-add-row,
+.lumen-plan-row-actions,
+.lumen-plan-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.lumen-plan-editor > header,
+.lumen-plan-editor > footer {
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+}
+
+.lumen-plan-editor > header h2,
+.lumen-plan-editor > header span,
+.lumen-plan-editor > footer p,
+.lumen-plan-editor > p {
+  margin: 0;
+}
+
+.lumen-plan-editor > main {
+  gap: var(--lumen-space-8);
+}
+
+.lumen-plan-card {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+
+.lumen-plan-card[data-list-strategy='pane-scroll'] {
+  max-block-size: min(24rem, 52vh);
+  overflow: auto;
+}
+
+.lumen-plan-card ol {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-plan-editor li {
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-plan-editor li:last-child {
+  border-block-end: 0;
+}
+
+.lumen-plan-editor li[data-skipped='true'] {
+  opacity: 0.58;
+}
+
+.lumen-plan-number {
+  inline-size: 1.75rem;
+  flex: 0 0 1.75rem;
+  text-align: center;
+}
+
+.lumen-plan-step-title,
+.lumen-plan-step-fields {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-plan-step-title {
+  overflow-wrap: anywhere;
+}
+
+.lumen-plan-step-fields {
+  gap: var(--lumen-space-4);
+}
+
+.lumen-plan-row-actions,
+.lumen-plan-actions {
+  flex: 0 0 auto;
+  gap: var(--lumen-space-4);
+}
+
+.lumen-plan-add-row {
+  align-items: stretch;
+  gap: var(--lumen-space-8);
+}
+
+.lumen-plan-add-row > input {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-plan-empty {
+  padding: var(--lumen-space-16);
+  text-align: center;
+}
+
+.lumen-plan-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+[data-lumen-shape='square'] .lumen-plan-card {
+  border-radius: 0;
+}
+
+@media (width < 40rem) {
+  .lumen-plan-editor li,
+  .lumen-plan-editor > footer,
+  .lumen-plan-add-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lumen-plan-number {
+    inline-size: auto;
+    flex-basis: auto;
+    text-align: start;
+  }
+
+  .lumen-plan-row-actions,
+  .lumen-plan-actions {
+    flex-wrap: wrap;
+  }
+}

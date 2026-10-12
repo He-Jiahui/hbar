@@ -1,9 +1,4 @@
-import type {
-  LumenAppShellEditorialContent,
-  LumenEditorialStory,
-  LumenEditorialEvent,
-  LumenEditorialLink,
-} from '@lumen/app-ui'
+import type { LumenAppShellEditorialContent, LumenEditorialStory, LumenEditorialEvent, LumenEditorialLink } from '@lumen/app-ui/catalog'
 
 export interface EditorialPreviewFixture extends LumenAppShellEditorialContent {
   readonly locale: string

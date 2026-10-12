@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom'
 import { LoaderCircle, MessageCircle } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 import { isSessionCodeChrome } from './session-code-block-dom'
 import {
   conversationSelectionMenuPosition,
@@ -39,6 +40,9 @@ export interface HbarConversationSelectionProps {
   readonly onAdd: (input: ConversationSelectionSubmission) => Promise<boolean>
   readonly children: ReactNode
 }
+
+const { Provider: ConversationSelectionMessagesProvider, useMessages: useConversationSelectionMessages } =
+  createMessageScope<HbarConversationSelectionLabels>()
 
 interface CapturedSelection extends ConversationSelectionSubmission {
   readonly rect: ConversationSelectionRect
@@ -164,7 +168,7 @@ function captureSelection(root: HTMLElement): SelectionCapture {
   }
   if (blocked || textNodes === 0) return null
 
-  const pane = root.closest<HTMLElement>('.lumen-conversation-messages')
+  const pane = root.closest<HTMLElement>("[data-lumen-part~=\"conversation.messages\"]")
   const view = root.ownerDocument.defaultView
   if (!pane || !view) return null
   const paneRect = pane.getBoundingClientRect()
@@ -251,17 +255,21 @@ export function useConversationSelectionKeyboardOwner(rootRef: { readonly curren
   }, [rootRef])
 }
 
-export function HbarConversationSelection({
+function ConversationSelectionView({
   sessionId,
   messageId,
   sourceRole,
   expectedText,
   expectedRevision,
   enabled,
-  labels,
   onAdd,
   children,
-}: HbarConversationSelectionProps) {
+}: Omit<HbarConversationSelectionProps, 'labels'>) {
+  const { t } = useConversationSelectionMessages()
+  const labels: HbarConversationSelectionLabels = {
+    addToChat: t('addToChat'),
+    addError: t('addError'),
+  }
   const rootRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const currentProps = useRef({ sessionId, messageId, sourceRole, expectedText, expectedRevision, enabled, onAdd })
@@ -506,5 +514,14 @@ export function HbarConversationSelection({
           )
         : null}
     </LumenFrame>
+  )
+}
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarConversationSelection({ labels, ...props }: HbarConversationSelectionProps) {
+  return (
+    <ConversationSelectionMessagesProvider messages={labels}>
+      <ConversationSelectionView {...props} />
+    </ConversationSelectionMessagesProvider>
   )
 }

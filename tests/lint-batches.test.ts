@@ -5,7 +5,7 @@ test('lint covers tracked and new maintained files while ignoring independent ch
   const files = await maintainedLintFiles(process.cwd())
   expect(files).toContain('packages/storage/src/worker.ts')
   expect(files).toContain('scripts/lint.ts')
-  expect(files).toContain('hbar-ui/packages/lumen-app-ui/src/index.ts')
+  expect(files).toContain('packages/lumen-app-ui/src/index.ts')
   expect(files).toContain('eslint.config.js')
   expect(
     files.some(

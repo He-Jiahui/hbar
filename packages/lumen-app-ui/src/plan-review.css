@@ -1,0 +1,314 @@
+.lumen-agent-plan-root-surface[data-lumen-component='agent-plan'][data-lumen-variant='2'] {
+  border-radius: 0;
+  background: var(--lumen-contrast);
+}
+.lumen-agent-plan.hbar-app-ui-agent-plan-editable {
+  block-size: 100%;
+  min-block-size: 0;
+  padding: var(--lumen-space-16);
+  gap: 0;
+  background: var(--lumen-contrast);
+}
+.lumen-plan-review {
+  --lumen-plan-review-control-bg: var(--lumen-line);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-lumen-mode='light'] .lumen-plan-review {
+  --lumen-plan-review-control-bg: var(--lumen-frost);
+}
+.lumen-plan-review > header {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+  margin-block-end: var(--lumen-space-12);
+}
+.lumen-plan-review h2 {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.lumen-plan-review > header > span {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  color: var(--lumen-subtle);
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  font-variant-numeric: tabular-nums;
+}
+.lumen-plan-review-announcement {
+  flex: 0 0 0;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.lumen-plan-review-skipped-hint {
+  display: inline-block;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
+}
+.lumen-plan-review-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-panel);
+  padding: var(--lumen-space-4);
+  background: var(--lumen-frost);
+}
+/* Owns only the observed pointer-transparent scroll-edge gradients. */
+.lumen-plan-review-frame {
+  position: relative;
+  flex: 1 1 0%;
+  min-block-size: 0;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-contrast);
+}
+.lumen-plan-review-scroll {
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--lumen-space-8);
+  scrollbar-width: none;
+}
+.lumen-plan-review ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.lumen-plan-review li {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  min-block-size: 2.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-surface);
+}
+.lumen-plan-review li:hover {
+  background: var(--lumen-frost);
+}
+.lumen-plan-review-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-line);
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.lumen-plan-review-title {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  font-weight: 500;
+  color: var(--lumen-ink);
+}
+.lumen-plan-review [data-skipped='true'] .lumen-plan-review-title {
+  color: var(--lumen-subtle);
+  font-weight: 400;
+  text-decoration: line-through;
+}
+.lumen-plan-review-row-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--lumen-space-4);
+}
+.lumen-plan-review .lumen-plan-review-row-actions > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-plan-review-control-bg);
+  color: var(--lumen-muted);
+  box-shadow: none;
+}
+
+.lumen-plan-review .lumen-plan-review-row-actions > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--lumen-plan-review-control-bg) 75%, var(--lumen-ink) 25%);
+}
+.lumen-plan-review-glyph {
+  flex: 0 0 auto;
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lumen-plan-review button [data-edge] {
+  display: none;
+}
+.lumen-plan-review button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.lumen-plan-review button:focus-visible,
+.lumen-plan-review input:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: -0.125rem;
+}
+.lumen-plan-review-add,
+.lumen-plan-review > footer {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  margin-block-start: var(--lumen-space-12);
+}
+.lumen-plan-review-add {
+  gap: var(--lumen-space-8);
+}
+.lumen-plan-review-add > input {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  block-size: 2.25rem;
+  padding: 0 var(--lumen-space-12);
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-surface);
+  font:
+    400 0.875rem / 1.25rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: var(--lumen-ink);
+  background: var(--lumen-contrast);
+}
+.lumen-plan-review-add > input::placeholder {
+  color: var(--lumen-subtle);
+}
+.lumen-plan-review-add > input:disabled {
+  opacity: 0.5;
+}
+.lumen-plan-review .lumen-plan-review-add > button,
+.lumen-plan-review > footer > button {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  block-size: auto;
+  max-inline-size: 100%;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-12);
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  font:
+    500 0.875rem / 1.25rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  background: var(--lumen-line);
+  color: var(--lumen-muted);
+  box-shadow: none;
+}
+.lumen-plan-review .lumen-plan-review-add > button {
+  max-inline-size: 50%;
+  background: var(--lumen-plan-review-control-bg);
+}
+.lumen-plan-review-add .lumen-plan-review-glyph,
+.lumen-plan-review > footer .lumen-plan-review-glyph {
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
+}
+.lumen-plan-review > footer {
+  gap: var(--lumen-space-12);
+  justify-content: flex-end;
+}
+.lumen-plan-review > footer > p {
+  display: none;
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-agent-plan-editable .lumen-plan-review > footer > button[data-lumen-variant] {
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+  box-shadow: none;
+}
+.hbar-app-ui-agent-plan-editable .lumen-plan-review[data-running='true'] > footer > button[data-lumen-variant] {
+  background: var(--lumen-line);
+  color: var(--lumen-ink);
+}
+.lumen-plan-review-empty {
+  padding: var(--lumen-space-16);
+  text-align: center;
+  color: var(--lumen-muted);
+}
+.lumen-plan-review-error {
+  color: var(--lumen-danger);
+  font-size: 0.8125rem;
+}
+.lumen-plan-review-edge-overlay {
+  position: absolute;
+  inset-inline: 0;
+  block-size: 2rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.lumen-plan-review-edge-overlay.is-top {
+  inset-block-start: 0;
+  background: linear-gradient(var(--lumen-contrast), transparent);
+}
+.lumen-plan-review-edge-overlay.is-bottom {
+  inset-block-end: 0;
+  background: linear-gradient(to top, var(--lumen-contrast), transparent);
+}
+.lumen-plan-review-edge-overlay[data-visible='true'] {
+  opacity: 1;
+}
+@media (width >= 40rem) {
+  .lumen-agent-plan.hbar-app-ui-agent-plan-editable {
+    padding: var(--lumen-space-24);
+  }
+  .lumen-plan-review > footer > p {
+    display: block;
+  }
+}

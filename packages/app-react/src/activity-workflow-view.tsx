@@ -12,6 +12,7 @@ import {
 import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type { ActivityAgentLabels, ActivityAgentOpenState } from './activity-agents-view'
+import { createMessageScope } from './messages'
 import { projectActivityWorkflow } from './activity-workflow-model'
 import { ActivityText, type ActivityTextLabels } from './activity-text'
 import './activity-workflow-view.css'
@@ -32,18 +33,9 @@ export interface ActivityWorkflowLabels {
   readonly error: (code: string) => string
   readonly agent: Pick<ActivityAgentLabels, 'open' | 'opening' | 'error' | 'status'>
 }
+const activityWorkflowMessages = createMessageScope<ActivityWorkflowLabels>()
 
-/** At most 128 public delegations, grouped by the actual focus. Activity owns the scroll. */
-export function ActivityWorkflowView({
-  entry,
-  sessionId,
-  liveAgents,
-  labels,
-  connected,
-  opening,
-  onRefresh,
-  onOpen,
-}: {
+type ActivityWorkflowViewProps = {
   readonly entry: Readonly<WorkflowWorkspaceEntryState> | undefined
   readonly sessionId: string
   readonly liveAgents: readonly AgentRecord[]
@@ -52,24 +44,44 @@ export function ActivityWorkflowView({
   readonly opening: ActivityAgentOpenState | null
   readonly onRefresh: () => void
   readonly onOpen: (agent: AgentRecord) => void
-}) {
+}
+
+/** At most 128 public delegations, grouped by the actual focus. Activity owns the scroll. */
+export function ActivityWorkflowView(props: ActivityWorkflowViewProps) {
+  return (
+    <activityWorkflowMessages.Provider messages={props.labels}>
+      <ActivityWorkflowContent {...props} />
+    </activityWorkflowMessages.Provider>
+  )
+}
+
+function ActivityWorkflowContent({
+  entry,
+  sessionId,
+  liveAgents,
+  connected,
+  opening,
+  onRefresh,
+  onOpen,
+}: ActivityWorkflowViewProps) {
+  const { t } = activityWorkflowMessages.useMessages()
   const { workflow, focused, other, settled } = projectActivityWorkflow(entry, sessionId, liveAgents)
   const loading = !entry || entry.status === 'loading'
   const failed = entry?.status === 'error'
   if (!loading && !failed && !workflow) return null
   const rows = (items: typeof focused) => (
-    <LumenCollection as="ol" className="hbar-activity-workflow-agents" tabIndex={0} aria-label={labels.title}>
+    <LumenCollection as="ol" className="hbar-activity-workflow-agents" tabIndex={0} aria-label={t('title')}>
       {items.map(({ delegation, agent }) => {
-        const title = agent?.objective ?? labels.delegation(delegation.modelId)
+        const title = agent?.objective ?? t('delegation')(delegation.modelId)
         const status =
           agent &&
           ['queued', 'running'].includes(delegation.status) &&
           ['created', 'queued', 'running', 'waiting_approval', 'cancelRequested'].includes(agent.status)
-            ? labels.agent.status(agent.status)
-            : labels.delegationStatus(delegation.status)
+            ? t('agent').status(agent.status)
+            : t('delegationStatus')(delegation.status)
         return (
           <LumenCollectionItem key={delegation.delegationId} data-activity-delegation-id={delegation.delegationId}>
-            <ActivityText text={title} labels={labels.text} context="choice.title">
+            <ActivityText text={title} labels={t('text')} context="choice.title">
               {(caption) => {
                 const content = (
                   <>
@@ -86,7 +98,7 @@ export function ActivityWorkflowView({
                     size="s"
                     variant="text"
                     className="hbar-activity-agent-row"
-                    aria-label={labels.agent.open(agent.objective)}
+                    aria-label={t('agent').open(agent.objective)}
                     disabled={!connected || opening?.status === 'opening'}
                     onClick={() => onOpen(agent)}
                   >
@@ -99,17 +111,17 @@ export function ActivityWorkflowView({
             </ActivityText>
             {!agent && delegation.agentId && (
               <LumenFrame className="hbar-session-activity-recovery">
-                <LumenContentText context="section.description">{labels.missingAgent}</LumenContentText>
+                <LumenContentText context="section.description">{t('missingAgent')}</LumenContentText>
                 <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
-                  {labels.retry}
+                  {t('retry')}
                 </LumenButton>
               </LumenFrame>
             )}
             {agent && opening?.agentId === agent.agentId && (
               <LumenContentText context="feedback.message" role={opening.status === 'error' ? 'alert' : 'status'}>
                 {opening.status === 'opening'
-                  ? labels.agent.opening
-                  : labels.agent.error(opening.error ?? 'EXECUTION_FAILED')}
+                  ? t('agent').opening
+                  : t('agent').error(opening.error ?? 'EXECUTION_FAILED')}
               </LumenContentText>
             )}
           </LumenCollectionItem>
@@ -118,34 +130,34 @@ export function ActivityWorkflowView({
     </LumenCollection>
   )
   return (
-    <LumenFrame as="section" className="hbar-activity-workflow" aria-label={labels.title}>
+    <LumenFrame as="section" className="hbar-activity-workflow" aria-label={t('title')}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenContentText context="section.subtitle">{labels.title}</LumenContentText>
-        {workflow && <LumenStatus value={labels.status(workflow.status)} />}
+        <LumenContentText context="section.subtitle">{t('title')}</LumenContentText>
+        {workflow && <LumenStatus value={t('status')(workflow.status)} />}
       </LumenFrame>
       {loading && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {failed && (
         <LumenFrame className="hbar-session-activity-recovery">
           <LumenContentText context="feedback.message" role="alert">
-            {labels.error(entry.error ?? 'EXECUTION_FAILED')}
+            {t('error')(entry.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
-            {labels.retry}
+            {t('retry')}
           </LumenButton>
         </LumenFrame>
       )}
       {workflow?.focus && (
         <LumenFrame className="hbar-activity-workflow-group" data-activity-focus-id={workflow.focus.focusId}>
           <LumenFrame className="hbar-activity-workflow-group-heading">
-            <ActivityText key={workflow.focus.focusId} text={workflow.focus.title} labels={labels.text} />
+            <ActivityText key={workflow.focus.focusId} text={workflow.focus.title} labels={t('text')} />
             <LumenContentText context="message.inline">
               {focused.length
-                ? labels.count(settled(focused), focused.length)
-                : labels.focusStatus(workflow.focus.status)}
+                ? t('count')(settled(focused), focused.length)
+                : t('focusStatus')(workflow.focus.status)}
             </LumenContentText>
           </LumenFrame>
           {rows(focused)}
@@ -154,8 +166,8 @@ export function ActivityWorkflowView({
       {other.length > 0 && (
         <LumenFrame className="hbar-activity-workflow-group">
           <LumenFrame className="hbar-activity-workflow-group-heading">
-            <LumenText as="h4">{labels.other}</LumenText>
-            <LumenContentText context="message.inline">{labels.count(settled(other), other.length)}</LumenContentText>
+            <LumenText as="h4">{t('other')}</LumenText>
+            <LumenContentText context="message.inline">{t('count')(settled(other), other.length)}</LumenContentText>
           </LumenFrame>
           {rows(other)}
         </LumenFrame>

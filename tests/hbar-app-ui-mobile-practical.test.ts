@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenMobile, type LumenMobileContent } from '@lumen/app-ui'
+import { LumenMobile, type LumenMobileContent } from '@lumen/app-ui/catalog'
 import {
   createMobilePreviewContent,
   createMobilePreviewSeed,

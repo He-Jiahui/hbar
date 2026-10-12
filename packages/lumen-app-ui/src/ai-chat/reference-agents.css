@@ -1,0 +1,125 @@
+.lumen-ai-chat-reference-agents-header > span {
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+}
+
+.lumen-ai-chat-reference-agents-layout {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-ai-chat-reference-agents-conversation {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.lumen-ai-chat-reference-agents .lumen-ai-chat-reference-author {
+  align-self: flex-start;
+  max-inline-size: 100%;
+  padding: var(--lumen-space-2) var(--lumen-space-8);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.lumen-ai-chat-reference-agents-activity {
+  display: flex;
+  min-inline-size: 14rem;
+  min-block-size: 0;
+  flex: 0 1 19rem;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-ai-chat-reference-agents-activity > h2 {
+  flex: 0 0 auto;
+}
+
+.lumen-ai-chat-reference-agents-activity-list {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+}
+
+.lumen-ai-chat-reference-agents-activity-list > li {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+  overflow-wrap: anywhere;
+}
+
+.lumen-ai-chat-reference-agents-activity-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lumen-space-8);
+}
+
+.lumen-ai-chat-reference-agents-activity-heading > strong {
+  font-weight: 500;
+}
+
+.lumen-ai-chat-reference-agents-activity-heading > span,
+.lumen-ai-chat-reference-agents-activity-list p,
+.lumen-ai-chat-reference-agents-empty {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-ai-chat-reference-agents-activity-disclosure {
+  display: none;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  margin-inline: var(--lumen-space-16);
+  padding-block: var(--lumen-space-8);
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-ai-chat-reference-agents-activity-disclosure > summary {
+  color: var(--lumen-muted);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.lumen-ai-chat-reference-agents-activity-disclosure[open] > .lumen-ai-chat-reference-agents-activity-list {
+  min-block-size: auto;
+  overflow: visible;
+  padding-block-start: var(--lumen-space-8);
+}
+
+@media (width < 64rem) {
+  .lumen-ai-chat-reference-agents-layout {
+    flex-direction: column;
+  }
+
+  .lumen-ai-chat-reference-agents-activity {
+    display: none;
+  }
+
+  .lumen-ai-chat-reference-agents-activity-disclosure {
+    display: block;
+  }
+}

@@ -1,11 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenOnboardingProvider,
-  useLumenOnboardingContent,
-  type LumenOnboarding2ReferenceViewModel,
-  type LumenOnboardingContent,
-} from '@lumen/app-ui'
+import { LumenOnboardingProvider, useLumenOnboardingContent, type LumenOnboarding2ReferenceViewModel, type LumenOnboardingContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Onboarding2PreviewFixture } from './onboarding2PreviewFixtures'
 import { createOnboarding2PreviewStore } from './onboarding2PreviewStore'

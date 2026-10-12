@@ -20,6 +20,7 @@ import {
 } from '@hbar/app-runtime'
 import { clampFileDiffPage, FILE_DIFF_LINES_PER_PAGE, type FileDiffPagination } from './file-preview-pagination'
 import { HbarFileCommentEditor, type HbarFileContextLabels } from './file-context-surfaces'
+import { fileChangesMessages } from './file-workspace-messages'
 
 type Changes = FileWorkspaceEntryState['changes']
 type Diff = NonNullable<FileWorkspaceEntryState['diff']>
@@ -56,16 +57,7 @@ export interface HbarFileChangesLabels {
   readonly openFile: string
 }
 
-export function HbarFileChanges({
-  changes,
-  labels,
-  connected,
-  selectedPath,
-  onRefresh,
-  onFilter,
-  onPage,
-  onOpen,
-}: {
+type HbarFileChangesProps = {
   readonly changes: Changes
   readonly labels: HbarFileChangesLabels
   readonly connected: boolean
@@ -74,7 +66,29 @@ export function HbarFileChanges({
   readonly onFilter: (filter: string) => void
   readonly onPage: (page: number) => void
   readonly onOpen: (path: string) => void
-}) {
+}
+
+export function HbarFileChanges(props: HbarFileChangesProps) {
+  const { labels, ...contentProps } = props
+  return (
+    <fileChangesMessages.Provider messages={labels}>
+      <FileChangesContent {...contentProps} />
+    </fileChangesMessages.Provider>
+  )
+}
+
+type FileChangesContentProps = Omit<HbarFileChangesProps, 'labels'>
+
+function FileChangesContent({
+  changes,
+  connected,
+  selectedPath,
+  onRefresh,
+  onFilter,
+  onPage,
+  onOpen,
+}: FileChangesContentProps) {
+  const { t } = fileChangesMessages.useMessages()
   const filtered = filteredFileChanges(changes)
   const start = changes.page * FILE_CHANGES_PAGE_SIZE
   const items = filtered.slice(start, start + FILE_CHANGES_PAGE_SIZE)
@@ -85,8 +99,8 @@ export function HbarFileChanges({
       <LumenFrame className="hbar-file-changes-controls">
         <LumenInput
           maxLength={4000}
-          aria-label={labels.filter}
-          placeholder={labels.filter}
+          aria-label={t('filter')}
+          placeholder={t('filter')}
           value={changes.filter}
           onChange={(event) => onFilter(event.currentTarget.value)}
         />
@@ -95,8 +109,8 @@ export function HbarFileChanges({
           size="s"
           variant="text"
           indicator="none"
-          aria-label={labels.refresh}
-          title={labels.refresh}
+          aria-label={t('refresh')}
+          title={t('refresh')}
           disabled={!connected || busy}
           onClick={onRefresh}
         >
@@ -105,28 +119,28 @@ export function HbarFileChanges({
       </LumenFrame>
       {busy && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {changes.error && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error(changes.error)}
+          {t('error')(changes.error)}
         </LumenContentText>
       )}
       {changes.status === 'ready' && !isRepository && (
-        <LumenContentText context="section.description">{labels.notRepository}</LumenContentText>
+        <LumenContentText context="section.description">{t('notRepository')}</LumenContentText>
       )}
       {changes.status === 'ready' && isRepository && items.length === 0 && (
         <LumenContentText context="section.description">
-          {changes.items.length === 0 ? labels.noChanges : labels.noMatches}
+          {changes.items.length === 0 ? t('noChanges') : t('noMatches')}
         </LumenContentText>
       )}
       {changes.limitReached && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.limit}
+          {t('limit')}
         </LumenContentText>
       )}
-      <LumenCollection as="ul" className="hbar-file-changes-list" aria-label={labels.changed}>
+      <LumenCollection as="ul" className="hbar-file-changes-list" aria-label={t('changed')}>
         {items.map((item) => (
           <LumenCollectionItem as="li" key={item.path}>
             <LumenButton
@@ -135,7 +149,7 @@ export function HbarFileChanges({
               variant="text"
               indicator="none"
               disabled={!connected || busy || changes.status !== 'ready'}
-              aria-label={item.directory ? labels.openFolder(item.path) : labels.open(item.path)}
+              aria-label={item.directory ? t('openFolder')(item.path) : t('open')(item.path)}
               title={item.path}
               aria-current={selectedPath === item.path ? 'page' : undefined}
               onClick={() => onOpen(item.path)}
@@ -145,12 +159,12 @@ export function HbarFileChanges({
                 <LumenContentText context="control.label">{item.path}</LumenContentText>
                 {item.originalPath && (
                   <LumenContentText context="choice.description">
-                    {labels.renamedFrom(item.originalPath)}
+                    {t('renamedFrom')(item.originalPath)}
                   </LumenContentText>
                 )}
               </LumenFrame>
               <LumenContentText context="choice.description" className="hbar-file-change-status">
-                {labels.status(item.index, item.worktree)}
+                {t('status')(item.index, item.worktree)}
               </LumenContentText>
             </LumenButton>
           </LumenCollectionItem>
@@ -159,16 +173,16 @@ export function HbarFileChanges({
       {filtered.length > FILE_CHANGES_PAGE_SIZE && (
         <LumenFrame className="hbar-file-changes-pagination">
           <LumenContentText context="message.inline">
-            {labels.page(start + 1, Math.min(start + FILE_CHANGES_PAGE_SIZE, filtered.length), filtered.length)}
+            {t('page')(start + 1, Math.min(start + FILE_CHANGES_PAGE_SIZE, filtered.length), filtered.length)}
           </LumenContentText>
           <LumenButton disabled={changes.page === 0} onClick={() => onPage(changes.page - 1)}>
-            {labels.previous}
+            {t('previous')}
           </LumenButton>
           <LumenButton
             disabled={start + FILE_CHANGES_PAGE_SIZE >= filtered.length}
             onClick={() => onPage(changes.page + 1)}
           >
-            {labels.next}
+            {t('next')}
           </LumenButton>
         </LumenFrame>
       )}
@@ -186,20 +200,7 @@ const lineKind = (line: string) =>
         : 'context'
 
 /** A bounded text diff, not a reconstructed file or editable source. Host truncation remains explicit. */
-export function HbarFileDiff({
-  diff,
-  change,
-  labels,
-  connected,
-  onOpen,
-  onFile,
-  addToChat,
-  referenceHint,
-  headerActions,
-  onRefresh,
-  pagination,
-  context,
-}: {
+type HbarFileDiffProps = {
   readonly diff: Diff
   readonly change: Change | undefined
   readonly labels: HbarFileChangesLabels
@@ -227,7 +228,33 @@ export function HbarFileDiff({
         readonly captureCommentCompletion?: ((line: HTMLElement | null) => () => void) | undefined
       }
     | undefined
-}) {
+}
+
+export function HbarFileDiff(props: HbarFileDiffProps) {
+  const { labels, ...contentProps } = props
+  return (
+    <fileChangesMessages.Provider messages={labels}>
+      <FileDiffContent {...contentProps} />
+    </fileChangesMessages.Provider>
+  )
+}
+
+type FileDiffContentProps = Omit<HbarFileDiffProps, 'labels'>
+
+function FileDiffContent({
+  diff,
+  change,
+  connected,
+  onOpen,
+  onFile,
+  addToChat,
+  referenceHint,
+  headerActions,
+  onRefresh,
+  pagination,
+  context,
+}: FileDiffContentProps) {
+  const { t } = fileChangesMessages.useMessages()
   const [requestedPage, setPage] = useState(0)
   const lines = diff.text.split('\n')
   const page = clampFileDiffPage(pagination?.page ?? requestedPage, lines.length)
@@ -283,7 +310,7 @@ export function HbarFileDiff({
           disabled={!connected || !change || diff.status === 'loading'}
           onClick={() => onOpen(false)}
         >
-          {labels.workingTree}
+          {t('workingTree')}
         </LumenButton>
         <LumenButton
           variant={diff.cached ? 'outlined' : 'text'}
@@ -291,18 +318,18 @@ export function HbarFileDiff({
           disabled={!connected || !change || diff.status === 'loading'}
           onClick={() => onOpen(true)}
         >
-          {labels.staged}
+          {t('staged')}
         </LumenButton>
         <LumenButton disabled={!connected} onClick={onFile}>
-          {labels.openFile}
+          {t('openFile')}
         </LumenButton>
         {onRefresh && (
           <LumenButton
             variant="text"
             disabled={!connected || diff.status === 'loading'}
             onClick={onRefresh}
-            aria-label={labels.refresh}
-            title={labels.refresh}
+            aria-label={t('refresh')}
+            title={t('refresh')}
           >
             <LumenIcon icon={RefreshCw} tier="sm" />
           </LumenButton>
@@ -329,31 +356,31 @@ export function HbarFileDiff({
         </LumenContentText>
       )}
       <LumenContentText context="record.description" className="hbar-file-diff-caption">
-        {labels.readOnlyDiff}
+        {t('readOnlyDiff')}
       </LumenContentText>
       {diff.status === 'loading' && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {diff.status === 'error' && (
         <LumenFrame className="hbar-file-diff-feedback">
           <LumenContentText context="feedback.message" role="alert">
-            {labels.error(diff.error ?? 'EXECUTION_FAILED')}
+            {t('error')(diff.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton disabled={!connected} onClick={onRefresh ?? (() => onOpen(diff.cached))}>
-            {labels.refresh}
+            {t('refresh')}
           </LumenButton>
         </LumenFrame>
       )}
       {diff.truncated && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.truncated}
+          {t('truncated')}
         </LumenContentText>
       )}
       {(diff.status === 'ready' || Boolean(diff.text)) &&
         (diff.text ? (
-          <LumenFrame className="hbar-file-diff-content" aria-label={labels.diffContent(diff.path)} tabIndex={0}>
+          <LumenFrame className="hbar-file-diff-content" aria-label={t('diffContent')(diff.path)} tabIndex={0}>
             {rows.slice(start, start + FILE_DIFF_LINES_PER_PAGE).map((row) => (
               <Fragment key={row.index}>
                 <LumenFrame
@@ -442,7 +469,7 @@ export function HbarFileDiff({
             ))}
           </LumenFrame>
         ) : (
-          <LumenContentText context="section.description">{labels.noDiff}</LumenContentText>
+          <LumenContentText context="section.description">{t('noDiff')}</LumenContentText>
         ))}
       {incompatible && context && (
         <LumenContentText context="feedback.message" role="status">
@@ -452,13 +479,13 @@ export function HbarFileDiff({
       {lines.length > FILE_DIFF_LINES_PER_PAGE && (
         <LumenFrame className="hbar-file-changes-pagination">
           <LumenContentText context="message.inline">
-            {labels.linePage(start + 1, Math.min(start + FILE_DIFF_LINES_PER_PAGE, lines.length), lines.length)}
+            {t('linePage')(start + 1, Math.min(start + FILE_DIFF_LINES_PER_PAGE, lines.length), lines.length)}
           </LumenContentText>
           <LumenButton disabled={page === 0} onClick={() => selectPage(page - 1)}>
-            {labels.previousLines}
+            {t('previousLines')}
           </LumenButton>
           <LumenButton disabled={start + FILE_DIFF_LINES_PER_PAGE >= lines.length} onClick={() => selectPage(page + 1)}>
-            {labels.nextLines}
+            {t('nextLines')}
           </LumenButton>
         </LumenFrame>
       )}

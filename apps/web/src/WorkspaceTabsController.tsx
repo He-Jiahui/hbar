@@ -107,7 +107,7 @@ export function WorkspaceTabsController({
             !element.closest('[hidden], [inert], [aria-hidden="true"]'),
         )
       const sidebar = document.querySelector<HTMLElement>('.hbar-app-ui-app-sidebar-drawer[data-open="true"]')
-      const tool = document.querySelector<HTMLElement>('.lumen-app-tool-drawer')
+      const tool = document.querySelector<HTMLElement>("[data-lumen-part~=\"shell.tool-drawer\"]")
       const mobileTrigger = document.querySelector<HTMLElement>('.hbar-mobile-header-menu-trigger')
       const fallback =
         origin === 'mobile-menu' ? mobileTrigger : (firstVisibleFocusable(sidebar) ?? firstVisibleFocusable(tool))

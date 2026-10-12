@@ -1,0 +1,13 @@
+.hbar-app-ui-dialog-menu.lumen-anchored-popup[popover] {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-block-size: min(16rem, var(--lumen-popup-available-height, 100dvh));
+  margin: 0;
+  color: inherit;
+}
+
+.hbar-app-ui-dialog-menu.lumen-anchored-popup[popover]:not(:popover-open) {
+  display: none;
+}

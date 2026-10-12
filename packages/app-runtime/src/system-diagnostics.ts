@@ -67,7 +67,7 @@ export function createSystemDiagnostics(
 
   function panel(instanceId: string) {
     const value = surfaces.getSnapshot().panels[instanceId]
-    if (!value || value.panelId !== 'settings' || value.params.section !== 'diagnostics')
+    if (!value || !['settings', 'status'].includes(value.panelId) || value.params.section !== 'diagnostics')
       throw new CommandError('COMMAND_NOT_FOUND', 'Diagnostics settings panel is not open')
     return value
   }

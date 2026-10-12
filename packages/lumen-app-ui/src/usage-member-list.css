@@ -1,0 +1,235 @@
+.lumen-usage-root-surface.lumen-usage-member-surface {
+  border-radius: 0;
+  background: var(--lumen-contrast);
+}
+.lumen-usage.lumen-usage-member-stage {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--lumen-space-24);
+  gap: 0;
+  background: var(--lumen-contrast);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.lumen-usage-member-list {
+  flex: 0 0 auto;
+  inline-size: 100%;
+  max-inline-size: 45rem;
+  min-inline-size: 0;
+  margin: auto;
+  color: var(--lumen-ink);
+}
+.lumen-usage-member-list p,
+.lumen-usage-member-list h2 {
+  margin: 0;
+}
+.lumen-usage-member-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-12);
+}
+.lumen-usage-member-heading > div:first-child {
+  min-inline-size: 0;
+}
+.lumen-usage-member-heading h2 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+}
+.lumen-usage-member-heading p {
+  margin-block-start: var(--lumen-space-2);
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  color: var(--lumen-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lumen-usage-member-search {
+  inline-size: 12.5rem;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+.lumen-usage-member-search-content {
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  padding-inline-start: var(--lumen-space-12);
+}
+.lumen-usage-member-search-content > svg {
+  flex: 0 0 auto;
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+  color: var(--lumen-subtle);
+}
+.lumen-usage-member-search input.lumen-control[data-size='s'] {
+  min-block-size: 2rem;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  min-inline-size: 0;
+  inline-size: 100%;
+  padding-inline: 0 var(--lumen-space-12);
+}
+.lumen-usage-member-frame {
+  padding: var(--lumen-space-4);
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-frost);
+}
+.lumen-usage-member-tabs,
+.lumen-usage-member-records {
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-contrast);
+}
+.lumen-usage-member-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-4);
+  margin-block-end: var(--lumen-space-4);
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+}
+.lumen-usage-member-tabs button[data-size='s'] {
+  --lumen-control-size: 2rem;
+  --lumen-control-padding-inline: var(--lumen-space-12);
+  flex: 0 1 auto;
+  font-weight: 400;
+  white-space: normal;
+}
+.lumen-usage-member-tabs button[aria-selected='true'] {
+  font-weight: 500;
+}
+/* Observed source reserves a 20rem result region when filtering to few/no members.
+ * This is a minimum, never a fixed row/content height. Larger lists grow normally. */
+.lumen-usage-member-records {
+  min-block-size: 20rem;
+}
+.lumen-usage-member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+}
+.lumen-usage-member-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--lumen-radius-pill);
+  background: var(--lumen-frost);
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-weight: 500;
+}
+.lumen-usage-member-identity {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+}
+.lumen-usage-member-identity p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-usage-member-identity p:first-child {
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  font-weight: 500;
+}
+.lumen-usage-member-identity p + p {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--lumen-subtle);
+}
+.lumen-usage-member-capacity {
+  display: none;
+  flex: 0 0 auto;
+  inline-size: 8rem;
+}
+.lumen-usage-member-capacity p {
+  margin-block-start: var(--lumen-space-4);
+  font-size: 0.6875rem;
+  line-height: 1.03125rem;
+  color: var(--lumen-subtle);
+}
+.lumen-usage-member-track {
+  block-size: 0.375rem;
+  border-radius: var(--lumen-radius-pill);
+  overflow: hidden;
+  background: var(--lumen-line);
+}
+.lumen-usage-member-track > div {
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--lumen-subtle);
+}
+.lumen-usage-member-track > div[data-near-capacity='true'] {
+  background: var(--lumen-ink);
+}
+:where([data-lumen-mode='light']) .lumen-usage-member-track {
+  background: color-mix(in srgb, var(--lumen-line) 40%, transparent);
+}
+:where([data-lumen-mode='light']) .lumen-usage-member-track > div:not([data-near-capacity='true']) {
+  background: color-mix(in srgb, var(--lumen-subtle) 65%, var(--lumen-contrast));
+}
+.lumen-usage-member-spend {
+  flex: 0 0 auto;
+  inline-size: 4rem;
+  text-align: end;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.lumen-usage-member-empty {
+  min-block-size: 20rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lumen-space-4);
+  padding: 0 var(--lumen-space-24);
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+}
+.lumen-usage-member-empty p:first-child {
+  font-weight: 500;
+}
+.lumen-usage-member-empty p + p {
+  color: var(--lumen-subtle);
+}
+.lumen-usage-member-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  margin-block-start: var(--lumen-space-12);
+  font-size: 0.8125rem;
+}
+@media (width >= 40rem) {
+  .lumen-usage.lumen-usage-member-stage {
+    padding: var(--lumen-space-32);
+  }
+  .lumen-usage-member-search {
+    inline-size: 14rem;
+  }
+  .lumen-usage-member-capacity {
+    display: block;
+  }
+}

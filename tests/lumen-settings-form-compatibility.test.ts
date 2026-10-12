@@ -1,14 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenPreferencesSettings,
-  LumenSettingsForm01,
-  LumenSettingsForm06,
-  LumenSettingsFormProvider,
-  selectLumenSettingsItem,
-  uniqueLumenSettingsItems,
-} from '@lumen/app-ui'
+import { LumenSettingsForm01, LumenSettingsForm06 } from '@lumen/app-ui'
+import { LumenPreferencesSettings, LumenSettingsFormProvider, selectLumenSettingsItem, uniqueLumenSettingsItems } from '@lumen/app-ui/catalog'
 import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiSettingsFormProvider,

@@ -1,0 +1,203 @@
+.surface {
+  width: 100%;
+  max-width: 58rem;
+  min-width: 0;
+  color: var(--lumen-ink);
+}
+
+.frame,
+.stack,
+.hero,
+.recent,
+.composer,
+.uploads {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.frame {
+  flex: 1;
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.frame h2,
+.frame h3,
+.frame p {
+  margin: 0;
+}
+
+.frame h2 {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.frame h3 {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.header,
+.toolbar,
+.pills,
+.composerFooter,
+.upload,
+.hints {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.header,
+.composerFooter {
+  justify-content: space-between;
+}
+
+.header p,
+.muted,
+.hints {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.toolbar :global(.lumen-control) {
+  color: var(--lumen-ink);
+}
+
+.selectField {
+  flex: 0 1 min(12rem, 100%);
+  min-width: min(12rem, 100%);
+}
+
+.selectField :global(.lumen-form-field) {
+  width: 100%;
+}
+
+.menuTrigger {
+  position: relative;
+  display: inline-flex;
+}
+
+.menuTrigger :global(.lumen-menu) {
+  min-inline-size: 14rem;
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--lumen-ink);
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+.action:focus-visible,
+.toolbar button:focus-visible,
+.pills button:focus-visible,
+.dropzone button:focus-visible {
+  outline: 0.0625rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.pills {
+  align-items: stretch;
+}
+
+.pills code {
+  padding: 0.5rem;
+  background: var(--lumen-reading);
+  color: var(--lumen-ink);
+  border-radius: 0.375rem;
+  overflow-wrap: anywhere;
+}
+
+.stack,
+.hero,
+.recent,
+.composer,
+.uploads {
+  gap: 0.875rem;
+}
+
+.field {
+  width: 100%;
+}
+
+.field :global(.lumen-control) {
+  color: var(--lumen-ink);
+}
+
+.field :global(textarea) {
+  padding: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.composerFooter .action {
+  margin-inline-start: auto;
+}
+
+.error {
+  color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
+.hero {
+  padding: 1.25rem;
+  background: var(--lumen-reading);
+  border-radius: 0.375rem;
+}
+
+.recent {
+  align-items: flex-start;
+  max-block-size: 12rem;
+  overflow: auto;
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1.75rem;
+  background: var(--lumen-reading);
+  border-radius: 0.375rem;
+}
+
+.upload {
+  padding: 0.75rem;
+  background: var(--lumen-reading);
+  border-radius: 0.375rem;
+}
+
+.upload :global(.lumen-progress) {
+  flex: 1 1 10rem;
+  min-width: 0;
+  height: 0.125rem;
+}
+
+.hints {
+  justify-content: space-between;
+}
+
+@media (max-width: 48rem) {
+  .frame {
+    padding: 1rem;
+  }
+  .dropzone {
+    padding: 1.25rem;
+  }
+  .toolbar :global(.lumen-form-field) {
+    flex: 1;
+  }
+
+  .selectField {
+    flex: 1 1 min(12rem, 100%);
+  }
+}

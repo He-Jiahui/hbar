@@ -1,0 +1,173 @@
+/* Preview sizing follows content; chart plotting areas keep their own graphic bounds. */
+.lumen-usage-root-surface.lumen-usage-preview-root {
+  inline-size: 100%;
+  block-size: auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-usage.lumen-usage-preview {
+  block-size: auto;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-usage-preview > p[role='status'] {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-usage-preview
+  :is(
+    .lumen-usage-chart-stage,
+    .lumen-usage-model-stage,
+    .lumen-usage-rate-stage,
+    .lumen-usage-member-stage,
+    .lumen-usage-budget-stage,
+    .lumen-usage-overage-stage,
+    .lumen-usage-request-stage,
+    .lumen-usage-widget-stage
+  ) {
+  block-size: auto;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-usage-preview .lumen-usage-content {
+  block-size: auto;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-usage-preview .lumen-usage-heading > div {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.lumen-usage-preview
+  :is(
+    .lumen-usage-overview-heading,
+    .lumen-usage-chart-heading,
+    .lumen-usage-model-heading,
+    .lumen-usage-rate-heading,
+    .lumen-usage-member-heading,
+    .lumen-usage-widget-heading
+  ) {
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.lumen-usage-preview
+  :is(
+    .lumen-usage-overview-title p,
+    .lumen-usage-overview-detail,
+    .lumen-usage-model-heading p,
+    .lumen-usage-model-name p,
+    .lumen-usage-rate-heading p,
+    .lumen-usage-rate-labels p,
+    .lumen-usage-rate-footer p > span,
+    .lumen-usage-member-heading p,
+    .lumen-usage-member-identity p,
+    .lumen-usage-budget-forecast > span:last-child,
+    .lumen-usage-budget-switch-row p,
+    .lumen-usage-overage-footer > p,
+    .lumen-usage-request-heading p,
+    .lumen-usage-request-model,
+    .lumen-usage-request-endpoint > span:last-child > span,
+    .lumen-usage-request-details p:last-child,
+    .lumen-usage-widget-heading p,
+    .lumen-usage-widget-meter p:first-child,
+    .lumen-usage-widget-footer p > span
+  ) {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lumen-usage-preview .lumen-usage-overview-chart-heading,
+.lumen-usage-preview .lumen-usage-overview-legend,
+.lumen-usage-preview .lumen-usage-model-columns,
+.lumen-usage-preview .lumen-usage-model-table-row,
+.lumen-usage-preview .lumen-usage-model-cost,
+.lumen-usage-preview .lumen-usage-rate-value-row,
+.lumen-usage-preview .lumen-usage-member-row,
+.lumen-usage-preview .lumen-usage-budget-switch-row,
+.lumen-usage-preview .lumen-usage-request-trigger,
+.lumen-usage-preview .lumen-usage-request-columns,
+.lumen-usage-preview .lumen-usage-widget-primary-row,
+.lumen-usage-preview .lumen-usage-widget-meter > div:first-child,
+.lumen-usage-preview .lumen-usage-widget-footer {
+  flex-wrap: wrap;
+}
+
+.lumen-usage-preview .lumen-usage-model-name,
+.lumen-usage-preview .lumen-usage-model-summary,
+.lumen-usage-preview .lumen-usage-model-number,
+.lumen-usage-preview .lumen-usage-model-share,
+.lumen-usage-preview .lumen-usage-model-desktop-cost,
+.lumen-usage-preview .lumen-usage-request-time,
+.lumen-usage-preview .lumen-usage-request-endpoint,
+.lumen-usage-preview .lumen-usage-request-model,
+.lumen-usage-preview .lumen-usage-request-tokens,
+.lumen-usage-preview .lumen-usage-request-latency,
+.lumen-usage-preview .lumen-usage-request-cost {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-usage-preview .lumen-usage-request-records[data-lumen-list-strategy='content-grown'],
+.lumen-usage-preview .lumen-usage-member-records[data-lumen-list-strategy='content-grown'] {
+  max-block-size: none;
+}
+
+.lumen-usage-preview .lumen-usage-list[data-lumen-list-strategy='content-grown'] {
+  max-block-size: none;
+  overflow: visible;
+}
+
+.lumen-usage-preview .lumen-usage-list[data-lumen-list-strategy='virtual'] {
+  max-block-size: min(70dvh, 28rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-usage-preview .lumen-usage-budget-value-row p:last-child {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.lumen-usage-preview button {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-usage-preview .lumen-usage-budget-switch-row > div,
+.lumen-usage-preview .lumen-usage-overage-footer > p,
+.lumen-usage-preview .lumen-usage-widget-footer > p {
+  flex: 1 1 12rem;
+}
+
+.lumen-usage-preview
+  :is(
+    .lumen-usage-rate-footer button,
+    .lumen-usage-budget-form button,
+    .lumen-usage-overage-actions button,
+    .lumen-usage-widget-heading button,
+    .lumen-usage-widget-footer button
+  ) {
+  flex: 0 1 auto;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

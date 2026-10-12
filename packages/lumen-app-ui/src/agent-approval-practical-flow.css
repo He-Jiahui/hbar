@@ -1,0 +1,227 @@
+/* Host previews grow with their approval content; legacy embedded views stay unchanged. */
+.lumen-agent-approval-surface.lumen-agent-approval-preview-root {
+  inline-size: 100%;
+  block-size: auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-approval-preview {
+  block-size: auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-approval-preview.hbar-app-ui-agent-approval-cost {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-approval-preview :is(h2, h3, p, dt, dd, small) {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-approval-preview > p[role='status'] {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-approval-preview.hbar-app-ui-agent-approval-inline-overlay-frame .hbar-app-ui-agent-approval-inline {
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-inline-body {
+  min-block-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-user-message,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-detail-message,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-inline-follow-up {
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-tool-row,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-inline .hbar-app-ui-agent-approval-action-row {
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-inline .hbar-app-ui-agent-approval-action-row > div {
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-diff-heading {
+  block-size: auto;
+  min-block-size: 3.5rem;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-diff-heading > span {
+  flex: 0 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-diff-scroll-frame {
+  flex: 0 1 auto;
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: min(70dvh, 48rem);
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-diff-scroll {
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: min(70dvh, 48rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-diff-body {
+  min-block-size: 0;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-change-list > div {
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-change-list dt {
+  flex: 1 1 10rem;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-change-list dd {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-diff-buttons > div {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-queue-heading {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-queue-scroll-frame {
+  flex: 0 1 auto;
+  block-size: auto;
+  min-block-size: 0;
+}
+
+.lumen-agent-approval-preview.hbar-app-ui-agent-approval-queue .hbar-app-ui-agent-approval-queue-pane {
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.lumen-agent-approval-preview.hbar-app-ui-agent-approval-queue
+  .hbar-app-ui-agent-approval-queue-pane[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: min(70dvh, 48rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-queue-compact-row {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-queue-compact-row > p {
+  flex: 1 1 12rem;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-permission-heading {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-permission-scroll-frame {
+  flex: 0 1 auto;
+  block-size: auto;
+  min-block-size: 0;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-permission-scroll {
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-permission-actions,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-permission-buttons,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-permission-buttons > div {
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-cost-payload,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-permission-payload,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-inline-request,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-diff-payload,
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-queue-payload {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  max-block-size: min(50dvh, 32rem);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-history-heading {
+  flex-wrap: wrap;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-history-scroll-frame {
+  flex: 0 1 auto;
+  block-size: auto;
+  min-block-size: 0;
+}
+
+.lumen-agent-approval-preview.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-pane {
+  block-size: auto;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.lumen-agent-approval-preview.hbar-app-ui-agent-approval-history
+  .hbar-app-ui-agent-approval-history-pane[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: min(70dvh, 48rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-history-pane li {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.lumen-agent-approval-preview .hbar-app-ui-agent-approval-history-copy > p {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}

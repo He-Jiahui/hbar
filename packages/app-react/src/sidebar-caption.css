@@ -21,7 +21,7 @@
 }
 
 /* Caption ownership also wins over legacy host-level ellipsis/scroll rules. */
-.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item .lumen-tree-row .hbar-sidebar-caption {
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.item"] [data-lumen-part~="tree.row"] .hbar-sidebar-caption {
   flex: 1 1 0;
   min-inline-size: 0;
   max-inline-size: 100%;

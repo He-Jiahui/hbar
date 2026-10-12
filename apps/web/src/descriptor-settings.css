@@ -1,17 +1,17 @@
 .descriptor-settings-form {
   display: grid;
-  gap: 10px;
-  margin: 10px 0 16px;
-  padding: 14px;
+  gap: var(--lumen-space-8);
+  margin: var(--lumen-space-8) 0 var(--lumen-space-16);
+  padding: var(--lumen-space-12);
   border: 1px solid color-mix(in srgb, var(--rb-border) 75%, transparent);
-  border-radius: 12px;
+  border-radius: var(--lumen-radius-panel);
   background: color-mix(in srgb, var(--rb-surface) 82%, transparent);
 }
 
 .descriptor-setting-row {
   display: grid;
-  gap: 10px;
-  padding: 10px 0;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) 0;
   border-bottom: 1px solid color-mix(in srgb, var(--rb-border) 55%, transparent);
 }
 
@@ -22,12 +22,12 @@
 .descriptor-setting-array-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--lumen-space-8);
 }
 
 .descriptor-setting-heading { justify-content: space-between; }
 .descriptor-setting-heading > div,
-.descriptor-setting-field { display: grid; gap: 4px; }
+.descriptor-setting-field { display: grid; gap: var(--lumen-space-4); }
 .descriptor-setting-heading small,
 .descriptor-setting-field small,
 .descriptor-setting-readonly,
@@ -37,14 +37,14 @@
 .descriptor-setting-control > select,
 .descriptor-setting-field > input:not([type='checkbox']),
 .descriptor-setting-field > select { flex: 1; min-width: 0; }
-.descriptor-setting-control > .lumen-outlined-field,
-.descriptor-setting-field > .lumen-outlined-field { flex: 1; min-width: 0; }
+.descriptor-setting-control > [data-lumen-part~="field.outlined"],
+.descriptor-setting-field > [data-lumen-part~="field.outlined"] { flex: 1; min-width: 0; }
 .descriptor-setting-object,
-.descriptor-setting-array { display: grid; gap: 8px; width: 100%; }
+.descriptor-setting-array { display: grid; gap: var(--lumen-space-8); width: 100%; }
 .descriptor-setting-array-row > :first-child { flex: 1; }
 .descriptor-setting-array-row > button { flex: 0 0 auto; }
 
-@media (min-width: 760px) {
+@container global-feature-page (width >= 48rem) {
   .descriptor-setting-row { grid-template-columns: minmax(220px, 0.85fr) minmax(260px, 1.15fr); align-items: start; }
   .descriptor-setting-control { justify-content: flex-end; }
 }

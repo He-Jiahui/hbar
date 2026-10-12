@@ -4,6 +4,7 @@ import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app
 import './workspace-tabs.css'
 import { workspaceTabMenuPosition } from './workspace-tab-menu-layout'
 import { revealInlineItem } from './inline-item-reveal'
+import { WorkspaceTabsMessagesProvider, useWorkspaceTabsMessages } from './workspace-shell-messages'
 
 export type HbarWorkspaceTabCloseScope = 'one' | 'others' | 'left' | 'right' | 'all'
 export interface HbarWorkspaceTabItem {
@@ -46,15 +47,17 @@ export function uniqueWorkspaceTabs(items: readonly HbarWorkspaceTabItem[]): rea
 const closeScopes: readonly HbarWorkspaceTabCloseScope[] = ['one', 'others', 'left', 'right', 'all']
 
 /** Only visual focus, scrolling, and disclosure state live here; the host owns every tab mutation. */
-export function HbarWorkspaceTabs({
-  items: source,
-  activeId,
-  busy,
-  labels,
-  onSelect,
-  onRequestClose,
-  onMove,
-}: HbarWorkspaceTabsProps) {
+export function HbarWorkspaceTabs(props: HbarWorkspaceTabsProps) {
+  return (
+    <WorkspaceTabsMessagesProvider messages={props.labels}>
+      <HbarWorkspaceTabsView props={props} />
+    </WorkspaceTabsMessagesProvider>
+  )
+}
+
+function HbarWorkspaceTabsView({ props }: { readonly props: HbarWorkspaceTabsProps }) {
+  const { t } = useWorkspaceTabsMessages()
+  const { items: source, activeId, busy, onSelect, onRequestClose, onMove } = props
   const items = uniqueWorkspaceTabs(source)
   const focusId = items.some((item) => item.id === activeId) ? activeId : items[0]?.id
   const strip = useRef<HTMLDivElement>(null)
@@ -219,8 +222,8 @@ export function HbarWorkspaceTabs({
         <LumenButton
           variant="text"
           indicator="none"
-          aria-label={labels.scrollLeft}
-          title={labels.scrollLeft}
+          aria-label={t('scrollLeft')}
+          title={t('scrollLeft')}
           onClick={() => scroll(-1)}
         >
           <LumenIcon icon={ChevronLeft} tier="sm" />
@@ -229,7 +232,7 @@ export function HbarWorkspaceTabs({
       <LumenFrame
         ref={strip}
         role="tablist"
-        aria-label={labels.tabs}
+        aria-label={t('tabs')}
         className="hbar-workspace-tab-strip"
         onWheel={() => {
           manualScroll.current = true
@@ -247,7 +250,7 @@ export function HbarWorkspaceTabs({
       >
         {items.length === 0 && (
           <LumenContentText context="message.inline" className="hbar-workspace-tabs-empty">
-            {labels.empty}
+            {t('empty')}
           </LumenContentText>
         )}
         {items.map((item, index) => (
@@ -308,7 +311,7 @@ export function HbarWorkspaceTabs({
                   className="hbar-workspace-tab-activity"
                   data-activity={item.activity}
                   role="img"
-                  aria-label={labels.activity(item.activity)}
+                  aria-label={t('activity')(item.activity)}
                 />
               )}
               <LumenContentText context="control.label" className="hbar-workspace-tab-title">
@@ -319,8 +322,8 @@ export function HbarWorkspaceTabs({
               variant="text"
               indicator="none"
               className="hbar-workspace-tab-close"
-              aria-label={labels.close(item.title)}
-              title={labels.close(item.title)}
+              aria-label={t('close')(item.title)}
+              title={t('close')(item.title)}
               disabled={busy}
               onFocus={() => {
                 lastFocusedId.current = item.id
@@ -337,8 +340,8 @@ export function HbarWorkspaceTabs({
         <LumenButton
           variant="text"
           indicator="none"
-          aria-label={labels.scrollRight}
-          title={labels.scrollRight}
+          aria-label={t('scrollRight')}
+          title={t('scrollRight')}
           onClick={() => scroll(1)}
         >
           <LumenIcon icon={ChevronRight} tier="sm" />
@@ -349,8 +352,8 @@ export function HbarWorkspaceTabs({
           variant="text"
           indicator="none"
           ref={trigger}
-          aria-label={labels.menu(items.find((item) => item.id === focusId)?.title ?? '')}
-          title={labels.menu(items.find((item) => item.id === focusId)?.title ?? '')}
+          aria-label={t('menu')(items.find((item) => item.id === focusId)?.title ?? '')}
+          title={t('menu')(items.find((item) => item.id === focusId)?.title ?? '')}
           aria-haspopup="menu"
           aria-controls={menuDomId}
           disabled={busy}
@@ -364,7 +367,7 @@ export function HbarWorkspaceTabs({
         ref={popup}
         popover="auto"
         role="menu"
-        aria-label={menuItem ? labels.menu(menuItem.title) : labels.tabs}
+        aria-label={menuItem ? t('menu')(menuItem.title) : t('tabs')}
         className="hbar-workspace-tab-menu-popover"
         onToggle={(event) => setMenuOpen(event.newState === 'open')}
         onKeyDown={(event) => {
@@ -408,7 +411,7 @@ export function HbarWorkspaceTabs({
               onRequestClose(menuItem.id, scope)
             }}
           >
-            {labels.action(scope)}
+            {t('action')(scope)}
           </LumenButton>
         ))}
       </LumenFrame>

@@ -518,7 +518,7 @@ export interface ExtensionWorkspaceState {
 
 export interface StatusWorkspaceEntryState {
   readonly instanceId: string
-  readonly section: 'dashboard' | 'usage' | 'git'
+  readonly section: import('@hbar/contracts/commands/status-workspace').StatusWorkspaceSection
   readonly status: 'loading' | 'ready' | 'error'
   readonly performance: Readonly<MetricsQueryResult> | null
   readonly performanceQuery: {

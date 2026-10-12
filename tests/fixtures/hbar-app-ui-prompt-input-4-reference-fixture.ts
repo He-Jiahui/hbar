@@ -1,4 +1,4 @@
-import type { LumenPromptTemplateReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptTemplateReferenceContent } from '@lumen/app-ui/catalog'
 
 export function createPrompt4ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenPromptTemplateReferenceContent {
   const chinese = locale === 'zh'

@@ -5,7 +5,7 @@ import {
   LUMEN_VARIANT_REGISTRY,
   getLumenVariant,
   getLumenVariantComponent,
-} from '../hbar-ui/packages/lumen-app-ui/src/catalog'
+} from '../packages/lumen-app-ui/src/catalog'
 
 test('canonical Lumen catalog covers every stable source variant without overstating migration', () => {
   expect(LUMEN_SOURCE_VARIANTS).toHaveLength(300)

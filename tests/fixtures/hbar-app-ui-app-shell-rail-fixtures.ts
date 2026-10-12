@@ -1,4 +1,4 @@
-import type { LumenAppShellRailContent, LumenShellRailArea, LumenShellRailRecord } from '@lumen/app-ui'
+import type { LumenAppShellRailContent, LumenShellRailArea, LumenShellRailRecord } from '@lumen/app-ui/catalog'
 
 const companies = [
   'Halvorsen Cold Chain Logistics AB',

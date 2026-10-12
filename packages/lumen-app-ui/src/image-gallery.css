@@ -1,0 +1,211 @@
+.lumen-image-gallery-dialog .lumen-dialog-surface,
+.lumen-image-gallery-dialog .lumen-dialog-content,
+.lumen-image-gallery {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.lumen-image-gallery-dialog .lumen-dialog-content {
+  background: var(--lumen-contrast);
+}
+
+.lumen-image-gallery {
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
+}
+
+.lumen-image-gallery-header {
+  display: flex;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-12);
+}
+
+.lumen-image-gallery-position {
+  flex: 0 0 auto;
+  max-inline-size: 50%;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.lumen-image-gallery-name {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-image-gallery-header > button {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.lumen-image-gallery-stage {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--lumen-space-8);
+}
+
+.lumen-image-gallery-stage > button {
+  flex: 0 0 auto;
+}
+
+.lumen-image-gallery-media {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.lumen-image-gallery-media > img {
+  display: block;
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  object-fit: contain;
+  border-radius: var(--lumen-radius-control);
+}
+
+.lumen-image-gallery-failure {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  overflow-wrap: anywhere;
+}
+
+.lumen-image-gallery-strip {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  gap: var(--lumen-space-8);
+  padding-block: var(--lumen-space-4);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.lumen-image-gallery-thumbnail {
+  flex: 0 0 3rem;
+  min-inline-size: 3rem;
+  min-block-size: 3rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.lumen-image-gallery-thumbnail:first-child {
+  margin-inline-start: auto;
+}
+.lumen-image-gallery-thumbnail:last-child {
+  margin-inline-end: auto;
+}
+.lumen-image-gallery-thumbnail[aria-pressed='true'] {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: -0.125rem;
+}
+.lumen-image-gallery-thumbnail > img {
+  inline-size: 3rem;
+  block-size: 3rem;
+  object-fit: cover;
+}
+
+.lumen-image-tile {
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  overflow-wrap: anywhere;
+}
+
+.lumen-image-tile[data-variant='composer'],
+.lumen-image-tile[data-variant='message'] {
+  inline-size: 12rem;
+}
+.lumen-image-tile[data-variant='composer'][data-ready] {
+  inline-size: 4rem;
+}
+.lumen-image-tile[data-variant='message'][data-ready] {
+  inline-size: 7rem;
+}
+.lumen-image-tile[data-variant='message'][data-single] {
+  inline-size: 22.5rem;
+}
+
+.lumen-image-tile-open {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  inline-size: 100%;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: 0;
+  overflow: hidden;
+}
+
+.lumen-image-tile-open > img {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--lumen-radius-control);
+}
+
+.lumen-image-tile[data-variant='message'][data-single] .lumen-image-tile-open > img {
+  aspect-ratio: auto;
+  max-block-size: 21.25rem;
+  object-fit: contain;
+}
+.lumen-image-tile:not([data-ready]) .lumen-image-tile-open {
+  padding: var(--lumen-space-8);
+}
+.lumen-image-tile:not([data-ready])[data-removable] .lumen-image-tile-open {
+  padding-inline-end: var(--lumen-space-32);
+}
+.lumen-image-tile-open > span {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-image-tile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--lumen-space-4);
+}
+
+/* cc-haha AttachmentGallery.tsx:235/286: remove is a sibling overlay at the
+   thumbnail corner, not a child of Open. Keep a 2rem hit area visible on touch
+   and a focus outline; only this observed control is positioned over media. */
+.lumen-image-tile > .lumen-image-tile-remove-overlay {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 2rem;
+  block-size: 2rem;
+  min-block-size: 2rem;
+  padding: 0;
+  border: 0.0625rem solid var(--lumen-line);
+  background: var(--lumen-contrast);
+}
+
+@media (width < 48rem) {
+  .lumen-image-gallery {
+    gap: var(--lumen-space-8);
+    padding: var(--lumen-space-8);
+  }
+}

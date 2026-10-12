@@ -1,15 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAssistantCommands,
-  LumenCommandList,
-  LumenCommandMenu01,
-  LumenCommandMenu06,
-  LumenCommandMenuProvider,
-  LumenInviteCommand,
-  LumenSearchCommands,
-} from '@lumen/app-ui'
+import { LumenCommandList } from '@lumen/app-ui'
+import { LumenAssistantCommands, LumenCommandMenu01, LumenCommandMenu06, LumenCommandMenuProvider, LumenInviteCommand, LumenSearchCommands } from '@lumen/app-ui/catalog'
 import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import { HbarAppUiCommandMenuProvider } from '../packages/hbar-app-ui/src/catalog'
 import {

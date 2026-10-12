@@ -1,0 +1,595 @@
+.lumen-agent-plan-root-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-agent-plan {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
+  overflow: hidden;
+  background: transparent;
+  color: var(--lumen-ink);
+}
+
+.lumen-agent-plan *,
+.lumen-agent-plan *::before,
+.lumen-agent-plan *::after {
+  box-sizing: border-box;
+}
+
+.lumen-agent-plan h2,
+.lumen-agent-plan h3,
+.lumen-agent-plan p,
+.lumen-agent-plan ol,
+.lumen-agent-plan ul,
+.lumen-agent-plan dl,
+.lumen-agent-plan dt,
+.lumen-agent-plan dd,
+.lumen-agent-plan table,
+.lumen-agent-plan caption {
+  margin: 0;
+}
+
+.lumen-agent-plan ol,
+.lumen-agent-plan ul {
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-app-ui-agent-plan-heading,
+.hbar-app-ui-agent-plan-heading-actions,
+.hbar-app-ui-agent-plan-progress,
+.hbar-app-ui-agent-plan-summary-footer {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.hbar-app-ui-agent-plan-heading {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+}
+
+.hbar-app-ui-agent-plan-heading h2 {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-heading-actions {
+  flex: 0 0 auto;
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-agent-plan-progress {
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-agent-plan-progress > .lumen-progress {
+  inline-size: 5rem;
+}
+
+.lumen-agent-plan-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.hbar-app-ui-agent-plan-number {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-plan-status {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-empty {
+  padding: var(--lumen-space-16);
+  text-align: center;
+}
+
+.hbar-app-ui-agent-plan-checklist-pane,
+.hbar-app-ui-agent-plan-tree-pane,
+.hbar-app-ui-agent-plan-actual-pane,
+.hbar-app-ui-agent-plan-board-pane,
+.hbar-app-ui-agent-plan-summary-body,
+.hbar-app-ui-agent-plan-editable-content {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-agent-plan-checklist-pane,
+.hbar-app-ui-agent-plan-tree-pane,
+.hbar-app-ui-agent-plan-actual-pane,
+.hbar-app-ui-agent-plan-board-pane,
+.hbar-app-ui-agent-plan-summary-body {
+  overflow: auto;
+}
+
+.hbar-app-ui-agent-plan-checklist-pane > section,
+.hbar-app-ui-agent-plan-tree-pane > ul,
+.hbar-app-ui-agent-plan-table-card,
+.hbar-app-ui-agent-plan-board-column,
+.hbar-app-ui-agent-plan-summary-copy,
+.hbar-app-ui-agent-plan-chip-list,
+.hbar-app-ui-agent-plan-breakdown-list,
+.hbar-app-ui-agent-plan-metrics {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+}
+
+.hbar-app-ui-agent-plan-checklist-pane > section,
+.hbar-app-ui-agent-plan-tree-pane > ul {
+  min-block-size: 100%;
+  padding: var(--lumen-space-4);
+}
+
+.hbar-app-ui-agent-plan-checklist-pane ol,
+.hbar-app-ui-agent-plan-tree-pane > ul,
+.hbar-app-ui-agent-plan-tree-children {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-agent-plan-checklist-pane li > button,
+.hbar-app-ui-agent-plan-tree-pane .hbar-app-ui-agent-plan-tree-group {
+  inline-size: 100%;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-app-ui-agent-plan-tree-pane .hbar-app-ui-agent-plan-tree-group {
+  flex-wrap: wrap;
+  gap: var(--lumen-space-8);
+  padding-block: var(--lumen-space-8);
+}
+
+.hbar-app-ui-agent-plan-checklist-pane li.is-active > button {
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-agent-plan-step-title,
+.hbar-app-ui-agent-plan-tree-group-title {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--lumen-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.is-active > button .hbar-app-ui-agent-plan-step-title,
+.hbar-app-ui-agent-plan-tree-group-title {
+  color: var(--lumen-ink);
+  font-weight: 600;
+}
+
+.hbar-app-ui-agent-plan-step-detail {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  margin: var(--lumen-space-4) var(--lumen-space-8) var(--lumen-space-8);
+  padding: var(--lumen-space-12);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+  color: var(--lumen-muted);
+}
+
+.hbar-app-ui-agent-plan-step-detail p {
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-plan-step-detail dl {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4) var(--lumen-space-32);
+}
+
+.hbar-app-ui-agent-plan-step-detail dl > div {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: baseline;
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-agent-plan-step-detail dd {
+  color: var(--lumen-ink);
+}
+
+.hbar-app-ui-agent-plan-tree-toggle {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-plan-tree-group-progress {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  text-align: end;
+}
+
+.hbar-app-ui-agent-plan-tree-group-title {
+  flex: 1 1 10rem;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.hbar-app-ui-agent-plan-tree-children {
+  padding-inline-start: var(--lumen-space-24);
+}
+
+.hbar-app-ui-agent-plan-tree-children > li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-8) var(--lumen-space-12);
+  padding: var(--lumen-space-8);
+  border-radius: var(--lumen-radius-control);
+}
+
+.hbar-app-ui-agent-plan-tree-children .hbar-app-ui-agent-plan-step-title {
+  flex: 1 1 14rem;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.hbar-app-ui-agent-plan-tree-children .hbar-app-ui-agent-plan-status {
+  margin-inline-start: auto;
+}
+
+.hbar-app-ui-agent-plan-tree-children > li:hover {
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-agent-plan-dependency {
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  color: var(--lumen-info);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-plan-editable-content,
+.hbar-app-ui-agent-plan-editable-content > .lumen-plan-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.hbar-app-ui-agent-plan-editable-content > .lumen-plan-editor {
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-agent-plan-editable-content > .lumen-plan-editor > main,
+.hbar-app-ui-agent-plan-editable-content .lumen-plan-card {
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-agent-plan-editable-content .lumen-plan-card {
+  overflow: auto;
+}
+
+.hbar-app-ui-agent-plan-metrics {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-4);
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-agent-plan-metrics > * {
+  flex: 1 1 min(9rem, 100%);
+  min-inline-size: min(9rem, 100%);
+}
+
+.hbar-app-ui-agent-plan-metrics > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+
+.hbar-app-ui-agent-plan-table-card {
+  min-inline-size: 38rem;
+  overflow: hidden;
+}
+
+.hbar-app-ui-agent-plan-table-card table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.hbar-app-ui-agent-plan-table-card caption {
+  inline-size: 0.0625rem;
+  block-size: 0.0625rem;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-table-card th,
+.hbar-app-ui-agent-plan-table-card td {
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  text-align: start;
+}
+
+.hbar-app-ui-agent-plan-table-card th:first-child,
+.hbar-app-ui-agent-plan-table-card td:first-child {
+  inline-size: 40%;
+  color: var(--lumen-ink);
+  font-weight: 600;
+}
+
+.hbar-app-ui-agent-plan-table-card tbody tr:last-child > * {
+  border-block-end: 0;
+}
+
+.hbar-app-ui-agent-plan-table-card tr.is-warning > *:last-child,
+.hbar-app-ui-agent-plan-table-card tr.is-danger > *:last-child {
+  color: var(--lumen-warning);
+}
+
+.hbar-app-ui-agent-plan-duration-bar {
+  inline-size: min(7rem, 100%);
+  block-size: 0.375rem;
+}
+
+.hbar-app-ui-agent-plan-board-columns {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-12);
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-agent-plan-board-columns > * {
+  flex: 1 1 min(15rem, 100%);
+  min-inline-size: min(15rem, 100%);
+}
+
+.hbar-app-ui-agent-plan-board-column {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-ui-agent-plan-board-column > header,
+.hbar-app-ui-agent-plan-board-column li {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-agent-plan-board-column > header {
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--lumen-space-12);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-agent-plan-board-column ol {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
+}
+
+.hbar-app-ui-agent-plan-board-column li {
+  flex-direction: column;
+  padding: var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+
+.hbar-app-ui-agent-plan-board-column li > p:first-child {
+  color: var(--lumen-ink);
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-plan-board-column li > p:last-child {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  color: var(--lumen-muted);
+}
+
+.hbar-app-ui-agent-plan-board-column li.is-skipped {
+  opacity: 0.58;
+}
+
+.hbar-app-ui-agent-plan-summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+}
+
+.hbar-app-ui-agent-plan-summary-section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-agent-plan-summary-copy,
+.hbar-app-ui-agent-plan-chip-list,
+.hbar-app-ui-agent-plan-breakdown-list {
+  padding: var(--lumen-space-12);
+}
+
+.hbar-app-ui-agent-plan-summary-copy p {
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-plan-chip-list ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-agent-plan-chip-list .lumen-chip {
+  color: var(--lumen-muted);
+}
+
+.hbar-app-ui-agent-plan-breakdown-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-4);
+  color: var(--lumen-muted);
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 1) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 3) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 4) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-plan-breakdown-list li > span:nth-child(2) {
+  overflow: hidden;
+  color: var(--lumen-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-agent-plan-summary-footer {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: var(--lumen-space-8);
+}
+
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-checklist-pane > section,
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-tree-pane > ul,
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-table-card,
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-board-column,
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-summary-copy,
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-chip-list,
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-breakdown-list,
+[data-lumen-shape='square'] .hbar-app-ui-agent-plan-metrics {
+  border-radius: 0;
+}
+
+@media (width < 48rem) {
+  .hbar-app-ui-agent-plan-heading,
+  .hbar-app-ui-agent-plan-heading-actions,
+  .hbar-app-ui-agent-plan-summary-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hbar-app-ui-agent-plan-heading-actions,
+  .hbar-app-ui-agent-plan-summary-footer {
+    inline-size: 100%;
+  }
+
+  .hbar-app-ui-agent-plan-progress {
+    justify-content: space-between;
+  }
+
+  .hbar-app-ui-agent-plan-summary-footer > button {
+    inline-size: 100%;
+  }
+
+  .hbar-app-ui-agent-plan-breakdown-list li {
+    flex-wrap: wrap;
+  }
+
+  .hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 1) {
+    flex: 0 0 auto;
+    min-inline-size: 0;
+  }
+
+  .hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 2) {
+    flex: 1 1 0;
+    min-inline-size: 0;
+  }
+
+  .hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 3),
+  .hbar-app-ui-agent-plan-breakdown-list li > :nth-child(4n + 4) {
+    flex: 0 0 auto;
+    min-inline-size: 0;
+  }
+
+  .hbar-app-ui-agent-plan-breakdown-list li > span:last-child {
+    margin-inline-start: var(--lumen-space-32);
+  }
+}

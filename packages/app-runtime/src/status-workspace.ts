@@ -1,7 +1,7 @@
 import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/commands'
 import { metricsCommands } from '@hbar/contracts/commands/metrics'
 import { gitCommands } from '@hbar/contracts/commands/git'
-import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
+import { statusWorkspaceCommands, statusWorkspaceSectionSchema } from '@hbar/contracts/commands/status-workspace'
 import { usageCommands, type UsageAttemptExport } from '@hbar/contracts/commands/usage'
 import { createState, type StateReader } from './state'
 import { serializeUsageExport } from './status-export'
@@ -75,7 +75,8 @@ export function createStatusWorkspace(
     const value = surfaces.getSnapshot().panels[instanceId]
     if (!value || value.panelId !== 'status') throw new CommandError('COMMAND_NOT_FOUND', 'Status panel is not open')
     const raw = value.params.section
-    const section: StatusWorkspaceEntryState['section'] = raw === 'usage' || raw === 'git' ? raw : 'dashboard'
+    const parsed = statusWorkspaceSectionSchema.safeParse(raw)
+    const section = parsed.success ? parsed.data : 'dashboard'
     return { ...value, section }
   }
   const replace = (entry: StatusWorkspaceEntryState) => {
@@ -194,7 +195,7 @@ export function createStatusWorkspace(
           maxBuckets: Math.min(500, Math.max(1, Math.ceil(duration / bucketMs))),
           maxSamples: 10_000,
         })
-      } else {
+      } else if (target.section === 'git') {
         if (!git) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git statistics are unavailable')
         if (!loading.gitQuery.workspaceId)
           throw new CommandError('INVALID_INPUT', 'Select a workspace before opening Git status')

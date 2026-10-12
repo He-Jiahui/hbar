@@ -1,8 +1,4 @@
-import type {
-  LumenAnalyticsContent,
-  LumenAnalyticsReferenceContent as Content,
-  LumenAnalyticsReferenceChart as Chart,
-} from '@lumen/app-ui'
+import type { LumenAnalyticsContent, LumenAnalyticsReferenceContent as Content, LumenAnalyticsReferenceChart as Chart } from '@lumen/app-ui/catalog'
 import type {
   AnalyticsPreviewSeed,
   AnalyticsPreviewStoreApi,

@@ -4,9 +4,9 @@
 
 ## 自动测试
 
-`bun run check` 串行运行严格 lint、类型检查和 Bun 测试。覆盖组件库以及 Pi 流式循环、真实 pi-ai HTTP 协议适配、工具成功/失败、批准/拒绝、幂等队列、取消、插件依赖与作用域、卸载释放、压缩与分支、配对与 Origin、设备撤销以及崩溃后的未知副作用恢复。
+`bun run check` 串行运行严格 lint、类型检查、主题与 Stylelint 契约、Bun 测试、Lumen 和 app-react 的 React 测试。覆盖组件库以及 Pi 流式循环、真实 pi-ai HTTP 协议适配、工具成功/失败、批准/拒绝、幂等队列、取消、插件依赖与作用域、卸载释放、压缩与分支、配对与 Origin、设备撤销以及崩溃后的未知副作用恢复。
 
-`bun run lint` 固定使用根配置与 `tsconfig.eslint.json`，覆盖 hbar 源码、脚本、测试、配置和已声明 workspace `hbar-ui/packages/lumen-app-ui`。子模块内未接入 hbar workspace 的 MUI 上游包、文档和示例由其独立工程检查负责，不混入 hbar 的检查项目；生成产物仍排除。入口为类型感知 ESLint 显式分配最多 8 GiB Node 堆，避免默默依赖终端环境变量。`tests/lint-workspace-coverage.test.ts` 检查根 TypeScript 范围、Lumen 源码 / 构建配置均被覆盖，并保持同一套严格规则。
+`bun run lint` 固定使用根配置与 `tsconfig.eslint.json`，覆盖 hbar 源码、脚本、测试、配置和已声明 workspace `packages/lumen-app-ui`。MUI fork 已移出当前工程；生成产物和其他独立工作树仍排除。入口为类型感知 ESLint 显式分配最多 8 GiB Node 堆，避免默默依赖终端环境变量。`tests/lint-workspace-coverage.test.ts` 检查根 TypeScript 范围、Lumen 源码 / 构建配置均被覆盖，并保持同一套严格规则。
 
 崩溃测试启动额外 Bun 进程，在已提交工具意图且实际写入完成、结果尚未提交时终止进程，重新打开同一数据目录，检查 WAL 历史和 unknown 结果，不重放调用。它不宣称覆盖所有磁盘故障或断电场景。
 
@@ -14,7 +14,7 @@
 
 `bun run test:lumen` 使用根 `vitest.lumen.config.ts` 执行已声明 Lumen workspace 的组件测试；`bun run check` 在 Bun 基础测试后执行同一入口。Vitest、jsdom、Testing Library 和 Chai DOM 均为固定版本的测试依赖，正常生产构建不导入它们。
 
-子模块没有保留 MUI monorepo 的私有 `@mui/internal-test-utils` 实现。根 TypeScript 路径与此 Vitest 配置将已有测试中的该名称映射到 `tests/lumen/renderer.tsx`：适配器使用公开 Testing Library API，提供渲染、受控 props 更新、用户事件与 fake-clock 的 React act 结算。它只用于测试；生产源码由严格 lint 禁止导入。每例结束释放 DOM、计时器、spy 和临时全局变量。
+独立 Lumen 包没有保留 MUI monorepo 的私有 `@mui/internal-test-utils` 实现。根 TypeScript 路径与此 Vitest 配置将已有测试中的该名称映射到 `tests/lumen/renderer.tsx`：适配器使用公开 Testing Library API，提供渲染、受控 props 更新、用户事件与 fake-clock 的 React act 结算。它只用于测试；生产源码由严格 lint 禁止导入。每例结束释放 DOM、计时器、spy 和临时全局变量。
 
 这些 jsdom 测试检查对话滚动、文件预览、图片导航、Composer 和侧栏分隔条的交互契约；几何、真实 Canvas、主题、溢出与原生窗口继续使用对应 Playwright/桌面验收。配置限制单个测试 Worker，以及每例和 hook 的等待预算。
 
@@ -117,18 +117,18 @@ Storage Worker 的退出、错误、无回复与关闭握手故障由 `tests/sto
 
 2026-10-11，在 `codex/host-runtime-implementation` 隔离工作树、Windows 和 Bun 1.4.0 上完成本轮验收。行为、公开操作和首次安装要求见[运行单元恢复与热重载](runtime-recovery.md)。所有 Host、数据库、浏览器和终端 fixture 使用本轮创建的独立目录；没有重启正在使用的 Host，也没有使用用户 Session 或商业模型。
 
-| 门禁 | 实际结果与范围 |
-| --- | --- |
-| 严格 lint | 维护源文件全量清单分批检查，新增文件和最后增量另行检查；3,538 个文件，0 错误、0 警告，使用同一根 `eslint.config.js` 和 `--max-warnings 0` |
-| Typecheck | 全仓 TypeScript `--noEmit` 通过；使用项目声明的 TypeScript 6.0.2，未放宽类型约束 |
-| 基础测试 | 完整覆盖 897 个文件，共 5,907 项：5,895 通过、12 失败；失败项均在实施前基线中存在，不能宣称全仓测试通过 |
-| Web E2E | `connection-recovery.spec.ts` 与 `runtime-status.spec.ts` 共 3 项通过；首次握手失败自动恢复，中英文状态、局部更新、进程故障和连接保留 |
-| Web / Host / Desktop 构建 | Web、14 单元产物、Host 和 Tauri debug EXE 构建通过；使用 `--debug --no-bundle`，没有执行 NSIS 安装包验收 |
-| 隔离 native smoke | 真实 Tauri / WebView、14 业务单元和 16 个 Bun 进程；实际杀死 fixture Kernel 后恢复，身份、凭据、其他 13 单元 PID 与 WebSocket 保持，页面错误为空 |
-| 原生资源保留 | 真实浏览器 DOM 状态跨 Browser 插件及 Kernel 替换保留；真实终端的 shell 变量和 terminal ID 跨 Kernel / Controller 替换保留，关闭后释放 |
-| Standalone CLI | 编译后二进制启动嵌入 Host、14 单元和原生查询引擎；1 项真实测试、26 个断言通过 |
-| 并发测量 | 8 Session、16 mock Run、8 个并行查询，旧/新 Run 绑定不同 Kernel 代，13 个无关 PID 和连接稳定；具体延迟、内存和队列采样见下述脚本及运行文档 |
-| 文档链接 | 全仓检查仍有 762 个历史截图或审计产物缺失；隔离工作树没有这些未跟踪产物，不伪造文件消除失败，本次新增/修改文档链接另行核对 |
+| 门禁                      | 实际结果与范围                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 严格 lint                 | 维护源文件全量清单分批检查，新增文件和最后增量另行检查；3,538 个文件，0 错误、0 警告，使用同一根 `eslint.config.js` 和 `--max-warnings 0`        |
+| Typecheck                 | 全仓 TypeScript `--noEmit` 通过；使用项目声明的 TypeScript 6.0.2，未放宽类型约束                                                                 |
+| 基础测试                  | 完整覆盖 897 个文件，共 5,907 项：5,895 通过、12 失败；失败项均在实施前基线中存在，不能宣称全仓测试通过                                          |
+| Web E2E                   | `connection-recovery.spec.ts` 与 `runtime-status.spec.ts` 共 3 项通过；首次握手失败自动恢复，中英文状态、局部更新、进程故障和连接保留            |
+| Web / Host / Desktop 构建 | Web、14 单元产物、Host 和 Tauri debug EXE 构建通过；使用 `--debug --no-bundle`，没有执行 NSIS 安装包验收                                         |
+| 隔离 native smoke         | 真实 Tauri / WebView、14 业务单元和 16 个 Bun 进程；实际杀死 fixture Kernel 后恢复，身份、凭据、其他 13 单元 PID 与 WebSocket 保持，页面错误为空 |
+| 原生资源保留              | 真实浏览器 DOM 状态跨 Browser 插件及 Kernel 替换保留；真实终端的 shell 变量和 terminal ID 跨 Kernel / Controller 替换保留，关闭后释放            |
+| Standalone CLI            | 编译后二进制启动嵌入 Host、14 单元和原生查询引擎；1 项真实测试、26 个断言通过                                                                    |
+| 并发测量                  | 8 Session、16 mock Run、8 个并行查询，旧/新 Run 绑定不同 Kernel 代，13 个无关 PID 和连接稳定；具体延迟、内存和队列采样见下述脚本及运行文档       |
+| 文档链接                  | 全仓检查仍有 762 个历史截图或审计产物缺失；隔离工作树没有这些未跟踪产物，不伪造文件消除失败，本次新增/修改文档链接另行核对                       |
 
 基础测试采用 64 文件分批、新建 Bun 进程执行；含较多构建和原生生命周期场景的一批进一步逐文件隔离。首次单进程全仓尝试出现 Windows 原生 I/O 异常退出（`GetQueuedCompletionStatusEx` / `PostQueuedCompletionStatus`），多文件复验也出现过连续 `Bundle failed`；相应文件在新进程逐一复验，保留原失败日志。这是本机观察到的测试运行限制，未将其归因于已证实的 Bun 缺陷。首次 lint 单实例尝试达到 Node 堆上限，随后按同一维护清单、同一规则以新进程完成剩余检查；没有通过排除源文件或关闭规则通过门禁。
 

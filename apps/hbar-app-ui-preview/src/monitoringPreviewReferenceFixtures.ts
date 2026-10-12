@@ -1,9 +1,4 @@
-import type {
-  LumenMonitoringReferenceChart,
-  LumenMonitoringReferenceContent,
-  LumenMonitoringReferenceMetric,
-  LumenMonitoringReferenceTone,
-} from '@lumen/app-ui'
+import type { LumenMonitoringReferenceChart, LumenMonitoringReferenceContent, LumenMonitoringReferenceMetric, LumenMonitoringReferenceTone } from '@lumen/app-ui/catalog'
 
 const emptyAction = () => {}
 const labels = {

@@ -5,8 +5,11 @@ import type { SessionDraftState } from '@hbar/app-runtime'
 import { composerFiles } from './composer-attachment-input'
 import './composer-attachments.css'
 import { HbarComposerFeedback, useHbarComposerFeedbackManaged } from './composer-feedback'
+import { createMessageScope } from './messages'
 
 type Transfer = SessionDraftState['attachmentTransfers'][number]
+const ComposerAttachmentDropMessages = createMessageScope<{ readonly dropLabel: string }>()
+const ComposerAttachmentMessages = createMessageScope<{ readonly attachments: HbarComposerAttachmentLabels }>()
 
 export interface HbarComposerAttachmentLabels {
   readonly label: string
@@ -31,6 +34,24 @@ export function HbarComposerAttachmentDropTarget({
   readonly children: ReactNode
   readonly onAdd: (files: readonly File[]) => void
 }) {
+  return (
+    <ComposerAttachmentDropMessages.Provider messages={{ dropLabel: label }}>
+      <HbarComposerAttachmentDropTargetContent enabled={enabled} children={children} onAdd={onAdd} />
+    </ComposerAttachmentDropMessages.Provider>
+  )
+}
+
+function HbarComposerAttachmentDropTargetContent({
+  enabled,
+  children,
+  onAdd,
+}: {
+  readonly enabled: boolean
+  readonly children: ReactNode
+  readonly onAdd: (files: readonly File[]) => void
+}) {
+  const { t } = ComposerAttachmentDropMessages.useMessages()
+  const label = t('dropLabel')
   const [dragging, setDragging] = useState(false)
   return (
     <LumenFrame
@@ -90,6 +111,28 @@ export function HbarComposerAttachmentTransfers({
   readonly onReconcile: (transfer: Transfer) => void
   readonly onAccept: (transfer: Transfer) => void
 }) {
+  return (
+    <ComposerAttachmentMessages.Provider messages={{ attachments: labels }}>
+      <HbarComposerAttachmentTransfersContent
+        transfers={transfers}
+        connected={connected}
+        onRemove={onRemove}
+        onReconcile={onReconcile}
+        onAccept={onAccept}
+      />
+    </ComposerAttachmentMessages.Provider>
+  )
+}
+
+function HbarComposerAttachmentTransfersContent({
+  transfers,
+  connected,
+  onRemove,
+  onReconcile,
+  onAccept,
+}: Omit<Parameters<typeof HbarComposerAttachmentTransfers>[0], 'labels'>) {
+  const { t } = ComposerAttachmentMessages.useMessages()
+  const labels = t('attachments')
   const managed = useHbarComposerFeedbackManaged()
   if (transfers.length === 0) return null
   return (

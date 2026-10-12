@@ -1,7 +1,85 @@
 import { expect, test } from 'bun:test'
 import { CommandError, CommandRegistry } from '@hbar/commands'
 import { runAcceptedSchema, type RunAccepted } from '@hbar/contracts/commands/run'
+import type { SessionDraftState } from '@hbar/app-runtime'
 import { createDrafts } from '../packages/app-runtime/src/drafts'
+
+function emptyDraft(sessionId: string): SessionDraftState {
+  return {
+    sessionId,
+    text: '',
+    mentions: [],
+    workspaceContexts: [],
+    attachments: [],
+    attachmentTransfers: [],
+    uploading: 0,
+    uploadError: null,
+    revision: 0,
+    status: 'idle',
+    error: null,
+    lastOperationId: null,
+  }
+}
+
+test('session draft initialization reclaims only pristine entries at the bounded limit', () => {
+  const local = new CommandRegistry()
+  const initialDrafts: Record<string, SessionDraftState> = {}
+  for (let index = 0; index < 96; index++) initialDrafts[`empty-${index}`] = emptyDraft(`empty-${index}`)
+  initialDrafts.authored = { ...emptyDraft('authored'), text: 'Keep authored text', revision: 2 }
+  initialDrafts.recovering = {
+    ...emptyDraft('recovering'),
+    text: 'Keep pending recovery',
+    status: 'unknown',
+    pendingSubmission: { key: 'receipt-key', revision: 1, matchesDraft: true, detached: false },
+  }
+  initialDrafts.failed = { ...emptyDraft('failed'), text: 'Keep failed input', status: 'failed', error: 'NETWORK' }
+  initialDrafts.receipt = { ...emptyDraft('receipt'), lastOperationId: 'operation-1' }
+  const drafts = createDrafts(local, undefined, undefined, () => {}, () => false, undefined, undefined, undefined, initialDrafts)
+
+  try {
+    drafts.ensure('active')
+    expect(Object.keys(drafts.reader.getSnapshot())).toHaveLength(100)
+    expect(drafts.reader.getSnapshot()['empty-0']).toBeUndefined()
+    expect(drafts.reader.getSnapshot()['empty-1']).toBeDefined()
+    expect(drafts.reader.getSnapshot()).toMatchObject({
+      active: { text: '', status: 'idle' },
+      authored: { text: 'Keep authored text' },
+      recovering: { text: 'Keep pending recovery', status: 'unknown' },
+      failed: { text: 'Keep failed input', status: 'failed', error: 'NETWORK' },
+      receipt: { lastOperationId: 'operation-1' },
+    })
+
+    const fullOfAuthoredDrafts: Record<string, SessionDraftState> = {}
+    for (let index = 0; index < 100; index++) {
+      const sessionId = `owned-${index}`
+      fullOfAuthoredDrafts[sessionId] = { ...emptyDraft(sessionId), text: `Draft ${index}`, revision: 1 }
+    }
+    const blockedLocal = new CommandRegistry()
+    const blocked = createDrafts(
+      blockedLocal,
+      undefined,
+      undefined,
+      () => {},
+      () => false,
+      undefined,
+      undefined,
+      undefined,
+      fullOfAuthoredDrafts,
+    )
+    try {
+      const before = blocked.reader.getSnapshot()
+      expect(() => blocked.ensure('overflow')).toThrow('Too many session drafts are open')
+      expect(blocked.reader.getSnapshot()).toBe(before)
+      expect(Object.keys(blocked.reader.getSnapshot())).toHaveLength(100)
+    } finally {
+      blocked.dispose()
+      blockedLocal.dispose()
+    }
+  } finally {
+    drafts.dispose()
+    local.dispose()
+  }
+})
 
 test.each(['malformed', 'session', 'key'] as const)(
   'ordinary %s acceptance retains the original draft until its exact receipt is verified',

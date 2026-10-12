@@ -3,7 +3,7 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  padding: 0.375rem 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -15,7 +15,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.25rem 0.5rem;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
 }
 
 .hbar-session-live-status[data-visible='false'] {
@@ -62,7 +62,7 @@
   margin-inline-start: auto;
 }
 
-@container session-project-context (max-width: 30rem) {
+@container session-project-context (width < 40rem) {
   .hbar-session-live-status-goal {
     order: 1;
     flex-basis: 100%;
@@ -75,10 +75,10 @@
   min-block-size: 0;
   max-block-size: min(40dvh, 24rem);
   flex-direction: column;
-  gap: 0.625rem;
+  gap: var(--lumen-space-8);
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -90,7 +90,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-session-live-status-details h3,

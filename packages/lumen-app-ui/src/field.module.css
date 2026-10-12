@@ -1,0 +1,102 @@
+.field {
+  display: flex;
+  min-inline-size: 0;
+  box-sizing: border-box;
+  border: 0.0625rem solid color-mix(in srgb, var(--lumen-effect-color) 45%, transparent);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+  backdrop-filter: blur(0.75rem);
+  box-shadow: var(--lumen-effect-shadow);
+  transition: var(--lumen-state-transition);
+}
+
+.field[data-shape='square'] {
+  border-radius: 0;
+}
+
+.fieldContent {
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.fieldContent > :global(.lumen-form-field) {
+  flex: 1;
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.fieldContent > :global(.lumen-combobox-control),
+.fieldContent > :global(.lumen-popup-select) {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.field[data-lumen-tone='info'] {
+  --lumen-effect-color: var(--lumen-info);
+}
+.field[data-lumen-tone='success'] {
+  --lumen-effect-color: var(--lumen-success);
+}
+.field[data-lumen-tone='warning'] {
+  --lumen-effect-color: var(--lumen-warning);
+}
+.field[data-lumen-tone='danger'] {
+  --lumen-effect-color: var(--lumen-danger);
+}
+
+.field[data-invalid='true'] {
+  border-color: var(--lumen-danger);
+  --lumen-effect-level: var(--lumen-glow-selected);
+}
+
+@media (hover: hover) {
+  .field:hover:not([data-lumen-state='disabled']) {
+    --lumen-effect-level: var(--lumen-glow-hover);
+    border-color: color-mix(in srgb, var(--lumen-effect-color) 55%, transparent);
+  }
+  .field[data-invalid='true']:hover {
+    border-color: var(--lumen-danger);
+  }
+}
+
+.field:focus-within:not([data-lumen-state='disabled']) {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  border-color: var(--lumen-effect-color);
+}
+
+.field:has(:focus-visible) {
+  outline: 0.125rem solid var(--lumen-effect-color);
+  outline-offset: 0.125rem;
+}
+
+.field[data-lumen-state='disabled'] {
+  --lumen-effect-level: 0;
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field {
+    transition: none;
+  }
+  .field[data-lumen-state='running'] {
+    animation: none;
+    --lumen-effect-level: var(--lumen-glow-selected);
+  }
+}
+
+@media (forced-colors: active) {
+  .field {
+    border-color: CanvasText;
+    background: Canvas;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .field:has(:focus-visible) {
+    outline-color: Highlight;
+  }
+  .field[data-lumen-state='disabled'] {
+    border-color: GrayText;
+  }
+}

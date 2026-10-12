@@ -1,4 +1,1 @@
-export {
-  LumenUsageProvider as HbarAppUiUsageProvider,
-  useLumenUsageContent as useHbarAppUiUsageContent,
-} from '@lumen/app-ui'
+export { LumenUsageProvider as HbarAppUiUsageProvider, useLumenUsageContent as useHbarAppUiUsageContent } from '@lumen/app-ui/catalog'

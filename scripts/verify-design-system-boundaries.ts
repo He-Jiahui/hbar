@@ -160,7 +160,12 @@ async function sourceFiles(directory: string): Promise<readonly string[]> {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) files.push(...(await sourceFiles(path)))
-    else if (entry.isFile() && ['.css', '.ts', '.tsx'].includes(extname(entry.name))) files.push(path)
+    else if (
+      entry.isFile() &&
+      !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(entry.name) &&
+      ['.css', '.ts', '.tsx'].includes(extname(entry.name))
+    )
+      files.push(path)
   }
   return files
 }

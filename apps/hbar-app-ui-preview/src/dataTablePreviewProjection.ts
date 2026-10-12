@@ -1,4 +1,4 @@
-import type { LumenDataTableContent, LumenDataTableReferenceContent } from '@lumen/app-ui'
+import type { LumenDataTableContent, LumenDataTableReferenceContent } from '@lumen/app-ui/catalog'
 import type { TablePreviewSeed, TablePreviewStoreApi } from './dataTablePreviewModel'
 import { dataTablePreviewMoney, dataTablePreviewNotice } from './dataTablePreviewReferenceFixtures'
 

@@ -12,6 +12,7 @@ import {
   type HbarComposerPermissionLabels,
 } from '../packages/app-react/src/composer-permission-picker'
 import { SessionNavigationRow } from '../packages/app-react/src/session-navigation-row'
+import { WorkspaceShellMessagesProvider } from '../packages/app-react/src/workspace-shell-messages'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { chatSearchCopy } from '../apps/web/src/chat-search-copy'
 
@@ -194,19 +195,20 @@ test('sidebar session workspace metadata keeps its canonical path available when
     await runtime.ready
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <SessionNavigationRow
-          session={session}
-          selected={false}
-          connected
-          labels={getShellCopy('zh-CN').shell}
-          now={1}
-          onOpen={() => undefined}
-          metadata={{
-            workspaceName: workspace.name,
-            workspacePath: workspace.path,
-            execution: { state: 'idle', label: '空闲' },
-          }}
-        />
+        <WorkspaceShellMessagesProvider labels={getShellCopy('zh-CN').shell} mobileNavigationLabel="导航">
+          <SessionNavigationRow
+            session={session}
+            selected={false}
+            connected
+            now={1}
+            onOpen={() => undefined}
+            metadata={{
+              workspaceName: workspace.name,
+              workspacePath: workspace.path,
+              execution: { state: 'idle', label: '空闲' },
+            }}
+          />
+        </WorkspaceShellMessagesProvider>
       </HbarRuntimeProvider>,
     )
     expect(html).toContain(`title="${workspace.path}"`)

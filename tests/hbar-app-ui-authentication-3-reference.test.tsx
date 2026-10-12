@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { LumenAuthContent } from '@lumen/app-ui'
+import type { LumenAuthContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant, HbarAppUiAuthenticationProvider } from '../packages/hbar-app-ui/src/catalog'
 import {
   createHbarAppUiAuthenticationLocalizedFixtures,

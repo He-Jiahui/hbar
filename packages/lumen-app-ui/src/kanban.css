@@ -1,0 +1,401 @@
+.lumen-kanban-stage-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-kanban-stage {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: transparent;
+  color: var(--lumen-ink);
+  flex-direction: column;
+}
+.lumen-kanban-stage *,
+.lumen-kanban-stage *::before,
+.lumen-kanban-stage *::after {
+  box-sizing: border-box;
+}
+.lumen-kanban-stage :where(h1, h2, p) {
+  margin: 0;
+}
+.lumen-kanban-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+.lumen-kanban-header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-kanban-header > div:first-child {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.lumen-kanban-participants {
+  display: flex;
+}
+.lumen-kanban-participants i {
+  display: flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: -0.35rem;
+  border: 0.125rem solid var(--lumen-reading);
+  border-radius: 999rem;
+  background: var(--lumen-edge);
+  font-size: 0.7rem;
+  font-style: normal;
+  min-inline-size: 0;
+}
+.lumen-kanban-board {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  gap: 0.75rem;
+  overflow: auto;
+  padding: 1rem;
+  flex-direction: row;
+}
+.lumen-kanban-board > * {
+  flex: 1 1 16rem;
+}
+.lumen-kanban-board > section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.lumen-kanban-board > section > header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 0.25rem;
+}
+.lumen-kanban-board > section > header > span {
+  margin-inline-start: auto;
+  color: var(--lumen-muted);
+}
+.lumen-kanban-board > section > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.lumen-kanban-card {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-glass);
+}
+.lumen-kanban-card > button:first-child {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  text-align: start;
+}
+.lumen-kanban-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--lumen-muted);
+}
+.lumen-kanban-card small {
+  color: var(--lumen-muted);
+}
+.lumen-kanban-card footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.lumen-kanban-card footer > span {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.lumen-kanban-card footer > i {
+  display: flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: auto;
+  border-radius: 999rem;
+  background: var(--lumen-edge);
+  font-size: 0.65rem;
+  font-style: normal;
+  min-inline-size: 0;
+}
+.lumen-kanban-swimlanes {
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+.lumen-kanban-swimlane-head,
+.lumen-kanban-swimlanes > section {
+  display: flex;
+  min-inline-size: 48rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.lumen-kanban-swimlane-head,
+.lumen-kanban-swimlanes > section > :nth-child(2n + 1) {
+  flex: 0.65 1 10rem;
+  min-inline-size: 10rem;
+}
+.lumen-kanban-swimlane-head,
+.lumen-kanban-swimlanes > section > :nth-child(2n + 2) {
+  flex: 1 1 11rem;
+  min-inline-size: 0;
+}
+.lumen-kanban-swimlane-head {
+  position: static;
+  z-index: 1;
+  padding: 0.6rem;
+  background: var(--lumen-reading);
+  font-weight: 700;
+}
+.lumen-kanban-swimlanes > section {
+  padding-block: 0.5rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-kanban-swimlanes > section > button {
+  align-self: start;
+  justify-content: flex-start;
+}
+.lumen-kanban-swimlanes > section > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.lumen-kanban-regroup {
+  display: flex;
+  min-block-size: 0;
+  align-content: start;
+  gap: 0.75rem;
+  overflow: auto;
+  padding: 1rem;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+.lumen-kanban-regroup > * {
+  flex: 1 1 15rem;
+  min-inline-size: 15rem;
+}
+.lumen-kanban-regroup > button {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: stretch;
+  text-align: start;
+}
+.lumen-kanban-regroup > button > :nth-child(3n + 1) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+.lumen-kanban-regroup > button > :nth-child(3n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-kanban-regroup > button > :nth-child(3n + 3) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+.lumen-kanban-regroup > button > span:nth-child(2) {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+.lumen-kanban-detail {
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+.lumen-kanban-detail > :nth-child(2n + 1) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-kanban-detail > :nth-child(2n + 2) {
+  flex: 0.55 1 18rem;
+  min-inline-size: 18rem;
+}
+.lumen-kanban-detail > main {
+  min-inline-size: 0;
+  overflow: auto;
+}
+.lumen-kanban-detail > main > button {
+  display: flex;
+  inline-size: calc(100% - 2rem);
+  justify-content: space-between;
+  margin-inline: 1rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0;
+  text-align: start;
+}
+.lumen-kanban-detail > main > button > span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.lumen-kanban-detail > main > button[aria-pressed='true'] {
+  color: var(--lumen-accent);
+  background: color-mix(in srgb, var(--lumen-accent) 8%, transparent);
+}
+.lumen-kanban-detail > aside {
+  min-inline-size: 0;
+  overflow: auto;
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-glass);
+}
+.lumen-kanban-detail > aside > .lumen-kanban-field,
+.lumen-kanban-detail > aside > p,
+.lumen-kanban-detail > aside > button {
+  margin: 0.75rem 1rem;
+}
+.lumen-kanban-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.hbar-app-ui-kanban-variant-5 {
+  min-block-size: 0;
+}
+.lumen-kanban-metrics {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+.lumen-kanban-metrics > * {
+  flex: 1 1 8rem;
+  min-inline-size: 8rem;
+}
+.lumen-kanban-metrics article {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+.lumen-kanban-sprint {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  gap: 0.75rem;
+  overflow: auto;
+  padding: 1rem;
+  flex-wrap: wrap;
+}
+.lumen-kanban-sprint > :nth-child(3n + 1) {
+  flex: 1 1 16rem;
+  min-inline-size: 16rem;
+}
+.lumen-kanban-sprint > :nth-child(3n + 2) {
+  flex: 1 1 16rem;
+  min-inline-size: 16rem;
+}
+.lumen-kanban-sprint > :nth-child(3n + 3) {
+  flex: 1 1 16rem;
+  min-inline-size: 16rem;
+}
+.lumen-kanban-sprint > section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.lumen-kanban-sprint > section > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.lumen-kanban-progress {
+  block-size: 0.4rem;
+}
+.hbar-app-ui-kanban-variant-6 {
+  min-block-size: 0;
+}
+.hbar-app-ui-kanban-variant-6 > .lumen-kanban-tabs {
+  padding: 0.5rem;
+}
+.lumen-kanban-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 1rem;
+  min-inline-size: 0;
+}
+.lumen-kanban-compact > article {
+  display: flex;
+  inline-size: min(28rem, 100%);
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-glass);
+}
+.lumen-kanban-compact > article > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+}
+.lumen-kanban-empty {
+  padding: 1.25rem;
+  border: 0.0625rem dashed var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  text-align: center;
+}
+.lumen-kanban-stage [data-hbar-app-ui-list-strategy='pane-scroll'] {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 48rem) {
+  .lumen-kanban-header {
+    flex-wrap: wrap;
+  }
+  .lumen-kanban-board {
+    flex-wrap: nowrap;
+  }
+  .lumen-kanban-board > * {
+    flex: 0 0 min(85vw, 22rem);
+  }
+  .lumen-kanban-detail {
+    min-block-size: 0;
+  }
+  .lumen-kanban-detail > aside {
+    border-inline-start: 0;
+    border-block-start: 0.0625rem solid var(--lumen-edge);
+  }
+}

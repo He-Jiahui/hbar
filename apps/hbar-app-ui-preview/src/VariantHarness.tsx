@@ -1,13 +1,5 @@
-import {
-  LumenButton,
-  LumenFrame,
-  LumenInput,
-  LumenNavigationButton,
-  LumenOption,
-  LumenSelect,
-  LumenText,
-  LumenTextarea,
-} from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenInput, LumenNavigationButton, LumenSelect, LumenText, LumenTextarea } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { useState } from 'react'
 import { HbarAppUiStatus } from 'hbar-app-ui'
 import type { HbarAppUiEvent, HbarAppUiProfileControl, HbarAppUiVariantSpec } from 'hbar-app-ui/catalog'

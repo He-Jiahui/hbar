@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { removeOwnedFixtureDirectory } from './support/owned-fixture-directory'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -11,7 +12,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     browser,
   }, info) => {
     test.setTimeout(90_000)
-    const root = await mkdtemp(join(tmpdir(), 'hbar-composer-caret-'))
+    const prefix = 'hbar-composer-caret-'
+    const root = await mkdtemp(join(tmpdir(), prefix))
     const context = await browser.newContext({ locale, colorScheme: 'dark' })
     let host: WebSessionHost | undefined
     try {
@@ -24,8 +26,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       const copy = getShellCopy(locale)
+      await context.addInitScript((language) => localStorage.setItem('hbar:web:language', language), locale)
       await page.goto(origin)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await expect(page.locator(`.hbar-app-react-session-row[data-session-id="${host.ready.sessionId}"]`)).toHaveAttribute(
+        'data-selected',
+        'true',
+      )
       const input = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const editor = page.locator('.hbar-composer-mention-editor')
       const draft = 'Edit here 编辑这里 ' + 'long text 自动换行 '.repeat(12)
@@ -89,7 +96,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixtureDirectory(root, prefix)
     }
   })
 }

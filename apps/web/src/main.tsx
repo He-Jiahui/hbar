@@ -12,11 +12,7 @@ import { createBrowserZoomPort, createNativeZoomPort } from './app-zoom-port'
 import { resolveShellLocale } from './shell-copy'
 import { applyWebTheme, readThemeBootstrap, resolveWebTheme } from './theme'
 import './document.css'
-import './react-bits/theme.css'
-import './react-bits/semantic.css'
-import './react-bits/production.css'
 import './workbench-design.css'
-import ReferenceFixtureRoute, { referenceFixtureRouteFromLocation } from './react-bits/reference/ReferenceFixtureRoute'
 
 const language = createWebLanguageController(resolveShellLocale(navigator.languages), {
   getItem: (key) => window.localStorage.getItem(key),
@@ -62,10 +58,15 @@ const zoom = createWebZoomController(
 )
 await zoom.initialize()
 
-const fixtureRoute = referenceFixtureRouteFromLocation()
+const fixtureModule =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).has('referenceFixture')
+    ? await import('./react-bits/reference/ReferenceFixtureRoute')
+    : null
+const fixtureRoute = fixtureModule?.referenceFixtureRouteFromLocation()
+const ReferenceFixtureRoute = fixtureModule?.default
 createRoot(root).render(
   <StrictMode>
-    {fixtureRoute ? (
+    {fixtureRoute && ReferenceFixtureRoute ? (
       <ReferenceFixtureRoute {...fixtureRoute} />
     ) : (
       <LanguageApp

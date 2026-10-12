@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { LumenAuthContent } from '@lumen/app-ui'
+import type { LumenAuthContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { Authentication2PreviewHost } from './Authentication2PreviewHost'
 import { Authentication3PreviewHost } from './Authentication3PreviewHost'

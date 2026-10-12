@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAnalytics, type LumenAnalyticsReferenceChart, type LumenAnalyticsReferenceContent } from '@lumen/app-ui'
+import { LumenAnalytics, type LumenAnalyticsReferenceChart, type LumenAnalyticsReferenceContent } from '@lumen/app-ui/catalog'
 import { createAnalyticsPreviewStore } from '../apps/hbar-app-ui-preview/src/analyticsPreviewModel'
 import {
   advanceAnalyticsPreviewLive,

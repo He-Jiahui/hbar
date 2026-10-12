@@ -76,7 +76,7 @@ SDK 提交与 Windows 原生窗口操作分别列明。SDK 与窗口连接同一
 ### 2. 左下角通知浮层落到窗口外
 
 当前侧栏铃铛位于窗口左侧；canonical
-[铃铛样式](../hbar-ui/packages/lumen-app-ui/src/notifications-bell-reference.css)
+[铃铛样式](../packages/lumen-app-ui/src/notifications-bell-reference.css)
 将宽浮层按触发器右端对齐并在其下方展开，未根据该生产位置处理边缘碰撞。
 实测 UI 树可见记录、鼠标目标中心却在窗口外，截图中浮层不可见。
 保留了失败证据，未用 SDK 导航替代这个失败的原生入口，也没有把用户的通知全部标为已读。

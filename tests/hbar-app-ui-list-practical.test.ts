@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenList, type LumenListReferenceContent as Content } from '@lumen/app-ui'
+import { LumenList, type LumenListReferenceContent as Content } from '@lumen/app-ui/catalog'
 import { createListPreviewStore } from '../apps/hbar-app-ui-preview/src/listPreviewModel'
 import { createListPreviewSeed, projectListPreview } from '../apps/hbar-app-ui-preview/src/listPreviewProjection'
 import { createListPreviewReferenceContent } from '../apps/hbar-app-ui-preview/src/listPreviewReferenceFixtures'

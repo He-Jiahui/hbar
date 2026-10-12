@@ -1,0 +1,631 @@
+.lumen-file-manager-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-file-manager {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  background: transparent;
+  color: var(--lumen-ink);
+}
+
+.lumen-file-manager *,
+.lumen-file-manager *::before,
+.lumen-file-manager *::after {
+  box-sizing: border-box;
+}
+
+.lumen-file-manager h2,
+.lumen-file-manager h3,
+.lumen-file-manager h4,
+.lumen-file-manager p,
+.lumen-file-manager ul,
+.lumen-file-manager dl,
+.lumen-file-manager dt,
+.lumen-file-manager dd {
+  margin: 0;
+}
+
+.lumen-file-manager ul {
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-file-manager p,
+.lumen-file-manager small,
+.lumen-file-manager time {
+  color: var(--lumen-muted);
+}
+
+.lumen-file-manager-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.lumen-file-manager-glyph[data-tier='xs'] {
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+}
+
+.lumen-file-manager-glyph[data-tier='md'] {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+
+.lumen-file-manager-glyph[data-tier='lg'] {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+}
+
+.hbar-app-ui-file-manager-drive-header,
+.hbar-app-ui-file-manager-header-actions,
+.hbar-app-ui-file-manager-drive-toolbar,
+.hbar-app-ui-file-manager-view-actions,
+.hbar-app-ui-file-manager-folder-row,
+.hbar-app-ui-file-manager-storage > div:first-child,
+.hbar-app-ui-file-manager-row-select,
+.hbar-app-ui-file-manager-assets-header > div,
+.hbar-app-ui-file-manager-asset-controls,
+.hbar-app-ui-file-manager-filter-row,
+.hbar-app-ui-file-manager-selection-footer,
+.hbar-app-ui-file-manager-selection-footer > div,
+.hbar-app-ui-file-manager-detail-actions,
+.hbar-app-ui-file-manager-upload-header,
+.hbar-app-ui-file-manager-upload-footer,
+.hbar-app-ui-file-manager-upload-footer > div {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.hbar-app-ui-file-manager-drive-header,
+.hbar-app-ui-file-manager-assets-header,
+.hbar-app-ui-file-manager-upload-header {
+  flex: 0 0 auto;
+  padding: var(--lumen-space-16);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-file-manager-drive-header,
+.hbar-app-ui-file-manager-upload-header {
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+}
+
+.hbar-app-ui-file-manager-drive-header > div:first-child,
+.hbar-app-ui-file-manager-upload-header > div:first-child {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-header-actions,
+.hbar-app-ui-file-manager-view-actions,
+.hbar-app-ui-file-manager-filter-row,
+.hbar-app-ui-file-manager-selection-footer > div,
+.hbar-app-ui-file-manager-detail-actions,
+.hbar-app-ui-file-manager-upload-footer > div {
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-drive-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-drive-body > :nth-child(2n + 1) {
+  flex: 0 1 17rem;
+  min-inline-size: 12rem;
+}
+
+.hbar-app-ui-file-manager-drive-body > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-file-manager-drive-sidebar {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  overflow: auto;
+  padding: var(--lumen-space-12);
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-glass);
+}
+
+.hbar-app-ui-file-manager-location,
+.hbar-app-ui-file-manager-folder-row > button:first-child,
+.hbar-app-ui-file-manager-drive-secondary > button {
+  inline-size: 100%;
+  justify-content: flex-start;
+}
+
+.hbar-app-ui-file-manager-folder-nav,
+.hbar-app-ui-file-manager-drive-secondary {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-file-manager-folder-nav {
+  margin-block: var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-folder-row > button:first-child {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-folder-row > button:first-child > span {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-file-manager-folder-row > button[aria-current='page'] {
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-file-manager-storage {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  margin-block-start: auto;
+  padding-block-start: var(--lumen-space-16);
+}
+
+.hbar-app-ui-file-manager-storage > div:first-child {
+  justify-content: space-between;
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-meter {
+  inline-size: 100%;
+  block-size: 0.375rem;
+}
+
+.hbar-app-ui-file-manager-drive-main {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-ui-file-manager-drive-toolbar {
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-file-manager-drive-toolbar > strong {
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-search {
+  display: flex;
+  min-inline-size: min(100%, 18rem);
+  align-items: center;
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-search > input {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-table-wrap {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.hbar-app-ui-file-manager-drive-table {
+  inline-size: 100%;
+  min-inline-size: 48rem;
+  border-collapse: collapse;
+}
+
+.hbar-app-ui-file-manager-drive-table th,
+.hbar-app-ui-file-manager-drive-table td {
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  text-align: start;
+}
+
+.hbar-app-ui-file-manager-drive-table th:first-child,
+.hbar-app-ui-file-manager-drive-table td:first-child {
+  inline-size: 42%;
+  color: var(--lumen-ink);
+}
+
+.hbar-app-ui-file-manager-drive-table tr.is-selected {
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-file-manager-select-all,
+.hbar-app-ui-file-manager-row-select {
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-drive-row-open {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  justify-content: flex-start;
+}
+
+.hbar-app-ui-file-manager-drive-row-open > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-file-manager-owner {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  margin-inline-end: var(--lumen-space-4);
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 50%;
+  color: var(--lumen-ink);
+  font-size: 0.6875rem;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-file-manager-assets,
+.hbar-app-ui-file-manager-upload,
+.hbar-app-ui-file-manager-detail {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.hbar-app-ui-file-manager-assets {
+  overflow: auto;
+}
+
+.hbar-app-ui-file-manager-assets-header {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-assets-header > div:nth-child(2) > h2 {
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-asset-controls {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+}
+
+.hbar-app-ui-file-manager-filter-row {
+  overflow-x: auto;
+}
+
+.hbar-app-ui-file-manager-filter-row [aria-pressed='true'] {
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-file-manager-asset-section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
+}
+
+.hbar-app-ui-file-manager-folder-cards,
+.hbar-app-ui-file-manager-asset-grid {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-8);
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-file-manager-folder-cards,
+.hbar-app-ui-file-manager-asset-grid > * {
+  flex: 1 1 min(11rem, 100%);
+  min-inline-size: min(11rem, 100%);
+}
+
+.hbar-app-ui-file-manager-folder-cards > button,
+.hbar-app-ui-file-manager-asset-grid > button {
+  min-inline-size: 0;
+  justify-content: flex-start;
+}
+
+.hbar-app-ui-file-manager-folder-cards > button > span,
+.hbar-app-ui-file-manager-asset-grid > button > span:nth-child(2) {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-file-manager-asset-grid > button {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.hbar-app-ui-file-manager-asset-grid > button.is-selected {
+  border-color: var(--lumen-ink);
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-file-manager-asset-preview {
+  display: flex;
+  inline-size: 100%;
+  min-block-size: 6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-file-manager-selection-footer,
+.hbar-app-ui-file-manager-upload-footer {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-file-manager-detail-layout {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-detail-layout > :nth-child(2n + 1) {
+  flex: 0 1 20rem;
+  min-inline-size: 13rem;
+}
+
+.hbar-app-ui-file-manager-detail-layout > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-file-manager-detail-left,
+.hbar-app-ui-file-manager-detail-preview {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-ui-file-manager-detail-left {
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-file-manager-detail-header,
+.hbar-app-ui-file-manager-detail-preview {
+  padding: var(--lumen-space-16);
+}
+
+.hbar-app-ui-file-manager-detail-list {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+  padding: var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-detail-list > button {
+  inline-size: 100%;
+  justify-content: flex-start;
+}
+
+.hbar-app-ui-file-manager-detail-list > button[aria-current='page'] {
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-file-manager-detail-list > button > span {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-file-manager-detail-preview {
+  gap: var(--lumen-space-12);
+  overflow: auto;
+}
+
+.hbar-app-ui-file-manager-preview-canvas {
+  display: flex;
+  min-block-size: 10rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-file-manager-detail-metadata,
+.hbar-app-ui-file-manager-detail-owners,
+.hbar-app-ui-file-manager-detail-activity {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  padding-block-start: var(--lumen-space-12);
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-file-manager-detail-metadata dl {
+  display: flex;
+  gap: var(--lumen-space-8);
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-file-manager-detail-metadata dl > * {
+  flex: 1 1 min(8rem, 100%);
+  min-inline-size: min(8rem, 100%);
+}
+
+.hbar-app-ui-file-manager-detail-metadata dl > div,
+.hbar-app-ui-file-manager-detail-owners > div {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+
+.hbar-app-ui-file-manager-detail-metadata dl > div {
+  flex-direction: column;
+}
+
+.hbar-app-ui-file-manager-detail-owners > div > span:nth-child(2) {
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-file-manager-upload {
+  overflow: auto;
+}
+
+.hbar-app-ui-file-manager-drop-zone {
+  min-block-size: 9rem;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-self: stretch;
+  margin: var(--lumen-space-16);
+  border-style: dashed;
+}
+
+.hbar-app-ui-file-manager-upload-queue {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-16) var(--lumen-space-16);
+}
+
+.hbar-app-ui-file-manager-upload-queue ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+}
+
+.hbar-app-ui-file-manager-upload-queue li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-file-manager-upload-queue li:last-child {
+  border-block-end: 0;
+}
+
+.hbar-app-ui-file-manager-upload-queue li > div {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-file-manager-upload-queue li > div > span {
+  display: flex;
+  min-inline-size: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
+}
+
+.hbar-app-ui-file-manager-upload-queue li > div > span > small {
+  min-inline-size: 0;
+  flex: 1 1 10rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-file-manager-upload-queue li > div > strong {
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-file-manager-empty {
+  padding: var(--lumen-space-16);
+  text-align: center;
+}
+
+[data-lumen-shape='square'] .hbar-app-ui-file-manager-asset-preview,
+[data-lumen-shape='square'] .hbar-app-ui-file-manager-preview-canvas,
+[data-lumen-shape='square'] .hbar-app-ui-file-manager-upload-queue ul {
+  border-radius: 0;
+}
+
+@media (width < 48rem) {
+  .hbar-app-ui-file-manager-drive-sidebar,
+  .hbar-app-ui-file-manager-detail-left {
+    max-block-size: 16rem;
+    border-block-end: 0.0625rem solid var(--lumen-edge);
+    border-inline-end: 0;
+  }
+
+  .hbar-app-ui-file-manager-drive-header,
+  .hbar-app-ui-file-manager-drive-toolbar,
+  .hbar-app-ui-file-manager-selection-footer,
+  .hbar-app-ui-file-manager-upload-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hbar-app-ui-file-manager-header-actions,
+  .hbar-app-ui-file-manager-selection-footer > div,
+  .hbar-app-ui-file-manager-upload-footer > div {
+    flex-wrap: wrap;
+  }
+
+  .hbar-app-ui-file-manager-search {
+    inline-size: 100%;
+  }
+}

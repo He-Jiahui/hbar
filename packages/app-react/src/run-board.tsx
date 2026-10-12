@@ -1,5 +1,5 @@
-import { LumenKanban01, LumenKanban04, LumenKanban06 } from '@lumen/app-ui'
-import type { LumenKanbanContent } from '@lumen/app-ui'
+import { LumenKanban01, LumenKanban04, LumenKanban06 } from '@lumen/app-ui/kanban'
+import type { LumenKanbanContent } from '@lumen/app-ui/kanban'
 import './run-board.css'
 
 export interface HbarRunBoardAction {

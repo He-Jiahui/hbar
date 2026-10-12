@@ -1,0 +1,343 @@
+.lumen-forms-4-surface {
+  inline-size: 100%;
+  max-inline-size: 47.5rem;
+  min-inline-size: 0;
+  margin-inline: auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel, 0.75rem);
+  background: var(--lumen-contrast);
+}
+
+.lumen-forms-4-reference,
+.lumen-forms-4-reference * {
+  box-sizing: border-box;
+}
+
+.lumen-forms-4-reference {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  color: var(--lumen-ink);
+}
+
+.lumen-forms-4-reference :is(h2, p) {
+  margin: 0;
+}
+
+.lumen-forms-4-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lumen-forms-4-heading-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-forms-4-title-line,
+.lumen-forms-4-badges {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lumen-forms-4-title-line h2 {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.lumen-forms-4-heading-copy > p {
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-4-badge {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 50rem;
+  padding: 0.125rem 0.5rem;
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-4-badge[data-tone='danger'] {
+  display: inline-flex;
+  gap: 0.25rem;
+  border-color: color-mix(in srgb, var(--lumen-danger, #d14343) 28%, transparent);
+  color: var(--lumen-danger, #d14343);
+}
+
+.lumen-forms-4-badge[data-tone='danger']::before {
+  display: block;
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.lumen-forms-4-add-note,
+.lumen-forms-4-editor-action {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  white-space: normal;
+}
+
+.lumen-forms-4-icon {
+  display: block;
+  flex: 0 0 auto;
+  color: currentColor;
+  stroke-width: 1.8;
+}
+
+.lumen-forms-4-icon-sm {
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+}
+
+.lumen-forms-4-property-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-forms-4-property-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 1rem;
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.625rem 0.75rem;
+  background: color-mix(in srgb, var(--lumen-ink) 3%, transparent);
+}
+
+.lumen-forms-4-property-trigger {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 1rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+}
+
+.lumen-forms-4-property-trigger:focus-visible {
+  outline: 0.125rem solid var(--lumen-focus, currentColor);
+  outline-offset: 0.125rem;
+}
+
+.lumen-forms-4-property-identity {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 11rem;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.lumen-forms-4-property-value {
+  display: block;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-4-edit-icon {
+  color: var(--lumen-muted);
+}
+
+.lumen-forms-4-editor {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lumen-forms-4-editor-control {
+  display: block;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-forms-4-editor-control > .lumen-control {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.lumen-forms-4-editor-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.lumen-forms-4-condition-row .lumen-forms-4-property-value,
+.lumen-forms-4-calculated-row .lumen-forms-4-property-value {
+  flex-basis: 0;
+}
+
+.lumen-forms-4-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lumen-forms-4-switch-track {
+  display: flex;
+  inline-size: 2.25rem;
+  block-size: 1.25rem;
+  align-items: center;
+  border-radius: 50rem;
+  padding: 0.125rem;
+  background: color-mix(in srgb, var(--lumen-ink) 24%, transparent);
+  transition: background-color 140ms ease;
+}
+
+.lumen-forms-4-switch-thumb {
+  display: inline-block;
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--lumen-contrast);
+  transition: margin-inline-start 140ms ease;
+}
+
+.lumen-forms-4-switch[aria-checked='true'] .lumen-forms-4-switch-track {
+  background: var(--lumen-ink);
+}
+
+.lumen-forms-4-switch[aria-checked='true'] .lumen-forms-4-switch-thumb {
+  margin-inline-start: 1.125rem;
+}
+
+.lumen-forms-4-switch:focus-visible {
+  outline: 0.125rem solid var(--lumen-focus, currentColor);
+  outline-offset: 0.125rem;
+}
+
+.lumen-forms-4-calculated {
+  flex: 0 0 auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 50rem;
+  padding: 0.125rem 0.5rem;
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 26rem) {
+  .lumen-forms-4-reference {
+    padding: 0.875rem;
+  }
+
+  .lumen-forms-4-heading {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .lumen-forms-4-add-note {
+    align-self: flex-start;
+  }
+
+  .lumen-forms-4-property-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .lumen-forms-4-property-trigger {
+    align-items: flex-end;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .lumen-forms-4-property-trigger .lumen-forms-4-property-identity {
+    flex: 1 1 100%;
+  }
+
+  .lumen-forms-4-property-trigger .lumen-forms-4-property-value {
+    flex: 1 1 auto;
+  }
+
+  .lumen-forms-4-property-trigger .lumen-forms-4-edit-icon {
+    align-self: flex-end;
+  }
+
+  .lumen-forms-4-editor {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+
+  .lumen-forms-4-editor-control {
+    flex: 1 1 100%;
+  }
+
+  .lumen-forms-4-condition-row .lumen-forms-4-property-identity,
+  .lumen-forms-4-calculated-row .lumen-forms-4-property-identity {
+    flex: 1 1 100%;
+  }
+
+  .lumen-forms-4-condition-row .lumen-forms-4-property-value,
+  .lumen-forms-4-calculated-row .lumen-forms-4-property-value {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 24rem) {
+  .lumen-forms-4-reference {
+    padding: 0.75rem;
+  }
+
+  .lumen-forms-4-property-identity {
+    flex-basis: 100%;
+  }
+
+  .lumen-forms-4-editor-actions {
+    inline-size: 100%;
+  }
+
+  .lumen-forms-4-editor-action {
+    flex: 1 1 auto;
+  }
+}

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenEditor01, uniqueLumenRichEditorBlocks } from '@lumen/app-ui'
+import { LumenEditor01, uniqueLumenRichEditorBlocks } from '@lumen/app-ui/catalog'
 import type { HbarAppUiRichEditorReferenceContent } from '../packages/hbar-app-ui/src/index'
 import { createRichEditorPreviewStore } from '../apps/hbar-app-ui-preview/src/richEditorPreviewStore'
 import {

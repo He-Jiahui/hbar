@@ -1,13 +1,19 @@
+/* Dialog contents reflow with their surface width, including when a host narrows the dialog. */
+.hbar-workspace-folders-dialog {
+  container-name: workspace-folders-dialog;
+  container-type: inline-size;
+}
+
 .hbar-workspace-folders-body,
 .hbar-workspace-folder-list,
 .hbar-workspace-folder {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
 }
 .hbar-workspace-folders-body {
-  padding: 0.75rem 1rem;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
 }
 .hbar-workspace-folders-body p {
   margin: 0;
@@ -19,9 +25,9 @@
   margin: 0;
 }
 .hbar-workspace-folder {
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: thin solid var(--lumen-line);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 .hbar-workspace-folder-path-row,
 .hbar-workspace-folder-header,
@@ -34,10 +40,10 @@
 .hbar-workspace-folder-selection {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
-.hbar-workspace-folder-path-row > .lumen-outlined-field,
+.hbar-workspace-folder-path-row > [data-lumen-part~="field.outlined"],
 .hbar-workspace-folder-path-row > input {
   flex: 1 1 14rem;
   min-inline-size: 0;
@@ -81,8 +87,8 @@
 .hbar-workspace-folder-primary {
   color: var(--lumen-info);
   background: var(--lumen-glass);
-  padding: 0.15rem 0.4rem;
-  border-radius: 0.25rem;
+  padding: var(--lumen-space-2) var(--lumen-space-8);
+  border-radius: var(--lumen-radius-control);
   flex: 0 0 auto;
 }
 .hbar-workspace-folder-browser-toolbar {
@@ -100,13 +106,13 @@
   flex: 1 1 0;
   inline-size: auto;
 }
-.hbar-workspace-folder-browser-list .lumen-tree-row {
+.hbar-workspace-folder-browser-list [data-lumen-part~="tree.row"] {
   min-inline-size: max-content;
 }
 .hbar-workspace-folder-browser-label {
   flex: 1 0 auto;
 }
-.hbar-workspace-folder-browser-row > .lumen-icon {
+.hbar-workspace-folder-browser-row > [data-lumen-part~="icon"] {
   flex-shrink: 0;
 }
 .hbar-workspace-folder-browser-row > .hbar-action-icon-button {
@@ -142,7 +148,7 @@
 .hbar-workspace-folder-entry-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 .hbar-workspace-folder-entry-row > :first-child {
@@ -156,11 +162,11 @@
   inline-size: 100%;
   min-inline-size: 0;
 }
-@media (max-width: 40rem) {
+@container workspace-folders-dialog (width < 40rem) {
   .hbar-workspace-folder-path-row {
     flex-wrap: wrap;
   }
-  .hbar-workspace-folder-path-row > .lumen-outlined-field,
+  .hbar-workspace-folder-path-row > [data-lumen-part~="field.outlined"],
   .hbar-workspace-folder-path-row > input {
     flex-basis: 100%;
   }

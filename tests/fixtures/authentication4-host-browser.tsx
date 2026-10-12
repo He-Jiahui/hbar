@@ -1,6 +1,6 @@
 import { StrictMode, useLayoutEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { LumenAuthenticationProvider, useLumenAuthenticationContent, type LumenAuthTwoStepContent } from '@lumen/app-ui'
+import { LumenAuthenticationProvider, useLumenAuthenticationContent, type LumenAuthTwoStepContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant, type HbarAppUiVariantProps } from '../../packages/hbar-app-ui/src/catalog'
 import { Authentication4PreviewHost } from '../../apps/hbar-app-ui-preview/src/Authentication4PreviewHost'
 import {

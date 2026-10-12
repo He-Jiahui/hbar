@@ -1,4 +1,4 @@
-import type { LumenCommandListProps, LumenCommandMenuContent } from '@lumen/app-ui'
+import type { LumenCommandListProps, LumenCommandMenuContent } from '@lumen/app-ui/catalog'
 import type { CommandPreviewFixtures } from './commandPreviewFixtures'
 import {
   selectCommandPreviewItems,

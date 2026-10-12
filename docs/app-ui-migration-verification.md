@@ -36,7 +36,7 @@
 | 规范 guards          | 内容、图标、flow guard 对本轮实质修改组件/样式通过；普通内容 flex，桌面 vendor 停靠的容器边界单独拥有。                                                                         | 各子功能提交正文与测试输出                                                                                                                           |
 | Rust                 | 通知权限、参数边界、UTF-8 上限、标题空正文、dedup 及只读回执相关 7 测试通过；隔离 release 编译通过。                                                                            | [native-tests-final.log](../artifacts/app-ui-migration-audit/native-tests-final.log)                                                                 |
 
-本轮 `bun run --cwd hbar-ui/packages/lumen-app-ui typescript` 通过；直接运行该包 `build` 时，包管理器拒绝本机 pnpm 11.19.0，因为包声明要求 pnpm 12.3.4。此前用 `pnpm@12.3.4` 生成的 canonical 构建回执仍保留为历史交付证据。
+本轮 `bun run --cwd packages/lumen-app-ui typescript` 通过；直接运行该包 `build` 时，包管理器拒绝本机 pnpm 11.19.0，因为包声明要求 pnpm 12.3.4。此前用 `pnpm@12.3.4` 生成的 canonical 构建回执仍保留为历史交付证据。
 
 完整 Bun 单进程的前一次运行曾在 Paywall 浏览器启动 hook 报 Windows `ENOTSOCK`：4796 通过、1 失败。
 该文件单独重跑为 1 通过/20 断言；随后上述 731 文件分批全部通过，没有跳过 Paywall 或修改其断言。

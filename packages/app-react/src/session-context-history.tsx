@@ -1,3 +1,4 @@
+import { HbarComposerFeedback } from './composer-feedback'
 import {
   LumenButton,
   LumenCollection,
@@ -18,6 +19,7 @@ import type {
   ContextWindowStats,
 } from '@hbar/contracts/context-history'
 import type { SessionTimelineState } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { useSessionClock } from './session-tool-clock'
 import './session-context-history.css'
@@ -53,6 +55,10 @@ export interface HbarContextHistoryLabels {
   readonly metrics: (value: ContextWindowStats) => readonly ContextHistoryMetric[]
   readonly compactionMetrics: (value: ContextCompactionRecord) => readonly ContextHistoryMetric[]
 }
+
+type ContextCompactionMarkerMessages = Pick<HbarContextHistoryLabels, 'completed' | 'detailsLabel' | 'completedDetails'>
+const { Provider: ContextCompactionMarkerMessagesProvider, useMessages: useContextCompactionMarkerMessages } =
+  createMessageScope<ContextCompactionMarkerMessages>()
 
 /** Two content-grown detail lines; shared Lumen owns the portal, viewport and dismissal. */
 function CompactionHint({
@@ -159,6 +165,7 @@ export function HbarContextCompactionNotice({
   if (!owned || record?.sessionId !== sessionId || record.status !== 'running') return null
   const elapsedMs = Math.max(0, (now || record.startedAt) - record.startedAt)
   return (
+    <HbarComposerFeedback priority="blocking">
     <CompactionHint
       identity={record.id}
       label={labels.detailsLabel}
@@ -182,19 +189,24 @@ export function HbarContextCompactionNotice({
         </LumenContentText>
       )}
     </CompactionHint>
+    </HbarComposerFeedback>
   )
 }
 
 /** A content-grown row in the pane-owned conversation; durable facts supply identity and provenance. */
-export function HbarContextCompactionMarker({
+function ContextCompactionMarkerView({
   marker,
   sessionId,
-  labels,
 }: {
   readonly marker: ContextCompactionMarker
   readonly sessionId: string
-  readonly labels: Pick<HbarContextHistoryLabels, 'completed' | 'detailsLabel' | 'completedDetails'>
 }) {
+  const { t } = useContextCompactionMarkerMessages()
+  const labels: ContextCompactionMarkerMessages = {
+    completed: t('completed'),
+    detailsLabel: t('detailsLabel'),
+    completedDetails: t('completedDetails'),
+  }
   if (marker.sessionId !== sessionId) return null
   return (
     <CompactionHint
@@ -209,6 +221,23 @@ export function HbarContextCompactionMarker({
       <LumenIcon icon={ScrollText} tier="sm" />
       <LumenContentText context="record.description">{labels.completed(marker)}</LumenContentText>
     </CompactionHint>
+  )
+}
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarContextCompactionMarker({
+  marker,
+  sessionId,
+  labels,
+}: {
+  readonly marker: ContextCompactionMarker
+  readonly sessionId: string
+  readonly labels: ContextCompactionMarkerMessages
+}) {
+  return (
+    <ContextCompactionMarkerMessagesProvider messages={labels}>
+      <ContextCompactionMarkerView marker={marker} sessionId={sessionId} />
+    </ContextCompactionMarkerMessagesProvider>
   )
 }
 

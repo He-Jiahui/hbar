@@ -1,13 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenFeedback01,
-  LumenFeedback06,
-  LumenFeedbackProvider,
-  selectLumenFeedbackItem,
-  uniqueLumenFeedbackItems,
-} from '@lumen/app-ui'
+import { LumenFeedback01, LumenFeedback06, LumenFeedbackProvider, selectLumenFeedbackItem, uniqueLumenFeedbackItems } from '@lumen/app-ui/catalog'
 import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiFeedbackProvider,

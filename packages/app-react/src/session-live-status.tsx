@@ -9,6 +9,7 @@ import './session-live-status.css'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarContextHistory, type HbarContextHistoryLabels } from './session-context-history'
 import type { ContextHistoryPage } from '@hbar/contracts/context-history'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionLiveStatusLabels {
   readonly label: string
@@ -43,17 +44,28 @@ export interface HbarSessionLiveStatusProps {
   }
 }
 
+const SessionLiveStatusMessages = createMessageScope<{ readonly liveStatus: HbarSessionLiveStatusLabels }>()
+
 /** Docked session context. The expanded pane owns scrolling for the Host's bounded 100-step Plan. */
-export function HbarSessionLiveStatus({
+export function HbarSessionLiveStatus(props: HbarSessionLiveStatusProps) {
+  return (
+    <SessionLiveStatusMessages.Provider messages={{ liveStatus: props.labels }}>
+      <HbarSessionLiveStatusContent {...props} />
+    </SessionLiveStatusMessages.Provider>
+  )
+}
+
+function HbarSessionLiveStatusContent({
   sessionId,
   timelineSessionId,
   owned,
   connected,
   run,
-  labels,
   context,
   history,
-}: HbarSessionLiveStatusProps) {
+}: Omit<HbarSessionLiveStatusProps, 'labels'>) {
+  const { t } = SessionLiveStatusMessages.useMessages()
+  const labels = t('liveStatus')
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
   const contentId = useId()
   const expanded = expandedSession === sessionId

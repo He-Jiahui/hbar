@@ -435,7 +435,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
               setSearch(null)
               return
             }
-            if (update.docChanged || update.selectionSet) {
+            if (update.docChanged || update.selectionSet || update.focusChanged) {
               const next = triggerAt(update.view, revisionRef.current)
               const dismissed = dismissedRef.current
               const visible =

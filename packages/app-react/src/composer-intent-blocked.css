@@ -7,9 +7,9 @@
   inline-size: min(22.5rem, calc(100vw - 2rem));
   max-block-size: var(--goal-help-limit);
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-contrast);
   color: var(--lumen-ink);
   box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
@@ -19,7 +19,7 @@
 .hbar-composer-intent-blocked-popover:popover-open {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-composer-intent-blocked-heading {
@@ -28,7 +28,7 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.625rem;
+  gap: var(--lumen-space-8);
   font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
@@ -42,7 +42,7 @@
   min-inline-size: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.625rem;
+  gap: var(--lumen-space-8);
   overflow: auto;
   overscroll-behavior: contain;
   font-size: calc(var(--lumen-font-size) * 0.928571);
@@ -62,13 +62,13 @@
   white-space: nowrap;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-composer-intent-blocked-popover {
     inset: auto 0 0;
     inline-size: 100%;
     max-block-size: 80dvh;
-    border-radius: 0.75rem 0.75rem 0 0;
-    padding: 1rem;
+    border-radius: var(--lumen-radius-panel) var(--lumen-radius-panel) 0 0;
+    padding: var(--lumen-space-16);
   }
 
   .hbar-composer-intent-blocked-popover::backdrop {

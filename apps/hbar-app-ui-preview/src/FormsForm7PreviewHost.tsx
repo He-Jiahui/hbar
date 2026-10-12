@@ -1,11 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenFormsProvider,
-  useLumenFormsContent,
-  type LumenForms7ViewModel,
-  type LumenFormsContent,
-} from '@lumen/app-ui'
+import { LumenFormsProvider, useLumenFormsContent, type LumenForms7ViewModel, type LumenFormsContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Forms7PreviewFixture } from './forms7PreviewFixtures'
 import { createForms7PreviewStore } from './forms7PreviewStore'

@@ -13,14 +13,14 @@ export function storageLocationCopy(locale: ShellLocale): StorageLocationLabels 
   return {
     title: choose('存储位置', 'Storage locations'),
     description: choose(
-      '目录可以位于其他磁盘。保存后，Host 重启时复制现有数据并切换目录；原文件保留，缓存无需复制。请填写完整绝对路径。',
+      '目录可以位于其他磁盘。保存后，宿主重启时复制现有数据并切换目录；原文件保留，缓存无需复制。请填写完整绝对路径。',
       'Directories may be on another drive. After saving, restarting the Host copies existing data and switches directories. Original files are preserved; cache is recreated. Enter absolute paths.',
     ),
     pointer: choose('用户目录中的引导文件', 'Bootstrap file in the user directory'),
     active: (path) => choose(`当前使用：${path}`, `Currently using: ${path}`),
     saved: choose('存储位置已保存并生效。', 'Storage locations are saved and active.'),
     pending: choose(
-      '新位置已保存；重启 Host 后复制数据并生效。',
+      '新位置已保存；重启宿主后复制数据并生效。',
       'New locations are saved. Restart the Host to copy data and apply them.',
     ),
     loading: choose('正在读取存储位置…', 'Loading storage locations…'),
@@ -33,10 +33,10 @@ export function storageLocationCopy(locale: ShellLocale): StorageLocationLabels 
       '保存结果尚未确认。请先核对结果；未保存的编辑仍保留。',
       'The save result is unconfirmed. Check the result first; your edits are preserved.',
     ),
-    restart: choose('重启 Host', 'Restart Host'),
-    restarting: choose('正在重启 Host…', 'Restarting Host…'),
+    restart: choose('重启宿主', 'Restart Host'),
+    restarting: choose('正在重启宿主…', 'Restarting Host…'),
     manualRestart: choose(
-      '当前 Host 未启用自动重启，请关闭并重新启动 Host。',
+      '当前宿主未启用自动重启，请关闭并重新启动宿主。',
       'This Host cannot restart automatically. Close and start the Host again.',
     ),
     error: (code) => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenMonitoring, type LumenMonitoringReferenceContent } from '@lumen/app-ui'
+import { LumenMonitoring, type LumenMonitoringReferenceContent } from '@lumen/app-ui/catalog'
 import { createMonitoringPreviewStore } from '../apps/hbar-app-ui-preview/src/monitoringPreviewModel'
 import {
   createMonitoringPreviewSeed,

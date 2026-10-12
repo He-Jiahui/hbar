@@ -1,8 +1,4 @@
-import {
-  LumenPromptInput,
-  LumenPromptInputProvider as HbarAppUiPromptInputProvider,
-  type LumenPromptInputContent,
-} from '@lumen/app-ui'
+import { LumenPromptInput, LumenPromptInputProvider as HbarAppUiPromptInputProvider, type LumenPromptInputContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 import { useHbarAppUiPromptContent } from './prompt-input/Composer'
 
@@ -11,27 +7,8 @@ export type HbarAppUiPromptInputProps = HbarAppUiVariantProps & {
 }
 
 export { HbarAppUiPromptInputProvider }
-export {
-  selectLumenPromptInputItem as selectHbarAppUiPromptInputItem,
-  uniqueLumenPromptInputItems as uniqueHbarAppUiPromptInputItems,
-  useLumenPromptInputContent as useHbarAppUiPromptInputContent,
-} from '@lumen/app-ui'
-export type {
-  LumenPromptInputAction as HbarAppUiPromptInputAction,
-  LumenPromptInputChoice as HbarAppUiPromptInputChoice,
-  LumenPromptInputContent as HbarAppUiPromptInputContent,
-  LumenPromptInputHeroContent as HbarAppUiPromptInputHeroContent,
-  LumenPromptInputListStrategy as HbarAppUiPromptInputListStrategy,
-  LumenPromptInputModeContent as HbarAppUiPromptInputModeContent,
-  LumenPromptInputProviderProps as HbarAppUiPromptInputProviderProps,
-  LumenPromptInputScopeContent as HbarAppUiPromptInputScopeContent,
-  LumenPromptInputSource as HbarAppUiPromptInputSource,
-  LumenPromptInputTemplateContent as HbarAppUiPromptInputTemplateContent,
-  LumenPromptInputToolContent as HbarAppUiPromptInputToolContent,
-  LumenPromptInputUpload as HbarAppUiPromptInputUpload,
-  LumenPromptInputUploadContent as HbarAppUiPromptInputUploadContent,
-  LumenPromptInputVariable as HbarAppUiPromptInputVariable,
-} from '@lumen/app-ui'
+export { selectLumenPromptInputItem as selectHbarAppUiPromptInputItem, uniqueLumenPromptInputItems as uniqueHbarAppUiPromptInputItems, useLumenPromptInputContent as useHbarAppUiPromptInputContent } from '@lumen/app-ui/catalog'
+export type { LumenPromptInputAction as HbarAppUiPromptInputAction, LumenPromptInputChoice as HbarAppUiPromptInputChoice, LumenPromptInputContent as HbarAppUiPromptInputContent, LumenPromptInputHeroContent as HbarAppUiPromptInputHeroContent, LumenPromptInputListStrategy as HbarAppUiPromptInputListStrategy, LumenPromptInputModeContent as HbarAppUiPromptInputModeContent, LumenPromptInputProviderProps as HbarAppUiPromptInputProviderProps, LumenPromptInputScopeContent as HbarAppUiPromptInputScopeContent, LumenPromptInputSource as HbarAppUiPromptInputSource, LumenPromptInputTemplateContent as HbarAppUiPromptInputTemplateContent, LumenPromptInputToolContent as HbarAppUiPromptInputToolContent, LumenPromptInputUpload as HbarAppUiPromptInputUpload, LumenPromptInputUploadContent as HbarAppUiPromptInputUploadContent, LumenPromptInputVariable as HbarAppUiPromptInputVariable } from '@lumen/app-ui/catalog'
 
 export function PromptInput({ spec, onAction, promptInputContent, className }: HbarAppUiPromptInputProps) {
   const composer = useHbarAppUiPromptContent()

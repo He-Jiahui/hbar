@@ -1,4 +1,4 @@
-import type { LumenEmptyStateContent } from '@lumen/app-ui'
+import type { LumenEmptyStateContent } from '@lumen/app-ui/catalog'
 
 export type EmptyStatePreviewLocale = 'en' | 'de' | 'de-long'
 export type EmptyStatePreviewCapacity = 'source' | 'empty' | 'one' | 'boundary' | 'overflow'

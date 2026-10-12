@@ -1,5 +1,4 @@
-import { readdir } from 'node:fs/promises'
-import { join, relative, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { ESLint } from 'eslint'
 
 export const LINT_BATCH_SIZE = 64
@@ -30,17 +29,6 @@ export async function maintainedLintFiles(root: string): Promise<string[]> {
   ])
   if (code !== 0) throw new Error(`Cannot enumerate maintained source: ${errors.trim()}`)
   const candidates = new Set(output.split('\0').filter((path) => /\.[cm]?[jt]sx?$/.test(path)))
-  // The root Git index owns the submodule link, while this declared workspace owns its source.
-  async function lumen(path: string): Promise<void> {
-    for (const entry of await readdir(path, { withFileTypes: true })) {
-      if (['node_modules', 'dist', 'artifacts', '.git'].includes(entry.name) || entry.isSymbolicLink()) continue
-      const child = join(path, entry.name)
-      if (entry.isDirectory()) await lumen(child)
-      else if (entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name))
-        candidates.add(relative(root, child).replaceAll('\\', '/'))
-    }
-  }
-  await lumen(join(root, 'hbar-ui', 'packages', 'lumen-app-ui'))
   const eslint = new ESLint({ cwd: root, overrideConfigFile: join(root, 'eslint.config.js') })
   const files: string[] = []
   for (const path of [...candidates].sort()) if (!(await eslint.isPathIgnored(path))) files.push(path)

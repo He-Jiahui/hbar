@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Search, X } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
 import { CONVERSATION_FIND_LIMITS, type ConversationFindState } from '@hbar/app-runtime'
 import './session-find.css'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionFindLabels {
   readonly entry: string
@@ -24,6 +25,9 @@ export interface HbarSessionFindLabels {
   readonly count: (position: number, total: number, truncated: boolean) => string
 }
 
+const { Provider: SessionFindMessagesProvider, useMessages: useSessionFindMessages } =
+  createMessageScope<HbarSessionFindLabels>()
+
 /** A bounded non-modal find strip. Its host owns query, result identity and viewport navigation. */
 export function HbarSessionFindBar({
   state,
@@ -44,26 +48,59 @@ export function HbarSessionFindBar({
   readonly onStep: (direction: 1 | -1) => void
   readonly onClose: () => void
 }) {
+  return (
+    <SessionFindMessagesProvider messages={labels}>
+      <SessionFindBarView
+        state={state}
+        inputRef={inputRef}
+        descriptionId={descriptionId}
+        feedback={feedback}
+        onQuery={onQuery}
+        onStep={onStep}
+        onClose={onClose}
+      />
+    </SessionFindMessagesProvider>
+  )
+}
+
+function SessionFindBarView({
+  state,
+  inputRef,
+  descriptionId,
+  feedback,
+  onQuery,
+  onStep,
+  onClose,
+}: {
+  readonly state: ConversationFindState
+  readonly inputRef: RefObject<HTMLInputElement | null>
+  readonly descriptionId: string
+  readonly feedback: 'highlight' | 'target' | null
+  readonly onQuery: (query: string) => void
+  readonly onStep: (direction: 1 | -1) => void
+  readonly onClose: () => void
+}) {
+  const { t } = useSessionFindMessages()
   if (state.status === 'closed') return null
   const ready = state.status === 'ready' && state.matches.length > 0
   const notice =
     state.error === 'QUERY_LIMIT'
-      ? labels.queryLimit
+      ? t('queryLimit')
       : state.error === 'INVALID_SOURCE'
-        ? labels.invalidSource
+        ? t('invalidSource')
         : feedback === 'highlight'
-          ? labels.highlightUnavailable
+          ? t('highlightUnavailable')
           : feedback === 'target'
-            ? labels.targetUnavailable
+            ? t('targetUnavailable')
             : state.truncated || state.history === 'limit'
-              ? labels.limited
+              ? t('limited')
               : state.history === 'failed'
-                ? labels.historyFailed
+                ? t('historyFailed')
                 : state.history === 'older'
-                  ? labels.older
+                  ? t('older')
                   : null
   return (
-    <LumenFrame className="hbar-session-find-bar" data-session-find-bar role="search" aria-label={labels.title}>
+    <LumenFrame className="hbar-session-find-bar" data-session-find-bar role="search" aria-label={t('title')}>
       <LumenFrame className="hbar-session-find-row">
         <LumenIcon icon={Search} tier="sm" />
         <LumenInput
@@ -72,11 +109,11 @@ export function HbarSessionFindBar({
           variant="plain"
           value={state.query}
           maxLength={CONVERSATION_FIND_LIMITS.query + 1}
-          aria-label={labels.input}
-          aria-description={labels.scope}
+          aria-label={t('input')}
+          aria-description={t('scope')}
           aria-describedby={notice ? descriptionId : undefined}
           aria-invalid={state.error === 'QUERY_LIMIT' || undefined}
-          placeholder={labels.placeholder}
+          placeholder={t('placeholder')}
           onChange={(event) => onQuery(event.currentTarget.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
@@ -95,9 +132,9 @@ export function HbarSessionFindBar({
           aria-atomic="true"
         >
           {state.status === 'searching'
-            ? labels.searching
+            ? t('searching')
             : state.query.trim()
-              ? labels.count(state.activeIndex + 1, state.matches.length, state.truncated)
+              ? t('count')(state.activeIndex + 1, state.matches.length, state.truncated)
               : null}
         </LumenContentText>
         <LumenButton
@@ -105,8 +142,8 @@ export function HbarSessionFindBar({
           size="s"
           variant="text"
           indicator="none"
-          aria-label={labels.previous}
-          title={labels.previous}
+          aria-label={t('previous')}
+          title={t('previous')}
           disabled={!ready}
           onClick={() => onStep(-1)}
         >
@@ -117,8 +154,8 @@ export function HbarSessionFindBar({
           size="s"
           variant="text"
           indicator="none"
-          aria-label={labels.next}
-          title={labels.next}
+          aria-label={t('next')}
+          title={t('next')}
           disabled={!ready}
           onClick={() => onStep(1)}
         >
@@ -129,8 +166,8 @@ export function HbarSessionFindBar({
           size="s"
           variant="text"
           indicator="none"
-          aria-label={labels.close}
-          title={labels.close}
+          aria-label={t('close')}
+          title={t('close')}
           onClick={onClose}
         >
           <LumenIcon icon={X} tier="sm" />

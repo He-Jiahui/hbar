@@ -1,0 +1,37 @@
+.single {
+  white-space: nowrap;
+  text-overflow: clip;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.clipped {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-align: start;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+.inlineCode {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.code {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}

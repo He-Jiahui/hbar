@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { chatSearchCopy } from '../apps/web/src/chat-search-copy'
+import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
@@ -28,12 +29,13 @@ test('collapsed desktop rail keeps real navigation direct and narrow screens ret
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
+    page.setDefaultTimeout(10_000)
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base)
     const originalSession = page
-      .locator(`[data-session-id="${host.ready.sessionId}"]`)
       .getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })
+      .and(page.locator(`[data-tree-node-id="session:${host.ready.sessionId}"]`))
     await originalSession.click()
     const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '折叠导航后仍能直接找功能，并保留原会话输入。'
@@ -43,10 +45,13 @@ test('collapsed desktop rail keeps real navigation direct and narrow screens ret
     await expect(rail).toBeVisible()
     await expect(rail.getByRole('button', { name: copy.shell.showSidebar, exact: true })).toBeFocused()
     await expect(page.getByRole('separator', { name: copy.sidebarLayout.resize, exact: true })).toHaveCount(0)
-    const railBounds = await rail.boundingBox()
-    const mainBounds = await page.locator('.lumen-app-frame').boundingBox()
-    expect(railBounds).not.toBeNull()
-    expect(mainBounds?.x).toBeGreaterThanOrEqual((railBounds?.x ?? 0) + (railBounds?.width ?? 0) - 1)
+    await expect
+      .poll(async () => {
+        const railBounds = await rail.boundingBox()
+        const mainBounds = await page.locator('.lumen-app-frame').boundingBox()
+        return railBounds && mainBounds ? mainBounds.x - railBounds.x - railBounds.width : Number.NEGATIVE_INFINITY
+      })
+      .toBeGreaterThanOrEqual(-1)
     await page.screenshot({ path: info.outputPath('collapsed-rail-1440.png') })
 
     // Existing real entrances remain in the same rail; no preliminary Show.
@@ -57,12 +62,7 @@ test('collapsed desktop rail keeps real navigation direct and narrow screens ret
     await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
     await expect(settings).toBeFocused()
     await expectComposerText(composer, draft)
-    await rail.getByRole('button', { name: copy.shell.extensionsAndSkills, exact: true }).click()
-    await expect(
-      page.getByRole('heading', { name: copy.extensions.navigation.skills.title, exact: true }),
-    ).toBeVisible()
-    await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-    await expectComposerText(composer, draft)
+    await expect(rail.getByRole('button', { name: copy.shell.extensionsAndSkills, exact: true })).toHaveCount(0)
 
     const search = rail.getByRole('button', { name: copy.shell.searchChats, exact: true })
     await search.click()
@@ -73,12 +73,18 @@ test('collapsed desktop rail keeps real navigation direct and narrow screens ret
     await expect(searchDialog).toHaveCount(0)
     await expect(search).toBeFocused()
     await expectComposerText(composer, draft)
-    await rail.getByRole('button', { name: copy.shell.status, exact: true }).click()
+    await rail.getByRole('button', { name: globalFeatureCopy('zh-CN').navigation, exact: true }).click()
+    await page.getByRole('menuitem', { name: copy.shell.status, exact: true }).click()
     await expect(page.getByRole('heading', { name: copy.status.title, exact: true })).toBeVisible()
     await page.getByRole('button', { name: copy.status.close, exact: true }).click()
     await expectComposerText(composer, draft)
 
     await rail.getByRole('button', { name: copy.shell.newSession, exact: true }).click()
+    const projectPicker = page.getByRole('dialog', { name: copy.shell.chooseWorkspace, exact: true })
+    await expect(projectPicker).toBeVisible()
+    await projectPicker
+      .getByRole('button', { name: copy.shell.createSessionInWorkspace(host.ready.workspaceName), exact: true })
+      .click()
     await expect(page.getByRole('tab')).toHaveCount(2)
     await expectComposerText(composer, '')
     await rail.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()

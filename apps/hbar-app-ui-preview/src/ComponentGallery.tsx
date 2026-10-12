@@ -2,16 +2,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { useStore } from 'zustand'
 import { ChevronLeft, ChevronRight, ExternalLink, Moon, Search, Sun } from 'lucide-react'
-import {
-  DEFAULT_LUMEN_APPEARANCE,
-  LumenButton,
-  LumenInput,
-  LumenFrame,
-  LumenText,
-  LumenOption,
-  LumenProvider,
-  LumenSelect,
-} from '@lumen/app-ui'
+import { DEFAULT_LUMEN_APPEARANCE, LumenButton, LumenInput, LumenFrame, LumenText, LumenProvider, LumenSelect } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { HbarAppUiIcon } from 'hbar-app-ui/icon'
 import type { ComponentGalleryCopy } from '../../../tests/fixtures/component-gallery-copy'
 import {

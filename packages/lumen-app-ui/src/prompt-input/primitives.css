@@ -1,0 +1,200 @@
+.lumen-prompt-reference-surface {
+  inline-size: 100%;
+  max-inline-size: 39rem;
+  margin: auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.lumen-prompt-reference-surface:is([data-lumen-variant='3'], [data-lumen-variant='5']) {
+  max-inline-size: 68rem;
+}
+.lumen-prompt-reference {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: var(--lumen-space-12);
+  color: var(--lumen-ink);
+  font-size: 0.875rem;
+}
+.lumen-prompt-reference *,
+.lumen-prompt-reference *::before,
+.lumen-prompt-reference *::after {
+  box-sizing: border-box;
+}
+.lumen-prompt-reference :where(p, h2, ul) {
+  margin: 0;
+}
+.lumen-prompt-reference button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-8) var(--lumen-space-8);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  min-inline-size: 0;
+}
+.lumen-prompt-reference button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.lumen-prompt-reference button:focus-visible,
+.lumen-prompt-reference :is(textarea, input):focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+.lumen-prompt-reference-icon {
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
+  flex: 0 0 auto;
+  stroke-width: 1.5;
+}
+.lumen-prompt-reference-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+  padding: var(--lumen-space-12);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+}
+.lumen-prompt-reference-composer textarea {
+  inline-size: 100%;
+  min-inline-size: 0;
+  border: 0;
+  padding: var(--lumen-space-4);
+  resize: vertical;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  line-height: 1.6;
+  field-sizing: content;
+  min-block-size: 3rem;
+  max-block-size: 18rem;
+  overflow: auto;
+}
+.lumen-prompt-reference-toolbar-tail {
+  display: inline-flex;
+  margin-inline-start: auto;
+}
+.lumen-prompt-reference-toolbar-tail ~ .lumen-prompt-reference-send {
+  margin-inline-start: 0;
+}
+.lumen-prompt-reference-composer textarea::placeholder {
+  color: var(--lumen-muted);
+}
+.lumen-prompt-reference-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  min-inline-size: 0;
+}
+.lumen-prompt-reference .lumen-prompt-reference-send {
+  margin-inline-start: auto;
+  color: var(--lumen-contrast);
+  background: var(--lumen-ink);
+}
+.lumen-prompt-reference-help,
+.lumen-prompt-reference-notice {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.lumen-prompt-reference-notice {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block-start: var(--lumen-space-8);
+}
+.lumen-prompt-reference-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-4);
+}
+.lumen-prompt-reference-attachments > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  background: var(--lumen-glass);
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-4) var(--lumen-space-8);
+}
+.lumen-prompt-reference-attachments > span > span {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.lumen-prompt-reference-attachments small {
+  color: var(--lumen-muted);
+}
+.lumen-prompt-reference-attachments button {
+  border: 0;
+  padding: var(--lumen-space-2);
+}
+.lumen-prompt-reference-choice-anchor {
+  position: relative;
+  min-inline-size: 0;
+}
+/* Prompt 1's captured model list overlays the input, anchored to its toolbar trigger. */
+.lumen-prompt-reference-choice-menu {
+  position: absolute;
+  inset-inline-start: 0;
+  z-index: var(--lumen-layer-menu-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  inline-size: min(16rem, 75vw);
+  max-block-size: 18rem;
+  overflow: auto;
+  padding: var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-contrast);
+}
+.lumen-prompt-reference-choice-menu[data-anchor='above'] {
+  inset-block-end: calc(100% + 0.4rem);
+}
+.lumen-prompt-reference-choice-menu[data-anchor='below'] {
+  inset-block-start: calc(100% + 0.4rem);
+}
+.lumen-prompt-reference-choice-menu > button {
+  justify-content: space-between;
+  border: 0;
+  text-align: start;
+}
+.lumen-prompt-reference-choice-menu > button[aria-selected='true'] {
+  background: var(--lumen-glass);
+}
+.lumen-prompt-reference-choice-menu > button > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-prompt-reference-choice-menu small {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-prompt-reference-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+}
+.lumen-prompt-reference-picker > button {
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+  text-align: start;
+}

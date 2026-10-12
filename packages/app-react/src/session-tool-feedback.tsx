@@ -4,6 +4,7 @@ import { useSessionClock } from './session-tool-clock'
 import { toolElapsed, type SessionToolActivity, type ToolActivityCounts } from './session-tool-activity-model'
 import type { ToolDisplayOutcome } from './session-tool-outcome-model'
 import './session-tool-feedback.css'
+import { createMessageScope } from './messages'
 
 export interface SessionToolFeedbackLabels {
   readonly pending: string
@@ -13,20 +14,21 @@ export interface SessionToolFeedbackLabels {
   readonly progress: (percentage: number) => string
   readonly progressAccessible: (completed: number, total: number) => string
 }
+const { Provider: ToolFeedbackMessagesProvider, useMessages: useToolFeedbackMessages } =
+  createMessageScope<SessionToolFeedbackLabels>()
 type ProgressState = 'succeeded' | 'running' | 'failed' | 'pending'
 function ProgressBar({
   progress,
   segments,
-  labels,
   counts,
 }: {
   readonly progress: ToolProgress
   readonly segments: readonly { readonly state: ProgressState; readonly value: number }[]
-  readonly labels: SessionToolFeedbackLabels
   readonly counts?: ToolActivityCounts
 }) {
+  const { t } = useToolFeedbackMessages()
   const percentage = Math.floor((progress.completed / progress.total) * 1000) / 10
-  const description = [labels.progress(percentage), ...(counts ? [labels.counts(counts)] : [])].join(' · ')
+  const description = [t('progress')(percentage), ...(counts ? [t('counts')(counts)] : [])].join(' · ')
   return (
     <LumenFrame
       className="hbar-tool-progress"
@@ -35,7 +37,7 @@ function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={progress.total}
       aria-valuenow={progress.completed}
-      aria-label={labels.progressAccessible(progress.completed, progress.total)}
+      aria-label={t('progressAccessible')(progress.completed, progress.total)}
       aria-valuetext={description}
       title={description}
     >
@@ -54,16 +56,14 @@ function ProgressBar({
   )
 }
 
-export function ToolProgressFeedback({
+function ToolProgressFeedbackView({
   progress,
   outcome,
   active,
-  labels,
 }: {
   readonly progress: ToolProgress
   readonly outcome: ToolDisplayOutcome
   readonly active: boolean
-  readonly labels: SessionToolFeedbackLabels
 }) {
   if (outcome !== 'pending') return null
   const state: ProgressState = active ? 'running' : 'pending'
@@ -79,18 +79,12 @@ export function ToolProgressFeedback({
                 { state: 'pending', value: progress.total - progress.completed },
               ]
         }
-        labels={labels}
       />
     </LumenFrame>
   )
 }
-export function ToolTiming({
-  activity,
-  labels,
-}: {
-  readonly activity: SessionToolActivity
-  readonly labels: SessionToolFeedbackLabels
-}) {
+function ToolTimingView({ activity }: { readonly activity: SessionToolActivity }) {
+  const { t } = useToolFeedbackMessages()
   const now = useSessionClock(activity.active)
   const elapsed = toolElapsed(activity, now)
   if (elapsed === undefined) return null
@@ -102,7 +96,7 @@ export function ToolTiming({
       data-tool-active={activity.active}
     >
       <LumenContentText context="message.inline">
-        {labels.duration(
+        {t('duration')(
           elapsed,
           activity.active ? 'running' : activity.execution?.endedAt !== undefined ? 'settled' : 'lastKnown',
         )}
@@ -110,17 +104,16 @@ export function ToolTiming({
     </LumenContentText>
   )
 }
-export function ToolBatchFeedback({
+function ToolBatchFeedbackView({
   counts,
   activities,
   finished = false,
-  labels,
 }: {
   readonly counts: ToolActivityCounts
   readonly activities?: readonly (SessionToolActivity | undefined)[]
   readonly finished?: boolean
-  readonly labels: SessionToolFeedbackLabels
 }) {
+  const { t } = useToolFeedbackMessages()
   const now = useSessionClock(activities?.some((activity) => activity?.active) ?? false)
   const durations = activities?.map((activity) => (activity ? toolElapsed(activity, now) : undefined))
   const totalDuration =
@@ -140,7 +133,7 @@ export function ToolBatchFeedback({
           className="hbar-tool-batch-metrics"
           data-tool-total-elapsed={totalDuration}
         >
-          {labels.cumulativeDuration(totalDuration)}
+          {t('cumulativeDuration')(totalDuration)}
         </LumenContentText>
       ) : null}
       {showProgress ? (
@@ -153,9 +146,47 @@ export function ToolBatchFeedback({
             { state: 'pending', value: counts.total - succeeded - failed - counts.running },
           ]}
           counts={counts}
-          labels={labels}
         />
       ) : null}
     </LumenFrame>
+  )
+}
+
+/** Existing labels props adapt direct SDK callers to narrow feedback scopes. */
+export function ToolProgressFeedback(props: {
+  readonly progress: ToolProgress
+  readonly outcome: ToolDisplayOutcome
+  readonly active: boolean
+  readonly labels: SessionToolFeedbackLabels
+}) {
+  return (
+    <ToolFeedbackMessagesProvider messages={props.labels}>
+      <ToolProgressFeedbackView progress={props.progress} outcome={props.outcome} active={props.active} />
+    </ToolFeedbackMessagesProvider>
+  )
+}
+
+export function ToolTiming(props: {
+  readonly activity: SessionToolActivity
+  readonly labels: SessionToolFeedbackLabels
+}) {
+  return (
+    <ToolFeedbackMessagesProvider messages={props.labels}>
+      <ToolTimingView activity={props.activity} />
+    </ToolFeedbackMessagesProvider>
+  )
+}
+
+export function ToolBatchFeedback(props: {
+  readonly counts: ToolActivityCounts
+  readonly activities?: readonly (SessionToolActivity | undefined)[]
+  readonly finished?: boolean
+  readonly labels: SessionToolFeedbackLabels
+}) {
+  const { labels, ...feedback } = props
+  return (
+    <ToolFeedbackMessagesProvider messages={labels}>
+      <ToolBatchFeedbackView {...feedback} />
+    </ToolFeedbackMessagesProvider>
   )
 }

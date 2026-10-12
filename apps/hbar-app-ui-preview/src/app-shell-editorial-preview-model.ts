@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenAppShellEditorialContent, LumenEditorialDay } from '@lumen/app-ui'
+import type { LumenAppShellEditorialContent, LumenEditorialDay } from '@lumen/app-ui/catalog'
 import type { EditorialPreviewFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-editorial-fixtures'
 
 function utcDate(id: string): Date | null {

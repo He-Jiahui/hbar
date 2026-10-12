@@ -1,14 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAgentPlan01,
-  LumenAgentPlan06,
-  LumenAgentPlanProvider,
-  LumenPlanEditor,
-  selectLumenAgentPlanItem,
-  uniqueLumenAgentPlanItems,
-} from '@lumen/app-ui'
+import { LumenAgentPlan01, LumenPlanEditor } from '@lumen/app-ui'
+import { LumenAgentPlan06, LumenAgentPlanProvider, selectLumenAgentPlanItem, uniqueLumenAgentPlanItems } from '@lumen/app-ui/catalog'
 import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiAgentPlanProvider,

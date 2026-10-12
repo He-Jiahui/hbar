@@ -6,6 +6,7 @@ import type { SessionGitContextState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-project-context.css'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 
 const REFRESH_INTERVAL_MS = 60_000
 
@@ -21,14 +22,23 @@ export interface HbarSessionProjectContextLabels {
   readonly target?: HbarSessionBranchTargetLabels
 }
 
-export function HbarSessionProjectContext({
+const SessionProjectContextMessages = createMessageScope<{ readonly projectContext: HbarSessionProjectContextLabels }>()
+
+export function HbarSessionProjectContext(props: Parameters<typeof HbarSessionProjectContextContent>[0]) {
+  return (
+    <SessionProjectContextMessages.Provider messages={{ projectContext: props.labels }}>
+      <HbarSessionProjectContextContent {...props} />
+    </SessionProjectContextMessages.Provider>
+  )
+}
+
+function HbarSessionProjectContextContent({
   workspaceName,
   workspacePath,
   sessionId,
   workspaceId,
   connected,
   context,
-  labels,
   onRetry,
   renderBranch,
   executionPath,
@@ -44,6 +54,8 @@ export function HbarSessionProjectContext({
   readonly renderBranch?: ((branch: string | null) => ReactNode) | undefined
   readonly executionPath?: string | undefined
 }) {
+  const { t } = SessionProjectContextMessages.useMessages()
+  const labels = t('projectContext')
   const belongsHere = context.sessionId === sessionId && context.workspaceId === workspaceId
   const branch = connected && belongsHere && context.status === 'ready' ? context.branch : null
   const error = connected && belongsHere && context.status === 'error' ? context.error : null
@@ -186,7 +198,15 @@ export function useHbarSessionProjectContext({
       void runtime.commands
         .execute('sessionBranchTargetPicker.refresh', { sessionId, workspaceId })
         .catch(() => undefined)
-  }, [connected, enabled, terminalRunId, runtime.commands, runtime.state.sessionBranchTargetPicker, sessionId, workspaceId])
+  }, [
+    connected,
+    enabled,
+    terminalRunId,
+    runtime.commands,
+    runtime.state.sessionBranchTargetPicker,
+    sessionId,
+    workspaceId,
+  ])
 
   return {
     context,

@@ -1,16 +1,16 @@
 .hbar-message-resource-link {
   overflow-wrap: anywhere;
 }
-.hbar-message-resource-link > .lumen-icon,
+.hbar-message-resource-link > [data-lumen-part~="icon"],
 .hbar-resource-icon {
   display: inline-flex;
   vertical-align: middle;
-  margin-inline-end: 0.3em;
+  margin-inline-end: var(--lumen-space-4);
 }
 .hbar-resource-icon,
 .hbar-resource-icon img {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   flex: 0 0 auto;
   object-fit: contain;
 }
@@ -21,7 +21,7 @@
 .hbar-resource-image-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 .hbar-resource-menu button {
   justify-content: flex-start;

@@ -1,4 +1,4 @@
-import { LumenUsage } from '@lumen/app-ui'
+import { LumenUsage } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 /** Compatibility adapter; all eight usage surfaces and their state live in @lumen/app-ui. */

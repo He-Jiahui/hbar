@@ -5,14 +5,14 @@
   display: flex;
   flex-direction: column;
   min-inline-size: 0;
-  gap: 12px;
+  gap: var(--lumen-space-12);
 }
 .hbar-chat-database-settings {
-  gap: 24px;
-  padding-block: 16px;
+  gap: var(--lumen-space-24);
+  padding-block: var(--lumen-space-16);
 }
 .hbar-chat-database-confirm {
-  padding: 16px;
+  padding: var(--lumen-space-16);
 }
 .hbar-chat-database-settings h2,
 .hbar-chat-database-settings h3,
@@ -24,7 +24,7 @@
 .hbar-chat-database-settings h2 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .hbar-chat-database-settings h3 {
   font-size: var(--lumen-font-size);
@@ -36,7 +36,7 @@
 }
 .hbar-chat-database-section + .hbar-chat-database-section {
   border-block-start: 0.0625rem solid var(--lumen-line);
-  padding-block-start: 24px;
+  padding-block-start: var(--lumen-space-24);
 }
 .hbar-chat-database-row,
 .hbar-chat-database-action,
@@ -48,16 +48,16 @@
   justify-content: space-between;
   flex-wrap: wrap;
   min-inline-size: 0;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .hbar-chat-database-action {
-  padding-block: 8px;
+  padding-block: var(--lumen-space-8);
 }
 .hbar-chat-database-action > div {
   display: flex;
   flex-direction: column;
   flex: 1 1 22rem;
-  gap: 4px;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 .hbar-chat-database-settings button,
@@ -72,7 +72,7 @@
 .hbar-chat-database-skips dl {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   margin: 0;
 }
 .hbar-chat-database-metrics dd,
@@ -89,8 +89,8 @@
 }
 .hbar-chat-database-operation {
   border-inline-start: 0.125rem solid var(--lumen-line);
-  padding-inline-start: 12px;
-  gap: 8px;
+  padding-inline-start: var(--lumen-space-12);
+  gap: var(--lumen-space-8);
 }
 .hbar-chat-database-operation[data-operation-status='running'],
 .hbar-chat-database-operation[data-operation-status='accepted'] {
@@ -110,8 +110,8 @@
 .hbar-chat-database-preview-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-inline-start: 20px;
+  gap: var(--lumen-space-12);
+  padding-inline-start: var(--lumen-space-16);
   margin: 0;
 }
 .hbar-chat-database-preview-list li {

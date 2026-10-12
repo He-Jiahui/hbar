@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test'
+import { createModelCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -30,10 +31,14 @@ async function selectPassage(
   endMarker: string,
   literal = false,
 ): Promise<string> {
+  const page = message.page()
+  const viewport = page.locator('.lumen-conversation-messages')
   await message.scrollIntoViewIfNeeded()
-  // As in a real selection gesture, pointerdown cancels the viewport's bounded
-  // follow-latest correction before we position the selected authored passage.
-  await message.dispatchEvent('pointerdown', { pointerType: 'mouse', button: 0, buttons: 1 })
+  const viewportBounds = await viewport.boundingBox()
+  if (!viewportBounds) throw new Error('Conversation transcript has no visible viewport')
+  await page.mouse.move(viewportBounds.x + viewportBounds.width / 2, viewportBounds.y + viewportBounds.height / 2)
+  // Record reader intent immediately before positioning the exact selection range.
+  await page.mouse.wheel(0, -1)
   const quote = await message.evaluate(
     async (element, markers) => {
       const textNodes: Text[] = []
@@ -43,13 +48,25 @@ async function selectPassage(
         if (node instanceof Text && node.data.length > 0) textNodes.push(node)
       }
 
-      const startNode = textNodes.find((node) => node.data.includes(markers.start))
-      const endNode = textNodes.findLast((node) => node.data.includes(markers.end))
-      if (!startNode || !endNode) throw new Error('Rendered authored message is missing the selection markers')
+      const renderedText = textNodes.map((node) => node.data).join('')
+      const start = renderedText.indexOf(markers.start)
+      const end = renderedText.lastIndexOf(markers.end)
+      if (start < 0 || end < start) throw new Error('Rendered authored message is missing the selection markers')
+
+      const pointAt = (offset: number): { readonly node: Text; readonly offset: number } => {
+        let remaining = offset
+        for (const node of textNodes) {
+          if (remaining <= node.data.length) return { node, offset: remaining }
+          remaining -= node.data.length
+        }
+        throw new Error('Rendered authored message selection offset is outside its text')
+      }
+      const startPoint = pointAt(start)
+      const endPoint = pointAt(end + markers.end.length)
 
       const range = document.createRange()
-      range.setStart(startNode, startNode.data.indexOf(markers.start))
-      range.setEnd(endNode, endNode.data.indexOf(markers.end) + markers.end.length)
+      range.setStart(startPoint.node, startPoint.offset)
+      range.setEnd(endPoint.node, endPoint.offset)
       const pane = element.closest<HTMLElement>('.lumen-conversation-messages')
       if (!pane) throw new Error('Selected message has no owning transcript viewport')
       const initialBounds = range.getBoundingClientRect()
@@ -61,28 +78,53 @@ async function selectPassage(
         visibleRects.length === 0 ||
         visibleRects.some((rect) => rect.top < paneBounds.top - 1 || rect.bottom > paneBounds.bottom + 1)
       )
-        throw new Error('The selected passage is not fully visible in the transcript viewport')
+        throw new Error(
+          `The selected passage is not fully visible in the transcript viewport: pane=${JSON.stringify({ x: paneBounds.x, y: paneBounds.y, width: paneBounds.width, height: paneBounds.height, top: paneBounds.top, right: paneBounds.right, bottom: paneBounds.bottom, left: paneBounds.left })}, ` +
+            `selection=${JSON.stringify(visibleRects.map((rect) => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left })))}, scroll=${pane.scrollTop}/${pane.scrollHeight}`,
+        )
       const selection = document.getSelection()
       if (!selection) throw new Error('Browser text selection is unavailable')
       selection.removeAllRanges()
       selection.addRange(range)
-      return selection.toString().trim()
+      return range.toString().trim()
     },
     { start: startMarker, end: endMarker },
   )
   expect(quote).toContain(startMarker)
   expect(quote).toContain(endMarker)
+  const selectionBounds = await message.evaluate((element) => {
+    const selection = element.ownerDocument.getSelection()
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0)
+      throw new Error('Browser selection was not created for the rendered passage')
+    const rects = [...selection.getRangeAt(0).getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0)
+    const first = rects[0]
+    const last = rects.at(-1)
+    if (!first || !last) throw new Error('Selected passage has no visible geometry')
+    selection.removeAllRanges()
+    return {
+      start: { x: first.left + 1, y: first.top + first.height / 2 },
+      end: { x: last.right - 1, y: last.top + last.height / 2 },
+    }
+  })
+  // Capture selection on the feature's trusted pointerup after a real drag.
+  await page.mouse.move(selectionBounds.start.x, selectionBounds.start.y)
+  await page.mouse.down()
+  await page.mouse.move(selectionBounds.end.x, selectionBounds.end.y, { steps: 8 })
+  await page.mouse.up()
+  const selectedQuote = await message.evaluate(
+    (element) => element.ownerDocument.getSelection()?.toString().trim() ?? '',
+  )
+  expect(selectedQuote).toContain(startMarker)
+  expect(selectedQuote).toContain(endMarker)
   if (literal) {
-    expect(quote).toContain('**')
-    expect(quote).toContain('`')
+    expect(selectedQuote).toContain('**')
+    expect(selectedQuote).toContain('`')
   } else {
-    expect(quote).not.toContain('**')
-    expect(quote).not.toContain('`')
+    expect(selectedQuote).not.toContain('**')
+    expect(selectedQuote).not.toContain('`')
   }
 
-  // Finish the same pointer lifecycle after creating the native browser Range.
-  await message.dispatchEvent('pointerup', { pointerType: 'mouse', button: 0, buttons: 0 })
-  return quote
+  return selectedQuote
 }
 
 async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
@@ -92,13 +134,13 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
 }
 
 async function setSidebar(page: Page, copy: ReturnType<typeof getShellCopy>, open: boolean): Promise<void> {
-  const shell = page.locator('[data-hbar-sidebar-expanded]')
-  if ((await shell.getAttribute('data-hbar-sidebar-expanded')) !== String(open)) {
+  const shell = page.locator('[data-lumen-shell="app"]')
+  if ((await shell.getAttribute('data-sidebar-open')) !== String(open)) {
     await page
       .getByRole('button', { name: open ? copy.shell.showSidebar : copy.shell.hideSidebar, exact: true })
       .click()
   }
-  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
+  await expect(shell).toHaveAttribute('data-sidebar-open', String(open))
 }
 
 async function openSessionFromSidebar(
@@ -110,13 +152,38 @@ async function openSessionFromSidebar(
   const openSession = page.getByRole('treeitem', { name: title, exact: true })
   if (!(await openSession.isVisible())) await setSidebar(page, copy, true)
   await openSession.click()
-  await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+  if (width === 320) {
+    await expect(page.getByRole('treeitem', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('region', { name: copy.session.conversationTitle(title), exact: true })).toBeVisible()
+  } else {
+    await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+  }
   // Narrow navigation closes the drawer itself after its async Session selection.
   // Do not race that transition by clicking a close button that has disappeared.
   if (width === 320) {
-    await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+    await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'false')
     await expect(page.getByRole('button', { name: copy.shell.showSidebar, exact: true })).toBeVisible()
   }
+}
+
+async function selectSession(
+  page: Page,
+  copy: ReturnType<typeof getShellCopy>,
+  title: string,
+  width: number,
+): Promise<void> {
+  if (width === 320) {
+    await openSessionFromSidebar(page, copy, title, width)
+    return
+  }
+  const tab = page.getByRole('tab', { name: title, exact: true })
+  await tab.click()
+  await expect(tab).toHaveAttribute('aria-selected', 'true')
+}
+
+async function expectEmptyComposerReady(page: Page, prompt: Locator): Promise<void> {
+  await expect(page.locator('.hbar-app-react-session-footer')).toHaveAttribute('data-composer-blocked-reason', 'empty')
+  await expect(prompt).toBeEditable()
 }
 
 async function expectViewportFits(page: Page, width: number): Promise<void> {
@@ -152,6 +219,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         sessionCount: 2,
       })
+      const sessions = createWorkspaceSessionCommandClient(host.client)
+      const secondary = (
+        await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
+      ).items.find((session) => session.title === 'Session 001')
+      expect(secondary).toBeDefined()
+      const models = createModelCommandClient(host.client)
+      const baseline = await models.execute('session.getModel', { sessionId: secondary!.id })
+      await models.execute(
+        'session.setModel',
+        { sessionId: secondary!.id, modelId: 'local-fixture', baselineRevisions: baseline.revisions },
+        { idempotencyKey: 'conversation-selection-secondary-model' },
+      )
       expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
         true,
       )
@@ -176,10 +255,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           return (
             snapshot.messages.some(
               (message) => message.role === 'assistant' && messageText(message).includes(startMarker),
-            ) && snapshot.runs.some((run) => run.status === 'completed')
+            ) && snapshot.runs.some((run) => run.input.text === sourcePrompt && run.status === 'completed')
           )
         })
         .toBe(true)
+      await expect(page.locator('[data-run-status="running"], [data-run-status="waiting_approval"]')).toHaveCount(0)
 
       const sourceSnapshot = await host.client.call('session.snapshot', {
         sessionId: host.ready.sessionId,
@@ -202,8 +282,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await openSessionFromSidebar(page, copy, 'Session 001', width)
       const otherPrompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const otherDraft = 'Keep this text only in Session B.'
+      await expectEmptyComposerReady(page, otherPrompt)
       await otherPrompt.fill(otherDraft)
-      await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
+      await selectSession(page, copy, host.ready.sessionTitle, width)
       await expectComposerText(prompt, '')
 
       const sessionSnapshot = () =>
@@ -290,7 +371,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await openSessionFromSidebar(page, copy, 'Session 001', width)
       await expect(page.locator(chatSelectionCards)).toHaveCount(0)
       await expectComposerText(otherPrompt, otherDraft)
-      await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
+      await selectSession(page, copy, host.ready.sessionTitle, width)
       await expect(cards).toHaveCount(2)
       await expectComposerText(prompt, finalDraft)
 
@@ -317,7 +398,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectViewportFits(page, width)
       await capture(page, testInfo, `accepted-run-cleared-${locale}-${width}.png`)
 
-      await page.getByRole('tab', { name: 'Session 001', exact: true }).click()
+      await selectSession(page, copy, 'Session 001', width)
       await expect(page.locator(chatSelectionCards)).toHaveCount(0)
       await expectComposerText(otherPrompt, otherDraft)
       expect(errors).toEqual([])

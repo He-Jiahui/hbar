@@ -21,6 +21,7 @@ import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-vie
 import { ActivityWorkflowView, type ActivityWorkflowLabels } from './activity-workflow-view'
 import { ActivityText, type ActivityTextLabels } from './activity-text'
 import { projectActivityWorkflow } from './activity-workflow-model'
+import { createMessageScope } from './messages'
 
 type Operation = ActivityWorkspaceEntryState['items'][number]
 
@@ -50,92 +51,133 @@ export interface HbarSessionActivityLabels {
   readonly error: (code: string) => string
 }
 
+type SessionActivityMessages = Pick<
+  HbarSessionActivityLabels,
+  | 'title'
+  | 'runs'
+  | 'description'
+  | 'close'
+  | 'refresh'
+  | 'loading'
+  | 'empty'
+  | 'offline'
+  | 'retry'
+  | 'loadMore'
+  | 'loadingMore'
+  | 'limitReached'
+  | 'count'
+  | 'runAt'
+  | 'intentPreview'
+  | 'startedAt'
+  | 'queuedAt'
+  | 'status'
+  | 'error'
+>
+const sessionActivityMessages = createMessageScope<SessionActivityMessages>()
+
 function tone(status: Operation['status']): 'neutral' | 'warning' {
   return status === 'cancelRequested' || status === 'waiting_approval' ? 'warning' : 'neutral'
 }
 
 /** The Host query is cursor-bounded; rows grow inside this pane's scroll region. */
-export function HbarSessionActivityView({
-  entry,
-  connected,
-  labels,
-  onRefresh,
-  onLoadMore,
-}: {
+export function HbarSessionActivityView(props: {
   readonly entry: Readonly<ActivityWorkspaceEntryState> | undefined
   readonly connected: boolean
   readonly labels: HbarSessionActivityLabels
   readonly onRefresh: () => void
   readonly onLoadMore: () => void
 }) {
+  const { labels, ...viewProps } = props
+  const { text, ...messages } = labels
+  return (
+    <sessionActivityMessages.Provider messages={messages}>
+      <SessionActivityViewContent {...viewProps} textLabels={text} />
+    </sessionActivityMessages.Provider>
+  )
+}
+
+function SessionActivityViewContent({
+  entry,
+  connected,
+  textLabels,
+  onRefresh,
+  onLoadMore,
+}: {
+  readonly entry: Readonly<ActivityWorkspaceEntryState> | undefined
+  readonly connected: boolean
+  readonly textLabels: ActivityTextLabels
+  readonly onRefresh: () => void
+  readonly onLoadMore: () => void
+}) {
+  const { t } = sessionActivityMessages.useMessages()
   const loading = !entry || entry.status === 'loading'
   const loadingMore = loading && Boolean(entry?.items.length)
   const visible = entry?.items ?? []
   return (
-    <LumenFrame as="section" className="hbar-session-activity-runs" aria-label={labels.runs}>
+    <LumenFrame as="section" className="hbar-session-activity-runs" aria-label={t('runs')}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenContentText context="section.subtitle">{labels.runs}</LumenContentText>
+        <LumenContentText context="section.subtitle">{t('runs')}</LumenContentText>
       </LumenFrame>
       {!connected && (
         <LumenContentText context="feedback.message" role="status" className="hbar-session-activity-notice">
-          {labels.offline}
+          {t('offline')}
         </LumenContentText>
       )}
       {entry?.status === 'error' && (
         <LumenFrame className="hbar-session-activity-recovery">
           <LumenContentText context="feedback.message" role="alert">
-            {labels.error(entry.error ?? 'EXECUTION_FAILED')}
+            {t('error')(entry.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
-            {labels.retry}
+            {t('retry')}
           </LumenButton>
         </LumenFrame>
       )}
       {loading && !loadingMore && (
         <LumenContentText context="feedback.message" role="status" className="hbar-session-activity-notice">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {entry?.status === 'ready' && entry.totalActive === 0 && (
         <LumenContentText context="section.description" className="hbar-session-activity-notice">
-          {labels.empty}
+          {t('empty')}
         </LumenContentText>
       )}
       {visible.length > 0 && (
         <>
           <LumenContentText context="section.description" className="hbar-session-activity-count">
-            {labels.count(visible.length, entry?.totalActive ?? visible.length)}
+            {t('count')(visible.length, entry?.totalActive ?? visible.length)}
           </LumenContentText>
           <LumenCollection as="ol" className="hbar-session-activity-list">
             {visible.map((item) => (
               <LumenCollectionItem key={item.operationId} data-operation-id={item.operationId}>
                 <LumenFrame className="hbar-session-activity-row-heading">
                   <ActivityText
-                    text={item.intentPreview ? labels.intentPreview(item.intentPreview) : labels.runAt(item.createdAt)}
-                    labels={labels.text}
+                    text={item.intentPreview ? t('intentPreview')(item.intentPreview) : t('runAt')(item.createdAt)}
+                    labels={textLabels}
                     context="choice.title"
                   />
-                  <LumenStatus value={labels.status(item.status)} tone={tone(item.status)} />
+                  <LumenStatus value={t('status')(item.status)} tone={tone(item.status)} />
                 </LumenFrame>
                 <LumenText as="time" dateTime={new Date(item.startedAt ?? item.createdAt).toISOString()}>
-                  {item.startedAt === null ? labels.queuedAt(item.createdAt) : labels.startedAt(item.startedAt)}
+                  {item.startedAt === null ? t('queuedAt')(item.createdAt) : t('startedAt')(item.startedAt)}
                 </LumenText>
               </LumenCollectionItem>
             ))}
           </LumenCollection>
           {loadingMore && (
             <LumenContentText context="feedback.message" role="status" className="hbar-session-activity-notice">
-              {labels.loadingMore}
+              {t('loadingMore')}
             </LumenContentText>
           )}
           {entry?.limitReached && (
             <LumenContentText context="section.description" className="hbar-session-activity-notice">
-              {labels.limitReached}
+              {t('limitReached')}
             </LumenContentText>
           )}
           {entry?.status === 'ready' && entry.nextCursor && !entry.limitReached && (
             <LumenButton size="s" disabled={!connected} onClick={onLoadMore}>
-              {labels.loadMore}
+              {t('loadMore')}
             </LumenButton>
           )}
         </>
@@ -144,17 +186,33 @@ export function HbarSessionActivityView({
   )
 }
 
-export function HbarSessionActivityWorkspace({
-  labels,
-  connected,
-  instanceId,
-  targetLabel,
-}: {
+export function HbarSessionActivityWorkspace(props: {
   readonly labels: HbarSessionActivityLabels
   readonly connected: boolean
   readonly instanceId: string
   readonly targetLabel?: string | undefined
 }) {
+  const { labels, ...viewProps } = props
+  const { text, tasks, workflow, agents, ...messages } = labels
+  return (
+    <sessionActivityMessages.Provider messages={messages}>
+      <SessionActivityWorkspaceContent {...viewProps} labels={{ text, tasks, workflow, agents }} />
+    </sessionActivityMessages.Provider>
+  )
+}
+
+function SessionActivityWorkspaceContent({
+  labels,
+  connected,
+  instanceId,
+  targetLabel,
+}: {
+  readonly labels: Pick<HbarSessionActivityLabels, 'text' | 'tasks' | 'workflow' | 'agents'>
+  readonly connected: boolean
+  readonly instanceId: string
+  readonly targetLabel?: string | undefined
+}) {
+  const { t } = sessionActivityMessages.useMessages()
   const runtime = useHbarRuntime()
   const activity = useHbarRuntimeState(runtime.state.activity)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
@@ -238,18 +296,18 @@ export function HbarSessionActivityWorkspace({
   }
   return (
     <LumenToolPane
-      title={labels.title}
+      title={t('title')}
       targetLabel={targetLabel}
-      description={labels.description}
+      description={t('description')}
       icon={ListChecks}
-      closeLabel={labels.close}
+      closeLabel={t('close')}
       onClose={() => void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)}
       busy={
         !entry || entry.status === 'loading' || agentEntry?.status === 'loading' || workflowEntry?.status === 'loading'
       }
       actions={
         <LumenIconButton
-          label={labels.refresh}
+          label={t('refresh')}
           disabled={
             !connected ||
             !targetReady ||
@@ -272,7 +330,7 @@ export function HbarSessionActivityWorkspace({
       }
       className="hbar-session-activity-workspace"
     >
-      <LumenFrame as="main" className="hbar-session-activity-body" tabIndex={0} aria-label={labels.title}>
+      <LumenFrame as="main" className="hbar-session-activity-body" tabIndex={0} aria-label={t('title')}>
         {panel?.sessionId && (
           <ActivityTasksView
             facts={composerIntent.facts}
@@ -287,10 +345,10 @@ export function HbarSessionActivityWorkspace({
             }}
           />
         )}
-        <HbarSessionActivityView
+        <SessionActivityViewContent
           entry={entry?.sessionId === panel?.sessionId ? entry : undefined}
           connected={connected}
-          labels={labels}
+          textLabels={labels.text}
           onRefresh={() => invoke('activityWorkspace.refresh')}
           onLoadMore={() => invoke('activityWorkspace.loadMore')}
         />

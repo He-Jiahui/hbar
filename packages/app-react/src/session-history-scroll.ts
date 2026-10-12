@@ -33,7 +33,7 @@ interface PendingHistoryReader {
 function messageViewport(target: EventTarget | null): HTMLElement | null {
   const element = target instanceof HTMLElement ? target : target instanceof Element ? target.parentElement : null
   if (!element || element.closest('input,textarea,[contenteditable="true"]')) return null
-  const viewport = element.closest<HTMLElement>('.lumen-conversation-messages')
+  const viewport = element.closest<HTMLElement>("[data-lumen-part~=\"conversation.messages\"]")
   if (!viewport) return null
   for (let node: HTMLElement | null = element; node && node !== viewport; node = node.parentElement)
     if (node.scrollHeight > node.clientHeight && /auto|scroll/.test(getComputedStyle(node).overflowY)) return null
@@ -169,7 +169,7 @@ export function useSessionHistoryScroll(options: HistoryScrollOptions) {
   return {
     onScrollCapture(event: UIEvent<HTMLElement>): void {
       const viewport = event.target
-      if (!(viewport instanceof HTMLElement) || !viewport.matches('.lumen-conversation-messages')) return
+      if (!(viewport instanceof HTMLElement) || !viewport.matches("[data-lumen-part~=\"conversation.messages\"]")) return
       if (gesture.viewport !== viewport) return
       if (viewport.scrollTop > gesture.top) gesture.trigger.disarm()
       gesture.top = viewport.scrollTop

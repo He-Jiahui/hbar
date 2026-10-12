@@ -6,8 +6,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.625rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   background: transparent;
   box-shadow: none;
 }
@@ -18,7 +18,7 @@
 
 /* Closed composer controls stay single-line as labels and run state update.
    Popover/dialog content retains its own readable text flow. */
-.hbar-prompt-composer .lumen-composer-toolbar button:not([popover] button, dialog button) {
+.hbar-prompt-composer [data-lumen-part~="composer.toolbar"] button:not([popover] button, dialog button) {
   flex: 0 0 auto;
   max-inline-size: none;
   min-inline-size: 0;
@@ -30,7 +30,7 @@
   flex-wrap: nowrap;
 }
 
-.hbar-prompt-composer .lumen-composer-queue-action {
+.hbar-prompt-composer [data-lumen-part~="composer.queue-action"] {
   inline-size: max-content;
   text-align: start;
 }
@@ -51,13 +51,13 @@
 
 .hbar-prompt-toolbar {
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-prompt-toolbar > div,
 .hbar-prompt-attachments,
 .hbar-prompt-attachment {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-prompt-toolbar > .hbar-prompt-running-actions {
@@ -79,7 +79,7 @@
 
 .hbar-prompt-attachment {
   flex: 0 0 auto;
-  padding-inline-start: 0.5rem;
+  padding-inline-start: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }
@@ -124,13 +124,13 @@
   box-shadow: none;
 }
 
-@container session-project-context (width <= 40rem) {
+@container session-project-context (width < 40rem) {
   .hbar-prompt-toolbar button.hbar-prompt-primary-action {
     --lumen-control-size: 2.75rem;
   }
 }
 
-@media (width <= 40rem) {
+@container session-project-context (width < 40rem) {
   .hbar-prompt-toolbar {
     flex-direction: column;
     align-items: stretch;

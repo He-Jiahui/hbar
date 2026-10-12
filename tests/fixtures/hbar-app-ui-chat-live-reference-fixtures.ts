@@ -1,4 +1,4 @@
-import type { LumenChatContent, LumenChatLiveMessage, LumenChatLiveReferenceLayout } from '@lumen/app-ui'
+import type { LumenChatContent, LumenChatLiveMessage, LumenChatLiveReferenceLayout } from '@lumen/app-ui/catalog'
 
 export function createChatLiveReferenceFixture(locale: 'en' | 'de-long' = 'en'): NonNullable<LumenChatContent['live']> {
   const localized = locale === 'de-long'

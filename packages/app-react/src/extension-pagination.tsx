@@ -1,5 +1,6 @@
 import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import { EXTENSION_PAGE_SIZE } from '@hbar/app-runtime'
+import { extensionMessages } from './extension-messages'
 
 export interface ExtensionPaginationLabels {
   readonly previous: string
@@ -8,16 +9,16 @@ export interface ExtensionPaginationLabels {
 }
 
 export function ExtensionPagination({
-  labels,
   count,
   page,
   onPage,
 }: {
-  readonly labels: ExtensionPaginationLabels
   readonly count: number
   readonly page: number
   readonly onPage: (page: number) => void
 }) {
+  const { t } = extensionMessages.useMessages()
+  const labels = t('pagination')
   const pages = Math.ceil(count / EXTENSION_PAGE_SIZE)
   if (pages <= 1) return null
   return (

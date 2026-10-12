@@ -1,4 +1,4 @@
-import type { LumenUsageOveragePlan } from '@lumen/app-ui'
+import type { LumenUsageOveragePlan } from '@lumen/app-ui/catalog'
 import type { UsageOverageCopy } from '../../apps/hbar-app-ui-preview/src/usage-overage-preview-model'
 
 export const USAGE_OVERAGE_PLANS: readonly LumenUsageOveragePlan[] = [

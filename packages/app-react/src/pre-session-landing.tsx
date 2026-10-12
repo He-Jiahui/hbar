@@ -3,6 +3,7 @@ import { HbarPromptComposer, type HbarPromptComposerProps } from './prompt-compo
 import type { HbarComposerFeedbackLabels } from './composer-feedback'
 import { HbarSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import { HbarComposerAttachmentDropTarget } from './composer-attachments'
+import { createMessageScope } from './messages'
 import './lumen-session-workspace.css'
 import './pre-session-landing.css'
 
@@ -24,13 +25,24 @@ export interface HbarPreSessionLandingProps {
   }
 }
 
+const PreSessionLandingMessages = createMessageScope<HbarPreSessionLandingLabels>()
+
 /** The no-tab entry is a flowing page, not a simulated Host Session. */
-export function HbarPreSessionLanding({ labels, composer, attachmentDrop }: HbarPreSessionLandingProps) {
+export function HbarPreSessionLanding({ labels, ...viewProps }: HbarPreSessionLandingProps) {
+  return (
+    <PreSessionLandingMessages.Provider messages={labels}>
+      <HbarPreSessionLandingView {...viewProps} />
+    </PreSessionLandingMessages.Provider>
+  )
+}
+
+function HbarPreSessionLandingView({ composer, attachmentDrop }: Omit<HbarPreSessionLandingProps, 'labels'>) {
+  const { t } = PreSessionLandingMessages.useMessages()
   const prompt = (
     <HbarPromptComposer
       {...composer}
-      labels={labels.prompt}
-      feedbackLabels={labels.composerFeedback}
+      labels={t('prompt')}
+      feedbackLabels={t('composerFeedback')}
       boundary="none"
       canStop={false}
       onStop={() => undefined}
@@ -39,7 +51,7 @@ export function HbarPreSessionLanding({ labels, composer, attachmentDrop }: Hbar
   return (
     <LumenFrame className="hbar-pre-session-landing">
       <LumenFrame className="hbar-pre-session-landing-main">
-        <HbarSessionEmptyHero labels={labels.hero} headingAs="h1" />
+        <HbarSessionEmptyHero labels={t('hero')} headingAs="h1" />
       </LumenFrame>
       <LumenFrame className="hbar-pre-session-landing-footer">
         {attachmentDrop ? (

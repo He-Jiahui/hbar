@@ -1,4 +1,4 @@
-import type { LumenAppSidebarTreeContent } from '@lumen/app-ui'
+import type { LumenAppSidebarTreeContent } from '@lumen/app-ui/catalog'
 
 const folders: LumenAppSidebarTreeContent['folders'] = [
   {

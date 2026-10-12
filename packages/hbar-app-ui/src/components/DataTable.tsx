@@ -1,8 +1,4 @@
-import {
-  LumenDataTable,
-  LumenDataTableProvider as HbarAppUiDataTableProvider,
-  type LumenDataTableContent,
-} from '@lumen/app-ui'
+import { LumenDataTable, LumenDataTableProvider as HbarAppUiDataTableProvider, type LumenDataTableContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiDataTableProps = HbarAppUiVariantProps & {
@@ -10,27 +6,8 @@ export type HbarAppUiDataTableProps = HbarAppUiVariantProps & {
 }
 
 export { HbarAppUiDataTableProvider }
-export {
-  selectLumenDataTableItem as selectHbarAppUiDataTableItem,
-  uniqueLumenDataTableItems as uniqueHbarAppUiDataTableItems,
-  useLumenDataTableContent as useHbarAppUiDataTableContent,
-} from '@lumen/app-ui'
-export type {
-  LumenDataTableAction as HbarAppUiDataTableAction,
-  LumenDataTableChoice as HbarAppUiDataTableChoice,
-  LumenDataTableContent as HbarAppUiDataTableContent,
-  LumenDataTableEditContent as HbarAppUiDataTableEditContent,
-  LumenDataTableExpandableContent as HbarAppUiDataTableExpandableContent,
-  LumenDataTableFacetedContent as HbarAppUiDataTableFacetedContent,
-  LumenDataTableGroupedContent as HbarAppUiDataTableGroupedContent,
-  LumenDataTableListStrategy as HbarAppUiDataTableListStrategy,
-  LumenDataTableMasterDetailContent as HbarAppUiDataTableMasterDetailContent,
-  LumenDataTableProviderProps as HbarAppUiDataTableProviderProps,
-  LumenDataTableRow as HbarAppUiDataTableRow,
-  LumenDataTableSelectableContent as HbarAppUiDataTableSelectableContent,
-  LumenDataTableStatesContent as HbarAppUiDataTableStatesContent,
-  LumenDataTableWideContent as HbarAppUiDataTableWideContent,
-} from '@lumen/app-ui'
+export { selectLumenDataTableItem as selectHbarAppUiDataTableItem, uniqueLumenDataTableItems as uniqueHbarAppUiDataTableItems, useLumenDataTableContent as useHbarAppUiDataTableContent } from '@lumen/app-ui/catalog'
+export type { LumenDataTableAction as HbarAppUiDataTableAction, LumenDataTableChoice as HbarAppUiDataTableChoice, LumenDataTableContent as HbarAppUiDataTableContent, LumenDataTableEditContent as HbarAppUiDataTableEditContent, LumenDataTableExpandableContent as HbarAppUiDataTableExpandableContent, LumenDataTableFacetedContent as HbarAppUiDataTableFacetedContent, LumenDataTableGroupedContent as HbarAppUiDataTableGroupedContent, LumenDataTableListStrategy as HbarAppUiDataTableListStrategy, LumenDataTableMasterDetailContent as HbarAppUiDataTableMasterDetailContent, LumenDataTableProviderProps as HbarAppUiDataTableProviderProps, LumenDataTableRow as HbarAppUiDataTableRow, LumenDataTableSelectableContent as HbarAppUiDataTableSelectableContent, LumenDataTableStatesContent as HbarAppUiDataTableStatesContent, LumenDataTableWideContent as HbarAppUiDataTableWideContent } from '@lumen/app-ui/catalog'
 
 export function DataTable({ spec, onAction, dataTableContent, className }: HbarAppUiDataTableProps) {
   return (

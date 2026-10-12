@@ -10,7 +10,7 @@ export function workspaceFoldersCopy(locale: ShellLocale): WorkspaceFoldersLabel
         DUPLICATE_FOLDER: '多个路径指向了同一个实际目录，请移除重复项。',
         DIRECTORY_UNAVAILABLE: '无法打开目录，请检查服务端路径和访问权限。',
         INVALID_WORKSPACE: '目录不存在或不是绝对路径，请检查后重试。',
-        PATH_DENIED: '此目录属于 Host 的受保护数据，不能加入工作区。',
+        PATH_DENIED: '此目录属于宿主的受保护数据，不能加入工作区。',
         BUSY: '工作区仍有排队或运行中的任务，请结束任务后再修改根目录。',
         NAVIGATION_FAILED: '工作区已保存，但未能切换当前页面。请关闭此窗口后从项目列表打开它。',
       }
@@ -35,7 +35,7 @@ export function workspaceFoldersCopy(locale: ShellLocale): WorkspaceFoldersLabel
       ? '多个根目录归属于同一个工作区。按优先级排列，第一项作为默认工作目录。'
       : 'Keep multiple root folders in one workspace. The first folder is the default working directory.',
     browserHint: zh
-      ? '浏览 Host 所在电脑的文件夹，可跨目录多选。选择不会修改磁盘内容。'
+      ? '浏览宿主所在电脑的文件夹，可跨目录多选。选择不会修改磁盘内容。'
       : 'Browse folders on the Host computer and select across locations. Selection does not modify disk contents.',
     alias: zh ? '虚拟目录名' : 'Virtual folder name',
     aliasHint: zh
@@ -81,7 +81,7 @@ export function workspaceFoldersCopy(locale: ShellLocale): WorkspaceFoldersLabel
       : 'Read server configuration and replace unsaved edits.',
     reconcile: zh ? '核对保存结果' : 'Check save result',
     retry: zh ? '重试原保存请求' : 'Retry original save',
-    offline: zh ? 'Host 已断开，连接恢复后再继续。' : 'Host disconnected. Continue after reconnecting.',
+    offline: zh ? '宿主已断开，连接恢复后再继续。' : 'Host disconnected. Continue after reconnecting.',
     unexpectedFailure: zh
       ? '操作未完成，请检查当前目录状态后重试。'
       : 'Action did not complete. Check the current folder state before retrying.',

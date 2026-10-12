@@ -1,0 +1,182 @@
+.hbar-app-ui-integration-marketplace-reference-surface {
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.hbar-app-ui-integration-marketplace-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16) var(--lumen-space-16);
+}
+
+.hbar-app-ui-integration-marketplace-reference-header,
+.hbar-app-ui-integration-marketplace-reference-heading,
+.hbar-app-ui-integration-marketplace-reference-search,
+.hbar-app-ui-integration-marketplace-reference-tabs,
+.hbar-app-ui-integration-marketplace-reference-list,
+.hbar-app-ui-integration-marketplace-reference-card,
+.hbar-app-ui-integration-marketplace-reference-card header {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-integration-marketplace-reference-header {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+}
+
+.hbar-app-ui-integration-marketplace-reference-heading {
+  flex: 1 1 18rem;
+  flex-direction: column;
+  gap: var(--lumen-space-2);
+}
+
+.hbar-app-ui-integration-marketplace-reference-heading h2 {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-marketplace-reference-heading p {
+  color: var(--lumen-integration-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-marketplace-reference-search {
+  flex: 0 1 18rem;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-4) var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-integration-border);
+  border-radius: var(--lumen-radius-surface);
+  color: var(--lumen-integration-muted);
+}
+
+.hbar-app-ui-integration-marketplace-reference-search input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--lumen-integration-text);
+  font-size: 0.8125rem;
+}
+
+.hbar-app-ui-integration-marketplace-reference-search input::placeholder {
+  color: var(--lumen-integration-subtle);
+}
+
+.hbar-app-ui-integration-marketplace-reference-tabs {
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-integration-marketplace-reference-tabs .hbar-app-ui-integration-button {
+  min-block-size: 1.75rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--lumen-integration-muted);
+}
+
+.hbar-app-ui-integration-marketplace-reference-tabs .hbar-app-ui-integration-button[aria-selected='true'] {
+  border-color: var(--lumen-integration-text);
+  background: var(--lumen-integration-text);
+  color: var(--lumen-integration-bg);
+}
+
+.hbar-app-ui-integration-marketplace-reference-tabs .hbar-app-ui-integration-button:disabled {
+  opacity: 0.7;
+}
+
+.hbar-app-ui-integration-marketplace-reference-list {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--lumen-space-12);
+  overflow: auto;
+  padding-block-start: var(--lumen-space-12);
+  border-block-start: 0.0625rem solid var(--lumen-integration-border);
+}
+
+.hbar-app-ui-integration-marketplace-reference-card {
+  min-inline-size: min(100%, 19rem);
+  flex: 1 1 calc(50% - 0.375rem);
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--lumen-integration-border);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-integration-surface);
+}
+
+.hbar-app-ui-integration-marketplace-reference-card header {
+  align-items: center;
+  gap: var(--lumen-space-12);
+}
+
+.hbar-app-ui-integration-marketplace-reference-avatar {
+  display: inline-flex;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-integration-border-strong);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-integration-bg);
+  color: var(--lumen-integration-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-integration-marketplace-reference-card header > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-ui-integration-marketplace-reference-card h3 {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-marketplace-reference-card header small,
+.hbar-app-ui-integration-marketplace-reference-card p {
+  color: var(--lumen-integration-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-marketplace-reference-card p {
+  flex: 1 1 auto;
+}
+
+.hbar-app-ui-integration-marketplace-reference-card-action {
+  inline-size: 100%;
+  flex: 0 0 auto;
+}
+
+@media (width < 40rem) {
+  .hbar-app-ui-integration-marketplace-reference {
+    padding: var(--lumen-space-16);
+  }
+
+  .hbar-app-ui-integration-marketplace-reference-search {
+    flex: 1 1 100%;
+  }
+
+  .hbar-app-ui-integration-marketplace-reference-card {
+    flex-basis: 100%;
+  }
+}

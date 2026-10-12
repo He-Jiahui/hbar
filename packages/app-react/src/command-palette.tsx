@@ -20,6 +20,7 @@ import {
 import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
 import { workspaceDisplayName } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { commandPaletteMessages } from './command-palette-messages'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './command-palette.css'
 
@@ -138,7 +139,6 @@ function KnownTargetParameter({
   field,
   value,
   options,
-  labels,
   disabled,
   onChange,
   onUnset,
@@ -148,11 +148,11 @@ function KnownTargetParameter({
   readonly field: CommandParameterField
   readonly value: unknown
   readonly options: readonly KnownTargetOption[]
-  readonly labels: HbarCommandPaletteLabels
   readonly disabled: boolean
   readonly onChange: (value: string) => void
   readonly onUnset: () => void
 }) {
+  const { t } = commandPaletteMessages.useMessages()
   const known = typeof value === 'string' && options.some((option) => option.id === value)
   const [custom, setCustom] = useState(() => typeof value === 'string' && value.length > 0 && !known)
   const customValue = custom && typeof value === 'string' && !known ? value : ''
@@ -161,11 +161,11 @@ function KnownTargetParameter({
       <LumenPopupSelect
         id={id}
         value={custom ? CUSTOM_IDENTIFIER : typeof value === 'string' ? value : ''}
-        placeholder={field.required ? labels.chooseKnownTarget : labels.unset}
+        placeholder={field.required ? t('chooseKnownTarget') : t('unset')}
         options={[
-          { id: '', label: field.required ? labels.chooseKnownTarget : labels.unset, disabled: field.required },
+          { id: '', label: field.required ? t('chooseKnownTarget') : t('unset'), disabled: field.required },
           ...options,
-          { id: CUSTOM_IDENTIFIER, label: labels.customIdentifierOption },
+          { id: CUSTOM_IDENTIFIER, label: t('customIdentifierOption') },
         ]}
         required={field.required}
         disabled={disabled}
@@ -185,8 +185,8 @@ function KnownTargetParameter({
       {custom && (
         <LumenInput
           type="text"
-          aria-label={labels.customIdentifier(label)}
-          placeholder={labels.customIdentifier(label)}
+          aria-label={t('customIdentifier')(label)}
+          placeholder={t('customIdentifier')(label)}
           minLength={field.minLength}
           maxLength={field.maxLength}
           required={field.required}
@@ -199,7 +199,16 @@ function KnownTargetParameter({
   )
 }
 
-export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommandPaletteProps) {
+export function HbarCommandPalette({ labels, ...props }: HbarCommandPaletteProps) {
+  return (
+    <commandPaletteMessages.Provider messages={labels}>
+      <CommandPaletteContent {...props} />
+    </commandPaletteMessages.Provider>
+  )
+}
+
+function CommandPaletteContent({ connected, searchRef }: Omit<HbarCommandPaletteProps, 'labels'>) {
+  const { t } = commandPaletteMessages.useMessages()
   const runtime = useHbarRuntime()
   const palette = useHbarRuntimeState(runtime.state.commandPalette)
   const directory = useHbarRuntimeState(runtime.state.directory)
@@ -250,20 +259,20 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         const item = palette.items[id]
         if (!item) return []
         const metadata = item.descriptor.metadata
-        const title = labels.resolve(metadata.titleKey)
-        const description = labels.resolve(metadata.descriptionKey)
+        const title = t('resolve')(metadata.titleKey)
+        const description = t('resolve')(metadata.descriptionKey)
         return [
           {
             id,
-            label: title === metadata.titleKey ? labels.commandFallback(id) : title,
-            description: description === metadata.descriptionKey ? labels.descriptionFallback(id) : description,
-            group: labels.category(metadata.category),
+            label: title === metadata.titleKey ? t('commandFallback')(id) : title,
+            description: description === metadata.descriptionKey ? t('descriptionFallback')(id) : description,
+            group: t('category')(metadata.category),
             navigates: true,
             disabled: !item.available || (metadata.execution === 'host' && !connected),
           },
         ]
       }),
-    [connected, labels, palette.items, palette.visibleIds],
+    [connected, t, palette.items, palette.visibleIds],
   )
   const workspaceTargets = useMemo<KnownTargetOption[]>(
     () =>
@@ -275,9 +284,9 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         )
         .map((workspace) => ({
           id: workspace.id,
-          label: labels.workspaceOption(workspaceDisplayName(workspace, displayNames), workspace.path),
+          label: t('workspaceOption')(workspaceDisplayName(workspace, displayNames), workspace.path),
         })),
-    [directory.workspaces, displayNames, labels],
+    [directory.workspaces, displayNames, t],
   )
   const sessionTargets = useMemo<KnownTargetOption[]>(() => {
     const draftWorkspace = palette.draft?.values.workspaceId
@@ -289,7 +298,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         const workspace = directory.workspaces[session.workspaceId]
         return {
           id: session.id,
-          label: labels.sessionOption(
+          label: t('sessionOption')(
             session.title,
             workspace ? workspaceDisplayName(workspace, displayNames) : session.workspaceId,
           ),
@@ -299,21 +308,21 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
     directory.sessions,
     directory.workspaces,
     displayNames,
-    labels,
+    t,
     navigation.workspaceId,
     palette.draft?.values.workspaceId,
   ])
 
   const commandTitle = selected
-    ? labels.resolve(selected.descriptor.metadata.titleKey) === selected.descriptor.metadata.titleKey
-      ? labels.commandFallback(selected.descriptor.metadata.id)
-      : labels.resolve(selected.descriptor.metadata.titleKey)
-    : labels.title
+    ? t('resolve')(selected.descriptor.metadata.titleKey) === selected.descriptor.metadata.titleKey
+      ? t('commandFallback')(selected.descriptor.metadata.id)
+      : t('resolve')(selected.descriptor.metadata.titleKey)
+    : t('title')
   const commandDescription = selected
-    ? labels.resolve(selected.descriptor.metadata.descriptionKey) === selected.descriptor.metadata.descriptionKey
-      ? labels.descriptionFallback(selected.descriptor.metadata.id)
-      : labels.resolve(selected.descriptor.metadata.descriptionKey)
-    : labels.description
+    ? t('resolve')(selected.descriptor.metadata.descriptionKey) === selected.descriptor.metadata.descriptionKey
+      ? t('descriptionFallback')(selected.descriptor.metadata.id)
+      : t('resolve')(selected.descriptor.metadata.descriptionKey)
+    : t('description')
   const select = (id: string) => dispatch(runtime.commands.execute('commandPalette.select', { commandId: id }))
   const openCommand = (id: string) =>
     dispatch(runtime.commands.execute('commandPalette.openCommand', { commandId: id }))
@@ -363,11 +372,11 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
           <LumenPopupSelect
             id={controlId}
             value={typeof value === 'boolean' ? String(value) : ''}
-            placeholder={labels.unset}
+            placeholder={t('unset')}
             options={[
-              { id: '', label: labels.unset },
-              { id: 'true', label: labels.trueValue },
-              { id: 'false', label: labels.falseValue },
+              { id: '', label: t('unset') },
+              { id: 'true', label: t('trueValue') },
+              { id: 'false', label: t('falseValue') },
             ]}
             disabled={busy}
             onValueChange={(next) => {
@@ -379,7 +388,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
       return (
         <LumenCheckBox
           id={controlId}
-          label={labels.trueValue}
+          label={t('trueValue')}
           checked={value === true}
           disabled={busy}
           onChange={(event) => setParameter(field.name, event.currentTarget.checked)}
@@ -391,16 +400,16 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         <LumenPopupSelect
           id={controlId}
           value={typeof value === 'string' ? value : ''}
-          placeholder={field.required ? labels.required : labels.unset}
+          placeholder={field.required ? t('required') : t('unset')}
           options={[
             ...(!field.required
-              ? [{ id: '', label: labels.unset }]
+              ? [{ id: '', label: t('unset') }]
               : value === undefined
-                ? [{ id: '', label: labels.required, disabled: true }]
+                ? [{ id: '', label: t('required'), disabled: true }]
                 : []),
             ...field.choices.map((choice) => ({
               id: String(choice),
-              label: labels.option(field, choice),
+              label: t('option')(field, choice),
             })),
           ]}
           required={field.required}
@@ -426,7 +435,6 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
           field={field}
           value={value}
           options={knownTargets}
-          labels={labels}
           disabled={busy}
           onChange={(next) => setParameter(field.name, next)}
           onUnset={() => unsetParameter(field.name)}
@@ -439,7 +447,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
           value={typeof value === 'string' ? value : ''}
           required={field.required}
           disabled={busy}
-          placeholder={labels.jsonPlaceholder}
+          placeholder={t('jsonPlaceholder')}
           onChange={(event) => setParameter(field.name, event.currentTarget.value)}
         />
       )
@@ -462,31 +470,31 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
 
   const header = (
     <LumenPageHeader
-      title={palette.view === 'result' ? labels.result : palette.view === 'parameters' ? commandTitle : labels.title}
-      context={palette.view === 'search' ? labels.description : commandDescription}
+      title={palette.view === 'result' ? t('result') : palette.view === 'parameters' ? commandTitle : t('title')}
+      context={palette.view === 'search' ? t('description') : commandDescription}
       leading={
         palette.view === 'search' ? undefined : (
           <LumenIconButton
-            label={palette.view === 'result' ? labels.backToParameters : labels.backToCommands}
+            label={palette.view === 'result' ? t('backToParameters') : t('backToCommands')}
             onClick={goBack}
           >
             <LumenIcon icon={ArrowLeft} tier="sm" />
           </LumenIconButton>
         )
       }
-      actionsLabel={labels.actions}
+      actionsLabel={t('actions')}
       actions={
         <>
           {palette.view === 'search' && (
             <LumenIconButton
-              label={labels.refresh}
+              label={t('refresh')}
               disabled={palette.status === 'loading' || busy}
               onClick={() => dispatch(runtime.commands.execute('commandPalette.refresh', {}))}
             >
               <LumenIcon icon={RefreshCw} tier="sm" />
             </LumenIconButton>
           )}
-          <LumenIconButton label={labels.close} onClick={closePanel}>
+          <LumenIconButton label={t('close')} onClick={closePanel}>
             <LumenIcon icon={X} tier="sm" />
           </LumenIconButton>
         </>
@@ -503,17 +511,17 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             inputRef={search}
             inputId="hbar-command-search"
             labels={{
-              search: labels.search,
-              available: labels.available,
-              empty: labels.empty,
-              unavailable: labels.unavailable,
-              navigate: labels.choose,
-              execute: labels.choose,
-              close: labels.close,
-              count: labels.count,
-              navigateKeys: labels.navigateKeys,
-              executeKey: labels.executeKey,
-              closeKey: labels.closeKey,
+              search: t('search'),
+              available: t('available'),
+              empty: t('empty'),
+              unavailable: t('unavailable'),
+              navigate: t('choose'),
+              execute: t('choose'),
+              close: t('close'),
+              count: t('count'),
+              navigateKeys: t('navigateKeys'),
+              executeKey: t('executeKey'),
+              closeKey: t('closeKey'),
             }}
             items={listItems}
             query={palette.query}
@@ -524,16 +532,16 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             onMove={(direction) => dispatch(runtime.commands.execute('commandPalette.move', { direction }))}
             onExecute={openCommand}
             listStrategy={listItems.length > 40 ? 'virtual' : 'content-grown'}
-            error={palette.status === 'error' && palette.error ? labels.error(palette.error) : undefined}
+            error={palette.status === 'error' && palette.error ? t('error')(palette.error) : undefined}
           />
           {palette.truncated && (
             <LumenContentText context="section.description" className="hbar-app-react-command-truncated">
-              {labels.truncated}
+              {t('truncated')}
             </LumenContentText>
           )}
           {actionError && (
             <LumenContentText context="feedback.message" className="hbar-app-react-command-action-error" role="alert">
-              {labels.error(actionError)}
+              {t('error')(actionError)}
             </LumenContentText>
           )}
         </LumenFrame>
@@ -549,25 +557,25 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             <LumenFrame className="hbar-app-react-command-form-body">
               <LumenCollection as="dl" className="hbar-app-react-command-metadata">
                 <LumenFrame>
-                  <LumenCollectionItem as="dt">{labels.kind(selected.descriptor.metadata.kind)}</LumenCollectionItem>
+                  <LumenCollectionItem as="dt">{t('kind')(selected.descriptor.metadata.kind)}</LumenCollectionItem>
                   <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
                 </LumenFrame>
                 <LumenFrame>
                   <LumenCollectionItem as="dt">
-                    {labels.execution(selected.descriptor.metadata.execution)}
+                    {t('execution')(selected.descriptor.metadata.execution)}
                   </LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">{t('scope')(selected.descriptor.metadata.scope)}</LumenCollectionItem>
                 </LumenFrame>
               </LumenCollection>
               <LumenFrame as="fieldset" disabled={busy}>
-                <LumenText as="legend">{labels.parameters}</LumenText>
+                <LumenText as="legend">{t('parameters')}</LumenText>
                 {selected.form.fields.length === 0 ? (
-                  <LumenContentText context="section.description">{labels.noParameters}</LumenContentText>
+                  <LumenContentText context="section.description">{t('noParameters')}</LumenContentText>
                 ) : (
                   selected.form.fields.map((field) => {
                     const issue = fieldIssue(field.name)
-                    const resolved = labels.resolve(field.labelKey)
-                    const label = resolved === field.labelKey ? labels.fieldFallback(field.name) : resolved
+                    const resolved = t('resolve')(field.labelKey)
+                    const label = resolved === field.labelKey ? t('fieldFallback')(field.name) : resolved
                     const isSet =
                       Object.hasOwn(palette.draft?.values ?? {}, field.name) ||
                       palette.draft?.sensitiveFields.includes(field.name)
@@ -581,8 +589,8 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                         <LumenFormField
                           controlId={controlId}
                           label={label}
-                          hint={field.required ? labels.required : labels.optional}
-                          {...(issue ? { error: labels.issue(issue) } : {})}
+                          hint={field.required ? t('required') : t('optional')}
+                          {...(issue ? { error: t('issue')(issue) } : {})}
                           required={field.required}
                         >
                           {fieldControl(field, controlId, label)}
@@ -594,7 +602,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                             disabled={busy}
                             onClick={() => unsetParameter(field.name)}
                           >
-                            {labels.unset}
+                            {t('unset')}
                           </LumenButton>
                         )}
                       </LumenFrame>
@@ -604,14 +612,14 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               </LumenFrame>
               {(!selected.available || hostDisconnected) && (
                 <LumenContentText context="feedback.message" role="status">
-                  {labels.unavailableReason(
+                  {t('unavailableReason')(
                     hostDisconnected ? 'HOST_DISCONNECTED' : (selected.unavailableReason ?? 'CAPABILITY_UNAVAILABLE'),
                   )}
                 </LumenContentText>
               )}
               {actionError && (
                 <LumenContentText context="feedback.message" role="alert">
-                  {labels.error(actionError)}
+                  {t('error')(actionError)}
                 </LumenContentText>
               )}
             </LumenFrame>
@@ -622,10 +630,10 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                 disabled={busy}
                 onClick={() => dispatch(runtime.commands.execute('commandPalette.resetParameters', {}))}
               >
-                {labels.reset}
+                {t('reset')}
               </LumenButton>
               <LumenButton type="submit" tone="primary" disabled={!canExecute}>
-                {busy ? labels.executing : labels.execute}
+                {busy ? t('executing') : t('execute')}
               </LumenButton>
             </LumenFrame>
           </LumenFrame>
@@ -640,42 +648,42 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
           >
             <LumenContentText context="record.title">
               {palette.execution.status === 'succeeded'
-                ? labels.succeeded
-                : labels.error(palette.execution.error ?? 'EXECUTION_FAILED')}
+                ? t('succeeded')
+                : t('error')(palette.execution.error ?? 'EXECUTION_FAILED')}
             </LumenContentText>
-            <LumenContentText context="section.description">{labels.resultSummary(commandTitle)}</LumenContentText>
+            <LumenContentText context="section.description">{t('resultSummary')(commandTitle)}</LumenContentText>
           </LumenFrame>
           <LumenCollection as="dl" className="hbar-app-react-command-metadata">
             <LumenFrame>
-              <LumenCollectionItem as="dt">{labels.kind(selected.descriptor.metadata.kind)}</LumenCollectionItem>
+              <LumenCollectionItem as="dt">{t('kind')(selected.descriptor.metadata.kind)}</LumenCollectionItem>
               <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
             </LumenFrame>
             <LumenFrame>
               <LumenCollectionItem as="dt">
-                {labels.execution(selected.descriptor.metadata.execution)}
+                {t('execution')(selected.descriptor.metadata.execution)}
               </LumenCollectionItem>
-              <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
+              <LumenCollectionItem as="dd">{t('scope')(selected.descriptor.metadata.scope)}</LumenCollectionItem>
             </LumenFrame>
           </LumenCollection>
-          <HbarLumenDisclosure className="hbar-app-react-command-result-details" label={labels.technicalDetails}>
+          <HbarLumenDisclosure className="hbar-app-react-command-result-details" label={t('technicalDetails')}>
             <LumenText as="pre">{palette.execution.result ?? palette.execution.error}</LumenText>
           </HbarLumenDisclosure>
           <LumenFrame as="footer">
             <LumenButton variant="outlined" onClick={goBack}>
-              {labels.backToParameters}
+              {t('backToParameters')}
             </LumenButton>
             <LumenButton tone="primary" onClick={closePanel}>
-              {labels.close}
+              {t('close')}
             </LumenButton>
           </LumenFrame>
         </LumenFrame>
       ) : (
         <LumenFrame as="main" className="hbar-app-react-command-missing">
           <LumenContentText context="feedback.message" role="status">
-            {labels.empty}
+            {t('empty')}
           </LumenContentText>
           <LumenButton variant="outlined" onClick={goBack}>
-            {labels.backToCommands}
+            {t('backToCommands')}
           </LumenButton>
         </LumenFrame>
       )}

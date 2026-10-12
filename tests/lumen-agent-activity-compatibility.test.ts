@@ -1,12 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAgentActivity01,
-  LumenAgentActivityProvider,
-  selectLumenAgentActivityItem,
-  uniqueLumenAgentActivityItems,
-} from '@lumen/app-ui'
+import { LumenAgentActivity01, LumenAgentActivityProvider, selectLumenAgentActivityItem, uniqueLumenAgentActivityItems } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiAgentActivityProvider,
   selectHbarAppUiAgentActivityItem,

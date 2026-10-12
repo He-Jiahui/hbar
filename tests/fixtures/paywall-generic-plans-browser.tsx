@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
-import { LumenPaywall03, LumenPaywallProvider, type LumenPaywallAction, type LumenPaywallContent } from '@lumen/app-ui'
+import { LumenPaywall03, LumenPaywallProvider, type LumenPaywallAction, type LumenPaywallContent } from '@lumen/app-ui/catalog'
 import { createHbarAppUiPaywallLocalizedFixtures, HBAR_APP_UI_PAYWALL_FIXTURES } from './hbar-app-ui-paywall-fixtures'
 import '@lumen/app-ui/styles.css'
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { HbarAppUiIntegrationContent } from '../packages/hbar-app-ui/src/index'
-import { ReferenceApiKeysIntegration } from '../hbar-ui/packages/lumen-app-ui/src/integrations/ReferenceApiKeysIntegration'
+import { ReferenceApiKeysIntegration } from '../packages/lumen-app-ui/src/integrations/ReferenceApiKeysIntegration'
 import { createIntegrationApiKeysReferenceFixture } from './fixtures/hbar-app-ui-integrations-api-keys-reference-fixtures'
 
 type ApiKeysContent = NonNullable<HbarAppUiIntegrationContent['apiKeys']>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, type HbarRuntimeView } from './runtime'
+import { createMessageScope } from './messages'
 
 export interface SettingsContentRecoveryLabels {
   readonly retry: string
@@ -9,6 +10,8 @@ export interface SettingsContentRecoveryLabels {
   readonly offline: string
   readonly error: (code: string) => string
 }
+export type SettingsContentRecoveryMessages = SettingsContentRecoveryLabels
+export const SettingsContentRecoveryMessageScope = createMessageScope<SettingsContentRecoveryMessages>()
 
 interface RecoveryAttempt {
   readonly runtime: HbarRuntimeView
@@ -190,23 +193,36 @@ export function SettingsContentRecovery({
   readonly labels: SettingsContentRecoveryLabels
 }) {
   return (
+    <SettingsContentRecoveryMessageScope.Provider messages={labels}>
+      <SettingsContentRecoveryView controller={controller} />
+    </SettingsContentRecoveryMessageScope.Provider>
+  )
+}
+
+export function SettingsContentRecoveryView({
+  controller,
+}: {
+  readonly controller: ReturnType<typeof useSettingsContentRecovery>
+}) {
+  const { t } = SettingsContentRecoveryMessageScope.useMessages()
+  return (
     <LumenFrame className="hbar-settings-content-recovery" aria-busy={controller.pending || undefined}>
       <LumenButton ref={controller.buttonRef} type="button" disabled={controller.disabled} onClick={controller.retry}>
-        {labels.retry}
+        {t('retry')}
       </LumenButton>
       {controller.pending && (
         <LumenContentText context="form.help" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {!controller.connected && (
         <LumenContentText context="form.help" role="status">
-          {labels.offline}
+          {t('offline')}
         </LumenContentText>
       )}
       {controller.error && (
         <LumenContentText context="form.help" role="alert">
-          {labels.error(controller.error)}
+          {t('error')(controller.error)}
         </LumenContentText>
       )}
     </LumenFrame>

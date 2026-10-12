@@ -1,4 +1,4 @@
-import type { LumenAppSidebarContent } from '@lumen/app-ui'
+import type { LumenAppSidebarContent } from '@lumen/app-ui/catalog'
 import { appSidebarPrimaryFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-primary-fixtures'
 import { appSidebarRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-rail-fixtures'
 import { appSidebarWorkspaceFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-workspace-fixtures'

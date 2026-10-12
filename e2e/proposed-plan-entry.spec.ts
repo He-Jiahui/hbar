@@ -58,8 +58,8 @@ async function holdProposalAcceptance(page: Page) {
 
 async function seedProposal(host: WebSessionHost, name: string) {
   const sessionId = host.ready.sessionId
-  const before = `Context before the plan — ${name}`
-  const after = `Context after the plan — ${name}`
+  const before = `Context before the plan — ${name} proposalcontextbefore`
+  const after = `Context after the plan — ${name} proposalcontextafter`
   const markdown = `# ${name}\n\n## Implementation\n\n1. Preserve the current composer draft.\n2. Keep the uploaded attachment.\n\n## Verification\n\n- Check keyboard actions and narrow screens.`
   const runs = createRunCommandClient(host.client)
   const accepted = await runs.execute(
@@ -122,7 +122,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const attachmentName = 'proposal-composer-draft.txt'
     const attachmentText = 'This file belongs to the unsent composer draft, never the detached proposal request.'
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const selectedHost = host
       const sessionId = host.ready.sessionId
       // Persisted Plan mode makes an accidental inherited-mode implementation request detectable.
@@ -162,11 +167,22 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.goto(base)
       await selectSession(page, host, locale)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const composer = page.locator('.hbar-app-react-session-footer')
+      // The composer remains locked while the Host-owned Plan mode fact loads.
+      // Wait for its explicit empty state before editing, then verify the draft
+      // transitions to a sendable state instead of racing that projection.
+      await expect(composer).toHaveAttribute('data-composer-blocked-reason', 'empty')
       await expect(prompt).toBeEditable()
       await prompt.fill(draft)
+      await expect.poll(() => composer.getAttribute('data-composer-blocked-reason')).toBeNull()
       const chooser = page.waitForEvent('filechooser')
       const upload = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/artifacts')
-      await page.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
+      const composerActions = page.getByRole('button', { name: copy.session.addMenu.menu, exact: true })
+      if (await composerActions.isVisible()) await composerActions.click()
+      const addMenu = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await expect(addMenu).toBeVisible()
+      await addMenu.click()
+      await expect(page.getByRole('group', { name: copy.session.addMenu.menu })).toBeVisible()
       await page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.addMenu.files, exact: true })
@@ -201,8 +217,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           let before: Node | null = null
           let after: Node | null = null
           for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            if (node.textContent?.includes(markers.before)) before = node
-            if (node.textContent?.includes(markers.after)) after = node
+            if (node.textContent?.includes(markers.beforeMarker)) before = node
+            if (node.textContent?.includes(markers.afterMarker)) after = node
           }
           return Boolean(
             card &&
@@ -212,7 +228,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             card.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING,
           )
         },
-        { before: initial.before, after: initial.after },
+        { beforeMarker: 'proposalcontextbefore', afterMarker: 'proposalcontextafter' },
       )
       expect(order).toBe(true)
 

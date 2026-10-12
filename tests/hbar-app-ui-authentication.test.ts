@@ -1,7 +1,7 @@
 import {describe, expect, test} from 'bun:test'
 import {createElement} from 'react'
 import {renderToStaticMarkup} from 'react-dom/server'
-import {canContinueLumenProviderFirst as canContinueProviderFirst, selectLumenAuthQuote as selectQuote} from '@lumen/app-ui'
+import { canContinueLumenProviderFirst as canContinueProviderFirst, selectLumenAuthQuote as selectQuote } from '@lumen/app-ui/catalog'
 import {
     getHbarAppUiVariant,
     HbarAppUiAuthenticationProvider,

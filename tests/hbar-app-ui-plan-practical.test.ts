@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAgentPlan, uniqueLumenAgentPlanItems, type LumenAgentPlanContent } from '@lumen/app-ui'
+import { LumenAgentPlan, uniqueLumenAgentPlanItems, type LumenAgentPlanContent } from '@lumen/app-ui/catalog'
 import { createPlanPreviewCopy, projectPlanPreviewCopy } from '../apps/hbar-app-ui-preview/src/planPreviewCopy'
 import { PlanPreviewHost } from '../apps/hbar-app-ui-preview/src/PlanPreviewHost'
 import { getHbarAppUiVariant } from '../packages/hbar-app-ui/src/index'

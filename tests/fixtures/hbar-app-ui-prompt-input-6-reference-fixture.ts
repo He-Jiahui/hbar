@@ -1,4 +1,4 @@
-import type { LumenPromptScopeReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptScopeReferenceContent } from '@lumen/app-ui/catalog'
 
 export function createPrompt6ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenPromptScopeReferenceContent {
   const chinese = locale === 'zh'

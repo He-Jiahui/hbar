@@ -4,7 +4,7 @@
 .hbar-tool-output-image-links {
   display: inline-flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
   max-inline-size: 100%;
 }

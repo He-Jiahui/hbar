@@ -1,6 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import { LumenSettingsFormProvider, useLumenSettingsFormContent, type LumenSettingsFormContent } from '@lumen/app-ui'
+import { LumenSettingsFormProvider, useLumenSettingsFormContent, type LumenSettingsFormContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createSettingsForm4PreviewStore } from './settingsForm4PreviewStore'
 import type { SettingsForm4PreviewAssignableRoleId } from './settingsForm4PreviewStore'

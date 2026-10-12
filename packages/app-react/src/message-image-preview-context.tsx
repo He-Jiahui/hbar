@@ -1,4 +1,5 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { createMessageScope } from './messages'
 
 export interface MessageImagePreviewLabels {
   readonly loading: string
@@ -6,7 +7,7 @@ export interface MessageImagePreviewLabels {
   readonly retry: string
   readonly open: (name: string) => string
 }
-const Context = createContext<MessageImagePreviewLabels | null>(null)
+const messageImagePreviewMessages = createMessageScope<MessageImagePreviewLabels>()
 
 export function MessageImagePreviewProvider({
   labels,
@@ -15,9 +16,26 @@ export function MessageImagePreviewProvider({
   readonly labels: MessageImagePreviewLabels
   readonly children: ReactNode
 }) {
-  return <Context.Provider value={labels}>{children}</Context.Provider>
+  return (
+    <messageImagePreviewMessages.Provider messages={labels}>
+      {children}
+    </messageImagePreviewMessages.Provider>
+  )
 }
 
+export function useMessageImagePreviewMessages() {
+  return messageImagePreviewMessages.useOptionalMessages()
+}
+
+/** Compatibility adapter for consumers that still need the previous full labels object. */
 export function useMessageImagePreviewLabels(): MessageImagePreviewLabels | null {
-  return useContext(Context)
+  const messages = useMessageImagePreviewMessages()
+  if (!messages) return null
+  const { t } = messages
+  return {
+    loading: t('loading'),
+    failed: t('failed'),
+    retry: t('retry'),
+    open: t('open'),
+  }
 }

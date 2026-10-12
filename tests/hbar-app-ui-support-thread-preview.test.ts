@@ -6,7 +6,7 @@ import {
   LumenSupportProvider,
   type LumenSupportContent,
   type LumenSupportThreadContent,
-} from '../hbar-ui/packages/lumen-app-ui/src/support'
+} from '../packages/lumen-app-ui/src/support'
 import {
   createSupportThreadPreviewStore,
   type SupportThreadPreviewState,

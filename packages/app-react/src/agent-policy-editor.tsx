@@ -11,6 +11,7 @@ import {
 } from '@lumen/app-ui'
 import type { AgentPolicyEditorEntry, AgentWorkspaceState } from '@hbar/app-runtime'
 import { AgentModelPicker, type AgentModelPickerLabels } from './agent-model-picker'
+import { createMessageScope } from './messages'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './agent-policy-editor.css'
@@ -40,16 +41,9 @@ export interface AgentPolicyEditorLabels {
   readonly error: (code: string) => string
   readonly thinkingOption: (level: string) => string
 }
+const AgentPolicyEditorMessages = createMessageScope<AgentPolicyEditorLabels>()
 /** Content-grown, Host-bounded 32-row editor inside the Agent tool pane's owned scroll region. */
-export function AgentPolicyEditor({
-  labels,
-  modelLabels,
-  instanceId,
-  parentSessionId,
-  catalog,
-  connected,
-  refreshModels,
-}: {
+export function AgentPolicyEditor(props: {
   readonly labels: AgentPolicyEditorLabels
   readonly modelLabels: AgentModelPickerLabels
   readonly instanceId: string
@@ -58,6 +52,29 @@ export function AgentPolicyEditor({
   readonly connected: boolean
   readonly refreshModels: () => void
 }) {
+  return (
+    <AgentPolicyEditorMessages.Provider messages={props.labels}>
+      <AgentPolicyEditorView {...props} />
+    </AgentPolicyEditorMessages.Provider>
+  )
+}
+
+function AgentPolicyEditorView({
+  modelLabels,
+  instanceId,
+  parentSessionId,
+  catalog,
+  connected,
+  refreshModels,
+}: {
+  readonly modelLabels: AgentModelPickerLabels
+  readonly instanceId: string
+  readonly parentSessionId: string
+  readonly catalog: AgentWorkspaceState['catalog']
+  readonly connected: boolean
+  readonly refreshModels: () => void
+}) {
+  const { t } = AgentPolicyEditorMessages.useMessages()
   const runtime = useHbarRuntime()
   const policies = useHbarRuntimeState(runtime.state.agentPolicies)
   const entry: AgentPolicyEditorEntry | undefined = policies.entries[parentSessionId]
@@ -85,29 +102,29 @@ export function AgentPolicyEditor({
   return (
     <HbarLumenDisclosure
       className="hbar-agent-policy-editor"
-      label={<LumenContentText context="control.label">{labels.title}</LumenContentText>}
+      label={<LumenContentText context="control.label">{t('title')}</LumenContentText>}
       open={expanded}
       onOpenChange={setExpandedAndLoad}
     >
-      <LumenContentText context="section.description">{labels.description}</LumenContentText>
+      <LumenContentText context="section.description">{t('description')}</LumenContentText>
       {entry?.snapshot && (
         <LumenContentText context="section.description">
-          {labels.source(entry.snapshot.sourceLayer, entry.snapshot.inherited)}
+          {t('source')(entry.snapshot.sourceLayer, entry.snapshot.inherited)}
         </LumenContentText>
       )}
       {entry?.status === 'loading' && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {entry?.error && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error(entry.error)}
+          {t('error')(entry.error)}
         </LumenContentText>
       )}
       {policies.feedback?.parentSessionId === parentSessionId && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error(policies.feedback.code)}
+          {t('error')(policies.feedback.code)}
         </LumenContentText>
       )}
       <LumenFrame className="hbar-agent-policy-rows">
@@ -115,20 +132,20 @@ export function AgentPolicyEditor({
           const model = catalog.models.find((item) => item.id === row.modelId)
           const change = (field: string, value: string) => invoke('agentPolicy.change', { rowId: row.id, field, value })
           const difficultyOptions: readonly LumenControlOption[] = (['simple', 'medium', 'complex'] as const).map(
-            (difficulty) => ({ id: difficulty, label: labels.difficulties[difficulty] }),
+            (difficulty) => ({ id: difficulty, label: t('difficulties')[difficulty] }),
           )
           const thinkingOptions: readonly LumenControlOption[] = [
-            { id: '', label: labels.chooseThinking },
-            ...(model?.thinkingLevels.map((level) => ({ id: level, label: labels.thinkingOption(level) })) ?? []),
+            { id: '', label: t('chooseThinking') },
+            ...(model?.thinkingLevels.map((level) => ({ id: level, label: t('thinkingOption')(level) })) ?? []),
             ...(row.thinkingLevel && !model?.thinkingLevels.some((level) => level === row.thinkingLevel)
-              ? [{ id: row.thinkingLevel, label: labels.thinkingOption(row.thinkingLevel), disabled: true }]
+              ? [{ id: row.thinkingLevel, label: t('thinkingOption')(row.thinkingLevel), disabled: true }]
               : []),
           ]
           return (
             <LumenFrame as="fieldset" key={row.id} className="hbar-agent-policy-row" disabled={busy}>
               <LumenFrame className="hbar-agent-policy-fields">
                 <LumenFrame className="hbar-agent-policy-primary-fields">
-                  <LumenFormField controlId={`${row.id}-difficulty`} label={labels.difficulty}>
+                  <LumenFormField controlId={`${row.id}-difficulty`} label={t('difficulty')}>
                     <LumenPopupSelect
                       id={`${row.id}-difficulty`}
                       value={row.difficulty}
@@ -136,14 +153,14 @@ export function AgentPolicyEditor({
                       onValueChange={(value) => change('difficulty', value)}
                     />
                   </LumenFormField>
-                  <LumenFormField controlId={`${row.id}-model`} label={labels.model} required>
+                  <LumenFormField controlId={`${row.id}-model`} label={t('model')} required>
                     <AgentModelPicker
                       id={`${row.id}-model`}
                       value={row.modelId}
                       catalog={catalog}
                       connected={connected}
                       disabled={busy}
-                      labels={{ ...modelLabels, choose: labels.chooseModel }}
+                      labels={{ ...modelLabels, choose: t('chooseModel') }}
                       onSelect={(value) => change('modelId', value)}
                       onRetry={refreshModels}
                       required
@@ -152,7 +169,7 @@ export function AgentPolicyEditor({
                 </LumenFrame>
                 <LumenFormField
                   controlId={`${row.id}-thinking`}
-                  label={labels.thinking}
+                  label={t('thinking')}
                   required
                   className="hbar-agent-policy-thinking"
                 >
@@ -168,7 +185,7 @@ export function AgentPolicyEditor({
                 <LumenFrame className="hbar-agent-policy-weight-row">
                   <LumenFormField
                     controlId={`${row.id}-weight`}
-                    label={labels.weight}
+                    label={t('weight')}
                     required
                     className="hbar-agent-policy-weight"
                   >
@@ -189,7 +206,7 @@ export function AgentPolicyEditor({
                       variant="text"
                       onClick={() => invoke('agentPolicy.remove', { rowId: row.id })}
                     >
-                      {labels.remove(index + 1)}
+                      {t('remove')(index + 1)}
                     </LumenButton>
                   </LumenFrame>
                 </LumenFrame>
@@ -199,11 +216,11 @@ export function AgentPolicyEditor({
         })}
       </LumenFrame>
       {entry?.snapshot && !entry.rows.length && (
-        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+        <LumenContentText context="section.description">{t('empty')}</LumenContentText>
       )}
       {entry?.snapshot && (
         <LumenContentText context="feedback.message" role="status">
-          {entry.dirty ? labels.unsaved : labels.saved}
+          {entry.dirty ? t('unsaved') : t('saved')}
         </LumenContentText>
       )}
       <LumenFrame className="hbar-agent-policy-actions">
@@ -213,7 +230,7 @@ export function AgentPolicyEditor({
           disabled={busy || !entry?.snapshot || entry.rows.length >= 32}
           onClick={() => invoke('agentPolicy.add')}
         >
-          {labels.add}
+          {t('add')}
         </LumenButton>
         <LumenButton
           size="s"
@@ -221,7 +238,7 @@ export function AgentPolicyEditor({
           disabled={!connected || entry?.status === 'saving' || !entry?.snapshot}
           onClick={() => invoke('agentPolicy.save')}
         >
-          {entry?.status === 'saving' ? labels.saving : entry?.status === 'unknown' ? labels.retry : labels.save}
+          {entry?.status === 'saving' ? t('saving') : entry?.status === 'unknown' ? t('retry') : t('save')}
         </LumenButton>
         <LumenButton
           size="s"
@@ -229,10 +246,10 @@ export function AgentPolicyEditor({
           disabled={busy || !entry?.snapshot}
           onClick={() => invoke('agentPolicy.save', { inherit: true })}
         >
-          {labels.inherit}
+          {t('inherit')}
         </LumenButton>
         <LumenButton size="s" variant="text" disabled={busy} onClick={() => invoke('agentPolicy.load')}>
-          {labels.refresh}
+          {t('refresh')}
         </LumenButton>
       </LumenFrame>
     </HbarLumenDisclosure>

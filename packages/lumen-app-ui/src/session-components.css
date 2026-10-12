@@ -1,0 +1,662 @@
+.lumen-conversation,
+.lumen-conversation-messages,
+.lumen-conversation-content,
+.lumen-message,
+.lumen-message-body,
+.lumen-prompt-composer,
+.lumen-run-activity,
+.lumen-run-copy,
+.lumen-run-status,
+.lumen-decision,
+.lumen-decision-target,
+.lumen-questionnaire,
+.lumen-questionnaire-questions,
+.lumen-question-option > span,
+.lumen-compact-usage {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.lumen-conversation {
+  inline-size: 100%;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--lumen-ink);
+  background: var(--lumen-canvas);
+}
+
+.lumen-conversation > header {
+  flex: 0 0 auto;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-conversation > header h2,
+.lumen-run-activity p,
+.lumen-decision p,
+.lumen-questionnaire p,
+.lumen-prompt-composer p {
+  margin: 0;
+}
+
+.lumen-conversation-messages {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: auto;
+}
+
+.lumen-conversation-content {
+  inline-size: min(100%, 56rem);
+  flex: 0 0 auto;
+  gap: var(--lumen-space-12);
+  margin-block-start: auto;
+  margin-inline: auto;
+  padding: var(--lumen-space-16);
+  overflow-anchor: none;
+}
+
+/* A single bottom anchor keeps deferred renderers from pushing the latest
+   content off-screen. Message order and positive scroll offsets stay normal. */
+.lumen-conversation-end-anchor {
+  block-size: 0.0625rem;
+  flex: 0 0 auto;
+  overflow-anchor: auto;
+}
+
+.lumen-conversation-messages[data-follow-latest='false'] {
+  overflow-anchor: none;
+}
+
+.lumen-conversation-latest {
+  align-self: center;
+  flex: 0 0 auto;
+}
+
+.lumen-conversation-virtual {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  overflow-anchor: none;
+}
+
+.lumen-conversation-virtual-row {
+  min-inline-size: 0;
+  padding-block-end: var(--lumen-space-12);
+}
+
+.lumen-message-surface,
+.lumen-run-activity-surface,
+.lumen-decision-surface,
+.lumen-questionnaire-surface,
+.lumen-inline-usage-surface {
+  inline-size: 100%;
+}
+
+.lumen-message {
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
+  background: transparent;
+}
+
+.lumen-message[data-role='user'] {
+  margin-inline-start: min(12%, var(--lumen-space-32));
+  border-color: color-mix(in srgb, var(--lumen-ink) 34%, var(--lumen-edge));
+}
+
+.lumen-message > header,
+.lumen-message > footer,
+.lumen-composer-toolbar,
+.lumen-composer-toolbar > div,
+.lumen-attachment-strip,
+.lumen-attachment-chip,
+.lumen-run-activity > header,
+.lumen-run-summary,
+.lumen-run-item,
+.lumen-run-plan summary,
+.lumen-run-plan li,
+.lumen-decision > header,
+.lumen-decision > footer,
+.lumen-questionnaire > header,
+.lumen-questionnaire > footer,
+.lumen-question-option,
+.lumen-inline-usage,
+.lumen-inline-usage > div {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.lumen-message > header {
+  gap: var(--lumen-space-8);
+}
+
+.lumen-message > header time {
+  margin-inline-start: auto;
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+}
+
+.lumen-message-avatar {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 50%;
+}
+
+.lumen-message-body {
+  overflow-wrap: anywhere;
+}
+
+.lumen-message > footer {
+  justify-content: flex-end;
+}
+
+.lumen-message-transcript {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--lumen-space-8);
+  color: var(--lumen-ink);
+}
+
+.lumen-message-transcript-body {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-message-transcript[data-role='user'] {
+  align-items: flex-end;
+}
+
+.lumen-message-transcript[data-role='user'] > .lumen-message-transcript-body {
+  max-inline-size: min(85%, 42rem);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+
+.lumen-message-transcript > footer {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-8);
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-message-transcript[data-role='user'] > footer {
+  justify-content: flex-end;
+}
+
+.lumen-message-transcript[data-role='system'] {
+  color: var(--lumen-muted);
+}
+
+.lumen-prompt-composer-surface {
+  inline-size: 100%;
+}
+
+.lumen-prompt-composer {
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  background: transparent;
+  box-shadow: 0 0 1rem color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+}
+
+.lumen-prompt-composer > textarea {
+  min-block-size: 4.5rem;
+  resize: vertical;
+}
+
+.lumen-attachment-strip {
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4);
+  overflow-x: auto;
+}
+
+.lumen-attachment-chip {
+  flex: 0 0 auto;
+  gap: var(--lumen-space-4);
+  padding-inline-start: var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+
+.lumen-attachment-chip img {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  object-fit: cover;
+}
+
+.lumen-attachment-chip > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.lumen-composer-toolbar {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--lumen-space-8);
+}
+
+.lumen-composer-toolbar > div {
+  gap: var(--lumen-space-4);
+}
+
+/* The rail owns overflow; complete labels retain their intrinsic width.
+   Primary send/stop actions remain outside it. A stable scroll track prevents
+   the toolbar from growing when a label becomes longer. */
+.lumen-composer-control-rail {
+  flex: 1 1 0;
+  overflow-x: scroll;
+  scrollbar-width: thin;
+  overscroll-behavior-inline: contain;
+  padding-block: var(--lumen-space-2);
+}
+
+.lumen-composer-control-rail:focus-visible {
+  outline: 0.125rem solid var(--lumen-edge);
+  outline-offset: -0.125rem;
+}
+
+.lumen-composer-leading-controls,
+.lumen-composer-trailing-controls,
+.lumen-composer-primary-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  /* Flex keeps the controls in one row. Text wrapping belongs to each control,
+     so nested reading popovers must not inherit a single-line text policy. */
+  white-space: normal;
+}
+
+.lumen-prompt-composer {
+  container: lumen-composer / inline-size;
+}
+.lumen-prompt-composer .lumen-composer-primary-action {
+  inline-size: var(--lumen-control-size);
+  block-size: var(--lumen-control-size);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  padding: 0;
+}
+@container lumen-composer (width < 40rem) {
+  .lumen-composer-primary-action {
+    --lumen-control-size: 2.75rem;
+  }
+}
+
+.lumen-composer-trailing-controls {
+  margin-inline-start: auto;
+}
+
+.lumen-composer-leading-controls > *,
+.lumen-composer-trailing-controls > *,
+.lumen-composer-control-rail button {
+  flex-shrink: 0;
+}
+
+.lumen-composer-queue-action {
+  flex: 0 0 auto;
+  inline-size: max-content;
+  max-inline-size: none;
+  min-inline-size: 0;
+  white-space: nowrap;
+}
+
+.lumen-uploading {
+  display: inline-flex;
+  min-inline-size: var(--lumen-control-size);
+  min-block-size: var(--lumen-control-size);
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  cursor: pointer;
+}
+
+.lumen-session-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.lumen-uploading .lumen-session-glyph,
+.lumen-message [data-role='streaming'] .lumen-session-glyph {
+  animation: lumen-session-pulse 1s ease-in-out infinite alternate;
+}
+
+.lumen-run-activity,
+.lumen-decision,
+.lumen-questionnaire {
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
+  background: transparent;
+}
+
+.lumen-run-activity {
+  container-type: inline-size;
+}
+
+.lumen-run-activity > header,
+.lumen-questionnaire > header {
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+}
+
+.lumen-run-activity > ol,
+.lumen-run-plan ol {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-run-activity[data-list-strategy='virtual'] > ol > li {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 4rem;
+}
+
+.lumen-run-item {
+  flex-wrap: wrap;
+  gap: var(--lumen-space-8);
+}
+
+.lumen-run-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 clamp(7.5rem, 18%, 9rem);
+  align-items: center;
+  justify-content: flex-end;
+  margin-inline-start: auto;
+}
+
+.lumen-run-actions > button {
+  max-inline-size: 100%;
+}
+
+.lumen-run-summary {
+  min-inline-size: 0;
+  flex: 1 1 20rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
+  border: 0;
+  border-radius: var(--lumen-radius-control);
+  background: transparent;
+  color: var(--lumen-ink);
+  font: inherit;
+  text-align: start;
+}
+
+.lumen-run-summary:not(:disabled) {
+  cursor: pointer;
+}
+
+.lumen-run-summary[aria-current='true'] {
+  box-shadow: inset 0.1875rem 0 0 var(--lumen-ink);
+}
+
+.lumen-run-marker {
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+  flex: 0 0 0.625rem;
+  border-radius: 50%;
+  background: var(--lumen-subtle);
+}
+
+.lumen-run-item[data-status='running'] .lumen-run-marker,
+.lumen-run-item[data-status='waiting_approval'] .lumen-run-marker {
+  background: var(--lumen-warning);
+  box-shadow: 0 0 0.625rem color-mix(in srgb, var(--lumen-warning) 55%, transparent);
+}
+
+.lumen-run-item[data-status='completed'] .lumen-run-marker {
+  background: var(--lumen-success);
+}
+
+.lumen-run-copy {
+  flex: 1 1 auto;
+}
+
+.lumen-run-copy small,
+.lumen-run-status small {
+  color: var(--lumen-muted);
+}
+
+.lumen-run-status {
+  flex: 0 0 auto;
+  align-items: flex-end;
+}
+
+.lumen-run-plan {
+  inline-size: 100%;
+  flex: 1 1 100%;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-run-plan summary {
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  padding-block: var(--lumen-space-8);
+  cursor: pointer;
+}
+
+.lumen-run-plan p {
+  color: var(--lumen-muted);
+}
+
+.lumen-run-plan li {
+  gap: var(--lumen-space-8);
+  padding-block: var(--lumen-space-4);
+}
+
+.lumen-run-plan li > span:first-child {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  flex: 0 0 0.5rem;
+  border-radius: 50%;
+  background: var(--lumen-subtle);
+}
+
+.lumen-run-plan li > span:nth-child(2) {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-run-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
+  text-align: center;
+}
+
+@container (width < 40rem) {
+  .lumen-run-summary {
+    flex-basis: 100%;
+  }
+
+  .lumen-run-actions {
+    flex: 1 1 100%;
+  }
+
+  .lumen-run-actions:empty {
+    display: none;
+  }
+}
+
+.lumen-decision > header {
+  gap: var(--lumen-space-8);
+}
+
+.lumen-decision > header > div {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.lumen-decision-target {
+  gap: var(--lumen-space-8);
+}
+
+.lumen-decision-target pre,
+.lumen-message-body pre {
+  max-inline-size: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.lumen-decision > footer,
+.lumen-questionnaire > footer {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--lumen-space-8);
+}
+
+.lumen-questionnaire-questions {
+  gap: var(--lumen-space-12);
+}
+
+.lumen-questionnaire fieldset {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  margin: 0;
+  padding: var(--lumen-space-12);
+  border: 0;
+}
+
+.lumen-questionnaire legend,
+.lumen-questionnaire fieldset > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+}
+
+.lumen-questionnaire legend > * {
+  display: block;
+}
+
+.lumen-question-option {
+  gap: var(--lumen-space-8);
+  cursor: pointer;
+}
+
+.lumen-question-option > span {
+  flex: 1 1 auto;
+  gap: var(--lumen-space-2);
+}
+
+.lumen-question-option small {
+  color: var(--lumen-muted);
+}
+
+.lumen-question-freeform > span {
+  inline-size: 100%;
+}
+
+.lumen-inline-usage {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  background: transparent;
+}
+
+.lumen-inline-usage > div:first-child {
+  flex: 1 1 12rem;
+  flex-direction: column;
+}
+
+.lumen-inline-usage > .lumen-compact-metrics {
+  flex: 2 1 16rem;
+}
+
+.lumen-inline-usage > .lumen-progress,
+.lumen-compact-usage > .lumen-progress {
+  inline-size: 100%;
+}
+
+.lumen-compact-usage {
+  gap: var(--lumen-space-8);
+}
+
+.lumen-usage-sparkline {
+  display: flex;
+  min-block-size: 4rem;
+  align-items: flex-end;
+  gap: var(--lumen-space-2);
+}
+
+.lumen-usage-sparkline > i {
+  min-block-size: 0.125rem;
+  flex: 1 1 0;
+  background: var(--lumen-ink);
+}
+
+[data-lumen-shape='square']
+  :is(
+    .lumen-message,
+    .lumen-prompt-composer,
+    .lumen-run-activity,
+    .lumen-decision,
+    .lumen-questionnaire,
+    .lumen-inline-usage
+  ) {
+  border-radius: 0;
+}
+
+@keyframes lumen-session-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+
+@media (width < 40rem) {
+  .lumen-conversation-content {
+    padding: var(--lumen-space-8);
+  }
+
+  .lumen-message[data-role='user'] {
+    margin-inline-start: 0;
+  }
+
+  .lumen-inline-usage {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lumen-inline-usage > div:first-child,
+  .lumen-inline-usage > .lumen-compact-metrics {
+    flex: 0 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-uploading .lumen-session-glyph {
+    animation: none;
+  }
+}

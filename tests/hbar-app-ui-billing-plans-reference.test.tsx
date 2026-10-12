@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { HbarAppUiBillingPlansContent } from '../packages/hbar-app-ui/src/index'
-import { ReferenceBillingPlans } from '../hbar-ui/packages/lumen-app-ui/src/billing/ReferenceBillingPlans'
+import { ReferenceBillingPlans } from '../packages/lumen-app-ui/src/billing/ReferenceBillingPlans'
 import { createBillingPlansReferenceFixture } from './fixtures/hbar-app-ui-billing-plans-reference-fixtures'
 
 function renderPlans(content: HbarAppUiBillingPlansContent): string {

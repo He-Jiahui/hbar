@@ -6,12 +6,12 @@ export function extensionCollectionCopy(locale: ShellLocale): HbarExtensionWorks
   const error = (code: string | null, collection: 'plugins' | 'skills') => {
     const name = zh ? (collection === 'plugins' ? '插件列表' : '技能列表') : collection
     if (code === 'CAPABILITY_UNAVAILABLE')
-      return zh ? `此 Host 尚未提供${name}读取能力。` : `This Host does not provide a ${name} reader.`
+      return zh ? `此宿主尚未提供${name}读取能力。` : `This Host does not provide a ${name} reader.`
     if (code === 'DISCONNECTED' || code === 'CONNECTION_CLOSED')
-      return zh ? `${name}未能读取。请连接 Host 后重试。` : `Could not read ${name}. Reconnect to the Host and retry.`
+      return zh ? `${name}未能读取。请连接宿主后重试。` : `Could not read ${name}. Reconnect to the Host and retry.`
     if (code === 'FORBIDDEN' || code === 'UNAUTHORIZED')
       return zh
-        ? `当前连接无权读取${name}。请确认 Host 授权后重试。`
+        ? `当前连接无权读取${name}。请确认宿主授权后重试。`
         : `This connection cannot read ${name}. Check Host access and retry.`
     return zh ? `${name}读取失败，请重试。` : `Could not read ${name}. Please retry.`
   }

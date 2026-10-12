@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenAuthMagicLinkContent } from '@lumen/app-ui'
+import type { LumenAuthMagicLinkContent } from '@lumen/app-ui/catalog'
 
 export interface Authentication5Seed {
   readonly email: string
