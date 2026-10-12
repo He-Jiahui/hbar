@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { auditResponsiveCss, lumenProductionCss, validateResponsiveRule } from '../../../scripts/check-responsive-contracts'
+import { auditResponsiveCss, lumenProductionCss, validateResponsiveRule } from '../scripts/check-responsive-contracts'
 
 async function removeOwnedFixture(root: string): Promise<void> {
   const target = resolve(root)
@@ -51,13 +51,18 @@ describe('responsive CSS contracts', () => {
         mkdir(appReactSource, { recursive: true }),
       ])
       await writeFile(join(lumenSource, 'styles.css'), "@import './component.css';\n")
-      await writeFile(join(lumenSource, 'component.css'), '@container missing-pane (width < 40rem) { .item { display: none; } }\n')
+      await writeFile(
+        join(lumenSource, 'component.css'),
+        '@container missing-pane (width < 40rem) { .item { display: none; } }\n',
+      )
       await writeFile(join(lumenSource, 'workbench-component-styles.ts'), '')
 
       const result = await auditResponsiveCss(root)
-      expect(result.errors.some((error) => error.includes('@container missing-pane (width < 40rem) has no declared named container.'))).toBe(
-        true,
-      )
+      expect(
+        result.errors.some((error) =>
+          error.includes('@container missing-pane (width < 40rem) has no declared named container.'),
+        ),
+      ).toBe(true)
     } finally {
       await removeOwnedFixture(root)
     }
