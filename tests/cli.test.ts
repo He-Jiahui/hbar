@@ -73,6 +73,11 @@ test('help is available without starting a Host', async () => {
   expect(result.code).toBe(0)
   expect(result.stdout).toContain('hbar [message...]')
   expect(result.stdout).toContain('--headless')
+  expect(result.stdout).toContain('--connect-only')
+
+  const serve = await run(['--connect-only', 'serve'])
+  expect(serve.code).not.toBe(0)
+  expect(serve.stderr).toContain('--connect-only cannot be used with serve')
 })
 
 test('command catalog opens without a configured model or a selected session', async () => {
@@ -99,6 +104,19 @@ test('command catalog opens without a configured model or a selected session', a
     expect(
       (JSON.parse(result.stdout) as { items: { metadata: { id: string } }[] }).items.map((item) => item.metadata.id),
     ).toEqual(['session.clearBudget', 'session.getBudget', 'session.setBudget'])
+    const attachedRead = await run([
+      '--connect-only',
+      '--data-root',
+      isolatedData,
+      '--cache-root',
+      isolatedCache,
+      '--project',
+      isolatedProject,
+      'exec',
+      'system.diagnose',
+    ])
+    expect(attachedRead.code).toBe(0)
+    expect(attachedRead.stdout).toContain('instanceId')
     const connection = await run([
       '--data-root',
       isolatedData,
@@ -129,6 +147,57 @@ test('command catalog opens without a configured model or a selected session', a
     expect(missing.stderr).not.toContain('Model not found')
     const db = new Database(join(isolatedData, 'databases', 'hbar.sqlite'))
     try {
+      expect((db.query('SELECT count(*) AS total FROM sessions').get() as { total: number }).total).toBe(0)
+      const workspacesBefore = (db.query('SELECT count(*) AS total FROM workspaces').get() as { total: number }).total
+      const missingProject = await run([
+        '--connect-only',
+        '--data-root',
+        isolatedData,
+        '--cache-root',
+        isolatedCache,
+        '--project',
+        join(isolated, 'unregistered-project'),
+        '--headless',
+        '--message',
+        'must not create a project',
+      ])
+      expect(missingProject.code).not.toBe(0)
+      expect(missingProject.stderr).toContain('Project not found on the attached Host')
+      expect((db.query('SELECT count(*) AS total FROM workspaces').get() as { total: number }).total).toBe(
+        workspacesBefore,
+      )
+      const fileProject = join(isolated, 'unregistered-file-project')
+      await mkdir(fileProject, { recursive: true })
+      const missingFileProject = await run([
+        '--connect-only',
+        '--data-root',
+        isolatedData,
+        '--cache-root',
+        isolatedCache,
+        '--project',
+        fileProject,
+        'exec',
+        'file.list',
+      ])
+      expect(missingFileProject.code).not.toBe(0)
+      expect(missingFileProject.stderr).toContain('Project not found on the attached Host')
+      expect((db.query('SELECT count(*) AS total FROM workspaces').get() as { total: number }).total).toBe(
+        workspacesBefore,
+      )
+      const missingSession = await run([
+        '--connect-only',
+        '--data-root',
+        isolatedData,
+        '--cache-root',
+        isolatedCache,
+        '--project',
+        isolatedProject,
+        '--headless',
+        '--message',
+        'must not create a session',
+      ])
+      expect(missingSession.code).not.toBe(0)
+      expect(missingSession.stderr).toContain('Session not found in this project')
       expect((db.query('SELECT count(*) AS total FROM sessions').get() as { total: number }).total).toBe(0)
     } finally {
       db.close()
@@ -195,6 +264,7 @@ test('exec budget uses the same Host command, returns a receipt, and reconciles 
   common.push('--session', sessionId)
   const first = await run([
     ...common,
+    '--connect-only',
     'exec',
     'session.setBudget',
     '500',

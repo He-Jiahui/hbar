@@ -123,7 +123,10 @@ try {
     console.log(completion(args.commandArgs[0]))
     process.exit(0)
   }
-  if (args.command === 'serve') process.exit(await serve(args))
+  if (args.command === 'serve') {
+    if (args.connectOnly) throw new Error('--connect-only cannot be used with serve')
+    process.exit(await serve(args))
+  }
   if (args.command === 'attach') {
     await attached(args)
     process.exit(0)
@@ -183,7 +186,7 @@ try {
       let projectId: string | undefined
       if (commandArgs[0] === 'plugin.install') {
         const bootstrap = await client.call('system.bootstrap', {})
-        projectId = (await selectProject(client, bootstrap, args.workspace ?? args.project)).id
+        projectId = (await selectProject(client, bootstrap, args.workspace ?? args.project, !args.connectOnly)).id
       }
       await runExtensionCommand({ ...args, commandArgs }, client, projectId)
     } finally {
@@ -271,7 +274,7 @@ try {
     const { client } = await openCatalogClient(args)
     try {
       const bootstrap = await client.call('system.bootstrap', {})
-      const project = await selectProject(client, bootstrap, args.workspace ?? args.project)
+      const project = await selectProject(client, bootstrap, args.workspace ?? args.project, !args.connectOnly)
       await runFileCommand(args, { client, project })
     } finally {
       client.disconnect()
@@ -292,6 +295,7 @@ try {
       (args.command !== 'exec' && args.command !== 'model') ||
       ['run.submit', 'agent.create'].includes(args.commandArgs[0] ?? ''),
     createSession: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
+    explicitSessionCreate: args.command === 'exec' && args.commandArgs[0] === 'run.submit',
   })
   try {
     if (args.command === 'repl') {
