@@ -72,6 +72,52 @@ test('a failed owner path resolution never falls back to the conversation filesy
   expect(result).toBe(failure)
 })
 
+for (const dialect of ['posix', 'win32'] as const)
+  for (const caseInsensitive of [false, true])
+    test(`the ${dialect} owner cannot widen grants or bypass exclusions with either advertised case mode (${caseInsensitive})`, async () => {
+      const path = dialect === 'win32' ? win32 : posix
+      const root = dialect === 'win32' ? 'C:\\remote\\project' : '/remote/project'
+      const port: SandboxPathPort = {
+        ...path,
+        separator: dialect === 'win32' ? '\\' : '/',
+        caseInsensitive,
+        canonical: async (value) => value,
+      }
+      const profile = await resolveSandboxProfile(':workspace-write', async () => null)
+      const input = {
+        workspace: root,
+        tool: {
+          name: 'write_file',
+          effect: 'write' as const,
+          workspaceAccess: { kind: 'paths' as const, arguments: [{ field: 'path', access: 'write' as const }] },
+        },
+        args: { path: 'Source/file.ts' },
+      }
+      expect(
+        await evaluateSandboxCall(
+          { ...profile, filesystem: { default: 'none', grants: [{ path: 'source', access: 'write' }] } },
+          input,
+          port,
+        ),
+      ).toMatchObject({ decision: 'ask', reason: { kind: 'path', granted: 'none' } })
+      expect(
+        await evaluateSandboxCall(
+          { ...profile, filesystem: { default: 'write', grants: [{ path: '.secrets', access: 'none' }] } },
+          { ...input, args: { path: '.SECRETS/file' } },
+          port,
+        ),
+      ).toMatchObject({ decision: 'deny', reason: { kind: 'path', granted: 'none' } })
+      expect(
+        (
+          await evaluateSandboxCall(
+            { ...profile, filesystem: { default: 'none', grants: [{ path: 'source', access: 'write' }] } },
+            { ...input, args: { path: 'source/file.ts' } },
+            port,
+          )
+        ).decision,
+      ).toBe('allow')
+    })
+
 test('the node can verify the same canonical snapshot, while tampering and profile substitution fail', async () => {
   const profile = await resolveSandboxProfile(':workspace-write', async () => null)
   const { data, digest } = sandboxSnapshotContent(profile)

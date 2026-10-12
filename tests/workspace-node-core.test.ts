@@ -187,6 +187,22 @@ test('relative paths, readonly roots, protected directories and symlinks cannot 
   })
   expect(await Bun.file(join(f.workspace, 'file.txt')).text()).toBe('old')
 })
+
+test('the node protects credential and hooks case aliases even if their configured spelling is absent', async () => {
+  const f = await fixture()
+  await mkdir(join(f.workspace, '.GIT/HOOKS'), { recursive: true })
+  await mkdir(join(f.workspace, 'Credentials'))
+  await writeFile(join(f.workspace, '.GIT/HOOKS/secret'), 'hook')
+  await writeFile(join(f.workspace, 'Credentials/key'), 'key')
+  await f.node.setPolicy({ ...f.node.policy, protectedPaths: [join(f.workspace, 'credentials')] })
+  for (const path of ['.GIT/HOOKS/secret', 'Credentials/key']) {
+    expect(await failure(f.node.read('engine', path, authority))).toMatchObject({ code: 'NODE_DENIED' })
+    expect(await failure(f.node.write('engine', path, 'changed', 'run:' + path, authority))).toMatchObject({
+      code: 'NODE_DENIED',
+    })
+  }
+  expect(new TextDecoder().decode(await f.node.read('engine', 'file.txt', authority))).toBe('old')
+})
 test('concurrent duplicate keys execute once and conflicting parameter reuse cannot execute again', async () => {
   const f = await fixture()
   await Promise.all(Array.from({ length: 8 }, () => f.node.start(f.request())))

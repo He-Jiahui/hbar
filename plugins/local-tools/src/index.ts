@@ -1,5 +1,5 @@
 import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'node:fs/promises'
-import { resolve, relative, dirname, isAbsolute, join, basename, posix } from 'node:path'
+import { resolve, relative, dirname, join, basename, posix } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { definePlugin, provide, resolveToolTimeoutMs } from '@hbar/plugin-sdk'
@@ -7,6 +7,7 @@ import type { ExecOptions, ExecutionProvider, ToolResult, WorkspaceQueryProvider
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import { HbarError } from '@hbar/contracts'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import { isPathWithin } from '@hbar/contracts/path-containment'
 import {
   workspaceFindInputSchema,
   workspaceFindToolInputSchema,
@@ -63,12 +64,11 @@ export interface VerifiedManagedWorkspaceAccess {
   verify: (canonicalWorkspace: string) => boolean | Promise<boolean>
 }
 
-function inside(root: string, candidate: string): boolean {
-  const rel = relative(root, candidate)
-  return (
-    rel === '' ||
-    (rel !== '..' && !rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !isAbsolute(rel))
-  )
+function inside(root: string, candidate: string, protectedPath = false): boolean {
+  return isPathWithin(resolve(root), resolve(candidate), {
+    separator: process.platform === 'win32' ? '\\' : '/',
+    caseInsensitive: protectedPath,
+  })
 }
 
 async function effectiveBlockedPaths(
@@ -189,9 +189,7 @@ export async function workspacePath(
   }
   if (!inside(root, actual!)) throw new HbarError('PATH_DENIED', 'Symlink resolves outside the workspace')
   for (const protectedPath of blocked) {
-    const relation = relative(protectedPath, actual!)
-    if (!relation || (!relation.startsWith('..') && !isAbsolute(relation)))
-      throw new HbarError('PATH_DENIED', 'Host runtime data is protected')
+    if (inside(protectedPath, actual!, true)) throw new HbarError('PATH_DENIED', 'Host runtime data is protected')
   }
   return path
 }
@@ -218,7 +216,11 @@ export class LocalExecution implements ExecutionProvider {
 
   private async blockedForWorkspace(workspace: string) {
     assertLocalWorkspace(workspace)
-    return effectiveBlockedPaths(workspace, [...this.blocked, ...(this.additionalBlocked?.get(workspace) ?? [])], this.managedWorkspace)
+    return effectiveBlockedPaths(
+      workspace,
+      [...this.blocked, ...(this.additionalBlocked?.get(workspace) ?? [])],
+      this.managedWorkspace,
+    )
   }
 
   private async workspacePath(workspace: string, requested: string, writing = false) {

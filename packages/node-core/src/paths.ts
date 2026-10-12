@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import { HbarError } from '@hbar/contracts'
 import { nodeRelativePathSchema, type NodeFloor } from '@hbar/contracts/node'
 import type { SandboxPathPort } from '@hbar/sandbox'
+import { isPathWithin } from '@hbar/contracts/path-containment'
 
 export async function canonicalNodePath(path: string): Promise<string> {
   const missing: string[] = []
@@ -29,9 +30,8 @@ export const localNodePaths: SandboxPathPort = {
   separator: process.platform === 'win32' ? '\\' : '/',
   caseInsensitive: process.platform === 'win32' || process.platform === 'darwin',
 }
-function inside(root: string, path: string): boolean {
-  const part = relative(root, path)
-  return part !== '..' && !part.startsWith('..' + localNodePaths.separator) && !isAbsolute(part)
+function inside(root: string, path: string, protectedPath = false): boolean {
+  return isPathWithin(root, path, { separator: localNodePaths.separator, caseInsensitive: protectedPath })
 }
 export function expandProtectedPath(path: string): string {
   return resolve(path.startsWith('~/') || path.startsWith('~\\') ? join(homedir(), path.slice(2)) : path)
@@ -67,7 +67,7 @@ export async function nodeOwnedPath(
   const protectedPaths = nodeProtectedPaths(floor, dataRoot)
   for (const blocked of protectedPaths) {
     const protectedPath = await canonicalNodePath(blocked)
-    if (inside(protectedPath, path) || inside(resolve(blocked), lexical))
+    if (inside(protectedPath, path, true) || inside(resolve(blocked), lexical, true))
       throw new HbarError('NODE_DENIED', 'The path is protected by this node')
   }
   return { root: canonicalRoot, path, registration: root }
@@ -81,7 +81,7 @@ export async function validateNodeRoots(floor: NodeFloor, dataRoot: string, regi
     if (!register && canonical !== resolve(root.path))
       throw new HbarError('NODE_ROOT_CHANGED', 'The persisted shared root resolves to a different location')
     if (!(await stat(canonical)).isDirectory()) throw new HbarError('INVALID_INPUT', 'Shared root is not a directory')
-    if (inside(await canonicalNodePath(dataRoot), canonical))
+    if (inside(await canonicalNodePath(dataRoot), canonical, true))
       throw new HbarError('NODE_DENIED', 'The node data directory cannot be shared')
     if (seen.has(canonical)) throw new HbarError('INVALID_INPUT', 'Shared roots must be distinct')
     seen.add(canonical)

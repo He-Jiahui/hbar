@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rename, rm, stat, unlink, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rename, rm, stat, unlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { NativeWorkspaceQuery, nativeWorkspaceQueryVersion } from '@hbar/local-tools/native-query'
@@ -8,6 +8,45 @@ const roots: string[] = []
 
 afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
+})
+
+test('native discovery and content queries exclude protected case aliases before reading or counting them', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-native-protected-'))
+  roots.push(root)
+  await mkdir(join(root, '.GIT/HOOKS'), { recursive: true })
+  await writeFile(join(root, '.GIT/HOOKS/secret.txt'), 'secret needle\n')
+  await writeFile(join(root, 'visible.txt'), 'visible needle\n')
+  const query = new NativeWorkspaceQuery(1024 * 1024)
+  const common = {
+    workspace: root,
+    path: '.',
+    include: [],
+    exclude: [],
+    includeHidden: true,
+    blocked: [join(root, '.git/hooks')],
+    limit: 20,
+  }
+  expect(await query.find(common, crypto.randomUUID())).toMatchObject({ paths: ['visible.txt'], filesChecked: 1 })
+  const result = await query.search(
+    {
+      ...common,
+      pattern: 'needle',
+      literal: true,
+      caseMode: 'sensitive',
+      beforeContext: 0,
+      afterContext: 0,
+    },
+    crypto.randomUUID(),
+  )
+  expect(result.matches.map((match) => match.path)).toEqual(['visible.txt'])
+  expect(result.cache.contentMisses).toBe(1)
+  const denied = await query
+    .read(
+      { workspace: root, path: '.GIT/HOOKS/secret.txt', blocked: common.blocked, startLine: 1, lineCount: 1 },
+      crypto.randomUUID(),
+    )
+    .catch((error: unknown) => error)
+  expect(denied).toBeInstanceOf(Error)
 })
 
 test('native workspace query searches, finds, reads ranges, and validates cached file versions', async () => {

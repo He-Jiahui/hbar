@@ -123,17 +123,18 @@ export async function evaluateSandboxCall(
       }
     : profile
   const commandValue = input.tool.commandArgument === undefined ? undefined : input.args[input.tool.commandArgument]
-  return evaluateSandbox(
-    scopedProfile,
-    {
-      tool: input.tool.name,
-      effect: input.tool.effect,
-      paths,
-      // A declared command argument that is not text cannot be matched and is outside the profile.
-      command: input.tool.commandArgument === undefined ? null : typeof commandValue === 'string' ? commandValue : '',
-    },
-    { workspaceRoot: root, caseInsensitive },
-  )
+  const call = {
+    tool: input.tool.name,
+    effect: input.tool.effect,
+    paths,
+    // A declared command argument that is not text cannot be matched and is outside the profile.
+    command: input.tool.commandArgument === undefined ? null : typeof commandValue === 'string' ? commandValue : '',
+  }
+  const preferred = evaluateSandbox(scopedProfile, call, { workspaceRoot: root, caseInsensitive })
+  const alternate = evaluateSandbox(scopedProfile, call, { workspaceRoot: root, caseInsensitive: !caseInsensitive })
+  // A single tree can mix case modes. An alias must neither widen an allow nor bypass a restriction.
+  const strength = { allow: 0, ask: 1, deny: 2 }
+  return strength[alternate.decision] > strength[preferred.decision] ? alternate : preferred
 }
 
 /** Model-facing explanation; it names the rule so the model can adjust instead of retrying blindly. */

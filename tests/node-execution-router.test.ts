@@ -182,6 +182,8 @@ test('node path translation uses the owner dialect and rejects traversal and oth
   expect(() => nodeExecutionRelativePath(linux, '/srv/project-other/file')).toThrow()
   expect(() => nodeExecutionRelativePath(windows, 'Y:\\private\\file')).toThrow()
   expect(() => nodeExecutionRelativePath(windows, 'Z:relative')).toThrow()
+  expect(() => nodeExecutionRelativePath(windows, 'Z:\\PROJECT\\private')).toThrow()
+  expect(() => nodeExecutionRelativePath(linux, '/srv/PROJECT/private')).toThrow()
 })
 
 test("a changed Host scope during metadata exchange cannot alter this call's captured authority", async () => {
