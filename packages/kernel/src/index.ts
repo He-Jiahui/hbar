@@ -101,7 +101,7 @@ import type {
   DiagnosticSink,
   DiagnosticScopePort,
 } from '@hbar/contracts'
-import { createKernelExecutionDiagnostics } from './execution-diagnostics'
+import { createKernelExecutionDiagnostics, toolFailureDiagnosticCode } from './execution-diagnostics'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
 import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
@@ -2844,7 +2844,7 @@ export class Kernel {
             this.executionDiagnostics.toolFailed(
               toolDiagnosticIdentity,
               name,
-              hostFailure.code,
+              toolFailureDiagnosticCode(error),
               performance.now() - toolStartedAt,
             )
         }
