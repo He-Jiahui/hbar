@@ -10,7 +10,13 @@ import {
 } from '@hbar/commands'
 /** Public application error for View-side validation without reaching into command infrastructure. */
 export { CommandError as RuntimeCommandError } from '@hbar/commands'
-export { createMessageResources, type MessageResources, type MessageResourcePort, type ResourceReferenceSource, type ResourceOpenMode } from './message-resources'
+export {
+  createMessageResources,
+  type MessageResources,
+  type MessageResourcePort,
+  type ResourceReferenceSource,
+  type ResourceOpenMode,
+} from './message-resources'
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
@@ -1698,3 +1704,23 @@ export function createAppRuntime(options: RuntimeOptions) {
     },
   }
 }
+
+export {
+  type SessionStopRun,
+  type SessionStopSnapshot,
+  type SessionStopScope,
+  type SessionStopTarget,
+  type SessionStopKey,
+  type SessionStopKeyScope,
+  type SessionStopFeedbackKind,
+  type SessionStopFeedback,
+  sameSessionStopScope,
+  sameSessionStopTarget,
+  sessionStopScope,
+  sessionStopToolMatches,
+  activeSessionStopRun,
+  sessionStopCanCancel,
+  sessionStopTarget,
+  shouldStopSessionKey,
+  sessionStopFeedback,
+} from './session-stop-policy'

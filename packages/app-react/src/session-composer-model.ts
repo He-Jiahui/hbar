@@ -1012,6 +1012,9 @@ export function useSessionComposer({
   })()
   const composerState = getComposerState({
     connected,
+    sessionLoaded: timeline.sessionId === sessionId,
+    timelineStatus: timeline.status,
+    cancelAllowed: Boolean(activeRun && canCancelRun(activeRun.id)),
     preparation: preparationStatus,
     firstSend: firstSendDraft,
     workspaceMove: workspaceMoveEntry,

@@ -85,7 +85,6 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
     activeConversationOwner,
     intent,
     activeRun,
-    canCancelRun,
     projectContext,
     branchTargetsAvailable,
     branchTargetEntry,
@@ -175,6 +174,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
       <LumenFrame
         className="hbar-app-react-session-footer"
         data-hbar-composer-session={sessionId}
+        data-composer-blocked-reason={composerState.blockedReason ?? undefined}
         data-git-context-status={projectContext.context.status}
       >
         <HbarComposerPrimaryNotice />
@@ -487,19 +487,12 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                 </>
               ) : undefined
             }
-            disabled={
-              firstSendLocked ||
-              workspaceMoveLocked ||
-              (connected &&
-                ((!firstSendDraft && timeline.sessionId !== sessionId) ||
-                  timeline.status === 'loading' ||
-                  timeline.status === 'error'))
-            }
+            disabled={composerState.editorDisabled}
             submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
             uploading={(draft?.uploading ?? 0) > 0}
             canAddAttachments={canAddAttachments}
             canSubmit={composerState.canSubmit}
-            canStop={Boolean(activeRun)}
+            canStop={composerState.showStop}
             runningActions={{
               ...labels.runningActions,
               submit:
@@ -508,7 +501,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                   ? 'queue'
                   : 'hidden',
             }}
-            stopping={Boolean(activeRun && !canCancelRun(activeRun.id))}
+            stopping={composerState.showStop && !composerState.canStop}
             error={
               !connected
                 ? undefined
@@ -546,13 +539,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                     hostDefault={permissionDefault}
                     defaultAvailable={permissionAvailable}
                     connected={connected}
-                    disabled={
-                      workspaceMoveLocked ||
-                      firstSendLocked ||
-                      draft?.status === 'submitting' ||
-                      draft?.status === 'unknown' ||
-                      intentPending
-                    }
+                    disabled={composerState.optionControlsLocked}
                     runActive={Boolean(activeRun)}
                     canPrepare={canPrepare}
                     labels={labels.permissionPicker}
@@ -608,13 +595,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                   onPrepared={() => setGoalPreparedRequest((request) => request + 1)}
                   sessionId={sessionId}
                   connected={connected}
-                  disabled={
-                    workspaceMoveLocked ||
-                    firstSendLocked ||
-                    draft?.status === 'submitting' ||
-                    draft?.status === 'unknown' ||
-                    Boolean(permissionEntry?.locked)
-                  }
+                  disabled={composerState.intentControlsLocked}
                   canPrepare={canPrepare}
                   labels={labels.intent}
                 />

@@ -3,6 +3,9 @@ import { getComposerState, isSessionWorkspaceMoveLocked, type ComposerStateInput
 
 const ready: ComposerStateInput = {
   connected: true,
+  sessionLoaded: true,
+  timelineStatus: 'ready',
+  cancelAllowed: false,
   preparation: 'ready',
   firstSend: undefined,
   workspaceMove: undefined,
@@ -57,4 +60,39 @@ test('workspace migration locks the source and known target until success is con
   expect(isSessionWorkspaceMoveLocked({ status: 'failed', targetSessionId: 'target' })).toBe(true)
   expect(isSessionWorkspaceMoveLocked({ status: 'succeeded', targetSessionId: 'target' })).toBe(false)
   expect(isSessionWorkspaceMoveLocked({ status: 'failed', targetSessionId: null })).toBe(false)
+})
+
+test('composer reasons prioritize ownership and recovery while offline text remains editable', () => {
+  const offline = getComposerState({ ...ready, connected: false, modelPending: true })
+  expect(offline.blockedReason).toBe('disconnected')
+  expect(offline.editorDisabled).toBe(false)
+  expect(offline.locked).toBe(false)
+  const moving = getComposerState({
+    ...ready,
+    workspaceMove: { status: 'unknown', targetSessionId: null },
+    permissionLocked: true,
+  })
+  expect(moving.blockedReason).toBe('workspace-move')
+  expect(moving.editorDisabled).toBe(true)
+  expect(moving.optionControlsLocked).toBe(true)
+  expect(moving.intentControlsLocked).toBe(true)
+  const permission = getComposerState({ ...ready, permissionLocked: true })
+  expect(permission.blockedReason).toBe('permission')
+  expect(permission.editorDisabled).toBe(false)
+  expect(permission.optionControlsLocked).toBe(false)
+  expect(permission.intentControlsLocked).toBe(true)
+  expect(getComposerState({ ...ready, timelineStatus: 'error' }).blockedReason).toBe('history')
+  expect(
+    getComposerState({ ...ready, slash: 'goal', permissionLocked: true, goalReplacement: true }).blockedReason,
+  ).toBeNull()
+})
+
+test('an active stop stays visible while only a confirmed owned cancellation can dispatch', () => {
+  const running = { ...ready, runActive: true, cancelAllowed: true }
+  expect(getComposerState(running).canStop).toBe(true)
+  const checking = getComposerState({ ...running, cancelAllowed: false })
+  expect(checking.showStop).toBe(true)
+  expect(checking.canStop).toBe(false)
+  expect(getComposerState({ ...running, connected: false }).canStop).toBe(false)
+  expect(getComposerState({ ...running, runActive: false }).showStop).toBe(false)
 })
