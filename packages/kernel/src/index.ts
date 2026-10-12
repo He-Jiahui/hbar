@@ -547,12 +547,14 @@ export class Kernel {
       ...(options.diagnosticFullCoverage === undefined ? {} : { diagnosticsFullCoverage: options.diagnosticFullCoverage }),
       ...(options.onFatal ? { onFatal: options.onFatal } : {}),
     })
+    const onFatal = suppliedStorage.onFatal
     const guardedStorage: StoragePort = {
       call: (method, ...args) => {
         if (this.preparing) assertStoragePreflightMethod(method)
         return suppliedStorage.call(method, ...args)
       },
       close: () => suppliedStorage.close(),
+      ...(onFatal ? { onFatal: (listener) => onFatal.call(suppliedStorage, listener) } : {}),
     }
     this.storage = this.executionScope.storage(guardedStorage)
     this.runtimeRecovery = new RuntimeRecoveryService(this.storage, {

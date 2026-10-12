@@ -17,6 +17,7 @@ import { z } from 'zod'
 
 type FaultStorage = StoragePort & {
   readonly callCount: number
+  readonly fatalListenerCount: number
   fail(event: StorageFatalEvent): void
   holdAppend(): Promise<void>
   releaseAppend(): void
@@ -38,6 +39,9 @@ class FaultInjectingStorage implements FaultStorage {
   constructor(private readonly delegate: Storage) {}
   get callCount() {
     return this.calls
+  }
+  get fatalListenerCount() {
+    return this.listeners.size
   }
   methodCount(method: keyof StorageMethods) {
     return this.counts.get(method) ?? 0
@@ -195,6 +199,9 @@ function waitForClose(socket: WebSocket) {
 
 test('real Host health and authenticated WebSocket fail closed after typed storage fatal', async () => {
   const { storage, kernel, url, token, client } = await fixture()
+  const forwardedFatal: StorageFatalEvent[] = []
+  const removeFatalObserver = kernel.storage.onFatal?.((event) => forwardedFatal.push(event))
+  expect(removeFatalObserver).toBeFunction()
   const healthBefore = await fetch(`${url}/healthz`)
   expect(healthBefore.status).toBe(200)
   const healthBeforeBody = healthSchema.parse(await healthBefore.json())
@@ -218,15 +225,18 @@ test('real Host health and authenticated WebSocket fail closed after typed stora
   await hello
   const callsBeforeFatal = storage.callCount
   const closed = waitForClose(socket)
-  storage.fail({
+  const fatalEvent: StorageFatalEvent = {
     kind: 'timeout',
     code: 'STORAGE_TIMEOUT',
     message: 'API_KEY_CANARY SQL_CANARY PAYLOAD_CANARY injected timeout',
     method: 'append',
     occurredAt: Date.now(),
-  })
+  }
+  storage.fail(fatalEvent)
   const close = await closed
   expect(close.code).toBe(1012)
+  expect(forwardedFatal).toEqual([fatalEvent])
+  removeFatalObserver?.()
   expect(kernel.storageHealth()).toMatchObject({ ready: false, failure: { code: 'STORAGE_TIMEOUT', method: 'append' } })
 
   const healthAfter = await fetch(`${url}/healthz`)
@@ -258,13 +268,17 @@ test('normal Kernel and Host close does not report a storage fatal event', async
   const { storage, kernel, host, client, resource } = await fixture()
   const events: StorageFatalEvent[] = []
   const remove = storage.onFatal?.((event) => events.push(event))
+  expect(storage.fatalListenerCount).toBe(3)
   client.disconnect()
   for (let attempts = 0; attempts < 5 && client.connectionStatus() !== 'disconnected'; attempts++) await Bun.sleep(5)
   await host.close()
+  expect(storage.fatalListenerCount).toBe(2)
   await kernel.close()
+  expect(storage.fatalListenerCount).toBe(1)
   delete resource.host
   delete resource.kernel
   remove?.()
+  expect(storage.fatalListenerCount).toBe(0)
   expect(events).toEqual([])
 })
 
