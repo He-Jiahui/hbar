@@ -139,6 +139,12 @@ export const nodeExecStartSchema = scoped.extend({
   command: z.string().min(1).max(NODE_LIMITS.commandCharacters),
   timeoutMs: z.number().int().positive().max(1_200_000),
 })
+/** Execution must be allowed to reach its bounded settlement before transport expiry. */
+export function nodeRequestTimeoutMs(method: string, input: unknown): number {
+  if (method === 'exec.start') return nodeExecStartSchema.parse(input).timeoutMs + 5_000
+  if (method === 'exec.cancel') return 120_000
+  return 30_000
+}
 export const nodeExecResultSchema = z.strictObject({
   text: z.string().max(NODE_LIMITS.outputBytes),
   isError: z.boolean(),

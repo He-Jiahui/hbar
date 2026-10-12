@@ -56,6 +56,8 @@ A 已提交登记但 B 未收到最终确认帧时，B 可携旧邀请码发起�
 
 A 的 `node-link` 单元已加入源码和打包后的 Supervisor 目录，通过私有具名登记与观察读取端口工作。准备阶段不写身份，激活后才拥有邀请、握手、节点 peer 和心跳。稳定适配器只保存 socket 与绑定的进程 incarnation，限制每连接 32 个、总体 64 个转发请求；控制转发有预留 IPC 容量。单元故障、退出和替换关闭其旧 socket，重新认证仍使用保存的 A 身份；测试同时验证真实进程崩溃恢复。
 
+节点双向传输的 `exec.start` 预算现按校验后的进程时限增加 5 秒结算时间，`exec.cancel` 为 120 秒，其他方法为 30 秒；A 的私有节点转发再增加 15 秒。显式短时限仍可收紧传输预算，取消或链接丢失仍返回需要回执对账的未知结果。真实计时测试验证 31 秒处理不会被普通请求的 30 秒时限提前中断。
+
 稳定 Host 已接入独立 `/node` 路由：节点 socket 不进入操作员认证、订阅、终端或 Controller RPC 分发。拒绝浏览器 Origin、设备 cookie/token 和带查询参数的节点连接；非 loopback 来源需要原生 TLS。操作员可执行 `hbar exec node.invite --name build-box`、`hbar exec node.list --limit 20` 和 `hbar exec node.revoke <nodeId或唯一名称>`，这些命令直接调用受管链路单元，节点网络方法表不包含它们。Client SDK 提供类型化节点管理客户端；CLI 管理入口不隐式创建会话。Host 实际连接测试覆盖加入、共享文件调用、受限观察者拒绝管理与撤销后立即断开。远程工作区工具路由和两端 UI 尚待后续实现。
 
 服务命令允许全局选项位于 `serve` 或 `node` 前面，选项值不会被误判为命令。A 可用 `hbar serve --role conversation --host <地址> --port <端口> --cert <证书PEM> --key <私钥PEM>` 启用 TLS；CLI 会转发绑定地址、证书、数据路径与 profile，并在启动前拒绝非法角色、端口及缺失的证书对。B 显式启用 TLS 证书校验。私有 CA 可通过 Bun 的 [SSL_CERT_FILE 配置](https://bun.sh/docs/runtime/environment-variables)追加信任；独立源程序进程测试验证未受信证书被拒绝、追加测试 CA 后 WSS 加入成功，编译程序验证命令前选项的工作区启动。

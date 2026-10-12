@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { NODE_LIMITS, nodeWorkspaceMethods, type NodeWorkspaceMethod } from '@hbar/contracts/node'
+import { NODE_LIMITS, nodeWorkspaceMethods, nodeRequestTimeoutMs, type NodeWorkspaceMethod } from '@hbar/contracts/node'
 import { nodeRegistryStateMethods, type NodeRegistryStatePort } from '@hbar/contracts/node-registry'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
 import type { NodeListInput } from '@hbar/contracts/node-management'
@@ -241,7 +241,7 @@ export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
     const output = nodeWorkspaceMethods[method].output
     const result: unknown = await endpoint.peer.call<unknown>('nodeLink.call', { nodeId, method, input }, output, {
       ...(signal ? { signal } : {}),
-      timeoutMs: method === 'exec.cancel' ? 120_000 : 45_000,
+      timeoutMs: nodeRequestTimeoutMs(method, input) + 15_000,
     })
     // The selected node-method schema validates this associated generic output.
     return output.parse(result) as z.output<(typeof nodeWorkspaceMethods)[Method]['output']>

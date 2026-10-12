@@ -9,6 +9,7 @@ import {
   nodeFloorSchema,
   nodeReceiptSchema,
   nodeExecStartSchema,
+  nodeRequestTimeoutMs,
   nodeWorkspaceMethods,
   nodeObservationMethods,
   nodeCapabilitiesSchema,
@@ -81,6 +82,11 @@ test('node floors and execution requests reject unrecognized fields and oversize
     admission: { kind: 'allow' },
   }
   expect(nodeExecStartSchema.parse(JSON.parse(JSON.stringify(input)))).toEqual(input)
+  expect(nodeRequestTimeoutMs('exec.start', input)).toBe(6_000)
+  expect(nodeRequestTimeoutMs('exec.start', { ...input, timeoutMs: 1_200_000 })).toBe(1_205_000)
+  expect(() => nodeRequestTimeoutMs('exec.start', { ...input, timeoutMs: 1_200_001 })).toThrow()
+  expect(nodeRequestTimeoutMs('exec.cancel', { operationId: input.operationId })).toBe(120_000)
+  expect(nodeRequestTimeoutMs('fs.readBytes', {})).toBe(30_000)
   for (const extra of [
     { environment: { PATH: '/attacker' } },
     { callback: () => null },

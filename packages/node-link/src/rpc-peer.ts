@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { NODE_LIMITS } from '@hbar/contracts/node'
+import { NODE_LIMITS, nodeRequestTimeoutMs } from '@hbar/contracts/node'
 import { nodeRpcFrameSchema, type NodeRpcFrame } from '@hbar/contracts/node-wire'
 import { decodeNodeFrame, encodeNodeFrame } from './wire'
 
@@ -48,13 +48,14 @@ export class NodeRpcPeer<Remote extends NodeMethodTable> {
     let frame: string, timeoutMs: number
     const id = crypto.randomUUID()
     try {
-      frame = encodeNodeFrame({ jsonrpc: '2.0', id, method, params: entry.input.parse(input) })
+      const parsed = entry.input.parse(input)
+      frame = encodeNodeFrame({ jsonrpc: '2.0', id, method, params: parsed })
       timeoutMs = z
         .number()
         .int()
         .min(1)
         .max(1_205_000)
-        .parse(options.timeoutMs ?? this.options.requestMs ?? 30_000)
+        .parse(options.timeoutMs ?? this.options.requestMs ?? nodeRequestTimeoutMs(method, parsed))
     } catch (error) {
       return Promise.reject(error)
     }
@@ -142,13 +143,17 @@ export class NodeRpcPeer<Remote extends NodeMethodTable> {
     }
     const controller = new AbortController()
     this.active.set(frame.id, controller)
-    const timer = setTimeout(() => this.close(4003, 'Node handler deadline exceeded'), this.options.requestMs ?? 30_000)
+    let timer: ReturnType<typeof setTimeout> | undefined
     let output: NodeRpcFrame
     try {
       const entry = this.options.local[frame.method]
       if (!entry || !Object.hasOwn(this.options.local, frame.method))
         throw new HbarError('METHOD_NOT_FOUND', 'Method is absent from this node direction')
       const input = entry.input.parse(frame.params)
+      timer = setTimeout(
+        () => this.close(4003, 'Node handler deadline exceeded'),
+        this.options.requestMs ?? nodeRequestTimeoutMs(frame.method, input),
+      )
       const result = entry.output.parse(await this.options.handle(frame.method, input, controller.signal))
       output = nodeRpcFrameSchema.parse({ jsonrpc: '2.0', id: frame.id, result })
     } catch (error) {
@@ -165,7 +170,7 @@ export class NodeRpcPeer<Remote extends NodeMethodTable> {
         },
       }
     } finally {
-      clearTimeout(timer)
+      if (timer) clearTimeout(timer)
       this.active.delete(frame.id)
     }
     if (!this.closed) {
