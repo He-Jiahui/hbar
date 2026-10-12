@@ -2,8 +2,14 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { CommandError, CommandRegistry, createCommandClient, type CommandContext } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
-import { runCommands, runCommandRecordSchema, operationSnapshotSchema } from '@hbar/contracts/commands/run'
+import {
+  runCommands,
+  runCommandRecordSchema,
+  operationSnapshotSchema,
+  peerMessageReceiptSchema,
+} from '@hbar/contracts/commands/run'
 import type {
+  PeerMessageReceipt,
   PeerMessageSendInput,
   QueuedRunGuideReceipt,
   RunAccepted,
@@ -58,6 +64,26 @@ function peerGuideKey(actorId: string, input: PeerMessageSendInput, idempotencyK
   return `peer-guide-${createHash('sha256')
     .update(JSON.stringify([actorId, input.workspaceId, input.senderSessionId, input.targetSessionId, idempotencyKey]))
     .digest('hex')}`
+}
+
+function peerScope(actorId: string, input: PeerMessageSendInput, idempotencyKey: string) {
+  return JSON.stringify(['session.message.send', input.workspaceId, input.senderSessionId, actorId, idempotencyKey])
+}
+
+function peerRequestId(scope: string) {
+  return `peer-${createHash('sha256').update(scope).digest('hex')}`
+}
+
+interface PeerMessageReceiptLookup {
+  receipt: PeerMessageReceipt
+  runInputMatches: boolean
+  runStartSeq: number
+}
+
+function peerInputHash(input: PeerMessageSendInput) {
+  return createHash('sha256')
+    .update(JSON.stringify({ id: 'session.message.send', version: 1, input }))
+    .digest('hex')
 }
 
 type PeerGuideAttempt =
@@ -137,7 +163,7 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
       const activeRun = active.items.find((item) =>
         ['running', 'waiting_approval', 'cancelRequested'].includes(item.status),
       )
-      return { run: canonical.run, guideReceipt, activeRun }
+      return { run: canonical.run, acceptedSeq: canonical.acceptedSeq, guideReceipt, activeRun }
     } catch (error) {
       if (error instanceof CommandError && error.code === 'RESULT_UNKNOWN') throw error
       throw new CommandError('RESULT_UNKNOWN', 'Peer message delivery requires reconciliation')
@@ -325,14 +351,8 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
         throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
       if (input.senderSessionId === input.targetSessionId)
         throw new CommandError('INVALID_INPUT', 'Sender and recipient sessions must be different')
-      const scope = JSON.stringify([
-        'session.message.send',
-        input.workspaceId,
-        input.senderSessionId,
-        actorId,
-        idempotencyKey,
-      ])
-      const requestId = `peer-${createHash('sha256').update(scope).digest('hex')}`
+      const scope = peerScope(actorId, input, idempotencyKey)
+      const requestId = peerRequestId(scope)
       const command = runCommandRecordSchema.parse({
         actorId,
         idempotencyKey,
@@ -360,10 +380,12 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             if (
               prior.run.input.peerMessage?.senderSessionId !== input.senderSessionId ||
               prior.run.input.peerMessage.workspaceId !== input.workspaceId ||
-              prior.run.input.peerMessage.idempotencyKey !== idempotencyKey
+              prior.run.input.peerMessage.idempotencyKey !== idempotencyKey ||
+              (prior.run.input.peerMessage.actorId && prior.run.input.peerMessage.actorId !== actorId) ||
+              (prior.run.input.peerMessage.payloadHash &&
+                prior.run.input.peerMessage.payloadHash !== prior.command.inputHash)
             )
               throw new CommandError('IDEMPOTENCY_CONFLICT', 'Message key was used with different input')
-            const currentTarget = await kernel.storage.call('session', input.targetSessionId)
             const guideReceipt = await kernel.storage.call(
               'queuedRunGuideReceipt',
               actorId,
@@ -371,7 +393,8 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
               input.targetSessionId,
             )
             let guideAttempt: PeerGuideAttempt | null = null
-            if (!guideReceipt && prior.run.status === 'queued') {
+            const deliveryPolicy = prior.run.input.peerMessage?.deliveryPolicy ?? 'guide'
+            if (deliveryPolicy === 'guide' && !guideReceipt && prior.run.status === 'queued') {
               const active = await kernel.storage.call('activeOperations', {
                 sessionId: input.targetSessionId,
                 limit: 20,
@@ -422,7 +445,7 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
               reconciled.run,
               delivery === 'queued' ? 'queued' : 'accepted',
               delivery,
-              currentTarget.seq,
+              reconciled.acceptedSeq,
               canonicalGuideReceipt,
             )
           }
@@ -442,8 +465,11 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             senderSessionId: sender.id,
             targetSessionId: target.id,
             workspaceId: input.workspaceId,
+            actorId,
             idempotencyKey,
+            payloadHash: command.inputHash,
             queuedBehindActive: Boolean(activeRun),
+            ...(input.deliveryPolicy ? { deliveryPolicy: input.deliveryPolicy } : {}),
           }
           let run: Run
           try {
@@ -460,7 +486,10 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             throw new CommandError('RESULT_UNKNOWN', 'Peer message acceptance requires reconciliation')
           }
           let guideAttempt: PeerGuideAttempt | null = null
-          if (activeRun?.status === 'running' || activeRun?.status === 'waiting_approval') {
+          if (
+            input.deliveryPolicy !== 'queue' &&
+            (activeRun?.status === 'running' || activeRun?.status === 'waiting_approval')
+          ) {
             try {
               const queued = await kernel.storage.call('queuedUserRuns', { sessionId: target.id, limit: 20 })
               const item = queued.items.find((candidate) => candidate.operationId === run.id)
@@ -497,14 +526,13 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             : reconciled.run.status === 'queued' && reconciled.activeRun
               ? 'queued'
               : 'new_run'
-          const admittedTarget = await kernel.storage.call('session', target.id)
           return peerReceipt(
             input,
             idempotencyKey,
             reconciled.run,
             delivery === 'queued' ? 'queued' : 'accepted',
             delivery,
-            admittedTarget.seq,
+            reconciled.acceptedSeq,
             canonicalGuideReceipt,
           )
         })
@@ -771,6 +799,50 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
       if (!found.command || found.command.actorId !== actorId || found.command.idempotencyKey !== idempotencyKey)
         throw new CommandError('IDEMPOTENCY_CONFLICT', 'Run key belongs to another actor')
       return accepted(found.run, found.command)
+    },
+    async getPeerMessageReceipt(
+      input: PeerMessageSendInput,
+      actorId: string,
+      idempotencyKey: string,
+    ): Promise<PeerMessageReceiptLookup | null> {
+      const requestId = peerRequestId(peerScope(actorId, input, idempotencyKey))
+      let found
+      try {
+        found = await kernel.storage.call('runByRequestInWorkspace', input.workspaceId, requestId)
+      } catch {
+        throw new CommandError('RESULT_UNKNOWN', 'Peer Run journal is unavailable')
+      }
+      if (!found) return null
+      if (
+        !found.command ||
+        found.command.actorId !== actorId ||
+        found.command.idempotencyKey !== idempotencyKey ||
+        found.command.inputHash !== peerInputHash(input) ||
+        found.run.sessionId !== input.targetSessionId ||
+        found.run.input.peerMessage?.senderSessionId !== input.senderSessionId ||
+        found.run.input.peerMessage.targetSessionId !== input.targetSessionId ||
+        found.run.input.peerMessage.workspaceId !== input.workspaceId ||
+        found.run.input.peerMessage.idempotencyKey !== idempotencyKey ||
+        found.run.input.peerMessage.actorId !== actorId ||
+        found.run.input.peerMessage.payloadHash !== found.command.inputHash
+      )
+        throw new CommandError('IDEMPOTENCY_CONFLICT', 'Peer message key belongs to different canonical input')
+      const queued = found.run.input.peerMessage.queuedBehindActive
+      const receipt = peerMessageReceiptSchema.parse(
+        peerReceipt(
+          input,
+          idempotencyKey,
+          found.run,
+          queued ? 'queued' : 'accepted',
+          queued ? 'queued' : 'new_run',
+          found.acceptedSeq,
+        ),
+      )
+      return {
+        receipt,
+        runInputMatches: found.run.modelId === input.modelId && found.run.input.text === input.text,
+        runStartSeq: Math.max(0, found.acceptedSeq - 1),
+      }
     },
     async getQueuedRemoveReceipt(sessionId: string, actorId: string, idempotencyKey: string) {
       try {

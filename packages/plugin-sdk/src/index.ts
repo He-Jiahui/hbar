@@ -55,7 +55,9 @@ import type {
   WorkflowScope,
   WorkflowSnapshot,
   WorkflowStartCommand,
+  WorkflowTargetDispatch,
 } from '@hbar/contracts'
+import type { PeerMessageReceipt } from '@hbar/contracts/commands/run'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type {
   AgentCreateInput,
@@ -498,6 +500,55 @@ export interface WorkflowService {
     actorId: string,
   ): Promise<WorkflowSnapshot>
   complete(sessionId: string, expectedRevision: number, runId?: string): Promise<WorkflowSnapshot>
+  prepareTargetDispatch(
+    sessionId: string,
+    planId: string,
+    planRevision: number,
+    itemIds: string[],
+    modelId: string,
+    command: WorkflowStartCommand,
+  ): Promise<{ dispatches: WorkflowTargetDispatch[]; createdDispatchIds: string[] }>
+  prepareTargetReconciliation(
+    sessionId: string,
+    planId: string,
+    planRevision: number,
+    dispatchIds: string[],
+    actorId: string,
+  ): Promise<{ dispatches: WorkflowTargetDispatch[]; retryDispatchIds: string[] }>
+  recordTargetDispatchReceipt(
+    sessionId: string,
+    dispatchId: string,
+    receipt: PeerMessageReceipt,
+    runStartSeq: number,
+  ): Promise<WorkflowSnapshot>
+  recordTargetDispatchStale(sessionId: string, dispatchId: string, reason: string): Promise<WorkflowSnapshot>
+  recordTargetDispatchFailure(
+    sessionId: string,
+    dispatchId: string,
+    errorCode: string,
+    outcome: 'known_failure' | 'unknown',
+  ): Promise<WorkflowSnapshot>
+  recordTargetRunStatus(
+    sessionId: string,
+    dispatchId: string,
+    status: 'queued' | 'running' | 'waiting_approval' | 'cancel_requested' | 'succeeded' | 'failed' | 'cancelled',
+    runStatus?: 'completed' | 'failed' | 'cancelled' | 'interrupted',
+    error?: string | null,
+  ): Promise<WorkflowSnapshot>
+  prepareTargetCancellation(
+    sessionId: string,
+    planId: string,
+    planRevision: number,
+    dispatchId: string,
+    actorId: string,
+  ): Promise<WorkflowTargetDispatch>
+  recordTargetCancellation(
+    sessionId: string,
+    dispatchId: string,
+    status: 'cancel_requested' | 'succeeded' | 'cancelled' | 'failed',
+    errorCode?: string,
+    terminalRunStatus?: 'completed' | 'failed' | 'cancelled' | 'interrupted',
+  ): Promise<WorkflowSnapshot>
 }
 export interface ModeService {
   get(sessionId: string): Promise<{ mode: RunMode }>

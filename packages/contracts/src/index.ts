@@ -518,8 +518,14 @@ export const inputSchema = z.object({
       senderSessionId: idSchema,
       targetSessionId: idSchema,
       workspaceId: idSchema,
+      actorId: idSchema.optional(),
       idempotencyKey: z.string().min(1).max(128),
+      payloadHash: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/)
+        .optional(),
       queuedBehindActive: z.boolean(),
+      deliveryPolicy: z.enum(['guide', 'queue']).optional(),
     })
     .optional(),
   continuation: z.object({ goalId: idSchema, intentId: idSchema }).optional(),

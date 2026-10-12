@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { workflowPlanSchema } from '@hbar/contracts'
 import type { AgentService, GoalService, ModelRequest, PlanService, WorkflowService } from '@hbar/plugin-sdk'
 import { WorkflowRuntime } from '../plugins/workflow/src/index.ts'
 import { workflowModelView } from '../plugins/workflow/src/model-view'
@@ -11,10 +12,21 @@ import { workflowModelView } from '../plugins/workflow/src/model-view'
 const resources: { root: string; kernel: Kernel }[] = []
 
 afterEach(async () => {
+  const failures: unknown[] = []
   for (const { root, kernel } of resources.splice(0)) {
-    await kernel.close()
-    await rm(root, { recursive: true, force: true })
+    try {
+      await kernel.close()
+    } catch (error) {
+      failures.push(error)
+    } finally {
+      try {
+        await rm(root, { recursive: true, force: true })
+      } catch (error) {
+        failures.push(error)
+      }
+    }
   }
+  if (failures.length) throw new AggregateError(failures, 'Workflow test fixture cleanup failed')
 })
 
 async function fixture() {
@@ -68,6 +80,73 @@ test('workflow bootstrap guidance uses the Codex Agent Plan and focus tools', as
   expect(decorated.system).toContain('workflow_focus')
   expect(decorated.system).not.toContain('workflow_start')
   expect(decorated.system).not.toContain('save_workflow_plan')
+})
+
+test('a canonical Workflow Plan binds only active targets in its own workspace', async () => {
+  const { root, kernel, session, workflows } = await fixture()
+  const assignedItem = {
+    id: 'targeted-check',
+    title: 'Have the assigned target inspect the proof',
+    scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] },
+    acceptanceChecks: [{ id: 'verify', description: 'Confirm the result', verifier: { kind: 'user' as const } }],
+  }
+  const target = await kernel.createSession(session.workspaceId, 'target session')
+  const before = await kernel.storage.call('events', session.id, 0, 100)
+  const saved = await workflows.savePlan(
+    session.id,
+    'Execute one plan across multiple sessions',
+    [{ ...assignedItem, targetSessionIds: [target.id] }],
+    null,
+  )
+  expect(saved.workflow).toBeNull()
+  const events = await kernel.storage.call('events', session.id, before.at(-1)?.seq ?? 0, 100)
+  const persisted = events.find((event) => event.type === 'workflow.plan.saved')
+  if (!persisted || !saved.workflowPlan) throw new Error('The canonical target plan was not persisted')
+  const persistedPlan = z.object({ plan: workflowPlanSchema }).parse(persisted.data).plan
+  expect(persistedPlan).toMatchObject({
+    planId: saved.workflowPlan.planId,
+    sessionId: session.id,
+    revision: 1,
+    items: [{ id: assignedItem.id, targetSessionIds: [target.id] }],
+  })
+
+  const foreignWorkspaceRoot = join(root, 'foreign-workspace')
+  await mkdir(foreignWorkspaceRoot)
+  const foreignWorkspace = await kernel.createWorkspace(foreignWorkspaceRoot)
+  const foreignTarget = await kernel.createSession(foreignWorkspace.id, 'foreign target')
+  expect(
+    await rejection(
+      workflows.savePlan(
+        session.id,
+        'Cross workspace must be rejected',
+        [{ ...assignedItem, targetSessionIds: [foreignTarget.id] }],
+        1,
+      ),
+    ),
+  ).toMatchObject({ code: 'WORKFLOW_TARGET_WORKSPACE' })
+  expect(
+    await rejection(
+      workflows.savePlan(
+        session.id,
+        'Self target must be rejected',
+        [{ ...assignedItem, targetSessionIds: [session.id] }],
+        1,
+      ),
+    ),
+  ).toMatchObject({ code: 'WORKFLOW_TARGET_SELF' })
+
+  const archivedTarget = await kernel.createSession(session.workspaceId, 'archived target')
+  await kernel.updateSession(archivedTarget.id, { archived: true })
+  expect(
+    await rejection(
+      workflows.savePlan(
+        session.id,
+        'Archived target must be rejected',
+        [{ ...assignedItem, targetSessionIds: [archivedTarget.id] }],
+        1,
+      ),
+    ),
+  ).toMatchObject({ code: 'ARCHIVED' })
 })
 
 test('workflow request context distinguishes stale focus from the authoritative Agent Plan', async () => {
@@ -176,7 +255,10 @@ test('workflow model results retain actionable verification facts without repeat
   expect(
     (await workflows.checkpoint(session.id, 'proof', 'complete', 'Verified', null, revision)).workflow?.status,
   ).toBe('completed')
-  expect(workflowModelView({ plan: null, workflow: null })).toEqual({ plan: null, workflow: null })
+  expect(workflowModelView({ workflowPlan: null, plan: null, workflow: null, targetDispatches: [] })).toEqual({
+    plan: null,
+    workflow: null,
+  })
 })
 
 test('workflow focus normalizes registered tool aliases and escapes repeated scope denial', async () => {

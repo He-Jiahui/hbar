@@ -7,6 +7,7 @@ import {
   WORKFLOW_SCHEMA_VERSION,
   agentPatchSchema,
   workflowPlanSchema,
+  workflowSnapshotSchema,
   workflowStateSchema,
 } from '@hbar/contracts/workflow'
 import { workflowCommands } from '@hbar/contracts/commands/workflows'
@@ -80,6 +81,44 @@ test('workflow contracts describe versioned plans, focus state, and command meta
     kind: 'query',
     stateEffect: 'none',
   })
+})
+
+test('workflow plan targets are optional for legacy items, unique per item, and globally bounded', () => {
+  const base = {
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
+    planId: 'plan-targets',
+    sessionId: 'parent-session',
+    revision: 2,
+    phase: 'draft' as const,
+    objective: 'Run independent work items in existing sessions',
+    items: [{ ...item, targetSessionIds: ['target-a', 'target-b'] }],
+    createdAt: 1,
+    updatedAt: 2,
+  }
+  const plan = workflowPlanSchema.parse(base)
+  expect(plan.items[0]?.targetSessionIds).toEqual(['target-a', 'target-b'])
+  expect(workflowSnapshotSchema.parse({ plan: null, workflowPlan: plan, workflow: null })).toMatchObject({
+    workflowPlan: {
+      planId: plan.planId,
+      revision: plan.revision,
+      items: [{ targetSessionIds: ['target-a', 'target-b'] }],
+    },
+    targetDispatches: [],
+  })
+  expect(workflowPlanSchema.parse({ ...base, items: [item] }).items[0]?.targetSessionIds).toBeUndefined()
+  expect(
+    workflowPlanSchema.safeParse({ ...base, items: [{ ...item, targetSessionIds: ['target-a', 'target-a'] }] }).success,
+  ).toBe(false)
+  expect(
+    workflowPlanSchema.safeParse({
+      ...base,
+      items: Array.from({ length: 3 }, (_, index) => ({
+        ...item,
+        id: `item-${index}`,
+        targetSessionIds: Array.from({ length: 8 }, (_, targetIndex) => `target-${index}-${targetIndex}`),
+      })),
+    }).success,
+  ).toBe(false)
 })
 
 test('workflow scopes reject paths outside the workspace', () => {

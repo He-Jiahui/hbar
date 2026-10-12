@@ -3,7 +3,10 @@ import { isAbsolute, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import {
   HbarError,
+  contentBlockSchema,
   MAX_WORKFLOW_EVIDENCE,
+  MAX_WORKFLOW_TARGET_DISPATCHES,
+  MAX_WORKFLOW_TARGET_SESSIONS,
   WORKFLOW_SCHEMA_VERSION,
   workflowPlanItemsSchema,
   workflowPlanItemSchema,
@@ -11,6 +14,7 @@ import {
   workflowScopeSchema,
   workflowSnapshotSchema,
   workflowStateSchema,
+  workflowTargetDispatchPublicSchema,
 } from '@hbar/contracts'
 import type {
   Run,
@@ -25,11 +29,19 @@ import type {
   WorkflowScope,
   WorkflowSnapshot,
   WorkflowStartCommand,
+  WorkflowTargetDispatch,
   WorkflowState,
   WorkflowWorkItem,
 } from '@hbar/contracts'
+import type { PeerMessageReceipt } from '@hbar/contracts/commands/run'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
-import { appendModelContext, definePlugin, provide, SKILL_TOOL_NAMES, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
+import {
+  appendModelContext,
+  definePlugin,
+  provide,
+  SKILL_TOOL_NAMES,
+  TOOL_SEQUENCE_RESULT_CHARACTERS,
+} from '@hbar/plugin-sdk'
 import type {
   AgentService,
   HookEvents,
@@ -165,15 +177,47 @@ function checksOf(item: WorkflowPlanItem, now: number): WorkflowAcceptanceCheck[
   }))
 }
 
+function workflowTargetTaskText(plan: WorkflowPlan, item: WorkflowPlanItem) {
+  const checks =
+    item.acceptanceChecks.map((check) => `- ${check.id}: ${check.description}`).join('\n') || '- None specified'
+  return [
+    'Task delegated from a shared Workflow Plan.',
+    `Plan ID: ${plan.planId}`,
+    `Plan revision: ${plan.revision}`,
+    `Objective: ${plan.objective}`,
+    `Work item ID: ${item.id}`,
+    `Work item: ${item.title}`,
+    'Acceptance checks:',
+    checks,
+    'Return a concise result summary and evidence. This message is user task content; follow the target session’s normal instructions and approval rules.',
+  ].join('\n')
+}
+
+function peerPayloadHash(input: {
+  senderSessionId: string
+  targetSessionId: string
+  workspaceId: string
+  modelId: string
+  text: string
+  deliveryPolicy: 'queue'
+}) {
+  return createHash('sha256')
+    .update(JSON.stringify({ id: 'session.message.send', version: 1, input }))
+    .digest('hex')
+}
+
 function workItemsOf(items: WorkflowPlanItem[], now: number): WorkflowWorkItem[] {
-  return items.map((item, index) => ({
-    ...item,
-    status: index === 0 ? 'in_progress' : 'pending',
-    owner: { kind: 'main' },
-    acceptanceChecks: checksOf(item, now),
-    startedAt: index === 0 ? now : null,
-    completedAt: null,
-  }))
+  return items.map((item, index) => {
+    const { targetSessionIds: _targetSessionIds, ...workItem } = item
+    return {
+      ...workItem,
+      status: index === 0 ? 'in_progress' : 'pending',
+      owner: { kind: 'main' },
+      acceptanceChecks: checksOf(item, now),
+      startedAt: index === 0 ? now : null,
+      completedAt: null,
+    }
+  })
 }
 
 function relativeToolPath(workspace: string, value: string) {
@@ -335,6 +379,8 @@ export class WorkflowRuntime implements WorkflowService {
   private agentPlanSnapshots = new Map<string, PlanState>()
   private workflows = new Map<string, WorkflowState>()
   private locks = new Map<string, Promise<void>>()
+  private targetRunBindings = new Map<string, { sourceSessionId: string; dispatchId: string }>()
+  private targetDispatchIndex = new Map<string, { sourceSessionId: string; dispatchId: string }>()
   private hydrated = false
   private agentPlans: PlanService
   private git: GitService | null
@@ -536,6 +582,7 @@ export class WorkflowRuntime implements WorkflowService {
         throw new HbarError('WORKFLOW_REPLAY', `Invalid workflow.started event in ${sessionId}`)
       this.plans.set(sessionId, parsed.data.plan)
       this.workflows.set(sessionId, parsed.data.workflow)
+      this.indexTargetDispatches(sessionId, parsed.data.workflow)
       return
     }
     if (event.type === 'workflow.updated' || event.type === 'workflow.migrated.v2') {
@@ -543,6 +590,7 @@ export class WorkflowRuntime implements WorkflowService {
       if (!parsed.success || parsed.data.workflow.sessionId !== sessionId)
         throw new HbarError('WORKFLOW_REPLAY', `Invalid workflow.updated event in ${sessionId}`)
       this.workflows.set(sessionId, parsed.data.workflow)
+      this.indexTargetDispatches(sessionId, parsed.data.workflow)
       return
     }
     if (event.type === 'workflow.focus.set') {
@@ -585,6 +633,7 @@ export class WorkflowRuntime implements WorkflowService {
         activeStepIndex,
         activeStepTextHash,
         workItems,
+        targetDispatches: _targetDispatches,
         startCommand: _startCommand,
         planId: _planId,
         completionPolicy: _completionPolicy,
@@ -614,10 +663,26 @@ export class WorkflowRuntime implements WorkflowService {
       void _startCommand
       void _planId
       void _completionPolicy
+      void _targetDispatches
     }
     return workflowSnapshotSchema.parse({
+      workflowPlan: this.plans.get(sessionId) ?? null,
       plan: this.agentPlanSnapshots.get(sessionId) ?? null,
       workflow,
+      targetDispatches: (internal?.targetDispatches ?? []).map((dispatch) => {
+        const {
+          actorId: _actorId,
+          messageText: _messageText,
+          idempotencyKey: _idempotencyKey,
+          peerIdempotencyKey: _peerIdempotencyKey,
+          commandHash: _commandHash,
+          requestHash: _requestHash,
+          modelId: _modelId,
+          targetRunStartSeq: _targetRunStartSeq,
+          ...publicDispatch
+        } = dispatch
+        return workflowTargetDispatchPublicSchema.parse(publicDispatch)
+      }),
     })
   }
 
@@ -680,6 +745,22 @@ export class WorkflowRuntime implements WorkflowService {
     return normalized
   }
 
+  private async validateTargetSessions(sessionId: string, items: readonly WorkflowPlanItemInput[]) {
+    const targetSessionIds = unique(items.flatMap((item) => item.targetSessionIds ?? []))
+    if (!targetSessionIds.length) return
+    if (targetSessionIds.length > MAX_WORKFLOW_TARGET_SESSIONS)
+      throw new HbarError('WORKFLOW_TARGET_LIMIT', 'A workflow plan may bind at most 16 target sessions')
+    const source = await this.api.sessions.get(sessionId)
+    const targets = await Promise.all(targetSessionIds.map((targetSessionId) => this.api.sessions.get(targetSessionId)))
+    for (const target of targets) {
+      if (target.id === source.id)
+        throw new HbarError('WORKFLOW_TARGET_SELF', 'A workflow target must be a different session')
+      if (target.archived) throw new HbarError('ARCHIVED', `Workflow target session ${target.id} is archived`)
+      if (target.workspaceId !== source.workspaceId)
+        throw new HbarError('WORKFLOW_TARGET_WORKSPACE', 'Workflow targets must belong to the same workspace')
+    }
+  }
+
   private async markNeedsRevision(sessionId: string, current: WorkflowState, reason: string) {
     let reviewerAgentId: string | null = null
     const result = await this.serial(sessionId, async () => {
@@ -722,6 +803,7 @@ export class WorkflowRuntime implements WorkflowService {
       if (step.status === 'completed')
         throw new HbarError('WORKFLOW_ITEM_COMPLETE', 'A completed Agent Plan step cannot become the active focus')
       const item = this.normalizeFocusItem({ ...itemValue, title: step.step })
+      await this.validateTargetSessions(sessionId, [item])
       if (completionPolicy !== 'user' && item.acceptanceChecks.some((check) => check.verifier.kind === 'user'))
         throw new HbarError(
           'WORKFLOW_CHECK_INVALID',
@@ -797,6 +879,7 @@ export class WorkflowRuntime implements WorkflowService {
   private async persistWorkflow(workflow: WorkflowState, runId?: string, data: Record<string, unknown> = {}) {
     await this.api.sessions.append(workflow.sessionId, 'workflow.updated', { workflow, ...data }, runId)
     this.workflows.set(workflow.sessionId, workflow)
+    this.indexTargetDispatches(workflow.sessionId, workflow)
     this.api.sessions.wake(workflow.sessionId)
     return this.publish(workflow.sessionId)
   }
@@ -809,10 +892,13 @@ export class WorkflowRuntime implements WorkflowService {
   ) {
     return this.serial(sessionId, async () => {
       const current = this.plans.get(sessionId)
+      const activeWorkflow = this.workflows.get(sessionId)
+      if (activeWorkflow) this.assertNoMutations(activeWorkflow)
       if ((expectedRevision ?? null) !== (current?.revision ?? null))
         throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The workflow plan changed before this update was applied')
       const now = Date.now()
       const parsedItems = workflowPlanItemsSchema.parse(items)
+      await this.validateTargetSessions(sessionId, parsedItems)
       const plan = workflowPlanSchema.parse({
         schemaVersion: WORKFLOW_SCHEMA_VERSION,
         planId: current?.planId ?? crypto.randomUUID(),
@@ -903,6 +989,7 @@ export class WorkflowRuntime implements WorkflowService {
       if (existing && existing.status !== 'completed')
         throw new HbarError('WORKFLOW_EXISTS', 'An unfinished workflow already exists for this session')
       const parsedItems = workflowPlanItemsSchema.parse(items)
+      await this.validateTargetSessions(sessionId, parsedItems)
       const now = Date.now()
       const currentPlan = this.plans.get(sessionId)
       const plan = workflowPlanSchema.parse({
@@ -1188,10 +1275,12 @@ export class WorkflowRuntime implements WorkflowService {
     const cancelAgentIds: string[] = []
     await this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
+      if (outcome === 'complete') this.assertNoMutations(current)
       if (typeof expectedRevision !== 'number' && current.activeItemId !== itemId)
         throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The checkpoint does not target the current focus')
       const item = current.workItems.find((candidate) => candidate.id === itemId)
       if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The workflow item does not exist')
+      if (outcome === 'complete') this.assertTargetItemsSucceeded(sessionId, current, itemId)
       const pendingRequired = item.acceptanceChecks.filter(
         (check) => check.required && !['passed', 'accepted'].includes(check.status),
       )
@@ -1652,6 +1741,7 @@ export class WorkflowRuntime implements WorkflowService {
 
   async cancelForGoal(sessionId: string, goalId: string) {
     const cancel: string[] = []
+    const cancelTargetRunIds: string[] = []
     await this.serial(sessionId, async () => {
       const current = this.workflows.get(sessionId)
       if (!current || current.goalId !== goalId || ['completed', 'cancelled'].includes(current.status)) return
@@ -1660,6 +1750,12 @@ export class WorkflowRuntime implements WorkflowService {
           cancel.push(delegation.agentId)
       if (current.review?.reviewerAgentId && ['queued', 'running'].includes(current.review.status))
         cancel.push(current.review.reviewerAgentId)
+      for (const dispatch of current.targetDispatches)
+        if (
+          dispatch.operationId &&
+          ['queued', 'running', 'waiting_approval', 'cancel_requested'].includes(dispatch.status)
+        )
+          cancelTargetRunIds.push(dispatch.operationId)
       const now = Date.now()
       await this.persistWorkflow(
         workflowStateSchema.parse({
@@ -1675,6 +1771,11 @@ export class WorkflowRuntime implements WorkflowService {
               : { ...delegation, status: 'cancelled' as const, updatedAt: now },
           ),
           review: current.review ? { ...current.review, status: 'cancelled' as const, updatedAt: now } : null,
+          targetDispatches: current.targetDispatches.map((dispatch) =>
+            cancelTargetRunIds.includes(dispatch.operationId ?? '')
+              ? { ...dispatch, status: 'cancel_requested' as const, updatedAt: now }
+              : dispatch,
+          ),
           updatedAt: now,
         }),
         undefined,
@@ -1682,6 +1783,7 @@ export class WorkflowRuntime implements WorkflowService {
       )
     })
     for (const agentId of cancel) await this.agents.cancel(sessionId, agentId)
+    for (const runId of cancelTargetRunIds) await this.api.sessions.cancel(runId).catch(() => {})
   }
 
   async agentResult(sessionId: string, agentId: string) {
@@ -1767,6 +1869,7 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   async startReviewer(event: HookEvents['run.start']) {
+    await this.bindTargetRun(event)
     const session = await this.api.sessions.get(event.sessionId)
     if (!session.parentId || !this.workflows.has(session.parentId)) return
     const assigned = await this.serial(session.parentId, async () => {
@@ -1781,6 +1884,210 @@ export class WorkflowRuntime implements WorkflowService {
       event.runId,
       event.run.startedAt ?? event.run.createdAt,
     )
+  }
+
+  private targetDispatchForRun(run: Run) {
+    const provenance = run.input.peerMessage
+    if (!provenance || provenance.targetSessionId !== run.sessionId || provenance.deliveryPolicy !== 'queue')
+      return null
+    const indexed = this.targetDispatchIndex.get(provenance.idempotencyKey)
+    if (!indexed) return null
+    const workflow = this.workflows.get(indexed.sourceSessionId)
+    const plan = this.plans.get(indexed.sourceSessionId)
+    const dispatch = workflow?.targetDispatches.find((candidate) => candidate.dispatchId === indexed.dispatchId)
+    const planItem = plan?.items.find((candidate) => candidate.id === dispatch?.itemId)
+    if (
+      !workflow ||
+      !plan ||
+      !dispatch ||
+      !planItem?.targetSessionIds?.includes(run.sessionId) ||
+      provenance.senderSessionId !== indexed.sourceSessionId ||
+      dispatch.targetSessionId !== run.sessionId ||
+      dispatch.workspaceId !== provenance.workspaceId ||
+      dispatch.actorId !== provenance.actorId ||
+      dispatch.peerIdempotencyKey !== provenance.idempotencyKey ||
+      dispatch.workflowRevision > workflow.revision ||
+      dispatch.planId !== workflow.planId ||
+      dispatch.planRevision !== workflow.planRevision
+    )
+      return null
+    return { sourceSessionId: indexed.sourceSessionId, workflow, dispatch }
+  }
+
+  private indexTargetDispatches(sessionId: string, workflow: WorkflowState) {
+    for (const dispatch of workflow.targetDispatches)
+      this.targetDispatchIndex.set(dispatch.peerIdempotencyKey, {
+        sourceSessionId: sessionId,
+        dispatchId: dispatch.dispatchId,
+      })
+  }
+
+  private async bindTargetRun(event: HookEvents['run.start']) {
+    const match = this.targetDispatchForRun(event.run)
+    if (!match) return
+    this.targetRunBindings.set(event.runId, {
+      sourceSessionId: match.sourceSessionId,
+      dispatchId: match.dispatch.dispatchId,
+    })
+    await this.serial(match.sourceSessionId, async () => {
+      const current = this.workflows.get(match.sourceSessionId)
+      const dispatch = current?.targetDispatches.find((entry) => entry.dispatchId === match.dispatch.dispatchId)
+      if (
+        !current ||
+        !dispatch ||
+        dispatch.planRevision !== current.planRevision ||
+        dispatch.targetSessionId !== event.sessionId
+      )
+        return
+      if (
+        !['dispatching', 'result_unknown', 'queued', 'running', 'waiting_approval', 'cancel_requested'].includes(
+          dispatch.status,
+        )
+      ) {
+        await this.api.sessions.cancel(event.runId).catch(() => {})
+        return
+      }
+      const source = await this.api.sessions.get(match.sourceSessionId)
+      const target = await this.api.sessions.get(event.sessionId)
+      const targetWorkflow = this.workflows.get(event.sessionId)
+      const staleReason =
+        current.status === 'cancelled' ||
+        ['completed', 'archived'].includes(this.plans.get(match.sourceSessionId)?.phase ?? 'draft')
+          ? 'PARENT_CANCELLED'
+          : event.run.input.peerMessage?.payloadHash !== dispatch.requestHash ||
+              event.run.input.text !== dispatch.messageText ||
+              event.run.modelId !== dispatch.modelId
+            ? 'WORKFLOW_TARGET_PAYLOAD_CHANGED'
+            : dispatch.status === 'cancel_requested'
+              ? 'TARGET_CANCEL_REQUESTED'
+              : !['active', 'verifying'].includes(current.status)
+                ? 'PARENT_WORKFLOW_NOT_ACTIVE'
+                : target.archived || target.workspaceId !== dispatch.workspaceId
+                  ? 'WORKFLOW_TARGET_STALE'
+                  : source.workspaceId !== dispatch.workspaceId
+                    ? 'WORKFLOW_SOURCE_STALE'
+                    : targetWorkflow && !['completed', 'cancelled'].includes(targetWorkflow.status)
+                      ? 'WORKFLOW_TARGET_BUSY'
+                      : null
+      if (staleReason) {
+        await this.api.sessions.cancel(event.runId).catch(() => {})
+        const now = Date.now()
+        const stopped = workflowStateSchema.parse({
+          ...current,
+          revision: current.revision + 1,
+          targetDispatches: current.targetDispatches.map((entry) =>
+            entry.dispatchId === dispatch.dispatchId
+              ? {
+                  ...entry,
+                  status: 'stale' as const,
+                  operationId: event.runId,
+                  targetRunId: event.runId,
+                  errorCode: staleReason,
+                  updatedAt: now,
+                  completedAt: now,
+                }
+              : entry,
+          ),
+          updatedAt: now,
+        })
+        await this.persistWorkflow(stopped, event.runId, {
+          targetRunRejected: { dispatchId: dispatch.dispatchId, reason: staleReason },
+        })
+        return
+      }
+      if (dispatch.targetRunId && dispatch.targetRunId !== event.runId)
+        throw new HbarError('WORKFLOW_DISPATCH_CONFLICT', 'A target dispatch was started by a different Run')
+      if (dispatch.targetRunId === event.runId && dispatch.status === 'running') return
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...current,
+        revision: current.revision + 1,
+        targetDispatches: current.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatch.dispatchId
+            ? {
+                ...entry,
+                status: 'running' as const,
+                operationId: event.runId,
+                targetRunId: event.runId,
+                updatedAt: now,
+              }
+            : entry,
+        ),
+        updatedAt: now,
+      })
+      await this.persistWorkflow(next, event.runId, {
+        targetRunStarted: { dispatchId: dispatch.dispatchId, targetRunId: event.runId },
+      })
+    })
+  }
+
+  private async targetRunSummary(sessionId: string, runId: string, startSeq: number | null) {
+    if (startSeq === null) return null
+    let cursor = Math.max(0, startSeq)
+    const text: string[] = []
+    for (let pageIndex = 0; pageIndex < 8; pageIndex++) {
+      const events = await this.api.sessions.events(sessionId, cursor, 2_000)
+      if (!events.length) break
+      let settled = false
+      for (const event of events) {
+        cursor = event.seq
+        if (event.type === 'message.committed' && event.runId === runId) {
+          const parsed = z
+            .object({ role: z.enum(['user', 'assistant', 'tool', 'system']), content: z.array(contentBlockSchema) })
+            .safeParse(event.data)
+          if (parsed.success && parsed.data.role === 'assistant') {
+            text.push(...parsed.data.content.filter((block) => block.type === 'text').map((block) => block.text))
+          }
+        }
+        if (event.runId === runId && event.type === 'run.settled') {
+          settled = true
+          break
+        }
+      }
+      if (settled || events.length < 2_000) break
+    }
+    const summary = text.filter(Boolean).join('\n').trim().slice(-2_000)
+    return summary || null
+  }
+
+  async settleTargetRun(event: HookEvents['run.end']) {
+    const inMemoryBinding = this.targetRunBindings.get(event.runId)
+    const recoveredBinding = inMemoryBinding ? null : this.targetDispatchForRun(event.run)
+    if (!inMemoryBinding && !recoveredBinding) return
+    const sourceSessionId = inMemoryBinding?.sourceSessionId ?? recoveredBinding!.sourceSessionId
+    const dispatchId = inMemoryBinding?.dispatchId ?? recoveredBinding!.dispatch.dispatchId
+    await this.serial(sourceSessionId, async () => {
+      const workflow = this.workflows.get(sourceSessionId)
+      const dispatch = workflow?.targetDispatches.find((entry) => entry.dispatchId === dispatchId)
+      if (!workflow || !dispatch || dispatch.targetRunId !== event.runId || dispatch.completedAt !== null) return
+      const resultSummary = await this.targetRunSummary(event.sessionId, event.runId, dispatch.targetRunStartSeq)
+      const terminal = event.status
+      const status = terminal === 'completed' ? 'succeeded' : terminal === 'cancelled' ? 'cancelled' : 'failed'
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatchId
+            ? {
+                ...entry,
+                status,
+                terminalRunStatus: terminal,
+                resultSummary: terminal === 'completed' ? resultSummary : (event.run.error ?? terminal).slice(0, 2_000),
+                resultHash: hashValue({ runId: event.runId, status: terminal, error: event.run.error, resultSummary }),
+                errorCode: terminal === 'completed' ? null : 'TARGET_RUN_TERMINAL',
+                updatedAt: now,
+                completedAt: now,
+              }
+            : entry,
+        ),
+        updatedAt: now,
+      })
+      await this.persistWorkflow(next, event.runId, {
+        targetRunEnded: { dispatchId, status, terminalRunStatus: terminal },
+      })
+    })
+    this.targetRunBindings.delete(event.runId)
   }
 
   async submitReview(reviewerSessionId: string, reviewId: string, verdict: 'approved' | 'rejected', summary: string) {
@@ -1975,6 +2282,33 @@ export class WorkflowRuntime implements WorkflowService {
       )
   }
 
+  private assertTargetItemsSucceeded(sessionId: string, workflow: WorkflowState, itemId?: string) {
+    const plan = this.plans.get(sessionId)
+    if (!plan || plan.planId !== workflow.planId || plan.revision !== workflow.planRevision)
+      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Target results belong to a different Plan revision')
+    const completedItemIds = itemId
+      ? [itemId]
+      : workflow.workItems.filter((item) => item.status === 'completed').map((item) => item.id)
+    for (const completedItemId of completedItemIds) {
+      const planItem = plan.items.find((item) => item.id === completedItemId)
+      if (!planItem?.targetSessionIds?.length) continue
+      for (const targetSessionId of planItem.targetSessionIds) {
+        const result = workflow.targetDispatches.find(
+          (dispatch) =>
+            dispatch.planId === plan.planId &&
+            dispatch.planRevision === plan.revision &&
+            dispatch.itemId === completedItemId &&
+            dispatch.targetSessionId === targetSessionId,
+        )
+        if (!result || result.status !== 'succeeded' || !result.resultHash)
+          throw new HbarError(
+            'WORKFLOW_TARGET_PENDING',
+            `Target WorkItem ${completedItemId} for session ${targetSessionId} must succeed and be reviewed before completion`,
+          )
+      }
+    }
+  }
+
   async guardCompletion(sessionId: string, goalId: string | undefined, commit: () => Promise<void>) {
     const observed = this.workflows.get(sessionId)
     const plan = await this.agentPlans.get(sessionId)
@@ -1986,6 +2320,7 @@ export class WorkflowRuntime implements WorkflowService {
         await this.agentPlans.withRevision(sessionId, plan?.revision ?? null, async () => {
           if (workflow && (!goalId || !workflow.goalId || workflow.goalId === goalId)) {
             this.assertCompletable(workflow)
+            this.assertTargetItemsSucceeded(sessionId, workflow)
             if (workflow.status !== 'completed' || workflow.planRevision !== plan?.revision)
               throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Complete the current Agent Plan workflow first')
           }
@@ -2028,6 +2363,20 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   selectTools(event: HookEvents['tools.select']): HookEvents['tools.select'] {
+    const targetBinding = this.targetRunBindings.get(event.runId)
+    if (targetBinding) {
+      const dispatch = this.workflows
+        .get(targetBinding.sourceSessionId)
+        ?.targetDispatches.find((entry) => entry.dispatchId === targetBinding.dispatchId)
+      const localWorkflow = this.workflows.get(event.sessionId)
+      return {
+        ...event,
+        tools:
+          localWorkflow && !['completed', 'cancelled'].includes(localWorkflow.status)
+            ? []
+            : event.tools.filter((tool) => dispatch?.scope.tools.includes(tool.name) ?? false),
+      }
+    }
     const workflow = this.workflows.get(event.sessionId)
     return workflow && ['blocked', 'needs_revision'].includes(workflow.status)
       ? { ...event, tools: event.tools.filter((tool) => REPAIR_TOOLS.has(tool.name)) }
@@ -2097,10 +2446,573 @@ export class WorkflowRuntime implements WorkflowService {
     return event
   }
 
+  async prepareTargetDispatch(
+    sessionId: string,
+    planId: string,
+    planRevision: number,
+    itemIds: string[],
+    modelId: string,
+    command: WorkflowStartCommand,
+  ) {
+    return this.serial(sessionId, async () => {
+      const plan = this.plans.get(sessionId)
+      const workflow = this.workflows.get(sessionId)
+      if (!plan || !workflow || plan.phase !== 'active')
+        throw new HbarError('WORKFLOW_PLAN_REQUIRED', 'An active canonical Workflow Plan is required')
+      if (plan.planId !== planId || plan.revision !== planRevision || workflow.planId !== planId)
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The Workflow Plan changed before target dispatch')
+      if (!itemIds.length || new Set(itemIds).size !== itemIds.length)
+        throw new HbarError('INVALID_INPUT', 'Target dispatch item IDs must be non-empty and unique')
+      if (workflow.status !== 'active' && workflow.status !== 'verifying')
+        throw new HbarError('WORKFLOW_NOT_ACTIVE', 'Only an active Workflow can dispatch target work')
+      const source = await this.api.sessions.get(sessionId)
+      const prior = workflow.targetDispatches.filter(
+        (dispatch) => dispatch.actorId === command.actorId && dispatch.idempotencyKey === command.idempotencyKey,
+      )
+      if (prior.length) {
+        if (prior.some((dispatch) => dispatch.commandHash !== command.inputHash))
+          throw new HbarError('IDEMPOTENCY_CONFLICT', 'Workflow dispatch key was used with different input')
+        return { dispatches: prior, createdDispatchIds: [] }
+      }
+      const now = Date.now()
+      const created: WorkflowTargetDispatch[] = []
+      for (const itemId of itemIds) {
+        const planItem = plan.items.find((item) => item.id === itemId)
+        const workItem = workflow.workItems.find((item) => item.id === itemId)
+        if (!planItem || !workItem)
+          throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', `Workflow item ${itemId} does not exist`)
+        const targetSessionIds = planItem.targetSessionIds ?? []
+        if (!targetSessionIds.length)
+          throw new HbarError('WORKFLOW_TARGET_REQUIRED', `Workflow item ${itemId} has no assigned target sessions`)
+        for (const targetSessionId of targetSessionIds) {
+          const target = await this.api.sessions.get(targetSessionId)
+          if (target.id === source.id || target.archived || target.workspaceId !== source.workspaceId)
+            throw new HbarError('WORKFLOW_TARGET_STALE', `Workflow target session ${targetSessionId} is unavailable`)
+          const targetWorkflow = this.workflows.get(targetSessionId)
+          if (targetWorkflow && !['completed', 'cancelled'].includes(targetWorkflow.status))
+            throw new HbarError(
+              'WORKFLOW_TARGET_BUSY',
+              `Workflow target session ${targetSessionId} already owns an active Workflow`,
+            )
+          const dispatchId = `wfd-${hashValue(
+            JSON.stringify([
+              command.actorId,
+              source.workspaceId,
+              sessionId,
+              command.idempotencyKey,
+              planId,
+              planRevision,
+              workflow.revision,
+              itemId,
+              targetSessionId,
+            ]),
+          ).slice(0, 48)}`
+          if (workflow.targetDispatches.some((entry) => entry.dispatchId === dispatchId))
+            throw new HbarError('WORKFLOW_DISPATCH_CONFLICT', 'A matching target dispatch already exists')
+          const peerIdempotencyKey = `workflow-target-${dispatchId}`
+          const messageText = workflowTargetTaskText(plan, planItem)
+          if (messageText.length > 20_000)
+            throw new HbarError('WORKFLOW_TARGET_LIMIT', `WorkItem ${itemId} message exceeds the peer messaging limit`)
+          const peerRequestHash = peerPayloadHash({
+            senderSessionId: sessionId,
+            targetSessionId,
+            workspaceId: source.workspaceId,
+            modelId,
+            text: messageText,
+            deliveryPolicy: 'queue',
+          })
+          created.push({
+            dispatchId,
+            workflowId: workflow.workflowId,
+            planId,
+            planRevision,
+            workflowRevision: workflow.revision,
+            itemId,
+            targetSessionId,
+            workspaceId: source.workspaceId,
+            messageText,
+            actorId: command.actorId,
+            idempotencyKey: command.idempotencyKey,
+            peerIdempotencyKey,
+            commandHash: command.inputHash,
+            requestHash: peerRequestHash,
+            modelId,
+            scope: workItem.scope,
+            status: 'dispatching',
+            delivery: null,
+            operationId: null,
+            targetRunId: null,
+            targetRunStartSeq: null,
+            terminalRunStatus: null,
+            resultSummary: null,
+            resultHash: null,
+            errorCode: null,
+            createdAt: now,
+            updatedAt: now,
+            completedAt: null,
+          })
+          const unsettled = [...workflow.targetDispatches, ...created].filter(
+            (entry) => !['succeeded', 'failed', 'cancelled', 'stale'].includes(entry.status),
+          )
+          const currentDispatch = created[created.length - 1]!
+          if (
+            unsettled.some(
+              (entry) =>
+                entry.dispatchId !== currentDispatch.dispatchId && scopesOverlap(entry.scope, currentDispatch.scope),
+            )
+          )
+            throw new HbarError(
+              'WORKFLOW_TARGET_SCOPE_CONFLICT',
+              'Concurrent target WorkItems cannot have overlapping write paths',
+            )
+        }
+      }
+      if (workflow.targetDispatches.length + created.length > MAX_WORKFLOW_TARGET_DISPATCHES)
+        throw new HbarError('WORKFLOW_TARGET_LIMIT', 'Workflow target dispatch journal is full')
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: [...workflow.targetDispatches, ...created],
+        updatedAt: now,
+      })
+      await this.persistWorkflow(next, undefined, {
+        targetDispatchIntent: {
+          actorId: command.actorId,
+          idempotencyKey: command.idempotencyKey,
+          commandHash: command.inputHash,
+        },
+      })
+      return { dispatches: created, createdDispatchIds: created.map((entry) => entry.dispatchId) }
+    })
+  }
+
+  async prepareTargetReconciliation(
+    sessionId: string,
+    planId: string,
+    planRevision: number,
+    dispatchIds: string[],
+    actorId: string,
+  ) {
+    return this.serial(sessionId, async () => {
+      const workflow = this.workflows.get(sessionId)
+      const plan = this.plans.get(sessionId)
+      if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'Workflow not found')
+      const selected = workflow.targetDispatches.filter((dispatch) => dispatchIds.includes(dispatch.dispatchId))
+      if (selected.length !== dispatchIds.length)
+        throw new HbarError('WORKFLOW_DISPATCH_NOT_FOUND', 'One or more target dispatches do not exist')
+      if (
+        selected.some(
+          (dispatch) =>
+            dispatch.actorId !== actorId || dispatch.planId !== planId || dispatch.planRevision !== planRevision,
+        )
+      )
+        throw new HbarError('FORBIDDEN', 'Target dispatch belongs to a different actor or Plan revision')
+      if (
+        !plan ||
+        plan.planId !== planId ||
+        plan.revision !== planRevision ||
+        plan.phase !== 'active' ||
+        !['active', 'verifying'].includes(workflow.status) ||
+        selected.some((dispatch) => dispatch.workflowId !== workflow.workflowId)
+      )
+        return { dispatches: selected, retryDispatchIds: [] }
+      const retryable = new Set(['result_unknown', 'dispatching'])
+      const ids = new Set(
+        selected.filter((dispatch) => retryable.has(dispatch.status)).map((dispatch) => dispatch.dispatchId),
+      )
+      if (!ids.size) return { dispatches: selected, retryDispatchIds: [] }
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((dispatch) =>
+          ids.has(dispatch.dispatchId) ? { ...dispatch, status: 'dispatching' as const, updatedAt: now } : dispatch,
+        ),
+        updatedAt: now,
+      })
+      await this.persistWorkflow(next, undefined, { targetDispatchReconciliation: [...ids] })
+      return {
+        dispatches: next.targetDispatches.filter((dispatch) => dispatchIds.includes(dispatch.dispatchId)),
+        retryDispatchIds: [...ids],
+      }
+    })
+  }
+
+  async recordTargetDispatchReceipt(
+    sessionId: string,
+    dispatchId: string,
+    receipt: PeerMessageReceipt,
+    runStartSeq?: number,
+  ) {
+    return this.serial(sessionId, async () => {
+      const workflow = this.workflows.get(sessionId)
+      if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'Workflow not found')
+      const current = workflow.targetDispatches.find((entry) => entry.dispatchId === dispatchId)
+      if (!current) throw new HbarError('WORKFLOW_DISPATCH_NOT_FOUND', 'Target dispatch not found')
+      if (
+        receipt.senderSessionId !== sessionId ||
+        receipt.targetSessionId !== current.targetSessionId ||
+        receipt.workspaceId !== current.workspaceId ||
+        receipt.idempotencyKey !== current.peerIdempotencyKey ||
+        receipt.operationId !== receipt.targetRunId ||
+        (receipt.delivery !== 'new_run' && receipt.delivery !== 'queued')
+      )
+        throw new HbarError('RESULT_UNKNOWN', 'Peer receipt does not match the frozen target dispatch')
+      const targetRunStartSeq = runStartSeq ?? current.targetRunStartSeq ?? Math.max(0, receipt.sessionSeq - 1)
+      const sameCanonicalReceipt =
+        current.operationId === receipt.operationId &&
+        current.targetRunId === receipt.targetRunId &&
+        current.targetRunStartSeq === targetRunStartSeq &&
+        current.delivery === receipt.delivery
+      if (sameCanonicalReceipt) return this.snapshot(sessionId)
+      if (['succeeded', 'failed', 'cancelled'].includes(current.status)) {
+        const resultSummary =
+          current.status === 'succeeded'
+            ? ((await this.targetRunSummary(current.targetSessionId, receipt.operationId, targetRunStartSeq)) ??
+              current.resultSummary)
+            : current.resultSummary
+        const now = Date.now()
+        const next = workflowStateSchema.parse({
+          ...workflow,
+          revision: workflow.revision + 1,
+          targetDispatches: workflow.targetDispatches.map((entry) =>
+            entry.dispatchId === dispatchId
+              ? {
+                  ...entry,
+                  targetRunStartSeq,
+                  delivery: receipt.delivery === 'new_run' ? ('new_run' as const) : ('queued' as const),
+                  ...(current.status === 'succeeded'
+                    ? {
+                        resultSummary,
+                        resultHash: hashValue({
+                          runId: receipt.operationId,
+                          status: current.terminalRunStatus ?? current.status,
+                          error: null,
+                          resultSummary,
+                        }),
+                      }
+                    : {}),
+                  updatedAt: now,
+                }
+              : entry,
+          ),
+          updatedAt: now,
+        })
+        return this.persistWorkflow(next, undefined, {
+          targetDispatchReceiptCursorReconciled: { dispatchId, operationId: receipt.operationId },
+        })
+      }
+      if (
+        current.status !== 'stale' &&
+        current.status !== 'dispatching' &&
+        current.status !== 'result_unknown' &&
+        current.status !== 'running' &&
+        current.status !== 'queued' &&
+        current.status !== 'waiting_approval' &&
+        current.status !== 'cancel_requested'
+      )
+        throw new HbarError('WORKFLOW_DISPATCH_CONFLICT', 'Target dispatch already has a canonical outcome')
+      if (current.status === 'stale') {
+        const next = workflowStateSchema.parse({
+          ...workflow,
+          revision: workflow.revision + 1,
+          targetDispatches: workflow.targetDispatches.map((entry) =>
+            entry.dispatchId === dispatchId
+              ? {
+                  ...entry,
+                  operationId: receipt.operationId,
+                  targetRunId: receipt.targetRunId,
+                  targetRunStartSeq,
+                  delivery: receipt.delivery === 'new_run' ? ('new_run' as const) : ('queued' as const),
+                  updatedAt: Date.now(),
+                }
+              : entry,
+          ),
+          updatedAt: Date.now(),
+        })
+        return this.persistWorkflow(next, undefined, {
+          targetDispatchReceiptAfterStale: { dispatchId, operationId: receipt.operationId },
+        })
+      }
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatchId
+            ? {
+                ...entry,
+                status:
+                  entry.targetRunId === receipt.targetRunId
+                    ? entry.status
+                    : receipt.status === 'queued'
+                      ? ('queued' as const)
+                      : ('running' as const),
+                delivery: receipt.delivery === 'new_run' ? ('new_run' as const) : ('queued' as const),
+                operationId: receipt.operationId,
+                targetRunId: receipt.targetRunId,
+                targetRunStartSeq,
+                updatedAt: now,
+                errorCode: null,
+              }
+            : entry,
+        ),
+        updatedAt: now,
+      })
+      return this.persistWorkflow(next, undefined, {
+        targetDispatchReceipt: { dispatchId, operationId: receipt.operationId },
+      })
+    })
+  }
+
+  async recordTargetDispatchStale(sessionId: string, dispatchId: string, reason: string) {
+    return this.serial(sessionId, async () => {
+      const workflow = this.workflows.get(sessionId)
+      if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'Workflow not found')
+      const dispatch = workflow.targetDispatches.find((entry) => entry.dispatchId === dispatchId)
+      if (!dispatch) throw new HbarError('WORKFLOW_DISPATCH_NOT_FOUND', 'Target dispatch not found')
+      if (['succeeded', 'failed', 'cancelled'].includes(dispatch.status)) return this.snapshot(sessionId)
+      if (dispatch.status === 'stale' && dispatch.errorCode === reason.slice(0, 128)) return this.snapshot(sessionId)
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatchId
+            ? { ...entry, status: 'stale' as const, errorCode: reason.slice(0, 128), updatedAt: now, completedAt: now }
+            : entry,
+        ),
+        updatedAt: now,
+      })
+      return this.persistWorkflow(next, undefined, { targetDispatchStale: { dispatchId, reason } })
+    })
+  }
+
+  async recordTargetDispatchFailure(
+    sessionId: string,
+    dispatchId: string,
+    errorCode: string,
+    outcome: 'known_failure' | 'unknown',
+  ) {
+    return this.serial(sessionId, async () => {
+      const workflow = this.workflows.get(sessionId)
+      if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'Workflow not found')
+      const current = workflow.targetDispatches.find((entry) => entry.dispatchId === dispatchId)
+      if (!current) throw new HbarError('WORKFLOW_DISPATCH_NOT_FOUND', 'Target dispatch not found')
+      if (['stale', 'succeeded', 'failed', 'cancelled'].includes(current.status)) return this.snapshot(sessionId)
+      if (current.operationId)
+        throw new HbarError('RESULT_UNKNOWN', 'Accepted target Run status requires canonical reconciliation')
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatchId
+            ? {
+                ...entry,
+                status: outcome === 'unknown' ? ('result_unknown' as const) : ('failed' as const),
+                errorCode,
+                updatedAt: now,
+                completedAt: outcome === 'known_failure' ? now : null,
+              }
+            : entry,
+        ),
+        updatedAt: now,
+      })
+      return this.persistWorkflow(next, undefined, { targetDispatchFailure: { dispatchId, outcome, errorCode } })
+    })
+  }
+
+  async recordTargetRunStatus(
+    sessionId: string,
+    dispatchId: string,
+    status: 'queued' | 'running' | 'waiting_approval' | 'cancel_requested' | 'succeeded' | 'failed' | 'cancelled',
+    runStatus?: 'completed' | 'failed' | 'cancelled' | 'interrupted',
+    error?: string | null,
+  ) {
+    return this.serial(sessionId, async () => {
+      const workflow = this.workflows.get(sessionId)
+      const dispatch = workflow?.targetDispatches.find((entry) => entry.dispatchId === dispatchId)
+      if (!workflow || !dispatch || !dispatch.operationId)
+        throw new HbarError(
+          'WORKFLOW_DISPATCH_NOT_FOUND',
+          'An accepted target Run is required for status reconciliation',
+        )
+      if (dispatch.targetRunId !== dispatch.operationId)
+        throw new HbarError('RESULT_UNKNOWN', 'Target dispatch operation does not match its Run identity')
+      const terminal = ['succeeded', 'failed', 'cancelled'].includes(status)
+      if (dispatch.completedAt !== null) {
+        if (dispatch.status !== status || (runStatus && dispatch.terminalRunStatus !== runStatus))
+          throw new HbarError(
+            'RESULT_UNKNOWN',
+            'Canonical target Run status conflicts with its recorded terminal result',
+          )
+        if (status === 'succeeded' && dispatch.resultSummary === null && dispatch.targetRunStartSeq !== null) {
+          const resultSummary = await this.targetRunSummary(
+            dispatch.targetSessionId,
+            dispatch.operationId,
+            dispatch.targetRunStartSeq,
+          )
+          if (resultSummary) {
+            const next = workflowStateSchema.parse({
+              ...workflow,
+              revision: workflow.revision + 1,
+              targetDispatches: workflow.targetDispatches.map((entry) =>
+                entry.dispatchId === dispatchId
+                  ? {
+                      ...entry,
+                      resultSummary,
+                      resultHash: hashValue({
+                        runId: dispatch.operationId,
+                        status: runStatus ?? status,
+                        error: null,
+                        resultSummary,
+                      }),
+                      updatedAt: Date.now(),
+                    }
+                  : entry,
+              ),
+              updatedAt: Date.now(),
+            })
+            return this.persistWorkflow(next, dispatch.operationId, {
+              targetRunSummaryReconciled: { dispatchId, operationId: dispatch.operationId },
+            })
+          }
+        }
+        return this.snapshot(sessionId)
+      }
+      const resultSummary = terminal
+        ? await this.targetRunSummary(dispatch.targetSessionId, dispatch.operationId, dispatch.targetRunStartSeq)
+        : null
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatchId
+            ? {
+                ...entry,
+                status: entry.status === 'stale' ? ('stale' as const) : status,
+                terminalRunStatus: runStatus ?? entry.terminalRunStatus,
+                resultSummary:
+                  status === 'succeeded' ? resultSummary : error ? error.slice(0, 2_000) : entry.resultSummary,
+                resultHash: terminal
+                  ? hashValue({
+                      runId: dispatch.operationId,
+                      status: runStatus ?? status,
+                      error: error ?? null,
+                      resultSummary,
+                    })
+                  : entry.resultHash,
+                errorCode: status === 'succeeded' ? null : error ? 'TARGET_RUN_TERMINAL' : entry.errorCode,
+                updatedAt: now,
+                completedAt: terminal ? now : null,
+              }
+            : entry,
+        ),
+        updatedAt: now,
+      })
+      return this.persistWorkflow(next, dispatch.operationId, {
+        targetRunReconciled: {
+          dispatchId,
+          operationId: dispatch.operationId,
+          status,
+          terminalRunStatus: runStatus ?? null,
+        },
+      })
+    })
+  }
+
+  async prepareTargetCancellation(
+    sessionId: string,
+    planId: string,
+    planRevision: number,
+    dispatchId: string,
+    actorId: string,
+  ) {
+    return this.serial(sessionId, async () => {
+      const workflow = this.workflows.get(sessionId)
+      const plan = this.plans.get(sessionId)
+      if (!workflow || !plan || plan.planId !== planId || plan.revision !== planRevision)
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The Workflow Plan changed before cancellation')
+      const dispatch = workflow.targetDispatches.find((entry) => entry.dispatchId === dispatchId)
+      if (!dispatch) throw new HbarError('WORKFLOW_DISPATCH_NOT_FOUND', 'Target dispatch not found')
+      if (dispatch.actorId !== actorId) throw new HbarError('FORBIDDEN', 'Target dispatch belongs to a different actor')
+      if (
+        !dispatch.operationId ||
+        !['queued', 'running', 'waiting_approval', 'cancel_requested'].includes(dispatch.status)
+      )
+        throw new HbarError('WORKFLOW_DISPATCH_CONFLICT', 'Only an accepted target Run can be cancelled')
+      if (dispatch.status === 'cancel_requested') return dispatch
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatchId ? { ...entry, status: 'cancel_requested' as const, updatedAt: now } : entry,
+        ),
+        updatedAt: now,
+      })
+      await this.persistWorkflow(next, undefined, {
+        targetCancellationIntent: { dispatchId, operationId: dispatch.operationId },
+      })
+      return next.targetDispatches.find((entry) => entry.dispatchId === dispatchId)!
+    })
+  }
+
+  async recordTargetCancellation(
+    sessionId: string,
+    dispatchId: string,
+    status: 'cancel_requested' | 'succeeded' | 'cancelled' | 'failed',
+    errorCode?: string,
+    terminalRunStatus?: 'completed' | 'failed' | 'cancelled' | 'interrupted',
+  ) {
+    return this.serial(sessionId, async () => {
+      const workflow = this.workflows.get(sessionId)
+      if (!workflow) throw new HbarError('WORKFLOW_NOT_FOUND', 'Workflow not found')
+      const current = workflow.targetDispatches.find((entry) => entry.dispatchId === dispatchId)
+      if (!current) throw new HbarError('WORKFLOW_DISPATCH_NOT_FOUND', 'Target dispatch not found')
+      const terminal = ['succeeded', 'cancelled', 'failed'].includes(status)
+      const resultSummary =
+        status === 'succeeded' && current.operationId
+          ? await this.targetRunSummary(current.targetSessionId, current.operationId, current.targetRunStartSeq)
+          : null
+      const now = Date.now()
+      const next = workflowStateSchema.parse({
+        ...workflow,
+        revision: workflow.revision + 1,
+        targetDispatches: workflow.targetDispatches.map((entry) =>
+          entry.dispatchId === dispatchId
+            ? {
+                ...entry,
+                status: entry.status === 'stale' ? ('stale' as const) : status,
+                terminalRunStatus: terminalRunStatus ?? entry.terminalRunStatus,
+                resultSummary: status === 'succeeded' ? resultSummary : entry.resultSummary,
+                resultHash: terminal
+                  ? hashValue({
+                      runId: current.operationId,
+                      status: terminalRunStatus ?? status,
+                      errorCode: errorCode ?? null,
+                      resultSummary,
+                    })
+                  : entry.resultHash,
+                errorCode: status === 'succeeded' ? null : (errorCode ?? null),
+                updatedAt: now,
+                completedAt: terminal ? now : null,
+              }
+            : entry,
+        ),
+        updatedAt: now,
+      })
+      return this.persistWorkflow(next, undefined, { targetCancellationResult: { dispatchId, status } })
+    })
+  }
+
   async complete(sessionId: string, expectedRevision: number, runId?: string) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
       this.assertCompletable(current)
+      this.assertTargetItemsSucceeded(sessionId, current)
       const now = Date.now()
       const workflow = workflowStateSchema.parse({
         ...current,
@@ -2253,6 +3165,56 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   async beforeTool(name: string, args: Record<string, unknown>, context: ToolContext, tool: ToolDefinition) {
+    const targetBinding = this.targetRunBindings.get(context.run.id)
+    if (targetBinding) {
+      const sourceWorkflow = this.workflows.get(targetBinding.sourceSessionId)
+      const dispatch = sourceWorkflow?.targetDispatches.find((entry) => entry.dispatchId === targetBinding.dispatchId)
+      const item = sourceWorkflow?.workItems.find((entry) => entry.id === dispatch?.itemId)
+      const localWorkflow = this.workflows.get(context.session.id)
+      if (
+        !sourceWorkflow ||
+        !dispatch ||
+        !item ||
+        (localWorkflow && !['completed', 'cancelled'].includes(localWorkflow.status)) ||
+        dispatch.planRevision !== sourceWorkflow.planRevision ||
+        hashValue(item.scope) !== hashValue(dispatch.scope) ||
+        !['active', 'verifying'].includes(sourceWorkflow.status) ||
+        dispatch.targetRunId !== context.run.id ||
+        dispatch.status !== 'running'
+      )
+        throw new HbarError(
+          'WORKFLOW_REVISION_CONFLICT',
+          'The parent WorkItem scope changed before target tool execution',
+        )
+      const [sourceSession, targetSession] = await Promise.all([
+        this.api.sessions.get(targetBinding.sourceSessionId),
+        this.api.sessions.get(context.session.id),
+      ])
+      if (
+        sourceSession.workspaceId !== dispatch.workspaceId ||
+        targetSession.workspaceId !== dispatch.workspaceId ||
+        sourceSession.archived ||
+        targetSession.archived
+      )
+        throw new HbarError(
+          'WORKFLOW_TARGET_STALE',
+          'A bound Workflow session moved or was archived before tool execution',
+        )
+      if (!dispatch.scope.tools.includes(name))
+        throw new HbarError('WORKFLOW_SCOPE_REQUIRED', `Tool ${name} is outside the frozen parent WorkItem scope`)
+      const paths = workspaceAccessPaths(context.workspace.path, args, tool)
+      const rejected = paths.find(({ path, access }) => {
+        const allowedPaths =
+          access === 'read' ? [...dispatch.scope.readPaths, ...dispatch.scope.writePaths] : dispatch.scope.writePaths
+        return !pathAllowed(path, allowedPaths)
+      })
+      if (rejected)
+        throw new HbarError(
+          'WORKFLOW_SCOPE_REQUIRED',
+          `Path ${rejected.path} is outside the frozen parent WorkItem scope (${rejected.access})`,
+        )
+      return
+    }
     const workflow = this.workflows.get(context.session.id)
     if (workflow && ['blocked', 'needs_revision'].includes(workflow.status) && !REPAIR_TOOLS.has(name))
       throw new HbarError(
@@ -2324,6 +3286,18 @@ export class WorkflowRuntime implements WorkflowService {
         'WORKFLOW_TOOL_IN_FLIGHT',
         'Wait for the current workspace mutation to settle before changing or completing its focus',
       )
+    if (
+      !['cancelled', 'completed'].includes(workflow.status) &&
+      workflow.targetDispatches.some((dispatch) =>
+        ['dispatching', 'result_unknown', 'queued', 'running', 'waiting_approval', 'cancel_requested'].includes(
+          dispatch.status,
+        ),
+      )
+    )
+      throw new HbarError(
+        'WORKFLOW_TARGET_IN_FLIGHT',
+        'Wait for every dispatched target WorkItem to settle or cancel before changing or completing the parent Plan',
+      )
   }
 
   private rememberToolTarget(context: ToolContext, workflow: WorkflowState) {
@@ -2346,6 +3320,55 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   async beginTool(name: string, context: ToolContext, tool: ToolDefinition) {
+    const targetBinding = this.targetRunBindings.get(context.run.id)
+    if (targetBinding) {
+      await this.serial(targetBinding.sourceSessionId, async () => {
+        const current = this.workflows.get(targetBinding.sourceSessionId)
+        const dispatch = current?.targetDispatches.find((entry) => entry.dispatchId === targetBinding.dispatchId)
+        if (
+          !current ||
+          !dispatch ||
+          dispatch.targetRunId !== context.run.id ||
+          dispatch.planRevision !== current.planRevision
+        )
+          throw new HbarError(
+            'WORKFLOW_REVISION_CONFLICT',
+            'The parent WorkItem changed before target mutation admission',
+          )
+        if (!['active', 'verifying'].includes(current.status) || dispatch.status !== 'running')
+          throw new HbarError(
+            'WORKFLOW_REVISION_CONFLICT',
+            'The parent WorkItem was cancelled before target mutation admission',
+          )
+        const targetSession = await this.api.sessions.get(context.session.id)
+        const sourceSession = await this.api.sessions.get(targetBinding.sourceSessionId)
+        if (
+          targetSession.workspaceId !== dispatch.workspaceId ||
+          sourceSession.workspaceId !== dispatch.workspaceId ||
+          targetSession.archived ||
+          sourceSession.archived
+        )
+          throw new HbarError(
+            'WORKFLOW_TARGET_STALE',
+            'A bound Workflow session moved or was archived before mutation admission',
+          )
+        if (tool.effect === 'read') return
+        if (current.pendingMutations?.some((entry) => entry.callId === context.callId)) return
+        const next = workflowStateSchema.parse({
+          ...current,
+          revision: current.revision + 1,
+          pendingMutations: [
+            ...(current.pendingMutations ?? []),
+            { callId: context.callId, runId: context.run.id, toolName: name },
+          ],
+          updatedAt: Date.now(),
+        })
+        await this.persistWorkflow(next, context.run.id, {
+          targetMutationIntent: { dispatchId: dispatch.dispatchId, callId: context.callId, toolName: name },
+        })
+      })
+      return
+    }
     if (CONTROL_TOOLS.has(name)) return
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
@@ -2394,6 +3417,31 @@ export class WorkflowRuntime implements WorkflowService {
     tool: ToolDefinition,
   ) {
     if (name === 'exit_plan_mode') return
+    const targetBinding = this.targetRunBindings.get(context.run.id)
+    if (targetBinding) {
+      await this.serial(targetBinding.sourceSessionId, async () => {
+        const current = this.workflows.get(targetBinding.sourceSessionId)
+        if (!current) return
+        const pendingMutations = (current.pendingMutations ?? []).filter((entry) => entry.callId !== context.callId)
+        if (pendingMutations.length === (current.pendingMutations?.length ?? 0)) return
+        const next = workflowStateSchema.parse({
+          ...current,
+          revision: current.revision + 1,
+          pendingMutations,
+          updatedAt: Date.now(),
+        })
+        await this.persistWorkflow(next, context.run.id, {
+          targetMutationSettled: {
+            dispatchId: targetBinding.dispatchId,
+            callId: context.callId,
+            toolName: name,
+            isError: Boolean(result.isError),
+            resultHash: hashValue({ text: result.text, details: result.details }),
+          },
+        })
+      })
+      return
+    }
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
       if (!current) return
@@ -2767,6 +3815,7 @@ export const workflowPlugin = definePlugin({
     if (api.restoreMode !== 'projection') await runtime.resumeDelegations()
     provide<WorkflowService>(ctx, 'workflow', runtime)
     api.hooks.on('run.start', (event) => runtime.startReviewer(event))
+    api.hooks.on('run.end', (event) => runtime.settleTargetRun(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     api.hooks.on('tool.before', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)

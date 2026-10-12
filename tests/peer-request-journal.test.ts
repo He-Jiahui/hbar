@@ -43,13 +43,17 @@ test('workspace-scoped request recovery does not cross workspace boundaries', as
     'fixture-model',
     command,
   )
-  expect(await storage.call('runByRequestInWorkspace', workspace.id, 'peer-request')).toMatchObject({
+  const localReceipt = await storage.call('runByRequestInWorkspace', workspace.id, 'peer-request')
+  expect(localReceipt).toMatchObject({
     run: { id: local.id, sessionId: session.id },
     command,
+    acceptedSeq: local.queuedEvent?.seq,
   })
-  expect(await storage.call('runByRequestInWorkspace', otherWorkspace.id, 'peer-request')).toMatchObject({
+  const foreignReceipt = await storage.call('runByRequestInWorkspace', otherWorkspace.id, 'peer-request')
+  expect(foreignReceipt).toMatchObject({
     run: { id: foreign.id, sessionId: otherSession.id },
     command,
+    acceptedSeq: foreign.queuedEvent?.seq,
   })
   expect(await storage.call('runByRequestInWorkspace', workspace.id, 'missing')).toBeNull()
 })
