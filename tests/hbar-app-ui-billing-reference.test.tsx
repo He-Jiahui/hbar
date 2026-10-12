@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { ReferenceBillingInvoiceDetail } from '../hbar-ui/packages/lumen-app-ui/src/billing/ReferenceBillingInvoiceDetail'
-import { ReferenceBillingUsage } from '../hbar-ui/packages/lumen-app-ui/src/billing/ReferenceBillingUsage'
+import { ReferenceBillingInvoiceDetail } from '../packages/lumen-app-ui/src/billing/ReferenceBillingInvoiceDetail'
+import { ReferenceBillingUsage } from '../packages/lumen-app-ui/src/billing/ReferenceBillingUsage'
 import { createBillingInvoiceDetailReferenceFixture } from './fixtures/hbar-app-ui-billing-invoice-detail-reference-fixtures'
 import { createBillingUsageReferenceFixture } from './fixtures/hbar-app-ui-billing-usage-reference-fixtures'
 

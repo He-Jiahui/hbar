@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAppSidebar02, type LumenAppSidebarRailContent } from '@lumen/app-ui'
+import { LumenAppSidebar02, type LumenAppSidebarRailContent } from '@lumen/app-ui/catalog'
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from './fixtures/hbar-app-ui-app-sidebar-fixtures'
 import { appSidebarRailFixture } from './fixtures/hbar-app-ui-app-sidebar-rail-fixtures'
 import { auditSamplingPlan } from '../scripts/reactbits-audit-sampling'

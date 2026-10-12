@@ -1,10 +1,72 @@
 import { expect, test } from 'bun:test'
+import { act, type ReactNode } from 'react'
+import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { JSDOM } from 'jsdom'
 import { HbarPromptComposer } from '../packages/app-react/src/prompt-composer'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 type LumenPromptComposerProps = Parameters<typeof HbarPromptComposer>[0]
 type LumenComposerAttachment = LumenPromptComposerProps['attachments'][number]
+
+async function mountDom() {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
+  Object.defineProperty(dom.window, 'matchMedia', {
+    configurable: true,
+    value: (media: string) => ({
+      matches: false,
+      media,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  })
+  const globals = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element,
+    Node: dom.window.Node,
+    Event: dom.window.Event,
+    MouseEvent: dom.window.MouseEvent,
+    MutationObserver: dom.window.MutationObserver,
+    getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const previous = new Map<string, PropertyDescriptor | undefined>()
+  for (const [key, value] of Object.entries(globals)) {
+    previous.set(key, Object.getOwnPropertyDescriptor(globalThis, key))
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
+  }
+  const container = dom.window.document.createElement('div')
+  dom.window.document.body.append(container)
+  const root = createRoot(container)
+  return {
+    container,
+    render: (element: ReactNode) => act(() => root.render(element)),
+    click: (label: string) => {
+      const button = [...container.querySelectorAll('button')].find(
+        (candidate) => candidate.getAttribute('aria-label') === label,
+      )
+      if (!button) throw new Error(`Missing attachment removal action: ${label}`)
+      return act(() => {
+        button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+      })
+    },
+    unmount: () => act(() => root.unmount()),
+    restore: () => {
+      for (const [key, descriptor] of previous) {
+        if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+        else Reflect.deleteProperty(globalThis, key)
+      }
+      dom.window.close()
+    },
+  }
+}
 
 function props(locale: 'en-US' | 'zh-CN' = 'zh-CN'): LumenPromptComposerProps {
   return {
@@ -149,7 +211,7 @@ test('custom editor receives host data unchanged and uses the same submit gate a
   expect(changes).toHaveLength(6)
 })
 
-test('attachment fallback is content-grown at 0/1/normal/12/13 and keeps original kind:id identity', () => {
+test('attachment fallback is content-grown at 0/1/normal/12/13 and keeps original kind:id identity', async () => {
   const base = props()
   for (const count of [0, 1, 3, 12, 13]) {
     const attachments: LumenComposerAttachment[] = Array.from({ length: count }, (_, index) => ({
@@ -174,25 +236,37 @@ test('attachment fallback is content-grown at 0/1/normal/12/13 and keeps origina
   }
   const removed: { id: string; kind: 'image' | 'file' }[] = []
   const onRemoveAttachment = (id: string, kind: 'image' | 'file') => removed.push({ id, kind })
-  const firstView = HbarPromptComposer({
-    ...base,
-    attachments: [first, { ...first, name: '重复文件' }, image],
-    onRemoveAttachment,
-  })
-  const html = renderToStaticMarkup(firstView)
-  expect(html).toContain(first.name)
-  expect(html).toContain(image.name)
-  expect(html).not.toContain('重复文件')
-  // The chip label carries the host-owned name; the preview image is
-  // decorative so Lumen intentionally exposes an empty alt value.
-  expect(html).toContain('alt=""')
-  expect(html).toContain(`aria-label="${base.labels.removeAttachment(first)}"`)
-  // A callback from the previous view must not retarget to the new first item.
-  renderToStaticMarkup(<HbarPromptComposer {...base} attachments={[image]} onRemoveAttachment={onRemoveAttachment} />)
-  // The native removal control is owned by LumenPromptComposer and is exposed
-  // through its rendered accessible name; SSR does not expose its callback
-  // tree for direct invocation.
-  expect(removed).toEqual([])
+  const mounted = await mountDom()
+  try {
+    await mounted.render(
+      <HbarPromptComposer
+        {...base}
+        attachments={[first, { ...first, name: '重复文件' }, image]}
+        onRemoveAttachment={onRemoveAttachment}
+      />,
+    )
+    const html = mounted.container.innerHTML
+    expect(html).toContain(first.name)
+    expect(html).toContain(image.name)
+    expect(html).not.toContain('重复文件')
+    // The chip label carries the host-owned name; the preview image is
+    // decorative so Lumen intentionally exposes an empty alt value.
+    expect(html).toContain('alt=""')
+    expect(html).toContain(`aria-label="${base.labels.removeAttachment(first)}"`)
+    await mounted.click(base.labels.removeAttachment(first))
+    expect(removed).toEqual([{ id: first.id, kind: first.kind }])
+    // Retarget the same source ID to a different kind and verify the rendered
+    // control still reports its original kind:id pair to the host callback.
+    await mounted.render(<HbarPromptComposer {...base} attachments={[image]} onRemoveAttachment={onRemoveAttachment} />)
+    await mounted.click(base.labels.removeAttachment(image))
+    expect(removed).toEqual([
+      { id: first.id, kind: first.kind },
+      { id: image.id, kind: image.kind },
+    ])
+  } finally {
+    await mounted.unmount()
+    mounted.restore()
+  }
   const hidden = renderToStaticMarkup(<HbarPromptComposer {...base} attachments={[first]} attachmentContent={null} />)
   expect(hidden).not.toContain('lumen-attachment-chip')
   const owned = renderToStaticMarkup(

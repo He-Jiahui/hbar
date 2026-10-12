@@ -17,12 +17,7 @@ export default tseslint.config(
       'playwright-report/**',
       'apps/desktop/src-tauri/target/**',
       'apps/desktop/src-tauri/gen/**',
-      // This submodule also vendors the upstream MUI monorepo. Only its
-      // declared hbar workspace belongs to this repository's lint project.
-      'hbar-ui/*',
-      '!hbar-ui/packages/',
-      'hbar-ui/packages/*',
-      '!hbar-ui/packages/lumen-app-ui/',
+      'hbar-ui/**',
     ],
   },
   eslint.configs.recommended,
@@ -66,7 +61,7 @@ export default tseslint.config(
       'apps/**/*.{ts,tsx}',
       'packages/**/*.{ts,tsx}',
       'plugins/**/*.{ts,tsx}',
-      'hbar-ui/packages/lumen-app-ui/src/**/*.{ts,tsx}',
+      'packages/lumen-app-ui/src/**/*.{ts,tsx}',
     ],
     ignores: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {

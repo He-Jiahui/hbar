@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenAppShellChatContent } from '@lumen/app-ui'
+import type { LumenAppShellChatContent } from '@lumen/app-ui/catalog'
 
 function isValidId(id: string): boolean {
   return id.trim().length > 0

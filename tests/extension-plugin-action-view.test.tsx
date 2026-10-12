@@ -5,6 +5,7 @@ import { createAppRuntime } from '@hbar/app-runtime'
 import type { ExtensionWorkspaceActionState, ExtensionWorkspaceDetailState } from '@hbar/app-runtime'
 import { HbarExtensionWorkspace, HbarRuntimeProvider } from '@hbar/app-react'
 import { ExtensionPluginDetail } from '../packages/app-react/src/extension-plugin-detail'
+import { extensionMessages } from '../packages/app-react/src/extension-messages'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const detail: ExtensionWorkspaceDetailState = {
@@ -113,9 +114,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`local capacity rejection is visible without a fabricated Host busy reason: ${locale}`, () => {
     const labels = getShellCopy(locale).extensions.detail
     const html = renderToStaticMarkup(
-      <ExtensionPluginDetail
+      <extensionMessages.Provider messages={getShellCopy(locale).extensions}>
+        <ExtensionPluginDetail
         detail={detail}
-        labels={labels}
         connected
         action={undefined}
         refreshing={false}
@@ -123,7 +124,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         onBack={() => {}}
         onRetry={() => {}}
         onSetEnabled={() => {}}
-      />,
+        />
+      </extensionMessages.Provider>,
     )
     expect(html).toContain('role="alert"')
     expect(html).toContain(labels.actions.error('CAPACITY_EXCEEDED'))
@@ -133,16 +135,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`activation controls are near real scope facts and do not claim contribution execution: ${locale}`, () => {
     const labels = getShellCopy(locale).extensions.detail
     const html = renderToStaticMarkup(
-      <ExtensionPluginDetail
+      <extensionMessages.Provider messages={getShellCopy(locale).extensions}>
+        <ExtensionPluginDetail
         detail={detail}
-        labels={labels}
         connected
         action={undefined}
         refreshing={false}
         onBack={() => {}}
         onRetry={() => {}}
         onSetEnabled={() => {}}
-      />,
+        />
+      </extensionMessages.Provider>,
     )
     expect(html).toContain(labels.actions.disable)
     expect(html).toContain(labels.actions.scope)
@@ -158,16 +161,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const labels = getShellCopy(locale).extensions.detail
       const action: ExtensionWorkspaceActionState = { status, error: status === 'failed' ? 'BUSY' : null }
       const html = renderToStaticMarkup(
-        <ExtensionPluginDetail
+        <extensionMessages.Provider messages={getShellCopy(locale).extensions}>
+          <ExtensionPluginDetail
           detail={detail}
-          labels={labels}
           connected
           action={action}
           refreshing={false}
           onBack={() => {}}
           onRetry={() => {}}
           onSetEnabled={() => {}}
-        />,
+          />
+        </extensionMessages.Provider>,
       )
       if (status === 'submitting') {
         expect(html).toContain(labels.actions.pending)
@@ -197,16 +201,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       actions: { ...original.actions, scope: `${original.actions.scope} ${'Long host-owned text '.repeat(20)}` },
     }
     const html = renderToStaticMarkup(
-      <ExtensionPluginDetail
+      <extensionMessages.Provider messages={{ ...getShellCopy(locale).extensions, detail: labels }}>
+        <ExtensionPluginDetail
         detail={{ ...detail, plugin: detail.plugin ? { ...detail.plugin, required: true } : null }}
-        labels={labels}
         connected={false}
         action={undefined}
         refreshing={false}
         onBack={() => {}}
         onRetry={() => {}}
         onSetEnabled={() => {}}
-      />,
+        />
+      </extensionMessages.Provider>,
     )
     expect(html).toContain(labels.actions.scope)
     expect(html).toContain(labels.required)

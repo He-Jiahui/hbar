@@ -1,9 +1,4 @@
-import type {
-  LumenAuthListStrategy,
-  LumenAuthProviderChoice,
-  LumenAuthQuote,
-  LumenAuthQuoteContent,
-} from '@lumen/app-ui'
+import type { LumenAuthListStrategy, LumenAuthProviderChoice, LumenAuthQuote, LumenAuthQuoteContent } from '@lumen/app-ui/catalog'
 import type { Authentication3PreviewStoreSeed } from './authentication3PreviewStore'
 
 export type Authentication3PreviewLocale = 'en' | 'de' | 'de-long'

@@ -3,7 +3,7 @@
   min-inline-size: 0;
   flex-direction: column;
   border: 0.0625rem solid color-mix(in srgb, var(--lumen-success) 24%, var(--lumen-edge));
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: color-mix(in srgb, var(--lumen-success) 4%, var(--lumen-frost));
 
   overflow-x: auto;
@@ -15,8 +15,8 @@
   block-size: auto;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.5rem;
-  padding: 0.625rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   text-align: start;
 
   min-inline-size: max-content;
@@ -44,9 +44,9 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
 }
 
 .hbar-goal-lifecycle-body[hidden] {
@@ -79,14 +79,14 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-goal-lifecycle-metadata > span {
   min-inline-size: 0;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.25rem;
-  padding: 0.125rem 0.375rem;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
   background: var(--lumen-frost);
@@ -102,18 +102,18 @@
 
 .hbar-goal-replacement,
 .hbar-goal-replacement-objectives {
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-goal-diff-side {
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-goal-diff-label {
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   margin: 0;
   color: var(--lumen-muted);
   overflow-wrap: anywhere;

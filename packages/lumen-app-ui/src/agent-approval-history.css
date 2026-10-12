@@ -1,0 +1,342 @@
+.lumen-agent-approval-surface[data-lumen-variant='6'][data-lumen-component='agent-approval'] {
+  border-radius: 0;
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-ui-agent-approval-history {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  background: var(--lumen-contrast);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-agent-approval-history-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  min-block-size: 3.5rem;
+  padding-inline: var(--lumen-space-16);
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-heading h2 {
+  margin: 0;
+  min-inline-size: 0;
+  color: var(--lumen-ink);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-approval-history button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  block-size: auto;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  color: var(--lumen-ink);
+  font:
+    500 0.8125rem / 1.375rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+  box-shadow: none;
+}
+
+.hbar-app-ui-agent-approval-history button:hover {
+  background: var(--lumen-frost);
+  box-shadow: none;
+}
+
+.hbar-app-ui-agent-approval-history button:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.hbar-app-ui-agent-approval-history button [data-edge] {
+  display: none;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-heading button {
+  flex: 0 0 auto;
+  gap: var(--lumen-space-4);
+  margin-inline-start: auto;
+  padding-block: 0;
+  border: 0.0625rem solid var(--lumen-line);
+  line-height: 1.21875rem;
+  background: var(--lumen-contrast);
+  box-shadow: none;
+}
+
+.hbar-app-ui-agent-approval-history .lumen-agent-approval-glyph {
+  flex: 0 0 auto;
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--lumen-space-8);
+  padding: 0 var(--lumen-space-16) var(--lumen-space-8);
+}
+
+.hbar-app-ui-agent-approval-history-search {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  gap: 0;
+  min-inline-size: 0;
+  padding-inline: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-contrast);
+  box-shadow: inset 0 0 0 0.0625rem var(--lumen-line);
+  color: var(--lumen-muted);
+}
+
+.hbar-app-ui-agent-approval-history-search > svg {
+  margin-inline-end: var(--lumen-space-4);
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-search > svg {
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
+}
+
+.hbar-app-ui-agent-approval-history-search:focus-within {
+  box-shadow: inset 0 0 0 0.0625rem var(--lumen-ink);
+}
+
+/* Accessible label stays in normal flow without occupying visual space. */
+.hbar-app-ui-agent-approval-history-search-label {
+  inline-size: 0;
+  block-size: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-search input {
+  flex: 1 1 0%;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lumen-ink);
+  font:
+    0.8125rem / 1.21875rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+.hbar-app-ui-agent-approval-history-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-2);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+  align-self: flex-start;
+  inline-size: max-content;
+  min-inline-size: 100%;
+  max-inline-size: calc(100% + 1rem);
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-filters button {
+  flex: 1 1 0%;
+  min-inline-size: max-content;
+  min-block-size: 1.75rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
+  border-radius: var(--lumen-radius-control);
+  background: transparent;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-filters button[aria-pressed='true'] {
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+}
+
+/* Owns only the two observed scroll-edge overlays; rows remain flex content. */
+.hbar-app-ui-agent-approval-history-scroll-frame {
+  position: relative;
+  flex: 1 1 0%;
+  min-block-size: 0;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-pane {
+  block-size: 100%;
+  max-block-size: none;
+  min-block-size: 0;
+  overflow: auto;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-pane > ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8) var(--lumen-space-16);
+  margin: 0;
+  list-style: none;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-pane li {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-frost);
+}
+
+.hbar-app-ui-agent-approval-history-dot {
+  flex: 0 0 auto;
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  border-radius: 50%;
+  background: var(--lumen-muted);
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-copy {
+  display: block;
+  flex: 1 1 0%;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-approval-history-copy > p {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lumen-ink);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.21875rem;
+}
+
+.hbar-app-ui-agent-approval-history-copy > p + p {
+  margin-block-start: var(--lumen-space-2);
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1rem;
+}
+
+.hbar-app-ui-agent-approval-history-state {
+  flex: 0 0 auto;
+  inline-size: 6rem;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-approval-history-time {
+  display: none;
+  flex: 0 0 auto;
+  inline-size: 4rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.hbar-app-ui-agent-approval-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--lumen-space-32) var(--lumen-space-24);
+  text-align: center;
+}
+
+.hbar-app-ui-agent-approval-history-empty > p {
+  margin: 0;
+  color: var(--lumen-ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.hbar-app-ui-agent-approval-history-empty > p + p {
+  max-inline-size: 20rem;
+  margin-block-start: var(--lumen-space-4);
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1rem;
+}
+
+.hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-empty button {
+  margin-block-start: var(--lumen-space-16);
+  min-block-size: 2.25rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+}
+
+@media (width >= 40rem) {
+  .hbar-app-ui-agent-approval-history-heading {
+    padding-inline: var(--lumen-space-24);
+  }
+  .hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--lumen-space-8) var(--lumen-space-24);
+  }
+  .hbar-app-ui-agent-approval-history-search {
+    max-inline-size: 20rem;
+  }
+  .hbar-app-ui-agent-approval-history-filters {
+    align-self: center;
+    inline-size: auto;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+  .hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-filters button {
+    flex: 0 1 auto;
+  }
+  .hbar-app-ui-agent-approval-history .hbar-app-ui-agent-approval-history-pane > ul {
+    padding-inline: var(--lumen-space-24);
+  }
+  .hbar-app-ui-agent-approval-history-time {
+    display: block;
+  }
+  .hbar-app-ui-agent-approval-history-state {
+    inline-size: 7rem;
+  }
+}

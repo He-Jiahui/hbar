@@ -1,7 +1,7 @@
 # Web 组件宿主
 
 Web 组合根现在通过 `@hbar/app-react` 将真实 Client、只读 `@hbar/app-runtime`
-与 `hbar-app-ui/workbench` 连接。AppShell/AppSidebar 显示 Host 连接状态、分页的
+与 `@lumen/app-ui` 工作台组合连接。AppShell/AppSidebar 显示 Host 连接状态、分页的
 Workspace → Session 树，并且会话选择、命令入口、状态中心和设置入口全部执行应用命令。
 没有 Host 时保留可操作外壳和明确的重连状态，不填充演示会话。
 
@@ -19,6 +19,7 @@ bun run test:e2e
 E2E 使用 Vite preview 和真实浏览器验证无 Host 降级、中英文、桌面/窄屏、键盘命令入口、
 侧栏滚动和刷新；临时真实 Host 场景还覆盖文件编辑、命令参数表单、发送/审批/取消、三层设置、
 ProviderDialog、Session Monitoring、子 Agent、目标计划、扩展入口和 Performance/Usage/Git 状态中心。
+入口与区域拆分的现行契约见 [UI 架构整改](../../docs/ui/remediation-2026-10-12.md)。
 连接 Host 的 390px 场景会逐项重开工具并检查侧栏、主区和水平溢出。组件预览仍使用
 `bun run app-ui:preview`。
 

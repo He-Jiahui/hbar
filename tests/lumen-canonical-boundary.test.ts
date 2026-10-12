@@ -13,69 +13,69 @@ async function collectFiles(root: string, suffix: string): Promise<string[]> {
 }
 
 const canonicalCompositions = [
-  'hbar-ui/packages/lumen-app-ui/src/agent-activity.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/agent-approval.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/agent-plan.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/ai-chat.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/analytics.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/app-dialog.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/app-shell-workflows.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/app-sidebar-workflows.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/authentication.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/billing.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/card.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/chat.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/command-list.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/command-menu.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/comments.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/data-table.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/dashboard.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/editor.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/feedback-workflows.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/file-manager.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/filtering.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/form-workflows.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/integrations.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/kanban.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/list.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/mobile.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/monitoring.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/navbar.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/notifications.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/onboarding.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/paywall.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/prompt-input.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/scheduling.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/session-components.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/settings-form.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/support.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/tool-calls.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-overview.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-model-table.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-rate-panel.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-member-list.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-budget-panel.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-overage-panel.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-request-table.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/usage-compact-widget.tsx',
-  'hbar-ui/packages/lumen-app-ui/src/wizard.tsx',
+  'packages/lumen-app-ui/src/agent-activity.tsx',
+  'packages/lumen-app-ui/src/agent-approval.tsx',
+  'packages/lumen-app-ui/src/agent-plan.tsx',
+  'packages/lumen-app-ui/src/ai-chat.tsx',
+  'packages/lumen-app-ui/src/analytics.tsx',
+  'packages/lumen-app-ui/src/app-dialog.tsx',
+  'packages/lumen-app-ui/src/app-shell-workflows.tsx',
+  'packages/lumen-app-ui/src/app-sidebar-workflows.tsx',
+  'packages/lumen-app-ui/src/authentication.tsx',
+  'packages/lumen-app-ui/src/billing.tsx',
+  'packages/lumen-app-ui/src/card.tsx',
+  'packages/lumen-app-ui/src/chat.tsx',
+  'packages/lumen-app-ui/src/command-list.tsx',
+  'packages/lumen-app-ui/src/command-menu.tsx',
+  'packages/lumen-app-ui/src/comments.tsx',
+  'packages/lumen-app-ui/src/data-table.tsx',
+  'packages/lumen-app-ui/src/dashboard.tsx',
+  'packages/lumen-app-ui/src/editor.tsx',
+  'packages/lumen-app-ui/src/feedback-workflows.tsx',
+  'packages/lumen-app-ui/src/file-manager.tsx',
+  'packages/lumen-app-ui/src/filtering.tsx',
+  'packages/lumen-app-ui/src/form-workflows.tsx',
+  'packages/lumen-app-ui/src/integrations.tsx',
+  'packages/lumen-app-ui/src/kanban.tsx',
+  'packages/lumen-app-ui/src/list.tsx',
+  'packages/lumen-app-ui/src/mobile.tsx',
+  'packages/lumen-app-ui/src/monitoring.tsx',
+  'packages/lumen-app-ui/src/navbar.tsx',
+  'packages/lumen-app-ui/src/notifications.tsx',
+  'packages/lumen-app-ui/src/onboarding.tsx',
+  'packages/lumen-app-ui/src/paywall.tsx',
+  'packages/lumen-app-ui/src/prompt-input.tsx',
+  'packages/lumen-app-ui/src/scheduling.tsx',
+  'packages/lumen-app-ui/src/session-components.tsx',
+  'packages/lumen-app-ui/src/settings-form.tsx',
+  'packages/lumen-app-ui/src/support.tsx',
+  'packages/lumen-app-ui/src/tool-calls.tsx',
+  'packages/lumen-app-ui/src/usage.tsx',
+  'packages/lumen-app-ui/src/usage-overview.tsx',
+  'packages/lumen-app-ui/src/usage-model-table.tsx',
+  'packages/lumen-app-ui/src/usage-rate-panel.tsx',
+  'packages/lumen-app-ui/src/usage-member-list.tsx',
+  'packages/lumen-app-ui/src/usage-budget-panel.tsx',
+  'packages/lumen-app-ui/src/usage-overage-panel.tsx',
+  'packages/lumen-app-ui/src/usage-request-table.tsx',
+  'packages/lumen-app-ui/src/usage-compact-widget.tsx',
+  'packages/lumen-app-ui/src/wizard.tsx',
 ]
 
 test('canonical Lumen compositions use the Lumen control boundary', async () => {
   const violations: string[] = []
-  const authenticationFiles = (await readdir('hbar-ui/packages/lumen-app-ui/src/authentication'))
+  const authenticationFiles = (await readdir('packages/lumen-app-ui/src/authentication'))
     .filter((file) => file.endsWith('.tsx'))
-    .map((file) => `hbar-ui/packages/lumen-app-ui/src/authentication/${file}`)
-  const billingFiles = (await readdir('hbar-ui/packages/lumen-app-ui/src/billing'))
+    .map((file) => `packages/lumen-app-ui/src/authentication/${file}`)
+  const billingFiles = (await readdir('packages/lumen-app-ui/src/billing'))
     .filter((file) => file.endsWith('.tsx'))
-    .map((file) => `hbar-ui/packages/lumen-app-ui/src/billing/${file}`)
-  const integrationFiles = (await readdir('hbar-ui/packages/lumen-app-ui/src/integrations'))
+    .map((file) => `packages/lumen-app-ui/src/billing/${file}`)
+  const integrationFiles = (await readdir('packages/lumen-app-ui/src/integrations'))
     .filter((file) => file.endsWith('.tsx'))
-    .map((file) => `hbar-ui/packages/lumen-app-ui/src/integrations/${file}`)
-  const navbarFiles = (await readdir('hbar-ui/packages/lumen-app-ui/src/navbar'))
+    .map((file) => `packages/lumen-app-ui/src/integrations/${file}`)
+  const navbarFiles = (await readdir('packages/lumen-app-ui/src/navbar'))
     .filter((file) => file.endsWith('.tsx'))
-    .map((file) => `hbar-ui/packages/lumen-app-ui/src/navbar/${file}`)
+    .map((file) => `packages/lumen-app-ui/src/navbar/${file}`)
 
   for (const file of [
     ...canonicalCompositions,
@@ -134,7 +134,7 @@ test('hbar compatibility code cannot recreate Lumen control visuals', async () =
 
 test('canonical family roots no longer depend on the legacy variant box', async () => {
   const violations: string[] = []
-  for (const file of await collectFiles('hbar-ui/packages/lumen-app-ui/src', '.tsx')) {
+  for (const file of await collectFiles('packages/lumen-app-ui/src', '.tsx')) {
     const source = await readFile(file, 'utf8')
     if (source.includes("'hbar-app-ui-variant'")) violations.push(file)
   }

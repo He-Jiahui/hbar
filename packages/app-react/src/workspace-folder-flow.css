@@ -1,5 +1,5 @@
 /* Full captions may scroll; action controls must remain inside the modal's flow. */
-.hbar-workspace-folders-dialog .hbar-workspace-folder-browser-list .lumen-tree-row {
+.hbar-workspace-folders-dialog .hbar-workspace-folder-browser-list [data-lumen-part~="tree.row"] {
   min-inline-size: 0;
 }
 .hbar-workspace-folders-dialog .hbar-workspace-folder-browser-label,

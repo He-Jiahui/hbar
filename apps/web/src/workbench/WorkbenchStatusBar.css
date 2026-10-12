@@ -4,15 +4,15 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 4px;
-  padding: 0 9px;
+  gap: var(--lumen-space-4);
+  padding: 0 var(--lumen-space-8);
   background: var(--hbar-s1);
 }
 
 .rb-statusbar > .chrome-glass {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: var(--lumen-layer-underlay);
   border: 0;
   border-radius: 0;
   background: color-mix(in srgb, var(--hbar-s1) 92%, transparent);
@@ -26,7 +26,7 @@
 
 .rb-statusbar > :not(.chrome-glass) {
   position: relative;
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
 }
 
 .statusbar-primary,
@@ -39,15 +39,15 @@
 
 .statusbar-primary,
 .statusbar-secondary {
-  gap: 3px;
+  gap: var(--lumen-space-2);
 }
 
 .rb-statusbar .status-item {
   max-width: min(30vw, 320px);
-  gap: 5px;
+  gap: var(--lumen-space-4);
   min-height: 21px;
-  padding: 0 6px;
-  border-radius: var(--radius-sm);
+  padding: 0 var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
   color: var(--hbar-t2);
   font-size: var(--hbar-font-size-label);
   white-space: nowrap;
@@ -104,13 +104,13 @@
   color: var(--hbar-t3);
 }
 
-@media (max-width: 899px) {
+@media (width < 64rem) {
   .rb-statusbar {
     display: none;
   }
 }
 
-@media (max-width: 1200px) and (min-width: 900px) {
+@media (width < 64rem) and (width >= 48rem) {
   .rb-statusbar .status-item {
     max-width: 22vw;
   }

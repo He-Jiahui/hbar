@@ -1,0 +1,121 @@
+.lumen-chat-live-reference-root {
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-chat-live-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lumen-chat-live-reference-header {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block-end: 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-chat-live-reference-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-chat-live-reference-header > button {
+  flex: 0 0 auto;
+}
+
+.lumen-chat-live-reference-icon {
+  flex: 0 0 auto;
+  stroke-width: 1.75;
+}
+
+.lumen-chat-live-reference-icon-sm {
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+}
+
+.lumen-chat-live-reference-pinned {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid color-mix(in srgb, var(--lumen-accent) 24%, var(--lumen-edge));
+  border-radius: var(--lumen-radius-control);
+  background: color-mix(in srgb, var(--lumen-accent) 6%, var(--lumen-glass));
+  overflow-wrap: anywhere;
+}
+
+.lumen-chat-live-reference-pinned > svg {
+  margin-block-start: 0.125rem;
+  color: var(--lumen-accent);
+}
+
+.lumen-chat-live-reference-pinned > p {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-chat-live-reference-messages {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.lumen-chat-live-reference-messages[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-chat-live-reference-message {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding-block: 0.125rem;
+}
+
+.lumen-chat-live-reference-message-copy {
+  display: block;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.lumen-chat-live-reference-message-copy > * + * {
+  margin-inline-start: 0.375rem;
+}
+
+.lumen-chat-live-reference-message-separator {
+  color: var(--lumen-muted);
+}
+
+.lumen-chat-live-reference-message-body {
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+@media (max-width: 34rem) {
+  .lumen-chat-live-reference {
+    gap: 0.625rem;
+  }
+
+  .lumen-chat-live-reference-pinned {
+    padding: 0.625rem;
+  }
+}

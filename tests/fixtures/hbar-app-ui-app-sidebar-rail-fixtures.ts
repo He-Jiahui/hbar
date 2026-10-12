@@ -1,4 +1,4 @@
-import type { LumenAppSidebarRailContent, LumenAppSidebarRailGroup, LumenAppSidebarRailItem } from '@lumen/app-ui'
+import type { LumenAppSidebarRailContent, LumenAppSidebarRailGroup, LumenAppSidebarRailItem } from '@lumen/app-ui/catalog'
 
 const groups: readonly LumenAppSidebarRailGroup[] = [
   {

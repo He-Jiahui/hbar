@@ -1,0 +1,130 @@
+.lumen-chat-support-reference-root .lumen-chat-support-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+}
+
+.lumen-chat-support-reference-header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.25rem;
+}
+
+.lumen-chat-support-reference-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-chat-support-reference-heading > * {
+  overflow-wrap: anywhere;
+}
+
+.lumen-chat-support-reference-started {
+  padding-inline: 0.25rem;
+}
+
+.lumen-chat-support-reference-messages {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.lumen-chat-support-reference-messages[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-chat-support-reference-message {
+  display: flex;
+  max-inline-size: 90%;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0.625rem;
+  border-radius: var(--lumen-radius-control);
+  background: color-mix(in srgb, var(--lumen-muted) 10%, var(--lumen-glass));
+}
+
+.lumen-chat-support-reference-message.is-outgoing {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--lumen-accent) 10%, var(--lumen-glass));
+}
+
+.lumen-chat-support-reference-message p,
+.lumen-chat-support-reference-message small {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.lumen-chat-support-reference-quick-replies {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.lumen-chat-support-reference-quick-replies > button {
+  max-inline-size: 100%;
+  white-space: normal;
+  text-align: start;
+}
+
+.lumen-chat-support-reference-rating {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--lumen-muted);
+}
+
+.lumen-chat-support-reference-votes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.lumen-chat-support-reference-summary {
+  align-self: center;
+  text-align: center;
+}
+
+@media (max-width: 34rem) {
+  .lumen-chat-support-reference-root .lumen-chat-support-reference {
+    flex: 0 0 auto;
+    min-block-size: auto;
+    overflow: visible;
+  }
+
+  .lumen-chat-support-reference-root .lumen-chat-support-reference-messages {
+    flex: 0 0 auto;
+    min-block-size: auto;
+    overflow: visible;
+  }
+
+  .lumen-chat-support-reference-message {
+    max-inline-size: 100%;
+  }
+
+  .lumen-chat-support-reference-rating {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

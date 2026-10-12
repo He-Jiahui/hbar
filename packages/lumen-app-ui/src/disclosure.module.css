@@ -1,0 +1,23 @@
+.disclosure {
+  min-width: 0;
+}
+
+.disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure > summary:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure > summary {
+    transition: none;
+  }
+}

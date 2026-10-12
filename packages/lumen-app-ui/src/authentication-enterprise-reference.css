@@ -1,0 +1,287 @@
+.lumen-authentication-root-surface:has(> .hbar-app-ui-auth-enterprise-reference) {
+  border: 0;
+  border-radius: 0;
+  background: light-dark(#fff, #0a0a0a);
+  box-shadow: none;
+}
+.lumen-authentication.hbar-app-ui-auth-enterprise-reference {
+  overflow: auto;
+  padding: 0 !important;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-layout {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 100%;
+  align-items: stretch;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-left {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 58%;
+  flex-direction: column;
+  padding: 2rem 2.5rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-brand > span {
+  display: flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: light-dark(#171717, #fff);
+  color: light-dark(#fff, #171717);
+  font-size: 0.875rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-form {
+  display: flex;
+  inline-size: min(100%, 23.75rem);
+  min-inline-size: 0;
+  flex-direction: column;
+  align-self: center;
+  margin: auto;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-form > h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 2rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-description {
+  margin: 0.5rem 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-field {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-block-start: 1.5rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-field > label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-field > input {
+  inline-size: 100%;
+  block-size: 2.5rem !important;
+  min-block-size: 2.5rem !important;
+  padding: 0.5rem 0.875rem !important;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929) !important;
+  border-radius: 0.625rem !important;
+  background: light-dark(#fff, #0a0a0a) !important;
+  box-shadow: none;
+  color: inherit !important;
+  font-size: 0.875rem !important;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-field > input:focus-visible {
+  border-color: light-dark(#171717, #fff) !important;
+  outline: 0;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-field > p {
+  margin: 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-block-start: 1rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-actions > button {
+  display: inline-flex;
+  inline-size: 100%;
+  min-block-size: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.625rem;
+  box-shadow: none;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-primary {
+  border: 0;
+  background: light-dark(#171717, #fff);
+  color: light-dark(#fff, #171717);
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-primary:disabled {
+  background: light-dark(#8e8e8e, #929292);
+  color: light-dark(#fff, #171717);
+  opacity: 1;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-secondary {
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  background: light-dark(#fff, #171717);
+  color: inherit;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-audit {
+  margin: 1.5rem 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-aside {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 42%;
+  flex-direction: column;
+  padding: 2rem;
+  border-inline-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  background: light-dark(#fafafa, #171717);
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-eyebrow {
+  margin: 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-org {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-start: 1rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-org-mark {
+  display: flex;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.625rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-org p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-org p:first-child {
+  font-size: 1rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-org p + p {
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-metrics {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-block-start: 1.25rem;
+  padding: 0.25rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.75rem;
+  background: light-dark(#fafafa, #0a0a0a);
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-metrics > div {
+  min-inline-size: 0;
+  flex: 1 1 calc(50% - 0.25rem);
+  padding: 0.625rem 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.625rem;
+  background: light-dark(#fff, #171717);
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-metrics > div:last-child {
+  flex-basis: 100%;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-metrics span {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-metrics p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-security {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-security li {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 2.375rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.625rem;
+  background: light-dark(#fff, #0a0a0a);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-security .hbar-app-ui-auth-icon {
+  color: light-dark(#999, #777);
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-locked {
+  margin: auto 0 0;
+  padding-block-start: 1.5rem;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-unknown {
+  display: flex;
+  inline-size: min(100%, 17.5rem);
+  flex-direction: column;
+  align-self: flex-start;
+  margin: auto 0;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-unknown > p {
+  margin: 0.375rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-unknown > p:last-child {
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-unknown > .hbar-app-ui-auth-enterprise-org-mark {
+  margin-block-end: 0.625rem;
+}
+@media (max-width: 48rem) {
+  .hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-aside {
+    display: none;
+  }
+  .hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-left {
+    padding-inline: 2.5rem;
+  }
+}
+@media (max-width: 40rem) {
+  .hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-left {
+    padding-inline: 1.5rem;
+  }
+  .hbar-app-ui-auth-enterprise-reference .hbar-app-ui-auth-enterprise-form {
+    padding-block-end: 0;
+  }
+}

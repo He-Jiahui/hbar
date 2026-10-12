@@ -1,11 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'bun:test'
-import {
-  LumenSettingsForm01,
-  LumenSettingsFormProvider,
-  type LumenSettingsForm1ViewModel,
-} from '@lumen/app-ui'
+import { LumenSettingsForm01 } from '@lumen/app-ui'
+import { LumenSettingsFormProvider, type LumenSettingsForm1ViewModel } from '@lumen/app-ui/catalog'
 import { createSettingsForm1ReferencePreviewFixture } from '../apps/hbar-app-ui-preview/src/settingsForm1ReferenceFixtures'
 import { createSettingsForm1PreviewStore } from '../apps/hbar-app-ui-preview/src/settingsForm1PreviewStore'
 

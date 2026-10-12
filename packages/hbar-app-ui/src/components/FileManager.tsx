@@ -1,10 +1,4 @@
-import {
-  LumenFileManager,
-  LumenFileManagerProvider as HbarAppUiFileManagerProvider,
-  selectLumenFileManagerItem as selectHbarAppUiFileManagerItem,
-  uniqueLumenFileManagerItems as uniqueHbarAppUiFileManagerItems,
-  type LumenFileManagerContent,
-} from '@lumen/app-ui'
+import { LumenFileManager, LumenFileManagerProvider as HbarAppUiFileManagerProvider, selectLumenFileManagerItem as selectHbarAppUiFileManagerItem, uniqueLumenFileManagerItems as uniqueHbarAppUiFileManagerItems, type LumenFileManagerContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiFileManagerProps = HbarAppUiVariantProps & {
@@ -13,26 +7,7 @@ export type HbarAppUiFileManagerProps = HbarAppUiVariantProps & {
 
 export { HbarAppUiFileManagerProvider, selectHbarAppUiFileManagerItem, uniqueHbarAppUiFileManagerItems }
 
-export type {
-  LumenFileKind as HbarAppUiFileKind,
-  LumenFileManagerActivity as HbarAppUiFileManagerActivity,
-  LumenFileManagerAsset as HbarAppUiFileManagerAsset,
-  LumenFileManagerAssetContent as HbarAppUiFileManagerAssetContent,
-  LumenFileManagerCollaborator as HbarAppUiFileManagerCollaborator,
-  LumenFileManagerContent as HbarAppUiFileManagerContent,
-  LumenFileManagerDetailContent as HbarAppUiFileManagerDetailContent,
-  LumenFileManagerDetailItem as HbarAppUiFileManagerDetailItem,
-  LumenFileManagerDriveContent as HbarAppUiFileManagerDriveContent,
-  LumenFileManagerDriveRow as HbarAppUiFileManagerDriveRow,
-  LumenFileManagerFolder as HbarAppUiFileManagerFolder,
-  LumenFileManagerListStrategy as HbarAppUiFileManagerListStrategy,
-  LumenFileManagerMetadata as HbarAppUiFileManagerMetadata,
-  LumenFileManagerOwner as HbarAppUiFileManagerOwner,
-  LumenFileManagerProviderProps as HbarAppUiFileManagerProviderProps,
-  LumenFileManagerUploadContent as HbarAppUiFileManagerUploadContent,
-  LumenFileManagerUploadItem as HbarAppUiFileManagerUploadItem,
-  LumenFileManagerUploadState as HbarAppUiFileManagerUploadState,
-} from '@lumen/app-ui'
+export type { LumenFileKind as HbarAppUiFileKind, LumenFileManagerActivity as HbarAppUiFileManagerActivity, LumenFileManagerAsset as HbarAppUiFileManagerAsset, LumenFileManagerAssetContent as HbarAppUiFileManagerAssetContent, LumenFileManagerCollaborator as HbarAppUiFileManagerCollaborator, LumenFileManagerContent as HbarAppUiFileManagerContent, LumenFileManagerDetailContent as HbarAppUiFileManagerDetailContent, LumenFileManagerDetailItem as HbarAppUiFileManagerDetailItem, LumenFileManagerDriveContent as HbarAppUiFileManagerDriveContent, LumenFileManagerDriveRow as HbarAppUiFileManagerDriveRow, LumenFileManagerFolder as HbarAppUiFileManagerFolder, LumenFileManagerListStrategy as HbarAppUiFileManagerListStrategy, LumenFileManagerMetadata as HbarAppUiFileManagerMetadata, LumenFileManagerOwner as HbarAppUiFileManagerOwner, LumenFileManagerProviderProps as HbarAppUiFileManagerProviderProps, LumenFileManagerUploadContent as HbarAppUiFileManagerUploadContent, LumenFileManagerUploadItem as HbarAppUiFileManagerUploadItem, LumenFileManagerUploadState as HbarAppUiFileManagerUploadState } from '@lumen/app-ui/catalog'
 
 /** Thin legacy-contract adapter; file workflow rendering and interaction controls are Lumen-owned. */
 export function FileManager({ spec, onAction, fileManagerContent, className }: HbarAppUiFileManagerProps) {

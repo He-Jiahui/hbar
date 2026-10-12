@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createForms7PreviewFixture } from '../apps/hbar-app-ui-preview/src/forms7PreviewFixtures'
 import { createForms7PreviewStore, FORMS7_ATTACHMENT_LIMIT } from '../apps/hbar-app-ui-preview/src/forms7PreviewStore'
-import { LumenForms7Reference } from '../hbar-ui/packages/lumen-app-ui/src/forms-7-reference'
+import { LumenForms7Reference } from '../packages/lumen-app-ui/src/forms-7-reference'
 
 describe('Forms 7 preview store', () => {
   test('projects the cached initial form and bounded host-owned attachment list', () => {

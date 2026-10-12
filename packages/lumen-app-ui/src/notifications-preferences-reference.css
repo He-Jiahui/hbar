@@ -1,0 +1,295 @@
+.lumen-notifications.hbar-app-ui-notifications-variant-3 {
+  --preferences-ground: light-dark(#fff, #0a0a0a);
+  --preferences-ink: light-dark(#222, #f5f5f5);
+  --preferences-muted: light-dark(#777, #a3a3a3);
+  --preferences-edge: light-dark(#e7e7e7, #292929);
+  --preferences-raised: light-dark(#f8f8f8, #181818);
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  background: var(--preferences-ground);
+  color: var(--preferences-ink);
+  font:
+    0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-header {
+  flex: 0 0 auto;
+  padding: var(--lumen-space-16) var(--lumen-space-16);
+  border-bottom: 0.0625rem solid var(--preferences-edge);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-header h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-header p {
+  margin: var(--lumen-space-4) 0 0;
+  color: var(--preferences-muted);
+  line-height: 1.25rem;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-preferences {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  max-block-size: none;
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+  overflow-y: auto;
+  padding: var(--lumen-space-16) var(--lumen-space-16);
+  overscroll-behavior: contain;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix-viewport {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  overflow-x: auto;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix {
+  min-inline-size: 33rem;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns,
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group,
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns {
+  /* The reference labels remain visible over the preference pane while it scrolls. */
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--lumen-layer-raised);
+  min-block-size: 1.53125rem;
+  background: var(--preferences-ground);
+  color: var(--preferences-muted);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns > span:first-child,
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group > span:first-child,
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-event {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns > span:not(:first-child),
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group > span:not(:first-child),
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-cell {
+  display: flex;
+  flex: 0 0 5rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lumen-space-4);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-channel-icon {
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
+  flex: 0 0 auto;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix section + section {
+  margin-top: var(--lumen-space-16);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group {
+  min-block-size: 2.625rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--preferences-raised);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group > span:first-child {
+  font-weight: 500;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group button {
+  min-block-size: 0;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border: 0;
+  border-radius: var(--lumen-radius-control);
+  background: transparent;
+  color: var(--preferences-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group button:hover,
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-group button:focus-visible {
+  background: var(--preferences-edge);
+  color: var(--preferences-ink);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix ul {
+  padding: 0;
+  list-style: none;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix li {
+  padding: var(--lumen-space-12);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-event p:first-child {
+  color: var(--preferences-ink);
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-event p:last-child {
+  overflow: hidden;
+  color: var(--preferences-muted);
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-switch {
+  display: flex;
+  inline-size: var(--lumen-switch-width, 2.25rem);
+  block-size: var(--lumen-switch-height, 1.25rem);
+  min-block-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--lumen-space-2);
+  border: 0;
+  border-radius: var(--lumen-radius-pill);
+  background: light-dark(#d5d5d5, #3c3c3c);
+  cursor: pointer;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-switch[aria-checked='true'] {
+  justify-content: flex-end;
+  background: light-dark(#202020, #fff);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-switch > span {
+  inline-size: var(--lumen-switch-thumb, 0.875rem);
+  block-size: var(--lumen-switch-thumb, 0.875rem);
+  flex: 0 0 auto;
+  border-radius: var(--lumen-radius-pill);
+  background: light-dark(#fff, #151515);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-switch[aria-checked='true'] > span {
+  background: light-dark(#fff, #151515);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-switch:focus-visible,
+.hbar-app-ui-notifications-variant-3 button:focus-visible {
+  outline: 0.125rem solid var(--preferences-ink);
+  outline-offset: 0.125rem;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-quiet {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  padding: var(--lumen-space-4);
+  border: 0.0625rem solid var(--preferences-edge);
+  border-radius: var(--lumen-radius-panel);
+  background: transparent;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--preferences-edge);
+  border-radius: var(--lumen-radius-surface);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-12);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-heading > div {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-icon {
+  display: flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--preferences-edge);
+  border-radius: var(--lumen-radius-control);
+  color: var(--preferences-muted);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-icon svg {
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-heading p:first-child {
+  font-weight: 500;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-heading p:last-child {
+  color: var(--preferences-muted);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-days {
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-days > button {
+  min-block-size: 2rem;
+  padding: var(--lumen-space-4) var(--lumen-space-12);
+  border: 0;
+  border-radius: var(--lumen-radius-control);
+  background: var(--preferences-raised);
+  color: var(--preferences-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-days > button[aria-pressed='true'] {
+  color: var(--preferences-ink);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-save {
+  position: static;
+  flex: 0 0 auto;
+  min-block-size: 3.8125rem;
+  flex-wrap: nowrap;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border: 0;
+  border-top: 0.0625rem solid var(--preferences-edge);
+  border-radius: 0;
+  background: var(--preferences-ground);
+  color: var(--preferences-muted);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-save > span {
+  min-inline-size: 0;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-save > div {
+  flex: 0 0 auto;
+  align-items: center;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-save button {
+  block-size: 2.25rem;
+  min-block-size: 2.25rem;
+  padding: var(--lumen-space-2) var(--lumen-space-12);
+  border: 0.0625rem solid var(--preferences-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: transparent;
+  color: var(--preferences-ink);
+  font: inherit;
+  line-height: 1rem;
+  cursor: pointer;
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-save button:last-child {
+  border-color: transparent;
+  background: var(--preferences-ink);
+  color: var(--preferences-ground);
+}
+.hbar-app-ui-notifications-variant-3 .lumen-notifications-save button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (width >= 40rem) {
+  .hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix-viewport {
+    overflow: visible;
+  }
+}
+@media (width < 40rem) {
+  .hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix-viewport {
+    margin-inline-end: calc(var(--lumen-space-16) * -1);
+  }
+  .hbar-app-ui-notifications-variant-3 .lumen-notifications-save button:last-child {
+    max-inline-size: 8rem;
+  }
+}
+@media (width < 40rem) {
+  .hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix {
+    min-inline-size: 31.75rem;
+  }
+  .hbar-app-ui-notifications-variant-3 .lumen-notifications-save button:last-child {
+    max-inline-size: 6rem;
+  }
+}

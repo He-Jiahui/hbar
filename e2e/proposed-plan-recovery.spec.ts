@@ -260,7 +260,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const attachmentName = 'original-plan-draft-原附件.txt'
       await expect(prompt).toBeEditable()
       await prompt.fill(draft)
-      await page.locator('.hbar-composer-attachment-target input[type=file]').setInputFiles({
+      await page.locator('.hbar-composer-add-root input[type=file]').setInputFiles({
         name: attachmentName,
         mimeType: 'text/plain',
         buffer: Buffer.from('Never belongs to the detached proposal Run'),

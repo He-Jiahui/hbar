@@ -1,0 +1,258 @@
+.hbar-app-ui-integration-connection-reference-surface {
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.hbar-app-ui-integration-connection-reference,
+.hbar-app-ui-integration-connection-reference-header,
+.hbar-app-ui-integration-connection-reference-title,
+.hbar-app-ui-integration-connection-reference-actions,
+.hbar-app-ui-integration-connection-reference-layout,
+.hbar-app-ui-integration-connection-reference-panel,
+.hbar-app-ui-integration-connection-reference-panel > header,
+.hbar-app-ui-integration-connection-reference-scope-list,
+.hbar-app-ui-integration-connection-reference-scope,
+.hbar-app-ui-integration-connection-reference-scope > div,
+.hbar-app-ui-integration-connection-reference-activity-list,
+.hbar-app-ui-integration-connection-reference-activity-item {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-integration-connection-reference {
+  min-block-size: min-content;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+}
+
+.hbar-app-ui-integration-connection-reference-header {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16) var(--lumen-space-16);
+  border-block-end: 0.0625rem solid var(--lumen-integration-border);
+}
+
+.hbar-app-ui-integration-connection-reference-avatar {
+  display: inline-flex;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-integration-border-strong);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-integration-surface);
+  color: var(--lumen-integration-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-integration-connection-reference-title {
+  flex: 1 1 24rem;
+  flex-direction: column;
+  gap: var(--lumen-space-2);
+}
+
+.hbar-app-ui-integration-connection-reference-title h2 {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  font-size: 1.125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-title p {
+  color: var(--lumen-integration-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  margin-inline-start: auto;
+}
+
+.hbar-app-ui-integration-connection-reference-layout {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
+}
+
+.hbar-app-ui-integration-connection-reference-panel {
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--lumen-integration-border);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-integration-surface);
+}
+
+.hbar-app-ui-integration-connection-reference-permissions {
+  flex: 2 1 32rem;
+}
+
+.hbar-app-ui-integration-connection-reference-activity {
+  flex: 1 1 18rem;
+}
+
+.hbar-app-ui-integration-connection-reference-panel > header {
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-integration-connection-reference-panel h3 {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-panel > header p {
+  color: var(--lumen-integration-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-scope-list {
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+}
+
+.hbar-app-ui-integration-connection-reference-scope {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+}
+
+.hbar-app-ui-integration-connection-reference-scope > div {
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+
+.hbar-app-ui-integration-connection-reference-scope strong {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-scope p {
+  color: var(--lumen-integration-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-required {
+  display: inline-flex;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-integration-border);
+  color: var(--lumen-integration-muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.hbar-app-ui-integration-connection-reference-switch {
+  flex: 0 0 auto;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-list {
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item {
+  align-items: flex-start;
+  gap: var(--lumen-space-8);
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item > i {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  flex: 0 0 auto;
+  margin-block-start: var(--lumen-space-4);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.hbar-app-ui-integration-connection-reference-tone-positive > i {
+  color: var(--lumen-integration-positive);
+}
+
+.hbar-app-ui-integration-connection-reference-tone-warning > i {
+  color: var(--lumen-integration-warning);
+}
+
+.hbar-app-ui-integration-connection-reference-tone-danger > i {
+  color: var(--lumen-integration-danger);
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item strong {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item small {
+  color: var(--lumen-integration-subtle);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-audit-link {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  color: var(--lumen-integration-text);
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.hbar-app-ui-integration-connection-reference-audit-link:hover {
+  text-decoration: underline;
+}
+
+@media (width < 48rem) {
+  .hbar-app-ui-integration-connection-reference-header {
+    padding-inline: var(--lumen-space-16);
+  }
+
+  .hbar-app-ui-integration-connection-reference-layout {
+    padding-inline: var(--lumen-space-16);
+  }
+}
+
+@media (width < 40rem) {
+  .hbar-app-ui-integration-connection-reference-actions {
+    inline-size: 100%;
+    margin-inline-start: 0;
+  }
+
+  .hbar-app-ui-integration-connection-reference-actions .hbar-app-ui-integration-button {
+    flex: 1 1 8rem;
+  }
+}

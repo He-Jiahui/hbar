@@ -1,4 +1,4 @@
-import type { LumenAuthTwoStepContent } from '@lumen/app-ui'
+import type { LumenAuthTwoStepContent } from '@lumen/app-ui/catalog'
 import type { Authentication4PreviewStoreSeed } from './authentication4PreviewStore'
 
 export type Authentication4PreviewLocale = 'en' | 'de' | 'de-long'

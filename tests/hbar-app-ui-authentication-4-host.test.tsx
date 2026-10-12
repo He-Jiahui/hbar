@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { basename, resolve } from 'node:path'
 import { chromium, expect as browserExpect, type Browser, type Page } from '@playwright/test'
 import type { Authentication4BrowserHarness } from './fixtures/authentication4-host-browser'
+import { publicLumenStylesheetPlugin } from './fixtures/lumen-public-css-resolver'
 
 declare global {
   interface Window {
@@ -24,6 +25,7 @@ beforeAll(async () => {
     entrypoints: [resolve(import.meta.dir, 'fixtures/authentication4-host-browser.tsx')],
     target: 'browser',
     format: 'esm',
+    plugins: [publicLumenStylesheetPlugin],
   })
   if (!build.success) throw new Error(build.logs.map((log) => log.message).join('\n'))
   const assets = new Map(build.outputs.map((output) => [basename(output.path), output]))

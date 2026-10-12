@@ -1,0 +1,16 @@
+.hbar-session-panel {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1;
+}
+
+.hbar-session-panel-content {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1;
+  overflow: auto;
+}

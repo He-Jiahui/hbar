@@ -1,3 +1,4 @@
+import { isSessionWorkspaceMoveLocked } from '@hbar/app-runtime'
 import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarSessionRunActivity, type HbarSessionRunLabels } from './session-run-activity'
@@ -10,6 +11,7 @@ import { runObservedEnd, type SessionClockSample } from './session-elapsed-model
 import { useSessionClock } from './session-tool-clock'
 import { monitoringRuns } from './session-monitoring-model'
 import { HbarSessionRunOverview, type HbarSessionRunOverviewLabels } from './session-run-overview'
+import { createMessageScope } from './messages'
 
 function RunTiming({
   run,
@@ -46,9 +48,15 @@ export interface HbarSessionRunHistoryLabels {
   readonly source: (source: Run['input']['source']) => string
   readonly overview: HbarSessionRunOverviewLabels
 }
+type SessionRunHistoryMessages = Pick<
+  HbarSessionRunHistoryLabels,
+  'loading' | 'empty' | 'retry' | 'detail' | 'duration' | 'timestamp' | 'error' | 'source'
+>
+const { Provider: SessionRunHistoryMessagesProvider, useMessages: useSessionRunHistoryMessages } =
+  createMessageScope<SessionRunHistoryMessages>()
 
 /** The session-status pane owns history; rows keep the original Run action identity. */
-export function HbarSessionRunHistory({
+function SessionRunHistoryContent({
   sessionId,
   connected,
   labels,
@@ -57,6 +65,7 @@ export function HbarSessionRunHistory({
   readonly connected: boolean
   readonly labels: HbarSessionRunHistoryLabels
 }) {
+  const { t } = useSessionRunHistoryMessages()
   const runtime = useHbarRuntime()
   const stopRun = useSessionStopAction()
   const timeline = useHbarRuntimeState(runtime.state.timeline)
@@ -92,11 +101,7 @@ export function HbarSessionRunHistory({
     ? (workspaceMoves.entries[sessionId] ??
       Object.values(workspaceMoves.entries).find((entry) => entry.targetSessionId === sessionId))
     : undefined
-  const moveLocked = Boolean(
-    move &&
-    move.status !== 'succeeded' &&
-    (move.status === 'busy' || move.status === 'unknown' || move.status === 'paused' || move.targetSessionId !== null),
-  )
+  const moveLocked = isSessionWorkspaceMoveLocked(move)
   const canRetry =
     connected &&
     ownsTimeline &&
@@ -119,21 +124,21 @@ export function HbarSessionRunHistory({
     <LumenFrame className="hbar-session-status-runs">
       {!ownsTimeline || timeline.status === 'loading' ? (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       ) : null}
       {connected && ownsTimeline && timeline.status === 'error' ? (
         <LumenFrame role="alert">
           <LumenContentText context="section.description">
-            {labels.error(timeline.error ?? 'EXECUTION_FAILED')}
+            {t('error')(timeline.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton size="s" variant="text" indicator="none" disabled={!connected} onClick={refresh}>
-            {labels.retry}
+            {t('retry')}
           </LumenButton>
         </LumenFrame>
       ) : null}
       {ownsTimeline && timeline.status === 'ready' && runs.length === 0 ? (
-        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+        <LumenContentText context="section.description">{t('empty')}</LumenContentText>
       ) : null}
       <HbarSessionRunActivity
         key={sessionId}
@@ -141,12 +146,12 @@ export function HbarSessionRunHistory({
         executionConfirmed={connected}
         runs={runs.map((run) => ({
           id: run.id,
-          label: labels.timestamp(run.createdAt),
+          label: t('timestamp')(run.createdAt),
           status: run.status,
           ...(run.error ? { detail: run.error } : {}),
-          model: labels.detail(run.modelId),
-          source: labels.source(run.input.source),
-          duration: <RunTiming run={run} clock={timeline.toolClock} connected={connected} format={labels.duration} />,
+          model: t('detail')(run.modelId),
+          source: t('source')(run.input.source),
+          duration: <RunTiming run={run} clock={timeline.toolClock} connected={connected} format={t('duration')} />,
         }))}
         labels={labels.runs}
         plan={
@@ -200,10 +205,34 @@ export function HbarSessionRunHistory({
                 .map((run) => run.id)
             : []
         }
-        feedback={connected && errorAction?.error ? labels.error(errorAction.error) : undefined}
+        feedback={connected && errorAction?.error ? t('error')(errorAction.error) : undefined}
         onCancelRun={connected ? (operationId) => (stopRun ? stopRun(operationId) : cancel(operationId)) : undefined}
         onRetryRun={connected ? retry : undefined}
       />
     </LumenFrame>
+  )
+}
+
+/** Preserve direct SDK labels as the adapter while the view reads its own messages. */
+export function HbarSessionRunHistory(props: {
+  readonly sessionId: string | null
+  readonly connected: boolean
+  readonly labels: HbarSessionRunHistoryLabels
+}) {
+  const { labels, ...history } = props
+  const messages: SessionRunHistoryMessages = {
+    loading: labels.loading,
+    empty: labels.empty,
+    retry: labels.retry,
+    detail: labels.detail,
+    duration: labels.duration,
+    timestamp: labels.timestamp,
+    error: labels.error,
+    source: labels.source,
+  }
+  return (
+    <SessionRunHistoryMessagesProvider messages={messages}>
+      <SessionRunHistoryContent {...history} labels={labels} />
+    </SessionRunHistoryMessagesProvider>
   )
 }

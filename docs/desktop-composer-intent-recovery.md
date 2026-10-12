@@ -37,6 +37,6 @@
 - 原生 WebView2 **4/4**：中英文 × 900×600 / 1440×960，同一最终资源、现有 debug exe。20 张截图、[原生事实](../artifacts/composer-intent-recovery/native/hbar-native-session-intent-SB8vTf/verification.json) 与 [精确清理记录](../artifacts/composer-intent-recovery/native/hbar-native-session-intent-SB8vTf/cleanup.json) 保留。4 次 fixture 上传，0 Run / 0 Goal，0 pageerror/console warning。亲看中文 900 两个方向和 Web 中文 320，原因正常可读，操作可达，无水平溢出。
 - 原生 runner 首次用了错误的 command client 读取 `mode.get`，在本地契约校验失败，未形成产品故障；改为公开 `HbarClient.call` 后重跑上述 4 例通过。两次都只停止已核对创建时间、父子关系和完整 argv 的自有进程、清理各自 profile/workspace；调试与 fixture 端口均释放，既有受保护进程没有查询或操作。
 
-仓库 `bun run check` 的 native build、全仓严格 lint 和 TypeScript 已通过；Bun 为 **2221 pass / 1 fail / 24392 assertions / 367 files**，257.13s，整体 exit 1。唯一失败是 `tests/lumen-canonical-boundary.test.ts:97` 检出的 `hbar-ui/packages/lumen-app-ui/src/authentication/QuoteAuthentication.tsx:native-visible-control`，与前一轮相同的非本功能边界问题；没有修改该认证组件或放宽守卫。[完整日志](../artifacts/composer-intent-recovery/root-check.log) 保留，不能称全仓检查通过。
+仓库 `bun run check` 的 native build、全仓严格 lint 和 TypeScript 已通过；Bun 为 **2221 pass / 1 fail / 24392 assertions / 367 files**，257.13s，整体 exit 1。唯一失败是 `tests/lumen-canonical-boundary.test.ts:97` 检出的 `packages/lumen-app-ui/src/authentication/QuoteAuthentication.tsx:native-visible-control`，与前一轮相同的非本功能边界问题；没有修改该认证组件或放宽守卫。[完整日志](../artifacts/composer-intent-recovery/root-check.log) 保留，不能称全仓检查通过。
 
 本次没有重建 launcher，也没有以定向原生验证冒充完整 desktop smoke、商业模型或跨设备验收。会话内查找仍只有 [只读模型](desktop-session-find.md)，没有因本次入口修正而变成可用 UI；项目隐藏、别名和跨窗口偏好一致性仍是单独的后续闭环。

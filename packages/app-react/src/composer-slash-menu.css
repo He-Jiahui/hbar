@@ -1,7 +1,7 @@
 .hbar-composer-slash-items {
   min-block-size: 0;
   overflow: auto;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
 }
 
 .hbar-composer-slash-item {
@@ -9,7 +9,7 @@
   min-inline-size: 0;
   inline-size: 100%;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   justify-content: flex-start;
   text-align: start;
 }
@@ -31,14 +31,14 @@
 }
 
 .hbar-composer-slash-hint {
-  padding: 0.5rem 0.7rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-top: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-muted);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 28rem) {
+@media (width < 40rem) {
   .hbar-composer-slash-hint {
     display: none;
   }
@@ -50,7 +50,7 @@
 
   .hbar-composer-slash-description {
     flex-basis: 100%;
-    margin-inline-start: 1.375rem;
+    margin-inline-start: var(--lumen-space-24);
     text-align: start;
   }
 }

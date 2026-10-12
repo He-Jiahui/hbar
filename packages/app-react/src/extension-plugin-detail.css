@@ -2,8 +2,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-block: 0.75rem;
+  gap: var(--lumen-space-8);
+  padding-block: var(--lumen-space-12);
   border-block: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -11,7 +11,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-react-plugin-actions > p {

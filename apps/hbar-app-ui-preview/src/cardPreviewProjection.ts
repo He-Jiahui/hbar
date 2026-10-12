@@ -1,4 +1,4 @@
-import type { LumenCardContent, LumenCardReferenceContent } from '@lumen/app-ui'
+import type { LumenCardContent, LumenCardReferenceContent } from '@lumen/app-ui/catalog'
 import type { CardPreviewSeed, CardPreviewStoreApi } from './cardPreviewModel'
 
 export function createCardPreviewSeed(

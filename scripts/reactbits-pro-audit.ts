@@ -88,7 +88,7 @@ class ReferenceAccessBlockedError extends Error {
 type AuditTheme = (typeof REACTBITS_PRO_THEMES)[number]
 type AuditViewport = (typeof REACTBITS_PRO_VIEWPORTS)[number]
 
-const SOURCE_CATALOG_PATH = resolve('hbar-ui/packages/lumen-app-ui/src/source-catalog.json')
+const SOURCE_CATALOG_PATH = resolve('packages/lumen-app-ui/src/source-catalog.json')
 
 export type ReactBitsProReferenceVariant = Readonly<{
   id: string
@@ -829,7 +829,7 @@ async function localImplementationHash(variantIds: readonly string[], outputRoot
     : undefined
   const coveredFiles: string[] = []
   for (const root of [
-    'hbar-ui/packages/lumen-app-ui/src',
+    'packages/lumen-app-ui/src',
     'packages/hbar-app-ui/src',
     'apps/hbar-app-ui-preview/src',
     'tests/fixtures',
@@ -838,7 +838,7 @@ async function localImplementationHash(variantIds: readonly string[], outputRoot
       .filter((file) => /\.(css|json|ts|tsx)$/.test(file))
       .sort()
     for (const file of files) {
-      if (root === 'hbar-ui/packages/lumen-app-ui/src' && !includesLumenAuditFile(file, dependencies)) continue
+      if (root === 'packages/lumen-app-ui/src' && !includesLumenAuditFile(file, dependencies)) continue
       if (root === 'tests/fixtures' && !includesAppUiAuditFixture(file)) continue
       const path = join(root, file)
       coveredFiles.push(path)

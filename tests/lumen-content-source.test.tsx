@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAnalytics, LumenAnalyticsProvider } from '@lumen/app-ui'
+import { LumenAnalytics, LumenAnalyticsProvider } from '@lumen/app-ui/catalog'
 import {
   HBAR_APP_UI_ANALYTICS_FIXTURES,
   createHbarAppUiAnalyticsLocalizedFixtures,

@@ -1,7 +1,30 @@
-export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
+import './theme-bridge'
+export {
+  createMessageScope,
+  type MessageScope,
+  type MessageScopeProviderProps,
+  type MessageScopeReader,
+} from './messages'
+export {
+  VIEWPORT_BREAKPOINTS_REM,
+  WORKSPACE_VIEWPORT_MEDIA,
+  workspaceViewportTier,
+  type WorkspaceViewportTier,
+} from './responsive-contract'
+export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState, useHbarRuntimeSelector } from './runtime'
 export { AgentPolicyEditor, type AgentPolicyEditorLabels } from './agent-policy-editor'
 export { FloatingSurface, useFloatingTrigger } from './floating-surface'
-export { HbarComposerFeedback, type HbarComposerFeedbackLabels } from './composer-feedback'
+export {
+  HbarComposerFeedback,
+  HbarComposerFeedbackRegistryProvider,
+  HbarComposerFeedbackSessionProvider,
+  HbarComposerFeedbackDetails,
+  HbarComposerBlockedNotice,
+  useHbarComposerFeedbackShared,
+  type HbarComposerFeedbackLabels,
+  type HbarComposerFeedbackScope,
+  type HbarComposerFeedbackDetailsLabels,
+} from './composer-feedback'
 export type { SessionStopLabels } from './session-stop'
 export type { WorkspaceOrganizationLabels } from './workspace-organization'
 export {

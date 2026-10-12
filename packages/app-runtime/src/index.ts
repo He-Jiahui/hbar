@@ -1,3 +1,5 @@
+export * from './composer-state'
+export * from './composer-slash'
 import {
   CommandRegistry,
   CommandError,
@@ -8,7 +10,13 @@ import {
 } from '@hbar/commands'
 /** Public application error for View-side validation without reaching into command infrastructure. */
 export { CommandError as RuntimeCommandError } from '@hbar/commands'
-export { createMessageResources, type MessageResources, type MessageResourcePort, type ResourceReferenceSource, type ResourceOpenMode } from './message-resources'
+export {
+  createMessageResources,
+  type MessageResources,
+  type MessageResourcePort,
+  type ResourceReferenceSource,
+  type ResourceOpenMode,
+} from './message-resources'
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
@@ -610,8 +618,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const offRunBoardEvents = options.runBoardEvents?.subscribe(() => {
     const page = presentation.reader.getSnapshot().page
-    const instanceId = page.kind === 'run-board' ? page.instanceId : null
-    if (!instanceId || surfaces.reader.getSnapshot().panels[instanceId]?.panelId !== 'run-board') return
+    const instanceId = page.kind === 'run-board' || page.kind === 'status' ? page.instanceId : null
+    const panel = instanceId ? surfaces.reader.getSnapshot().panels[instanceId] : null
+    if (
+      !instanceId ||
+      (page.kind === 'run-board' && panel?.panelId !== 'run-board') ||
+      (page.kind === 'status' && (panel?.panelId !== 'status' || panel.params.section !== 'runs'))
+    )
+      return
     void runBoard.refresh({ instanceId }).catch(() => undefined)
   })
   const executionPreparation = createSessionExecutionPreparation({
@@ -944,6 +958,17 @@ export function createAppRuntime(options: RuntimeOptions) {
     options.initialDrafts,
     draftArtifactReferences,
   )
+  const ensureSelectedSessionDraft = () => {
+    const selected = navigation.reader.getSnapshot()
+    if (
+      selected.status === 'idle' &&
+      selected.sessionId &&
+      !directory.reader.getSnapshot().deletedSessions?.[selected.sessionId]
+    )
+      drafts.ensure(selected.sessionId)
+  }
+  const offSelectedSessionDraft = navigation.reader.subscribe(ensureSelectedSessionDraft)
+  ensureSelectedSessionDraft()
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
     ...(options.settings ? { settings: options.settings } : {}),
@@ -970,7 +995,6 @@ export function createAppRuntime(options: RuntimeOptions) {
     isRunActive: isCurrentRunActive,
     isSubmissionLocked: (sessionId) =>
       composerIntent.isSubmissionPending(sessionId) ||
-      composerIntent.reader.getSnapshot().entries[sessionId]?.intent === 'goal' ||
       ['submitting', 'unknown'].includes(drafts.reader.getSnapshot()[sessionId]?.status ?? ''),
     onSubscriberError,
   })
@@ -1611,6 +1635,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       if (disposed) return
       disposed = true
       sessionDeletions.dispose()
+      offSelectedSessionDraft()
       offDraftArtifactConnection?.()
       draftArtifactReferences?.dispose()
       messageFork.dispose()
@@ -1697,3 +1722,23 @@ export function createAppRuntime(options: RuntimeOptions) {
     },
   }
 }
+
+export {
+  type SessionStopRun,
+  type SessionStopSnapshot,
+  type SessionStopScope,
+  type SessionStopTarget,
+  type SessionStopKey,
+  type SessionStopKeyScope,
+  type SessionStopFeedbackKind,
+  type SessionStopFeedback,
+  sameSessionStopScope,
+  sameSessionStopTarget,
+  sessionStopScope,
+  sessionStopToolMatches,
+  activeSessionStopRun,
+  sessionStopCanCancel,
+  sessionStopTarget,
+  shouldStopSessionKey,
+  sessionStopFeedback,
+} from './session-stop-policy'

@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenUsageOverageContent, LumenUsageOveragePlan } from '@lumen/app-ui'
+import type { LumenUsageOverageContent, LumenUsageOveragePlan } from '@lumen/app-ui/catalog'
 
 export interface UsageOverageCopy {
   readonly title: string

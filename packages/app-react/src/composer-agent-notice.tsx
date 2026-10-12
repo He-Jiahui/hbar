@@ -1,6 +1,7 @@
 import { Bot } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { HbarComposerFeedback } from './composer-feedback'
+import { createMessageScope } from './messages'
 import './composer-agent-notice.css'
 
 export interface HbarComposerAgentNoticeLabels {
@@ -10,6 +11,8 @@ export interface HbarComposerAgentNoticeLabels {
   readonly created: string
   readonly open: string
 }
+
+const ComposerAgentNoticeMessages = createMessageScope<{ readonly notice: HbarComposerAgentNoticeLabels }>()
 
 export function HbarComposerAgentNotice({
   status,
@@ -26,6 +29,28 @@ export function HbarComposerAgentNotice({
   readonly onRetry: () => void
   readonly onOpen: () => void
 }) {
+  return (
+    <ComposerAgentNoticeMessages.Provider messages={{ notice: labels }}>
+      <HbarComposerAgentNoticeContent
+        status={status}
+        agentId={agentId}
+        connected={connected}
+        onRetry={onRetry}
+        onOpen={onOpen}
+      />
+    </ComposerAgentNoticeMessages.Provider>
+  )
+}
+
+function HbarComposerAgentNoticeContent({
+  status,
+  agentId,
+  connected,
+  onRetry,
+  onOpen,
+}: Omit<Parameters<typeof HbarComposerAgentNotice>[0], 'labels'>) {
+  const { t } = ComposerAgentNoticeMessages.useMessages()
+  const labels = t('notice')
   if (!status || status === 'idle' || status === 'failed') return null
   return (
     <HbarComposerFeedback tone={status === 'unknown' ? 'danger' : 'neutral'}>

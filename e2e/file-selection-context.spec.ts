@@ -63,7 +63,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('group', { name: copy.session.addMenu.menu, exact: true })
         .getByRole('button', { name: copy.session.addMenu.files, exact: true })
         .click()
-      await page.locator('.hbar-composer-attachment-target input[type="file"]').setInputFiles({
+      await page.locator('.hbar-composer-add-root input[type="file"]').setInputFiles({
         name: 'review-notes.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('Preserve this material'),

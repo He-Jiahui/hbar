@@ -1,4 +1,4 @@
-import type { LumenSupportContent } from '@lumen/app-ui'
+import type { LumenSupportContent } from '@lumen/app-ui/catalog'
 
 export interface SupportTicketPreviewCopy {
   readonly pending: string

@@ -1,0 +1,80 @@
+.lumen-prompt-reference-scope {
+  gap: var(--lumen-space-12);
+}
+.lumen-prompt-scope-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+  padding: var(--lumen-space-12);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+}
+.lumen-prompt-scope-content .lumen-prompt-reference-composer {
+  border: 0;
+  padding: 0;
+}
+.lumen-prompt-scope-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  min-inline-size: 0;
+}
+.lumen-prompt-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-4) var(--lumen-space-4) var(--lumen-space-4) var(--lumen-space-8);
+  background: var(--lumen-glass);
+  overflow-wrap: anywhere;
+}
+.lumen-prompt-scope-chip > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.lumen-prompt-scope-chip > .lumen-prompt-reference-icon {
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
+}
+.lumen-prompt-scope-chip > button {
+  flex: 0 0 auto;
+  border: 0;
+  padding: var(--lumen-space-2);
+}
+.lumen-prompt-scope-chip > button > .lumen-prompt-reference-icon {
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
+}
+.lumen-prompt-scope-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  min-inline-size: 0;
+  padding: var(--lumen-space-8);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-contrast);
+}
+.lumen-prompt-scope-picker > button {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.lumen-prompt-scope-picker > button > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.lumen-prompt-scope-picker > button > small {
+  margin-inline-start: auto;
+  color: var(--lumen-muted);
+}
+.lumen-prompt-scope-picker > p {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}

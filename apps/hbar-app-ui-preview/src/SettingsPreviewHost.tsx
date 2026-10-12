@@ -6,7 +6,7 @@ import {
   type HbarAppUiVariantProps,
 } from 'hbar-app-ui/catalog'
 import type { HbarAppUiSettingsPreferencesContent } from 'hbar-app-ui/settings-form'
-import type { LumenSettingsForm1Field } from '@lumen/app-ui'
+import type { LumenSettingsForm1Field } from '@lumen/app-ui/catalog'
 import {
   createSettingsForm1PreviewStore,
   type SettingsForm1PreviewFieldValue,

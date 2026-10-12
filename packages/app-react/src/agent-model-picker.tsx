@@ -3,6 +3,7 @@ import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
 import type { AgentWorkspaceState } from '@hbar/app-runtime'
 import { filterCatalogModels, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
+import { createMessageScope } from './messages'
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './agent-model-picker.css'
 
@@ -19,22 +20,11 @@ export interface AgentModelPickerLabels {
   readonly unavailable: (modelId: string) => string
   readonly error: (code: string) => string
 }
+const agentModelPickerMessages = createMessageScope<AgentModelPickerLabels>()
 
 type Catalog = AgentWorkspaceState['catalog']
 
-export function AgentModelPicker({
-  id,
-  value,
-  catalog,
-  connected,
-  disabled,
-  labels,
-  onSelect,
-  onRetry,
-  required,
-  'aria-describedby': describedBy,
-  'aria-invalid': invalid,
-}: {
+export function AgentModelPicker(props: {
   readonly id: string
   readonly value: string
   readonly catalog: Catalog
@@ -47,6 +37,27 @@ export function AgentModelPicker({
   readonly 'aria-describedby'?: string
   readonly 'aria-invalid'?: boolean
 }) {
+  const { labels, ...viewProps } = props
+  return (
+    <agentModelPickerMessages.Provider messages={labels}>
+      <AgentModelPickerContent {...viewProps} />
+    </agentModelPickerMessages.Provider>
+  )
+}
+
+function AgentModelPickerContent({
+  id,
+  value,
+  catalog,
+  connected,
+  disabled,
+  onSelect,
+  onRetry,
+  required,
+  'aria-describedby': describedBy,
+  'aria-invalid': invalid,
+}: Omit<Parameters<typeof AgentModelPicker>[0], 'labels'>) {
+  const { t } = agentModelPickerMessages.useMessages()
   const popupId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
   const search = useRef<HTMLInputElement>(null)
@@ -63,7 +74,7 @@ export function AgentModelPicker({
   const selected = catalog.models.find((model) => model.id === value)
   const unavailableDraft = value && !selected ? value : null
   const closedEmpty = catalog.status === 'ready' && catalog.models.length === 0 && !unavailableDraft
-  const currentLabel = selected?.modelName ?? (value ? labels.unavailable(value) : labels.choose)
+  const currentLabel = selected?.modelName ?? (value ? t('unavailable')(value) : t('choose'))
   const { groups, remaining } = filterCatalogModels(catalog.models, query, limit, value)
   const moveOption = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return
@@ -108,22 +119,22 @@ export function AgentModelPicker({
       </LumenButton>
       {!open && catalog.status === 'loading' && (
         <LumenContentText context="record.description" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {!open && catalog.status === 'error' && (
         <LumenFrame className="hbar-agent-model-feedback">
           <LumenContentText context="record.description" role="alert">
-            {labels.error(catalog.error ?? 'READ_FAILED')}
+            {t('error')(catalog.error ?? 'READ_FAILED')}
           </LumenContentText>
           <LumenButton type="button" size="s" disabled={!connected} onClick={onRetry}>
-            {labels.retry}
+            {t('retry')}
           </LumenButton>
         </LumenFrame>
       )}
       {!open && closedEmpty && (
         <LumenContentText context="record.description" role="status">
-          {labels.empty}
+          {t('empty')}
         </LumenContentText>
       )}
       <FloatingSurface
@@ -131,7 +142,7 @@ export function AgentModelPicker({
         onClose={() => setOpen(false)}
         anchorRef={trigger}
         initialFocusRef={search}
-        label={labels.title}
+        label={t('title')}
         id={popupId}
         className="hbar-agent-model-popover"
         onKeyDown={(event) => {
@@ -143,13 +154,13 @@ export function AgentModelPicker({
         }}
       >
         <LumenFrame className="hbar-agent-model-heading">
-          <LumenContentText context="popover.title">{labels.title}</LumenContentText>
+          <LumenContentText context="popover.title">{t('title')}</LumenContentText>
           <LumenButton
             type="button"
             size="s"
             variant="text"
             indicator="none"
-            aria-label={labels.close}
+            aria-label={t('close')}
             onClick={() => setOpen(false)}
           >
             <LumenIcon icon={X} tier="sm" />
@@ -160,8 +171,8 @@ export function AgentModelPicker({
           <LumenInput
             ref={search}
             type="search"
-            aria-label={labels.search}
-            placeholder={labels.search}
+            aria-label={t('search')}
+            placeholder={t('search')}
             value={query}
             onChange={(event) => {
               setQuery(event.currentTarget.value)
@@ -171,20 +182,20 @@ export function AgentModelPicker({
         </LumenFrame>
         {catalog.status === 'loading' && (
           <LumenContentText context="popover.body" role="status">
-            {labels.loading}
+            {t('loading')}
           </LumenContentText>
         )}
         {catalog.status === 'error' && (
           <LumenFrame className="hbar-agent-model-feedback">
             <LumenContentText context="popover.body" role="alert">
-              {labels.error(catalog.error ?? 'READ_FAILED')}
+              {t('error')(catalog.error ?? 'READ_FAILED')}
             </LumenContentText>
             <LumenButton type="button" size="s" disabled={!connected} onClick={onRetry}>
-              {labels.retry}
+              {t('retry')}
             </LumenButton>
           </LumenFrame>
         )}
-        <LumenFrame className="hbar-agent-model-list" role="listbox" aria-label={labels.title}>
+        <LumenFrame className="hbar-agent-model-list" role="listbox" aria-label={t('title')}>
           {unavailableDraft && (
             <LumenButton
               type="button"
@@ -193,12 +204,12 @@ export function AgentModelPicker({
               role="option"
               aria-selected="true"
               disabled
-              aria-label={labels.unavailable(unavailableDraft)}
-              title={labels.unavailable(unavailableDraft)}
+              aria-label={t('unavailable')(unavailableDraft)}
+              title={t('unavailable')(unavailableDraft)}
               className="hbar-agent-model-unavailable"
             >
               <LumenContentText context="control.label" className="hbar-agent-model-option-text">
-                <LumenContentText context="control.label">{labels.unavailable(unavailableDraft)}</LumenContentText>
+                <LumenContentText context="control.label">{t('unavailable')(unavailableDraft)}</LumenContentText>
                 <LumenContentText context="choice.description" title={unavailableDraft}>
                   {unavailableDraft}
                 </LumenContentText>
@@ -239,7 +250,7 @@ export function AgentModelPicker({
           ))}
           {catalog.status === 'ready' && !groups.length && !unavailableDraft && (
             <LumenContentText context="popover.body">
-              {catalog.models.length ? labels.noMatches : labels.empty}
+              {catalog.models.length ? t('noMatches') : t('empty')}
             </LumenContentText>
           )}
           {remaining > 0 && (
@@ -248,7 +259,7 @@ export function AgentModelPicker({
               size="s"
               onClick={() => setLimit((current) => current + MODEL_CATALOG_PAGE_SIZE)}
             >
-              {labels.more(remaining)}
+              {t('more')(remaining)}
             </LumenButton>
           )}
         </LumenFrame>

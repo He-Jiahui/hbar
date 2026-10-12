@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import { LumenAuthenticationProvider, type LumenAuthContent, type LumenAuthMagicLinkContent } from '@lumen/app-ui'
+import { LumenAuthenticationProvider, type LumenAuthContent, type LumenAuthMagicLinkContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import {
   createAuthentication5PreviewStore,

@@ -1,4 +1,4 @@
-import type { LumenAiChatContextReferenceContent } from '@lumen/app-ui'
+import type { LumenAiChatContextReferenceContent } from '@lumen/app-ui/catalog'
 
 export function createAiChat4ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenAiChatContextReferenceContent {
   const isChinese = locale === 'zh'

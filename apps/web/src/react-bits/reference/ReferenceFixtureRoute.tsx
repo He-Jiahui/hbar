@@ -1,4 +1,7 @@
 import { Suspense } from 'react'
+import '../theme.css'
+import '../semantic.css'
+import '../production.css'
 import { getReferenceVariant } from './reference-manifest'
 import type { ReferenceViewport } from './reference-types'
 
@@ -22,19 +25,54 @@ function parseDimension(value: string | null, fallback: number): number {
  * single lazy fixture without the authenticated workbench shell, so screenshot
  * measurements describe the reference component rather than app chrome.
  */
-export default function ReferenceFixtureRoute({ referenceId, viewport, width, height }: { referenceId: string; viewport: ReferenceViewport; width?: number; height?: number }) {
+export default function ReferenceFixtureRoute({
+  referenceId,
+  viewport,
+  width,
+  height,
+}: {
+  referenceId: string
+  viewport: ReferenceViewport
+  width?: number
+  height?: number
+}) {
   const definition = getReferenceVariant(referenceId)
   const size = viewportPixels[viewport]
   const routeWidth = width ?? size.width
   const routeHeight = height ?? size.height
   if (!definition) return <main role="alert">Unknown ReactBits reference: {referenceId}</main>
   const Fixture = definition.fixture
-  return <main id="reference-fixture-route" data-reference-id={referenceId} data-viewport={viewport} style={{ width: routeWidth, height: routeHeight, minHeight: routeHeight, maxHeight: routeHeight, boxSizing: 'border-box', overflow: 'hidden', background: 'var(--hbar-canvas)' }}><Suspense fallback={<div aria-busy="true">Loading fixture…</div>}><Fixture definition={definition} viewport={viewport} /></Suspense></main>
+  return (
+    <main
+      id="reference-fixture-route"
+      data-reference-id={referenceId}
+      data-viewport={viewport}
+      style={{
+        width: routeWidth,
+        height: routeHeight,
+        minHeight: routeHeight,
+        maxHeight: routeHeight,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        background: 'var(--hbar-canvas)',
+      }}
+    >
+      <Suspense fallback={<div aria-busy="true">Loading fixture…</div>}>
+        <Fixture definition={definition} viewport={viewport} />
+      </Suspense>
+    </main>
+  )
 }
 
-export function referenceFixtureRouteFromLocation(): { referenceId: string; viewport: ReferenceViewport; width: number; height: number } | undefined {
+export function referenceFixtureRouteFromLocation():
+  { referenceId: string; viewport: ReferenceViewport; width: number; height: number } | undefined {
   const params = new URLSearchParams(window.location.search)
   const referenceId = params.get('referenceFixture')
   if (!referenceId) return undefined
-  return { referenceId, viewport: parseViewport(params.get('viewport')), width: parseDimension(params.get('fixtureWidth'), viewportPixels[parseViewport(params.get('viewport'))].width), height: parseDimension(params.get('fixtureHeight'), viewportPixels[parseViewport(params.get('viewport'))].height) }
+  return {
+    referenceId,
+    viewport: parseViewport(params.get('viewport')),
+    width: parseDimension(params.get('fixtureWidth'), viewportPixels[parseViewport(params.get('viewport'))].width),
+    height: parseDimension(params.get('fixtureHeight'), viewportPixels[parseViewport(params.get('viewport'))].height),
+  }
 }

@@ -9,7 +9,7 @@ import {
   LUMEN_MIGRATED_VARIANT_IDS as canonicalMigratedIds,
   LUMEN_SOURCE_VARIANTS as canonicalSourceVariants,
   LUMEN_VARIANT_REGISTRY as canonicalRegistry,
-} from '../hbar-ui/packages/lumen-app-ui/src/catalog'
+} from '../packages/lumen-app-ui/src/catalog'
 
 test('hbar-app-ui compatibility catalog re-exports the canonical Lumen inventory', () => {
   expect(LUMEN_SOURCE_VARIANTS).toBe(canonicalSourceVariants)

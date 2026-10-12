@@ -10,10 +10,10 @@
   flex: 0 0 auto;
   max-inline-size: none;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
-.hbar-pre-session-choice-picker > button span:not(.lumen-icon) {
+.hbar-pre-session-choice-picker > button span:not([data-lumen-part~="icon"]) {
   flex: 0 0 auto;
   white-space: nowrap;
 }
@@ -28,7 +28,7 @@ dialog.hbar-pre-session-choice-dialog header button > [data-edge] {
   display: none;
 }
 
-dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
+dialog.hbar-pre-session-choice-dialog [data-lumen-part~="dialog.body"] {
   overflow: hidden;
 }
 
@@ -43,7 +43,7 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   max-block-size: min(26.25rem, var(--choice-popup-limit));
   margin: 0;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   color: var(--lumen-ink);
   background: var(--lumen-contrast);
   box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
@@ -62,8 +62,8 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12) 0;
   color: var(--lumen-muted);
   font-size: calc(var(--lumen-font-size) * 0.714286);
   font-weight: 700;
@@ -77,8 +77,8 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
 }
 
 .hbar-pre-session-choice-search {
@@ -87,9 +87,9 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   flex: 0 0 auto;
   align-items: center;
   gap: 0;
-  padding-inline: var(--lumen-input-padding-inline, 0.75rem) 0.25rem;
+  padding-inline: var(--lumen-input-padding-inline, var(--lumen-space-12)) var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control, 0.375rem);
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-contrast);
   color: var(--lumen-muted);
 }
@@ -100,16 +100,16 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   outline-offset: 0.125rem;
 }
 
-.hbar-pre-session-choice-search > .lumen-control {
+.hbar-pre-session-choice-search > [data-lumen-part~="control"] {
   min-inline-size: 0;
   flex: 1 1 auto;
 }
 
-.hbar-pre-session-choice-search > input.lumen-control[data-lumen-variant='plain']:focus-visible {
+.hbar-pre-session-choice-search > input[data-lumen-part~="control"][data-lumen-variant='plain']:focus-visible {
   outline: none;
 }
 
-.hbar-pre-session-choice-search > .lumen-control::-webkit-search-cancel-button {
+.hbar-pre-session-choice-search > [data-lumen-part~="control"]::-webkit-search-cancel-button {
   appearance: none;
 }
 
@@ -130,7 +130,7 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   overflow: auto;
 }
 
@@ -138,11 +138,11 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-pre-session-choice-group-label {
-  padding: 0.375rem 0.5rem 0.125rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8) var(--lumen-space-2);
   color: var(--lumen-muted);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   font-weight: 600;
@@ -154,7 +154,7 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   text-align: start;
   /* A choice with supporting detail is a reading card, unlike its closed trigger. */
   white-space: normal;
@@ -174,7 +174,7 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
   text-align: start;
 }
 
@@ -201,12 +201,12 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .hbar-pre-session-choice-popover[data-presentation='web'] {
     inset: auto 0 0;
     inline-size: 100%;
     max-block-size: min(78dvh, 40rem);
-    border-radius: 0.75rem 0.75rem 0 0;
+    border-radius: var(--lumen-radius-panel) var(--lumen-radius-panel) 0 0;
   }
 
   .hbar-pre-session-choice-popover[data-presentation='web']::backdrop {

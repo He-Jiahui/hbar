@@ -41,7 +41,7 @@
 - 原生产包 `index-CisI4tXi.js` 的维护 E2E 先得到中英 2/2 红：真实删除并返回后，Send 在 8 秒期待窗口仍 enabled；原稿、附件、dirty Files 与会话身份断言先通过。没有点击 stale Send，不把错误可用反馈扩大为 Host 验证被绕过。
 - Runtime 核心及现有回归 5 文件 **60 pass / 281 assertions**，新增专项为 **9 pass / 61 assertions**。主线 Provider 确认回调整合文件为 **11 pass / 97 assertions**；V2 UI、Provider、session workspace 四文件为 **37 pass / 312 assertions**。这些组合部分重叠，不合计成独立测试总数。
 - V1 完整 `bun run test`：**2458 pass / 1 fail / 26141 assertions**，377 files、356.14s。唯一失败是外部认证组件的 canonical Lumen 控件边界（Invitation、PasswordReset、Quote、WorkspacePicker），没有修改或放宽该测试。见 [全仓日志](../artifacts/model-provider-recovery/full-test-v1.log)。完整运行后只调整空目录文案和布局条件，并补充定向几何回归，不声称在最终这些微调后又重跑了全仓。
-- 根 strict lint 仍被 `hbar-ui/packages/lumen-app-ui/src/authentication/primitives.tsx:44` 的未注册 `react/no-unused-prop-types` 规则阻断；本单元 scoped lint 通过。根类型检查、相关格式与 flow/content/icon guards 分别运行。不能声称整仓 check 全绿。
+- 根 strict lint 仍被 `packages/lumen-app-ui/src/authentication/primitives.tsx:44` 的未注册 `react/no-unused-prop-types` 规则阻断；本单元 scoped lint 通过。根类型检查、相关格式与 flow/content/icon guards 分别运行。不能声称整仓 check 全绿。
 - V1 新恢复 E2E **8/8**、旧模型入口 **2/2**；V2 加强完整裁剪边界与 center-hit 后仍 **8/8**，旧模型入口 **2/2**，原生 **4/4**。但亲看旧模型入口长名称对比图发现新增全局 flex-wrap 使正常模型与推理强度从同行变成两行；这些绿灯不能证明最终视觉完成。已加入 1440 宽度的同行几何回归，并将 wrap 限于实际显示关闭态恢复提示的容器。
 - 原生第一轮夹具把大写 locale 放入 Provider ID，客户端 schema 按小写 ID 契约拒绝，未发 Provider 写请求。修正夹具后才开始行为验证；失败证据与新临时目录保留，精确进程清理为 0 错误。它不是产品故障或通过记录。
 

@@ -1,6 +1,7 @@
 import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { extensionMessages } from './extension-messages'
 
 export interface ExtensionCollectionLabels {
   readonly notLoaded: string
@@ -12,7 +13,6 @@ export interface ExtensionCollectionLabels {
 
 export function ExtensionCollectionFeedback({
   state,
-  labels,
   connected,
   onRetry,
   owner,
@@ -21,7 +21,6 @@ export function ExtensionCollectionFeedback({
   heading,
 }: {
   readonly state: ExtensionWorkspaceEntryState['collections']['plugins'] | undefined
-  readonly labels: ExtensionCollectionLabels
   readonly connected: boolean
   readonly onRetry: () => Promise<void>
   readonly owner: object
@@ -29,6 +28,8 @@ export function ExtensionCollectionFeedback({
   readonly collection: 'plugins' | 'skills'
   readonly heading: RefObject<HTMLElement | null>
 }) {
+  const { t } = extensionMessages.useMessages()
+  const labels = t('collections')[collection]
   const button = useRef<HTMLButtonElement>(null)
   const generation = useRef(0)
   const latestState = useRef(state)

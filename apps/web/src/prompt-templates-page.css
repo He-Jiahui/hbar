@@ -7,16 +7,16 @@
   min-inline-size: 0;
   min-block-size: 0;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 
 /* The editor is a scrollable prompt surface by default. In this page it is
    ordinary document content, so let its surface grow with the form and keep
    the page as the sole scroll owner. This keeps the save/cancel footer in the
    hit-testable flow while navigating a narrow tool pane. */
-.hbar-prompt-templates-page > .lumen-prompt-input-surface {
+.hbar-prompt-templates-page > [data-lumen-part~="prompt-input.surface"] {
   block-size: auto;
   flex: 0 0 auto;
   inline-size: 100%;
@@ -24,14 +24,14 @@
   overflow: visible;
 }
 
-.hbar-prompt-templates-page > .lumen-prompt-input-surface > div {
+.hbar-prompt-templates-page > [data-lumen-part~="prompt-input.surface"] > div {
   box-sizing: border-box;
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
 
-.hbar-prompt-templates-page > .lumen-prompt-input-surface > .lumen-prompt-input {
+.hbar-prompt-templates-page > [data-lumen-part~="prompt-input.surface"] > [data-lumen-part~="prompt-input.root"] {
   box-sizing: border-box;
   block-size: auto;
   flex: 0 0 auto;
@@ -40,18 +40,18 @@
   overflow: visible;
 }
 
-.hbar-prompt-templates-page > .lumen-form-field,
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"],
 .hbar-prompt-template-editor,
-.hbar-prompt-template-editor > .lumen-form-field,
-.hbar-prompt-template-editor .lumen-outlined-field,
-.hbar-prompt-template-editor .lumen-outlined-field > *,
+.hbar-prompt-template-editor > [data-lumen-part~="field.group"],
+.hbar-prompt-template-editor [data-lumen-part~="field.outlined"],
+.hbar-prompt-template-editor [data-lumen-part~="field.outlined"] > *,
 .hbar-prompt-template-editor > footer {
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
 
-.hbar-prompt-templates-page > .lumen-form-field > label,
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] > label,
 .hbar-prompt-template-editor :where(h1, h2, h3, p, label) {
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -59,9 +59,9 @@
   white-space: normal;
 }
 
-.hbar-prompt-templates-page > .lumen-form-field .lumen-outlined-field,
-.hbar-prompt-templates-page > .lumen-form-field .lumen-outlined-field > *,
-.hbar-prompt-templates-page > .lumen-form-field :where(input, textarea) {
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] [data-lumen-part~="field.outlined"],
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] [data-lumen-part~="field.outlined"] > *,
+.hbar-prompt-templates-page > [data-lumen-part~="field.group"] :where(input, textarea) {
   box-sizing: border-box;
   inline-size: 100%;
   max-inline-size: 100%;
@@ -83,13 +83,13 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   align-items: center;
 }
 
 .hbar-prompt-templates-page header {
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-prompt-templates-page header > :first-child,
@@ -105,7 +105,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-prompt-template-list article {
@@ -113,9 +113,9 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block: 0.75rem;
+  padding-block: var(--lumen-space-12);
 }
 
 .hbar-prompt-template-list article > :first-child {
@@ -165,7 +165,7 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-prompt-template-editor > * {
@@ -183,10 +183,10 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
-@container (max-width: 35rem) {
+@container (width < 40rem) {
   .hbar-prompt-templates-page header,
   .hbar-prompt-template-list article,
   .hbar-prompt-variable {

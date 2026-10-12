@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import type { LumenPromptInputAction, LumenPromptReferenceContent, LumenPromptReferenceViewModel } from '@lumen/app-ui'
+import type { LumenPromptInputAction, LumenPromptReferenceContent, LumenPromptReferenceViewModel } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiPromptInputProvider,
   type HbarAppUiPromptInputContent,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { LumenAuthenticationProvider, useLumenAuthenticationContent, type LumenAuthQuoteContent } from '@lumen/app-ui'
+import { LumenAuthenticationProvider, useLumenAuthenticationContent, type LumenAuthQuoteContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant, type HbarAppUiEvent } from '../../packages/hbar-app-ui/src/catalog'
 import { Authentication3PreviewHost } from '../../apps/hbar-app-ui-preview/src/Authentication3PreviewHost'
 import {

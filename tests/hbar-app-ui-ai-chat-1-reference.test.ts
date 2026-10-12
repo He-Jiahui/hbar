@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { getHbarAppUiVariant, HbarAppUiAiChatProvider } from '../packages/hbar-app-ui/src/index'
 import { HBAR_APP_UI_AI_CHAT_FIXTURES } from './fixtures/hbar-app-ui-ai-chat-fixtures'
 import { createAiChat1ReferenceFixture } from './fixtures/hbar-app-ui-ai-chat-1-reference-fixture'
-import type { LumenAiChatThreadReferenceContent } from '@lumen/app-ui'
+import type { LumenAiChatThreadReferenceContent } from '@lumen/app-ui/catalog'
 
 function render(content: LumenAiChatThreadReferenceContent) {
   return renderToStaticMarkup(

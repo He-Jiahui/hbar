@@ -1,4 +1,4 @@
-import type { LumenNavbarChoice, LumenNavbarContent, LumenNavbarNavigation } from '@lumen/app-ui'
+import type { LumenNavbarChoice, LumenNavbarContent, LumenNavbarNavigation } from '@lumen/app-ui/catalog'
 import type { NavbarPreviewSeed } from './navbarPreviewModel'
 
 const primaryIds = ['overview', 'revenue', 'customers', 'usage', 'reports'] as const

@@ -1,4 +1,4 @@
-import type { LumenCardContent, LumenCardReferenceContent } from '@lumen/app-ui'
+import type { LumenCardContent, LumenCardReferenceContent } from '@lumen/app-ui/catalog'
 import { HBAR_APP_UI_CARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-card-fixtures'
 
 const grown = { kind: 'content-grown', expectedMaximum: 12 } as const

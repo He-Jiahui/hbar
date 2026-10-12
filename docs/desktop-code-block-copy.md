@@ -116,7 +116,7 @@ messages with correlation IDs; it does not create or execute Run records.
 At the V2 checkpoint, the full repository suite completed with **2755 passed,
 1 existing authentication-family Lumen boundary failure, 28231 assertions across
 395 files**. Full lint has the existing unavailable `react/no-unused-prop-types`
-rule at `hbar-ui/packages/lumen-app-ui/src/authentication/primitives.tsx:44`.
+rule at `packages/lumen-app-ui/src/authentication/primitives.tsx:44`.
 Logs are `artifacts/code-block-copy/full-tests.log` and `full-lint.log`. Unrelated
 wizard work changed concurrently and was not included in this unit. These checks
 are not an all-green repository claim.

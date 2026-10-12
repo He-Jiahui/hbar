@@ -3,6 +3,7 @@ import { LumenContentText, LumenButton, LumenDialog, LumenFormField, LumenFrame,
 import type { WorkspaceDisplayNamesState } from '@hbar/app-runtime'
 import { captureWorkspaceDisplayNameValidationFocus } from './workspace-display-name-validation-focus'
 import './workspace-display-names.css'
+import { WorkspaceDisplayNamesMessagesProvider, useWorkspaceDisplayNamesMessages } from './workspace-shell-messages'
 
 export interface WorkspaceDisplayNamesLabels {
   readonly title: string
@@ -108,7 +109,16 @@ function actionMessage(state: WorkspaceDisplayNamesState, labels: WorkspaceDispl
 
 /** Controlled editor: the runtime owns draft, request, confirmation, and whether a confirmed Save closes it. */
 export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProps) {
-  const { state, connected, labels } = props
+  return (
+    <WorkspaceDisplayNamesMessagesProvider messages={props.labels}>
+      <WorkspaceDisplayNameDialogView props={props} />
+    </WorkspaceDisplayNamesMessagesProvider>
+  )
+}
+
+function WorkspaceDisplayNameDialogView({ props }: { readonly props: WorkspaceDisplayNameDialogProps }) {
+  const { t } = useWorkspaceDisplayNamesMessages()
+  const { state, connected } = props
   const editor = state.editor
   const formId = useId()
   const nameId = useId()
@@ -186,9 +196,9 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
   const canWrite = connected && state.status === 'ready' && editor.baseLoaded && !locked && !editor.conflict
   const canSave = !working && workspaceDisplayNameCanSave(state, connected)
   const related = state.action.request?.workspaceId === editor.workspaceId
-  const message = related ? actionMessage(state, labels) : null
+  const message = related ? actionMessage(state, props.labels) : null
   const failure = related && state.action.status === 'failed'
-  const readFailure = state.status === 'error' ? labels.readFailure(state.error ?? 'EXECUTION_FAILED') : null
+  const readFailure = state.status === 'error' ? t('readFailure')(state.error ?? 'EXECUTION_FAILED') : null
   const save = () => {
     if (!canSave || composing.current || pending.current) return
     const input = nameRef.current
@@ -221,8 +231,8 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
         appearance="panel"
         size="small"
         open={editor.open}
-        title={labels.title}
-        closeLabel={labels.close}
+        title={t('title')}
+        closeLabel={t('close')}
         className="hbar-workspace-display-name-dialog"
         initialFocus={nameRef}
         onClose={() => props.onClose({ workspaceId: editor.workspaceId })}
@@ -233,10 +243,10 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
               variant="outlined"
               onClick={() => props.onClose({ workspaceId: editor.workspaceId })}
             >
-              {busy || uncertain ? labels.dismiss : labels.cancel}
+              {busy || uncertain ? t('dismiss') : t('cancel')}
             </LumenButton>
             <LumenButton type="submit" form={formId} disabled={!canSave}>
-              {labels.save}
+              {t('save')}
             </LumenButton>
           </LumenFrame>
         }
@@ -254,10 +264,10 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
         >
           <LumenFormField
             controlId={nameId}
-            label={labels.name}
+            label={t('name')}
             required
-            hint={labels.nameHint}
-            error={editor.validation ? labels.validation[editor.validation] : undefined}
+            hint={t('nameHint')}
+            error={editor.validation ? t('validation')[editor.validation] : undefined}
           >
             <LumenInput
               ref={nameRef}
@@ -284,7 +294,7 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
               onKeyDown={submitKey}
             />
           </LumenFormField>
-          <LumenFormField controlId={pathId} label={labels.path} hint={labels.pathHint}>
+          <LumenFormField controlId={pathId} label={t('path')} hint={t('pathHint')}>
             <LumenInput
               id={pathId}
               value={editor.path}
@@ -299,7 +309,7 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
               <LumenFrame>
                 <LumenContentText context="dialog.body">{editor.canonicalName}</LumenContentText>
                 <LumenContentText context="dialog.body" tone="muted">
-                  {labels.restoreHint}
+                  {t('restoreHint')}
                 </LumenContentText>
               </LumenFrame>
               <LumenButton
@@ -308,7 +318,7 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
                 disabled={!canWrite}
                 onClick={() => perform(() => props.onReset(target))}
               >
-                {labels.restore}
+                {t('restore')}
               </LumenButton>
             </LumenFrame>
           )}
@@ -319,28 +329,28 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
           )}
           {localFailure && !message && !readFailure && (
             <LumenContentText context="dialog.body" role="alert">
-              {labels.unexpectedFailure}
+              {t('unexpectedFailure')}
             </LumenContentText>
           )}
           {!connected && (
             <LumenContentText context="dialog.body" role="status">
-              {labels.offline}
+              {t('offline')}
             </LumenContentText>
           )}
           {connected && state.status === 'unavailable' && (
             <LumenContentText context="dialog.body" role="status">
-              {labels.unavailable}
+              {t('unavailable')}
             </LumenContentText>
           )}
           {state.status === 'loading' && !uncertain && (
             <LumenContentText context="dialog.body" role="status">
-              {labels.loading}
+              {t('loading')}
             </LumenContentText>
           )}
           {editor.baseLoaded && editor.conflict && !uncertain && (
             <LumenFrame className="hbar-workspace-display-name-recovery">
               <LumenContentText context="dialog.body" role="alert">
-                {labels.conflict}
+                {t('conflict')}
               </LumenContentText>
               <LumenButton
                 type="button"
@@ -348,7 +358,7 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
                 disabled={!connected || busy}
                 onClick={() => perform(() => props.onRebase(target))}
               >
-                {labels.rebase}
+                {t('rebase')}
               </LumenButton>
             </LumenFrame>
           )}
@@ -364,7 +374,7 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
               disabled={!connected || busy}
               onClick={() => perform(props.onReconcile)}
             >
-              {labels.reconcile}
+              {t('reconcile')}
             </LumenButton>
           ) : readFailure && !editor.conflict ? (
             <LumenButton
@@ -373,7 +383,7 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
               disabled={!connected || busy}
               onClick={() => perform(props.onRefresh)}
             >
-              {labels.refresh}
+              {t('refresh')}
             </LumenButton>
           ) : null}
         </LumenFrame>
@@ -392,14 +402,17 @@ export interface WorkspaceDisplayNameFeedbackProps {
 }
 
 /** The original operation remains inspectable even if its row is filtered out or its editor was closed. */
-export function WorkspaceDisplayNameFeedback({
-  state,
-  connected,
-  labels,
-  onOpen,
-  onRefresh,
-  onReconcile,
-}: WorkspaceDisplayNameFeedbackProps) {
+export function WorkspaceDisplayNameFeedback(props: WorkspaceDisplayNameFeedbackProps) {
+  return (
+    <WorkspaceDisplayNamesMessagesProvider messages={props.labels}>
+      <WorkspaceDisplayNameFeedbackView props={props} />
+    </WorkspaceDisplayNamesMessagesProvider>
+  )
+}
+
+function WorkspaceDisplayNameFeedbackView({ props }: { readonly props: WorkspaceDisplayNameFeedbackProps }) {
+  const { t } = useWorkspaceDisplayNamesMessages()
+  const { state, connected, onOpen, onRefresh, onReconcile } = props
   const [localFailure, setLocalFailure] = useState(false)
   const [working, setWorking] = useState(false)
   const pending = useRef(false)
@@ -435,8 +448,8 @@ export function WorkspaceDisplayNameFeedback({
   if (state.editor?.open) return null
   const uncertain = actionUncertain(state)
   const busy = working || actionBusy(state)
-  const message = actionMessage(state, labels)
-  const readFailure = state.status === 'error' ? labels.readFailure(state.error ?? 'EXECUTION_FAILED') : null
+  const message = actionMessage(state, props.labels)
+  const readFailure = state.status === 'error' ? t('readFailure')(state.error ?? 'EXECUTION_FAILED') : null
   if (!message && !readFailure && !localFailure) return null
   const workspaceId = state.action.request?.workspaceId ?? state.editor?.workspaceId
   return (
@@ -460,27 +473,27 @@ export function WorkspaceDisplayNameFeedback({
       )}
       {localFailure && !message && !readFailure && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.unexpectedFailure}
+          {t('unexpectedFailure')}
         </LumenContentText>
       )}
       {!connected && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.offline}
+          {t('offline')}
         </LumenContentText>
       )}
       <LumenFrame className="hbar-workspace-display-name-recovery">
         {workspaceId && (uncertain || state.action.status === 'failed' || state.action.status === 'submitting') && (
           <LumenButton type="button" variant="text" onClick={() => onOpen({ workspaceId })}>
-            {labels.reopen}
+            {t('reopen')}
           </LumenButton>
         )}
         {uncertain ? (
           <LumenButton type="button" variant="text" disabled={!connected || busy} onClick={() => run(onReconcile)}>
-            {labels.reconcile}
+            {t('reconcile')}
           </LumenButton>
         ) : readFailure ? (
           <LumenButton type="button" variant="text" disabled={!connected || busy} onClick={() => run(onRefresh)}>
-            {labels.refresh}
+            {t('refresh')}
           </LumenButton>
         ) : null}
       </LumenFrame>

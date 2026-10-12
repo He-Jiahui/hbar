@@ -1,0 +1,371 @@
+.lumen-forms-5-surface {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel, 0.75rem);
+}
+
+.lumen-forms-5-reference,
+.lumen-forms-5-reference * {
+  box-sizing: border-box;
+}
+
+.lumen-forms-5-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  color: var(--lumen-ink);
+}
+
+.lumen-forms-5-reference :is(h2, p, fieldset, legend, ul) {
+  margin: 0;
+}
+
+.lumen-forms-5-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  padding: 0.875rem 1rem;
+  background: color-mix(in srgb, var(--lumen-ink) 3%, var(--lumen-contrast));
+}
+
+.lumen-forms-5-heading h2 {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.lumen-forms-5-heading p,
+.lumen-forms-5-helper,
+.lumen-forms-5-footer > p {
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-5-fields {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-forms-5-field {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-forms-5-label {
+  display: flex;
+  min-inline-size: 0;
+  align-items: baseline;
+  gap: 0.25rem;
+  color: var(--lumen-ink);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-5-required {
+  color: var(--lumen-muted);
+}
+
+.lumen-forms-5-field > .lumen-control,
+.lumen-forms-5-domain-control,
+.lumen-forms-5-password-control,
+.lumen-forms-5-region-combobox {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.lumen-forms-5-domain-control,
+.lumen-forms-5-password-control {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding-inline: 0.75rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-forms-5-domain-control > .lumen-control,
+.lumen-forms-5-password-control > .lumen-control {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  border: 0;
+  padding-inline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lumen-forms-5-domain-suffix {
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.lumen-forms-5-password-toggle {
+  flex: 0 0 auto;
+}
+
+.lumen-forms-5-availability {
+  color: var(--lumen-success, var(--lumen-positive));
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-5-password-fields {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.lumen-forms-5-password-fields > .lumen-forms-5-field {
+  flex: 1 1 15rem;
+}
+
+.lumen-forms-5-password-requirements {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-forms-5-password-requirement {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 10rem;
+  align-items: flex-start;
+  gap: 0.375rem;
+  border-block-start: 0.25rem solid var(--lumen-edge);
+  padding-block-start: 0.375rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-5-password-requirement[data-met='true'] {
+  border-color: var(--lumen-positive, var(--lumen-success));
+  color: var(--lumen-ink);
+}
+
+.lumen-forms-5-password-requirement > span {
+  min-inline-size: 0;
+}
+
+.lumen-forms-5-icon {
+  display: block;
+  flex: 0 0 auto;
+  color: currentColor;
+  stroke-width: 1.8;
+}
+
+.lumen-forms-5-icon-xs {
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
+}
+
+.lumen-forms-5-region-combobox {
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-forms-5-region-trigger {
+  inline-size: 100%;
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lumen-forms-5-region-trigger > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.lumen-forms-5-region-options {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline: 0;
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.25rem;
+  background: var(--lumen-contrast);
+  list-style: none;
+  box-shadow: 0 0.5rem 1.25rem color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+}
+
+.lumen-forms-5-region-option {
+  display: flex;
+  min-block-size: 2rem;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.375rem 0.5rem;
+  background: transparent;
+  color: var(--lumen-ink);
+  cursor: pointer;
+  white-space: normal;
+}
+
+.lumen-forms-5-region-option:hover,
+.lumen-forms-5-region-option:focus-visible,
+.lumen-forms-5-region-option[aria-selected='true'] {
+  outline: none;
+  background: color-mix(in srgb, var(--lumen-ink) 7%, var(--lumen-contrast));
+}
+
+.lumen-forms-5-plan-fieldset {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+}
+
+.lumen-forms-5-plan-options {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lumen-forms-5-plan-option {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.75rem;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  cursor: pointer;
+}
+
+.lumen-forms-5-plan-option[data-selected='true'] {
+  border-color: var(--lumen-ink);
+  background: color-mix(in srgb, var(--lumen-ink) 4%, var(--lumen-contrast));
+}
+
+.lumen-forms-5-plan-option input,
+.lumen-forms-5-consent input {
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
+  flex: 0 0 auto;
+  margin: 0.125rem 0 0;
+  accent-color: var(--lumen-ink);
+}
+
+.lumen-forms-5-plan-option > input {
+  order: -1;
+}
+
+.lumen-forms-5-plan-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-5-plan-title {
+  font-size: 0.8125rem;
+  font-weight: 550;
+}
+
+.lumen-forms-5-plan-price {
+  color: var(--lumen-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lumen-forms-5-consent {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  color: var(--lumen-ink);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.lumen-forms-5-consent > span {
+  min-inline-size: 0;
+}
+
+.lumen-forms-5-footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--lumen-contrast) 82%, var(--lumen-glass));
+}
+
+.lumen-forms-5-create-button {
+  inline-size: 100%;
+  justify-content: center;
+}
+
+.lumen-forms-5-footer > p {
+  text-align: center;
+}
+
+@media (max-width: 36rem) {
+  .lumen-forms-5-heading,
+  .lumen-forms-5-fields,
+  .lumen-forms-5-footer {
+    padding-inline: 0.875rem;
+  }
+
+  .lumen-forms-5-password-fields {
+    flex-direction: column;
+  }
+
+  .lumen-forms-5-password-fields > .lumen-forms-5-field,
+  .lumen-forms-5-plan-option {
+    flex-basis: 100%;
+  }
+}

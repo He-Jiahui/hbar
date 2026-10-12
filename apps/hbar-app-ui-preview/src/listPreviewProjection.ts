@@ -1,4 +1,4 @@
-import type { LumenListContent, LumenListReferenceContent as Content, LumenListReferenceAction } from '@lumen/app-ui'
+import type { LumenListContent, LumenListReferenceContent as Content, LumenListReferenceAction } from '@lumen/app-ui/catalog'
 import type {
   ListPreviewSeed,
   ListPreviewStoreApi,

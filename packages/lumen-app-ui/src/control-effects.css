@@ -1,0 +1,226 @@
+/* Controls keep their own MUI shape; only their paint and light change. */
+.lumen-control.lumen-effect[data-lumen-variant='boxed'],
+.lumen-combobox-control.lumen-effect[data-variant='boxed'] {
+  box-shadow: var(--lumen-effect-shadow);
+  border-color: color-mix(in srgb, var(--lumen-effect-color) 45%, transparent);
+  transition: var(--lumen-state-transition);
+}
+
+.lumen-control.lumen-effect[data-lumen-variant='boxed']:hover:not(:disabled),
+.lumen-combobox-control.lumen-effect[data-variant='boxed']:hover:not(:has(:disabled)) {
+  --lumen-effect-level: var(--lumen-glow-hover);
+}
+
+.lumen-control.lumen-effect[data-lumen-variant='boxed']:focus-visible,
+.lumen-combobox-control.lumen-effect[data-variant='boxed']:has(:focus-visible) {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.lumen-control.lumen-effect[aria-invalid='true'],
+.lumen-combobox-control.lumen-effect[data-invalid='true'] {
+  --lumen-effect-color: var(--lumen-danger);
+  --lumen-effect-level: var(--lumen-glow-selected);
+  border-color: var(--lumen-danger);
+  outline-color: var(--lumen-danger);
+}
+
+.lumen-control.lumen-effect[data-lumen-variant='plain']:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+:is(.lumen-outlined-field, .lumen-input-group) .lumen-control.lumen-effect:focus-visible,
+.lumen-combobox-control[data-variant='boxed'] .lumen-control:focus-visible {
+  outline: none;
+}
+
+/* A composed field owns one contour around its input and adornments. */
+.lumen-input-group {
+  box-shadow: var(--lumen-effect-shadow);
+  transition: var(--lumen-state-transition);
+}
+.lumen-input-group:hover:not(:has(:disabled)) {
+  --lumen-effect-level: var(--lumen-glow-hover);
+}
+.lumen-input-group:focus-within {
+  --lumen-effect-level: var(--lumen-glow-focus);
+}
+
+.lumen-checkbox-control.lumen-effect {
+  --lumen-effect-color: var(--lumen-ink);
+}
+
+.lumen-checkbox-control.lumen-effect .lumen-checkbox-mark {
+  box-shadow:
+    inset 0 0 0 0.0625rem currentColor,
+    var(--lumen-effect-shadow);
+  transition:
+    background-color var(--lumen-state-duration) var(--lumen-state-easing),
+    opacity var(--lumen-state-duration) var(--lumen-state-easing);
+}
+
+.lumen-checkbox-control.lumen-effect .lumen-form-glyph {
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+}
+
+.lumen-checkbox-control.lumen-effect[data-size='s'] .lumen-form-glyph {
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
+}
+
+.lumen-checkbox-control.lumen-effect[data-size='l'] .lumen-form-glyph {
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
+}
+
+.lumen-checkbox-control.lumen-effect:is(:has(.lumen-checkbox-input:checked), [data-indeterminate='true']) {
+  --lumen-effect-level: var(--lumen-glow-selected);
+}
+
+.lumen-checkbox-control.lumen-effect:is(:has(.lumen-checkbox-input:checked), [data-indeterminate='true'])
+  .lumen-checkbox-mark,
+.lumen-checkbox-control.lumen-effect:has(.lumen-checkbox-input:focus-visible) .lumen-checkbox-mark {
+  box-shadow:
+    inset 0 0 0 0.0625rem currentColor,
+    var(--lumen-effect-shadow);
+}
+
+.lumen-checkbox-control.lumen-effect:has(.lumen-checkbox-input:focus-visible) {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+  border-radius: var(--lumen-radius-control);
+}
+
+.lumen-toggle-control.lumen-effect {
+  --lumen-toggle-width: var(--lumen-control-size, 2.25rem);
+  --lumen-toggle-height: calc(var(--lumen-toggle-width) * 2 / 3);
+  --lumen-toggle-thumb-size: calc(var(--lumen-toggle-height) - 0.375rem);
+  inline-size: var(--lumen-toggle-width);
+  block-size: var(--lumen-toggle-height);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lumen-toggle-control.lumen-effect[data-size='s'] {
+  --lumen-toggle-width: 1.875rem;
+  --lumen-toggle-height: 1.25rem;
+  --lumen-toggle-thumb-size: 0.875rem;
+}
+
+.lumen-toggle-control.lumen-effect[data-size='l'] {
+  --lumen-toggle-width: 2.625rem;
+  --lumen-toggle-height: 1.75rem;
+  --lumen-toggle-thumb-size: 1.375rem;
+}
+
+.lumen-toggle-control.lumen-effect .lumen-toggle-track {
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: var(--lumen-toggle-height);
+  padding: var(--lumen-space-2);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-pill);
+  background: var(--lumen-line);
+  justify-content: flex-start;
+  transition: var(--lumen-state-transition);
+}
+
+.lumen-toggle-thumb {
+  inline-size: var(--lumen-toggle-thumb-size);
+  block-size: var(--lumen-toggle-thumb-size);
+  flex: 0 0 auto;
+  margin-inline-start: 0;
+  border-radius: 50%;
+  background: var(--lumen-muted);
+  box-shadow: var(--lumen-effect-shadow);
+  transition:
+    margin-inline-start var(--lumen-state-duration) var(--lumen-state-easing),
+    background-color var(--lumen-state-duration) var(--lumen-state-easing);
+}
+
+.lumen-toggle-control.lumen-effect:is(:has(.lumen-toggle-input:checked), [aria-checked='true']) {
+  --lumen-effect-level: var(--lumen-glow-selected);
+}
+
+.lumen-toggle-control.lumen-effect:is(:has(.lumen-toggle-input:checked), [aria-checked='true']) .lumen-toggle-track {
+  justify-content: flex-start;
+  border-color: color-mix(in srgb, var(--lumen-ink) 35%, transparent);
+  background: color-mix(in srgb, var(--lumen-ink) 22%, transparent);
+}
+
+.lumen-toggle-control.lumen-effect:is(:has(.lumen-toggle-input:checked), [aria-checked='true']) .lumen-toggle-thumb {
+  margin-inline-start: calc(var(--lumen-toggle-width) - var(--lumen-toggle-height));
+  background: var(--lumen-ink);
+}
+
+.lumen-toggle-control.lumen-effect:focus-visible,
+.lumen-toggle-control.lumen-effect:has(.lumen-toggle-input:focus-visible) {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+  border-radius: var(--lumen-radius-pill);
+}
+
+@media (hover: hover) {
+  .lumen-checkbox-control.lumen-effect:hover:not([data-disabled='true']),
+  .lumen-toggle-control.lumen-effect:hover:not([data-disabled='true']):not(:disabled) {
+    --lumen-effect-level: var(--lumen-glow-hover);
+  }
+  .lumen-toggle-control.lumen-effect:hover:not(:disabled) {
+    background: transparent;
+  }
+}
+
+.lumen-control.lumen-effect:disabled,
+.lumen-checkbox-control.lumen-effect[data-disabled='true'],
+.lumen-toggle-control.lumen-effect:is([data-disabled='true'], :disabled) {
+  --lumen-effect-level: 0;
+}
+
+.lumen-checkbox-control.lumen-effect:has(.lumen-checkbox-input:focus-visible):not([data-disabled='true']),
+.lumen-toggle-control.lumen-effect:not(:disabled):not([data-disabled='true']):is(
+    :focus-visible,
+    :has(.lumen-toggle-input:focus-visible)
+  ) {
+  --lumen-effect-level: var(--lumen-glow-focus);
+}
+
+[data-lumen-motion='off'] .lumen-toggle-thumb,
+[data-lumen-motion='off'] .lumen-toggle-track,
+[data-lumen-motion='off'] .lumen-checkbox-mark {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lumen-mode] .lumen-toggle-thumb,
+  [data-lumen-mode] .lumen-toggle-track,
+  [data-lumen-mode] .lumen-checkbox-mark {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .lumen-toggle-control.lumen-effect .lumen-toggle-track {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .lumen-toggle-control.lumen-effect .lumen-toggle-thumb {
+    background: ButtonText;
+    box-shadow: none;
+  }
+  .lumen-toggle-control.lumen-effect[aria-checked='true'] .lumen-toggle-track,
+  .lumen-toggle-control.lumen-effect:has(.lumen-toggle-input:checked) .lumen-toggle-track {
+    background: Highlight;
+  }
+  .lumen-control.lumen-effect:focus-visible,
+  .lumen-toggle-control.lumen-effect:focus-visible,
+  .lumen-toggle-control.lumen-effect:has(.lumen-toggle-input:focus-visible),
+  .lumen-checkbox-control.lumen-effect:has(.lumen-checkbox-input:focus-visible) {
+    outline-color: Highlight;
+  }
+}

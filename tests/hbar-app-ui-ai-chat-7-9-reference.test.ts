@@ -10,7 +10,7 @@ import { HBAR_APP_UI_AI_CHAT_FIXTURES } from './fixtures/hbar-app-ui-ai-chat-fix
 import { createAiChat7ReferenceFixture } from './fixtures/hbar-app-ui-ai-chat-7-reference-fixture'
 import { createAiChat8ReferenceFixture } from './fixtures/hbar-app-ui-ai-chat-8-reference-fixture'
 import { createAiChat9ReferenceFixture } from './fixtures/hbar-app-ui-ai-chat-9-reference-fixture'
-import type { LumenAiChatReferenceContent } from '@lumen/app-ui'
+import type { LumenAiChatReferenceContent } from '@lumen/app-ui/catalog'
 
 function renderReference(variant: 7 | 8 | 9, content: LumenAiChatReferenceContent) {
   const hostContent: HbarAppUiAiChatContent = {

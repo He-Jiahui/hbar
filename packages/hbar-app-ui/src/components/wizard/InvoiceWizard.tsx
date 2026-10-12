@@ -1,8 +1,5 @@
-import {
-  LumenFrame,
-  LumenOption,
-  LumenText,
- LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
+import { LumenFrame, LumenText, LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {Building2, CalendarDays, Hash, Landmark, X} from 'lucide-react'

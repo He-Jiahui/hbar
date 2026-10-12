@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenEmptyState, LumenEmptyState01 } from '@lumen/app-ui'
+import { LumenEmptyState, LumenEmptyState01 } from '@lumen/app-ui/catalog'
 import { createHbarAppUiVariantSpec as createTestSpec } from '../packages/hbar-app-ui/src/catalog'
 import { EmptyStatePreviewHost } from '../apps/hbar-app-ui-preview/src/EmptyStatePreviewHost'
 import {

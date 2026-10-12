@@ -22,6 +22,7 @@ import type {
   ChatDatabaseCacheCategory,
 } from '@hbar/contracts/commands/chat-database'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { createMessageScope } from './messages'
 import './chat-database-settings.css'
 
 export type ChatDatabaseMetricId =
@@ -101,6 +102,67 @@ export interface ChatDatabaseSettingsLabels {
   readonly skipReason: (reason: ChatDatabaseSkipReason) => string
   readonly error: (code: string) => string
 }
+type DatabaseMainLabels = Pick<
+  ChatDatabaseSettingsLabels,
+  | 'title'
+  | 'description'
+  | 'overview'
+  | 'attributable'
+  | 'physical'
+  | 'shared'
+  | 'totalHelp'
+  | 'scopedHelp'
+  | 'rules'
+  | 'rulesHelp'
+  | 'savedRules'
+  | 'automatic'
+  | 'manual'
+  | 'manualHelp'
+  | 'records'
+  | 'noRecords'
+  | 'loading'
+  | 'incomplete'
+  | 'offline'
+  | 'refresh'
+  | 'review'
+  | 'generatePreview'
+  | 'previewTitle'
+  | 'noCandidates'
+  | 'confirm'
+  | 'confirmHelp'
+  | 'unknown'
+  | 'retryOriginal'
+  | 'metrics'
+  | 'bytes'
+  | 'count'
+  | 'date'
+  | 'cacheBreakdown'
+  | 'cacheCategories'
+  | 'sampledAt'
+  | 'task'
+  | 'lastRun'
+  | 'nextRun'
+  | 'firstPage'
+  | 'nextPage'
+  | 'scope'
+  | 'previewSummary'
+  | 'expiresAt'
+  | 'actions'
+  | 'error'
+  | 'close'
+  | 'skipReason'
+>
+type DatabaseOperationLabels = Pick<
+  ChatDatabaseSettingsLabels,
+  'operation' | 'cancel' | 'reconcile' | 'outcome' | 'error'
+>
+type DatabaseSkipsLabels = Pick<ChatDatabaseSettingsLabels, 'skipped' | 'skipReason' | 'count'>
+export interface ChatDatabaseSettingsMessages {
+  readonly main: DatabaseMainLabels
+  readonly operation: DatabaseOperationLabels
+  readonly skips: DatabaseSkipsLabels
+}
+export const ChatDatabaseSettingsMessageScope = createMessageScope<ChatDatabaseSettingsMessages>()
 function metricValues(report: ChatDatabaseStatistics): Record<ChatDatabaseMetricId, number> {
   return {
     sessions: report.history.sessionCount,
@@ -117,13 +179,9 @@ function metricValues(report: ChatDatabaseStatistics): Record<ChatDatabaseMetric
     cache: report.disk.cacheBytes,
   }
 }
-function Skips({
-  skipped,
-  labels,
-}: {
-  readonly skipped: ChatDatabaseOperation['skipped']
-  readonly labels: ChatDatabaseSettingsLabels
-}) {
+function Skips({ skipped }: { readonly skipped: ChatDatabaseOperation['skipped'] }) {
+  const { t } = ChatDatabaseSettingsMessageScope.useMessages()
+  const labels = t('skips')
   return skipped.length ? (
     <LumenDisclosure className="hbar-chat-database-skips" summary={labels.skipped}>
       <LumenCollection as="dl">
@@ -139,17 +197,17 @@ function Skips({
 }
 function Operation({
   operation,
-  labels,
   onCancel,
   onReconcile,
   connected,
 }: {
   readonly operation: ChatDatabaseOperation
-  readonly labels: ChatDatabaseSettingsLabels
   readonly connected: boolean
   readonly onCancel?: () => void
   readonly onReconcile?: () => void
 }) {
+  const { t } = ChatDatabaseSettingsMessageScope.useMessages()
+  const labels = t('operation')
   const active = ['accepted', 'running', 'cancelRequested'].includes(operation.status)
   return (
     <LumenFrame
@@ -181,27 +239,27 @@ function Operation({
           {labels.error(operation.error)}
         </LumenContentText>
       )}
-      <Skips skipped={operation.skipped} labels={labels} />
+      <Skips skipped={operation.skipped} />
     </LumenFrame>
   )
 }
 
 /** Settings owns the scroll pane; each preview/history list retains one 50-row cursor page. */
-export function HbarChatDatabaseSettings({
+function HbarChatDatabaseSettingsContent({
   instanceId,
   scope,
   connected,
-  labels,
   ruleForm,
   savedRevision,
 }: {
   readonly instanceId: string
   readonly scope: ChatDatabaseScope
   readonly connected: boolean
-  readonly labels: ChatDatabaseSettingsLabels
   readonly ruleForm: ReactNode
   readonly savedRevision: string
 }) {
+  const { t } = ChatDatabaseSettingsMessageScope.useMessages()
+  const labels = t('main')
   const runtime = useHbarRuntime()
   const snapshot = useHbarRuntimeState(runtime.state.chatDatabase)
   const key = chatDatabaseViewKey(instanceId, scope)
@@ -391,7 +449,6 @@ export function HbarChatDatabaseSettings({
           <>
             <Operation
               operation={preview}
-              labels={labels}
               connected={connected}
               onCancel={() => void actions.cancel(instanceId, scope, preview.operationId)}
             />
@@ -412,7 +469,6 @@ export function HbarChatDatabaseSettings({
         {active && (
           <Operation
             operation={active}
-            labels={labels}
             connected={connected}
             onCancel={() => void actions.cancel(instanceId, scope, active.operationId)}
             onReconcile={() => void actions.reconcile(instanceId, scope, active.operationId)}
@@ -422,9 +478,7 @@ export function HbarChatDatabaseSettings({
       <LumenFrame as="section" className="hbar-chat-database-section" aria-label={labels.records}>
         <LumenContentText context="section.subtitle">{labels.records}</LumenContentText>
         {state?.history.length ? (
-          state.history.map((item) => (
-            <Operation key={item.operationId} operation={item} labels={labels} connected={connected} />
-          ))
+          state.history.map((item) => <Operation key={item.operationId} operation={item} connected={connected} />)
         ) : (
           <LumenContentText context="form.description">{labels.noRecords}</LumenContentText>
         )}
@@ -492,7 +546,7 @@ export function HbarChatDatabaseSettings({
                 </LumenCollectionItem>
               ))}
             </LumenCollection>
-            <Skips skipped={preview.skipped} labels={labels} />
+            <Skips skipped={preview.skipped} />
             <LumenFrame className="hbar-chat-database-row">
               <LumenButton disabled={!connected} onClick={() => void actions.previewPage(instanceId, scope, null)}>
                 {labels.firstPage}
@@ -508,5 +562,93 @@ export function HbarChatDatabaseSettings({
         )}
       </LumenDialog>
     </LumenFrame>
+  )
+}
+
+export function HbarChatDatabaseSettings({
+  instanceId,
+  scope,
+  connected,
+  labels,
+  ruleForm,
+  savedRevision,
+}: {
+  readonly instanceId: string
+  readonly scope: ChatDatabaseScope
+  readonly connected: boolean
+  readonly labels: ChatDatabaseSettingsLabels
+  readonly ruleForm: ReactNode
+  readonly savedRevision: string
+}) {
+  return (
+    <ChatDatabaseSettingsMessageScope.Provider
+      messages={{
+        main: {
+          title: labels.title,
+          description: labels.description,
+          overview: labels.overview,
+          attributable: labels.attributable,
+          physical: labels.physical,
+          shared: labels.shared,
+          totalHelp: labels.totalHelp,
+          scopedHelp: labels.scopedHelp,
+          rules: labels.rules,
+          rulesHelp: labels.rulesHelp,
+          savedRules: labels.savedRules,
+          automatic: labels.automatic,
+          manual: labels.manual,
+          manualHelp: labels.manualHelp,
+          records: labels.records,
+          noRecords: labels.noRecords,
+          loading: labels.loading,
+          incomplete: labels.incomplete,
+          offline: labels.offline,
+          refresh: labels.refresh,
+          review: labels.review,
+          generatePreview: labels.generatePreview,
+          previewTitle: labels.previewTitle,
+          noCandidates: labels.noCandidates,
+          confirm: labels.confirm,
+          confirmHelp: labels.confirmHelp,
+          unknown: labels.unknown,
+          retryOriginal: labels.retryOriginal,
+          metrics: labels.metrics,
+          bytes: labels.bytes,
+          count: labels.count,
+          date: labels.date,
+          cacheBreakdown: labels.cacheBreakdown,
+          cacheCategories: labels.cacheCategories,
+          sampledAt: labels.sampledAt,
+          task: labels.task,
+          lastRun: labels.lastRun,
+          nextRun: labels.nextRun,
+          firstPage: labels.firstPage,
+          nextPage: labels.nextPage,
+          scope: labels.scope,
+          previewSummary: labels.previewSummary,
+          expiresAt: labels.expiresAt,
+          actions: labels.actions,
+          error: labels.error,
+          close: labels.close,
+          skipReason: labels.skipReason,
+        },
+        operation: {
+          operation: labels.operation,
+          cancel: labels.cancel,
+          reconcile: labels.reconcile,
+          outcome: labels.outcome,
+          error: labels.error,
+        },
+        skips: { skipped: labels.skipped, skipReason: labels.skipReason, count: labels.count },
+      }}
+    >
+      <HbarChatDatabaseSettingsContent
+        instanceId={instanceId}
+        scope={scope}
+        connected={connected}
+        ruleForm={ruleForm}
+        savedRevision={savedRevision}
+      />
+    </ChatDatabaseSettingsMessageScope.Provider>
   )
 }

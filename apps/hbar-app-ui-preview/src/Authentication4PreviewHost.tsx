@@ -1,12 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenFrame,
-  LumenAuthenticationProvider,
-  useLumenAuthenticationContent,
-  type LumenAuthContent,
-  type LumenAuthTwoStepContent,
-} from '@lumen/app-ui'
+import { LumenFrame } from '@lumen/app-ui'
+import { LumenAuthenticationProvider, useLumenAuthenticationContent, type LumenAuthContent, type LumenAuthTwoStepContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Authentication4PreviewFixture } from './authentication4PreviewFixtures'
 import { startAuthentication4PendingTimer } from './authentication4PreviewResources'

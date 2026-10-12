@@ -1,0 +1,334 @@
+.lumen-wizard-stage-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-wizard-stage {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--lumen-space-24);
+  background: transparent;
+  color: var(--lumen-ink);
+}
+.lumen-wizard-stage *,
+.lumen-wizard-stage *::before,
+.lumen-wizard-stage *::after {
+  box-sizing: border-box;
+}
+.lumen-wizard-stage :where(h1, h2, p, dl, dd) {
+  margin: 0;
+}
+.lumen-wizard-frame {
+  display: flex;
+  inline-size: min(68rem, 100%);
+  min-block-size: min(42rem, 100%);
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-glass);
+  box-shadow: 0 1rem 3rem color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+  min-inline-size: 0;
+  flex-direction: column;
+}
+.lumen-wizard-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+.lumen-wizard-header,
+.lumen-wizard-footer {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-wizard-header > div:first-child {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-wizard-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-8);
+}
+.lumen-wizard-footer {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  border-block-end: 0;
+}
+.lumen-wizard-footer > button:last-child {
+  margin-inline-start: auto;
+}
+.lumen-wizard-main {
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--lumen-space-24);
+}
+.lumen-wizard-main > h2 {
+  margin-block-end: var(--lumen-space-16);
+}
+.lumen-wizard-steps {
+  display: flex;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+.lumen-wizard-steps > * {
+  flex: 1 1 7rem;
+  min-inline-size: 7rem;
+}
+.lumen-wizard-steps > button {
+  justify-content: flex-start;
+  color: var(--lumen-muted);
+}
+.lumen-wizard-steps > button > span {
+  display: flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-pill);
+  font-size: 0.7rem;
+  min-inline-size: 0;
+}
+.lumen-wizard-steps > button[aria-current='step'] {
+  color: var(--lumen-accent);
+  background: color-mix(in srgb, var(--lumen-accent) 10%, transparent);
+}
+.lumen-wizard-form {
+  display: flex;
+  gap: var(--lumen-space-16);
+  margin-block-start: var(--lumen-space-24);
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+.lumen-wizard-form > :nth-child(2n + 1) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-wizard-form > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-wizard-form-compact {
+  margin-block-start: var(--lumen-space-16);
+}
+.lumen-wizard-form .lumen-form-field {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+}
+.lumen-wizard-form :where(input, select) {
+  inline-size: 100%;
+}
+.lumen-wizard-card {
+  padding: var(--lumen-space-24);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-reading);
+}
+.lumen-wizard-card > p {
+  margin-block-start: var(--lumen-space-16);
+}
+.lumen-wizard-split {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  gap: var(--lumen-space-24);
+  overflow: auto;
+  padding: var(--lumen-space-24);
+  flex-wrap: wrap;
+}
+.lumen-wizard-split > :nth-child(2n + 1) {
+  flex: 1.35 1 0;
+  min-inline-size: 0;
+}
+.lumen-wizard-split > :nth-child(2n + 2) {
+  flex: 0.65 1 16rem;
+  min-inline-size: 16rem;
+}
+.lumen-wizard-split > section > h2,
+.lumen-wizard-summary > h2 {
+  margin-block-end: var(--lumen-space-16);
+}
+.lumen-wizard-service-grid small,
+.lumen-wizard-migration-list small {
+  color: var(--lumen-muted);
+}
+.lumen-wizard-summary {
+  align-self: start;
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--lumen-reading);
+}
+.lumen-wizard-total {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding-block: var(--lumen-space-16);
+  border-block: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-wizard-total strong {
+  font-size: 2rem;
+}
+.lumen-wizard-summary dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+  padding-block: var(--lumen-space-12);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-wizard-service-grid {
+  display: flex;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+.lumen-wizard-service-grid > * {
+  flex: 1 1 13rem;
+  min-inline-size: 13rem;
+}
+.lumen-wizard-service-grid > .lumen-checkbox {
+  min-block-size: 7rem;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: var(--lumen-space-16);
+  text-align: start;
+}
+.lumen-wizard-review-sections,
+.lumen-wizard-migration-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+}
+.lumen-wizard-review-sections > section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+  min-inline-size: 0;
+}
+.lumen-wizard-review-sections > section > :nth-child(4n + 1) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-wizard-review-sections > section > :nth-child(4n + 2) {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.lumen-wizard-review-sections > section > :nth-child(4n + 3) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+.lumen-wizard-review-sections > section > :nth-child(4n + 4) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+.lumen-wizard-review-sections > section > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-wizard-migration-list > article {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+.lumen-wizard-migration-list > article > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+}
+.lumen-wizard-migration-list > article > div:first-child > span {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-wizard-progress {
+  block-size: 0.4rem;
+}
+.lumen-wizard-empty {
+  padding: var(--lumen-space-32);
+  border: 0.0625rem dashed var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  text-align: center;
+}
+.lumen-wizard-stage [data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 30rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+@media (width < 48rem) {
+  .lumen-wizard-review-sections > section {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .lumen-wizard-review-sections > section > :nth-child(n) {
+    flex: 0 0 auto;
+  }
+  .lumen-wizard-review-sections > section > :is(.lumen-status, button) {
+    align-self: flex-start;
+  }
+  .lumen-wizard-stage {
+    padding: 0;
+  }
+  .lumen-wizard-frame {
+    min-block-size: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+  .lumen-wizard-header,
+  .lumen-wizard-footer {
+    flex-wrap: wrap;
+  }
+  .lumen-wizard-steps {
+    flex-wrap: wrap;
+  }
+  .lumen-wizard-steps > :nth-child(2n + 1) {
+    flex: 1 1 0;
+    min-inline-size: 0;
+  }
+  .lumen-wizard-steps > :nth-child(2n + 2) {
+    flex: 1 1 0;
+    min-inline-size: 0;
+  }
+  .lumen-wizard-form,
+  .lumen-wizard-split {
+    flex-direction: column;
+  }
+}

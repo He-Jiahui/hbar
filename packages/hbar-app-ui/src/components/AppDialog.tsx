@@ -1,40 +1,12 @@
-import {
-  LumenAppDialog,
-  LumenAppDialogProvider as HbarAppUiAppDialogProvider,
-  type LumenAppDialogContent,
-} from '@lumen/app-ui'
+import { LumenAppDialog, LumenAppDialogProvider as HbarAppUiAppDialogProvider, type LumenAppDialogContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiAppDialogProps = HbarAppUiVariantProps & {
   readonly appDialogContent?: LumenAppDialogContent | undefined
 }
 export { HbarAppUiAppDialogProvider }
-export {
-  selectLumenAppDialogItem as selectHbarAppUiAppDialogItem,
-  uniqueLumenAppDialogItems as uniqueHbarAppUiAppDialogItems,
-  useLumenAppDialogContent as useHbarAppUiAppDialogContent,
-} from '@lumen/app-ui'
-export type {
-  LumenAppDialogAction as HbarAppUiAppDialogAction,
-  LumenAppDialogAlertContent as HbarAppUiAppDialogAlertContent,
-  LumenAppDialogChoice as HbarAppUiAppDialogChoice,
-  LumenAppDialogContent as HbarAppUiAppDialogContent,
-  LumenAppDialogControl as HbarAppUiAppDialogControl,
-  LumenAppDialogDeleteContent as HbarAppUiAppDialogDeleteContent,
-  LumenAppDialogDetail as HbarAppUiAppDialogDetail,
-  LumenAppDialogEvidenceContent as HbarAppUiAppDialogEvidenceContent,
-  LumenAppDialogHistory as HbarAppUiAppDialogHistory,
-  LumenAppDialogInviteContent as HbarAppUiAppDialogInviteContent,
-  LumenAppDialogListStrategy as HbarAppUiAppDialogListStrategy,
-  LumenAppDialogMenuContent as HbarAppUiAppDialogMenuContent,
-  LumenAppDialogMenuItem as HbarAppUiAppDialogMenuItem,
-  LumenAppDialogMetric as HbarAppUiAppDialogMetric,
-  LumenAppDialogPlanContent as HbarAppUiAppDialogPlanContent,
-  LumenAppDialogProviderProps as HbarAppUiAppDialogProviderProps,
-  LumenAppDialogRow as HbarAppUiAppDialogRow,
-  LumenAppDialogWizardContent as HbarAppUiAppDialogWizardContent,
-  LumenAppDialogWizardStep as HbarAppUiAppDialogWizardStep,
-} from '@lumen/app-ui'
+export { selectLumenAppDialogItem as selectHbarAppUiAppDialogItem, uniqueLumenAppDialogItems as uniqueHbarAppUiAppDialogItems, useLumenAppDialogContent as useHbarAppUiAppDialogContent } from '@lumen/app-ui/catalog'
+export type { LumenAppDialogAction as HbarAppUiAppDialogAction, LumenAppDialogAlertContent as HbarAppUiAppDialogAlertContent, LumenAppDialogChoice as HbarAppUiAppDialogChoice, LumenAppDialogContent as HbarAppUiAppDialogContent, LumenAppDialogControl as HbarAppUiAppDialogControl, LumenAppDialogDeleteContent as HbarAppUiAppDialogDeleteContent, LumenAppDialogDetail as HbarAppUiAppDialogDetail, LumenAppDialogEvidenceContent as HbarAppUiAppDialogEvidenceContent, LumenAppDialogHistory as HbarAppUiAppDialogHistory, LumenAppDialogInviteContent as HbarAppUiAppDialogInviteContent, LumenAppDialogListStrategy as HbarAppUiAppDialogListStrategy, LumenAppDialogMenuContent as HbarAppUiAppDialogMenuContent, LumenAppDialogMenuItem as HbarAppUiAppDialogMenuItem, LumenAppDialogMetric as HbarAppUiAppDialogMetric, LumenAppDialogPlanContent as HbarAppUiAppDialogPlanContent, LumenAppDialogProviderProps as HbarAppUiAppDialogProviderProps, LumenAppDialogRow as HbarAppUiAppDialogRow, LumenAppDialogWizardContent as HbarAppUiAppDialogWizardContent, LumenAppDialogWizardStep as HbarAppUiAppDialogWizardStep } from '@lumen/app-ui/catalog'
 
 export function AppDialog({ spec, onAction, appDialogContent, className }: HbarAppUiAppDialogProps) {
   return (

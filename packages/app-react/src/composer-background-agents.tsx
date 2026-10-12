@@ -2,6 +2,7 @@ import { LoaderCircle, Square } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { HbarComposerFeedback } from './composer-feedback'
 import './composer-background-agents.css'
+import { createMessageScope } from './messages'
 
 export interface HbarComposerBackgroundAgentLabels {
   readonly stop: (count: number) => string
@@ -17,6 +18,8 @@ export interface HbarComposerBackgroundAgentLabels {
   readonly refresh: string
 }
 
+const BackgroundAgentMessages = createMessageScope<{ readonly backgroundAgents: HbarComposerBackgroundAgentLabels }>()
+
 /** Stops only the Host-confirmed direct children captured by the owning ViewModel. */
 export function HbarComposerBackgroundAgentStop({
   count,
@@ -31,6 +34,21 @@ export function HbarComposerBackgroundAgentStop({
   readonly labels: HbarComposerBackgroundAgentLabels
   readonly onStop: () => void
 }) {
+  return (
+    <BackgroundAgentMessages.Provider messages={{ backgroundAgents: labels }}>
+      <HbarComposerBackgroundAgentStopContent count={count} disabled={disabled} pending={pending} onStop={onStop} />
+    </BackgroundAgentMessages.Provider>
+  )
+}
+
+function HbarComposerBackgroundAgentStopContent({
+  count,
+  disabled,
+  pending,
+  onStop,
+}: Omit<Parameters<typeof HbarComposerBackgroundAgentStop>[0], 'labels'>) {
+  const { t } = BackgroundAgentMessages.useMessages()
+  const labels = t('backgroundAgents')
   if (count === 0) return null
   return (
     <LumenButton
@@ -75,6 +93,30 @@ export function HbarComposerBackgroundAgentFeedback({
   readonly onRetry: () => void
   readonly onRefresh: () => void
 }) {
+  return (
+    <BackgroundAgentMessages.Provider messages={{ backgroundAgents: labels }}>
+      <HbarComposerBackgroundAgentFeedbackContent
+        kind={kind}
+        error={error}
+        disabled={disabled}
+        onReconcile={onReconcile}
+        onRetry={onRetry}
+        onRefresh={onRefresh}
+      />
+    </BackgroundAgentMessages.Provider>
+  )
+}
+
+function HbarComposerBackgroundAgentFeedbackContent({
+  kind,
+  error,
+  disabled,
+  onReconcile,
+  onRetry,
+  onRefresh,
+}: Omit<Parameters<typeof HbarComposerBackgroundAgentFeedback>[0], 'labels'>) {
+  const { t } = BackgroundAgentMessages.useMessages()
+  const labels = t('backgroundAgents')
   if (!kind) return null
   const message =
     kind === 'submitting'

@@ -101,7 +101,8 @@ export function checkWorkspaceBoundaries(
         (from.directory.startsWith('packages/') && to.directory.startsWith('apps/')) ||
         (from.name === '@hbar/contracts' &&
           !['@hbar/commands', '@hbar/schema-core', '@hbar/settings-core'].includes(to.name)) ||
-        (from.name === 'hbar-app-ui' && to.name !== 'hbar-app-ui')
+        (from.name === 'hbar-app-ui' && !['hbar-app-ui', '@lumen/app-ui'].includes(to.name)) ||
+        (from.name === '@lumen/app-ui' && to.name !== '@lumen/app-ui')
       )
         violations.push({ path, dependency, reason: 'forbidden-dependency' })
       if (from.name === '@hbar/contracts' && to.name === '@hbar/commands' && dependency !== '@hbar/commands/protocol')

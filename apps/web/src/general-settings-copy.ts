@@ -11,7 +11,7 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
       '界面语言、消息发送方式与界面缩放。',
       'Display language, message sending behavior, and interface zoom.',
     ),
-    deviceScope: choose('设备与 Host', 'Device and Host'),
+    deviceScope: choose('设备与宿主', 'Device and Host'),
     language: choose('显示语言', 'Display language'),
     languageDescription: choose(
       '即时切换界面语言，保留会话草稿、打开的工具和未保存设置。',
@@ -48,7 +48,7 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
       title: choose('消息发送方式', 'Message Sending'),
       description: choose('选择对话输入框如何发送消息。', 'Choose how the chat composer submits messages.'),
       hostScope: choose(
-        '保存到当前 Host 的全局设置；不改变项目或会话设置。',
+        '保存到当前宿主的全局设置；不改变项目或会话设置。',
         'Saved in this Host’s global settings; project and session settings are unchanged.',
       ),
       options: {
@@ -61,16 +61,16 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
           description: choose('Enter 和 Shift+Enter 都会换行。', 'Enter and Shift+Enter insert new lines.'),
         },
       },
-      loading: choose('正在读取 Host 的发送方式…', 'Loading the Host sending behavior…'),
-      saved: choose('发送方式已保存到 Host。', 'Sending behavior saved to the Host.'),
+      loading: choose('正在读取宿主的发送方式…', 'Loading the Host sending behavior…'),
+      saved: choose('发送方式已保存到宿主。', 'Sending behavior saved to the Host.'),
       readError: (code) =>
         choose(
-          `无法读取 Host 发送方式（${code}）。键盘发送已暂停；仍可点击发送按钮。`,
+          `无法读取宿主发送方式（${code}）。键盘发送已暂停；仍可点击发送按钮。`,
           `Could not read the Host sending behavior (${code}). Keyboard sending is paused; the Send button remains available.`,
         ),
       saveError: (code) =>
         choose(
-          `未能保存新的发送方式（${code}），已恢复上次确认的按键。可重新读取 Host 后再选择。`,
+          `未能保存新的发送方式（${code}），已恢复上次确认的按键。可重新读取宿主后再选择。`,
           `The new sending behavior was not saved (${code}); the last confirmed key is restored. Reload the Host value before choosing again.`,
         ),
       unknown: choose(
@@ -78,10 +78,10 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
         'The save receipt is unconfirmed, so keyboard sending is paused. Check the original request or retry that same request; no new write is sent automatically.',
       ),
       unsupported: choose(
-        '当前 Host 不支持保存发送方式；键盘发送已暂停，请更新 Host。',
+        '当前宿主不支持保存发送方式；键盘发送已暂停，请更新宿主。',
         'This Host does not support the sending preference. Keyboard sending is paused until the Host is updated.',
       ),
-      retryRead: choose('重新读取 Host 设置', 'Reload Host setting'),
+      retryRead: choose('重新读取宿主设置', 'Reload Host setting'),
       recheck: choose('核对原回执', 'Check original receipt'),
       retryOriginal: choose('重试同一请求', 'Retry same request'),
     },

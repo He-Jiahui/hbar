@@ -12,6 +12,7 @@ import {
   HbarComposerFeedbackProvider,
   HbarComposerFeedbackTrigger,
   useHbarComposerFeedbackManaged,
+  useHbarComposerFeedbackShared,
   type HbarComposerFeedbackLabels,
 } from './composer-feedback'
 import './prompt-composer.css'
@@ -32,11 +33,12 @@ export type HbarPromptComposerProps = LumenPromptComposerProps & {
 
 function ComposerContent(props: HbarPromptComposerProps) {
   const managed = useHbarComposerFeedbackManaged()
+  const shared = useHbarComposerFeedbackShared()
   const managedError = managed && props.errorPresentation !== 'inline'
   const controls = (
     <>
       {props.controls}
-      <HbarComposerFeedbackTrigger />
+      {!shared && <HbarComposerFeedbackTrigger />}
     </>
   )
   const toolbar = props.adaptiveToolbar
@@ -57,7 +59,7 @@ function ComposerContent(props: HbarPromptComposerProps) {
           ...props.toolbar,
           items: [
             ...props.toolbar.items,
-            ...(managed && props.feedbackLabels
+            ...(managed && !shared && props.feedbackLabels
               ? [
                   {
                     id: 'feedback',
@@ -94,6 +96,7 @@ function ComposerContent(props: HbarPromptComposerProps) {
 }
 
 export function HbarPromptComposer(props: HbarPromptComposerProps) {
+  const managed = useHbarComposerFeedbackManaged()
   const composer = <ComposerContent {...props} />
   const controlled = { body: null, composer }
   const content =
@@ -106,7 +109,7 @@ export function HbarPromptComposer(props: HbarPromptComposerProps) {
     ) : (
       composer
     )
-  return props.feedbackLabels ? (
+  return props.feedbackLabels && !managed ? (
     <HbarComposerFeedbackProvider labels={props.feedbackLabels}>{content}</HbarComposerFeedbackProvider>
   ) : (
     content

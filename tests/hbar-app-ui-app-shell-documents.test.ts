@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAppShell06, type LumenAppShellDocumentsContent } from '@lumen/app-ui'
+import { LumenAppShell06, type LumenAppShellDocumentsContent } from '@lumen/app-ui/catalog'
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from './fixtures/hbar-app-ui-app-shell-fixtures'
 import { appShellDocumentsFixture } from './fixtures/hbar-app-ui-app-shell-documents-fixtures'
 import {

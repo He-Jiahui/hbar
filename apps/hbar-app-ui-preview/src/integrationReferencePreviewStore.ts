@@ -1,9 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type {
-  LumenIntegrationEndpointReferenceState,
-  LumenIntegrationScopeReferenceState,
-  LumenIntegrationSyncReferenceState,
-} from '@lumen/app-ui'
+import type { LumenIntegrationEndpointReferenceState, LumenIntegrationScopeReferenceState, LumenIntegrationSyncReferenceState } from '@lumen/app-ui/catalog'
 
 export type IntegrationReferencePreviewKind =
   'marketplace' | 'connection' | 'api-keys' | 'webhooks' | 'consent' | 'sync'

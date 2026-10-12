@@ -31,14 +31,14 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  padding-inline: 0.25rem;
+  padding-inline: var(--lumen-space-4);
 }
 .hbar-workspace-tabs-region > p {
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
 }
 
-@media (max-width: 47.9375rem) {
+@media (width < 48rem) {
   .hbar-workspace-tabs-region {
     border-block-end: 0;
   }
@@ -50,8 +50,8 @@
 .hbar-workspace-tabs-feedback {
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
 }
 .hbar-workspace-tabs-feedback p {
   margin: 0;

@@ -11,6 +11,7 @@ import {
 } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
 import './composer-add-menu.css'
+import { createMessageScope } from './messages'
 
 export interface HbarComposerAddMenuLabels {
   readonly open: string
@@ -23,21 +24,10 @@ export interface HbarComposerAddMenuLabels {
   readonly templatesUnavailable: string
 }
 
+const ComposerAddMenuMessages = createMessageScope<{ readonly addMenu: HbarComposerAddMenuLabels }>()
+
 /** Bounded composer actions; the Goal slot stays mounted through async recovery. */
-export function HbarComposerAddMenu({
-  labels,
-  canAddFiles,
-  canOpenSlash,
-  onFiles,
-  onOpenSlash,
-  showSlash = true,
-  templateAction,
-  goalAction,
-  goalSlotRef,
-  triggerRef,
-  goalPreparedRequest = 0,
-  onGoalPrepared,
-}: {
+export function HbarComposerAddMenu({ labels, ...viewProps }: {
   readonly labels: HbarComposerAddMenuLabels
   readonly canAddFiles: boolean
   readonly canOpenSlash: boolean
@@ -59,6 +49,30 @@ export function HbarComposerAddMenu({
   readonly goalPreparedRequest?: number
   readonly onGoalPrepared?: (() => void) | undefined
 }) {
+  return (
+    <ComposerAddMenuMessages.Provider messages={{ addMenu: labels }}>
+      <HbarComposerAddMenuContent
+        {...viewProps}
+      />
+    </ComposerAddMenuMessages.Provider>
+  )
+}
+
+function HbarComposerAddMenuContent({
+  canAddFiles,
+  canOpenSlash,
+  onFiles,
+  onOpenSlash,
+  showSlash = true,
+  templateAction,
+  goalAction,
+  goalSlotRef,
+  triggerRef,
+  goalPreparedRequest = 0,
+  onGoalPrepared,
+}: Omit<Parameters<typeof HbarComposerAddMenu>[0], 'labels'>) {
+  const { t } = ComposerAddMenuMessages.useMessages()
+  const labels = t('addMenu')
   const [open, setOpen] = useState(false)
   const hasFiles = Boolean(onFiles)
   const hasGoal = Boolean(goalSlotRef || goalAction)

@@ -1,0 +1,212 @@
+:root {
+  /* One shared top-level token for menus, comboboxes and transient dialogs. */
+  --lumen-floating-layer: var(--lumen-layer-modal);
+  --lumen-floating-gap: var(--lumen-space-8);
+}
+
+.lumen-floating-surface,
+.lumen-floating-modal-root {
+  box-sizing: border-box;
+  color: var(--lumen-ink, CanvasText);
+  font: inherit;
+}
+
+.lumen-floating-surface {
+  position: fixed;
+  inset: auto;
+  z-index: var(--lumen-floating-layer, var(--lumen-layer-modal));
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  max-block-size: min(var(--lumen-floating-max-height, 26.25rem), var(--lumen-floating-limit, calc(100dvh - 2rem)));
+  border: 0.0625rem solid
+    var(--lumen-floating-border, var(--lumen-edge, color-mix(in srgb, CanvasText 20%, transparent)));
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-floating-background, var(--lumen-frost, var(--lumen-contrast, Canvas)));
+  box-shadow: var(--lumen-floating-shadow, var(--lumen-shadow, 0 0.75rem 2rem rgb(0 0 0 / 35%)));
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-backdrop-filter: blur(var(--lumen-floating-blur, 1.2rem));
+  backdrop-filter: blur(var(--lumen-floating-blur, 1.2rem));
+}
+
+.lumen-floating-surface[data-lumen-floating-material='glass'] {
+  background: var(--lumen-glass, var(--lumen-frost, Canvas));
+}
+
+.lumen-floating-surface[data-lumen-floating-material='solid'] {
+  background: var(--lumen-contrast, Canvas);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lumen-floating-surface[data-positioned='false'] {
+  visibility: hidden;
+}
+
+.lumen-floating-surface[hidden],
+.lumen-floating-modal-root[hidden] {
+  display: none !important;
+}
+
+.lumen-floating-surface:popover-open,
+.lumen-floating-modal-root:popover-open {
+  position: fixed;
+}
+
+.lumen-floating-surface:focus-visible {
+  outline: 0.125rem solid var(--lumen-info, Highlight);
+  outline-offset: 0.125rem;
+}
+
+.lumen-floating-modal-root[data-lumen-floating-root] {
+  position: fixed;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  z-index: var(--lumen-floating-layer, var(--lumen-layer-modal));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--lumen-space-16);
+  border: 0;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lumen-floating-modal-root::backdrop,
+.lumen-floating-modal-backdrop {
+  background: var(
+    --lumen-modal-backdrop-background,
+    color-mix(in srgb, var(--lumen-contrast, Canvas) 48%, transparent)
+  );
+  -webkit-backdrop-filter: blur(var(--lumen-modal-backdrop-blur, 1.2rem));
+  backdrop-filter: blur(var(--lumen-modal-backdrop-blur, 1.2rem));
+}
+
+.lumen-floating-modal-root > .lumen-floating-surface {
+  position: relative;
+  inset: auto;
+  inline-size: min(100%, 40rem);
+  max-inline-size: calc(100vw - 2rem);
+  max-block-size: calc(100dvh - 2rem);
+}
+
+.lumen-floating-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Native top-layer backdrops own the scrim; the element is only a fallback. */
+.lumen-floating-modal-root:popover-open > .lumen-floating-modal-backdrop {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lumen-floating-modal-root > .lumen-floating-surface {
+  z-index: var(--lumen-layer-raised);
+}
+
+@media (width < 40rem) and (pointer: coarse) {
+  .lumen-floating-surface:not([data-focus-behavior='preserve']):not([data-lumen-floating-mode='modal']) {
+    inset: auto 0 0;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    max-block-size: min(78dvh, 40rem);
+    padding: var(--lumen-space-16);
+    border-radius: var(--lumen-radius-surface) var(--lumen-radius-surface) 0 0;
+  }
+}
+
+.lumen-floating-surface[data-mobile-sheet='true'] {
+  inset: auto 0 0;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  max-block-size: min(78dvh, 40rem);
+  padding: var(--lumen-space-16);
+  border-radius: var(--lumen-radius-surface) var(--lumen-radius-surface) 0 0;
+}
+
+.lumen-floating-surface[data-lumen-floating-mode='modal']::backdrop,
+.lumen-floating-surface[data-lumen-floating-material='solid']::backdrop,
+.lumen-floating-surface[data-focus-behavior='preserve']::backdrop {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+@media (forced-colors: active) {
+  .lumen-floating-modal-root::backdrop,
+  .lumen-floating-modal-backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .lumen-floating-surface,
+  .lumen-floating-modal-root {
+    border-color: CanvasText;
+    background: Canvas;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+.lumen-floating-portal-host {
+  display: contents;
+}
+.lumen-floating-modal-root[data-lumen-floating-root][data-docked='true'] {
+  position: static;
+  display: flex;
+  inline-size: 100%;
+  block-size: 100%;
+  max-inline-size: none;
+  max-block-size: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+.lumen-floating-modal-root[data-docked='true'] > .lumen-floating-modal-backdrop {
+  display: none;
+}
+.lumen-floating-modal-root > .lumen-floating-surface[data-docked='true'] {
+  position: static;
+  display: flex;
+  flex: 1;
+  inline-size: 100%;
+  block-size: 100%;
+  max-inline-size: none;
+  max-block-size: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  overflow: hidden;
+  visibility: visible;
+}
+.lumen-floating-modal-root.lumen-tool-drawer-root:not([data-docked='true']) {
+  justify-content: flex-end;
+  padding: 0;
+}
+.lumen-floating-modal-root > .lumen-tool-drawer-surface:not([data-docked='true']) {
+  display: flex;
+  flex-direction: column;
+  inline-size: min(var(--lumen-tool-size, 24rem), 100vw);
+  max-inline-size: 100vw;
+  block-size: 100dvh;
+  max-block-size: 100dvh;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  overflow: hidden;
+}

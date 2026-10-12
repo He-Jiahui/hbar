@@ -4,7 +4,7 @@
 
 ## 2026-10-10 的公共组件与全界面升级
 
-Lumen 已有独立的 [包级 DESIGN.md](../hbar-ui/packages/lumen-app-ui/DESIGN.md)，生产组件与交互验收消费同一公共实现。`@lumen/app-ui` 提供外观和通用组合，`@hbar/app-react` 接入业务 ViewModel，Web 宿主提供类型化文案、数据和回调。
+Lumen 已有独立的 [包级 DESIGN.md](../packages/lumen-app-ui/DESIGN.md)，生产组件与交互验收消费同一公共实现。`@lumen/app-ui` 提供外观和通用组合，`@hbar/app-react` 接入业务 ViewModel，Web 宿主提供类型化文案、数据和回调。
 
 - 表面角色 `canvas / navigation / reading / raised / overlay` 与 `glass / frost / solid` 材质分开；阅读区连续，输入区保留一个表单表面。
 - 文本位置由 `LumenContentText` 声明。按钮、状态、工具标签完整单行，侧栏记录左对齐并末尾裁剪，弹窗和说明自然换行，技术原文由所属区域承接局部滚动。
@@ -32,15 +32,15 @@ Lumen 已有独立的 [包级 DESIGN.md](../hbar-ui/packages/lumen-app-ui/DESIGN
 
 ## 2026-10-06 的设计基线
 
-当时尚无独立的 Lumen `DESIGN.md`，设计描述分散在 [组件包 README](../hbar-ui/packages/lumen-app-ui/README.md)、[早期 Workbench README](../hbar-ui/docs/src/modules/lumen-workbench/README.md) 和公开样式实现中。下表记录当时的证据及判断；当前组件库规则以上面的包级文档为准。
+当时尚无独立的 Lumen `DESIGN.md`，设计描述分散在 [组件包 README](../packages/lumen-app-ui/README.md)、[早期 Workbench README](../hbar-ui/docs/src/modules/lumen-workbench/README.md) 和公开样式实现中。下表记录当时的证据及判断；当前组件库规则以上面的包级文档为准。
 
-| 维度     | 当前证据                                                                                                                                                                                     | 判断                                                               |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 控件     | `LumenButton` 提供 contained / outlined / text，保留 solid 别名；`LumenNavigationButton` 提供选中语义                                                                                        | 已符合实色、描边、仅文本的要求，应保留 MUI 交互与可访问名称        |
-| 表面     | [materials.module.css](../hbar-ui/packages/lumen-app-ui/src/materials.module.css) 提供 glass / frost / solid；[styles.css](../hbar-ui/packages/lumen-app-ui/src/styles.css) 提供明暗语义变量 | 材质和区域职责需要分开。普通阅读区无需为了玻璃效果再嵌套表面       |
-| 动效     | [effects.css](../hbar-ui/packages/lumen-app-ui/src/effects.css) 已提供可逆状态过渡、按压过渡和运行呼吸；有 motion off / reduced motion / forced colors 处理                                  | 应消费现有变量，不另造动画时长、不让内容位移或闪烁                 |
-| 内容     | 正文、思考、Markdown、工具输出和折叠摘要已使用 [会话阅读角色](../packages/app-react/src/session-message.css)                                                                                 | 本轮保留着色与复制原文，只改善区域层级；颜色不应用作装饰性随机高亮 |
-| 外观偏好 | `LumenProvider` 投影宿主的主题、控件尺寸、文字尺寸、圆角、形状、光强和动效                                                                                                                   | 新增宿主字体层级从 `--lumen-font-size` 派生，继续跟随用户设置      |
+| 维度     | 当前证据                                                                                                                                                                     | 判断                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 控件     | `LumenButton` 提供 contained / outlined / text，保留 solid 别名；`LumenNavigationButton` 提供选中语义                                                                        | 已符合实色、描边、仅文本的要求，应保留 MUI 交互与可访问名称        |
+| 表面     | [materials.module.css](../packages/lumen-app-ui/src/materials.module.css) 提供 glass / frost / solid；[styles.css](../packages/lumen-app-ui/src/styles.css) 提供明暗语义变量 | 材质和区域职责需要分开。普通阅读区无需为了玻璃效果再嵌套表面       |
+| 动效     | [effects.css](../packages/lumen-app-ui/src/effects.css) 已提供可逆状态过渡、按压过渡和运行呼吸；有 motion off / reduced motion / forced colors 处理                          | 应消费现有变量，不另造动画时长、不让内容位移或闪烁                 |
+| 内容     | 正文、思考、Markdown、工具输出和折叠摘要已使用 [会话阅读角色](../packages/app-react/src/session-message.css)                                                                 | 本轮保留着色与复制原文，只改善区域层级；颜色不应用作装饰性随机高亮 |
+| 外观偏好 | `LumenProvider` 投影宿主的主题、控件尺寸、文字尺寸、圆角、形状、光强和动效                                                                                                   | 新增宿主字体层级从 `--lumen-font-size` 派生，继续跟随用户设置      |
 
 早期 Workbench README 仍提到单边 light strips；组件包 README 和当前 effects 实现已经采用围绕原本轮廓的发光。判断现状以公开组件包和实际运行结果为准，不把旧文案当作现行视觉约束。
 

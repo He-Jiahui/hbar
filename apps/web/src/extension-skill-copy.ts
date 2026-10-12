@@ -15,7 +15,7 @@ export function extensionSkillCopy(locale: ShellLocale): ExtensionSkillDetailLab
     retry: choose('重新加载技能', 'Reload skill'),
     loading: choose('正在加载技能详情…', 'Loading skill details…'),
     missing: choose(
-      '此技能已不在当前 Host 中。返回列表并刷新以查看最新状态。',
+      '此技能已不在当前宿主中。返回列表并刷新以查看最新状态。',
       'This skill is no longer on the current Host. Return to the list and refresh to see the current state.',
     ),
     noOverview: choose('此技能没有可显示的正文。', 'This skill has no overview body.'),
@@ -28,7 +28,7 @@ export function extensionSkillCopy(locale: ShellLocale): ExtensionSkillDetailLab
       choose(`${number.format(count)} 个文件`, `${number.format(count)} ${count === 1 ? 'file' : 'files'}`),
     fileSize: (size) => `${bytes.format(size)} B`,
     filesTruncated: choose(
-      '文件列表已达到 Host 返回上限，未显示更多文件。',
+      '文件列表已达到宿主返回上限，未显示更多文件。',
       'The Host returned a capped file list; more files are not shown.',
     ),
     missingEntry: choose('此技能没有可读取的 SKILL.md 正文。', 'This skill has no readable SKILL.md entry.'),

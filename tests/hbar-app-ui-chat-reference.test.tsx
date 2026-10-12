@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenChat, type LumenChatComposerFlow, type LumenChatContent } from '@lumen/app-ui'
+import { LumenChat, type LumenChatComposerFlow, type LumenChatContent } from '@lumen/app-ui/catalog'
 import { createChatReferencePreviewFixtures } from './fixtures/hbar-app-ui-chat-reference-fixtures'
 
 function renderReference(content: LumenChatContent, composer?: LumenChatComposerFlow): string {

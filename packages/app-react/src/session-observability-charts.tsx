@@ -1,15 +1,14 @@
 import { LumenContentText, LumenFrame } from '@lumen/app-ui'
 import { useState } from 'react'
 import type { SessionObservabilityReport } from '@hbar/contracts/session-observability'
-import type { HbarSessionObservabilityLabels } from './session-observability-labels'
+import { sessionObservabilityMessages } from './session-observability-messages'
 
 export function ObservabilityOutcomes({
   value,
-  labels,
 }: {
   readonly value: SessionObservabilityReport['tools']
-  readonly labels: HbarSessionObservabilityLabels
 }) {
+  const { t } = sessionObservabilityMessages.useMessages()
   const outcomes = ['succeeded', 'failed', 'denied', 'cancelled', 'interrupted', 'unknown', 'pending'] as const
   return (
     <LumenFrame className="hbar-observability-outcomes">
@@ -25,7 +24,7 @@ export function ObservabilityOutcomes({
           .filter((kind) => value[kind] > 0)
           .map((kind) => (
             <LumenContentText key={kind} context="message.inline" data-outcome={kind}>
-              {labels.outcomes[kind]} {labels.number(value[kind])}
+              {t('outcomes')[kind]} {t('number')(value[kind])}
             </LumenContentText>
           ))}
       </LumenFrame>
@@ -35,11 +34,10 @@ export function ObservabilityOutcomes({
 
 export function ObservabilityTokenChart({
   report,
-  labels,
 }: {
   readonly report: SessionObservabilityReport
-  readonly labels: HbarSessionObservabilityLabels
 }) {
+  const { t } = sessionObservabilityMessages.useMessages()
   const maximum = Math.max(1, ...report.series.map((bucket) => bucket.input + bucket.output))
   const bucketMs = Math.max(1, Math.ceil((report.range.endedAt - report.range.startedAt + 1) / 40))
   const bucketCount = Math.min(
@@ -52,9 +50,9 @@ export function ObservabilityTokenChart({
   return (
     <LumenFrame as="section" className="hbar-monitoring-token-timeline">
       <LumenFrame as="header" className="hbar-monitoring-section-heading">
-        <LumenContentText context="section.subtitle">{labels.series}</LumenContentText>
+        <LumenContentText context="section.subtitle">{t('series')}</LumenContentText>
         <LumenContentText context="message.inline" tone="muted">
-          {labels.chart.peak(Math.max(0, ...report.series.map((bucket) => bucket.input + bucket.output)))}
+          {t('chart').peak(Math.max(0, ...report.series.map((bucket) => bucket.input + bucket.output)))}
         </LumenContentText>
       </LumenFrame>
       {report.series.length > 0 && (
@@ -62,7 +60,7 @@ export function ObservabilityTokenChart({
           className="hbar-monitoring-token-chart"
           viewBox="0 0 320 104"
           role="img"
-          aria-label={labels.series}
+          aria-label={t('series')}
           onMouseLeave={() => setFocused(null)}
         >
           {[2, 35, 68, 102].map((y) => (
@@ -75,7 +73,7 @@ export function ObservabilityTokenChart({
             )
             const input = (bucket.input / maximum) * 100,
               output = (bucket.output / maximum) * 100
-            const caption = labels.chart.bucket(bucket.start, bucket.start + bucketMs, bucket.input, bucket.output)
+            const caption = t('chart').bucket(bucket.start, bucket.start + bucketMs, bucket.input, bucket.output)
             return (
               <g
                 key={bucket.start}
@@ -116,8 +114,8 @@ export function ObservabilityTokenChart({
         aria-live="polite"
       >
         {selected
-          ? labels.chart.bucket(selected.start, selected.start + bucketMs, selected.input, selected.output)
-          : labels.chart.window(report.range.startedAt, report.range.endedAt)}
+          ? t('chart').bucket(selected.start, selected.start + bucketMs, selected.input, selected.output)
+          : t('chart').window(report.range.startedAt, report.range.endedAt)}
       </LumenContentText>
     </LumenFrame>
   )
@@ -126,18 +124,17 @@ export function ObservabilityTokenChart({
 export function ObservabilityCompression({
   before,
   after,
-  labels,
 }: {
   readonly before: number
   readonly after: number
-  readonly labels: HbarSessionObservabilityLabels
 }) {
+  const { t } = sessionObservabilityMessages.useMessages()
   const maximum = Math.max(1, before, after)
   return (
     <LumenFrame
       className="hbar-observability-compression"
       role="img"
-      aria-label={`${labels.fields.before} ${labels.number(before)} · ${labels.fields.after} ${labels.number(after)}`}
+      aria-label={`${t('fields').before} ${t('number')(before)} · ${t('fields').after} ${t('number')(after)}`}
     >
       <LumenFrame as="span" data-compression="before" style={{ inlineSize: `${(before / maximum) * 100}%` }} />
       <LumenFrame as="span" data-compression="after" style={{ inlineSize: `${(after / maximum) * 100}%` }} />

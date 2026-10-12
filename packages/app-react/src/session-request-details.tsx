@@ -17,6 +17,7 @@ import type { Message } from '@hbar/contracts'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { CodeTextCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
+import { createMessageScope } from './messages'
 import './session-request-details.css'
 
 export const SESSION_RAW_MESSAGES_PAGE_SIZE = 20
@@ -79,6 +80,8 @@ export interface HbarSessionRequestLabels {
   readonly codeBlock: HbarCodeBlockLabels
 }
 
+export const sessionRequestMessages = createMessageScope<HbarSessionRequestLabels>()
+
 export function sessionRequestLatency(item: UsageRequestItem, end: number | null): number | null {
   return item.startedAt === null || end === null || end < item.startedAt ? null : end - item.startedAt
 }
@@ -86,16 +89,15 @@ export function sessionRequestLatency(item: UsageRequestItem, end: number | null
 function RawJson({
   identity,
   value,
-  labels,
 }: {
   readonly identity: readonly string[]
   readonly value: unknown
-  readonly labels: HbarCodeBlockLabels
 }) {
+  const { t } = sessionRequestMessages.useMessages()
   const text = useMemo(() => JSON.stringify(value, null, 2), [value])
   return (
     <LumenFrame className="hbar-session-request-json">
-      <CodeTextCopyAction identity={identity} text={text} source={identity.join(':')} labels={labels} />
+      <CodeTextCopyAction identity={identity} text={text} source={identity.join(':')} labels={t('codeBlock')} />
       <LumenFrame as="pre">
         <LumenText as="code">{text}</LumenText>
       </LumenFrame>
@@ -106,13 +108,12 @@ function RawJson({
 /** Only loaded canonical messages are shown; model-attempt payloads are not inferred. */
 export function HbarSessionRawMessages({
   messages,
-  labels,
   identity,
 }: {
   readonly messages: readonly Readonly<Message>[]
-  readonly labels: HbarSessionRequestLabels
   readonly identity: string
 }) {
+  const { t } = sessionRequestMessages.useMessages()
   const [visible, setVisible] = useState(SESSION_RAW_MESSAGES_PAGE_SIZE)
   const [expanded, setExpanded] = useState<string | null>(null)
   const ordered = useMemo(() => [...messages].sort((left, right) => right.seq - left.seq), [messages])
@@ -120,21 +121,21 @@ export function HbarSessionRawMessages({
   return (
     <LumenFrame className="hbar-session-raw-messages">
       <LumenContentText context="section.description" tone="muted">
-        {labels.raw.count(count, ordered.length)}
+        {t('raw').count(count, ordered.length)}
       </LumenContentText>
       {ordered.length === 0 ? (
-        <LumenContentText context="section.description">{labels.raw.empty}</LumenContentText>
+        <LumenContentText context="section.description">{t('raw').empty}</LumenContentText>
       ) : (
         <LumenCollection as="ul">
           {ordered.slice(0, count).map((message) => (
             <LumenCollectionItem key={message.id} data-message-id={message.id}>
               <HbarLumenDisclosure
-                label={labels.raw.message(message.role, message.createdAt, message.id)}
+                label={t('raw').message(message.role, message.createdAt, message.id)}
                 open={expanded === message.id}
                 onOpenChange={(open) => setExpanded(open ? message.id : null)}
               >
                 {expanded === message.id && (
-                  <RawJson identity={[identity, message.id]} value={message} labels={labels.codeBlock} />
+                  <RawJson identity={[identity, message.id]} value={message} />
                 )}
               </HbarLumenDisclosure>
             </LumenCollectionItem>
@@ -148,7 +149,7 @@ export function HbarSessionRawMessages({
           indicator="none"
           onClick={() => setVisible(count + SESSION_RAW_MESSAGES_PAGE_SIZE)}
         >
-          {labels.raw.more(Math.min(SESSION_RAW_MESSAGES_PAGE_SIZE, ordered.length - count))}
+          {t('raw').more(Math.min(SESSION_RAW_MESSAGES_PAGE_SIZE, ordered.length - count))}
         </LumenButton>
       )}
     </LumenFrame>
@@ -158,15 +159,14 @@ export function HbarSessionRawMessages({
 export function HbarSessionRequestRecord({
   item,
   messages,
-  labels,
 }: {
   readonly item: UsageRequestItem
   readonly messages: readonly Readonly<Message>[] | null
-  readonly labels: HbarSessionRequestLabels
 }) {
+  const { t } = sessionRequestMessages.useMessages()
   const [rawRequest, setRawRequest] = useState(false)
   const [rawMessages, setRawMessages] = useState(false)
-  const fields = labels.fields
+  const fields = t('fields')
   const metric = (id: keyof typeof fields, value: string) => ({ id, label: fields[id], value })
   const runMessages = useMemo(
     () =>
@@ -178,42 +178,42 @@ export function HbarSessionRequestRecord({
   return (
     <LumenFrame className="hbar-session-request-record">
       <LumenCompactMetrics
-        label={labels.title}
+        label={t('title')}
         metrics={[
           metric('provider', item.providerId),
           metric('model', item.modelId),
-          metric('status', labels.status(item.runStatus)),
-          metric('source', labels.source(item.source)),
-          metric('input', labels.number(item.input)),
-          metric('output', labels.number(item.output)),
-          metric('cacheRead', labels.number(item.cacheRead)),
-          metric('cacheWrite', labels.number(item.cacheWrite)),
-          metric('billable', labels.number(item.billableTokens)),
-          metric('cost', labels.cost(item.cost)),
-          metric('response', labels.duration(sessionRequestLatency(item, item.endedAt))),
-          metric('firstText', labels.duration(sessionRequestLatency(item, item.firstTextAt))),
-          metric('firstThinking', labels.duration(sessionRequestLatency(item, item.firstThinkingAt))),
-          metric('firstProviderEvent', labels.duration(sessionRequestLatency(item, item.firstProviderEventAt))),
-          metric('started', labels.time(item.startedAt)),
-          metric('ended', labels.time(item.endedAt)),
+          metric('status', t('status')(item.runStatus)),
+          metric('source', t('source')(item.source)),
+          metric('input', t('number')(item.input)),
+          metric('output', t('number')(item.output)),
+          metric('cacheRead', t('number')(item.cacheRead)),
+          metric('cacheWrite', t('number')(item.cacheWrite)),
+          metric('billable', t('number')(item.billableTokens)),
+          metric('cost', t('cost')(item.cost)),
+          metric('response', t('duration')(sessionRequestLatency(item, item.endedAt))),
+          metric('firstText', t('duration')(sessionRequestLatency(item, item.firstTextAt))),
+          metric('firstThinking', t('duration')(sessionRequestLatency(item, item.firstThinkingAt))),
+          metric('firstProviderEvent', t('duration')(sessionRequestLatency(item, item.firstProviderEventAt))),
+          metric('started', t('time')(item.startedAt)),
+          metric('ended', t('time')(item.endedAt)),
           metric('attempt', item.attemptId),
-          metric('run', item.runId ?? labels.unavailable),
-          metric('pricing', item.pricingVersion ?? labels.unavailable),
+          metric('run', item.runId ?? t('unavailable')),
+          metric('pricing', item.pricingVersion ?? t('unavailable')),
         ]}
       />
-      <HbarLumenDisclosure label={labels.raw.request} open={rawRequest} onOpenChange={setRawRequest}>
-        {rawRequest && <RawJson identity={[item.sessionId, item.id]} value={item} labels={labels.codeBlock} />}
+      <HbarLumenDisclosure label={t('raw').request} open={rawRequest} onOpenChange={setRawRequest}>
+        {rawRequest && <RawJson identity={[item.sessionId, item.id]} value={item} />}
       </HbarLumenDisclosure>
-      <HbarLumenDisclosure label={labels.raw.runMessages} open={rawMessages} onOpenChange={setRawMessages}>
+      <HbarLumenDisclosure label={t('raw').runMessages} open={rawMessages} onOpenChange={setRawMessages}>
         {rawMessages && (
           <>
             <LumenContentText context="section.description" tone="muted">
-              {labels.raw.scope}
+              {t('raw').scope}
             </LumenContentText>
             {runMessages !== null && item.runId !== null ? (
-              <HbarSessionRawMessages key={item.runId} identity={item.runId} messages={runMessages} labels={labels} />
+              <HbarSessionRawMessages key={item.runId} identity={item.runId} messages={runMessages} />
             ) : (
-              <LumenContentText context="section.description">{labels.raw.unavailable}</LumenContentText>
+              <LumenContentText context="section.description">{t('raw').unavailable}</LumenContentText>
             )}
           </>
         )}
@@ -224,17 +224,16 @@ export function HbarSessionRequestRecord({
 
 function RequestList({
   requests,
-  labels,
   connected,
   messages,
   revision,
 }: {
   readonly requests: SessionRequestsRuntime
-  readonly labels: HbarSessionRequestLabels
   readonly connected: boolean
   readonly messages: readonly Readonly<Message>[] | null
   readonly revision: number
 }) {
+  const { t } = sessionRequestMessages.useMessages()
   const state = useHbarRuntimeState(requests.reader)
   const [expanded, setExpanded] = useState<string | null>(null)
   const busy = state.status === 'loading'
@@ -255,9 +254,9 @@ function RequestList({
     }
   }, [connected, requests, revision])
   return (
-    <LumenFrame className="hbar-session-requests" aria-label={labels.title}>
+    <LumenFrame className="hbar-session-requests" aria-label={t('title')}>
       <LumenFrame as="header">
-        <LumenContentText context="section.title">{labels.title}</LumenContentText>
+        <LumenContentText context="section.title">{t('title')}</LumenContentText>
         <LumenButton
           size="s"
           variant="text"
@@ -269,25 +268,25 @@ function RequestList({
           }}
         >
           <LumenIcon icon={RotateCw} tier="sm" />
-          <LumenContentText context="control.label">{labels.refresh}</LumenContentText>
+          <LumenContentText context="control.label">{t('refresh')}</LumenContentText>
         </LumenButton>
       </LumenFrame>
       {busy && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {connected && state.status === 'error' && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error(state.error ?? 'EXECUTION_FAILED')}
+          {t('error')(state.error ?? 'EXECUTION_FAILED')}
         </LumenContentText>
       )}
       {state.status === 'ready' && state.items.length === 0 && (
-        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+        <LumenContentText context="section.description">{t('empty')}</LumenContentText>
       )}
       {state.gap && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.gap}
+          {t('gap')}
         </LumenContentText>
       )}
       <LumenCollection as="ul" aria-busy={busy}>
@@ -301,7 +300,7 @@ function RequestList({
                   as="span"
                   className="hbar-session-request-summary"
                   title={item.modelId}
-                  description={labels.summary(
+                  description={t('summary')(
                     item.input + item.output,
                     sessionRequestLatency(item, item.endedAt),
                     item.cost,
@@ -309,14 +308,14 @@ function RequestList({
                   trailing={
                     item.endedAt === null ? undefined : (
                       <LumenContentText context="metadata" tone="muted">
-                        {labels.time(item.endedAt)}
+                        {t('time')(item.endedAt)}
                       </LumenContentText>
                     )
                   }
                 />
               }
             >
-              {expanded === item.id && <HbarSessionRequestRecord item={item} messages={messages} labels={labels} />}
+              {expanded === item.id && <HbarSessionRequestRecord item={item} messages={messages} />}
             </HbarLumenDisclosure>
           </LumenCollectionItem>
         ))}
@@ -331,12 +330,12 @@ function RequestList({
             void requests.loadMore().catch(() => undefined)
           }}
         >
-          {labels.more}
+          {t('more')}
         </LumenButton>
       )}
       {!state.hasMore && state.items.length >= USAGE_REQUEST_MAX_ITEMS && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.limit(state.items.length)}
+          {t('limit')(state.items.length)}
         </LumenContentText>
       )}
     </LumenFrame>
@@ -344,17 +343,16 @@ function RequestList({
 }
 
 /** Each mounted status pane has an independently scoped, cancellable request reader. */
-export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails({
+function SessionRequestDetailsView({
   sessionId,
-  labels,
   connected,
   view = 'all',
 }: {
   readonly sessionId: string
-  readonly labels: HbarSessionRequestLabels
   readonly connected: boolean
   readonly view?: 'all' | 'requests' | 'messages'
 }) {
+  const { t } = sessionRequestMessages.useMessages()
   const runtime = useHbarRuntime()
   const context = useMemo(() => createSessionRequestContext(runtime.state.timeline, sessionId), [runtime, sessionId])
   const timeline = useHbarRuntimeState(context)
@@ -374,18 +372,18 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
   const rawBody = (
     <>
       {messages ? (
-        <HbarSessionRawMessages key={sessionId} identity={sessionId} messages={messages} labels={labels} />
+        <HbarSessionRawMessages key={sessionId} identity={sessionId} messages={messages} />
       ) : (
-        <LumenContentText context="section.description">{labels.raw.unavailable}</LumenContentText>
+        <LumenContentText context="section.description">{t('raw').unavailable}</LumenContentText>
       )}
       {connected && timeline.olderStatus === 'error' && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+          {t('error')(timeline.olderError ?? 'EXECUTION_FAILED')}
         </LumenContentText>
       )}
       {timeline.olderStatus === 'limit' && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.raw.olderLimit}
+          {t('raw').olderLimit}
         </LumenContentText>
       )}
       {timeline.hasOlder && timeline.olderStatus !== 'limit' && (
@@ -398,7 +396,7 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
             void runtime.commands.execute('timeline.loadOlder', { sessionId }).catch(() => undefined)
           }}
         >
-          {loadingOlder ? labels.loading : labels.raw.older}
+          {loadingOlder ? t('loading') : t('raw').older}
         </LumenButton>
       )}
     </>
@@ -410,20 +408,19 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
           <RequestList
             requests={requests}
             connected={connected}
-            labels={labels}
             messages={messages}
             revision={revision}
           />
         ) : (
           <LumenContentText context="feedback.detail" role="status">
-            {labels.loading}
+            {t('loading')}
           </LumenContentText>
         ))}
       {view === 'messages' ? (
         rawBody
       ) : view === 'all' ? (
         <HbarLumenDisclosure
-          label={labels.raw.sessionMessages}
+          label={t('raw').sessionMessages}
           open={rawOpen}
           onOpenChange={setRawOpen}
           className="hbar-session-context"
@@ -432,5 +429,18 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
         </HbarLumenDisclosure>
       ) : null}
     </>
+  )
+}
+
+export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails({ labels, ...props }: {
+  readonly sessionId: string
+  readonly labels: HbarSessionRequestLabels
+  readonly connected: boolean
+  readonly view?: 'all' | 'requests' | 'messages'
+}) {
+  return (
+    <sessionRequestMessages.Provider messages={labels}>
+      <SessionRequestDetailsView {...props} />
+    </sessionRequestMessages.Provider>
   )
 })

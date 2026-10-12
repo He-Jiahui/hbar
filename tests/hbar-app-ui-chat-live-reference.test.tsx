@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenChat, type LumenChatComposerFlow, type LumenChatContent } from '@lumen/app-ui'
+import { LumenChat, type LumenChatComposerFlow, type LumenChatContent } from '@lumen/app-ui/catalog'
 import { createChatLiveReferenceFixture } from './fixtures/hbar-app-ui-chat-live-reference-fixtures'
 
 function renderLive(live: NonNullable<LumenChatContent['live']>): string {

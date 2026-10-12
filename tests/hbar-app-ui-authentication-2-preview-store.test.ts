@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { canContinueLumenProviderFirst } from '@lumen/app-ui'
+import { canContinueLumenProviderFirst } from '@lumen/app-ui/catalog'
 import {
   AUTHENTICATION2_HOST_CAPACITY_POLICY,
   AUTHENTICATION2_SOURCE_EVIDENCE,

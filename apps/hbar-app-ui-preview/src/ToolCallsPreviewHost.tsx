@@ -1,12 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenToolCallsProvider,
-  uniqueLumenToolCallsItems,
-  type LumenToolCallsContent,
-  type LumenToolCallsIntent,
-  type LumenToolCallsViewModel,
-} from '@lumen/app-ui'
+import { LumenToolCallsProvider, uniqueLumenToolCallsItems, type LumenToolCallsContent, type LumenToolCallsIntent, type LumenToolCallsViewModel } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createToolCallsPreviewStore, type ToolCallsPreviewSeed } from './toolCallsPreviewStore'
 

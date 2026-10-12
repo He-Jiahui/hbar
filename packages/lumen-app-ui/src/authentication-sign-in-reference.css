@@ -1,0 +1,294 @@
+.lumen-authentication.hbar-app-ui-auth-surface.hbar-app-ui-auth-sign-in-surface {
+  padding: 2.5rem 2rem !important;
+  overflow: auto;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #f5f5f5);
+}
+.lumen-authentication.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-centered {
+  inline-size: min(100%, 25rem);
+  align-self: center;
+  gap: 0;
+  margin: 0 auto;
+  padding: 0;
+}
+.lumen-authentication.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-card {
+  inline-size: 100%;
+  max-inline-size: none;
+  max-width: none;
+  gap: 0;
+  margin: 0;
+  padding: 1.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 1.125rem;
+  background: light-dark(#fff, #171717);
+  box-shadow: none;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-intro {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: center;
+  margin-block-end: 1.5rem;
+  text-align: center;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-intro .hbar-app-ui-auth-brand {
+  margin-block-end: 1rem;
+}
+.hbar-app-ui-auth-sign-in-surface
+  .hbar-app-ui-auth-sign-in-intro
+  .hbar-app-ui-auth-brand.is-compact
+  > span:first-child {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.625rem;
+  background: light-dark(#fafafa, #0a0a0a);
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-intro h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.75rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-intro p {
+  margin: 0.25rem 0 0;
+  color: light-dark(#777, #999);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 1rem;
+  margin-block-end: 1.5rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form .hbar-app-ui-auth-field {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-field > label,
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-help-row > label {
+  display: block;
+  color: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-help-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-help-row > button {
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form input:not([type='checkbox']) {
+  inline-size: 100%;
+  block-size: 2.25rem;
+  min-block-size: 2.25rem;
+  padding: 0 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.5rem;
+  background: light-dark(#fff, #0a0a0a);
+  box-shadow: none;
+  color: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form input[aria-invalid='true'] {
+  border-color: light-dark(#f33, #f44);
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form input:focus-visible,
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form button:focus-visible {
+  outline: 0.125rem solid currentColor;
+  outline-offset: 0.125rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap {
+  position: relative;
+  inline-size: 100%;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > input {
+  padding-inline-end: 2.5rem !important;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button {
+  position: absolute;
+  inset-block-start: 0.25rem;
+  inset-inline-end: 0.25rem;
+  display: flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  min-block-size: 0;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0.375rem;
+  background: light-dark(#f5f5f5, #292929);
+  box-shadow: none;
+  color: inherit;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form .hbar-app-ui-auth-check {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  color: light-dark(#666, #aaa);
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-check .lumen-checkbox-control {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-check .lumen-checkbox-mark,
+.hbar-app-ui-auth-sign-in-surface
+  .hbar-app-ui-auth-check
+  .lumen-checkbox-control:has(input:checked)
+  .lumen-checkbox-mark {
+  border-radius: 0.25rem;
+  box-shadow: none;
+}
+.hbar-app-ui-auth-sign-in-surface
+  .hbar-app-ui-auth-check
+  .lumen-checkbox-control:has(input:checked)
+  .lumen-checkbox-mark {
+  background: light-dark(#171717, #fff);
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-check .lumen-form-glyph {
+  color: light-dark(#fff, #171717);
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form > .hbar-app-ui-auth-button {
+  inline-size: 100%;
+  min-block-size: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.625rem;
+  background: light-dark(#171717, #fff);
+  box-shadow: none;
+  color: light-dark(#fff, #171717);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-form > .hbar-app-ui-auth-button:disabled {
+  opacity: 0.65;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-spinner {
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+  flex: 0 0 auto;
+  border: 0.125rem solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: hbar-auth-sign-in-spin 0.8s linear infinite;
+}
+@keyframes hbar-auth-sign-in-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-spinner {
+    animation: none;
+  }
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-sign-in-status,
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-field > small {
+  color: light-dark(#b42318, #fb7185);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-divider {
+  margin-block-end: 1rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-divider small {
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-provider-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-provider-buttons > .hbar-app-ui-auth-button {
+  min-inline-size: 0;
+  block-size: 2.25rem;
+  min-block-size: 2.25rem;
+  flex: 1 1 0;
+  gap: 0.375rem;
+  padding: 0 0.375rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.5rem;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-provider-buttons:has(> :nth-child(4)) {
+  flex-wrap: wrap;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-provider-buttons:has(> :nth-child(4)) > .hbar-app-ui-auth-button {
+  flex-basis: calc(50% - 0.25rem);
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-footer-note {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin: 1.25rem 0 1.5rem;
+  color: light-dark(#777, #999);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-inline-link,
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-footer-links button {
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-footer-links button {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-decoration: none;
+}
+@media (max-width: 40rem) {
+  .lumen-authentication.hbar-app-ui-auth-surface.hbar-app-ui-auth-sign-in-surface {
+    padding: 2rem !important;
+  }
+  .lumen-authentication.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-card {
+    padding: 1.5rem;
+  }
+  .hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-provider-buttons > .hbar-app-ui-auth-button {
+    padding-inline: 0.25rem;
+  }
+  .hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-provider-buttons .hbar-app-ui-auth-icon {
+    display: none;
+  }
+}

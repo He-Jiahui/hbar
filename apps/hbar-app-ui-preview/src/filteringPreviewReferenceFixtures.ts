@@ -1,8 +1,4 @@
-import type {
-  LumenFilteringReferenceContent as Content,
-  LumenFilteringReferenceField as Field,
-  LumenFilteringReferenceOption as Option,
-} from '@lumen/app-ui'
+import type { LumenFilteringReferenceContent as Content, LumenFilteringReferenceField as Field, LumenFilteringReferenceOption as Option } from '@lumen/app-ui/catalog'
 
 const options = (values: readonly (string | readonly [string, string, string?])[]): readonly Option[] =>
   values.map((value) =>

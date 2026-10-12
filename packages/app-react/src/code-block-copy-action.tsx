@@ -4,6 +4,7 @@ import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app
 import type { MessageClipboardPort } from './message-copy'
 import { copyCodeText, MAX_CODE_BLOCK_COPY_CHARACTERS, type CodeBlockCopyInput } from './code-block-copy'
 import type { HbarDiagramLabels } from './markdown-diagram-model'
+import { createMessageScope } from './messages'
 
 export interface HbarCodeBlockLabels {
   readonly diagram: HbarDiagramLabels
@@ -20,6 +21,29 @@ export interface HbarCodeBlockLabels {
   readonly showLess: string
 }
 
+const { Provider: CodeBlockMessagesProvider, useMessages: useCodeBlockMessages } =
+  createMessageScope<HbarCodeBlockLabels>()
+
+export { CodeBlockMessagesProvider }
+
+export function useCodeBlockLabels(): HbarCodeBlockLabels {
+  const { t } = useCodeBlockMessages()
+  return {
+    diagram: t('diagram'),
+    copy: t('copy'),
+    copying: t('copying'),
+    copied: t('copied'),
+    failed: t('failed'),
+    unavailable: t('unavailable'),
+    tooLarge: t('tooLarge'),
+    retry: t('retry'),
+    language: t('language'),
+    lines: t('lines'),
+    showMore: t('showMore'),
+    showLess: t('showLess'),
+  }
+}
+
 export interface CodeTextCopyActionProps {
   readonly identity: readonly string[]
   readonly text: string
@@ -28,6 +52,12 @@ export interface CodeTextCopyActionProps {
   readonly labels: HbarCodeBlockLabels
   readonly clipboard?: MessageClipboardPort | null | undefined
 }
+type CodeCopyActionMessages = Pick<
+  HbarCodeBlockLabels,
+  'copy' | 'copying' | 'copied' | 'failed' | 'unavailable' | 'tooLarge' | 'retry'
+>
+const { Provider: CodeCopyMessagesProvider, useMessages: useCodeCopyMessages } =
+  createMessageScope<CodeCopyActionMessages>()
 interface CodeBlockCopyActionProps extends CodeBlockCopyInput, Omit<CodeTextCopyActionProps, 'identity' | 'text'> {}
 
 type CopyStatus = 'idle' | 'copying' | 'copied' | 'failed' | 'unavailable'
@@ -40,7 +70,13 @@ function platformClipboard(): MessageClipboardPort | null {
   }
 }
 
-function CopyAction({ labels, clipboard, source, owner, text }: CodeTextCopyActionProps) {
+function CopyAction({
+  clipboard,
+  source,
+  owner,
+  text,
+}: Omit<CodeTextCopyActionProps, 'labels' | 'identity'> & { readonly identity: readonly string[] }) {
+  const { t } = useCodeCopyMessages()
   const [status, setStatus] = useState<CopyStatus>('idle')
   const generation = useRef(0)
   const pending = useRef(false)
@@ -60,11 +96,11 @@ function CopyAction({ labels, clipboard, source, owner, text }: CodeTextCopyActi
   if (!tooLarge && !/\S/u.test(text)) return null
   const failure = status === 'failed' || status === 'unavailable'
   const notice = tooLarge
-    ? labels.tooLarge(MAX_CODE_BLOCK_COPY_CHARACTERS)
+    ? t('tooLarge')(MAX_CODE_BLOCK_COPY_CHARACTERS)
     : failure
       ? status === 'unavailable'
-        ? labels.unavailable
-        : labels.failed
+        ? t('unavailable')
+        : t('failed')
       : null
   const copy = () => {
     if (pending.current || tooLarge) return
@@ -105,13 +141,7 @@ function CopyAction({ labels, clipboard, source, owner, text }: CodeTextCopyActi
           tier="sm"
         />
         <LumenContentText context="control.label" aria-live="polite">
-          {status === 'copied'
-            ? labels.copied
-            : status === 'copying'
-              ? labels.copying
-              : failure
-                ? labels.retry
-                : labels.copy}
+          {status === 'copied' ? t('copied') : status === 'copying' ? t('copying') : failure ? t('retry') : t('copy')}
         </LumenContentText>
       </LumenButton>
       {notice && (
@@ -135,5 +165,19 @@ export function CodeBlockCopyAction(props: CodeBlockCopyActionProps) {
 
 /** A semantic source identity, not a fabricated message target for file code. */
 export function CodeTextCopyAction(props: CodeTextCopyActionProps) {
-  return <CopyAction key={JSON.stringify(props.identity)} {...props} />
+  const { labels, ...copy } = props
+  const messages: CodeCopyActionMessages = {
+    copy: labels.copy,
+    copying: labels.copying,
+    copied: labels.copied,
+    failed: labels.failed,
+    unavailable: labels.unavailable,
+    tooLarge: labels.tooLarge,
+    retry: labels.retry,
+  }
+  return (
+    <CodeCopyMessagesProvider messages={messages}>
+      <CopyAction key={JSON.stringify(props.identity)} {...copy} />
+    </CodeCopyMessagesProvider>
+  )
 }

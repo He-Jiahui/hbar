@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenAppShellContractsContent } from '@lumen/app-ui'
+import type { LumenAppShellContractsContent } from '@lumen/app-ui/catalog'
 import type { ContractsPreviewFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-contracts-fixtures'
 
 function isValidId(id: string): boolean {

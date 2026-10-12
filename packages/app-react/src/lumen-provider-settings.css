@@ -2,11 +2,11 @@
   inline-size: min(100%, 58rem);
   min-inline-size: 0;
   margin-inline: auto;
-  padding-block: 1rem;
+  padding-block: var(--lumen-space-16);
 }
 
 .hbar-app-react-provider-list > [role='alert'] {
-  margin: 0.5rem 0 0;
+  margin: var(--lumen-space-8) 0 0;
   color: var(--lumen-danger);
   font-size: calc(var(--lumen-font-size) * 0.857143);
 }
@@ -17,29 +17,29 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   margin: auto;
   text-align: center;
 }
 
 /* Shared LumenDialog owns the viewport size; the editor only arranges its
    header, scrolling form body and footer within that available space. */
-.hbar-app-react-provider-modal .lumen-dialog-surface,
-.hbar-app-react-provider-modal .lumen-dialog-content,
-.hbar-app-react-provider-modal .lumen-dialog-body {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.surface"],
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.content"],
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.body"] {
   min-block-size: 0;
 }
 
-.hbar-app-react-provider-modal .lumen-dialog-surface,
-.hbar-app-react-provider-modal .lumen-dialog-content {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.surface"],
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.content"] {
   block-size: 100%;
 }
 
-.hbar-app-react-provider-modal .lumen-dialog-body {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.body"] {
   overflow: hidden;
 }
 
-.hbar-app-react-provider-modal .lumen-dialog-body > .hbar-app-react-provider-dialog {
+.hbar-app-react-provider-modal [data-lumen-part~="dialog.body"] > .hbar-app-react-provider-dialog {
   inline-size: 100%;
   min-block-size: 0;
   flex: 1 1 auto;
@@ -50,7 +50,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-provider-catalog-recovery p {
@@ -62,6 +62,8 @@
 }
 
 .hbar-app-react-provider-dialog {
+  container-name: provider-dialog;
+  container-type: inline-size;
   display: flex;
   inline-size: min(100%, 58rem);
   min-inline-size: 0;
@@ -89,8 +91,8 @@
 .hbar-app-react-provider-page-header {
   flex: 0 0 auto;
   align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16) var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -125,7 +127,7 @@
 }
 
 .hbar-app-react-provider-page-header p {
-  margin-block-start: 0.25rem;
+  margin-block-start: var(--lumen-space-4);
   font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
@@ -154,8 +156,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1.25rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -167,7 +169,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-react-provider-section-heading h2 {
@@ -184,7 +186,7 @@
 .hbar-app-react-provider-field-row,
 .hbar-app-react-provider-capabilities {
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-react-provider-field-row > *,
@@ -193,8 +195,8 @@
   flex: 1 1 0;
 }
 
-.hbar-app-react-provider-field-row > .lumen-form-field,
-.hbar-app-react-provider-capabilities > .lumen-toggle {
+.hbar-app-react-provider-field-row > [data-lumen-part~="field.group"],
+.hbar-app-react-provider-capabilities > [data-lumen-part~="toggle.root"] {
   min-inline-size: min(100%, 13rem);
   flex: 1 1 0;
 }
@@ -220,8 +222,8 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 1rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-reading);
 }
@@ -229,7 +231,7 @@
 .hbar-app-react-provider-model-list-items {
   display: flex;
   min-inline-size: 0;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   flex-direction: row;
   flex-wrap: wrap;
   overflow-x: auto;
@@ -241,7 +243,7 @@
   flex: 1 1 14rem;
   min-inline-size: max-content;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   text-align: start;
 }
 
@@ -250,7 +252,7 @@
   min-inline-size: 0;
   flex: 1 0 auto;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-react-provider-model-list-items strong,
@@ -267,27 +269,27 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   color: var(--lumen-ink);
 }
 
 .hbar-app-react-provider-inline-action {
   align-items: stretch;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
-.hbar-app-react-provider-inline-action > .lumen-field,
-.hbar-app-react-provider-inline-action > .lumen-outlined-field,
-.hbar-app-react-provider-inline-action > .lumen-popup-select,
-.hbar-app-react-provider-inline-action > .lumen-combobox-control {
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field.outlined"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="select.root"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="combobox.control"] {
   min-inline-size: 0;
   flex: 1 1 auto;
 }
 
-.hbar-app-react-provider-inline-action > .lumen-field > .lumen-control,
-.hbar-app-react-provider-inline-action > .lumen-outlined-field > .lumen-control,
-.hbar-app-react-provider-inline-action > .lumen-popup-select > .lumen-control,
-.hbar-app-react-provider-inline-action > .lumen-combobox-control > .lumen-control {
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field"] > [data-lumen-part~="control"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="field.outlined"] > [data-lumen-part~="control"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="select.root"] > [data-lumen-part~="control"],
+.hbar-app-react-provider-inline-action > [data-lumen-part~="combobox.control"] > [data-lumen-part~="control"] {
   inline-size: 100%;
 }
 
@@ -312,7 +314,7 @@
 }
 
 .hbar-app-react-provider-model-details > .hbar-app-react-provider-section-heading {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -320,8 +322,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
 }
 
 .hbar-app-react-provider-model-editor .hbar-app-react-provider-field-row > * {
@@ -332,7 +334,7 @@
 .hbar-app-react-provider-model-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-react-provider-model-empty {
@@ -340,13 +342,13 @@
   min-block-size: 12rem;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem;
+  padding: var(--lumen-space-16);
   text-align: center;
 }
 
 .hbar-app-react-provider-error {
   flex: 0 0 auto;
-  padding: 0.5rem 1.25rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-danger);
   background: color-mix(in srgb, var(--lumen-danger) 8%, var(--lumen-frost));
@@ -357,8 +359,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-frost);
 }
@@ -366,7 +368,7 @@
 .hbar-app-react-provider-dialog > footer > div {
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   margin-inline-start: auto;
 }
 
@@ -375,7 +377,7 @@
   flex-direction: column;
   align-items: flex-start;
   margin-inline-start: 0;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   color: var(--lumen-muted);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
@@ -385,7 +387,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-provider-context-rules {
@@ -396,14 +398,14 @@
 .hbar-provider-context-rules .hbar-lumen-disclosure-content:not([hidden]) {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding-block: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding-block: var(--lumen-space-12);
 }
 
 .hbar-provider-context-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
 }
 
@@ -414,8 +416,8 @@
 .hbar-provider-context-tier {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding-block-start: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding-block-start: var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -423,7 +425,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-provider-context-tier-heading > :first-child {
@@ -437,7 +439,7 @@
 }
 
 .hbar-app-react-provider-delete-copy {
-  padding: 1.25rem;
+  padding: var(--lumen-space-16);
   color: var(--lumen-muted);
 }
 
@@ -446,7 +448,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-provider-advanced-content {
@@ -460,7 +462,7 @@
 .hbar-provider-advanced > button {
   justify-content: flex-start;
   align-self: flex-start;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-provider-advanced-content > p,
@@ -486,10 +488,10 @@
 .hbar-provider-identity {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
-@media (max-width: 78rem) {
+@container provider-dialog (width < 64rem) {
   .hbar-app-react-provider-dialog > main {
     flex-direction: column;
     align-items: stretch;
@@ -504,9 +506,7 @@
   .hbar-app-react-provider-model-section {
     flex: 0 0 auto;
   }
-}
 
-@media (max-width: 60rem) {
   .hbar-app-react-provider-model-workspace {
     flex-direction: column;
   }
@@ -519,11 +519,11 @@
   }
 }
 
-@media (max-width: 42rem) {
+@container provider-dialog (width < 48rem) {
   .hbar-app-react-provider-page-header,
   .hbar-app-react-provider-section,
   .hbar-app-react-provider-dialog > footer {
-    padding: 0.75rem;
+    padding: var(--lumen-space-12);
   }
 
   .hbar-app-react-provider-dialog > footer {

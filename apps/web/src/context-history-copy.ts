@@ -83,11 +83,11 @@ export function contextHistoryCopy(locale: SupportedLocale): HbarContextHistoryL
       'No compaction recorded yet. Window details are archived after the first compaction.',
     ),
     estimates: choose(
-      '上下文长度和占比由 Host 估算；传递长度包含系统指令、摘要和保留消息。',
+      '上下文长度和占比由宿主估算；传递长度包含系统指令、摘要和保留消息。',
       'Context lengths and occupancy are Host estimates. Carried context includes system instructions, the summary and retained messages.',
     ),
     accounting: choose(
-      '累计 token 是模型返回的输入与输出之和，缓存 token 已包含在输入中。工具总数包含子调用；成功率 = 成功 /（成功 + 失败），取消、拒绝、未确认结果不计入分母。运行时长含等待，窗口跨度含空闲时间。压缩耗时已包含在窗口跨度中；失败或取消不切换窗口，重试仍属同一窗口。',
+      '累计词元是模型返回的输入与输出之和，缓存词元已包含在输入中。工具总数包含子调用；成功率 = 成功 /（成功 + 失败），取消、拒绝、未确认结果不计入分母。运行时长含等待，窗口跨度含空闲时间。压缩耗时已包含在窗口跨度中；失败或取消不切换窗口，重试仍属同一窗口。',
       'Total tokens are provider-reported input plus output; cached tokens are included in input. Tool totals include nested calls. Success rate = succeeded / (succeeded + failed), excluding cancelled, denied and unconfirmed outcomes. Run time includes waits; window span includes idle time and compaction. Failed or cancelled compactions keep the same window when retried.',
     ),
     fileAccounting: choose(
@@ -108,7 +108,7 @@ export function contextHistoryCopy(locale: SupportedLocale): HbarContextHistoryL
     metrics: (value) => [
       {
         id: 'tokens',
-        label: choose('累计 token', 'Total tokens'),
+        label: choose('累计词元', 'Total tokens'),
         value: number(value.usage.input + value.usage.output),
       },
       {
@@ -186,13 +186,13 @@ export function contextHistoryCopy(locale: SupportedLocale): HbarContextHistoryL
       },
       {
         id: 'summary',
-        label: choose('摘要 token / 保留消息', 'Summary tokens / retained messages'),
+        label: choose('摘要词元 / 保留消息', 'Summary tokens / retained messages'),
         value: `${value.summaryTokens === null ? unknown : number(value.summaryTokens)} / ${value.retainedMessages === null ? unknown : number(value.retainedMessages)}`,
       },
       { id: 'compaction-time', label: choose('压缩耗时', 'Compaction duration'), value: duration(value.durationMs) },
       {
         id: 'compaction-tokens',
-        label: choose('压缩消耗 token', 'Compaction tokens'),
+        label: choose('压缩消耗词元', 'Compaction tokens'),
         value: number(value.compactionUsage.input + value.compactionUsage.output),
       },
       { id: 'chunks', label: choose('已完成摘要请求', 'Completed summary requests'), value: number(value.chunks) },

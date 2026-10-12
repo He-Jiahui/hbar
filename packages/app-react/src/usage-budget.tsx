@@ -1,6 +1,7 @@
 import { LumenContentText, LumenButton, LumenFrame, LumenUsage05 } from '@lumen/app-ui'
 import type { UsageBudgetRuntime } from '@hbar/app-runtime'
 import { useHbarRuntimeState } from './runtime'
+import { createMessageScope } from './messages'
 export interface HbarUsageBudgetLabels {
   readonly title: string
   readonly description: string
@@ -17,7 +18,46 @@ export interface HbarUsageBudgetProps {
   readonly runtime: UsageBudgetRuntime
   readonly labels: HbarUsageBudgetLabels
 }
+export interface HbarUsageBudgetMessages {
+  readonly title: string
+  readonly description: string
+  readonly cap: string
+  readonly save: string
+  readonly saving: string
+  readonly unknown: string
+  readonly reconcile: string
+  readonly retry: string
+  readonly pendingTarget: HbarUsageBudgetLabels['pendingTarget']
+  readonly error: HbarUsageBudgetLabels['error']
+}
+export const HbarUsageBudgetMessageScope = createMessageScope<HbarUsageBudgetMessages>()
+export function createHbarUsageBudgetMessages(labels: HbarUsageBudgetLabels): HbarUsageBudgetMessages {
+  return { ...labels }
+}
+export type HbarUsageBudgetViewProps = Pick<HbarUsageBudgetProps, 'runtime'>
+
 export function HbarUsageBudget({ runtime, labels }: HbarUsageBudgetProps) {
+  return (
+    <HbarUsageBudgetMessageScope.Provider messages={createHbarUsageBudgetMessages(labels)}>
+      <HbarUsageBudgetView runtime={runtime} />
+    </HbarUsageBudgetMessageScope.Provider>
+  )
+}
+
+export function HbarUsageBudgetView({ runtime }: HbarUsageBudgetViewProps) {
+  const { t } = HbarUsageBudgetMessageScope.useMessages()
+  const labels: HbarUsageBudgetLabels = {
+    title: t('title'),
+    description: t('description'),
+    cap: t('cap'),
+    save: t('save'),
+    saving: t('saving'),
+    unknown: t('unknown'),
+    reconcile: t('reconcile'),
+    retry: t('retry'),
+    pendingTarget: t('pendingTarget'),
+    error: t('error'),
+  }
   const state = useHbarRuntimeState(runtime.state)
   const busy = state.status === 'loading' || state.pendingStatus !== null
   const value = state.draftLimit

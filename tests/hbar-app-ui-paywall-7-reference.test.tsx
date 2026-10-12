@@ -1,14 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenPaywall07,
-  LumenPaywallProvider,
-  LumenPaywall7Reference,
-  useLumenPaywallContent,
-  type LumenPaywall7ReferenceViewModel,
-  type LumenPaywallContent,
-} from '@lumen/app-ui'
+import { LumenPaywall07, LumenPaywallProvider, LumenPaywall7Reference, useLumenPaywallContent, type LumenPaywall7ReferenceViewModel, type LumenPaywallContent } from '@lumen/app-ui/catalog'
 import { Paywall7PreviewHost } from '../apps/hbar-app-ui-preview/src/Paywall7PreviewHost'
 import { createPaywall7PreviewFixture } from '../apps/hbar-app-ui-preview/src/paywall7PreviewFixtures'
 import { createPaywall7PreviewStore } from '../apps/hbar-app-ui-preview/src/paywall7PreviewStore'

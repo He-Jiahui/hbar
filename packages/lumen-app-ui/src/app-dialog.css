@@ -1,0 +1,322 @@
+.lumen-app-dialog-stage-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-app-dialog-stage {
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 32rem;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: var(--lumen-space-16);
+  background: transparent;
+  color: var(--lumen-ink);
+}
+.lumen-app-dialog-stage *,
+.lumen-app-dialog-stage *::before,
+.lumen-app-dialog-stage *::after {
+  box-sizing: border-box;
+}
+.lumen-app-dialog-stage :where(h2, p, dl) {
+  margin: 0;
+}
+.lumen-app-dialog-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+.lumen-app-dialog-trigger.is-hidden {
+  visibility: hidden;
+}
+.lumen-app-dialog-backdrop.hbar-app-ui-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--lumen-space-16);
+  background: color-mix(in srgb, var(--lumen-canvas) 42%, transparent);
+  backdrop-filter: blur(0.25rem);
+  min-inline-size: 0;
+}
+.lumen-app-dialog-backdrop.is-side {
+  align-items: stretch;
+  justify-content: end;
+  padding: 0;
+}
+.lumen-app-dialog-panel {
+  display: flex;
+  inline-size: min(38rem, 100%);
+  max-block-size: min(44rem, calc(100% - 1rem));
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-overlay-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: color-mix(in srgb, var(--lumen-canvas) 74%, transparent);
+  box-shadow:
+    0 0 1rem var(--lumen-overlay-glow-near),
+    0 0 2.75rem var(--lumen-overlay-glow-far);
+  backdrop-filter: blur(1.25rem);
+}
+.lumen-app-dialog-panel.is-side {
+  inline-size: min(30rem, 100%);
+  max-block-size: none;
+  block-size: 100%;
+  border-block: 0;
+  border-inline-end: 0;
+  border-radius: 0;
+}
+.lumen-app-dialog-panel > header,
+.lumen-app-dialog-panel > footer {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
+}
+.lumen-app-dialog-panel > header {
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-dialog-panel > header > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-app-dialog-panel > footer {
+  justify-content: flex-end;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-dialog-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+  overflow: auto;
+  padding: var(--lumen-space-16);
+}
+.lumen-app-dialog-stage [data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 22rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.lumen-app-dialog-empty {
+  padding: var(--lumen-space-16);
+  border: 0.0625rem dashed var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  text-align: center;
+}
+.lumen-app-dialog-plan,
+.lumen-app-dialog-details {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0;
+}
+.lumen-app-dialog-plan > div,
+.lumen-app-dialog-details > div {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) 0;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  flex-wrap: wrap;
+}
+.lumen-app-dialog-plan > div,
+.lumen-app-dialog-details > div > :nth-child(2n + 1) {
+  flex: 0.7 1 8rem;
+  min-inline-size: 8rem;
+}
+.lumen-app-dialog-plan > div,
+.lumen-app-dialog-details > div > :nth-child(2n + 2) {
+  flex: 1 1 10rem;
+  min-inline-size: 10rem;
+}
+.lumen-app-dialog-plan dt,
+.lumen-app-dialog-details dt {
+  color: var(--lumen-muted);
+}
+.lumen-app-dialog-plan dd,
+.lumen-app-dialog-details dd {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-8);
+  margin: 0;
+}
+.lumen-app-dialog-plan s {
+  color: var(--lumen-muted);
+}
+.lumen-app-dialog-metrics {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-8);
+  flex-wrap: wrap;
+}
+.lumen-app-dialog-metrics > * {
+  flex: 1 1 7rem;
+  min-inline-size: 7rem;
+}
+.lumen-app-dialog-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+}
+.lumen-app-dialog-metrics dd {
+  margin: 0;
+  font-weight: 700;
+}
+.lumen-app-dialog-metrics dt {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-app-dialog-progress {
+  display: flex;
+  gap: var(--lumen-space-4);
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+.lumen-app-dialog-progress > * {
+  flex: 1 1 2rem;
+  min-inline-size: 2rem;
+}
+.lumen-app-dialog-progress > i {
+  block-size: 0.25rem;
+  border-radius: var(--lumen-radius-pill);
+  background: var(--lumen-edge);
+}
+.lumen-app-dialog-progress > i[data-active='true'] {
+  background: var(--lumen-accent);
+}
+.lumen-app-dialog-readonly {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+}
+.lumen-app-dialog-readonly > span,
+.lumen-app-dialog-readonly > small {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-app-dialog-review {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+}
+.lumen-app-dialog-review > span {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-8);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-dialog-toggle {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+}
+.lumen-app-dialog-toggle > span {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-app-dialog-toggle small {
+  color: var(--lumen-muted);
+}
+.lumen-app-dialog-section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+}
+.lumen-app-dialog-section > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-4);
+}
+.lumen-app-dialog-section > div > .lumen-chip {
+  color: var(--lumen-muted);
+}
+.lumen-app-dialog-section > p {
+  display: flex;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+}
+.lumen-app-dialog-section > p > :nth-child(2n + 1) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+.lumen-app-dialog-section > p > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-app-dialog-section time {
+  color: var(--lumen-muted);
+}
+.lumen-app-dialog-menu-stage {
+  display: flex;
+  inline-size: 100%;
+  min-block-size: 24rem;
+  align-items: start;
+  justify-content: end;
+  padding: var(--lumen-space-24);
+  min-inline-size: 0;
+}
+.lumen-app-dialog-menu-anchor {
+  position: relative;
+}
+.lumen-app-dialog-menu.hbar-app-ui-dialog-menu {
+  inset-block-start: calc(100% + 0.4rem);
+  inset-inline-end: 0;
+  inline-size: min(18rem, 80vw);
+  max-block-size: min(22rem, 70vh);
+  overflow: auto;
+}
+@media (width < 40rem) {
+  .lumen-app-dialog-stage {
+    padding: 0;
+  }
+  .lumen-app-dialog-backdrop {
+    padding: 0;
+  }
+  .lumen-app-dialog-panel {
+    inline-size: 100%;
+    max-block-size: 100%;
+    block-size: 100%;
+    border-radius: 0;
+  }
+  .lumen-app-dialog-plan > div,
+  .lumen-app-dialog-details > div {
+    min-inline-size: 0;
+  }
+}

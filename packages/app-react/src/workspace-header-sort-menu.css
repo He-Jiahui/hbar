@@ -4,7 +4,7 @@
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-react-workspace-menu-trigger {
@@ -36,10 +36,10 @@
   box-sizing: border-box;
   max-block-size: calc(100dvh - 1.25rem);
   margin: 0;
-  padding: 0.375rem;
+  padding: var(--lumen-space-4);
   overflow-y: auto;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
   color: var(--lumen-ink);
   box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
@@ -61,12 +61,12 @@
 .hbar-app-react-workspace-sort-submenu:popover-open {
   position: fixed;
   inset: auto;
-  z-index: 50;
+  z-index: var(--lumen-layer-popover);
   top: var(--workspace-sort-menu-top);
   left: var(--workspace-sort-menu-left);
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-react-workspace-header-menu-popover > button,
@@ -76,8 +76,8 @@
   inline-size: 100%;
   min-block-size: 2.5rem;
   justify-content: flex-start;
-  gap: 0.75rem;
-  padding-inline: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding-inline: var(--lumen-space-12);
   text-align: start;
 
   min-inline-size: max-content;
@@ -106,7 +106,7 @@
 }
 
 .hbar-app-react-workspace-sort-chevron,
-.hbar-app-react-workspace-sort-submenu > button > .lumen-icon[data-tier='sm'] {
+.hbar-app-react-workspace-sort-submenu > button > [data-lumen-part~="icon"][data-tier='sm'] {
   flex: 0 0 auto;
   margin-inline-start: auto;
 }

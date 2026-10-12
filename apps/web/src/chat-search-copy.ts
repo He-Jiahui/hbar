@@ -38,7 +38,7 @@ export function chatSearchCopy(locale: ShellLocale): HbarChatSearchLabels {
     searchFailed: choose('聊天搜索失败。', 'Chat search failed.'),
     empty: choose('没有匹配的聊天。', 'No chats match.'),
     noRecent: choose('还没有最近的聊天。', 'No recent chats yet.'),
-    disconnected: choose('连接到 Host 后才能搜索聊天。', 'Connect to the Host to search chats.'),
+    disconnected: choose('连接到宿主后才能搜索聊天。', 'Connect to the Host to search chats.'),
     retry: choose('重试搜索', 'Try again'),
     truncated: choose('只显示部分结果；请缩小搜索范围。', 'Only part of the results are shown; refine your search.'),
     navigateKey: '↑↓',
@@ -77,7 +77,7 @@ export function chatSearchErrorCopy(locale: ShellLocale, code: string): string {
   if (code === 'SESSION_ARCHIVED' || code === 'SESSION_NOT_FOUND' || code === 'NOT_FOUND')
     return zh ? '这段聊天已不可打开。请重新搜索。' : 'This chat is no longer available. Search again.'
   if (code === 'DISCONNECTED')
-    return zh ? 'Host 已断开连接。请重连后重试。' : 'Host disconnected. Reconnect and try again.'
+    return zh ? '宿主已断开连接。请重连后重试。' : 'Host disconnected. Reconnect and try again.'
   if (code === 'BUSY') return zh ? '搜索正在处理中，请稍后重试。' : 'Search is busy. Try again shortly.'
   return zh ? '聊天搜索失败，请重试。' : 'Chat search failed. Try again.'
 }

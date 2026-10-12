@@ -1,4 +1,4 @@
-import type { LumenPromptReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptReferenceContent } from '@lumen/app-ui/catalog'
 import { createPrompt1ReferenceFixture } from '../../../tests/fixtures/hbar-app-ui-prompt-input-1-reference-fixture'
 import { createPrompt2ReferenceFixture } from '../../../tests/fixtures/hbar-app-ui-prompt-input-2-reference-fixture'
 import { createPrompt3ReferenceFixture } from '../../../tests/fixtures/hbar-app-ui-prompt-input-3-reference-fixture'

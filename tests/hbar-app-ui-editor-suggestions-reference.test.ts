@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenEditor04 } from '@lumen/app-ui'
+import { LumenEditor04 } from '@lumen/app-ui/catalog'
 import {
   uniqueHbarAppUiReferenceSuggestions,
   type HbarAppUiSuggestionsReferenceContent,

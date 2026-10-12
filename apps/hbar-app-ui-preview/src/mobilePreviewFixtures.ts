@@ -1,4 +1,4 @@
-import type { LumenMobileContent } from '@lumen/app-ui'
+import type { LumenMobileContent } from '@lumen/app-ui/catalog'
 import type { MobilePreviewSeed } from './mobilePreviewModel'
 
 export { createMobilePreviewContent } from './mobilePreviewReference'

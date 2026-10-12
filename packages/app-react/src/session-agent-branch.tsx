@@ -9,6 +9,11 @@ import {
   type SessionNavigationRowMetadata,
 } from './session-navigation-row'
 import type { SessionActivityIndicatorContent } from './session-activity-indicator'
+import {
+  SessionAgentBranchMessagesProvider,
+  SessionNavigationRowMessagesProvider,
+  useSessionAgentBranchMessages,
+} from './workspace-shell-messages'
 import './session-agent-branch.css'
 
 export interface SessionAgentTreeLabels {
@@ -29,8 +34,10 @@ interface Props {
   readonly session: Readonly<Session>
   readonly childCount: number
   readonly connected: boolean
-  readonly labels: SessionNavigationRowLabels
-  readonly treeLabels: SessionAgentTreeLabels
+  /** @deprecated Supply host messages through the shell scopes. Kept for SDK compatibility. */
+  readonly labels?: SessionNavigationRowLabels
+  /** @deprecated Supply host messages through the shell scopes. Kept for SDK compatibility. */
+  readonly treeLabels?: SessionAgentTreeLabels
   readonly now: number
   readonly onOpen: (session: Readonly<Session>) => void
   readonly batchSelecting: boolean
@@ -63,7 +70,14 @@ export function SessionAgentBranch(props: Props) {
       void runtime.commands.execute(`sessionAgentTree.${operation}`, { parentSessionId }).catch(() => {})
     },
   }
-  return <Branch {...props} projection={projection} path={[]} />
+  const branch = <Branch {...props} projection={projection} path={[]} />
+  if (props.labels && props.treeLabels)
+    return (
+      <SessionNavigationRowMessagesProvider messages={props.labels}>
+        <SessionAgentBranchMessagesProvider messages={props.treeLabels}>{branch}</SessionAgentBranchMessagesProvider>
+      </SessionNavigationRowMessagesProvider>
+    )
+  return branch
 }
 
 function Branch({
@@ -76,7 +90,8 @@ function Branch({
   readonly path: readonly string[]
   readonly responseTime?: { readonly at: number | null; readonly emptyLabel: string }
 }) {
-  const { session, treeLabels, connected } = props
+  const { session, connected } = props
+  const { t } = useSessionAgentBranchMessages()
   const branch = projection.tree.branches[session.id]
   const expanded = branch?.expanded ?? false
   const count = branch?.status === 'ready' ? branch.totalCount : Math.max(props.childCount, branch?.totalCount ?? 0)
@@ -96,7 +111,7 @@ function Branch({
     <LumenFrame
       className="hbar-app-react-agent-branch-children"
       data-sidebar-level="subagent-sessions"
-      aria-label={treeLabels.children(session.title)}
+      aria-label={t('children')(session.title)}
     >
       {rows.map(({ row, child }) => (
         <Branch
@@ -105,26 +120,26 @@ function Branch({
           session={child}
           childCount={row.agentChildCount}
           metadata={undefined}
-          execution={{ state: row.execution.state, label: treeLabels.execution[row.execution.state] }}
-          responseTime={{ at: row.lastResponseAt, emptyLabel: treeLabels.noResponse }}
+          execution={{ state: row.execution.state, label: t('execution')[row.execution.state] }}
+          responseTime={{ at: row.lastResponseAt, emptyLabel: t('noResponse') }}
           projection={projection}
           path={nextPath}
         />
       ))}
       {branch?.status === 'loading' && (
         <LumenContentText context="feedback.message" role="status" size="s">
-          {treeLabels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {branch?.status === 'ready' && rows.length === 0 && (
         <LumenContentText context="section.description" size="s">
-          {treeLabels.empty}
+          {t('empty')}
         </LumenContentText>
       )}
       {props.showLoadFeedback !== false && branch?.error && (
         <LumenFrame className="hbar-app-react-agent-branch-feedback" role="alert">
           <LumenContentText context="section.description" size="s">
-            {treeLabels.error(branch.error)}
+            {t('error')(branch.error)}
           </LumenContentText>
           <LumenButton
             size="s"
@@ -132,13 +147,13 @@ function Branch({
             disabled={!connected}
             onClick={() => projection.action('refresh', session.id)}
           >
-            {treeLabels.retry}
+            {t('retry')}
           </LumenButton>
         </LumenFrame>
       )}
       {branch?.limitReached && (
         <LumenContentText context="section.description" size="s">
-          {treeLabels.capacity}
+          {t('capacity')}
         </LumenContentText>
       )}
       {branch?.nextCursor && (
@@ -148,7 +163,7 @@ function Branch({
           disabled={!connected || branch.status === 'loading' || branch.limitReached}
           onClick={() => projection.action('loadMore', session.id)}
         >
-          {treeLabels.loadMore}
+          {t('loadMore')}
         </LumenButton>
       )}
     </LumenFrame>
@@ -163,7 +178,6 @@ function Branch({
       <SessionNavigationRow
         session={session}
         connected={connected}
-        labels={props.labels}
         now={props.now}
         selected={projection.selectedId === session.id}
         onOpen={() => props.onOpen(session)}
@@ -192,7 +206,7 @@ function Branch({
               className="hbar-app-react-agent-branch-count"
               size="s"
 
-              title={treeLabels.count(count)}
+              title={t('count')(count)}
             >
               {count}
             </LumenContentText>

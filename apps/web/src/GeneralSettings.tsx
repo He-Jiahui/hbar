@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { useStore } from 'zustand'
+import { createMessageScope } from '@hbar/app-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenRange, LumenText, LumenToggleGroup } from '@lumen/app-ui'
 import { WEB_LANGUAGE_CHOICES, type WebLanguageController, type WebLanguagePreference } from './language'
 import { WEB_SEND_BEHAVIORS, type WebSendBehavior, type WebSendBehaviorController } from './send-behavior'
@@ -54,15 +55,16 @@ export interface WebGeneralSettingsLabels {
   }
 }
 
+const WebGeneralSettingsMessages = createMessageScope<WebGeneralSettingsLabels>()
+
 function WebGeneralZoom({
-  labels,
   controller,
   native,
 }: {
-  readonly labels: WebGeneralSettingsLabels['zoom']
   readonly controller: WebZoomController
   readonly native: boolean
 }) {
+  const { t } = WebGeneralSettingsMessages.useMessages()
   const state = useStore(controller.store)
   const [draft, setDraft] = useState(state.level)
   const draftRef = useRef(draft)
@@ -84,17 +86,17 @@ function WebGeneralZoom({
   return (
     <LumenFrame as="fieldset" className="hbar-web-general-zoom">
       <LumenText as="legend" id="hbar-general-zoom-label" variant="label">
-        {labels.title}
+        {t('zoom').title}
       </LumenText>
       <LumenContentText context="section.description" tone="muted">
-        {labels.description}
+        {t('zoom').description}
       </LumenContentText>
       <LumenContentText context="section.description" tone="subtle">
-        {labels.shortcut}
+        {t('zoom').shortcut}
       </LumenContentText>
       <LumenFrame className="hbar-web-general-zoom-control">
         <LumenContentText context="record.title" role="status">
-          {labels.level(Math.round(draft * 100))}
+          {t('zoom').level(Math.round(draft * 100))}
         </LumenContentText>
         <LumenButton
           variant="text"
@@ -102,14 +104,14 @@ function WebGeneralZoom({
           disabled={disabled || (state.level === DEFAULT_WEB_ZOOM && draft === DEFAULT_WEB_ZOOM)}
           onClick={() => void controller.select(DEFAULT_WEB_ZOOM)}
         >
-          {labels.reset}
+          {t('zoom').reset}
         </LumenButton>
       </LumenFrame>
       <LumenFrame className="hbar-web-general-zoom-range">
-        <LumenContentText context="metadata">{labels.level(MIN_WEB_ZOOM * 100)}</LumenContentText>
+        <LumenContentText context="metadata">{t('zoom').level(MIN_WEB_ZOOM * 100)}</LumenContentText>
         <LumenRange
           aria-labelledby="hbar-general-zoom-label"
-          aria-valuetext={labels.level(Math.round(draft * 100))}
+          aria-valuetext={t('zoom').level(Math.round(draft * 100))}
           min={MIN_WEB_ZOOM}
           max={MAX_WEB_ZOOM}
           step={0.01}
@@ -134,46 +136,46 @@ function WebGeneralZoom({
           }}
           onBlur={commit}
         />
-        <LumenContentText context="metadata">{labels.level(MAX_WEB_ZOOM * 100)}</LumenContentText>
+        <LumenContentText context="metadata">{t('zoom').level(MAX_WEB_ZOOM * 100)}</LumenContentText>
       </LumenFrame>
       {state.status === 'loading' && (
         <LumenContentText context="message.inline" role="status">
-          {labels.loading}
+          {t('zoom').loading}
         </LumenContentText>
       )}
       {state.status === 'saved' && (
         <LumenContentText context="message.inline" role="status">
-          {labels.saved}
+          {t('zoom').saved}
         </LumenContentText>
       )}
       {state.status === 'read-error' && (
         <LumenFrame className="hbar-web-general-feedback">
           <LumenContentText context="message.inline" role="alert">
-            {labels.readError}
+            {t('zoom').readError}
           </LumenContentText>
           <LumenButton variant="text" onClick={() => void controller.refresh()}>
-            {labels.retryRead}
+            {t('zoom').retryRead}
           </LumenButton>
         </LumenFrame>
       )}
       {state.status === 'save-error' && (
         <LumenFrame className="hbar-web-general-feedback">
           <LumenContentText context="message.inline" role="alert">
-            {labels.saveError}
+            {t('zoom').saveError}
           </LumenContentText>
           <LumenButton variant="text" onClick={() => void controller.persist()}>
-            {labels.retrySave}
+            {t('zoom').retrySave}
           </LumenButton>
         </LumenFrame>
       )}
       {state.status === 'apply-error' && (
         <LumenContentText context="message.inline" role="alert">
-          {labels.applyError}
+          {t('zoom').applyError}
         </LumenContentText>
       )}
       {native && state.mode === 'css' && (
         <LumenContentText context="message.inline" role="status">
-          {labels.nativeFallback}
+          {t('zoom').nativeFallback}
         </LumenContentText>
       )}
     </LumenFrame>
@@ -181,14 +183,13 @@ function WebGeneralZoom({
 }
 
 function WebGeneralSendBehavior({
-  labels,
   controller,
   connected,
 }: {
-  readonly labels: WebGeneralSettingsLabels['sending']
   readonly controller: WebSendBehaviorController
   readonly connected: boolean
 }) {
+  const { t } = WebGeneralSettingsMessages.useMessages()
   const state = useStore(controller.store)
   const recover = (_event: MouseEvent<HTMLButtonElement>, action: () => Promise<void>) => {
     void action()
@@ -204,13 +205,13 @@ function WebGeneralSendBehavior({
   return (
     <LumenFrame as="fieldset" className="hbar-web-general-sending">
       <LumenText as="legend" id="hbar-general-sending-label" variant="label">
-        {labels.title}
+        {t('sending').title}
       </LumenText>
       <LumenContentText context="section.description" id="hbar-general-sending-help" tone="muted">
-        {labels.description}
+        {t('sending').description}
       </LumenContentText>
       <LumenContentText context="section.description" tone="subtle">
-        {labels.hostScope}
+        {t('sending').hostScope}
       </LumenContentText>
       <LumenFrame
         role="group"
@@ -229,59 +230,59 @@ function WebGeneralSendBehavior({
             onClick={() => controller.select(behavior)}
           >
             <LumenContentText context="control.label" className="hbar-web-general-send-title">
-              {labels.options[behavior].label}
+              {t('sending').options[behavior].label}
             </LumenContentText>
             <LumenContentText context="choice.description" tone="muted">
-              {labels.options[behavior].description}
+              {t('sending').options[behavior].description}
             </LumenContentText>
           </LumenButton>
         ))}
       </LumenFrame>
       {state.status === 'loading' && (
         <LumenContentText context="message.inline" role="status">
-          {labels.loading}
+          {t('sending').loading}
         </LumenContentText>
       )}
       {state.status === 'saved' && (
         <LumenContentText context="message.inline" role="status">
-          {labels.saved}
+          {t('sending').saved}
         </LumenContentText>
       )}
       {state.status === 'unsupported' && (
         <LumenContentText context="message.inline" role="alert">
-          {labels.unsupported}
+          {t('sending').unsupported}
         </LumenContentText>
       )}
       {state.status === 'read-error' && (
         <LumenFrame className="hbar-web-general-feedback">
           <LumenContentText context="message.inline" role="alert">
-            {labels.readError(state.error ?? 'EXECUTION_FAILED')}
+            {t('sending').readError(state.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.refresh)}>
-            {labels.retryRead}
+            {t('sending').retryRead}
           </LumenButton>
         </LumenFrame>
       )}
       {state.status === 'save-error' && (
         <LumenFrame className="hbar-web-general-feedback">
           <LumenContentText context="message.inline" role="alert">
-            {labels.saveError(state.error ?? 'EXECUTION_FAILED')}
+            {t('sending').saveError(state.error ?? 'EXECUTION_FAILED')}
           </LumenContentText>
           <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.refresh)}>
-            {labels.retryRead}
+            {t('sending').retryRead}
           </LumenButton>
         </LumenFrame>
       )}
       {state.status === 'unknown' && (
         <LumenFrame className="hbar-web-general-feedback">
           <LumenContentText context="message.inline" role="alert">
-            {labels.unknown}
+            {t('sending').unknown}
           </LumenContentText>
           <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.reconcile)}>
-            {labels.recheck}
+            {t('sending').recheck}
           </LumenButton>
           <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.retry)}>
-            {labels.retryOriginal}
+            {t('sending').retryOriginal}
           </LumenButton>
         </LumenFrame>
       )}
@@ -289,21 +290,23 @@ function WebGeneralSendBehavior({
   )
 }
 
-export function WebGeneralSettings({
-  labels,
-  language,
-  sendBehavior,
-  zoom,
-  nativeZoom = false,
-  connected = true,
-}: {
+interface WebGeneralSettingsProps {
   readonly labels: WebGeneralSettingsLabels
   readonly language: WebLanguageController
   readonly sendBehavior?: WebSendBehaviorController | undefined
   readonly zoom?: WebZoomController | undefined
   readonly nativeZoom?: boolean | undefined
   readonly connected?: boolean | undefined
-}) {
+}
+
+function WebGeneralSettingsView({
+  language,
+  sendBehavior,
+  zoom,
+  nativeZoom = false,
+  connected = true,
+}: Omit<WebGeneralSettingsProps, 'labels'>) {
+  const { t } = WebGeneralSettingsMessages.useMessages()
   const state = useStore(language.store)
   const languageChoices = useRef<HTMLDivElement>(null)
   const retry = (_event: MouseEvent<HTMLButtonElement>, action: () => void) => {
@@ -315,27 +318,27 @@ export function WebGeneralSettings({
     <LumenFrame as="section" className="hbar-web-general-settings">
       <LumenFrame as="header" className="hbar-web-general-heading">
         <LumenFrame>
-          <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          <LumenContentText context="section.title">{t('title')}</LumenContentText>
           <LumenContentText context="section.description" tone="muted">
-            {labels.description}
+            {t('description')}
           </LumenContentText>
         </LumenFrame>
         <LumenContentText context="section.description" tone="subtle">
-          {labels.deviceScope}
+          {t('deviceScope')}
         </LumenContentText>
       </LumenFrame>
       <LumenFrame as="fieldset" className="hbar-web-general-language">
         <LumenText as="legend" id="hbar-general-language-label" variant="label">
-          {labels.language}
+          {t('language')}
         </LumenText>
         <LumenContentText context="section.description" id="hbar-general-language-help" tone="muted">
-          {labels.languageDescription}
+          {t('languageDescription')}
         </LumenContentText>
         <LumenToggleGroup
           ref={languageChoices}
           type="single"
           value={state.preference}
-          options={WEB_LANGUAGE_CHOICES.map((choice) => ({ id: choice, label: labels.options[choice] }))}
+          options={WEB_LANGUAGE_CHOICES.map((choice) => ({ id: choice, label: t('options')[choice] }))}
           onValueChange={(value) => {
             if (value === 'system' || value === 'zh-CN' || value === 'en-US') language.select(value)
           }}
@@ -344,45 +347,53 @@ export function WebGeneralSettings({
           className="hbar-web-general-choices"
         />
         <LumenContentText context="section.description" tone="muted">
-          {labels.currentLanguage(state.locale)}
+          {t('currentLanguage')(state.locale)}
         </LumenContentText>
         {state.preference === 'system' && (
           <LumenContentText context="section.description" tone="muted">
-            {labels.systemPolicy}
+            {t('systemPolicy')}
           </LumenContentText>
         )}
         <LumenFrame className="hbar-web-general-feedback">
           {state.status === 'saved' && (
             <LumenContentText context="feedback.message" role="status">
-              {labels.saved}
+              {t('saved')}
             </LumenContentText>
           )}
           {state.status === 'read-error' && (
             <>
               <LumenContentText context="feedback.message" role="alert">
-                {labels.readError(state.error ?? 'STORAGE_UNAVAILABLE')}
+                {t('readError')(state.error ?? 'STORAGE_UNAVAILABLE')}
               </LumenContentText>
               <LumenButton variant="text" indicator="none" onClick={(event) => retry(event, language.refresh)}>
-                {labels.retryRead}
+                {t('retryRead')}
               </LumenButton>
             </>
           )}
           {state.status === 'save-error' && (
             <>
               <LumenContentText context="feedback.message" role="alert">
-                {labels.saveError}
+                {t('saveError')}
               </LumenContentText>
               <LumenButton variant="text" indicator="none" onClick={(event) => retry(event, language.persist)}>
-                {labels.retrySave}
+                {t('retrySave')}
               </LumenButton>
             </>
           )}
         </LumenFrame>
       </LumenFrame>
       {sendBehavior && (
-        <WebGeneralSendBehavior labels={labels.sending} controller={sendBehavior} connected={connected} />
+        <WebGeneralSendBehavior controller={sendBehavior} connected={connected} />
       )}
-      {zoom && <WebGeneralZoom labels={labels.zoom} controller={zoom} native={nativeZoom} />}
+      {zoom && <WebGeneralZoom controller={zoom} native={nativeZoom} />}
     </LumenFrame>
+  )
+}
+
+export function WebGeneralSettings({ labels, ...props }: WebGeneralSettingsProps) {
+  return (
+    <WebGeneralSettingsMessages.Provider messages={labels}>
+      <WebGeneralSettingsView {...props} />
+    </WebGeneralSettingsMessages.Provider>
   )
 }

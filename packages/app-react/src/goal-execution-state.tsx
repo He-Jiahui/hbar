@@ -1,5 +1,6 @@
 import type { GoalPlanWorkspaceEntryState } from '@hbar/app-runtime'
 import { LumenContentText, LumenCompactMetrics, LumenFrame } from '@lumen/app-ui'
+import { createMessageScope } from './messages'
 
 type ThreadGoal = NonNullable<GoalPlanWorkspaceEntryState['goal']>
 type ExecutionBudget = NonNullable<ThreadGoal['executionBudget']>
@@ -22,61 +23,68 @@ export interface HbarGoalExecutionLabels {
   readonly blocker: (reason: string, turns: number, required: number) => string
   readonly number: (value: number) => string
 }
+const goalExecutionMessages = createMessageScope<HbarGoalExecutionLabels>()
 
 /** A bounded, content-grown summary of Host facts; no local budget inference. */
-export function HbarGoalExecutionState({
-  goal,
-  remainingTokens,
-  labels,
-}: {
+export function HbarGoalExecutionState(props: {
   readonly goal: ThreadGoal
   readonly remainingTokens: number | null
   readonly labels: HbarGoalExecutionLabels
 }) {
+  const { labels, ...viewProps } = props
+  return (
+    <goalExecutionMessages.Provider messages={labels}>
+      <GoalExecutionContent {...viewProps} />
+    </goalExecutionMessages.Provider>
+  )
+}
+
+function GoalExecutionContent({ goal, remainingTokens }: Omit<Parameters<typeof HbarGoalExecutionState>[0], 'labels'>) {
+  const { t } = goalExecutionMessages.useMessages()
   const budget = goal.executionBudget
   const continuation = goal.continuation
   const value = (remaining: number | null | undefined) =>
-    remaining === undefined ? labels.unknown : remaining === null ? labels.unlimited : labels.number(remaining)
+    remaining === undefined ? t('unknown') : remaining === null ? t('unlimited') : t('number')(remaining)
   return (
     <LumenFrame className="hbar-app-react-goal-execution" aria-live="polite">
       <LumenCompactMetrics
-        label={labels.title}
+        label={t('title')}
         metrics={[
           {
             id: 'goal-remaining',
-            label: labels.goalRemaining,
+            label: t('goalRemaining'),
             value: value(budget ? budget.goalRemainingTokens : remainingTokens),
           },
-          { id: 'session-remaining', label: labels.sessionRemaining, value: value(budget?.sessionRemainingTokens) },
+          { id: 'session-remaining', label: t('sessionRemaining'), value: value(budget?.sessionRemainingTokens) },
           {
             id: 'effective-remaining',
-            label: labels.effectiveRemaining,
+            label: t('effectiveRemaining'),
             value: value(budget?.effectiveRemainingTokens),
           },
           {
             id: 'limiting-source',
-            label: labels.limitingSource,
+            label: t('limitingSource'),
             value: budget
               ? budget.limitingSource
-                ? labels.sources[budget.limitingSource]
-                : labels.unlimited
-              : labels.unknown,
+                ? t('sources')[budget.limitingSource]
+                : t('unlimited')
+              : t('unknown'),
           },
         ]}
       />
       <LumenContentText context="section.description">
         {continuation
-          ? labels.state(labels.phases[continuation.phase], labels.reasons[continuation.reason])
-          : labels.noIntent}
+          ? t('state')(t('phases')[continuation.phase], t('reasons')[continuation.reason])
+          : t('noIntent')}
       </LumenContentText>
       {continuation?.phase === 'waiting' &&
         continuation.reason === 'retry_wait' &&
         continuation.retryAt !== undefined && (
-          <LumenContentText context="section.description">{labels.retryAt(continuation.retryAt)}</LumenContentText>
+          <LumenContentText context="section.description">{t('retryAt')(continuation.retryAt)}</LumenContentText>
         )}
       {goal.blockerAudit && (
         <LumenContentText context="section.description">
-          {labels.blocker(
+          {t('blocker')(
             goal.blockerAudit.reason,
             goal.blockerAudit.consecutiveTurns,
             goal.blockerAudit.requiredTurns,

@@ -27,6 +27,7 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 import './goal-plan-workspace.css'
 import { sessionPreparationStatus } from './session-execution-notice'
+import { createMessageScope } from './messages'
 
 type GoalStatus = GoalPlanGoalDraftState['status']
 type PlanStepStatus = GoalPlanStepDraftState['status']
@@ -86,6 +87,9 @@ export interface HbarGoalPlanWorkspaceLabels {
   readonly error: (code: string) => string
 }
 
+const { Provider: GoalPlanMessagesProvider, useMessages: useGoalPlanMessages } =
+  createMessageScope<HbarGoalPlanWorkspaceLabels>()
+
 function goalTone(status: GoalStatus): 'neutral' | 'success' | 'warning' | 'danger' {
   if (status === 'complete') return 'success'
   if (status === 'blocked' || status === 'budget_limited' || status === 'usage_limited') return 'warning'
@@ -102,24 +106,23 @@ function GoalMetrics({
   goal,
   receivedAt,
   connected,
-  labels,
 }: {
   readonly goal: ThreadGoal
   readonly receivedAt: number | undefined
   readonly connected: boolean
-  readonly labels: HbarGoalPlanWorkspaceLabels
 }) {
+  const { t } = useGoalPlanMessages()
   const seconds = useGoalElapsed(goal, receivedAt, connected)
   return (
     <LumenCompactMetrics
-      label={labels.goal.title}
+      label={t('goal').title}
       metrics={[
-        { id: 'used', label: labels.goal.used, value: labels.number(goal.tokensUsed) },
-        { id: 'elapsed', label: labels.goal.elapsed, value: labels.duration(seconds) },
+        { id: 'used', label: t('goal').used, value: t('number')(goal.tokensUsed) },
+        { id: 'elapsed', label: t('goal').elapsed, value: t('duration')(seconds) },
         {
           id: 'budget',
-          label: labels.goal.tokenBudget,
-          value: goal.tokenBudget === null ? labels.unavailable : labels.number(goal.tokenBudget),
+          label: t('goal').tokenBudget,
+          value: goal.tokenBudget === null ? t('unavailable') : t('number')(goal.tokenBudget),
         },
       ]}
     />
@@ -129,7 +132,7 @@ function GoalMetrics({
 export function HbarGoalPlanWorkspace({
   labels,
   connected,
-  instanceId: requestedInstanceId,
+  instanceId,
   targetLabel,
 }: {
   readonly labels: HbarGoalPlanWorkspaceLabels
@@ -137,6 +140,27 @@ export function HbarGoalPlanWorkspace({
   readonly instanceId?: string
   readonly targetLabel?: string | undefined
 }) {
+  return (
+    <GoalPlanMessagesProvider messages={labels}>
+      <GoalPlanWorkspaceView
+        connected={connected}
+        {...(instanceId === undefined ? {} : { instanceId })}
+        targetLabel={targetLabel}
+      />
+    </GoalPlanMessagesProvider>
+  )
+}
+
+function GoalPlanWorkspaceView({
+  connected,
+  instanceId: requestedInstanceId,
+  targetLabel,
+}: {
+  readonly connected: boolean
+  readonly instanceId?: string
+  readonly targetLabel?: string | undefined
+}) {
+  const { t } = useGoalPlanMessages()
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
@@ -181,19 +205,19 @@ export function HbarGoalPlanWorkspace({
 
   return (
     <LumenToolPane
-      title={view === 'goal' ? labels.goal.document : labels.title}
+      title={view === 'goal' ? t('goal').document : t('title')}
       targetLabel={targetLabel}
-      description={view === 'goal' ? undefined : labels.description}
+      description={view === 'goal' ? undefined : t('description')}
       icon={ListTodo}
-      backLabel={view === 'overview' ? undefined : labels.back}
-      closeLabel={labels.close}
+      backLabel={view === 'overview' ? undefined : t('back')}
+      closeLabel={t('close')}
       onBack={view === 'overview' ? undefined : back}
       onClose={() => invoke('app.closePanel', { instanceId })}
       busy={Boolean(!entry || entry.status === 'loading' || goalBusy || planBusy || workflowBusy)}
       actions={
         <>
           <LumenIconButton
-            label={labels.refresh}
+            label={t('refresh')}
             disabled={!connected || entry?.status === 'loading'}
             onClick={() => {
               invoke('goalPlanWorkspace.refresh', { instanceId })
@@ -217,17 +241,17 @@ export function HbarGoalPlanWorkspace({
                   data-goal-execution-access={preparationStatus}
                 >
                   {preparationStatus === 'archived'
-                    ? labels.executionAccess.archived
-                    : labels.executionAccess.unverified}
+                    ? t('executionAccess').archived
+                    : t('executionAccess').unverified}
                 </LumenContentText>
               )}
               {!entry || entry.status === 'loading' ? (
                 <LumenContentText context="section.description" className="hbar-app-react-goal-plan-loading">
-                  {labels.loading}
+                  {t('loading')}
                 </LumenContentText>
               ) : entry.error ? (
                 <LumenContentText context="feedback.message" className="hbar-app-react-goal-plan-loading" role="alert">
-                  {labels.error(entry.error)}
+                  {t('error')(entry.error)}
                 </LumenContentText>
               ) : view === 'goal' ? (
                 <LumenFrame as="main" className="hbar-app-react-goal-editor-view">
@@ -244,9 +268,9 @@ export function HbarGoalPlanWorkspace({
                     <LumenFrame as="fieldset" disabled={!connected || !canPrepare || goalBusy}>
                       <LumenFormField
                         controlId={`${instanceId}-goal-objective`}
-                        label={labels.goal.objective}
+                        label={t('goal').objective}
                         required
-                        {...(entry.goalDraft.issues.objective ? { error: labels.issue('objective') } : {})}
+                        {...(entry.goalDraft.issues.objective ? { error: t('issue')('objective') } : {})}
                       >
                         <LumenTextarea
                           id={`${instanceId}-goal-objective`}
@@ -254,23 +278,23 @@ export function HbarGoalPlanWorkspace({
                           rows={12}
                           required
                           value={entry.goalDraft.objective}
-                          placeholder={labels.goal.objectivePlaceholder}
+                          placeholder={t('goal').objectivePlaceholder}
                           onChange={(event) => setGoalField('objective', event.currentTarget.value)}
                         />
                       </LumenFormField>
                       {entry.goal && entry.goalDraft.objective !== entry.goalDraft.baseline.objective && (
                         <LumenContentText context="feedback.message" role="note">
-                          {labels.goal.replacementWarning}
+                          {t('goal').replacementWarning}
                         </LumenContentText>
                       )}
                       <HbarLumenDisclosure
-                        label={labels.goal.advanced}
+                        label={t('goal').advanced}
                         defaultOpen={entry.goal?.status === 'budget_limited' || entry.goal?.status === 'usage_limited'}
                       >
                         <LumenFormField
                           controlId={`${instanceId}-goal-budget`}
-                          label={labels.goal.tokenBudget}
-                          {...(entry.goalDraft.issues.tokenBudget ? { error: labels.issue('tokenBudget') } : {})}
+                          label={t('goal').tokenBudget}
+                          {...(entry.goalDraft.issues.tokenBudget ? { error: t('issue')('tokenBudget') } : {})}
                         >
                           <LumenInput
                             id={`${instanceId}-goal-budget`}
@@ -286,19 +310,19 @@ export function HbarGoalPlanWorkspace({
                           <HbarGoalExecutionState
                             goal={entry.goal}
                             remainingTokens={entry.remainingTokens}
-                            labels={labels.goal.execution}
+                            labels={t('goal').execution}
                           />
                         )}
                       </HbarLumenDisclosure>
                     </LumenFrame>
                     {entry.goalAction.error && (
                       <LumenContentText context="feedback.message" role="alert">
-                        {labels.error(entry.goalAction.error)}
+                        {t('error')(entry.goalAction.error)}
                       </LumenContentText>
                     )}
                     {entry.goalAction.status === 'succeeded' && (
                       <LumenContentText context="feedback.message" role="status">
-                        {labels.goal.saved}
+                        {t('goal').saved}
                       </LumenContentText>
                     )}
                     <LumenFrame as="footer">
@@ -309,11 +333,11 @@ export function HbarGoalPlanWorkspace({
                         disabled={goalBusy || !entry.goalDirty}
                         onClick={() => invoke('goalPlanWorkspace.discardGoalEdits', { instanceId })}
                       >
-                        {labels.goal.cancel}
+                        {t('goal').cancel}
                       </LumenButton>
                       {entry.goalAction.status === 'unknown' ? (
                         <LumenButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
-                          {labels.goal.reconcile}
+                          {t('goal').reconcile}
                         </LumenButton>
                       ) : (
                         <LumenButton
@@ -323,7 +347,7 @@ export function HbarGoalPlanWorkspace({
                             !connected || !canPrepare || !entry.goalDirty || entry.goalAction.status === 'submitting'
                           }
                         >
-                          {entry.goalAction.status === 'submitting' ? labels.goal.saving : labels.goal.save}
+                          {entry.goalAction.status === 'submitting' ? t('goal').saving : t('goal').save}
                         </LumenButton>
                       )}
                     </LumenFrame>
@@ -333,10 +357,10 @@ export function HbarGoalPlanWorkspace({
                 <LumenFrame as="main" className="hbar-app-react-goal-plan-overview">
                   <LumenFrame as="section">
                     <LumenFrame as="header">
-                      <LumenContentText context="section.title">{labels.goal.title}</LumenContentText>
+                      <LumenContentText context="section.title">{t('goal').title}</LumenContentText>
                       {entry.goal && (
                         <LumenStatus
-                          value={labels.goal.statuses[entry.goal.status]}
+                          value={t('goal').statuses[entry.goal.status]}
                           tone={goalTone(entry.goal.status)}
                         />
                       )}
@@ -350,27 +374,26 @@ export function HbarGoalPlanWorkspace({
                           goal={entry.goal}
                           receivedAt={entry.goalReceivedAt}
                           connected={connected}
-                          labels={labels}
                         />
                         <HbarGoalExecutionState
                           goal={entry.goal}
                           remainingTokens={entry.remainingTokens}
-                          labels={labels.goal.execution}
+                          labels={t('goal').execution}
                         />
                       </>
                     ) : (
                       <LumenContentText context="section.description" className="hbar-app-react-goal-plan-empty">
-                        {labels.goal.composerHint}
+                        {t('goal').composerHint}
                       </LumenContentText>
                     )}
                     {entry.goalAction.status === 'succeeded' && (
                       <LumenContentText context="feedback.message" role="status">
-                        {entry.goal ? labels.goal.saved : labels.goal.cleared}
+                        {entry.goal ? t('goal').saved : t('goal').cleared}
                       </LumenContentText>
                     )}
                     {entry.goalAction.error && (
                       <LumenContentText context="feedback.message" role="alert">
-                        {labels.error(entry.goalAction.error)}
+                        {t('error')(entry.goalAction.error)}
                       </LumenContentText>
                     )}
                     <LumenFrame as="footer">
@@ -379,15 +402,15 @@ export function HbarGoalPlanWorkspace({
                         disabled={!connected || !canPrepare || goalBusy}
                         onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}
                       >
-                        {entry.goal ? labels.goal.edit : labels.goal.create}
+                        {entry.goal ? t('goal').edit : t('goal').create}
                       </LumenButton>
                     </LumenFrame>
                   </LumenFrame>
                   <LumenFrame as="section">
                     <LumenFrame as="header">
-                      <LumenContentText context="section.title">{labels.plan.title}</LumenContentText>
+                      <LumenContentText context="section.title">{t('plan').title}</LumenContentText>
                       <LumenContentText context="metadata" className="hbar-app-react-plan-count">
-                        {labels.plan.count(entry.plan?.plan.length ?? 0)}
+                        {t('plan').count(entry.plan?.plan.length ?? 0)}
                       </LumenContentText>
                     </LumenFrame>
                     {entry.plan ? (
@@ -404,30 +427,30 @@ export function HbarGoalPlanWorkspace({
                                 {index + 1}
                               </LumenContentText>
                               <LumenContentText context="record.title">{step.step}</LumenContentText>
-                              <LumenStatus value={labels.plan.statuses[step.status]} tone={stepTone(step.status)} />
+                              <LumenStatus value={t('plan').statuses[step.status]} tone={stepTone(step.status)} />
                             </LumenCollectionItem>
                           ))}
                         </LumenCollection>
                       </>
                     ) : (
                       <LumenContentText context="section.description" className="hbar-app-react-goal-plan-empty">
-                        {labels.plan.empty}
+                        {t('plan').empty}
                       </LumenContentText>
                     )}
                     {entry.planAction.status === 'succeeded' && (
                       <LumenContentText context="feedback.message" role="status">
-                        {entry.plan ? labels.plan.saved : labels.plan.cleared}
+                        {entry.plan ? t('plan').saved : t('plan').cleared}
                       </LumenContentText>
                     )}
                     {entry.planAction.error && (
                       <LumenContentText context="feedback.message" role="alert">
-                        {labels.error(entry.planAction.error)}
+                        {t('error')(entry.planAction.error)}
                       </LumenContentText>
                     )}
                   </LumenFrame>
                   <HbarWorkflowOverview
                     entry={workflowEntry}
-                    labels={labels.workflow}
+                    labels={t('workflow')}
                     connected={connected}
                     instanceId={instanceId}
                     invoke={invoke}

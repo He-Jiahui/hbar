@@ -1,0 +1,337 @@
+.lumen-app-sidebar-stage-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-app-sidebar-stage {
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: transparent;
+  color: var(--lumen-ink);
+}
+.lumen-app-sidebar-stage *,
+.lumen-app-sidebar-stage *::before,
+.lumen-app-sidebar-stage *::after {
+  box-sizing: border-box;
+}
+.lumen-app-sidebar-stage :where(h1, h2, p) {
+  margin: 0;
+}
+.lumen-app-sidebar-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+.lumen-app-sidebar-primary {
+  inline-size: min(18rem, 100%);
+  min-block-size: 0;
+}
+.lumen-app-sidebar-primary[data-collapsed='true'] {
+  inline-size: 4rem;
+}
+.lumen-app-sidebar-primary[data-collapsed='true']
+  :where(.lumen-app-brand, .lumen-app-sidebar-title, .lumen-app-host-status, footer button span) {
+  display: none;
+}
+.lumen-app-sidebar-navigation {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+}
+.lumen-app-sidebar-navigation section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-2);
+}
+.lumen-app-sidebar-navigation section > h2 {
+  padding-inline: var(--lumen-space-8);
+}
+.lumen-app-sidebar-navigation.is-compact :where(h2, button span, button small) {
+  display: none;
+}
+.lumen-app-sidebar-navigation.is-compact button {
+  justify-content: center;
+}
+.lumen-app-sidebar-avatar {
+  display: flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--lumen-radius-pill);
+  background: color-mix(in srgb, var(--lumen-accent) 14%, transparent);
+  color: var(--lumen-accent);
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-primary footer button {
+  inline-size: 100%;
+  justify-content: flex-start;
+}
+.lumen-app-sidebar-primary footer button > span:nth-child(2) {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.lumen-app-sidebar-primary footer small {
+  color: var(--lumen-muted);
+}
+.lumen-app-sidebar-mobile-trigger {
+  display: none;
+  align-self: flex-start;
+  margin: var(--lumen-space-12);
+}
+.lumen-app-sidebar-stage .lumen-app-sidebar-scrim.hbar-app-ui-dialog-backdrop,
+.lumen-app-sidebar-drawer-demo .lumen-app-sidebar-drawer-scrim.hbar-app-ui-dialog-backdrop {
+  position: absolute;
+  z-index: var(--lumen-layer-raised);
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: color-mix(in srgb, #000 35%, transparent);
+}
+.lumen-app-sidebar-rail-demo {
+  display: flex;
+  inline-size: min(28rem, 100%);
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-rail-demo > :nth-child(2n + 1) {
+  flex: 0 0 3.75rem;
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-rail-demo > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-rail-demo > nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-sidebar-rail-demo > aside {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
+  background: var(--lumen-glass);
+}
+.lumen-app-sidebar-rail-demo > aside button {
+  justify-content: flex-start;
+}
+.lumen-app-sidebar-rail-demo > p {
+  flex-basis: 100%;
+  padding: var(--lumen-space-12);
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-sidebar-scoped,
+.lumen-app-sidebar-tree {
+  display: flex;
+  inline-size: min(22rem, 100%);
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  overflow: auto;
+  padding: var(--lumen-space-16);
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-glass);
+}
+.lumen-app-sidebar-scoped > label {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-8);
+}
+.lumen-app-sidebar-scoped > label input {
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-scoped > h2 {
+  margin-block-start: var(--lumen-space-12);
+}
+.lumen-app-sidebar-scoped > button {
+  inline-size: 100%;
+  justify-content: space-between;
+}
+.lumen-app-sidebar-dual {
+  display: flex;
+  inline-size: min(28rem, 100%);
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-dual > :nth-child(2n + 1) {
+  flex: 0 0 3.75rem;
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-dual > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-dual > nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-sidebar-dual > aside {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
+  background: var(--lumen-glass);
+}
+.lumen-app-sidebar-dual > aside > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  margin-block-end: var(--lumen-space-8);
+}
+.lumen-app-sidebar-dual > aside > header > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-app-sidebar-dual > aside > button {
+  justify-content: flex-start;
+}
+.lumen-app-sidebar-tree-node {
+  padding-inline-start: calc(var(--tree-depth) * var(--lumen-space-12));
+}
+.lumen-app-sidebar-tree-node > button {
+  inline-size: 100%;
+  justify-content: flex-start;
+}
+.lumen-app-sidebar-drawer-demo {
+  position: relative;
+  inline-size: min(28rem, 100%);
+  min-block-size: 34rem;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-reading);
+}
+.lumen-app-sidebar-drawer-demo > header {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-sidebar-demo-drawer .lumen-drawer-body > nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+}
+.lumen-app-sidebar-demo-drawer .lumen-drawer-body > nav > button {
+  justify-content: flex-start;
+}
+.lumen-app-sidebar-full {
+  display: flex;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-full > :nth-child(2n + 1) {
+  flex: 0 1 18rem;
+  min-inline-size: 12rem;
+}
+.lumen-app-sidebar-full > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.lumen-app-sidebar-full > aside {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-16);
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-glass);
+}
+.lumen-app-sidebar-full > aside > div {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  margin-block-end: var(--lumen-space-12);
+}
+.lumen-app-sidebar-full > aside > button {
+  justify-content: flex-start;
+}
+.lumen-app-sidebar-full > aside > button[aria-current='page'] {
+  color: var(--lumen-accent);
+  background: color-mix(in srgb, var(--lumen-accent) 10%, transparent);
+}
+.lumen-app-sidebar-full > main {
+  min-inline-size: 0;
+  overflow: auto;
+}
+.lumen-app-sidebar-full > main > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-app-sidebar-full > main > div {
+  margin: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+}
+.lumen-app-sidebar-empty {
+  padding: var(--lumen-space-16);
+  border: 0.0625rem dashed var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  text-align: center;
+}
+.lumen-app-sidebar-stage [data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 36rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+@media (width < 40rem) {
+  .lumen-app-sidebar-mobile-trigger {
+    display: inline-flex;
+  }
+  .lumen-app-sidebar-primary.hbar-app-ui-app-sidebar-drawer {
+    position: absolute;
+    z-index: var(--lumen-layer-sticky-cell);
+    inset-block: 0;
+    inset-inline-start: 0;
+    display: none;
+    inline-size: min(20rem, 85%);
+  }
+  .lumen-app-sidebar-primary[data-open='true'] {
+    display: block;
+  }
+  .lumen-app-sidebar-full {
+    min-inline-size: 0;
+  }
+  .lumen-app-sidebar-full > aside {
+    max-block-size: 14rem;
+    border-inline-end: 0;
+    border-block-end: 0.0625rem solid var(--lumen-edge);
+  }
+}

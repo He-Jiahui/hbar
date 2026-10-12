@@ -1,8 +1,4 @@
-import type {
-  LumenAppSidebarPrimaryContent,
-  LumenAppSidebarPrimaryGroup,
-  LumenAppSidebarPrimaryItem,
-} from '@lumen/app-ui'
+import type { LumenAppSidebarPrimaryContent, LumenAppSidebarPrimaryGroup, LumenAppSidebarPrimaryItem } from '@lumen/app-ui/catalog'
 
 const rows: readonly LumenAppSidebarPrimaryGroup[] = [
   {

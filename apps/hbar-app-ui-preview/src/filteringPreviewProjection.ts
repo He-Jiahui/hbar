@@ -1,9 +1,4 @@
-import type {
-  LumenFilteringContent,
-  LumenFilteringReferenceContent as Content,
-  LumenFilteringReferenceField as Field,
-  LumenFilteringReferenceValue as Value,
-} from '@lumen/app-ui'
+import type { LumenFilteringContent, LumenFilteringReferenceContent as Content, LumenFilteringReferenceField as Field, LumenFilteringReferenceValue as Value } from '@lumen/app-ui/catalog'
 import type { FilteringPreviewField, FilteringPreviewSeed, FilteringPreviewStoreApi } from './filteringPreviewModel'
 import { filteringPreviewNotice } from './filteringPreviewReferenceFixtures'
 

@@ -21,7 +21,7 @@
   min-inline-size: max-content;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   text-align: start;
 }
 
@@ -44,13 +44,13 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-agent-model-search {
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-agent-model-search input {
@@ -64,7 +64,7 @@
 }
 
 .hbar-agent-model-group {
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-agent-model-group h3,
@@ -74,7 +74,7 @@
 }
 
 .hbar-agent-model-group h3 {
-  padding: 0.375rem 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   color: var(--lumen-muted);
 }
 
@@ -84,14 +84,14 @@
   min-inline-size: max-content;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   text-align: start;
 }
 
 .hbar-agent-model-option-text {
   flex: 1 1 auto;
   min-inline-size: 0;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-agent-model-option-text > * {
@@ -109,7 +109,7 @@
 
 .hbar-agent-model-feedback {
   align-items: flex-start;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-agent-model-feedback [role='alert'] {

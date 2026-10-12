@@ -1,0 +1,136 @@
+.lumen-prompt-upload-reference {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+  color: var(--lumen-ink);
+}
+
+.lumen-prompt-upload-reference-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  margin: 0;
+  padding: var(--lumen-space-4);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel);
+  list-style: none;
+}
+
+.lumen-prompt-upload-reference-list[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  min-block-size: 0;
+  max-block-size: min(40vh, 28rem);
+  overflow: auto;
+}
+
+.lumen-prompt-upload-reference-row {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-contrast);
+}
+
+.lumen-prompt-upload-reference-icon {
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
+  flex: 0 0 auto;
+  stroke-width: 1.5;
+}
+
+.lumen-prompt-upload-reference-name {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-prompt-upload-reference-detail {
+  flex: 0 1 auto;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-prompt-upload-reference-row[data-failed='true'] .lumen-prompt-upload-reference-detail {
+  color: var(--lumen-danger, #c63434);
+}
+
+.lumen-prompt-upload-reference-row button {
+  display: inline-flex;
+  min-inline-size: 2rem;
+  min-block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--lumen-radius-control);
+  background: transparent;
+  color: inherit;
+  padding: var(--lumen-space-4);
+  cursor: pointer;
+}
+
+.lumen-prompt-upload-reference-row button:disabled,
+.lumen-prompt-upload-reference-drop:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lumen-prompt-upload-reference-row button:focus-visible,
+.lumen-prompt-upload-reference-drop:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.lumen-prompt-upload-reference-empty {
+  color: var(--lumen-muted);
+  padding: var(--lumen-space-16);
+}
+
+.lumen-prompt-upload-reference-file-input {
+  display: none;
+}
+
+.lumen-prompt-upload-reference-drop {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lumen-space-8);
+  border: 0.0625rem dashed var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: transparent;
+  color: var(--lumen-muted);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  font: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.lumen-prompt-upload-reference-drop[data-dragging='true'] {
+  border-color: var(--lumen-ink);
+  background: var(--lumen-glass);
+  color: var(--lumen-ink);
+}
+
+@media (width < 40rem) {
+  .lumen-prompt-upload-reference-row {
+    gap: var(--lumen-space-8);
+    padding: var(--lumen-space-8);
+  }
+
+  .lumen-prompt-upload-reference-name {
+    flex-basis: calc(100% - 3rem);
+  }
+
+  .lumen-prompt-upload-reference-detail {
+    flex: 1 1 auto;
+    margin-inline-start: calc(var(--lumen-icon-sm, var(--lumen-space-12)) + var(--lumen-space-8));
+  }
+}

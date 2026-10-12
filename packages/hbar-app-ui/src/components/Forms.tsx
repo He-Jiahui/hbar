@@ -1,41 +1,12 @@
-import { LumenForms, LumenFormsProvider as HbarAppUiFormsProvider, type LumenFormsContent } from '@lumen/app-ui'
+import { LumenForms, LumenFormsProvider as HbarAppUiFormsProvider, type LumenFormsContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiFormsProps = HbarAppUiVariantProps & {
   readonly formsContent?: LumenFormsContent | undefined
 }
 export { HbarAppUiFormsProvider }
-export {
-  selectLumenFormsItem as selectHbarAppUiFormsItem,
-  uniqueLumenFormsItems as uniqueHbarAppUiFormsItems,
-  useLumenFormsContent as useHbarAppUiFormsContent,
-} from '@lumen/app-ui'
-export type {
-  LumenFormsAction as HbarAppUiFormsAction,
-  LumenFormsApplicationContent as HbarAppUiFormsApplicationContent,
-  LumenFormsBookingContent as HbarAppUiFormsBookingContent,
-  LumenFormsCheckoutContent as HbarAppUiFormsCheckoutContent,
-  LumenFormsChoice as HbarAppUiFormsChoice,
-  LumenFormsContent as HbarAppUiFormsContent,
-  LumenFormsDay as HbarAppUiFormsDay,
-  LumenFormsEnvironmentContent as HbarAppUiFormsEnvironmentContent,
-  LumenFormsHoursContent as HbarAppUiFormsHoursContent,
-  LumenFormsLineItem as HbarAppUiFormsLineItem,
-  LumenFormsListStrategy as HbarAppUiFormsListStrategy,
-  LumenFormsMetric as HbarAppUiFormsMetric,
-  LumenFormsPropertiesContent as HbarAppUiFormsPropertiesContent,
-  LumenFormsProperty as HbarAppUiFormsProperty,
-  LumenFormsProviderProps as HbarAppUiFormsProviderProps,
-  LumenFormsProvisionContent as HbarAppUiFormsProvisionContent,
-  LumenFormsQuoteContent as HbarAppUiFormsQuoteContent,
-  LumenFormsQuoteSection as HbarAppUiFormsQuoteSection,
-  LumenFormsRatingRow as HbarAppUiFormsRatingRow,
-  LumenFormsRecordContent as HbarAppUiFormsRecordContent,
-  LumenFormsRuleContent as HbarAppUiFormsRuleContent,
-  LumenFormsRuleField as HbarAppUiFormsRuleField,
-  LumenFormsSubmissionContent as HbarAppUiFormsSubmissionContent,
-  LumenFormsSurveyContent as HbarAppUiFormsSurveyContent,
-} from '@lumen/app-ui'
+export { selectLumenFormsItem as selectHbarAppUiFormsItem, uniqueLumenFormsItems as uniqueHbarAppUiFormsItems, useLumenFormsContent as useHbarAppUiFormsContent } from '@lumen/app-ui/catalog'
+export type { LumenFormsAction as HbarAppUiFormsAction, LumenFormsApplicationContent as HbarAppUiFormsApplicationContent, LumenFormsBookingContent as HbarAppUiFormsBookingContent, LumenFormsCheckoutContent as HbarAppUiFormsCheckoutContent, LumenFormsChoice as HbarAppUiFormsChoice, LumenFormsContent as HbarAppUiFormsContent, LumenFormsDay as HbarAppUiFormsDay, LumenFormsEnvironmentContent as HbarAppUiFormsEnvironmentContent, LumenFormsHoursContent as HbarAppUiFormsHoursContent, LumenFormsLineItem as HbarAppUiFormsLineItem, LumenFormsListStrategy as HbarAppUiFormsListStrategy, LumenFormsMetric as HbarAppUiFormsMetric, LumenFormsPropertiesContent as HbarAppUiFormsPropertiesContent, LumenFormsProperty as HbarAppUiFormsProperty, LumenFormsProviderProps as HbarAppUiFormsProviderProps, LumenFormsProvisionContent as HbarAppUiFormsProvisionContent, LumenFormsQuoteContent as HbarAppUiFormsQuoteContent, LumenFormsQuoteSection as HbarAppUiFormsQuoteSection, LumenFormsRatingRow as HbarAppUiFormsRatingRow, LumenFormsRecordContent as HbarAppUiFormsRecordContent, LumenFormsRuleContent as HbarAppUiFormsRuleContent, LumenFormsRuleField as HbarAppUiFormsRuleField, LumenFormsSubmissionContent as HbarAppUiFormsSubmissionContent, LumenFormsSurveyContent as HbarAppUiFormsSurveyContent } from '@lumen/app-ui/catalog'
 
 export function Forms({ spec, onAction, formsContent, className }: HbarAppUiFormsProps) {
   return (

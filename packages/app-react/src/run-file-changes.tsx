@@ -1,8 +1,16 @@
 import { useEffect, useId } from 'react'
 import { ChevronDown, ChevronUp, FileDiff, Undo2 } from 'lucide-react'
-import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenContentText,
+  LumenFrame,
+  LumenIcon,
+} from '@lumen/app-ui'
 import type { RunFileChangesSummary, RunFileChangeDiff } from '@hbar/contracts/run-file-changes'
 import { runFileChangeReviewKey, EMPTY_FILE_CHANGE_REVIEW, type RunFileChangeReview } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarRunFileChangeRendererSlot, type HbarRunFileChangeRenderer } from './run-file-change-renderer'
 import './run-file-changes.css'
@@ -39,10 +47,13 @@ export interface HbarRunFileChangesLabels {
   readonly lineNumber: (value: number | null) => string
   readonly linePrefix: (kind: RunFileChangeDiff['items'][number]['kind']) => string
 }
-export function HbarRunFileChanges({
+
+const { Provider: RunFileChangesMessagesProvider, useMessages: useRunFileChangesMessages } =
+  createMessageScope<HbarRunFileChangesLabels>()
+
+function RunFileChangesView({
   summary,
   review = EMPTY_FILE_CHANGE_REVIEW,
-  labels,
   disabled = false,
   onFiles,
   onCollapse,
@@ -54,7 +65,6 @@ export function HbarRunFileChanges({
 }: {
   readonly summary: RunFileChangesSummary
   readonly review?: RunFileChangeReview
-  readonly labels: HbarRunFileChangesLabels
   readonly disabled?: boolean
   readonly onFiles: (direction: 'expand' | 'next' | 'previous') => void
   readonly onCollapse: () => void
@@ -64,6 +74,7 @@ export function HbarRunFileChanges({
   readonly onRetry: () => void
   readonly renderer?: HbarRunFileChangeRenderer | undefined
 }) {
+  const { t } = useRunFileChangesMessages()
   const listId = useId(),
     diffId = useId()
   if (summary.totalFiles === 0) return null
@@ -76,7 +87,7 @@ export function HbarRunFileChanges({
     <LumenFrame
       className="hbar-run-file-changes"
       role="region"
-      aria-label={labels.edited(receipt.totalFiles)}
+      aria-label={t('edited')(receipt.totalFiles)}
       data-run-file-change-summary
       data-undone={receipt.undoneAt !== null}
       aria-busy={busy}
@@ -86,19 +97,23 @@ export function HbarRunFileChanges({
           <LumenIcon icon={FileDiff} tier="xl" />
         </LumenFrame>
         <LumenFrame className="hbar-run-file-change-heading">
-          <LumenContentText context="record.title">{labels.edited(receipt.totalFiles)}</LumenContentText>
+          <LumenContentText context="record.title">{t('edited')(receipt.totalFiles)}</LumenContentText>
           <LumenFrame
             className="hbar-run-file-change-counts"
-            aria-label={labels.delta(receipt.addedLines, receipt.removedLines)}
+            aria-label={t('delta')(receipt.addedLines, receipt.removedLines)}
           >
-            <span data-delta="added">{labels.added(receipt.addedLines)}</span>
-            <span data-delta="removed">{labels.removed(receipt.removedLines)}</span>
+            <LumenContentText context="metadata" data-delta="added">
+              {t('added')(receipt.addedLines)}
+            </LumenContentText>
+            <LumenContentText context="metadata" data-delta="removed">
+              {t('removed')(receipt.removedLines)}
+            </LumenContentText>
           </LumenFrame>
         </LumenFrame>
         <LumenFrame className="hbar-run-file-change-actions">
           {receipt.undoneAt !== null ? (
             <LumenContentText context="record.description" role="status">
-              {labels.undone}
+              {t('undone')}
             </LumenContentText>
           ) : (
             <LumenButton
@@ -107,10 +122,10 @@ export function HbarRunFileChanges({
               size="s"
               indicator="none"
               disabled={unavailable || !receipt.canUndo}
-              title={receipt.canUndo ? labels.undo : labels.undoUnavailable}
+              title={receipt.canUndo ? t('undo') : t('undoUnavailable')}
               onClick={onUndo}
             >
-              {review.action === 'undo' ? labels.undoing : labels.undo}
+              {review.action === 'undo' ? t('undoing') : t('undo')}
               <LumenIcon icon={Undo2} tier="sm" />
             </LumenButton>
           )}
@@ -124,43 +139,50 @@ export function HbarRunFileChanges({
             aria-controls={diffId}
             onClick={() => (review.selectedPath ? onCloseDiff() : files[0] && onDiff(files[0].path))}
           >
-            {review.selectedPath ? labels.hideDiff : labels.view}
+            {review.selectedPath ? t('hideDiff') : t('view')}
           </LumenButton>
         </LumenFrame>
       </LumenFrame>
-      <ul id={listId} className="hbar-run-file-change-list">
+      <LumenCollection id={listId} className="hbar-run-file-change-list">
         {files.map((file) => {
           const index = file.path.lastIndexOf('/')
           return (
-            <li key={file.path} className="hbar-run-file-change-row">
+            <LumenCollectionItem key={file.path} className="hbar-run-file-change-row">
               <LumenButton
                 type="button"
                 variant="text"
                 indicator="none"
                 className="hbar-run-file-change-path"
                 title={file.path}
-                aria-label={labels.openFile(file.path)}
+                aria-label={t('openFile')(file.path)}
                 disabled={unavailable}
                 aria-pressed={review.selectedPath === file.path}
                 onClick={() => onDiff(file.path)}
               >
-                <span className="hbar-run-file-change-path-text">
-                  <span className="hbar-run-file-change-prefix">{file.path.slice(0, index + 1)}</span>
+                <LumenContentText context="code.inline" className="hbar-run-file-change-path-text">
+                  <LumenFrame as="span" className="hbar-run-file-change-prefix">
+                    {file.path.slice(0, index + 1)}
+                  </LumenFrame>
                   {file.path.slice(index + 1)}
-                </span>
+                </LumenContentText>
               </LumenButton>
-              <span
+              <LumenContentText
+                context="metadata"
                 className="hbar-run-file-change-counts"
-                title={labels.fileKind(file.kind)}
-                aria-label={labels.delta(file.addedLines, file.removedLines)}
+                title={t('fileKind')(file.kind)}
+                aria-label={t('delta')(file.addedLines, file.removedLines)}
               >
-                <span data-delta="added">{labels.added(file.addedLines)}</span>
-                <span data-delta="removed">{labels.removed(file.removedLines)}</span>
-              </span>
-            </li>
+                <LumenContentText context="metadata" data-delta="added">
+                  {t('added')(file.addedLines)}
+                </LumenContentText>
+                <LumenContentText context="metadata" data-delta="removed">
+                  {t('removed')(file.removedLines)}
+                </LumenContentText>
+              </LumenContentText>
+            </LumenCollectionItem>
           )
         })}
-      </ul>
+      </LumenCollection>
       {summary.totalFiles > summary.preview.length && (
         <LumenFrame className="hbar-run-file-change-footer">
           <LumenButton
@@ -173,13 +195,13 @@ export function HbarRunFileChanges({
             aria-controls={listId}
             onClick={() => (review.expanded ? onCollapse() : onFiles('expand'))}
           >
-            {review.expanded ? labels.less : labels.more(summary.totalFiles - summary.preview.length)}
+            {review.expanded ? t('less') : t('more')(summary.totalFiles - summary.preview.length)}
             <LumenIcon icon={review.expanded ? ChevronUp : ChevronDown} tier="sm" />
           </LumenButton>
           {review.expanded && review.page && (
             <LumenFrame className="hbar-run-file-change-pagination">
               <LumenContentText context="record.description">
-                {labels.filePage(
+                {t('filePage')(
                   review.pageIndex * 50 + 1,
                   review.pageIndex * 50 + review.page.items.length,
                   summary.totalFiles,
@@ -193,7 +215,7 @@ export function HbarRunFileChanges({
                 disabled={unavailable || review.pageIndex === 0}
                 onClick={() => onFiles('previous')}
               >
-                {labels.previousFiles}
+                {t('previousFiles')}
               </LumenButton>
               <LumenButton
                 type="button"
@@ -203,7 +225,7 @@ export function HbarRunFileChanges({
                 disabled={unavailable || !review.page.nextCursor}
                 onClick={() => onFiles('next')}
               >
-                {labels.nextFiles}
+                {t('nextFiles')}
               </LumenButton>
             </LumenFrame>
           )}
@@ -211,21 +233,21 @@ export function HbarRunFileChanges({
       )}
       {receipt.incomplete && (
         <LumenContentText context="feedback.message" className="hbar-run-file-change-feedback">
-          {labels.incomplete}
+          {t('incomplete')}
         </LumenContentText>
       )}
       {busy && (
         <LumenContentText context="feedback.message" className="hbar-run-file-change-feedback" role="status">
-          {review.action === 'undo' ? labels.undoing : labels.loading}
+          {review.action === 'undo' ? t('undoing') : t('loading')}
         </LumenContentText>
       )}
       {review.error && (
         <LumenFrame className="hbar-run-file-change-feedback" role="alert">
           <LumenContentText context="feedback.message">
-            {labels.error(review.error, review.failedAction)}
+            {t('error')(review.error, review.failedAction)}
           </LumenContentText>
           <LumenButton type="button" variant="text" size="s" indicator="none" disabled={unavailable} onClick={onRetry}>
-            {labels.retry}
+            {t('retry')}
           </LumenButton>
         </LumenFrame>
       )}
@@ -237,14 +259,14 @@ export function HbarRunFileChanges({
         )}
         {diff && (
           <>
-            <LumenContentText context="record.description">{labels.diffCaption}</LumenContentText>
+            <LumenContentText context="record.description">{t('diffCaption')}</LumenContentText>
             {diff.items.length === 0 && (
-              <LumenContentText context="record.description">{labels.noTextDiff}</LumenContentText>
+              <LumenContentText context="record.description">{t('noTextDiff')}</LumenContentText>
             )}
             <LumenFrame
               className="hbar-run-file-change-diff"
               role="region"
-              aria-label={labels.diff(diff.path)}
+              aria-label={t('diff')(diff.path)}
               tabIndex={0}
             >
               <HbarRunFileChangeRendererSlot
@@ -256,16 +278,24 @@ export function HbarRunFileChanges({
                     className="hbar-run-file-change-diff-line"
                     data-kind={line.kind}
                   >
-                    <span className="hbar-run-file-change-line-number" aria-hidden="true">
-                      {labels.lineNumber(line.beforeLine)}
-                    </span>
-                    <span className="hbar-run-file-change-line-number" aria-hidden="true">
-                      {labels.lineNumber(line.afterLine)}
-                    </span>
-                    <code>
-                      {labels.linePrefix(line.kind)}
+                    <LumenContentText
+                      context="metadata"
+                      className="hbar-run-file-change-line-number"
+                      aria-hidden="true"
+                    >
+                      {t('lineNumber')(line.beforeLine)}
+                    </LumenContentText>
+                    <LumenContentText
+                      context="metadata"
+                      className="hbar-run-file-change-line-number"
+                      aria-hidden="true"
+                    >
+                      {t('lineNumber')(line.afterLine)}
+                    </LumenContentText>
+                    <LumenContentText context="code.inline">
+                      {t('linePrefix')(line.kind)}
                       {line.text}
-                    </code>
+                    </LumenContentText>
                   </LumenFrame>
                 ))}
               />
@@ -273,7 +303,7 @@ export function HbarRunFileChanges({
             {diff.totalLines > 200 && (
               <LumenFrame className="hbar-run-file-change-pagination">
                 <LumenContentText context="record.description">
-                  {labels.linePage(diff.offset + 1, diff.offset + diff.items.length, diff.totalLines)}
+                  {t('linePage')(diff.offset + 1, diff.offset + diff.items.length, diff.totalLines)}
                 </LumenContentText>
                 <LumenButton
                   type="button"
@@ -283,7 +313,7 @@ export function HbarRunFileChanges({
                   disabled={unavailable || diff.offset === 0}
                   onClick={() => onDiff(diff.path, Math.max(0, diff.offset - 200))}
                 >
-                  {labels.previousLines}
+                  {t('previousLines')}
                 </LumenButton>
                 <LumenButton
                   type="button"
@@ -293,7 +323,7 @@ export function HbarRunFileChanges({
                   disabled={unavailable || !diff.hasMore}
                   onClick={() => onDiff(diff.path, diff.offset + diff.items.length)}
                 >
-                  {labels.nextLines}
+                  {t('nextLines')}
                 </LumenButton>
               </LumenFrame>
             )}
@@ -303,6 +333,31 @@ export function HbarRunFileChanges({
     </LumenFrame>
   )
 }
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarRunFileChanges({
+  labels,
+  ...props
+}: {
+  readonly summary: RunFileChangesSummary
+  readonly review?: RunFileChangeReview
+  readonly labels: HbarRunFileChangesLabels
+  readonly disabled?: boolean
+  readonly onFiles: (direction: 'expand' | 'next' | 'previous') => void
+  readonly onCollapse: () => void
+  readonly onDiff: (path: string, offset?: number) => void
+  readonly onCloseDiff: () => void
+  readonly onUndo: () => void
+  readonly onRetry: () => void
+  readonly renderer?: HbarRunFileChangeRenderer | undefined
+}) {
+  return (
+    <RunFileChangesMessagesProvider messages={labels}>
+      <RunFileChangesView {...props} />
+    </RunFileChangesMessagesProvider>
+  )
+}
+
 export function HbarRunFileChangesConnected({
   sessionId,
   runId,

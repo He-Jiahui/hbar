@@ -135,7 +135,7 @@ test('child agent panel renders Host records and a command-owned creation draft'
         <HbarAgentWorkspace labels={getShellCopy('zh-CN').agents} connected />
       </HbarRuntimeProvider>,
     )
-    expect(chineseCreate).toContain('继承主 Agent（低）')
+    expect(chineseCreate).toContain(getShellCopy('zh-CN').agents.thinkingInherited('low'))
     expect(chineseCreate).toContain('探索类型仅可读取和搜索')
 
     await runtime.view.commands.execute('agentWorkspace.showAgent', {

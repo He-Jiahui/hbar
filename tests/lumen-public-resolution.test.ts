@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test'
-import { dirname, resolve } from 'node:path'
+import { dirname, relative, resolve } from 'node:path'
 import * as ts from 'typescript'
 import { z } from 'zod'
 
 const root = resolve(import.meta.dirname, '..')
-const packageRoot = resolve(root, 'hbar-ui/packages/lumen-app-ui')
+const packageRoot = resolve(root, 'packages/lumen-app-ui')
 const publicEntries = [
   { name: '@lumen/app-ui', exportKey: '.' },
   { name: '@lumen/app-ui/catalog', exportKey: './catalog' },
@@ -116,9 +116,10 @@ test('public entry resolution keeps strict checking enabled without narrowing re
     'noUnusedParameters',
   ] as const)
     expect(options[flag]).toBe(true)
-  expect(options.paths && Object.keys(options.paths).sort()).toEqual(
-    [...publicEntries.map((entry) => entry.name), '@mui/internal-test-utils'].sort(),
-  )
+  const aliases = options.paths ?? {}
+  const legacyAliases = Object.entries(aliases).filter(([name]) => name === 'hbar-app-ui' || name.startsWith('hbar-app-ui/'))
+  const nonLegacyNames = Object.keys(aliases).filter((name) => !legacyAliases.some(([alias]) => alias === name))
+  expect(nonLegacyNames.sort()).toEqual([...publicEntries.map((entry) => entry.name), '@mui/internal-test-utils'].sort())
   for (const entry of publicEntries) expect(options.paths?.[entry.name]).toHaveLength(1)
   const renderer = ts.resolveModuleName(
     '@mui/internal-test-utils',
@@ -127,6 +128,60 @@ test('public entry resolution keeps strict checking enabled without narrowing re
     ts.sys,
   ).resolvedModule
   expect(resolve(renderer?.resolvedFileName ?? '')).toBe(resolve(root, 'tests/lumen/renderer.tsx'))
+  expect(legacyAliases.length).toBeGreaterThan(0)
+  const legacySourceRoot = resolve(root, 'packages/hbar-app-ui/src')
+  const legacyManifest = z
+    .object({ exports: z.record(z.string(), z.string()) })
+    .parse(await Bun.file(resolve(root, 'packages/hbar-app-ui/package.json')).json())
+  for (const [alias, targets] of legacyAliases) {
+    expect(targets).toHaveLength(1)
+    const target = resolve(root, targets[0] ?? '')
+    const targetRelative = relative(legacySourceRoot, target)
+    expect(targetRelative).not.toMatch(/^\.\.(?:[\\/]|$)/)
+    expect(ts.sys.fileExists(target)).toBe(true)
+    expect(alias).toMatch(/^hbar-app-ui(?:\/|$)/)
+    const exportKey = alias === 'hbar-app-ui' ? '.' : `.${alias.slice('hbar-app-ui'.length)}`
+    const publicTarget = legacyManifest.exports[exportKey]
+    expect(publicTarget, `public compatibility export: ${exportKey}`).toBeDefined()
+    expect(target).toBe(resolve(root, 'packages/hbar-app-ui', publicTarget ?? ''))
+  }
+  const productionRoots = ['/apps/web/src/', '/packages/app-react/src/', '/packages/lumen-app-ui/src/']
+  const productionFiles = fileNames.filter((file) => {
+    const normalized = file.replaceAll('\\', '/')
+    return productionRoots.some((directory) => normalized.includes(directory))
+  })
+  for (const file of productionFiles) {
+    const source = ts.createSourceFile(file, await Bun.file(file).text(), ts.ScriptTarget.Latest, true)
+    const legacyImports: string[] = []
+    const inspect = (node: ts.Node): void => {
+      let specifier: string | undefined
+      if (
+        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier &&
+        ts.isStringLiteral(node.moduleSpecifier)
+      )
+        specifier = node.moduleSpecifier.text
+      if (
+        ts.isCallExpression(node) &&
+        (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) && node.expression.text === 'require'))
+      ) {
+        const argument = node.arguments[0]
+        if (argument && ts.isStringLiteral(argument)) specifier = argument.text
+      }
+      if (
+        ts.isImportTypeNode(node) &&
+        ts.isLiteralTypeNode(node.argument) &&
+        ts.isStringLiteral(node.argument.literal)
+      )
+        specifier = node.argument.literal.text
+      if (specifier && legacyAliases.some(([alias]) => specifier === alias || specifier.startsWith(`${alias}/`)))
+        legacyImports.push(specifier)
+      ts.forEachChild(node, inspect)
+    }
+    inspect(source)
+    expect(legacyImports, file).toEqual([])
+  }
   for (const file of [
     'apps/web/src/App.tsx',
     'apps/hbar-app-ui-preview/src/app-shell-contracts-preview-model.ts',
@@ -151,7 +206,22 @@ test('maintained Bun test entries retain native and quality gates with the hbar 
     'bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000',
   )
   expect(manifest.scripts['test:lumen']).toBe('vitest run --config vitest.lumen.config.ts')
-  expect(manifest.scripts.check).toBe(
-    'bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen',
-  )
+  const steps = manifest.scripts.check.split('&&').map((step) => step.trim())
+  const requiredSequence = [
+    'bun run lint',
+    'bun run typecheck',
+    'bun run check:theme-tokens',
+    'bun run check:styles',
+    'bun run check:responsive',
+    'bun run check:typed-messages',
+    'bun run test',
+    'bun run test:lumen',
+    'bun run test:app-react',
+  ]
+  let previous = -1
+  for (const required of requiredSequence) {
+    const index = steps.indexOf(required)
+    expect(index, `required check step: ${required}`).toBeGreaterThan(previous)
+    previous = index
+  }
 })

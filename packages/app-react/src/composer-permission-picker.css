@@ -3,15 +3,15 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-composer-permission-trigger {
   flex: 0 0 auto;
   max-inline-size: none;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-reading);
 }
 
@@ -23,27 +23,21 @@
 /* Observed in cc-haha: a true overlay anchored above the left composer pill.
    Only the container is positioned. The bounded choice list uses normal flex flow. */
 .hbar-composer-permission-popover {
-  position: fixed;
-  inset: auto;
-  top: var(--permission-popup-top);
-  bottom: var(--permission-popup-bottom);
-  left: var(--permission-popup-left);
   inline-size: min(22.5rem, calc(100vw - 2rem));
-  max-block-size: var(--permission-popup-limit);
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
+  border-radius: var(--lumen-radius-panel);
   color: var(--lumen-ink);
   background: var(--lumen-contrast);
   box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
   overflow: hidden;
 }
 
-.hbar-composer-permission-popover:popover-open {
+.hbar-composer-permission-popover[data-lumen-floating-open='true'] {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-composer-permission-heading,
@@ -52,7 +46,7 @@
   align-items: center;
   justify-content: space-between;
   flex: 0 0 auto;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-composer-permission-heading {
@@ -71,7 +65,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-composer-permission-body {
@@ -88,8 +82,8 @@
   flex: 0 0 auto;
   justify-content: flex-start;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12);
   text-align: start;
   white-space: normal;
 }
@@ -153,7 +147,7 @@
   min-inline-size: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 
   overflow-x: auto;
 }
@@ -167,18 +161,4 @@
 .hbar-composer-permission-actions {
   justify-content: flex-end;
   flex-wrap: wrap;
-}
-
-@media (max-width: 40rem) {
-  .hbar-composer-permission-popover {
-    inset: auto 0 0;
-    inline-size: 100%;
-    max-block-size: min(78dvh, 40rem);
-    border-radius: 0.75rem 0.75rem 0 0;
-    padding: 1rem;
-  }
-
-  .hbar-composer-permission-popover::backdrop {
-    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
-  }
 }

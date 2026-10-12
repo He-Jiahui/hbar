@@ -1,3 +1,4 @@
+import { openSessionTool } from './support/session-tools-menu'
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import { createRunCommandClient } from '@hbar/client'
 import { existsSync } from 'node:fs'
@@ -162,17 +163,10 @@ async function walk(page: Page, mode: Presentation): Promise<void> {
 }
 
 async function openTool(page: Page, name: string): Promise<Locator> {
-  const directAction = page.getByRole('button', { name, exact: true }).first()
-  if (await directAction.isVisible()) await directAction.focus()
-  else if (await page.locator('.hbar-mobile-header-menu-trigger').isVisible()) {
-    await page.locator('.hbar-mobile-header-menu-trigger').click()
-    const menuAction = page.locator('.hbar-mobile-header-menu-content').getByRole('button', { name, exact: true })
-    await menuAction.focus()
-  } else {
-    await page.locator('.hbar-session-tools-menu-trigger').click()
-    await page.getByRole('menuitemcheckbox', { name, exact: true }).focus()
-  }
-  await page.keyboard.press('Enter')
+  const copy = getShellCopy('en-US')
+  const section = (['files', 'activity', 'monitoring', 'agents', 'goals'] as const).find((id) => copy.session.tools[id] === name)
+  if (!section) throw new Error(`Unknown tool entry: ${name}`)
+  await openSessionTool(page, copy.session.tools, section)
   const pane = page.locator('.lumen-app-tool-drawer')
   await expect(pane).toBeVisible()
   await expect.poll(() => focusInTool(page)).toBe(true)
@@ -184,7 +178,7 @@ async function expectToolEntryFocus(page: Page, name: string): Promise<void> {
   if (await directAction.isVisible()) await expect(directAction).toBeFocused()
   else if (await page.locator('.hbar-mobile-header-menu-trigger').isVisible())
     await expect(page.locator('.hbar-mobile-header-menu-trigger')).toBeFocused()
-  else await expect(page.locator('.hbar-session-tools-menu-trigger')).toBeFocused()
+  else await expect(page.getByRole('button', { name: getShellCopy('en-US').session.tools.panel, exact: true })).toBeFocused()
 }
 
 async function expectWorkbenchReturnFocus(page: Page, sessionTitle: string): Promise<void> {

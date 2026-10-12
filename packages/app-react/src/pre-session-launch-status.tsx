@@ -6,6 +6,7 @@ import { firstSendNeedsContinue } from './pre-session-launch-model'
 import { HbarComposerFeedback } from './composer-feedback'
 export { firstSendIsLocked } from './pre-session-launch-model'
 import './pre-session-launch-status.css'
+import { createMessageScope } from './messages'
 
 export interface HbarPreSessionLaunchStatusLabels {
   readonly preparing: string
@@ -20,15 +21,27 @@ export interface HbarPreSessionLaunchStatusLabels {
   readonly error: (code: string) => string
 }
 
-export function HbarPreSessionLaunchStatus({
-  draft,
-  labels,
-  connected,
-}: {
+const PreSessionLaunchMessages = createMessageScope<HbarPreSessionLaunchStatusLabels>()
+
+interface HbarPreSessionLaunchStatusProps {
   readonly draft: PreSessionDraftState
   readonly labels: HbarPreSessionLaunchStatusLabels
   readonly connected: boolean
-}) {
+}
+
+export function HbarPreSessionLaunchStatus(props: HbarPreSessionLaunchStatusProps) {
+  return (
+    <PreSessionLaunchMessages.Provider messages={props.labels}>
+      <HbarPreSessionLaunchStatusContent draft={props.draft} connected={props.connected} />
+    </PreSessionLaunchMessages.Provider>
+  )
+}
+
+function HbarPreSessionLaunchStatusContent({
+  draft,
+  connected,
+}: Omit<HbarPreSessionLaunchStatusProps, 'labels'>) {
+  const { t } = PreSessionLaunchMessages.useMessages()
   const runtime = useHbarRuntime()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,24 +81,27 @@ export function HbarPreSessionLaunchStatus({
   }
   if (draft.phase === 'idle' || draft.phase === 'accepted') return null
   const status = cancelRequested
-    ? labels.cancelRequested
+    ? t('cancelRequested')
     : cancelled
-      ? labels.cancelled
+      ? t('cancelled')
       : needsContinue
-        ? labels.paused
+        ? t('paused')
         : draft.phase === 'unknown'
-          ? labels.unknown
+          ? t('unknown')
           : draft.phase === 'failed'
-            ? labels.error(draft.error ?? 'EXECUTION_FAILED')
-            : labels.preparing
+            ? t('error')(draft.error ?? 'EXECUTION_FAILED')
+            : t('preparing')
   return (
-    <HbarComposerFeedback tone={error || draft.phase === 'failed' || draft.phase === 'unknown' ? 'danger' : 'neutral'}>
+    <HbarComposerFeedback
+      priority="blocking"
+      tone={error || draft.phase === 'failed' || draft.phase === 'unknown' ? 'danger' : 'neutral'}
+    >
       <LumenFrame className="hbar-pre-session-launch-status" data-first-send-phase={draft.phase}>
         <LumenContentText
           context="feedback.message"
           role={draft.phase === 'failed' || draft.phase === 'unknown' ? 'alert' : 'status'}
         >
-          {error ? labels.error(error) : status}
+          {error ? t('error')(error) : status}
         </LumenContentText>
         <LumenFrame className="hbar-pre-session-launch-actions">
           {(draft.phase === 'unknown' || cancelRequested || paused) && !inFlight && (
@@ -95,7 +111,7 @@ export function HbarPreSessionLaunchStatus({
               disabled={!connected || pending}
               onClick={() => perform('preSessionDraft.reconcile')}
             >
-              {labels.check}
+              {t('check')}
             </LumenButton>
           )}
           {canContinue && (
@@ -105,7 +121,7 @@ export function HbarPreSessionLaunchStatus({
               disabled={!connected || pending}
               onClick={() => perform('preSessionDraft.continue')}
             >
-              {labels.continue}
+              {t('continue')}
             </LumenButton>
           )}
           {canCancel && (
@@ -115,12 +131,12 @@ export function HbarPreSessionLaunchStatus({
               disabled={!connected || pending}
               onClick={() => perform('preSessionDraft.cancel')}
             >
-              {labels.cancel}
+              {t('cancel')}
             </LumenButton>
           )}
           {draft.phase === 'failed' && !needsContinue && (
             <LumenButton type="button" size="s" disabled={pending} onClick={() => perform('preSessionDraft.close')}>
-              {labels.dismiss}
+              {t('dismiss')}
             </LumenButton>
           )}
         </LumenFrame>

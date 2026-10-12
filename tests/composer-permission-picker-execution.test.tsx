@@ -64,7 +64,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} connected={false} />)
       const trigger = html.match(/<button[^>]*class="[^"]*hbar-composer-permission-trigger[^>]*>/)?.[0]
       expect(trigger).toContain('disabled=""')
-      const outsidePopover = html.slice(0, html.indexOf('popover="auto"'))
+      const popoverStart = html.indexOf('<div popover="manual"')
+      expect(popoverStart).toBeGreaterThan(0)
+      const closedPopover = html.slice(popoverStart).match(/^<div[^>]*>/)?.[0]
+      expect(closedPopover).toContain('hidden=""')
+      expect(closedPopover).toContain('inert=""')
+      expect(closedPopover).toContain('aria-hidden="true"')
+      const outsidePopover = html.slice(0, popoverStart)
       expect(outsidePopover).not.toContain('class="hbar-composer-permission-feedback"')
       expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(6)
     })

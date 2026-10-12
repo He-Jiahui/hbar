@@ -1,12 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAppSidebarWorkflows,
-  selectLumenAppSidebarItem,
-  uniqueLumenAppSidebarItems,
-  type LumenAppSidebarContent,
-} from '@lumen/app-ui'
+import { LumenAppSidebarWorkflows, selectLumenAppSidebarItem, uniqueLumenAppSidebarItems, type LumenAppSidebarContent } from '@lumen/app-ui/catalog'
 import {
   appSidebarFixtureParameter,
   appSidebarPreviewRequestActions,

@@ -9,7 +9,7 @@ import {
 import { createConversationFind, type ConversationFindState, type SessionTimelineState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { createSessionFindProjector, type SessionFindSourceProjection } from './session-find-source'
-import { createSessionFindHighlights } from './session-find-highlights'
+import { createSessionFindHighlights, currentSessionFindPaint } from './session-find-highlights'
 import {
   sameSessionFindTarget,
   shouldOpenSessionFind,
@@ -18,7 +18,8 @@ import {
   type SessionFindTarget,
   type SessionFindTargetScope,
 } from './session-find-keyboard'
-import { HbarSessionFindBar, type HbarSessionFindLabels } from './session-find-view'
+import { HbarSessionFindBar } from './session-find-view'
+import { useSessionHistoryMessages } from './session-workspace-messages'
 
 const closedState: ConversationFindState = {
   status: 'closed',
@@ -49,8 +50,8 @@ function scopeOf(target: EventTarget | null, root: HTMLElement): SessionFindTarg
   if (target === document.body) return 'body'
   if (!(target instanceof HTMLElement) || !root.contains(target)) return 'outside'
   if (target.closest('[data-session-find-bar]')) return 'find'
-  if (target.closest('.lumen-prompt-composer,.hbar-app-react-session-footer')) return 'composer'
-  if (target.closest('.lumen-page-header')) return 'header'
+  if (target.closest("[data-lumen-part~=\"composer.root\"],.hbar-app-react-session-footer")) return 'composer'
+  if (target.closest("[data-lumen-part~=\"page-header.root\"]")) return 'header'
   if (target.matches('input,textarea,select,[contenteditable="true"]')) return 'other-editable'
   return 'conversation'
 }
@@ -64,7 +65,9 @@ function otherOverlayOpen() {
 }
 
 /** Local query owner. Canonical timeline stays in runtime; no transport or execution commands are available here. */
-export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessionFindLabels) {
+export function useSessionFind(timeline: SessionTimelineState) {
+  const { t } = useSessionHistoryMessages()
+  const labels = t('find')
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
@@ -164,6 +167,7 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
     scopeId: string
     requestId: string | null
   } | null>(null)
+  const lastReadyPaint = useRef<typeof currentPaint.current>(null)
 
   useLayoutEffect(() => {
     const owner = createConversationFind()
@@ -190,6 +194,17 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
   useLayoutEffect(() => {
     currentPaint.current =
       projection && scopeId ? { state, projection, scopeId, requestId: scrollTarget?.requestId ?? null } : null
+    if (state.status === 'ready' && projection && scopeId && state.scopeId === scopeId) {
+      lastReadyPaint.current = currentPaint.current
+    } else if (
+      !currentPaint.current ||
+      state.status !== 'searching' ||
+      state.scopeId !== lastReadyPaint.current?.state.scopeId ||
+      state.query !== lastReadyPaint.current?.state.query ||
+      state.navigationRevision !== lastReadyPaint.current?.state.navigationRevision
+    ) {
+      lastReadyPaint.current = null
+    }
     painter.current?.update()
   }, [projection, state, scopeId, scrollTarget])
   useLayoutEffect(() => {
@@ -197,7 +212,7 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
     if (!root) return
     const owner = createSessionFindHighlights({
       root,
-      read: () => currentPaint.current,
+      read: () => currentSessionFindPaint(currentPaint.current, lastReadyPaint.current),
       onFeedback: (value) => setFeedback((previous) => value ?? (previous === 'highlight' ? null : previous)),
     })
     painter.current = owner
@@ -214,7 +229,7 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
           altKey: event.altKey,
           ctrlKey: event.ctrlKey,
           metaKey: event.metaKey,
-          insideViewport: Boolean(target?.closest('.lumen-conversation-messages')),
+          insideViewport: Boolean(target?.closest("[data-lumen-part~=\"conversation.messages\"]")),
           editing: Boolean(target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')),
           activationControl: Boolean(target?.closest('button,a[href],[role="button"],[role="menu"],[role="listbox"]')),
         })

@@ -1,26 +1,39 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
+import { createMessageScope } from './messages'
 import './activity-text.css'
 
 export interface ActivityTextLabels {
   readonly expand: string
   readonly collapse: string
 }
+const activityTextMessages = createMessageScope<ActivityTextLabels>()
 
 /** Three visible lines; the pane owns scrolling and the full content stays available on expansion. */
-export function ActivityText({
+export function ActivityText(props: {
+  readonly text: string
+  readonly labels: ActivityTextLabels
+  readonly context?: 'feedback.detail' | 'choice.title'
+  readonly children?: (caption: ReactNode) => ReactNode
+}) {
+  return (
+    <activityTextMessages.Provider messages={props.labels}>
+      <ActivityTextContent {...props} />
+    </activityTextMessages.Provider>
+  )
+}
+
+function ActivityTextContent({
   text,
-  labels,
   context = 'feedback.detail',
   children,
 }: {
   readonly text: string
-  readonly labels: ActivityTextLabels
   readonly context?: 'feedback.detail' | 'choice.title'
-  /** A row action may wrap the caption; disclosure remains a separate button. */
   readonly children?: (caption: ReactNode) => ReactNode
 }) {
+  const { t } = activityTextMessages.useMessages()
   const container = useRef<HTMLDivElement>(null)
   const id = useId()
   const [expandedText, setExpandedText] = useState<string | null>(null)
@@ -58,7 +71,7 @@ export function ActivityText({
           onClick={() => setExpandedText(expanded ? null : text)}
         >
           <LumenIcon icon={expanded ? ChevronUp : ChevronDown} tier="sm" />
-          <LumenContentText context="control.label">{expanded ? labels.collapse : labels.expand}</LumenContentText>
+          <LumenContentText context="control.label">{expanded ? t('collapse') : t('expand')}</LumenContentText>
         </LumenButton>
       )}
     </LumenFrame>

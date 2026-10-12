@@ -1,12 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenFormsProvider,
-  useLumenFormsContent,
-  type LumenForms5Content,
-  type LumenForms5ViewModel,
-  type LumenFormsContent,
-} from '@lumen/app-ui'
+import { LumenFormsProvider, useLumenFormsContent, type LumenForms5Content, type LumenForms5ViewModel, type LumenFormsContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Forms5PreviewFixture } from './forms5PreviewFixtures'
 import { createForms5PreviewStore } from './forms5PreviewStore'

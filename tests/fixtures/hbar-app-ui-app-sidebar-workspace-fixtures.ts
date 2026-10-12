@@ -1,8 +1,4 @@
-import type {
-  LumenAppSidebarWorkspaceContent,
-  LumenAppSidebarWorkspaceGroup,
-  LumenAppSidebarWorkspaceItem,
-} from '@lumen/app-ui'
+import type { LumenAppSidebarWorkspaceContent, LumenAppSidebarWorkspaceGroup, LumenAppSidebarWorkspaceItem } from '@lumen/app-ui/catalog'
 
 const groups: readonly LumenAppSidebarWorkspaceGroup[] = [
   {

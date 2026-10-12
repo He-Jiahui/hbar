@@ -1,4 +1,4 @@
-import { LumenCard, LumenCardProvider as HbarAppUiCardProvider, type LumenCardContent } from '@lumen/app-ui'
+import { LumenCard, LumenCardProvider as HbarAppUiCardProvider, type LumenCardContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiCardProps = HbarAppUiVariantProps & {
@@ -6,35 +6,8 @@ export type HbarAppUiCardProps = HbarAppUiVariantProps & {
 }
 
 export { HbarAppUiCardProvider }
-export {
-  selectLumenCardItem as selectHbarAppUiCardItem,
-  uniqueLumenCardItems as uniqueHbarAppUiCardItems,
-  useLumenCardContent as useHbarAppUiCardContent,
-} from '@lumen/app-ui'
-export type {
-  LumenCardAction as HbarAppUiCardAction,
-  LumenCardAgendaContent as HbarAppUiCardAgendaContent,
-  LumenCardBalanceContent as HbarAppUiCardBalanceContent,
-  LumenCardChangelogContent as HbarAppUiCardChangelogContent,
-  LumenCardChoice as HbarAppUiCardChoice,
-  LumenCardContent as HbarAppUiCardContent,
-  LumenCardFile as HbarAppUiCardFile,
-  LumenCardFilesContent as HbarAppUiCardFilesContent,
-  LumenCardIntegration as HbarAppUiCardIntegration,
-  LumenCardIntegrationsContent as HbarAppUiCardIntegrationsContent,
-  LumenCardInvoiceContent as HbarAppUiCardInvoiceContent,
-  LumenCardInvoiceLine as HbarAppUiCardInvoiceLine,
-  LumenCardListStrategy as HbarAppUiCardListStrategy,
-  LumenCardMemberContent as HbarAppUiCardMemberContent,
-  LumenCardMetric as HbarAppUiCardMetric,
-  LumenCardMetricsContent as HbarAppUiCardMetricsContent,
-  LumenCardOnboardingContent as HbarAppUiCardOnboardingContent,
-  LumenCardOnboardingStep as HbarAppUiCardOnboardingStep,
-  LumenCardPlan as HbarAppUiCardPlan,
-  LumenCardPlansContent as HbarAppUiCardPlansContent,
-  LumenCardProfileContent as HbarAppUiCardProfileContent,
-  LumenCardProviderProps as HbarAppUiCardProviderProps,
-} from '@lumen/app-ui'
+export { selectLumenCardItem as selectHbarAppUiCardItem, uniqueLumenCardItems as uniqueHbarAppUiCardItems, useLumenCardContent as useHbarAppUiCardContent } from '@lumen/app-ui/catalog'
+export type { LumenCardAction as HbarAppUiCardAction, LumenCardAgendaContent as HbarAppUiCardAgendaContent, LumenCardBalanceContent as HbarAppUiCardBalanceContent, LumenCardChangelogContent as HbarAppUiCardChangelogContent, LumenCardChoice as HbarAppUiCardChoice, LumenCardContent as HbarAppUiCardContent, LumenCardFile as HbarAppUiCardFile, LumenCardFilesContent as HbarAppUiCardFilesContent, LumenCardIntegration as HbarAppUiCardIntegration, LumenCardIntegrationsContent as HbarAppUiCardIntegrationsContent, LumenCardInvoiceContent as HbarAppUiCardInvoiceContent, LumenCardInvoiceLine as HbarAppUiCardInvoiceLine, LumenCardListStrategy as HbarAppUiCardListStrategy, LumenCardMemberContent as HbarAppUiCardMemberContent, LumenCardMetric as HbarAppUiCardMetric, LumenCardMetricsContent as HbarAppUiCardMetricsContent, LumenCardOnboardingContent as HbarAppUiCardOnboardingContent, LumenCardOnboardingStep as HbarAppUiCardOnboardingStep, LumenCardPlan as HbarAppUiCardPlan, LumenCardPlansContent as HbarAppUiCardPlansContent, LumenCardProfileContent as HbarAppUiCardProfileContent, LumenCardProviderProps as HbarAppUiCardProviderProps } from '@lumen/app-ui/catalog'
 
 export function Card({ spec, onAction, cardContent, className }: HbarAppUiCardProps) {
   return (

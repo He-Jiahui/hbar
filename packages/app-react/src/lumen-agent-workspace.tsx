@@ -23,6 +23,7 @@ import type { AgentWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { AgentModelPicker, type AgentModelPickerLabels } from './agent-model-picker'
 import { AgentPolicyEditor, type AgentPolicyEditorLabels } from './agent-policy-editor'
+import { createMessageScope } from './messages'
 import './lumen-agent-workspace.css'
 
 type Agent = AgentWorkspaceEntryState['items'][number]
@@ -93,6 +94,7 @@ export interface HbarAgentWorkspaceLabels {
   readonly issue: (field: string) => string
   readonly error: (code: string) => string
 }
+const AgentWorkspaceMessages = createMessageScope<HbarAgentWorkspaceLabels>()
 
 function tone(status: AgentStatus): 'neutral' | 'success' | 'warning' | 'danger' {
   if (status === 'completed') return 'success'
@@ -105,17 +107,29 @@ function terminal(status: AgentStatus): boolean {
   return status === 'completed' || status === 'cancelled' || status === 'failed' || status === 'interrupted'
 }
 
-export function HbarAgentWorkspace({
-  labels,
-  connected,
-  instanceId: requestedInstanceId,
-  targetLabel,
-}: {
+export function HbarAgentWorkspace(props: {
   readonly labels: HbarAgentWorkspaceLabels
   readonly connected: boolean
   readonly instanceId?: string
   readonly targetLabel?: string | undefined
 }) {
+  return (
+    <AgentWorkspaceMessages.Provider messages={props.labels}>
+      <HbarAgentWorkspaceView {...props} />
+    </AgentWorkspaceMessages.Provider>
+  )
+}
+
+function HbarAgentWorkspaceView({
+  connected,
+  instanceId: requestedInstanceId,
+  targetLabel,
+}: {
+  readonly connected: boolean
+  readonly instanceId?: string
+  readonly targetLabel?: string | undefined
+}) {
+  const { t } = AgentWorkspaceMessages.useMessages()
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
@@ -159,14 +173,14 @@ export function HbarAgentWorkspace({
     ? catalog.models.find((model) => model.id === entry.draft.modelId)
     : entry?.inheritedModel?.model
   const profileOptions: readonly LumenControlOption[] = [
-    { id: '', label: labels.profileOptions.general },
-    { id: 'explore', label: labels.profileOptions.explore },
+    { id: '', label: t('profileOptions').general },
+    { id: 'explore', label: t('profileOptions').explore },
   ]
   const difficultyOptions: readonly LumenControlOption[] = [
-    { id: '', label: labels.manualSelection },
+    { id: '', label: t('manualSelection') },
     ...(['simple', 'medium', 'complex'] as const).map((difficulty) => ({
       id: difficulty,
-      label: labels.policy.difficulties[difficulty],
+      label: t('policy').difficulties[difficulty],
     })),
   ]
   const thinkingOptions: readonly LumenControlOption[] = [
@@ -176,26 +190,26 @@ export function HbarAgentWorkspace({
         entry?.inheritedModel?.thinkingLevel &&
         selectedModel &&
         !selectedModel.thinkingLevels.includes(entry.inheritedModel.thinkingLevel)
-          ? labels.thinkingDefault(selectedModel.defaultThinkingLevel)
-          : labels.thinkingInherited(entry?.inheritedModel?.thinkingLevel ?? null),
+          ? t('thinkingDefault')(selectedModel.defaultThinkingLevel)
+          : t('thinkingInherited')(entry?.inheritedModel?.thinkingLevel ?? null),
     },
-    ...(selectedModel?.thinkingLevels.map((level) => ({ id: level, label: labels.thinkingOption(level) })) ?? []),
+    ...(selectedModel?.thinkingLevels.map((level) => ({ id: level, label: t('thinkingOption')(level) })) ?? []),
     ...(entry?.draft.thinkingLevel &&
     !selectedModel?.thinkingLevels.some((level) => level === entry.draft.thinkingLevel)
       ? [
           {
             id: entry.draft.thinkingLevel,
-            label: labels.thinkingUnavailable(entry.draft.thinkingLevel),
+            label: t('thinkingUnavailable')(entry.draft.thinkingLevel),
             disabled: true,
           },
         ]
       : []),
   ]
   const approvalOptions: readonly LumenControlOption[] = (['inherit', 'deny', 'ask', 'sandbox', 'allow'] as const).map(
-    (option) => ({ id: option, label: labels.approvalOptions[option] }),
+    (option) => ({ id: option, label: t('approvalOptions')[option] }),
   )
   const sandboxOptions: readonly LumenControlOption[] = [
-    { id: '', label: labels.inheritSandbox },
+    { id: '', label: t('inheritSandbox') },
     ...sandboxProfiles.list.items.map((profile) => ({ id: profile.id, label: profile.name })),
   ]
   const selectedSandboxProfile = sandboxProfiles.list.items.find(
@@ -255,12 +269,12 @@ export function HbarAgentWorkspace({
 
   return (
     <LumenToolPane
-      title={labels.title}
+      title={t('title')}
       targetLabel={targetLabel}
-      description={labels.description}
+      description={t('description')}
       icon={Bot}
-      backLabel={view === 'list' ? undefined : labels.back}
-      closeLabel={labels.close}
+      backLabel={view === 'list' ? undefined : t('back')}
+      closeLabel={t('close')}
       onBack={view === 'list' ? undefined : back}
       onClose={() => invoke('app.closePanel', { instanceId })}
       busy={Boolean(!entry || entry.status === 'loading' || creationBusy || openState?.status === 'submitting')}
@@ -268,7 +282,7 @@ export function HbarAgentWorkspace({
         <>
           {view === 'list' && entry && (
             <LumenIconButton
-              label={labels.createTitle}
+              label={t('createTitle')}
               disabled={!connected}
               onClick={() => invoke('agentWorkspace.showCreate', { instanceId })}
             >
@@ -276,7 +290,7 @@ export function HbarAgentWorkspace({
             </LumenIconButton>
           )}
           <LumenIconButton
-            label={labels.refresh}
+            label={t('refresh')}
             disabled={!connected || entry?.status === 'loading'}
             onClick={() => invoke('agentWorkspace.refresh', { instanceId })}
           >
@@ -288,8 +302,8 @@ export function HbarAgentWorkspace({
     >
       {entry && (view === 'create' || view === 'list') && (
         <AgentPolicyEditor
-          labels={labels.policy}
-          modelLabels={labels.modelPicker}
+          labels={t('policy')}
+          modelLabels={t('modelPicker')}
           instanceId={instanceId}
           parentSessionId={entry.parentSessionId}
           catalog={catalog}
@@ -300,8 +314,8 @@ export function HbarAgentWorkspace({
       {view === 'create' && entry ? (
         <LumenFrame as="main" className="hbar-app-react-agent-create-view">
           <LumenFrame>
-            <LumenContentText context="section.title">{labels.createTitle}</LumenContentText>
-            <LumenContentText context="section.description">{labels.createScope}</LumenContentText>
+            <LumenContentText context="section.title">{t('createTitle')}</LumenContentText>
+            <LumenContentText context="section.description">{t('createScope')}</LumenContentText>
           </LumenFrame>
           <LumenFrame
             as="form"
@@ -314,27 +328,27 @@ export function HbarAgentWorkspace({
             <LumenFrame as="fieldset" disabled={!connected || creationBusy}>
               <LumenFormField
                 controlId={`${instanceId}-agent-objective`}
-                label={labels.objective}
+                label={t('objective')}
                 required
-                {...(entry.draft.issues.objective ? { error: labels.issue('objective') } : {})}
+                {...(entry.draft.issues.objective ? { error: t('issue')('objective') } : {})}
               >
                 <LumenTextarea
                   id={`${instanceId}-agent-objective`}
                   required
                   value={entry.draft.objective}
-                  placeholder={labels.objectivePlaceholder}
+                  placeholder={t('objectivePlaceholder')}
                   onChange={(event) => setField('objective', event.currentTarget.value)}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${instanceId}-agent-title`} label={labels.childTitle}>
+              <LumenFormField controlId={`${instanceId}-agent-title`} label={t('childTitle')}>
                 <LumenInput
                   id={`${instanceId}-agent-title`}
                   value={entry.draft.title}
-                  placeholder={labels.childTitlePlaceholder}
+                  placeholder={t('childTitlePlaceholder')}
                   onChange={(event) => setField('title', event.currentTarget.value)}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${instanceId}-agent-profile`} label={labels.profile}>
+              <LumenFormField controlId={`${instanceId}-agent-profile`} label={t('profile')}>
                 <LumenPopupSelect
                   id={`${instanceId}-agent-profile`}
                   value={entry.draft.profileId}
@@ -344,9 +358,9 @@ export function HbarAgentWorkspace({
                 />
               </LumenFormField>
               {entry.draft.profileId === 'explore' && (
-                <LumenContentText context="section.description">{labels.exploreHint}</LumenContentText>
+                <LumenContentText context="section.description">{t('exploreHint')}</LumenContentText>
               )}
-              <LumenFormField controlId={`${instanceId}-agent-selection`} label={labels.selectionMode}>
+              <LumenFormField controlId={`${instanceId}-agent-selection`} label={t('selectionMode')}>
                 <LumenPopupSelect
                   id={`${instanceId}-agent-selection`}
                   value={entry.draft.difficulty}
@@ -359,8 +373,8 @@ export function HbarAgentWorkspace({
                 <>
                   <LumenFormField
                     controlId={`${instanceId}-agent-model`}
-                    label={labels.model}
-                    {...(entry.draft.issues.modelId ? { error: labels.issue('modelId') } : {})}
+                    label={t('model')}
+                    {...(entry.draft.issues.modelId ? { error: t('issue')('modelId') } : {})}
                   >
                     <AgentModelPicker
                       id={`${instanceId}-agent-model`}
@@ -368,7 +382,7 @@ export function HbarAgentWorkspace({
                       catalog={catalog}
                       connected={connected}
                       disabled={creationBusy}
-                      labels={labels.modelPicker}
+                      labels={t('modelPicker')}
                       onSelect={(modelId) => setField('modelId', modelId)}
                       onRetry={() => invoke('agentWorkspace.refreshModels', { instanceId })}
                     />
@@ -379,7 +393,7 @@ export function HbarAgentWorkspace({
                         disabled={creationBusy}
                         onClick={() => setField('modelId', '')}
                       >
-                        {labels.inheritModel}
+                        {t('inheritModel')}
                       </LumenButton>
                     )}
                   </LumenFormField>
@@ -387,8 +401,8 @@ export function HbarAgentWorkspace({
               )}
               <LumenFormField
                 controlId={`${instanceId}-agent-budget`}
-                label={labels.tokenBudget}
-                {...(entry.draft.issues.tokenBudget ? { error: labels.issue('tokenBudget') } : {})}
+                label={t('tokenBudget')}
+                {...(entry.draft.issues.tokenBudget ? { error: t('issue')('tokenBudget') } : {})}
               >
                 <LumenInput
                   id={`${instanceId}-agent-budget`}
@@ -401,7 +415,7 @@ export function HbarAgentWorkspace({
                 />
               </LumenFormField>
               {!entry.draft.difficulty && (
-                <LumenFormField controlId={`${instanceId}-agent-thinking`} label={labels.thinkingLevel}>
+                <LumenFormField controlId={`${instanceId}-agent-thinking`} label={t('thinkingLevel')}>
                   <LumenToggleGroup
                     id={`${instanceId}-agent-thinking`}
                     type="single"
@@ -412,7 +426,7 @@ export function HbarAgentWorkspace({
                   />
                 </LumenFormField>
               )}
-              <LumenFormField controlId={`${instanceId}-agent-approval`} label={labels.approval}>
+              <LumenFormField controlId={`${instanceId}-agent-approval`} label={t('approval')}>
                 <LumenPopupSelect
                   id={`${instanceId}-agent-approval`}
                   value={entry.draft.approval}
@@ -422,7 +436,7 @@ export function HbarAgentWorkspace({
                 />
               </LumenFormField>
               {(entry.draft.approval === 'sandbox' || entry.draft.approval === 'inherit') && (
-                <LumenFormField controlId={`${instanceId}-agent-sandbox`} label={labels.sandboxProfile}>
+                <LumenFormField controlId={`${instanceId}-agent-sandbox`} label={t('sandboxProfile')}>
                   <LumenPopupSelect
                     id={`${instanceId}-agent-sandbox`}
                     value={entry.draft.sandboxProfileId}
@@ -433,7 +447,7 @@ export function HbarAgentWorkspace({
                   />
                   {sandboxProfiles.list.error && (
                     <LumenContentText context="feedback.message" role="alert">
-                      {labels.error(sandboxProfiles.list.error)}
+                      {t('error')(sandboxProfiles.list.error)}
                     </LumenContentText>
                   )}
                 </LumenFormField>
@@ -441,50 +455,50 @@ export function HbarAgentWorkspace({
             </LumenFrame>
             {entry.creation.error && (
               <LumenContentText context="feedback.message" role="alert">
-                {labels.error(entry.creation.error)}
+                {t('error')(entry.creation.error)}
               </LumenContentText>
             )}
             <LumenButton disabled={!connected || entry.creation.status === 'submitting'} tone="primary" type="submit">
               {entry.creation.status === 'submitting'
-                ? labels.creating
+                ? t('creating')
                 : entry.creation.status === 'unknown'
-                  ? labels.retryCreate
-                  : labels.create}
+                  ? t('retryCreate')
+                  : t('create')}
             </LumenButton>
           </LumenFrame>
         </LumenFrame>
       ) : selectedAgent && entry ? (
         <LumenFrame as="main" className="hbar-app-react-agent-detail">
           <LumenFrame className="hbar-app-react-agent-detail-heading">
-            <LumenContentText context="section.title">{labels.detailTitle}</LumenContentText>
-            <LumenStatus value={labels.status(selectedAgent.status)} tone={tone(selectedAgent.status)} />
+            <LumenContentText context="section.title">{t('detailTitle')}</LumenContentText>
+            <LumenStatus value={t('status')(selectedAgent.status)} tone={tone(selectedAgent.status)} />
           </LumenFrame>
           {entry.creation.status === 'succeeded' && entry.selectedAgentId === selectedAgent.agentId && (
             <LumenContentText context="feedback.message" role="status">
-              {labels.created}
+              {t('created')}
             </LumenContentText>
           )}
           <LumenFrame as="section">
-            <LumenContentText context="section.subtitle">{labels.objective}</LumenContentText>
+            <LumenContentText context="section.subtitle">{t('objective')}</LumenContentText>
             <LumenContentText context="section.description">{selectedAgent.objective}</LumenContentText>
           </LumenFrame>
           <LumenCompactMetrics
-            label={labels.detailTitle}
+            label={t('detailTitle')}
             metrics={[
               {
                 id: 'parent-session',
-                label: labels.parentSession,
-                value: labels.currentSession(selectedAgent.parentSessionId),
+                label: t('parentSession'),
+                value: t('currentSession')(selectedAgent.parentSessionId),
               },
               {
                 id: 'model',
-                label: labels.model,
-                value: labels.modelValue(selectedAgent.configuration?.modelId ?? selectedAgent.modelId),
+                label: t('model'),
+                value: t('modelValue')(selectedAgent.configuration?.modelId ?? selectedAgent.modelId),
               },
               {
                 id: 'thinking',
-                label: labels.thinkingLevel,
-                value: labels.thinkingOption(
+                label: t('thinkingLevel'),
+                value: t('thinkingOption')(
                   selectedAgent.configuration?.thinkingLevel ??
                     selectedAgent.dispatchConfiguration?.thinkingLevel ??
                     '',
@@ -494,29 +508,29 @@ export function HbarAgentWorkspace({
                 ? [
                     {
                       id: 'approval',
-                      label: labels.approval,
-                      value: labels.approvalOptions[selectedAgent.configuration.approval],
+                      label: t('approval'),
+                      value: t('approvalOptions')[selectedAgent.configuration.approval],
                     },
                   ]
                 : []),
               {
                 id: 'profile',
-                label: labels.profile,
-                value: labels.profileOptions[selectedAgent.profileId ?? 'general'],
+                label: t('profile'),
+                value: t('profileOptions')[selectedAgent.profileId ?? 'general'],
               },
-              { id: 'budget', label: labels.tokenBudget, value: labels.budget(selectedAgent.tokenBudget) },
-              { id: 'created', label: labels.createdAt, value: labels.timestamp(selectedAgent.createdAt) },
+              { id: 'budget', label: t('tokenBudget'), value: t('budget')(selectedAgent.tokenBudget) },
+              { id: 'created', label: t('createdAt'), value: t('timestamp')(selectedAgent.createdAt) },
             ]}
           />
           {selectedAgent.dispatchConfiguration?.selection && (
             <LumenContentText context="section.description">
-              {labels.selectionSummary(
-                labels.policy.difficulties[selectedAgent.dispatchConfiguration.selection.difficulty],
+              {t('selectionSummary')(
+                t('policy').difficulties[selectedAgent.dispatchConfiguration.selection.difficulty],
                 selectedAgent.dispatchConfiguration.selection.weight,
               )}
             </LumenContentText>
           )}
-          <LumenContentText context="section.description">{labels.configurationHint}</LumenContentText>
+          <LumenContentText context="section.description">{t('configurationHint')}</LumenContentText>
           {selectedAgent.error && (
             <LumenContentText context="feedback.message" role="alert">
               {selectedAgent.error}
@@ -524,12 +538,12 @@ export function HbarAgentWorkspace({
           )}
           {selectedAction?.error && (
             <LumenContentText context="feedback.message" role="alert">
-              {labels.error(selectedAction.error)}
+              {t('error')(selectedAction.error)}
             </LumenContentText>
           )}
           {openState?.agentId === selectedAgent.agentId && openState.error && (
             <LumenContentText context="feedback.message" role="alert">
-              {labels.openSessionError(openState.error)}
+              {t('openSessionError')(openState.error)}
             </LumenContentText>
           )}
           <LumenFrame as="footer">
@@ -537,7 +551,7 @@ export function HbarAgentWorkspace({
               disabled={!connected || openState?.status === 'submitting'}
               onClick={() => openSession(selectedAgent, true)}
             >
-              {labels.configureChild}
+              {t('configureChild')}
             </LumenButton>
             <LumenButton
               tone="primary"
@@ -547,8 +561,8 @@ export function HbarAgentWorkspace({
               <LumenIcon icon={ExternalLink} tier="sm" />
               <LumenContentText context="control.label">
                 {openState?.agentId === selectedAgent.agentId && openState.status === 'submitting'
-                  ? labels.openingSession
-                  : labels.openSession}
+                  ? t('openingSession')
+                  : t('openSession')}
               </LumenContentText>
             </LumenButton>
             {!terminal(selectedAgent.status) && (
@@ -558,28 +572,28 @@ export function HbarAgentWorkspace({
                 onClick={() => invoke('agentWorkspace.cancel', { instanceId, agentId: selectedAgent.agentId })}
               >
                 {selectedAction?.status === 'submitting'
-                  ? labels.cancelling
+                  ? t('cancelling')
                   : selectedAction?.status === 'unknown'
-                    ? labels.retryCancel
-                    : labels.cancel}
+                    ? t('retryCancel')
+                    : t('cancel')}
               </LumenButton>
             )}
           </LumenFrame>
         </LumenFrame>
       ) : (
-        <LumenFrame as="main" className="hbar-app-react-agent-list" aria-label={labels.title}>
+        <LumenFrame as="main" className="hbar-app-react-agent-list" aria-label={t('title')}>
           <LumenFrame as="header">
-            <LumenContentText context="section.title">{labels.count(entry?.items.length ?? 0)}</LumenContentText>
+            <LumenContentText context="section.title">{t('count')(entry?.items.length ?? 0)}</LumenContentText>
           </LumenFrame>
           {!entry || entry.status === 'loading' ? (
-            <LumenContentText context="section.description">{labels.loading}</LumenContentText>
+            <LumenContentText context="section.description">{t('loading')}</LumenContentText>
           ) : entry.error ? (
             <LumenContentText context="feedback.message" role="alert">
-              {labels.error(entry.error)}
+              {t('error')(entry.error)}
             </LumenContentText>
           ) : entry.items.length === 0 ? (
             <LumenContentText context="section.description" className="hbar-app-react-agent-empty">
-              {labels.empty}
+              {t('empty')}
             </LumenContentText>
           ) : (
             <LumenCollection as="ul">
@@ -588,18 +602,18 @@ export function HbarAgentWorkspace({
                   <LumenButton
                     className="hbar-app-react-agent-row"
                     variant="outlined"
-                    aria-label={labels.showDetails(agent.objective)}
+                    aria-label={t('showDetails')(agent.objective)}
                     onClick={() => invoke('agentWorkspace.showAgent', { instanceId, agentId: agent.agentId })}
                   >
                     <LumenContentText context="control.label">
                       <LumenContentText context="choice.title">{agent.objective}</LumenContentText>
-                      <LumenStatus value={labels.status(agent.status)} tone={tone(agent.status)} />
+                      <LumenStatus value={t('status')(agent.status)} tone={tone(agent.status)} />
                     </LumenContentText>
                     <LumenContentText context="choice.description">
-                      {labels.summary(agent.modelId, agent.tokenBudget, agent.profileId)}
+                      {t('summary')(agent.modelId, agent.tokenBudget, agent.profileId)}
                     </LumenContentText>
                     <LumenText as="time" dateTime={new Date(agent.createdAt).toISOString()}>
-                      {labels.timestamp(agent.createdAt)}
+                      {t('timestamp')(agent.createdAt)}
                     </LumenText>
                   </LumenButton>
                 </LumenCollectionItem>
@@ -608,7 +622,7 @@ export function HbarAgentWorkspace({
           )}
           {entry?.nextCursor && (
             <LumenButton onClick={() => invoke('agentWorkspace.loadMore', { instanceId })}>
-              {labels.loadMore}
+              {t('loadMore')}
             </LumenButton>
           )}
         </LumenFrame>

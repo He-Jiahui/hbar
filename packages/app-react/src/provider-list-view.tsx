@@ -17,6 +17,7 @@ import {
   type ProviderListViewItem,
 } from './provider-list-view-model'
 import './provider-list-view.css'
+import { createMessageScope } from './messages'
 
 export {
   type ProviderListViewDefaultAction,
@@ -54,9 +55,54 @@ export interface ProviderListViewLabels {
   readonly reconcileDefaultFor: (providerName: string, modelName: string) => string
   readonly reconcilingDefault: (providerName: string, modelName: string) => string
 }
+type ProviderSummaryLabels = Pick<
+  ProviderListViewLabels,
+  'protocol' | 'primaryModel' | 'modelCount' | 'hidden' | 'configured' | 'notConfigured' | 'globalDefault'
+>
+type ProviderListLabels = Omit<ProviderListViewLabels, keyof ProviderSummaryLabels>
+export interface ProviderListViewMessages {
+  readonly list: ProviderListLabels
+  readonly summary: ProviderSummaryLabels
+}
+export const ProviderListViewMessageScope = createMessageScope<ProviderListViewMessages>()
+
+function summaryLabels(labels: ProviderListViewLabels): ProviderSummaryLabels {
+  return {
+    protocol: labels.protocol,
+    primaryModel: labels.primaryModel,
+    modelCount: labels.modelCount,
+    hidden: labels.hidden,
+    configured: labels.configured,
+    notConfigured: labels.notConfigured,
+    globalDefault: labels.globalDefault,
+  }
+}
+function providerListLabels(labels: ProviderListViewLabels): ProviderListLabels {
+  return {
+    title: labels.title,
+    description: labels.description,
+    loading: labels.loading,
+    error: labels.error,
+    empty: labels.empty,
+    add: labels.add,
+    refresh: labels.refresh,
+    editAction: labels.editAction,
+    edit: labels.edit,
+    actions: labels.actions,
+    remove: labels.remove,
+    setDefault: labels.setDefault,
+    setDefaultFor: labels.setDefaultFor,
+    settingDefault: labels.settingDefault,
+    setDefaultError: labels.setDefaultError,
+    reconcileDefault: labels.reconcileDefault,
+    reconcileDefaultFor: labels.reconcileDefaultFor,
+    reconcilingDefault: labels.reconcilingDefault,
+  }
+}
 
 export interface ProviderListViewProps {
-  readonly labels: ProviderListViewLabels
+  /** Compatibility adapter for consumers that do not own the message scope. */
+  readonly labels?: ProviderListViewLabels
   readonly items: readonly ProviderListViewItem[]
   readonly connected: boolean
   readonly busy: boolean
@@ -91,6 +137,49 @@ export function ProviderListView({
   onEdit,
   onRemove,
 }: ProviderListViewProps) {
+  const content = (
+    <ProviderListViewContent
+      items={items}
+      connected={connected}
+      busy={busy}
+      globalDefault={globalDefault}
+      defaultAction={defaultAction}
+      reconcilingProviderId={reconcilingProviderId}
+      onAdd={onAdd}
+      onRefresh={onRefresh}
+      onSetDefault={onSetDefault}
+      onReconcileDefault={onReconcileDefault}
+      onEdit={onEdit}
+      onRemove={onRemove}
+    />
+  )
+  return labels ? (
+    <ProviderListViewMessageScope.Provider
+      messages={{ list: providerListLabels(labels), summary: summaryLabels(labels) }}
+    >
+      {content}
+    </ProviderListViewMessageScope.Provider>
+  ) : (
+    content
+  )
+}
+
+function ProviderListViewContent({
+  items,
+  connected,
+  busy,
+  globalDefault,
+  defaultAction,
+  reconcilingProviderId,
+  onAdd,
+  onRefresh,
+  onSetDefault,
+  onReconcileDefault,
+  onEdit,
+  onRemove,
+}: Omit<ProviderListViewProps, 'labels'>) {
+  const { t } = ProviderListViewMessageScope.useMessages()
+  const labels = t('list')
   const defaultMutationBusy = defaultAction.status === 'submitting' || defaultAction.status === 'unknown'
   const listBusy = busy || defaultMutationBusy || reconcilingProviderId !== null
 
@@ -153,7 +242,6 @@ export function ProviderListView({
                 {row.isGlobalDefaultProvider || !item.defaultTargetVisible ? (
                   <ProviderSummary
                     item={item}
-                    labels={labels}
                     {...(row.isGlobalDefaultProvider && row.activeDefaultModelName
                       ? {
                           globalDefaultModelName: row.activeDefaultModelName,
@@ -171,7 +259,7 @@ export function ProviderListView({
                     disabled={!row.canSetDefault}
                     onClick={() => onSetDefault(item.providerId)}
                   >
-                    <ProviderSummaryCopy item={item} labels={labels} />
+                    <ProviderSummaryCopy item={item} />
                     <LumenContentText context="control.label" className="hbar-provider-list-view-set-default">
                       {labels.setDefault}
                     </LumenContentText>
@@ -248,12 +336,10 @@ export function ProviderListView({
 
 function ProviderSummary({
   item,
-  labels,
   globalDefaultModelName,
   globalDefaultSelectable,
 }: {
   readonly item: ProviderListViewItem
-  readonly labels: ProviderListViewLabels
   readonly globalDefaultModelName?: string
   readonly globalDefaultSelectable?: boolean
 }) {
@@ -261,7 +347,6 @@ function ProviderSummary({
     <LumenFrame className="hbar-provider-list-view-summary">
       <ProviderSummaryCopy
         item={item}
-        labels={labels}
         {...(globalDefaultModelName !== undefined ? { globalDefaultModelName } : {})}
         {...(globalDefaultSelectable !== undefined ? { globalDefaultSelectable } : {})}
       />
@@ -271,15 +356,15 @@ function ProviderSummary({
 
 function ProviderSummaryCopy({
   item,
-  labels,
   globalDefaultModelName,
   globalDefaultSelectable,
 }: {
   readonly item: ProviderListViewItem
-  readonly labels: ProviderListViewLabels
   readonly globalDefaultModelName?: string
   readonly globalDefaultSelectable?: boolean
 }) {
+  const { t } = ProviderListViewMessageScope.useMessages()
+  const labels = t('summary')
   return (
     <LumenContentText context="message.inline" className="hbar-provider-list-view-copy">
       <LumenContentText context="message.inline" className="hbar-provider-list-view-title-row">

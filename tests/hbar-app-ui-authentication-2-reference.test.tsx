@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { canContinueLumenProviderFirst, type LumenAuthContent } from '@lumen/app-ui'
+import { canContinueLumenProviderFirst, type LumenAuthContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant } from '../packages/hbar-app-ui/src/catalog'
 import { HbarAppUiAuthenticationProvider } from '../packages/hbar-app-ui/src/catalog'
 import {

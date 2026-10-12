@@ -1,8 +1,4 @@
-import type {
-  LumenListReferenceContent as Content,
-  LumenListReferenceRow as Row,
-  LumenListReferenceNode as Node,
-} from '@lumen/app-ui'
+import type { LumenListReferenceContent as Content, LumenListReferenceRow as Row, LumenListReferenceNode as Node } from '@lumen/app-ui/catalog'
 
 const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const pane = { kind: 'pane-scroll', expectedMaximum: 80 } as const

@@ -14,7 +14,7 @@ export function sessionImageCopy(locale: ShellLocale): HbarSessionImageLabels {
         CANCELLED: '已停止读取图片。',
         TIMEOUT: '读取图片超时，请重试。',
         UNAUTHORIZED: '图片访问权限已失效，请重新连接。',
-        NOT_FOUND: 'Host 上已找不到这张图片。',
+        NOT_FOUND: '宿主上已找不到这张图片。',
         READ_FAILED: '无法读取图片，请重试。',
         CONTENT_MISMATCH: '图片内容与原附件不一致。',
         DISCONNECTED: '连接后可查看图片。',

@@ -5,6 +5,7 @@ import {
 } from '@lumen/app-ui'
 import { DEFAULT_THEME_PROFILE, type ThemeProfile } from '@hbar/contracts'
 import type { HTMLAttributes, RefObject } from 'react'
+import { WORKSPACE_VIEWPORT_MEDIA } from './responsive-contract'
 import './floating-surface.css'
 
 type AppFloatingSurfaceProps = HTMLAttributes<HTMLDivElement> & {
@@ -44,7 +45,7 @@ export function FloatingSurface({
   const sheetModal =
     focusBehavior === 'surface' &&
     typeof window !== 'undefined' &&
-    window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches
+    window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.coarseNarrow).matches
   return (
     <LumenFloatingSurface
       {...attributes}

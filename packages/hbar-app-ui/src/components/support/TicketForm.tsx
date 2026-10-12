@@ -1,10 +1,5 @@
-import {
-  LumenCollection,
-  LumenCollectionItem,
-  LumenFrame,
-  LumenOption,
-  LumenText,
- LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
+import { LumenCollection, LumenCollectionItem, LumenFrame, LumenText, LumenButton, LumenInput, LumenTextarea, LumenSelect } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { HbarAppUiIcon } from '../../icon'
 import {useState} from 'react'
 import {FileText, Paperclip, X} from 'lucide-react'

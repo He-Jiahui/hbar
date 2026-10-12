@@ -6,6 +6,7 @@ import { thinkingProgressPercent } from './composer-model-picker'
 import './composer-model-picker.css'
 import { maximumContextWindow } from '@hbar/contracts'
 import { HbarMaxModeControl } from './max-mode-control'
+import { createMessageScope } from './messages'
 
 type ModelDescriptor = ComposerModelState['models'][number]
 type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
@@ -20,16 +21,31 @@ export interface HbarPreSessionThinkingPickerProps {
   readonly onMaxModeChange: (enabled: boolean, modelId: string) => Promise<void>
 }
 
+type PreSessionThinkingMessageLabels = Pick<
+  HbarComposerModelLabels,
+  'thinking' | 'thinkingTrigger' | 'thinkingLevel' | 'error' | 'maxMode'
+>
+const PreSessionThinkingMessages = createMessageScope<PreSessionThinkingMessageLabels>()
+
 /** A local first-send effort preview. Only a confirmed Host model choice is applied before Run. */
-export function HbarPreSessionThinkingPicker({
+export function HbarPreSessionThinkingPicker(props: HbarPreSessionThinkingPickerProps) {
+  const { labels, ...viewProps } = props
+  return (
+    <PreSessionThinkingMessages.Provider messages={labels}>
+      <HbarPreSessionThinkingPickerView {...viewProps} />
+    </PreSessionThinkingMessages.Provider>
+  )
+}
+
+function HbarPreSessionThinkingPickerView({
   model,
   level,
-  labels,
   disabled = false,
   onChoose,
   maxMode = false,
   onMaxModeChange,
-}: HbarPreSessionThinkingPickerProps) {
+}: Omit<HbarPreSessionThinkingPickerProps, 'labels'>) {
+  const { t } = PreSessionThinkingMessages.useMessages()
   const popupId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
   const popup = useRef<HTMLDivElement>(null)
@@ -68,8 +84,8 @@ export function HbarPreSessionThinkingPicker({
   }, [disabled, levels.length, unavailable, supportsMax, maxMode])
 
   if (!model || (levels.length < 2 && !unavailable && !supportsMax && !maxMode)) return null
-  const effortName = levels.length > 1 ? labels.thinkingLevel(displayed) : labels.maxMode.menu
-  const effortTrigger = levels.length > 1 ? labels.thinkingTrigger(effortName) : labels.maxMode.menu
+  const effortName = levels.length > 1 ? t('thinkingLevel')(displayed) : t('maxMode').menu
+  const effortTrigger = levels.length > 1 ? t('thinkingTrigger')(effortName) : t('maxMode').menu
 
   const commit = (input: HTMLInputElement, confirmUnavailable = false) => {
     if (
@@ -117,7 +133,7 @@ export function HbarPreSessionThinkingPicker({
         variant="text"
         indicator="none"
         className="hbar-composer-thinking-trigger"
-        aria-label={maxMode ? labels.maxMode.trigger(effortTrigger) : effortTrigger}
+        aria-label={maxMode ? t('maxMode').trigger(effortTrigger) : effortTrigger}
         aria-invalid={unavailable || undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -128,7 +144,7 @@ export function HbarPreSessionThinkingPicker({
         {effortName}
         {maxMode && (
           <LumenContentText context="control.label" className="hbar-composer-max-badge">
-            {labels.maxMode.badge}
+            {t('maxMode').badge}
           </LumenContentText>
         )}
       </LumenButton>
@@ -141,7 +157,7 @@ export function HbarPreSessionThinkingPicker({
         focusBehavior="preserve"
         id={popupId}
         role="dialog"
-        aria-label={labels.thinking}
+        aria-label={t('thinking')}
         aria-busy={busy}
         className="hbar-composer-picker-popover"
         data-kind="thinking"
@@ -174,10 +190,10 @@ export function HbarPreSessionThinkingPicker({
         {levels.length > 1 && (
           <LumenFrame className="hbar-composer-thinking-heading">
             <LumenContentText context="control.label" className="hbar-composer-thinking-value">
-              {labels.thinkingLevel(selectedLevel)}
+              {t('thinkingLevel')(selectedLevel)}
             </LumenContentText>
             <LumenContentText context="control.label" className="hbar-composer-thinking-context">
-              {labels.thinking}
+              {t('thinking')}
             </LumenContentText>
           </LumenFrame>
         )}
@@ -198,8 +214,8 @@ export function HbarPreSessionThinkingPicker({
               step={1}
               value={selectedIndex}
               disabled={disabled || busy}
-              aria-label={labels.thinking}
-              aria-valuetext={labels.thinkingLevel(selectedLevel)}
+              aria-label={t('thinking')}
+              aria-valuetext={t('thinkingLevel')(selectedLevel)}
               onChange={(event) => {
                 if (busy) return
                 cancelled.current = false
@@ -233,7 +249,7 @@ export function HbarPreSessionThinkingPicker({
           model={model}
           enabled={maxMode}
           disabled={disabled || busy}
-          labels={labels.maxMode}
+          labels={t('maxMode')}
           onChange={(enabled) => {
             if (disabled || inFlight.current) return
             inFlight.current = true
@@ -257,7 +273,7 @@ export function HbarPreSessionThinkingPicker({
         {error && (
           <LumenFrame className="hbar-composer-picker-feedback">
             <LumenContentText context="feedback.message" role="alert">
-              {labels.error(error)}
+              {t('error')(error)}
             </LumenContentText>
           </LumenFrame>
         )}

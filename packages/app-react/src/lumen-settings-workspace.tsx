@@ -40,8 +40,10 @@ import {
 import { workspaceDisplayName, type SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { createHbarSchemaComponents } from './lumen-schema-components'
+import { createMessageScope } from './messages'
 import {
-  SettingsContentRecovery,
+  SettingsContentRecoveryMessageScope,
+  SettingsContentRecoveryView,
   useSettingsContentRecovery,
   type SettingsContentRecoveryLabels,
 } from './settings-content-recovery'
@@ -98,6 +100,43 @@ export interface HbarSettingsWorkspaceProps {
   readonly renderGroup?: (groupId: string, context: HbarSettingsGroupContext) => ReactNode | HbarSettingsGroupContent
   readonly headerActions?: ReactNode
 }
+
+type SettingsWorkspaceViewLabels = Pick<
+  HbarSettingsWorkspaceLabels,
+  | 'pageTitle'
+  | 'title'
+  | 'description'
+  | 'back'
+  | 'controls'
+  | 'scopes'
+  | 'hostScope'
+  | 'clientScope'
+  | 'mixedScope'
+  | 'global'
+  | 'workspace'
+  | 'session'
+  | 'scopeOption'
+  | 'groups'
+  | 'loading'
+  | 'refresh'
+  | 'save'
+  | 'reconcile'
+  | 'saved'
+  | 'unsaved'
+  | 'restoreInheritance'
+  | 'localOverride'
+  | 'pendingInheritance'
+  | 'inheritedFrom'
+  | 'readOnly'
+  | 'applyMode'
+  | 'error'
+>
+export interface HbarSettingsWorkspaceMessages {
+  readonly view: SettingsWorkspaceViewLabels
+  readonly schema: Pick<HbarSettingsWorkspaceLabels, 'form' | 'resolve'>
+  readonly recovery: SettingsContentRecoveryLabels
+}
+export const HbarSettingsWorkspaceMessageScope = createMessageScope<HbarSettingsWorkspaceMessages>()
 
 export interface HbarSettingsGroupContext {
   readonly instanceId: string | null
@@ -168,8 +207,7 @@ function commandFieldValue(value: FieldValue): FieldItemValue | null | FieldItem
   return Array.isArray(value) ? Array.from(multiple) : (value as FieldItemValue | null)
 }
 
-export function HbarSettingsWorkspace({
-  labels,
+function HbarSettingsWorkspaceContent({
   connected,
   components = standardComponents,
   additionalGroups = [],
@@ -178,7 +216,19 @@ export function HbarSettingsWorkspace({
   layout = { alignment: 'start', width: 'standard', fields: 'stacked' },
   renderGroup,
   headerActions,
-}: HbarSettingsWorkspaceProps) {
+}: Omit<HbarSettingsWorkspaceProps, 'labels'>) {
+  const { t } = HbarSettingsWorkspaceMessageScope.useMessages()
+  const viewLabels = t('view')
+  const schemaLabels = t('schema')
+  const recoveryLabels = t('recovery')
+  const labels = useMemo(
+    () => ({
+      ...viewLabels,
+      ...schemaLabels,
+      contentRecovery: recoveryLabels,
+    }),
+    [viewLabels, schemaLabels, recoveryLabels],
+  )
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
@@ -413,9 +463,7 @@ export function HbarSettingsWorkspace({
       )
     return (
       <>
-        {contentRecovery.field === field.name && (
-          <SettingsContentRecovery controller={contentRecovery} labels={labels.contentRecovery} />
-        )}
+        {contentRecovery.field === field.name && <SettingsContentRecoveryView controller={contentRecovery} />}
         {canRestore && (
           <LumenText as="span" className="hbar-schema-form-actions">
             <LumenButton type="button" disabled={busy || unknown} onClick={() => restoreInheritance(field)}>
@@ -622,5 +670,49 @@ export function HbarSettingsWorkspace({
         </LumenContentText>
       )}
     </LumenFrame>
+  )
+}
+
+export function HbarSettingsWorkspace({ labels, ...props }: HbarSettingsWorkspaceProps) {
+  return (
+    <SettingsContentRecoveryMessageScope.Provider messages={labels.contentRecovery}>
+      <HbarSettingsWorkspaceMessageScope.Provider
+        messages={{
+          view: {
+            pageTitle: labels.pageTitle,
+            title: labels.title,
+            description: labels.description,
+            back: labels.back,
+            controls: labels.controls,
+            scopes: labels.scopes,
+            hostScope: labels.hostScope,
+            clientScope: labels.clientScope,
+            mixedScope: labels.mixedScope,
+            global: labels.global,
+            workspace: labels.workspace,
+            session: labels.session,
+            scopeOption: labels.scopeOption,
+            groups: labels.groups,
+            loading: labels.loading,
+            refresh: labels.refresh,
+            save: labels.save,
+            reconcile: labels.reconcile,
+            saved: labels.saved,
+            unsaved: labels.unsaved,
+            restoreInheritance: labels.restoreInheritance,
+            localOverride: labels.localOverride,
+            pendingInheritance: labels.pendingInheritance,
+            inheritedFrom: labels.inheritedFrom,
+            readOnly: labels.readOnly,
+            applyMode: labels.applyMode,
+            error: labels.error,
+          },
+          schema: { form: labels.form, resolve: labels.resolve },
+          recovery: labels.contentRecovery,
+        }}
+      >
+        <HbarSettingsWorkspaceContent {...props} />
+      </HbarSettingsWorkspaceMessageScope.Provider>
+    </SettingsContentRecoveryMessageScope.Provider>
   )
 }

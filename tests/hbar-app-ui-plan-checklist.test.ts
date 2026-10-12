@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAgentPlan01, type LumenAgentPlanChecklistContent } from '@lumen/app-ui'
+import { LumenAgentPlan01 } from '@lumen/app-ui'
+import { type LumenAgentPlanChecklistContent } from '@lumen/app-ui/catalog'
 import {
   createChecklistPreviewStore,
   projectChecklistPreviewContent,

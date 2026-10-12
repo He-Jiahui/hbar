@@ -1,6 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import { LumenPaywallProvider, useLumenPaywallContent, type LumenPaywall4ReferenceViewModel, type LumenPaywallContent } from '@lumen/app-ui'
+import { LumenPaywallProvider, useLumenPaywallContent, type LumenPaywall4ReferenceViewModel, type LumenPaywallContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Paywall4PreviewFixture } from './paywall4PreviewFixtures'
 import { createPaywall4PreviewStore } from './paywall4PreviewStore'

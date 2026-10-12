@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { useLumenSettingsFormContent } from '@lumen/app-ui'
+import { useLumenSettingsFormContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant, type HbarAppUiVariantSpec } from '../packages/hbar-app-ui/src/index'
 import { SettingsPreviewHost } from '../apps/hbar-app-ui-preview/src/SettingsPreviewHost'
 import { SettingsForm2PreviewHost } from '../apps/hbar-app-ui-preview/src/SettingsForm2PreviewHost'

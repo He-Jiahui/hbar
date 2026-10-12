@@ -1,0 +1,113 @@
+.lumen-floating-modal-root.hbar-app-ui-dialog-backdrop[data-lumen-floating-root] {
+  padding: 0;
+}
+
+.lumen-floating-modal-root.hbar-app-ui-dialog-backdrop > .lumen-dialog[data-dialog-size] {
+  inline-size: var(--lumen-dialog-extent, 60%);
+  block-size: var(--lumen-dialog-extent, 60%);
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  flex: 0 0 auto;
+}
+
+.lumen-dialog[data-dialog-size='large'] {
+  --lumen-dialog-extent: 80%;
+}
+
+.lumen-dialog[data-dialog-size='medium'] {
+  --lumen-dialog-extent: 60%;
+}
+
+.lumen-dialog[data-dialog-size='small'] {
+  --lumen-dialog-extent: 40%;
+}
+
+.lumen-dialog-surface {
+  inline-size: 100%;
+  min-block-size: 0;
+  max-block-size: 100%;
+  flex: 1 1 auto;
+  box-shadow: 0 1.5rem 5rem color-mix(in srgb, #000 45%, transparent);
+}
+
+.lumen-dialog-content {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  max-block-size: 100%;
+  overflow: hidden;
+}
+
+.lumen-dialog[data-appearance='panel'] {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+
+.lumen-dialog[data-appearance='panel'] .lumen-dialog-surface {
+  border-radius: inherit;
+}
+
+.lumen-dialog-content > header,
+.lumen-dialog-content > footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+}
+
+.lumen-dialog-content > header h2 {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.lumen-dialog-content > footer {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.lumen-dialog-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.lumen-dialog.is-chromeless .lumen-dialog-body {
+  overflow: hidden;
+}
+
+.lumen-dialog-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+
+[data-lumen-shape='square'] .lumen-dialog {
+  border-radius: 0;
+}
+
+/* A compact owner window uses all available space, including short desktop windows. */
+@media (width < 64rem), (max-height: 40rem) {
+  .lumen-dialog[data-dialog-size] {
+    --lumen-dialog-extent: 100%;
+  }
+}
+
+@media (forced-colors: active) {
+  .lumen-dialog {
+    background: transparent;
+  }
+
+  .lumen-dialog[data-appearance='panel'] {
+    border-color: CanvasText;
+  }
+}

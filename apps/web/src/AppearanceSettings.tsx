@@ -1,4 +1,5 @@
 import { type FormEvent } from 'react'
+import { createMessageScope } from '@hbar/app-react'
 import { Palette } from 'lucide-react'
 import { useStore } from 'zustand'
 import {
@@ -68,17 +69,23 @@ export interface WebAppearanceSettingsLabels {
   readonly error: (code: string) => string
 }
 
+const WebAppearanceSettingsMessages = createMessageScope<WebAppearanceSettingsLabels>()
+
 export interface WebAppearanceSettingsProps {
   readonly labels: WebAppearanceSettingsLabels
   readonly editor: AppearanceEditor
   readonly systemPrefersDark: boolean
 }
 
-function themeOptionLabel(labels: WebAppearanceSettingsLabels, theme: WebThemePreference): string {
-  return theme === 'system' ? labels.theme.system : theme === 'light' ? labels.theme.light : labels.theme.dark
+function themeOptionLabel(
+  t: ReturnType<typeof WebAppearanceSettingsMessages.useMessages>['t'],
+  theme: WebThemePreference,
+): string {
+  return theme === 'system' ? t('theme').system : theme === 'light' ? t('theme').light : t('theme').dark
 }
 
-export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: WebAppearanceSettingsProps) {
+function WebAppearanceSettingsView({ editor, systemPrefersDark }: Omit<WebAppearanceSettingsProps, 'labels'>) {
+  const { t } = WebAppearanceSettingsMessages.useMessages()
   const state = useStore(editor.store)
   const ready = state.available
   const pendingIdentity = state.binding?.hostId === null
@@ -105,7 +112,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
         value={state.draft[dimension]}
         options={(['s', 'm', 'l'] as const).map((size) => ({
           id: size,
-          label: labels.sizeOption(dimension, size),
+          label: t('sizeOption')(dimension, size),
         }))}
         disabled={!state.editable || locked}
         onValueChange={(value) => editor.change(dimension, value as LumenSize)}
@@ -117,30 +124,30 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
     <LumenFrame as="form" className="hbar-web-appearance-settings" onSubmit={submit}>
       <LumenFrame as="header" className="hbar-web-appearance-heading">
         <LumenFrame>
-          <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          <LumenContentText context="section.title">{t('title')}</LumenContentText>
           <LumenContentText context="section.description" tone="muted">
-            {labels.description}
+            {t('description')}
           </LumenContentText>
         </LumenFrame>
         <LumenContentText context="section.description" className="hbar-web-appearance-scope" tone="subtle">
-          {labels.deviceScope}
+          {t('deviceScope')}
         </LumenContentText>
       </LumenFrame>
 
       <LumenFrame className="hbar-web-appearance-fields">
         <LumenFrame as="fieldset" className="hbar-web-appearance-theme">
           <LumenText as="legend" id="hbar-appearance-theme-label" variant="label">
-            {labels.theme.label}
+            {t('theme').label}
           </LumenText>
           <LumenContentText context="section.description" id="hbar-appearance-theme-description" tone="muted">
-            {labels.theme.description}
+            {t('theme').description}
           </LumenContentText>
           <LumenFrame className="hbar-web-appearance-theme-choices">
             <LumenToggleGroup
               id="hbar-appearance-theme"
               type="single"
               value={state.draft.theme}
-              options={THEME_CHOICES.map((theme) => ({ id: theme, label: themeOptionLabel(labels, theme) }))}
+              options={THEME_CHOICES.map((theme) => ({ id: theme, label: themeOptionLabel(t, theme) }))}
               disabled={!state.editable || locked}
               aria-labelledby="hbar-appearance-theme-label"
               aria-describedby="hbar-appearance-theme-description"
@@ -148,15 +155,15 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             />
           </LumenFrame>
         </LumenFrame>
-        {sizeField('controlSize', labels.controlSize)}
-        {sizeField('textSize', labels.textSize)}
-        {sizeField('cornerSize', labels.cornerSize)}
+        {sizeField('controlSize', t('controlSize'))}
+        {sizeField('textSize', t('textSize'))}
+        {sizeField('cornerSize', t('cornerSize'))}
       </LumenFrame>
 
       <LumenFrame
         as="section"
         className="hbar-web-appearance-preview"
-        aria-label={labels.preview.title}
+        aria-label={t('preview').title}
         data-lumen-mode={previewTheme}
         data-lumen-control-size={state.draft.controlSize}
         data-lumen-text-size={state.draft.textSize}
@@ -165,39 +172,39 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
         style={{ colorScheme: previewTheme }}
       >
         <LumenFrame as="header">
-          <LumenContentText context="section.subtitle">{labels.preview.title}</LumenContentText>
+          <LumenContentText context="section.subtitle">{t('preview').title}</LumenContentText>
           <LumenContentText context="section.description" tone="muted">
-            {labels.preview.description}
+            {t('preview').description}
           </LumenContentText>
         </LumenFrame>
         <LumenFrame className="hbar-web-appearance-preview-controls">
-          <LumenFormField controlId="hbar-appearance-preview-input" label={labels.preview.label}>
+          <LumenFormField controlId="hbar-appearance-preview-input" label={t('preview').label}>
             <LumenInput
               id="hbar-appearance-preview-input"
               className="hbar-web-appearance-control"
               variant="plain"
               readOnly
-              value={labels.preview.input}
+              value={t('preview').input}
             />
           </LumenFormField>
           <LumenPopupSelect
             id="hbar-appearance-preview-select"
             className="hbar-web-appearance-control"
             variant="plain"
-            aria-label={labels.preview.select}
+            aria-label={t('preview').select}
             value="preview"
-            options={[{ id: 'preview', label: labels.preview.select }]}
+            options={[{ id: 'preview', label: t('preview').select }]}
             onValueChange={() => undefined}
           />
           <LumenButton type="button" tone="primary" indicator="none">
-            {labels.preview.button}
+            {t('preview').button}
           </LumenButton>
           <LumenButton
             type="button"
             variant="text"
             indicator="none"
-            aria-label={labels.preview.iconButton}
-            title={labels.preview.iconButton}
+            aria-label={t('preview').iconButton}
+            title={t('preview').iconButton}
           >
             <LumenIcon icon={Palette} tier="sm" />
           </LumenButton>
@@ -212,51 +219,51 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             tone={state.error ? 'danger' : 'muted'}
           >
             {pendingIdentity
-              ? labels.identityPending
+              ? t('identityPending')
               : !ready
                 ? state.restoreError
-                  ? labels.restoreError(state.restoreError)
-                  : labels.loading
+                  ? t('restoreError')(state.restoreError)
+                  : t('loading')
                 : state.status === 'checking'
-                  ? labels.checking
+                  ? t('checking')
                   : state.status === 'unknown'
-                    ? labels.unknown
+                    ? t('unknown')
                     : state.status === 'conflict'
-                      ? labels.conflict
+                      ? t('conflict')
                       : state.error
-                        ? labels.error(state.error)
+                        ? t('error')(state.error)
                         : dirty
-                          ? labels.unsaved
+                          ? t('unsaved')
                           : state.status === 'saved' || state.status === 'volatile'
                             ? state.status === 'saved'
-                              ? labels.saved
-                              : labels.volatile
+                              ? t('saved')
+                              : t('volatile')
                             : null}
           </LumenContentText>
           {state.status === 'conflict' && state.checked && (
             <LumenFrame className="hbar-web-appearance-recovery">
               {state.action?.kind === 'reset' && (
-                <LumenContentText context="section.description">{labels.resetConflict}</LumenContentText>
+                <LumenContentText context="section.description">{t('resetConflict')}</LumenContentText>
               )}
               <LumenContentText context="section.description">
-                {labels.latest(
-                  themeOptionLabel(labels, state.latest.theme),
-                  labels.sizeOption('controlSize', state.latest.controlSize),
-                  labels.sizeOption('textSize', state.latest.textSize),
-                  labels.sizeOption('cornerSize', state.latest.cornerSize),
+                {t('latest')(
+                  themeOptionLabel(t, state.latest.theme),
+                  t('sizeOption')('controlSize', state.latest.controlSize),
+                  t('sizeOption')('textSize', state.latest.textSize),
+                  t('sizeOption')('cornerSize', state.latest.cornerSize),
                 )}
               </LumenContentText>
               {progress.count > 0 && progress.count < progress.total && (
                 <LumenContentText context="section.description">
-                  {labels.partial(progress.count, progress.total)}
+                  {t('partial')(progress.count, progress.total)}
                 </LumenContentText>
               )}
               <LumenFrame>
                 <LumenButton type="button" size="s" variant="outlined" indicator="none" onClick={editor.continueDraft}>
-                  {state.action?.kind === 'reset' ? labels.continueAfterReset : labels.continueDraft}
+                  {state.action?.kind === 'reset' ? t('continueAfterReset') : t('continueDraft')}
                 </LumenButton>
                 <LumenButton type="button" size="s" variant="outlined" indicator="none" onClick={editor.discard}>
-                  {state.action?.kind === 'reset' ? labels.acceptCurrent : labels.discard}
+                  {state.action?.kind === 'reset' ? t('acceptCurrent') : t('discard')}
                 </LumenButton>
               </LumenFrame>
             </LumenFrame>
@@ -272,7 +279,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
               disabled={busy || pendingIdentity}
               onClick={() => void editor.check()}
             >
-              {labels.check}
+              {t('check')}
             </LumenButton>
           )}
           {dirty &&
@@ -281,7 +288,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             !busy &&
             (ready || pendingIdentity) && (
               <LumenButton type="button" size="s" variant="text" indicator="none" onClick={editor.discard}>
-                {labels.discard}
+                {t('discard')}
               </LumenButton>
             )}
         </LumenFrame>
@@ -293,7 +300,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             disabled={!state.writable || locked || !canReset}
             onClick={() => void editor.reset()}
           >
-            {labels.reset}
+            {t('reset')}
           </LumenButton>
           <LumenButton
             type="submit"
@@ -302,10 +309,18 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             loading={state.status === 'saving'}
             disabled={!state.writable || locked || !dirty}
           >
-            {labels.save}
+            {t('save')}
           </LumenButton>
         </LumenFrame>
       </LumenFrame>
     </LumenFrame>
+  )
+}
+
+export function WebAppearanceSettings({ labels, ...props }: WebAppearanceSettingsProps) {
+  return (
+    <WebAppearanceSettingsMessages.Provider messages={labels}>
+      <WebAppearanceSettingsView {...props} />
+    </WebAppearanceSettingsMessages.Provider>
   )
 }

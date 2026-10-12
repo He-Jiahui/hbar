@@ -14,6 +14,7 @@ import {
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { ComposerPermissionChoice, ComposerPermissionMode, ComposerPlanMode } from '@hbar/app-runtime'
 import type { HbarComposerPermissionLabels } from './composer-permission-picker'
+import { createMessageScope } from './messages'
 import './composer-permission-picker.css'
 
 const order = ['ask', 'deny', 'sandbox', 'allow', 'plan', 'inherit'] as const satisfies readonly (
@@ -34,19 +35,45 @@ export interface HbarPreSessionApprovalPickerProps {
   readonly onPlanMode: (mode: ComposerPlanMode) => Promise<void>
 }
 
+type PreSessionApprovalMessageLabels = Pick<
+  HbarComposerPermissionLabels,
+  | 'plan'
+  | 'inheritedTrigger'
+  | 'options'
+  | 'trigger'
+  | 'confirmTitle'
+  | 'title'
+  | 'close'
+  | 'confirmBody'
+  | 'cancel'
+  | 'confirmAllow'
+  | 'scopeHint'
+  | 'error'
+>
+const PreSessionApprovalMessages = createMessageScope<PreSessionApprovalMessageLabels>()
+
 /** A local first-send choice; the real Session setting is applied by the Host only after creation. */
-export function HbarPreSessionApprovalPicker({
+export function HbarPreSessionApprovalPicker(props: HbarPreSessionApprovalPickerProps) {
+  const { labels, ...viewProps } = props
+  return (
+    <PreSessionApprovalMessages.Provider messages={labels}>
+      <HbarPreSessionApprovalPickerView {...viewProps} />
+    </PreSessionApprovalMessages.Provider>
+  )
+}
+
+function HbarPreSessionApprovalPickerView({
   choice,
   planMode,
   planAvailable,
   planBlockedReason,
   hostDefault,
   sessionLabel,
-  labels,
   disabled = false,
   onChoose,
   onPlanMode,
-}: HbarPreSessionApprovalPickerProps) {
+}: Omit<HbarPreSessionApprovalPickerProps, 'labels'>) {
+  const { t } = PreSessionApprovalMessages.useMessages()
   const popupId = useId()
   const headingId = useId()
   const hintId = useId()
@@ -59,10 +86,10 @@ export function HbarPreSessionApprovalPicker({
   const [error, setError] = useState<string | null>(null)
   const planSelected = planMode === 'plan'
   const selectedLabel = planSelected
-    ? labels.plan.label
+    ? t('plan').label
     : choice === 'inherit' && hostDefault
-      ? labels.inheritedTrigger(labels.options[hostDefault].label)
-      : labels.options[choice].label
+      ? t('inheritedTrigger')(t('options')[hostDefault].label)
+      : t('options')[choice].label
 
   useEffect(() => {
     if (confirming) cancelConfirmation.current?.focus()
@@ -147,7 +174,7 @@ export function HbarPreSessionApprovalPicker({
         indicator="none"
         className="hbar-composer-permission-trigger"
         data-choice={planSelected ? 'plan' : choice}
-        aria-label={labels.trigger(selectedLabel)}
+        aria-label={t('trigger')(selectedLabel)}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
@@ -205,14 +232,14 @@ export function HbarPreSessionApprovalPicker({
       >
         <LumenFrame className="hbar-composer-permission-heading">
           <LumenContentText context="record.title" id={headingId}>
-            {confirming ? labels.confirmTitle : labels.title}
+            {confirming ? t('confirmTitle') : t('title')}
           </LumenContentText>
           <LumenButton
             type="button"
             size="s"
             variant="text"
             indicator="none"
-            aria-label={labels.close}
+            aria-label={t('close')}
             onClick={() => close()}
           >
             <LumenIcon icon={X} tier="sm" />
@@ -221,7 +248,7 @@ export function HbarPreSessionApprovalPicker({
         {confirming ? (
           <>
             <LumenContentText context="section.description" id={hintId}>
-              {labels.confirmBody(sessionLabel)}
+              {t('confirmBody')(sessionLabel)}
             </LumenContentText>
             <LumenFrame className="hbar-composer-permission-actions">
               <LumenButton
@@ -236,7 +263,7 @@ export function HbarPreSessionApprovalPicker({
                   )
                 }}
               >
-                {labels.cancel}
+                {t('cancel')}
               </LumenButton>
               <LumenButton
                 type="button"
@@ -245,18 +272,18 @@ export function HbarPreSessionApprovalPicker({
                 disabled={busy}
                 onClick={() => void select('allow', true)}
               >
-                {labels.confirmAllow}
+                {t('confirmAllow')}
               </LumenButton>
             </LumenFrame>
           </>
         ) : (
           <LumenFrame className="hbar-composer-permission-body">
             <LumenContentText context="section.description" id={hintId} className="hbar-composer-permission-hint">
-              {planSelected ? labels.plan.scope : labels.scopeHint}
+              {planSelected ? t('plan').scope : t('scopeHint')}
             </LumenContentText>
             <LumenFrame
               role="menu"
-              aria-label={labels.title}
+              aria-label={t('title')}
               className="hbar-composer-permission-options"
               onKeyDown={moveChoice}
             >
@@ -272,8 +299,8 @@ export function HbarPreSessionApprovalPicker({
                 >
                   <LumenIcon icon={ArrowLeft} tier="md" />
                   <LumenFrame className="hbar-composer-permission-description">
-                    <LumenContentText context="control.label">{labels.plan.exit}</LumenContentText>
-                    <LumenContentText context="control.label">{labels.plan.exitDescription}</LumenContentText>
+                    <LumenContentText context="control.label">{t('plan').exit}</LumenContentText>
+                    <LumenContentText context="control.label">{t('plan').exitDescription}</LumenContentText>
                   </LumenFrame>
                 </LumenButton>
               )}
@@ -294,9 +321,9 @@ export function HbarPreSessionApprovalPicker({
                     >
                       <LumenIcon icon={Lightbulb} tier="md" />
                       <LumenFrame className="hbar-composer-permission-description">
-                        <LumenContentText context="control.label">{labels.plan.label}</LumenContentText>
+                        <LumenContentText context="control.label">{t('plan').label}</LumenContentText>
                         <LumenContentText context="choice.description">
-                          {planBlockedReason ?? (planSelected ? labels.plan.selected : labels.plan.description)}
+                          {planBlockedReason ?? (planSelected ? t('plan').selected : t('plan').description)}
                         </LumenContentText>
                       </LumenFrame>
                       {planSelected && <LumenIcon icon={Check} tier="sm" />}
@@ -320,9 +347,9 @@ export function HbarPreSessionApprovalPicker({
                   >
                     <LumenIcon icon={icons[value]} tier="md" />
                     <LumenFrame className="hbar-composer-permission-description">
-                      <LumenContentText context="control.label">{labels.options[value].label}</LumenContentText>
+                      <LumenContentText context="control.label">{t('options')[value].label}</LumenContentText>
                       <LumenContentText context="choice.description">
-                        {labels.options[value].description}
+                        {t('options')[value].description}
                       </LumenContentText>
                     </LumenFrame>
                     {!planSelected && choice === value && <LumenIcon icon={Check} tier="sm" />}
@@ -332,7 +359,7 @@ export function HbarPreSessionApprovalPicker({
             </LumenFrame>
             {error && (
               <LumenContentText context="feedback.message" role="alert">
-                {labels.error(error)}
+                {t('error')(error)}
               </LumenContentText>
             )}
           </LumenFrame>

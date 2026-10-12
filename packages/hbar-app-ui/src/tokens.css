@@ -1,12 +1,12 @@
 :root {
   /* Keep the spelling required by the shared icon-scale validator. */
   /* prettier-ignore */
-  --hbar-app-ui-icon-xs: .75rem;
+  --lumen-icon-xs: .75rem;
   /* prettier-ignore */
-  --hbar-app-ui-icon-sm: .875rem;
-  --hbar-app-ui-icon-md: 1rem;
-  --hbar-app-ui-icon-lg: 1.25rem;
-  --hbar-app-ui-icon-xl: 1.5rem;
+  --lumen-icon-sm: .875rem;
+  --lumen-icon-md: 1rem;
+  --lumen-icon-lg: 1.25rem;
+  --lumen-icon-xl: 1.5rem;
   --hbar-app-ui-space-xs: 0.25rem;
   --hbar-app-ui-space-sm: 0.5rem;
   --hbar-app-ui-space-md: 0.75rem;
@@ -44,9 +44,9 @@
   --hbar-app-ui-control-radius: var(--hbar-app-ui-component-radius);
   --hbar-app-ui-font-title: 1.25rem;
   --hbar-app-ui-font-section: 1rem;
-  --hbar-app-ui-switch-width: 2.25rem;
-  --hbar-app-ui-switch-height: 1.25rem;
-  --hbar-app-ui-switch-thumb: 0.875rem;
+  --lumen-switch-width: 2.25rem;
+  --lumen-switch-height: 1.25rem;
+  --lumen-switch-thumb: 0.875rem;
   --hbar-app-ui-divider: 0.0625rem;
   --hbar-app-ui-accent-soft: var(--hbar-app-ui-accent-bg);
   --hbar-app-ui-dialog-width: 40rem;

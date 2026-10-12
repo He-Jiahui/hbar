@@ -1,4 +1,4 @@
-import type { LumenKanbanContent } from '@lumen/app-ui'
+import type { LumenKanbanContent } from '@lumen/app-ui/catalog'
 import type { KanbanPreviewStoreApi } from './kanbanPreviewModel'
 
 function first<T extends { readonly id: string }>(items: readonly T[]): readonly T[] {

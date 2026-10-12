@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { HbarAppUiBillingPaymentMethodsContent } from '../packages/hbar-app-ui/src/index'
-import { ReferenceBillingPaymentMethods } from '../hbar-ui/packages/lumen-app-ui/src/billing/ReferenceBillingPaymentMethods'
+import { ReferenceBillingPaymentMethods } from '../packages/lumen-app-ui/src/billing/ReferenceBillingPaymentMethods'
 import { createBillingPaymentMethodsReferenceFixture } from './fixtures/hbar-app-ui-billing-payment-methods-reference-fixtures'
 
 function renderPaymentMethods(content: HbarAppUiBillingPaymentMethodsContent): string {

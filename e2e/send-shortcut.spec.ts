@@ -440,7 +440,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const draft = 'Original unsent draft stays in the same session — 保留原稿'
         await editor.fill(draft)
         await expectComposerText(editor, draft)
-        await f.page.locator('.hbar-composer-attachment-target input[type="file"]').setInputFiles({
+        await f.page.locator('.hbar-composer-add-root input[type="file"]').setInputFiles({
           name: 'preference-note.txt',
           mimeType: 'text/plain',
           buffer: Buffer.from('Owned local attachment'),

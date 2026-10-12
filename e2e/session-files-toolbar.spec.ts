@@ -100,8 +100,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           ).toEqual([
             copy.session.find.entry,
             copy.session.tools.files,
-            copy.session.tools.activity,
-            copy.session.tools.more,
+            copy.session.tools.panel,
+            copy.session.tools.settings,
           ])
         }
         await expect(action).toBeVisible()

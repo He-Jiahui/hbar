@@ -1,14 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createElement, createRef } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAppShell,
-  LUMEN_TOOL_SEPARATOR_WIDTH_REM,
-  nextLumenToolPaneWidth,
-  resolveLumenToolPaneLayout,
-  type LumenToolLayout,
-  type LumenToolPaneLayoutInput,
-} from '@lumen/app-ui'
+import { LumenAppShell } from '@lumen/app-ui'
+import { LUMEN_TOOL_SEPARATOR_WIDTH_REM, nextLumenToolPaneWidth, resolveLumenToolPaneLayout, type LumenToolLayout, type LumenToolPaneLayoutInput } from '@lumen/app-ui/catalog'
 
 const descriptor: LumenToolLayout = { mainMinWidthRem: 20, minWidthRem: 20, maxWidthRem: 36 }
 const input = (width = 900, root = 16): LumenToolPaneLayoutInput => ({

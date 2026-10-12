@@ -1,12 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenSupport,
-  LumenSupportProvider,
-  type LumenSupportContent,
-  type LumenSupportTicketFormContent,
-} from '@lumen/app-ui'
+import { LumenSupport, LumenSupportProvider, type LumenSupportContent, type LumenSupportTicketFormContent } from '@lumen/app-ui/catalog'
 import {
   createSupportTicketPreviewStore,
   type SupportTicketPreviewState,

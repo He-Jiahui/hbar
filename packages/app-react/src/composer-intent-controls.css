@@ -8,7 +8,7 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-composer-intents,
@@ -18,7 +18,7 @@
 }
 
 .hbar-composer-intents > button {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
@@ -32,7 +32,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
   font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
@@ -74,9 +74,9 @@
 
 .hbar-composer-goal-strip {
   flex-wrap: wrap;
-  padding: 0.375rem 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-reading);
 }
 
@@ -122,9 +122,9 @@
 }
 
 .hbar-composer-goal-confirm {
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
 }
 
 .hbar-composer-goal-confirm > span {
@@ -138,7 +138,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 40rem) {
+@container session-project-context (width < 40rem) {
   .hbar-composer-goal-summary {
     flex-basis: 100%;
   }

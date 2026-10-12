@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Circle, FileDiff, FileText, X } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenIconButton } from '@lumen/app-ui'
+import { createMessageScope } from './messages'
 import './file-preview-tabs.css'
 import { revealInlineItem } from './inline-item-reveal'
 
@@ -25,6 +26,7 @@ export interface HbarFilePreviewLabels {
   readonly showBlocked: string
   readonly error: (code: string) => string
 }
+const filePreviewMessages = createMessageScope<HbarFilePreviewLabels>()
 export interface HbarFilePreviewTabsProps {
   /** Runtime owns the 32-entry bound. This scroll strip never truncates valid entries. */
   readonly items: readonly HbarFilePreviewItem[]
@@ -66,7 +68,17 @@ export function filePreviewCloseTargets(
 const scopes: readonly HbarFilePreviewCloseScope[] = ['current', 'others', 'left', 'right', 'all']
 
 /** Only disclosure, focus and scrolling are local; selection and close belong to the host. */
-export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect, onClose }: HbarFilePreviewTabsProps) {
+export function HbarFilePreviewTabs(props: HbarFilePreviewTabsProps) {
+  const { labels, ...viewProps } = props
+  return (
+    <filePreviewMessages.Provider messages={labels}>
+      <FilePreviewTabsContent {...viewProps} />
+    </filePreviewMessages.Provider>
+  )
+}
+
+function FilePreviewTabsContent({ items: source, activeId, onSelect, onClose }: Omit<HbarFilePreviewTabsProps, 'labels'>) {
+  const { t } = filePreviewMessages.useMessages()
   const items = uniqueFilePreviews(source)
   const focusId = items.some((item) => item.id === activeId) ? activeId : items[0]?.id
   const popup = useRef<HTMLDivElement>(null)
@@ -131,7 +143,7 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
   if (!items.length) return null
   return (
     <LumenFrame className="hbar-file-preview-tabs">
-      <LumenFrame role="tablist" aria-label={labels.tabs} className="hbar-file-preview-strip">
+      <LumenFrame role="tablist" aria-label={t('tabs')} className="hbar-file-preview-strip">
         {items.map((item, index) => (
           <LumenFrame
             key={item.id}
@@ -152,10 +164,10 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
               role="tab"
               aria-controls={`file-preview-panel-${item.id}`}
               aria-selected={activeId === item.id}
-              aria-label={labels.tab(item.path, item.kind)}
+              aria-label={t('tab')(item.path, item.kind)}
               aria-describedby={item.protection ? `file-preview-status-${item.id}` : undefined}
               tabIndex={focusId === item.id ? 0 : -1}
-              title={labels.tab(item.path, item.kind)}
+              title={t('tab')(item.path, item.kind)}
               variant="text"
               indicator="none"
               className="hbar-file-preview-select"
@@ -167,22 +179,22 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
                 {item.path.replaceAll('\\', '/').split('/').at(-1) ?? item.path}
               </LumenContentText>
               {item.kind !== 'document' && (
-                <LumenContentText context="choice.description">{labels.kind(item.kind)}</LumenContentText>
+                <LumenContentText context="choice.description">{t('kind')(item.kind)}</LumenContentText>
               )}
               {item.protection && (
                 <LumenContentText
                   context="choice.description"
                   id={`file-preview-status-${item.id}`}
-                  title={labels.status(item.protection)}
+                  title={t('status')(item.protection)}
                   className="hbar-file-preview-status"
-                  aria-label={labels.status(item.protection)}
+                  aria-label={t('status')(item.protection)}
                 >
                   <LumenIcon icon={Circle} tier="sm" />
                 </LumenContentText>
               )}
             </LumenButton>
             <LumenIconButton
-              label={labels.close(item.path, item.kind)}
+              label={t('close')(item.path, item.kind)}
               className="hbar-file-preview-close"
               onClick={() => onClose([item.id])}
             >
@@ -195,7 +207,7 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
         ref={popup}
         popover="auto"
         role="menu"
-        aria-label={menu ? labels.menu(menu.item.path, menu.item.kind) : labels.tabs}
+        aria-label={menu ? t('menu')(menu.item.path, menu.item.kind) : t('tabs')}
         className="hbar-file-preview-menu-popover"
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
@@ -238,7 +250,7 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
                   onClose(ids)
                 }}
               >
-                {labels.action(scope)}
+                {t('action')(scope)}
               </LumenButton>
             )
           })}

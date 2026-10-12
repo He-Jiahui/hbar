@@ -1,4 +1,4 @@
-import type { LumenAgentPlanContent } from '@lumen/app-ui'
+import type { LumenAgentPlanContent } from '@lumen/app-ui/catalog'
 
 export function createPlanPreviewCopy(localized: boolean) {
   return localized

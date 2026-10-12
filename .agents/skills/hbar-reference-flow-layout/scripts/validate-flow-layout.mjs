@@ -841,10 +841,10 @@ position: absolute;
 inset-block-start: calc(100% + 0.25rem);
 inset-inline-end: 0;
 }`
-  const settingsForm4MenuPath = 'hbar-ui/packages/lumen-app-ui/src/settings-form-4-reference.css'
+  const settingsForm4MenuPath = 'packages/lumen-app-ui/src/settings-form-4-reference.css'
   if (
     validateCss(settingsForm4MenuPath, settingsForm4Menu).length ||
-    validateCss('hbar-ui/packages/lumen-app-ui/src/other.css', settingsForm4Menu).length === 0 ||
+    validateCss('packages/lumen-app-ui/src/other.css', settingsForm4Menu).length === 0 ||
     validateCss(
       settingsForm4MenuPath,
       settingsForm4Menu.replace('lumen-settings-form-4-menu {', 'lumen-settings-form-4-menu > button {'),
@@ -878,14 +878,14 @@ inset-inline-end: 0;
   const imageRemove =
     '.lumen-image-tile > .lumen-image-tile-remove-overlay { position: absolute; inset-block-start: 0; inset-inline-end: 0; }'
   if (
-    validateCss('hbar-ui/packages/lumen-app-ui/src/image-gallery.css', imageRemove).length ||
-    validateCss('hbar-ui/packages/lumen-app-ui/src/other.css', imageRemove).length === 0 ||
+    validateCss('packages/lumen-app-ui/src/image-gallery.css', imageRemove).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', imageRemove).length === 0 ||
     validateCss(
-      'hbar-ui/packages/lumen-app-ui/src/image-gallery.css',
+      'packages/lumen-app-ui/src/image-gallery.css',
       imageRemove.replace('remove-overlay {', 'remove-overlay span {'),
     ).length === 0 ||
-    validateCss('hbar-ui/packages/lumen-app-ui/src/image-gallery.css', imageRemove.replace('remove-overlay', 'open'))
-      .length === 0
+    validateCss('packages/lumen-app-ui/src/image-gallery.css', imageRemove.replace('remove-overlay', 'open')).length ===
+      0
   )
     throw new Error('Image remove overlay exception must be exact, path-scoped and exclude its content')
   const authReveal =

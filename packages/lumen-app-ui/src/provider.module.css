@@ -1,0 +1,22 @@
+.provider {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  color: var(--lumen-ink);
+  transition: color var(--lumen-motion-duration, 260ms) var(--lumen-motion-easing, ease);
+  font-size: var(--lumen-font-size);
+}
+
+.provider[data-lumen-motion='off'] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .provider {
+    transition: none;
+  }
+}

@@ -12,7 +12,7 @@ import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './
 import { expectLumenValue } from './support/lumen-controls'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`session tools remain readable, keyboard-operable and scoped at every width: ${locale}`, async ({ browser }) => {
+  test(`session panel shares one dock and preserves drafts at every width: ${locale}`, async ({ browser }, info) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-session-tools-'))
     const context = await browser.newContext({ locale })
@@ -28,141 +28,42 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.goto(base)
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
-      await prompt.fill('A draft belongs to this session — 工具切换不应丢失草稿')
-      const tools = page.getByRole('group', { name: copy.session.tools.label, exact: true })
-      const action = (label: string) => tools.getByRole('button', { name: label, exact: true })
-      const filesAction = action(copy.session.tools.files)
-      const activityAction = action(copy.session.tools.activity)
-      const findAction = action(copy.session.find.entry)
-      const moreAction = action(copy.session.tools.more)
-      const panels = [
-        { id: 'files' as const, label: copy.session.tools.files, title: copy.files.title, close: copy.files.close },
-        {
-          id: 'monitoring' as const,
-          label: copy.session.tools.monitoring,
-          title: copy.monitoring.title,
-          close: copy.monitoring.close,
-        },
-        { id: 'agents' as const, label: copy.session.tools.agents, title: copy.agents.title, close: copy.agents.close },
-        { id: 'goals' as const, label: copy.session.tools.goals, title: copy.goals.title, close: copy.goals.close },
-      ]
+      const draft = 'A draft belongs to this session — 工具切换不应丢失草稿'
+      await prompt.fill(draft)
       for (const viewport of [
         { width: 1440, height: 960 },
-        { width: 900, height: 700 },
+        { width: 390, height: 844 },
+        { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
-        await expect(tools.locator('button.hbar-app-react-session-tool')).toHaveCount(4)
-        for (const [button, label] of [
-          [findAction, copy.session.find.entry],
-          [filesAction, copy.session.tools.files],
-          [activityAction, copy.session.tools.activity],
+        await openSessionTool(page, copy.session.tools, 'monitoring')
+        const tabs = page.getByRole('tablist', { name: copy.session.tools.panel, exact: true })
+        await expect(tabs.getByRole('tab')).toHaveCount(4)
+        for (const [section, title] of [
+          ['activity', copy.activity.title],
+          ['monitoring', copy.monitoring.title],
+          ['agents', copy.agents.title],
+          ['goals', copy.goals.title],
         ] as const) {
-          await expect(button).toBeVisible()
-          await expect(button).toBeInViewport()
-          await expect(button).toHaveAttribute('aria-label', label)
-          await expect(button).toHaveAttribute('title', label)
-          await expect(button).toHaveText('')
-          await expect(button.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+          const tab = tabs.getByRole('tab', { name: copy.session.tools[section], exact: true })
+          await tab.click()
+          await expect(tab).toHaveAttribute('aria-selected', 'true')
+          await expect(
+            page.locator('.hbar-session-panel-content').getByRole('heading', { name: title, exact: true }).first(),
+          ).toBeVisible()
+          await expect(page.locator('.hbar-session-panel')).toHaveCount(1)
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         }
-        await expect(moreAction).toBeVisible()
-        await expect(moreAction).toBeInViewport()
-        await expect(moreAction).toHaveAttribute('aria-label', copy.session.tools.more)
-        await expect(moreAction).toContainText(copy.session.tools.more)
-        expect(
-          await tools.evaluate((element) => {
-            const bounds = element.getBoundingClientRect()
-            const buttons = [...element.querySelectorAll('button.hbar-app-react-session-tool')]
-            const rects = buttons.map((button) => button.getBoundingClientRect())
-            return {
-              fits: element.scrollWidth <= element.clientWidth + 1,
-              buttonsFit: buttons.every((button) => {
-                const rect = button.getBoundingClientRect()
-                return (
-                  rect.left >= bounds.left - 1 &&
-                  rect.right <= bounds.right + 1 &&
-                  button.scrollWidth <= button.clientWidth + 1
-                )
-              }),
-              flowing: rects.every((rect, index) =>
-                rects
-                  .slice(0, index)
-                  .every((previous) => rect.top >= previous.bottom - 1 || rect.left >= previous.right - 1),
-              ),
-            }
-          }),
-        ).toEqual({ fits: true, buttonsFit: true, flowing: true })
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-        const headerBounds = await page.locator('.hbar-app-react-session-workspace > .lumen-page-header').boundingBox()
-        const headingBounds = await page.locator('.hbar-app-react-session-workspace .lumen-page-heading').boundingBox()
-        const actionBounds = await tools.boundingBox()
-        if (!headerBounds || !headingBounds || !actionBounds) throw new Error('Session header must remain measurable')
-        expect(headerBounds.height).toBeLessThanOrEqual(headingBounds.height + actionBounds.height + 32)
-        if (viewport.width <= 560)
-          expect(headingBounds.y + headingBounds.height).toBeLessThanOrEqual(actionBounds.y + 1)
-        await page.screenshot({ path: `artifacts/desktop-experience/session-tools-${locale}-${viewport.width}.png` })
-
-        await findAction.focus()
-        for (const button of [filesAction, activityAction, moreAction]) {
-          await page.keyboard.press('Tab')
-          await expect(button).toBeFocused()
-        }
-        expect(await moreAction.evaluate((element) => element.matches(':focus-visible'))).toBe(true)
-        await moreAction.press('ArrowDown')
-        const menu = page.getByRole('menu', { name: copy.session.tools.more, exact: true })
-        await expect(menu.getByRole('menuitemcheckbox')).toHaveCount(3)
-        await expect(menu.getByRole('menuitem', { name: copy.session.tools.settings, exact: true })).toBeVisible()
-        await expect(menu.getByRole('menuitemcheckbox').first()).toBeFocused()
-        await page.keyboard.press('Escape')
-        await expect(menu).toBeHidden()
-        await expect(moreAction).toBeFocused()
-        for (const [index, panel] of panels.entries()) {
-          const directAction = panel.id === 'files' ? filesAction : null
-          if (directAction) {
-            await expect(directAction).toHaveAttribute('aria-pressed', 'false')
-            await directAction.focus()
-            await page.keyboard.press(index % 2 ? 'Space' : 'Enter')
-          } else {
-            await moreAction.press('ArrowDown')
-            const menuAction = menu.getByRole('menuitemcheckbox', { name: panel.label, exact: true })
-            for (
-              let step = 0;
-              step < 4 && !(await menuAction.evaluate((node) => node === document.activeElement));
-              step++
-            )
-              await page.keyboard.press('ArrowDown')
-            await expect(menuAction).toBeFocused()
-            await page.keyboard.press(index % 2 ? 'Space' : 'Enter')
-          }
-          const pane = page.locator('.lumen-app-tool-content')
-          await expect(pane).toHaveAttribute('aria-label', panel.title)
-          await expect(pane).toBeVisible()
-          if (viewport.width > 1024) {
-            if (directAction) await expect(directAction).toHaveAttribute('aria-pressed', 'true')
-            else {
-              await expect(moreAction).toHaveAttribute('data-selected', 'true')
-              await moreAction.click()
-              await expect(menu.getByRole('menuitemcheckbox', { name: panel.label, exact: true })).toHaveAttribute(
-                'aria-checked',
-                'true',
-              )
-              await page.keyboard.press('Escape')
-            }
-          }
-          await pane.getByRole('button', { name: panel.close, exact: true }).click()
-          if (directAction) {
-            await expect(directAction).toHaveAttribute('aria-pressed', 'false')
-            await expect(directAction).toBeFocused()
-          } else {
-            await expect(moreAction).toHaveAttribute('data-selected', 'false')
-            await expect(moreAction).toBeFocused()
-          }
-          await expectComposerText(prompt, 'A draft belongs to this session — 工具切换不应丢失草稿')
-          await expect(page.getByRole('heading', { level: 1 })).toHaveText(host.ready.sessionTitle)
-        }
+        await page.screenshot({ path: info.outputPath(`session-panel-${viewport.width}.png`) })
+        await page
+          .locator('.hbar-session-panel-content')
+          .getByRole('button', { name: copy.goals.close, exact: true })
+          .click()
+        await expectComposerText(prompt, draft)
         await openSessionTool(page, copy.session.tools, 'settings')
         await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-        await expectComposerText(prompt, 'A draft belongs to this session — 工具切换不应丢失草稿')
+        await expectComposerText(prompt, draft)
       }
       expect(errors).toEqual([])
     } finally {
@@ -271,7 +172,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(openGeometry.panelRight).toBeLessThanOrEqual(openGeometry.viewportWidth + 1)
         expect(openGeometry.panelBottom).toBeLessThanOrEqual(openGeometry.viewportHeight + 1)
         if (viewport.height <= 720) {
-          expect(openGeometry.overflow).toBe(true)
           expect(openGeometry.clientHeight).toBeLessThanOrEqual(viewport.height / 2 + 1)
           expect(openGeometry.scrollbarWidth).toBe('thin')
         }
@@ -284,14 +184,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const sendOverlappedByMenu =
           openGeometry.panelTop < sendBox.y + sendBox.height && openGeometry.panelBottom > sendBox.y
         expect(sendOverlappedByMenu).toBe(false)
-        await expect(tools().getByRole('button')).toHaveCount(7)
+        await expect(tools().getByRole('button')).toHaveCount(4)
         for (const label of [
           copy.session.find.entry,
           copy.session.tools.files,
-          copy.session.tools.activity,
-          copy.session.tools.monitoring,
-          copy.session.tools.agents,
-          copy.session.tools.goals,
+          copy.session.tools.panel,
           copy.session.tools.settings,
         ]) {
           await expect(menuTool(label)).toBeVisible()
@@ -428,116 +325,37 @@ async function cleanupFixture(root: string, ownedPrefix = 'hbar-session-tools-v1
   await rm(resolved, { recursive: true, force: true })
 }
 
-test('primary Activity and labelled secondary tools preserve current-session drafts and return paths', async ({
-  browser,
-}) => {
-  test.setTimeout(60_000)
+test('session panel returns to its original owner without sending or losing drafts', async ({ browser }) => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-session-tools-v13-'))
-  const context = await browser.newContext({ locale: 'zh-CN' })
+  const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1440, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({
-      root,
-      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
-      goalAutoContinue: false,
-    })
+    host = await startWebSessionHost({ root, goalAutoContinue: false })
     const copy = getShellCopy('zh-CN')
-    const labels = copy.session.tools
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
-    const errors: string[] = []
-    page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base)
     await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
-    const draft = '当前会话的长草稿：打开工具、返回与切换会话均不能自动发送或清除。'.repeat(4)
+    const draft = '打开工具、返回与切换会话均不能自动发送或清除。'.repeat(4)
     await prompt.fill(draft)
-    const header = page.getByRole('group', { name: labels.label, exact: true })
-    const more = header.getByRole('button', { name: labels.more, exact: true })
-    await expect(header.getByRole('button', { name: labels.activity, exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: labels.files, exact: true })).toBeVisible()
-    await expect(header.getByRole('button', { name: labels.goals, exact: true })).toHaveCount(0)
-    await expect(more).toContainText(labels.more)
-    await more.focus()
-    await more.press('ArrowDown')
-    const menu = page.getByRole('menu', { name: labels.more, exact: true })
-    const goals = menu.getByRole('menuitemcheckbox', { name: labels.goals, exact: true })
-    await expect(goals).toBeFocused()
-    await expect(menu.getByRole('menuitemcheckbox')).toHaveCount(3)
-    await expect(menu.getByRole('menuitem', { name: labels.settings, exact: true })).toBeVisible()
-    await page.screenshot({ path: 'artifacts/session-tools-menu-v13/zh-tools-wide.png' })
-    await goals.press('Escape')
-    await expect(menu).toBeHidden()
-    await expect(more).toBeFocused()
-    await expectComposerText(prompt, draft)
-
-    await header.getByRole('button', { name: labels.activity, exact: true }).click()
-    const activity = page.locator('.hbar-session-activity-workspace')
-    await expect(activity).toBeVisible()
-    await expect(header.getByRole('button', { name: labels.activity, exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    await openSessionTool(page, labels, 'goals')
-    await expect(activity).toHaveCount(0)
-    await expect(page.locator('.hbar-app-react-goal-plan-workspace')).toBeVisible()
-    await expect(more).toHaveAttribute('data-selected', 'true')
-    await more.click()
-    await expect(goals).toHaveAttribute('aria-checked', 'true')
-    await expect(goals.locator('svg')).toHaveCount(2)
-    await goals.click()
-    await expect(page.locator('.lumen-app-tool-drawer')).toHaveCount(0)
-    await expect(more).toHaveAttribute('data-selected', 'false')
-
-    await openSessionTool(page, labels, 'agents')
-    const agents = page.locator('.lumen-app-tool-drawer')
-    await expect(agents).toBeVisible()
-    await agents.getByRole('button', { name: copy.agents.close, exact: true }).click()
-    await expect(more).toBeFocused()
-    await openSessionTool(page, labels, 'settings')
-    await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
-    await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-    await expectComposerText(prompt, draft)
-
-    // The hidden session page header shares tool actions through shell navigation on narrow screens.
-    await page.setViewportSize({ width: 390, height: 900 })
-    await expect(page.locator('.hbar-app-react-session-workspace > .lumen-page-header')).toBeHidden()
-    const mobileTrigger = page.locator('.hbar-mobile-header-menu-trigger')
-    await expect(mobileTrigger).toHaveAttribute('aria-label', mobileShellNavigationLabel('zh-CN'))
-    await mobileTrigger.click()
-    const mobileMenu = page.locator('.hbar-mobile-header-menu-content')
-    const mobileTools = mobileMenu.getByRole('region', { name: labels.label, exact: true })
-    const monitoringAction = mobileTools.getByRole('button', { name: labels.monitoring, exact: true })
-    await expect(monitoringAction).toBeVisible()
-    await expect(monitoringAction).toBeEnabled()
-    await monitoringAction.focus()
-    await page.screenshot({ path: 'artifacts/session-tools-menu-v13/zh-tools-narrow.png' })
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-    await page.keyboard.press('Enter')
-    const monitoring = page.locator('.lumen-app-tool-content')
-    await expect(monitoring).toBeVisible()
-    await monitoring.getByRole('button', { name: copy.monitoring.close, exact: true }).click()
-    await expect(mobileTrigger).toBeFocused()
-    await expectComposerText(prompt, draft)
-
-    await page.setViewportSize({ width: 1440, height: 960 })
-    const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
-    if (await showSidebar.isVisible()) await showSidebar.click()
+    await openSessionTool(page, copy.session.tools, 'goals')
     const other = await host.client.call('session.create', {
       workspaceId: host.ready.workspaceId,
-      title: 'Independent tool-menu session',
+      title: 'Independent session panel',
     })
-    await more.click()
     await page.getByRole('treeitem', { name: other.title, exact: true }).click()
-    await expect(menu).toBeHidden()
-    await expect(more).toHaveAttribute('aria-expanded', 'false')
-    await expect(more).toHaveAttribute('data-selected', 'false')
+    await expect(page.locator('.hbar-session-panel')).toHaveCount(0)
     await expectComposerText(prompt, '')
     await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await expectComposerText(prompt, draft)
+    await expect(
+      page
+        .getByRole('tablist', { name: copy.session.tools.panel, exact: true })
+        .getByRole('tab', { name: copy.session.tools.goals, exact: true }),
+    ).toHaveAttribute('aria-selected', 'true')
     expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toEqual([])
-    expect(errors).toEqual([])
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)

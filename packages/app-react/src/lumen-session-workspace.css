@@ -1,4 +1,6 @@
 .hbar-app-react-session-workspace {
+  container-name: session-workspace;
+  container-type: inline-size;
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
@@ -30,47 +32,47 @@
   display: none;
 }
 
-.hbar-app-react-session-workspace > .lumen-page-header {
+.hbar-app-react-session-workspace > [data-lumen-part~="page-header.root"] {
   min-block-size: 3.5rem;
   align-items: center;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   overflow: hidden;
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] {
   min-inline-size: 0;
   flex: 1 1 auto;
   overflow: hidden;
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading h1,
-.hbar-app-react-session-workspace .lumen-page-heading p {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] h1,
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] p {
   min-inline-size: 0;
   overflow-x: auto;
   text-overflow: clip;
   white-space: nowrap;
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading h1 {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] h1 {
   font-size: calc(var(--lumen-font-size) * 1.142857);
 }
 
-.hbar-app-react-session-workspace .lumen-page-heading p {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.heading"] p {
   font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
-.hbar-app-react-session-workspace .lumen-page-header-end,
-.hbar-app-react-session-workspace .lumen-page-actions {
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.end"],
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.actions"] {
   flex: 0 0 auto;
   max-inline-size: 100%;
   flex-wrap: nowrap;
 }
 
-.hbar-app-react-session-workspace .lumen-page-actions {
-  gap: 0.25rem;
+.hbar-app-react-session-workspace [data-lumen-part~="page-header.actions"] {
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-react-session-tool {
@@ -78,7 +80,7 @@
   min-block-size: 2rem;
   flex: 0 0 auto;
   justify-content: center;
-  padding: 8px;
+  padding: var(--lumen-space-8);
 }
 
 .hbar-app-react-session-tool[aria-pressed='true'] {
@@ -87,7 +89,7 @@
   font-weight: 600;
 }
 
-.hbar-app-react-session-main > .lumen-conversation {
+.hbar-app-react-session-main > [data-lumen-part~="conversation.root"] {
   gap: 0;
 }
 
@@ -96,20 +98,20 @@
   --hbar-session-reading-column-inline-gutter: 1rem;
 }
 
-.hbar-app-react-session-main .lumen-conversation-content {
+.hbar-app-react-session-main [data-lumen-part~="conversation.content"] {
   inline-size: min(100%, var(--hbar-session-reading-column-max-inline-size));
   padding-inline: var(--hbar-session-reading-column-inline-gutter);
 }
 
-.hbar-app-react-session-workspace .lumen-message-body > :first-child,
-.hbar-app-react-session-workspace .lumen-message-body > :first-child > :first-child,
-.hbar-app-react-session-workspace .lumen-message-body p {
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :first-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :first-child > :first-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] p {
   margin-block-start: 0;
 }
 
-.hbar-app-react-session-workspace .lumen-message-body > :last-child,
-.hbar-app-react-session-workspace .lumen-message-body > :last-child > :last-child,
-.hbar-app-react-session-workspace .lumen-message-body p:last-child {
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :last-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] > :last-child > :last-child,
+.hbar-app-react-session-workspace [data-lumen-part~="message.body"] p:last-child {
   margin-block-end: 0;
 }
 
@@ -122,15 +124,15 @@
 .hbar-app-react-thinking,
 .hbar-app-react-tool-block,
 .hbar-app-react-attachment-block {
-  margin-block: 0.5rem;
+  margin-block: var(--lumen-space-8);
 }
 
 .hbar-app-react-session-activity {
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
-  padding-block-start: 0.75rem;
+  gap: var(--lumen-space-12);
+  padding-block-start: var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -142,7 +144,7 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-react-session-history-controls,
@@ -154,12 +156,12 @@
   display: none;
 }
 
-.hbar-app-react-session-main .lumen-conversation-messages:has(.hbar-app-react-session-empty-hero) {
+.hbar-app-react-session-main [data-lumen-part~="conversation.messages"]:has(.hbar-app-react-session-empty-hero) {
   display: flex;
   flex-direction: column;
 }
 
-.hbar-app-react-session-main .lumen-conversation-content:has(> .hbar-app-react-session-empty-hero) {
+.hbar-app-react-session-main [data-lumen-part~="conversation.content"]:has(> .hbar-app-react-session-empty-hero) {
   flex: 1 0 auto;
   align-items: center;
   justify-content: safe center;
@@ -172,8 +174,8 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  padding-block: 2rem;
+  gap: var(--lumen-space-12);
+  padding-block: var(--lumen-space-32);
   text-align: center;
 }
 
@@ -181,7 +183,7 @@
   display: block;
   inline-size: 4.5rem;
   block-size: 4.5rem;
-  border-radius: 1rem;
+  border-radius: var(--lumen-radius-panel);
   background-color: var(--lumen-reading);
   background-position: center;
   background-repeat: no-repeat;
@@ -206,7 +208,7 @@
 
 @media (max-height: 40rem) {
   .hbar-app-react-session-empty-hero {
-    gap: 0.25rem;
+    gap: var(--lumen-space-4);
     padding-block: 0;
   }
 
@@ -246,32 +248,32 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   margin-inline: auto;
-  padding: 0.5rem var(--hbar-session-reading-column-inline-gutter) 1rem;
+  padding: var(--lumen-space-8) var(--hbar-session-reading-column-inline-gutter) var(--lumen-space-16);
   overflow: hidden;
   container-name: session-project-context;
   container-type: inline-size;
 }
 
-.hbar-app-react-session-footer .lumen-prompt-composer-surface {
+.hbar-app-react-session-footer [data-lumen-part~="composer.surface"] {
   outline: 0.0625rem solid var(--lumen-edge);
   outline-offset: -0.0625rem;
 }
 
-.hbar-app-react-session-footer .lumen-prompt-composer-surface:focus-within {
+.hbar-app-react-session-footer [data-lumen-part~="composer.surface"]:focus-within {
   outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 42%, transparent);
   outline-offset: -0.125rem;
 }
 
 @media (forced-colors: active) {
-  .hbar-app-react-session-footer .lumen-prompt-composer-surface:focus-within {
+  .hbar-app-react-session-footer [data-lumen-part~="composer.surface"]:focus-within {
     outline: 0.125rem solid CanvasText;
     outline-offset: -0.125rem;
   }
 }
 
-.hbar-app-react-session-footer .lumen-composer-toolbar > :last-child {
+.hbar-app-react-session-footer [data-lumen-part~="composer.toolbar"] > :last-child {
   min-inline-size: 0;
 }
 
@@ -279,7 +281,7 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-session-composer-controls {
@@ -287,7 +289,7 @@
   flex: 0 0 auto;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-composer-goal-confirmation {
@@ -296,10 +298,10 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-reading);
 }
 
@@ -314,7 +316,7 @@
 .hbar-composer-goal-confirmation-actions {
   display: flex;
   flex: 0 0 auto;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-session-composer-options > .hbar-composer-model-picker {
@@ -334,11 +336,11 @@
   min-inline-size: 0;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-session-execution-notice {
-  padding-block: 0.25rem;
+  padding-block: var(--lumen-space-4);
   color: var(--lumen-muted);
   font-size: calc(var(--lumen-font-size) * 0.928571);
 
@@ -357,7 +359,7 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-session-execution-summary > .lumen-icon {
+.hbar-session-execution-summary > [data-lumen-part~="icon"] {
   flex: 0 0 auto;
 }
 
@@ -376,40 +378,40 @@
   white-space: nowrap;
 }
 
-@media (max-width: 35rem) {
-  .hbar-app-react-session-workspace {
+@container session-workspace (width < 40rem) {
+  .hbar-app-react-session-workspace > .hbar-app-react-session-main {
     --hbar-session-reading-column-inline-gutter: 0.75rem;
   }
 
-  .hbar-app-react-session-workspace > .lumen-page-header {
+  .hbar-app-react-session-workspace > [data-lumen-part~="page-header.root"] {
     flex-wrap: wrap;
   }
 
-  .hbar-app-react-session-workspace .lumen-page-header-end {
+  .hbar-app-react-session-workspace [data-lumen-part~="page-header.end"] {
     max-inline-size: 100%;
     inline-size: 100%;
     align-items: flex-end;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--lumen-space-4);
   }
 
-  .hbar-app-react-session-workspace .lumen-page-actions {
+  .hbar-app-react-session-workspace [data-lumen-part~="page-header.actions"] {
     justify-content: flex-end;
     flex-wrap: wrap;
   }
 
-  .hbar-app-react-session-workspace .lumen-page-header-end > .lumen-status {
+  .hbar-app-react-session-workspace [data-lumen-part~="page-header.end"] > [data-lumen-part~="status"] {
     max-inline-size: 100%;
     overflow-wrap: anywhere;
   }
 
   .hbar-app-react-session-footer {
-    padding: 0.25rem 0.75rem 0.75rem;
+    padding: var(--lumen-space-4) var(--lumen-space-12) var(--lumen-space-12);
   }
 }
 
-@media (max-width: 47.9375rem) {
-  .hbar-app-react-session-workspace > .lumen-page-header {
+@container session-workspace (width < 48rem) {
+  .hbar-app-react-session-workspace > [data-lumen-part~="page-header.root"] {
     display: none;
   }
 }

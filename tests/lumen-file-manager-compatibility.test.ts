@@ -1,15 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenFileDocument,
-  LumenFileManager01,
-  LumenFileManager04,
-  LumenFileManagerProvider,
-  LumenWorkspaceFiles,
-  selectLumenFileManagerItem,
-  uniqueLumenFileManagerItems,
-} from '@lumen/app-ui'
+import { LumenFileDocument, LumenFileManager01, LumenWorkspaceFiles } from '@lumen/app-ui'
+import { LumenFileManager04, LumenFileManagerProvider, selectLumenFileManagerItem, uniqueLumenFileManagerItems } from '@lumen/app-ui/catalog'
 import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiFileManagerProvider,

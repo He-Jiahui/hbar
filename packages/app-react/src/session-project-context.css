@@ -4,13 +4,13 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   white-space: nowrap;
 }
 
 .hbar-session-project-context {
   align-self: flex-start;
-  padding: 0.35rem 0.55rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-frost);
@@ -57,11 +57,12 @@
   display: flex;
 }
 
-.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]):has(
-    .lumen-composer-toolbar > button[aria-expanded='true']
+.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]):has([data-lumen-part~="composer.toolbar"] > button[aria-expanded='true']
   )
   .hbar-session-project-context-below {
-  display: none;
+  /* Keep the row in flow while its duplicate is disclosed in More. Closing
+     More on pointerdown must not move the send button before pointerup. */
+  visibility: hidden;
 }
 
 .hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-toolbar {
@@ -72,12 +73,13 @@
   display: flex;
 }
 
-@container session-project-context (max-width: 44rem) {
+@container session-project-context (width < 48rem) {
   .hbar-session-project-context-toolbar {
     display: none;
   }
 
   .hbar-session-project-context-below {
     display: flex;
+    visibility: visible;
   }
 }

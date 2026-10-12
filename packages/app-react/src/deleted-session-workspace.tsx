@@ -12,13 +12,27 @@ import { HbarPromptComposer } from './prompt-composer'
 import { HbarComposerAttachmentTransfers } from './composer-attachments'
 import { HbarComposerWorkspaceContexts } from './composer-workspace-contexts'
 import { HbarDraftImageAttachments } from './session-images'
-import type { HbarSessionWorkspaceProps } from './lumen-session-workspace'
+import type { HbarSessionWorkspaceProps } from './session-workspace-contract'
+import {
+  SessionComposerMessagesProvider,
+  sessionComposerMessages,
+  useSessionComposerMessages,
+} from './session-workspace-messages'
 
 /** A confirmed deleted target owns no Host history or execution controls; its authored draft remains editable. */
-export function HbarDeletedSessionWorkspace({
+export function HbarDeletedSessionWorkspace(props: HbarSessionWorkspaceProps & { readonly sessionId: string }) {
+  return (
+    <SessionComposerMessagesProvider messages={sessionComposerMessages(props.labels)}>
+      <DeletedSessionWorkspaceContent {...props} />
+    </SessionComposerMessagesProvider>
+  )
+}
+
+function DeletedSessionWorkspaceContent({
   sessionId,
   ...props
-}: HbarSessionWorkspaceProps & { readonly sessionId: string }) {
+}: Omit<HbarSessionWorkspaceProps, 'labels'> & { readonly sessionId: string }) {
+  const { t } = useSessionComposerMessages()
   const runtime = useHbarRuntime()
   const drafts = useHbarRuntimeState(runtime.state.drafts)
   const draft = drafts[sessionId]
@@ -57,8 +71,8 @@ export function HbarDeletedSessionWorkspace({
       <HbarPromptComposer
         boundary="none"
         value={draft?.text ?? ''}
-        labels={props.labels.prompt}
-        feedbackLabels={props.labels.composerFeedback}
+        labels={t('prompt')}
+        feedbackLabels={t('composerFeedback')}
         editor={({ value, inputLabel, placeholder, disabled, onChange }) => (
           <LumenTextarea
             aria-label={inputLabel}
@@ -80,9 +94,9 @@ export function HbarDeletedSessionWorkspace({
               <HbarComposerWorkspaceContexts
                 contexts={contexts}
                 attachments={props.images ? [] : draft.attachments}
-                labels={props.labels.workspaceContexts}
+                labels={t('workspaceContexts')}
                 removeAttachmentLabel={(attachment) =>
-                  props.labels.prompt.removeAttachment({
+                  t('prompt').removeAttachment({
                     id: attachment.artifact.id,
                     kind: attachment.kind,
                     name: attachment.artifact.name,
@@ -103,7 +117,7 @@ export function HbarDeletedSessionWorkspace({
               {props.images && draft.attachments.length > 0 && (
                 <HbarDraftImageAttachments
                   draft={draft}
-                  removeLabel={props.labels.prompt.removeAttachment}
+                  removeLabel={t('prompt').removeAttachment}
                   removeDisabled={locked}
                   onRemove={removeAttachment}
                 />
@@ -114,7 +128,7 @@ export function HbarDeletedSessionWorkspace({
         context={
           <HbarComposerAttachmentTransfers
             transfers={draft?.attachmentTransfers ?? []}
-            labels={props.labels.attachments}
+            labels={t('attachments')}
             connected={props.connected}
             onRemove={(item) =>
               invoke(
@@ -151,7 +165,7 @@ export function HbarDeletedSessionWorkspace({
         canSubmit={false}
         canStop={false}
         canAddAttachments={false}
-        error={error ? props.labels.error(error) : undefined}
+        error={error ? t('error')(error) : undefined}
         onChange={(text) => invoke(runtime.commands.execute('draft.setText', { sessionId, text }))}
         onRemoveAttachment={removeAttachment}
         onSubmit={() => {}}
@@ -168,13 +182,13 @@ export function HbarDeletedSessionWorkspace({
           controlled={{
             body: (
               <LumenConversation
-                title={props.labels.conversationTitle(props.sessionTitle)}
+                title={t('conversationTitle')(props.sessionTitle)}
                 header={null}
                 messages={[]}
                 empty={
                   <LumenFrame className="hbar-app-react-session-empty">
                     <LumenContentText context="feedback.message" role="status">
-                      {props.labels.error('SESSION_DELETED')}
+                      {t('error')('SESSION_DELETED')}
                     </LumenContentText>
                   </LumenFrame>
                 }

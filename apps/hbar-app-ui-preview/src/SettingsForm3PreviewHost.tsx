@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenSettingsFormProvider,
-  useLumenSettingsFormContent,
-  type LumenSettingsForm3Content,
-  type LumenSettingsFormContent,
-} from '@lumen/app-ui'
+import { LumenSettingsFormProvider, useLumenSettingsFormContent, type LumenSettingsForm3Content, type LumenSettingsFormContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createSettingsForm3PreviewStore } from './settingsForm3PreviewStore'
 import type { SettingsForm3PreviewContent, SettingsForm3PreviewFixture } from './settingsForm3PreviewFixtures'

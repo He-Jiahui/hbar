@@ -56,7 +56,7 @@ test('production source uses typed popup controls and leaves native select only 
   expect(joined).not.toContain('LumenSelect')
   expect(joined).not.toMatch(/<select\b/)
 
-  const popupSelect = await source('hbar-ui/packages/lumen-app-ui/src/popup-select.tsx')
+  const popupSelect = await source('packages/lumen-app-ui/src/popup-select.tsx')
   expect(popupSelect).toMatch(/export const LumenPopupSelect\b/)
   expect(popupSelect).toMatch(/aria-controls=/)
   expect(popupSelect).toMatch(/data-value=/)

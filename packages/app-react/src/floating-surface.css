@@ -1,16 +1,16 @@
 .hbar-floating-surface {
   /* Geometry, portal, chrome and dismissal belong to LumenFloatingSurface. */
   margin: 0;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   text-align: start;
 }
 .hbar-floating-surface::backdrop {
   -webkit-backdrop-filter: blur(var(--lumen-floating-blur, 1.2rem));
   backdrop-filter: blur(var(--lumen-floating-blur, 1.2rem));
 }
-@media (max-width: 40rem) and (pointer: coarse) {
+@media (width < 40rem) and (pointer: coarse) {
   .hbar-floating-surface:not(.hbar-floating-completion) {
-    padding: 1rem;
+    padding: var(--lumen-space-16);
   }
 }
 

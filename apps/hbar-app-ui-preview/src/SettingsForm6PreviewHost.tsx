@@ -1,11 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenSettingsFormProvider,
-  useLumenSettingsFormContent,
-  type LumenSettingsForm6ReferenceProps,
-  type LumenSettingsFormContent,
-} from '@lumen/app-ui'
+import { LumenSettingsFormProvider, useLumenSettingsFormContent, type LumenSettingsForm6ReferenceProps, type LumenSettingsFormContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createSettingsForm6PreviewStore, type SettingsForm6PreviewAction } from './settingsForm6PreviewStore'
 import type { SettingsForm6PreviewFixture } from './settingsForm6PreviewFixtures'

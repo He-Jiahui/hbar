@@ -1,29 +1,12 @@
-import {
-  LumenAppShellWorkflows,
-  LumenAppShellWorkflowsProvider as HbarAppUiAppShellProvider,
-  type LumenAppShellContent,
-} from '@lumen/app-ui'
+import { LumenAppShellWorkflows, LumenAppShellWorkflowsProvider as HbarAppUiAppShellProvider, type LumenAppShellContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiAppShellProps = HbarAppUiVariantProps & {
   readonly appShellContent?: LumenAppShellContent | undefined
 }
 export { HbarAppUiAppShellProvider }
-export {
-  selectLumenAppShellItem as selectHbarAppUiAppShellItem,
-  uniqueLumenAppShellItems as uniqueHbarAppUiAppShellItems,
-  useLumenAppShellWorkflowsContent as useHbarAppUiAppShellContent,
-} from '@lumen/app-ui'
-export type {
-  LumenAppShellChoice as HbarAppUiAppShellChoice,
-  LumenAppShellContent as HbarAppUiAppShellContent,
-  LumenAppShellListStrategy as HbarAppUiAppShellListStrategy,
-  LumenAppShellMetric as HbarAppUiAppShellMetric,
-  LumenAppShellRecord as HbarAppUiAppShellRecord,
-  LumenAppShellScope as HbarAppUiAppShellScope,
-  LumenAppShellWorkflowAction as HbarAppUiAppShellAction,
-  LumenAppShellWorkflowsProviderProps as HbarAppUiAppShellProviderProps,
-} from '@lumen/app-ui'
+export { selectLumenAppShellItem as selectHbarAppUiAppShellItem, uniqueLumenAppShellItems as uniqueHbarAppUiAppShellItems, useLumenAppShellWorkflowsContent as useHbarAppUiAppShellContent } from '@lumen/app-ui/catalog'
+export type { LumenAppShellChoice as HbarAppUiAppShellChoice, LumenAppShellContent as HbarAppUiAppShellContent, LumenAppShellListStrategy as HbarAppUiAppShellListStrategy, LumenAppShellMetric as HbarAppUiAppShellMetric, LumenAppShellRecord as HbarAppUiAppShellRecord, LumenAppShellScope as HbarAppUiAppShellScope, LumenAppShellWorkflowAction as HbarAppUiAppShellAction, LumenAppShellWorkflowsProviderProps as HbarAppUiAppShellProviderProps } from '@lumen/app-ui/catalog'
 
 export function AppShell({ spec, onAction, appShellContent, className }: HbarAppUiAppShellProps) {
   return (

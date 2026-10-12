@@ -1,0 +1,336 @@
+.lumen-comments-surface:has(> .lumen-comments-composer-reference) {
+  border: 0;
+  border-radius: 0;
+  background: light-dark(#fff, #0a0a0a);
+  box-shadow: none;
+}
+.lumen-comments.lumen-comments-composer-reference {
+  align-items: center;
+  justify-content: safe center;
+  padding: 2rem;
+  overflow: auto;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #f5f5f5);
+}
+.lumen-comments-composer-layout {
+  --lumen-muted: #737373;
+  display: flex;
+  inline-size: min(38.75rem, 100%);
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  font:
+    400 0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-comments-composer-layout header {
+  margin-block-end: 0.75rem;
+}
+.lumen-comments-composer-layout h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.lumen-comments-composer-layout header p {
+  margin-block-start: 0.125rem;
+  color: var(--lumen-muted);
+}
+.lumen-comments-composer-box {
+  position: relative;
+  min-inline-size: 0;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.875rem;
+  padding: 0.75rem;
+  background: light-dark(#fff, #171717);
+}
+.lumen-comments-composer-input-row {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.75rem;
+}
+.lumen-comments-composer-avatar {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+.lumen-comments-composer-avatar.is-editor {
+  inline-size: 2rem;
+  block-size: 2rem;
+  font-size: 0.75rem;
+}
+.lumen-comments-composer-avatar.is-option {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  font-size: 0.625rem;
+}
+.lumen-comments-composer-editor {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.lumen-comments-composer-label {
+  display: block;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.lumen-comments-composer-editor textarea.lumen-control {
+  display: inline-block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  overflow: auto;
+  background: transparent;
+  color: inherit;
+  font:
+    400 0.8125rem/1.625 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  resize: none;
+  box-shadow: none;
+}
+.lumen-comments-composer-attachments {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-block-start: 0.25rem;
+}
+.lumen-comments-composer-attachments[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 8rem;
+  overflow: auto;
+}
+.lumen-comments-composer-attachment {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-block-size: 1.75rem;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.5rem;
+  padding-inline: 0.5rem 0.25rem;
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.lumen-comments-composer-attachment > span {
+  min-inline-size: 0;
+  max-inline-size: 8.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-comments-composer-layout button {
+  font: inherit;
+  cursor: pointer;
+}
+.lumen-comments-composer-icon {
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lumen-comments-composer-attachment .lumen-comments-composer-icon {
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
+}
+.lumen-comments-composer-attachment > button {
+  display: flex;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.25rem;
+  padding: 0;
+  background: transparent;
+  color: light-dark(#a3a3a3, #737373);
+}
+.lumen-comments-composer-toolbar {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-start: 0.5rem;
+}
+.lumen-comments-composer-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.125rem;
+}
+.lumen-comments-composer-tools > button {
+  display: flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0;
+  background: transparent;
+  color: var(--lumen-muted);
+}
+.lumen-comments-composer-tools > button:hover,
+.lumen-comments-composer-attachment > button:hover {
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#171717, #f5f5f5);
+}
+.lumen-comments-composer-submit {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+.lumen-comments-composer-submit > span {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-comments-composer-submit > button {
+  min-block-size: 2rem;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: light-dark(#171717, #f5f5f5);
+  color: light-dark(#fff, #171717);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.lumen-comments-composer-submit > button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.lumen-comments-composer-mention-menu {
+  position: absolute;
+  z-index: 10;
+  inset-block-start: calc(100% - 0.375rem);
+  inset-inline-start: 3.25rem;
+  inline-size: 16.25rem;
+  max-inline-size: calc(100% - 3.25rem);
+  max-block-size: 12.5rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0.0625rem solid light-dark(#e5e5e5, #404040);
+  border-radius: 0.625rem;
+  padding: 0.25rem;
+  background: light-dark(#fff, #171717);
+  box-shadow: 0 0.75rem 2rem -0.5rem rgb(0 0 0 / 18%);
+}
+.lumen-comments-composer-mention-menu > button {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+.lumen-comments-composer-mention-menu > button:is([aria-selected='true'], :hover) {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-comments-composer-option-text {
+  display: block;
+  min-inline-size: 0;
+}
+.lumen-comments-composer-option-text > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-comments-composer-option-text > span:last-child {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.lumen-comments-composer-history {
+  min-inline-size: 0;
+  margin-block-start: 1rem;
+}
+.lumen-comments-composer-history > p {
+  margin: 0 0.25rem 0.5rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-comments-composer-message-frame {
+  min-inline-size: 0;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 1rem;
+  padding: 0.25rem;
+  background: light-dark(#fafafa, #171717);
+}
+.lumen-comments-composer-messages {
+  min-inline-size: 0;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 0.75rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-comments-composer-messages[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 20rem;
+}
+.lumen-comments-composer-messages article {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+}
+.lumen-comments-composer-messages article > div {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+.lumen-comments-composer-byline {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.lumen-comments-composer-byline > span {
+  margin-inline-start: 0.5rem;
+  color: var(--lumen-muted);
+  font-weight: 400;
+}
+.lumen-comments-composer-messages article > div > p:last-child {
+  margin-block-start: 0.25rem;
+  color: light-dark(#404040, #d4d4d4);
+  line-height: 1.625;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 40rem) {
+  .lumen-comments.lumen-comments-composer-reference {
+    padding-inline: 1.5rem;
+  }
+  .lumen-comments-composer-messages[data-hbar-app-ui-list-strategy='pane-scroll'] {
+    max-block-size: 12.5rem;
+  }
+  .lumen-comments-composer-submit > span {
+    display: none;
+  }
+}

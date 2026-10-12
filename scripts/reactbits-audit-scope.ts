@@ -1,7 +1,7 @@
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import ts from 'typescript'
 
-const lumenRoot = resolve('hbar-ui/packages/lumen-app-ui/src')
+const lumenRoot = resolve('packages/lumen-app-ui/src')
 
 /** Follow the selected rendered family's relative module dependencies.
  * Global styles/registries and host inputs are retained separately by the caller. */

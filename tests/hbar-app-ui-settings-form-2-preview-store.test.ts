@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenSettingsForm02, LumenSettingsFormProvider, type LumenSettingsForm2ViewModel } from '@lumen/app-ui'
+import { LumenSettingsForm02, LumenSettingsFormProvider, type LumenSettingsForm2ViewModel } from '@lumen/app-ui/catalog'
 import { SettingsForm2PreviewHost } from '../apps/hbar-app-ui-preview/src/SettingsForm2PreviewHost'
 import {
   createSettingsForm2PreviewFixture,

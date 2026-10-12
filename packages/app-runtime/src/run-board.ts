@@ -120,7 +120,8 @@ export function createRunBoard(
   let generation = 0
   const resolveTarget = (instanceId: string) => {
     const panel = surfaces.getSnapshot().panels[instanceId]
-    if (!panel || panel.panelId !== 'run-board') throw new CommandError('STALE_TARGET', 'Run board panel is no longer available')
+    if (!panel || (panel.panelId !== 'run-board' && !(panel.panelId === 'status' && panel.params.section === 'runs')))
+      throw new CommandError('STALE_TARGET', 'Run board panel is no longer available')
     const selected = navigation.getSnapshot()
     if (selected.status !== 'idle') throw new CommandError('STALE_TARGET', 'Run board navigation is not settled')
     return {
@@ -129,8 +130,20 @@ export function createRunBoard(
     }
   }
   const current = (candidate: typeof request & object) => {
-    const target = (() => { try { return resolveTarget(candidate.instanceId) } catch { return null } })()
-    return !disposed && !isDisposed() && request?.generation === candidate.generation && target?.workspaceId === candidate.workspaceId && target?.sessionId === candidate.sessionId
+    const target = (() => {
+      try {
+        return resolveTarget(candidate.instanceId)
+      } catch {
+        return null
+      }
+    })()
+    return (
+      !disposed &&
+      !isDisposed() &&
+      request?.generation === candidate.generation &&
+      target?.workspaceId === candidate.workspaceId &&
+      target?.sessionId === candidate.sessionId
+    )
   }
   const invalidate = () => {
     const active = request
@@ -236,7 +249,8 @@ export function createRunBoard(
       return { workspaceId: previous.workspaceId ?? '', sessionId: previous.sessionId, loaded: 0 }
     if (previous.status === 'loading' || !previous.workspaceId)
       throw new CommandError('BUSY', 'Run board is already loading')
-    if (target.workspaceId !== previous.workspaceId || target.sessionId !== previous.sessionId) throw new CommandError('STALE_TARGET', 'Run board target changed')
+    if (target.workspaceId !== previous.workspaceId || target.sessionId !== previous.sessionId)
+      throw new CommandError('STALE_TARGET', 'Run board target changed')
     const controller = new AbortController()
     const token = {
       workspaceId: previous.workspaceId,
@@ -250,7 +264,16 @@ export function createRunBoard(
       controller.abort(execution.signal?.reason ?? new CommandError('CANCELLED', 'Run board read cancelled'))
     execution.signal?.addEventListener('abort', abort, { once: true })
     const interrupted = new Promise<never>((_resolve, reject) =>
-      controller.signal.addEventListener('abort', () => reject(controller.signal.reason instanceof CommandError ? controller.signal.reason : new CommandError('QUERY_SUPERSEDED', 'Run board read interrupted')), { once: true }),
+      controller.signal.addEventListener(
+        'abort',
+        () =>
+          reject(
+            controller.signal.reason instanceof CommandError
+              ? controller.signal.reason
+              : new CommandError('QUERY_SUPERSEDED', 'Run board read interrupted'),
+          ),
+        { once: true },
+      ),
     )
     const timer = setTimeout(() => controller.abort(new CommandError('TIMEOUT', 'Run board read timed out')), 12_000)
     try {

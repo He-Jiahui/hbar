@@ -4,14 +4,14 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 
   overflow-x: auto;
 }
 
 .hbar-agent-tool-open > button {
-  gap: 4px;
-  padding: 4px 6px;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-4) var(--lumen-space-4);
   text-align: start;
 
   min-inline-size: max-content;

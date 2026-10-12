@@ -1,4 +1,4 @@
-import type { LumenAppShellDocumentsContent, LumenDocumentBlock, LumenDocumentFolder } from '@lumen/app-ui'
+import type { LumenAppShellDocumentsContent, LumenDocumentBlock, LumenDocumentFolder } from '@lumen/app-ui/catalog'
 
 const blocks: readonly LumenDocumentBlock[] = [
   {

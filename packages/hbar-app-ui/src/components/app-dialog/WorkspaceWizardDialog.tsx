@@ -1,8 +1,5 @@
-import {
-  LumenFrame,
-  LumenOption,
-  LumenText,
- LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
+import { LumenFrame, LumenText, LumenButton, LumenInput, LumenSelect } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import {useState} from 'react'
 import {
     type AppDialogProps,

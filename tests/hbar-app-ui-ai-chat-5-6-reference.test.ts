@@ -1,12 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAiChat,
-  type LumenAiChatAgentsReferenceContent,
-  type LumenAiChatApprovalReferenceContent,
-  type LumenAiChatReferenceViewModel,
-} from '@lumen/app-ui'
+import { LumenAiChat, type LumenAiChatAgentsReferenceContent, type LumenAiChatApprovalReferenceContent, type LumenAiChatReferenceViewModel } from '@lumen/app-ui/catalog'
 import { HBAR_APP_UI_AI_CHAT_FIXTURES } from './fixtures/hbar-app-ui-ai-chat-fixtures'
 import { createAiChat5ReferenceFixture } from './fixtures/hbar-app-ui-ai-chat-5-reference-fixture'
 import { createAiChat6ReferenceFixture } from './fixtures/hbar-app-ui-ai-chat-6-reference-fixture'

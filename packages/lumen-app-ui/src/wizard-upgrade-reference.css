@@ -1,0 +1,362 @@
+.lumen-wizard-stage-surface:has(> .hbar-app-ui-wizard-upgrade-reference) {
+  border: 0;
+  border-radius: 0;
+  background: light-dark(#fff, #0a0a0a);
+  box-shadow: none;
+}
+.lumen-wizard-stage.hbar-app-ui-wizard-upgrade-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  overflow: auto;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-upgrade-card {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: var(--lumen-radius-panel);
+  background: light-dark(#fff, #0a0a0a);
+}
+.hbar-app-ui-wizard-upgrade-header {
+  padding: var(--lumen-space-16) var(--lumen-space-24) var(--lumen-space-16);
+  border-block-end: 0.0625rem solid light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-upgrade-intro {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+}
+.hbar-app-ui-wizard-upgrade-intro h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+}
+.hbar-app-ui-wizard-upgrade-intro p {
+  margin: var(--lumen-space-4) 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-upgrade-draft,
+.hbar-app-ui-wizard-upgrade-invoice-header > span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-control);
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-wizard-upgrade-draft > span {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+.hbar-app-ui-wizard-upgrade-steps {
+  display: flex;
+  min-inline-size: 0;
+  margin: var(--lumen-space-16) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.hbar-app-ui-wizard-upgrade-steps li {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 0;
+  align-items: center;
+}
+.hbar-app-ui-wizard-upgrade-steps li:last-child {
+  flex: 0 0 auto;
+}
+.hbar-app-ui-wizard-upgrade-steps button {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: light-dark(#777, #737373);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.hbar-app-ui-wizard-upgrade-step-number {
+  display: inline-flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 50%;
+  font-size: 0.6875rem;
+}
+.hbar-app-ui-wizard-upgrade-step-number.is-current {
+  border: 0.0625rem dashed light-dark(#a3a3a3, #737373);
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-upgrade-step-number.is-complete {
+  border-color: light-dark(#171717, #f5f5f5);
+  background: light-dark(#171717, #f5f5f5);
+  color: light-dark(#fff, #171717);
+}
+.hbar-app-ui-wizard-upgrade-step-number svg {
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.hbar-app-ui-wizard-upgrade-steps li:has(.is-current) button {
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-upgrade-step-line {
+  block-size: 0.0625rem;
+  min-inline-size: 0.5rem;
+  flex: 1 1 auto;
+  margin-inline: var(--lumen-space-12);
+  background: light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-upgrade-body {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
+}
+.hbar-app-ui-wizard-upgrade-plan {
+  min-inline-size: 0;
+  flex: 3.05 1 0;
+}
+.hbar-app-ui-wizard-upgrade-invoice {
+  min-inline-size: 0;
+  flex: 2 1 0;
+}
+.hbar-app-ui-wizard-upgrade-plan h3,
+.hbar-app-ui-wizard-upgrade-invoice h3 {
+  margin: 0;
+  color: light-dark(#a3a3a3, #737373);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+.hbar-app-ui-wizard-upgrade-options {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+  margin-block-start: var(--lumen-space-12);
+}
+.hbar-app-ui-wizard-upgrade-options button {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 4.5rem;
+  align-items: center;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: var(--lumen-radius-panel);
+  background: light-dark(#fff, #0a0a0a);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+}
+.hbar-app-ui-wizard-upgrade-options button[aria-checked='true'] {
+  border-color: light-dark(#d4d4d4, #525252);
+  background: light-dark(#f5f5f5, #171717);
+}
+.hbar-app-ui-wizard-upgrade-radio {
+  display: inline-flex;
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#d4d4d4, #525252);
+  border-radius: 50%;
+}
+.hbar-app-ui-wizard-upgrade-options button[aria-checked='true'] .hbar-app-ui-wizard-upgrade-radio {
+  border-color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-upgrade-options button[aria-checked='true'] .hbar-app-ui-wizard-upgrade-radio::after {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: light-dark(#171717, #f5f5f5);
+  content: '';
+}
+.hbar-app-ui-wizard-upgrade-option-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  font-size: 0.8125rem;
+}
+.hbar-app-ui-wizard-upgrade-option-copy > span:first-child {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--lumen-space-12);
+}
+.hbar-app-ui-wizard-upgrade-option-copy > span:first-child > span,
+.hbar-app-ui-wizard-upgrade-option-copy > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-upgrade-option-copy small {
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-upgrade-option-copy > span:last-child {
+  color: light-dark(#777, #aaa);
+}
+.hbar-app-ui-wizard-upgrade-price {
+  flex: 0 0 auto;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-upgrade-plan > p {
+  margin: var(--lumen-space-12) 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-upgrade-invoice-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+}
+.hbar-app-ui-wizard-upgrade-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-4);
+  margin-block-start: var(--lumen-space-12);
+  padding: var(--lumen-space-4);
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: var(--lumen-radius-panel);
+  background: light-dark(#fafafa, #0a0a0a);
+}
+.hbar-app-ui-wizard-upgrade-summary > div,
+.hbar-app-ui-wizard-upgrade-summary > dl {
+  margin: 0;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: var(--lumen-radius-surface);
+  background: light-dark(#fff, #171717);
+}
+.hbar-app-ui-wizard-upgrade-total p {
+  margin: 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-upgrade-total p:nth-child(2) {
+  margin-block: var(--lumen-space-2);
+  color: light-dark(#171717, #f5f5f5);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+.hbar-app-ui-wizard-upgrade-rows > div,
+.hbar-app-ui-wizard-upgrade-meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  font-size: 0.8125rem;
+}
+.hbar-app-ui-wizard-upgrade-rows > div + div {
+  margin-block-start: var(--lumen-space-8);
+  padding-block-start: var(--lumen-space-8);
+  border-block-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-upgrade-rows dt,
+.hbar-app-ui-wizard-upgrade-meta dt {
+  margin: 0;
+}
+.hbar-app-ui-wizard-upgrade-rows p {
+  margin: var(--lumen-space-2) 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+}
+.hbar-app-ui-wizard-upgrade-rows dd,
+.hbar-app-ui-wizard-upgrade-meta dd {
+  margin: 0;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-upgrade-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-8);
+}
+.hbar-app-ui-wizard-upgrade-meta dt {
+  color: light-dark(#777, #aaa);
+}
+.hbar-app-ui-wizard-upgrade-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16) var(--lumen-space-24);
+  border-block-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  background: light-dark(#fafafa, #171717);
+}
+.hbar-app-ui-wizard-upgrade-footer p {
+  margin: 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+}
+.hbar-app-ui-wizard-upgrade-footer button {
+  display: inline-flex;
+  min-block-size: 2.25rem;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-16);
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  background: light-dark(#171717, #f5f5f5);
+  color: light-dark(#fff, #171717);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-upgrade-footer svg {
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+}
+.hbar-app-ui-wizard-upgrade-options button:focus-visible,
+.hbar-app-ui-wizard-upgrade-steps button:focus-visible,
+.hbar-app-ui-wizard-upgrade-footer button:focus-visible {
+  outline: 0.125rem solid currentColor;
+  outline-offset: 0.125rem;
+}
+@media (width < 48rem) {
+  .hbar-app-ui-wizard-upgrade-body {
+    flex-direction: column;
+  }
+}
+@media (width < 40rem) {
+  .hbar-app-ui-wizard-upgrade-step-label {
+    display: none;
+  }
+}

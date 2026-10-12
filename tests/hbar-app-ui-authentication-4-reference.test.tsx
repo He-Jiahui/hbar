@@ -1,12 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAuthentication,
-  type LumenAuthContent,
-  type LumenAuthTwoStepContent,
-  type LumenAuthTwoStepReferenceFlow,
-} from '@lumen/app-ui'
+import { LumenAuthentication, type LumenAuthContent, type LumenAuthTwoStepContent, type LumenAuthTwoStepReferenceFlow } from '@lumen/app-ui/catalog'
 
 const twoStepContent: LumenAuthTwoStepContent = {
   labels: {

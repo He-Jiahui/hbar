@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenToggleGroup } from '../hbar-ui/packages/lumen-app-ui/src/toggle-group'
+import { LumenToggleGroup } from '../packages/lumen-app-ui/src/toggle-group'
 
 const options = [
   { id: 'off', label: '关闭' },
@@ -74,7 +74,10 @@ test('an empty-string option is a valid selected value and does not become stale
       id="inheritance"
       type="single"
       value=""
-      options={[{ id: '', label: '继承' }, { id: 'custom', label: '自定义' }]}
+      options={[
+        { id: '', label: '继承' },
+        { id: 'custom', label: '自定义' },
+      ]}
       onValueChange={() => undefined}
       aria-label="应用范围"
     />,

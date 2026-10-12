@@ -1,0 +1,273 @@
+.lumen-app-sidebar-stage-surface:has(.lumen-tree-root) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.lumen-app-sidebar-stage-surface:has(.lumen-tree-root) > [data-edge] {
+  display: none;
+}
+.lumen-tree-root {
+  --tree-pane: #fafafa;
+  --tree-canvas: #fff;
+  --tree-ink: #171717;
+  --tree-muted: #6b6b6b;
+  --tree-border: #e5e5e5;
+  --tree-hover: #f4f4f5;
+  --tree-menu: #fff;
+  --tree-footer: #f6f6f6;
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  background: var(--tree-canvas);
+  color: var(--tree-ink);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+[data-lumen-mode='dark'] .lumen-tree-root {
+  --tree-pane: #171717;
+  --tree-canvas: #0a0a0a;
+  --tree-ink: #fff;
+  --tree-muted: #a3a3a3;
+  --tree-border: #353535;
+  --tree-hover: #292929;
+  --tree-menu: #262626;
+  --tree-footer: #1d1d1d;
+}
+.lumen-tree-root :where(h2, p, ul) {
+  margin: 0;
+  padding: 0;
+}
+.lumen-tree-root ul {
+  list-style: none;
+}
+.lumen-tree-root button,
+.lumen-tree-root input {
+  font: inherit;
+}
+.lumen-tree-root button {
+  cursor: pointer;
+}
+.lumen-tree-root :where(button, input):focus-visible {
+  outline: 0.125rem solid var(--lumen-accent);
+  outline-offset: -0.125rem;
+}
+.lumen-tree-root svg {
+  flex: 0 0 auto;
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
+  stroke-width: 1.75;
+}
+.lumen-tree-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 16rem;
+  inline-size: 16rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  background: var(--tree-pane);
+}
+.lumen-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 3.5rem;
+  padding-inline: var(--lumen-space-8);
+}
+.lumen-tree-header h2 {
+  overflow: hidden;
+  padding-inline-start: var(--lumen-space-12);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.lumen-tree-header button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  background: var(--tree-hover);
+  color: var(--tree-ink);
+}
+.lumen-tree-search {
+  display: flex;
+  align-items: center;
+  flex: 0 0 2.25rem;
+  gap: var(--lumen-space-8);
+  margin-inline: var(--lumen-space-8);
+  margin-block-end: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12);
+  border: 0.0625rem solid var(--tree-border);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--tree-canvas);
+  color: var(--tree-muted);
+}
+.lumen-tree-search svg {
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+}
+.lumen-tree-search input {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--tree-ink);
+}
+.lumen-tree-search input:focus-visible {
+  outline: 0;
+}
+.lumen-tree-search:focus-within {
+  border-color: var(--tree-ink);
+}
+.lumen-tree-search input::placeholder {
+  color: var(--tree-muted);
+}
+.lumen-app-sidebar-stage .lumen-tree-navigation[data-hbar-app-ui-list-strategy] {
+  flex: 1;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.25rem), transparent);
+  padding-inline: var(--lumen-space-8);
+}
+.lumen-tree-navigation > ul,
+.lumen-tree-documents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-2);
+}
+.lumen-tree-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-block-size: 2rem;
+  border-radius: var(--lumen-radius-surface);
+}
+.lumen-tree-row:is(:hover, .is-selected, :has(.lumen-tree-menu)) {
+  background: var(--tree-hover);
+}
+.lumen-tree-label {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 2rem;
+  gap: var(--lumen-space-8);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--tree-muted);
+  text-align: start;
+}
+.lumen-tree-label > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lumen-tree-label.is-folder {
+  padding-inline-start: var(--lumen-space-12);
+  gap: var(--lumen-space-4);
+}
+.lumen-tree-label.is-folder svg:first-child {
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+}
+.lumen-tree-label.is-document {
+  padding-inline-start: var(--lumen-space-32);
+  padding-inline-end: var(--lumen-space-12);
+}
+.lumen-tree-row.is-selected .lumen-tree-label {
+  color: var(--tree-ink);
+  font-weight: 500;
+}
+.lumen-tree-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.75rem;
+  block-size: 1.75rem;
+  margin-inline-end: var(--lumen-space-2);
+  border: 0;
+  border-radius: var(--lumen-radius-control);
+  background: transparent;
+  color: var(--tree-muted);
+  opacity: 0;
+}
+.lumen-tree-row:is(:hover, :focus-within, :has(.lumen-tree-menu)) .lumen-tree-actions {
+  opacity: 1;
+}
+.lumen-tree-menu {
+  position: absolute;
+  z-index: var(--lumen-layer-menu-panel);
+  inset-block-start: 1.6875rem;
+  inset-inline-end: 0.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  inline-size: 10rem;
+  padding: var(--lumen-space-4);
+  border: 0.0625rem solid var(--tree-border);
+  border-radius: var(--lumen-radius-panel);
+  background: var(--tree-menu);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 12%);
+}
+.lumen-tree-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--lumen-space-8);
+  min-block-size: 2rem;
+  padding-inline: var(--lumen-space-8);
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  background: transparent;
+  color: var(--tree-ink);
+  text-align: start;
+}
+.lumen-tree-menu button:hover {
+  background: var(--tree-hover);
+}
+.lumen-tree-menu button.is-danger {
+  color: #ef4444;
+}
+.lumen-tree-empty {
+  padding: var(--lumen-space-8);
+  color: var(--tree-muted);
+}
+.lumen-tree-profile {
+  display: flex;
+  align-items: center;
+  flex: 0 0 3.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12);
+  background: var(--tree-footer);
+}
+.lumen-tree-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  background: var(--tree-border);
+  color: var(--tree-muted);
+  font-size: 0.625rem;
+}
+.lumen-tree-profile > span:last-child {
+  min-inline-size: 0;
+}
+.lumen-tree-profile p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.6875rem;
+}
+.lumen-tree-profile p:last-child {
+  color: var(--tree-muted);
+}

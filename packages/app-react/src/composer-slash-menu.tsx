@@ -4,6 +4,7 @@ import type { AgentComposerState } from '@hbar/app-runtime'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
 import type { HbarComposerAgentNoticeLabels } from './composer-agent-notice'
 import './composer-slash-menu.css'
+import { createMessageScope } from './messages'
 
 type AgentProfileId = AgentComposerState['profileCatalog']['profiles'][number]
 
@@ -35,6 +36,8 @@ export interface HbarComposerSlashLabels {
   readonly error: (code: string) => string
 }
 
+const ComposerSlashMessages = createMessageScope<{ readonly slash: HbarComposerSlashLabels }>()
+
 export function HbarComposerSlashMenu({
   id,
   term,
@@ -50,6 +53,22 @@ export function HbarComposerSlashMenu({
   readonly onSelect: (command: LocalSlashCommand) => void
   readonly onHover: (index: number) => void
 }) {
+  return (
+    <ComposerSlashMessages.Provider messages={{ slash: labels }}>
+      <HbarComposerSlashMenuContent id={id} term={term} selected={selected} onSelect={onSelect} onHover={onHover} />
+    </ComposerSlashMessages.Provider>
+  )
+}
+
+function HbarComposerSlashMenuContent({
+  id,
+  term,
+  selected,
+  onSelect,
+  onHover,
+}: Omit<Parameters<typeof HbarComposerSlashMenu>[0], 'labels'>) {
+  const { t } = ComposerSlashMessages.useMessages()
+  const labels = t('slash')
   const matches = slashMatches(
     term,
     labels.commands.map((item) => item.id),

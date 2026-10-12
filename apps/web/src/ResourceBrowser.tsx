@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useStore } from 'zustand'
 import { ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react'
 import { LumenContentText, LumenFrame, LumenIcon, LumenIconButton, LumenInput } from '@lumen/app-ui'
+import { createMessageScope } from '@hbar/app-react'
 import type { ResourceBrowserController } from './resource-browser-controller'
 import type { ShellLocale } from './shell-copy'
 import './ResourceBrowser.css'
@@ -16,6 +17,7 @@ interface BrowserLabels {
   readonly unavailable: string
   readonly error: string
 }
+const BrowserMessages = createMessageScope<BrowserLabels>()
 export function browserCopy(locale: ShellLocale): BrowserLabels {
   return locale === 'zh-CN'
     ? {
@@ -61,7 +63,11 @@ export function ResourceBrowser({
 }) {
   const controller = useContext(Context)
   if (!controller) return null
-  return <BrowserContent key={id} id={id} initialUrl={url} controller={controller} labels={browserCopy(locale)} />
+  return (
+    <BrowserMessages.Provider messages={browserCopy(locale)}>
+      <BrowserContent key={id} id={id} initialUrl={url} controller={controller} />
+    </BrowserMessages.Provider>
+  )
 }
 export function ResourceFile({ instanceId }: { readonly instanceId: string }) {
   const controller = useContext(Context)
@@ -82,13 +88,12 @@ function BrowserContent({
   id,
   initialUrl,
   controller,
-  labels,
 }: {
   readonly id: string
   readonly initialUrl: string
   readonly controller: ResourceBrowserController
-  readonly labels: BrowserLabels
 }) {
+  const { t } = BrowserMessages.useMessages()
   const state = useStore(controller.store, (store) => store.entries[id])
   const viewport = useRef<HTMLDivElement>(null)
   const [address, setAddress] = useState(state?.url ?? initialUrl)
@@ -200,27 +205,27 @@ function BrowserContent({
         }}
       >
         <LumenIconButton
-          label={labels.back}
-          aria-label={labels.back}
-          title={labels.back}
+          label={t('back')}
+          aria-label={t('back')}
+          title={t('back')}
           disabled={!controller.native || !state?.canBack}
           onClick={() => navigate(() => controller.action(id, 'back'))}
         >
           <LumenIcon icon={ArrowLeft} tier="sm" />
         </LumenIconButton>
         <LumenIconButton
-          label={labels.forward}
-          aria-label={labels.forward}
-          title={labels.forward}
+          label={t('forward')}
+          aria-label={t('forward')}
+          title={t('forward')}
           disabled={!controller.native || !state?.canForward}
           onClick={() => navigate(() => controller.action(id, 'forward'))}
         >
           <LumenIcon icon={ArrowRight} tier="sm" />
         </LumenIconButton>
         <LumenIconButton
-          label={labels.reload}
-          aria-label={labels.reload}
-          title={labels.reload}
+          label={t('reload')}
+          aria-label={t('reload')}
+          title={t('reload')}
           disabled={!controller.native}
           onClick={() => navigate(() => controller.action(id, 'reload'))}
         >
@@ -229,7 +234,7 @@ function BrowserContent({
         <LumenInput
           type="url"
           value={address}
-          aria-label={labels.address}
+          aria-label={t('address')}
           onChange={(event) => setAddress(event.currentTarget.value)}
         />
         <LumenFrame
@@ -255,21 +260,21 @@ function BrowserContent({
             }
           }}
         >
-          {labels.openSystem}
+          {t('openSystem')}
         </LumenFrame>
       </LumenFrame>
       {state?.loading && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {(error || state?.error || state?.failed) && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error}
+          {t('error')}
         </LumenContentText>
       )}
       <LumenFrame ref={viewport} className="hbar-resource-browser-viewport">
-        {!controller.native && <LumenContentText context="section.description">{labels.unavailable}</LumenContentText>}
+        {!controller.native && <LumenContentText context="section.description">{t('unavailable')}</LumenContentText>}
       </LumenFrame>
     </LumenFrame>
   )

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import { LumenAppShellWorkflowsProvider as HbarAppUiAppShellProvider, type LumenAppShellContent } from '@lumen/app-ui'
+import { LumenAppShellWorkflowsProvider as HbarAppUiAppShellProvider, type LumenAppShellContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { appShellSidebarFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-sidebar-fixtures'
 import { appShellRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-rail-fixtures'

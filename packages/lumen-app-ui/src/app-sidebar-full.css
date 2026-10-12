@@ -1,0 +1,265 @@
+.lumen-app-sidebar-stage-surface:has(.lumen-full-root) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  container-type: inline-size;
+}
+.lumen-app-sidebar-stage-surface:has(.lumen-full-root) > [data-edge] {
+  display: none;
+}
+.lumen-full-root {
+  --full-canvas: #fff;
+  --full-panel: #fafafa;
+  --full-ink: #171717;
+  --full-muted: #6b6b6b;
+  --full-hover: #f4f4f5;
+  --full-footer: #f6f6f6;
+  --full-border: #e5e5e5;
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  background: var(--full-canvas);
+  color: var(--full-ink);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+[data-lumen-mode='dark'] .lumen-full-root {
+  --full-canvas: #0a0a0a;
+  --full-panel: #171717;
+  --full-ink: #fff;
+  --full-muted: #a3a3a3;
+  --full-hover: #292929;
+  --full-footer: #1d1d1d;
+  --full-border: #353535;
+}
+.lumen-full-root :where(p, ul) {
+  margin: 0;
+  padding: 0;
+}
+.lumen-full-root ul {
+  list-style: none;
+}
+.lumen-full-root button,
+.lumen-full-root a {
+  font: inherit;
+}
+.lumen-full-root :where(button, a):focus-visible {
+  outline: 0.125rem solid var(--lumen-accent);
+  outline-offset: -0.125rem;
+}
+.lumen-full-root svg {
+  flex: 0 0 auto;
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
+  stroke-width: 1.75;
+}
+.lumen-full-desktop,
+.lumen-full-dialog {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  background: var(--full-panel);
+}
+.lumen-full-desktop {
+  flex: 0 0 16rem;
+  inline-size: 16rem;
+}
+.lumen-full-mobile {
+  display: none;
+}
+.lumen-full-header {
+  display: flex;
+  align-items: center;
+  flex: 0 0 3.5rem;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12) var(--lumen-space-8);
+}
+.lumen-full-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border-radius: var(--lumen-radius-surface);
+  background: var(--full-ink);
+  color: var(--full-panel);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.lumen-full-brand {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.lumen-full-brand p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lumen-full-brand p:first-child {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.lumen-full-brand p:last-child {
+  color: var(--full-muted);
+}
+.lumen-full-header button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  background: var(--full-hover);
+  color: var(--full-muted);
+  cursor: pointer;
+}
+.lumen-app-sidebar-stage .lumen-full-navigation[data-hbar-app-ui-list-strategy] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--lumen-space-16);
+  min-block-size: 0;
+  max-block-size: none;
+  overflow-y: auto;
+  padding-inline: var(--lumen-space-8);
+  overscroll-behavior: contain;
+}
+.lumen-full-group > p {
+  display: flex;
+  align-items: center;
+  min-block-size: 1.28125rem;
+  padding-inline: var(--lumen-space-12);
+  color: var(--full-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+.lumen-full-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-2);
+}
+.lumen-full-group a,
+.lumen-full-footer > a {
+  display: flex;
+  align-items: center;
+  min-block-size: 2rem;
+  gap: var(--lumen-space-8);
+  padding-inline: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-surface);
+  color: var(--full-muted);
+  text-decoration: none;
+}
+.lumen-full-group a:is(:hover, .is-active),
+.lumen-full-footer > a:hover {
+  background: var(--full-hover);
+  color: var(--full-ink);
+}
+.lumen-full-group a.is-active {
+  font-weight: 500;
+}
+.lumen-full-group a > span:not(.lumen-full-badge),
+.lumen-full-footer > a > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lumen-full-badge {
+  margin-inline-start: auto;
+  color: var(--full-muted);
+}
+.lumen-full-empty {
+  padding: var(--lumen-space-8);
+  color: var(--full-muted);
+}
+.lumen-full-footer {
+  display: flex;
+  flex: 0 0 6rem;
+  flex-direction: column;
+  background: var(--full-footer);
+}
+.lumen-full-footer > a {
+  flex: 0 0 2rem;
+  margin: var(--lumen-space-8) var(--lumen-space-8) 0;
+}
+.lumen-full-profile {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: var(--lumen-space-8);
+  min-block-size: 0;
+  padding-inline: var(--lumen-space-12);
+}
+.lumen-full-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  background: var(--full-border);
+  color: var(--full-muted);
+  font-size: 0.625rem;
+}
+.lumen-full-profile > span:last-child {
+  min-inline-size: 0;
+}
+.lumen-full-profile p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.6875rem;
+}
+.lumen-full-profile p:last-child {
+  color: var(--full-muted);
+}
+@container (width < 48rem) {
+  .lumen-full-desktop {
+    display: none;
+  }
+  .lumen-full-mobile {
+    display: flex;
+    flex: 1;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+  .lumen-full-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 2.25rem;
+    block-size: 2.25rem;
+    margin: var(--lumen-space-8) var(--lumen-space-16);
+    border: 0;
+    border-radius: var(--lumen-radius-surface);
+    background: var(--full-hover);
+    color: var(--full-ink);
+    cursor: pointer;
+  }
+  .lumen-full-scrim {
+    position: absolute;
+    z-index: var(--lumen-layer-raised);
+    inset: 0;
+    border: 0;
+    background: rgb(0 0 0 / 40%);
+    cursor: pointer;
+  }
+  .lumen-full-dialog {
+    position: absolute;
+    z-index: var(--lumen-layer-sticky-cell);
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: min(18rem, 85%);
+    overflow: hidden;
+    border-radius: 0 var(--lumen-radius-panel) var(--lumen-radius-panel) 0;
+  }
+}

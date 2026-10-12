@@ -1,13 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenFormsProvider,
-  useLumenFormsContent,
-  type LumenForms8ConditionValue,
-  type LumenForms8MatchMode,
-  type LumenForms8ViewModel,
-  type LumenFormsContent,
-} from '@lumen/app-ui'
+import { LumenFormsProvider, useLumenFormsContent, type LumenForms8ConditionValue, type LumenForms8MatchMode, type LumenForms8ViewModel, type LumenFormsContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Forms8PreviewFixture } from './forms8PreviewFixtures'
 import { createForms8PreviewStore } from './forms8PreviewStore'

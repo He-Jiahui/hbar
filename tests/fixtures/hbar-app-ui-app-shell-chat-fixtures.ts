@@ -1,4 +1,4 @@
-import type { LumenAppShellChatContent, LumenShellChatThread } from '@lumen/app-ui'
+import type { LumenAppShellChatContent, LumenShellChatThread } from '@lumen/app-ui/catalog'
 
 const threads: readonly LumenShellChatThread[] = [
   {

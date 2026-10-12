@@ -1,0 +1,26 @@
+.lumen-app-shell-preview {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-app-shell-preview > .lumen-app-shell-preview-notice {
+  flex: 0 0 auto;
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-app-shell-preview > .lumen-app-shell-stage-surface {
+  flex: 1 1 0%;
+  inline-size: 100%;
+  block-size: auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+}

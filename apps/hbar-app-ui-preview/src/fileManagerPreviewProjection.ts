@@ -1,8 +1,4 @@
-import type {
-  LumenFileManagerContent,
-  LumenFileManagerReferenceContent as Content,
-  LumenFileManagerReferenceUpload,
-} from '@lumen/app-ui'
+import type { LumenFileManagerContent, LumenFileManagerReferenceContent as Content, LumenFileManagerReferenceUpload } from '@lumen/app-ui/catalog'
 import type { FileManagerPreviewSeed, FileManagerPreviewStoreApi } from './fileManagerPreviewModel'
 import { fileManagerBytes, fileManagerPreviewNotice } from './fileManagerPreviewReferenceFixtures'
 

@@ -16,8 +16,10 @@ import {
 } from '@lumen/app-ui'
 import { Check, EyeOff, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { HbarLumenDisclosure } from './lumen-disclosure'
+import { createMessageScope } from './messages'
 import {
-  HbarProviderContextRules,
+  HbarProviderContextRulesMessageScope,
+  HbarProviderContextRulesView,
   type HbarProviderContextRulesLabels,
   type HbarProviderContextIntent,
 } from './provider-context-rules'
@@ -183,6 +185,227 @@ export interface HbarProviderDialogLabels {
   readonly deleteConfirmDescription: (name: string) => string
 }
 
+type ProviderEditorRootMessages = Pick<
+  HbarProviderDialogLabels,
+  | 'addTitle'
+  | 'editTitle'
+  | 'description'
+  | 'back'
+  | 'error'
+  | 'saving'
+  | 'credentialUnconfirmed'
+  | 'unknown'
+  | 'saved'
+  | 'unsaved'
+  | 'issues'
+  | 'validConfiguration'
+  | 'reset'
+  | 'checkConfiguration'
+  | 'cancel'
+  | 'reconcile'
+  | 'save'
+>
+type ProviderPresetMessages = Pick<HbarProviderDialogLabels, 'preset'> & {
+  readonly sections: Pick<
+    HbarProviderDialogLabels['sections'],
+    'preset' | 'presetDescription' | 'presetEdit' | 'presetEditDescription'
+  >
+}
+type ProviderConnectionMessages = Pick<
+  HbarProviderDialogLabels,
+  'protocol' | 'validation' | 'requiredIndicator' | 'advancedConnection'
+> & {
+  readonly provider: Pick<
+    HbarProviderDialogLabels['provider'],
+    'id' | 'idDescription' | 'name' | 'protocol' | 'baseUrl' | 'visible' | 'visibleDescription'
+  >
+  readonly sections: Pick<HbarProviderDialogLabels['sections'], 'connection' | 'connectionDescription'>
+}
+type ProviderCredentialMessages = Pick<HbarProviderDialogLabels, 'configured' | 'notConfigured'> & {
+  readonly provider: Pick<HbarProviderDialogLabels['provider'], 'apiKey' | 'apiKeyDescription'>
+  readonly sections: Pick<HbarProviderDialogLabels['sections'], 'credentials' | 'credentialsDescription'>
+}
+type ProviderCatalogMessages = Pick<
+  HbarProviderDialogLabels['models'],
+  | 'catalog'
+  | 'catalogPlaceholder'
+  | 'catalogOpen'
+  | 'catalogEmpty'
+  | 'catalogLoading'
+  | 'catalogReadError'
+  | 'catalogRetry'
+  | 'catalogLoadMore'
+  | 'catalogDetail'
+>
+type ProviderModelListMessages = Pick<
+  HbarProviderDialogLabels['models'],
+  'empty' | 'default' | 'hidden' | 'select' | 'customId' | 'customIdPlaceholder' | 'addCustom'
+>
+type ProviderModelEditorMessages = Pick<
+  HbarProviderDialogLabels,
+  'thinkingLevel' | 'validation' | 'requiredIndicator' | 'advancedModel' | 'advancedDescription'
+>
+type ProviderModelDetailMessages = Pick<
+  HbarProviderDialogLabels['models'],
+  | 'empty'
+  | 'setDefault'
+  | 'remove'
+  | 'id'
+  | 'name'
+  | 'description'
+  | 'visible'
+  | 'visibleDescription'
+  | 'contextWindow'
+  | 'maxOutput'
+  | 'inputPrice'
+  | 'outputPrice'
+  | 'imageInput'
+  | 'imageInputDescription'
+  | 'reasoning'
+  | 'reasoningDescription'
+  | 'thinkingLevels'
+  | 'thinkingLevelsDescription'
+  | 'thinkingLevelsSelectionHint'
+  | 'defaultThinkingLevel'
+  | 'defaultThinkingLevelDescription'
+>
+export interface HbarProviderEditorMessages {
+  readonly root: ProviderEditorRootMessages
+  readonly preset: ProviderPresetMessages
+  readonly connection: ProviderConnectionMessages
+  readonly credentials: ProviderCredentialMessages
+  readonly catalog: ProviderCatalogMessages
+  readonly modelList: ProviderModelListMessages
+  readonly modelEditor: ProviderModelEditorMessages
+  readonly modelDetails: ProviderModelDetailMessages
+  readonly modelSection: Pick<
+    HbarProviderDialogLabels['sections'],
+    'models' | 'modelsDescription' | 'modelDetails' | 'modelDetailsDescription'
+  >
+  readonly contextPricing: HbarProviderContextRulesLabels
+  readonly modelIssues: Pick<HbarProviderDialogLabels, 'modelIssues'>
+}
+export const HbarProviderEditorMessageScope = createMessageScope<HbarProviderEditorMessages>()
+
+function providerEditorMessages(labels: HbarProviderDialogLabels): HbarProviderEditorMessages {
+  return {
+    root: {
+      addTitle: labels.addTitle,
+      editTitle: labels.editTitle,
+      description: labels.description,
+      back: labels.back,
+      error: labels.error,
+      saving: labels.saving,
+      credentialUnconfirmed: labels.credentialUnconfirmed,
+      unknown: labels.unknown,
+      saved: labels.saved,
+      unsaved: labels.unsaved,
+      issues: labels.issues,
+      validConfiguration: labels.validConfiguration,
+      reset: labels.reset,
+      checkConfiguration: labels.checkConfiguration,
+      cancel: labels.cancel,
+      reconcile: labels.reconcile,
+      save: labels.save,
+    },
+    preset: {
+      preset: labels.preset,
+      sections: {
+        preset: labels.sections.preset,
+        presetDescription: labels.sections.presetDescription,
+        presetEdit: labels.sections.presetEdit,
+        presetEditDescription: labels.sections.presetEditDescription,
+      },
+    },
+    connection: {
+      provider: {
+        id: labels.provider.id,
+        idDescription: labels.provider.idDescription,
+        name: labels.provider.name,
+        protocol: labels.provider.protocol,
+        baseUrl: labels.provider.baseUrl,
+        visible: labels.provider.visible,
+        visibleDescription: labels.provider.visibleDescription,
+      },
+      protocol: labels.protocol,
+      validation: labels.validation,
+      requiredIndicator: labels.requiredIndicator,
+      advancedConnection: labels.advancedConnection,
+      sections: {
+        connection: labels.sections.connection,
+        connectionDescription: labels.sections.connectionDescription,
+      },
+    },
+    credentials: {
+      configured: labels.configured,
+      notConfigured: labels.notConfigured,
+      provider: { apiKey: labels.provider.apiKey, apiKeyDescription: labels.provider.apiKeyDescription },
+      sections: {
+        credentials: labels.sections.credentials,
+        credentialsDescription: labels.sections.credentialsDescription,
+      },
+    },
+    catalog: {
+      catalog: labels.models.catalog,
+      catalogPlaceholder: labels.models.catalogPlaceholder,
+      catalogOpen: labels.models.catalogOpen,
+      catalogEmpty: labels.models.catalogEmpty,
+      catalogLoading: labels.models.catalogLoading,
+      catalogReadError: labels.models.catalogReadError,
+      catalogRetry: labels.models.catalogRetry,
+      catalogLoadMore: labels.models.catalogLoadMore,
+      catalogDetail: labels.models.catalogDetail,
+    },
+    modelList: {
+      empty: labels.models.empty,
+      default: labels.models.default,
+      hidden: labels.models.hidden,
+      select: labels.models.select,
+      customId: labels.models.customId,
+      customIdPlaceholder: labels.models.customIdPlaceholder,
+      addCustom: labels.models.addCustom,
+    },
+    modelEditor: {
+      thinkingLevel: labels.thinkingLevel,
+      validation: labels.validation,
+      requiredIndicator: labels.requiredIndicator,
+      advancedModel: labels.advancedModel,
+      advancedDescription: labels.advancedDescription,
+    },
+    modelDetails: {
+      empty: labels.models.empty,
+      setDefault: labels.models.setDefault,
+      remove: labels.models.remove,
+      id: labels.models.id,
+      name: labels.models.name,
+      description: labels.models.description,
+      visible: labels.models.visible,
+      visibleDescription: labels.models.visibleDescription,
+      contextWindow: labels.models.contextWindow,
+      maxOutput: labels.models.maxOutput,
+      inputPrice: labels.models.inputPrice,
+      outputPrice: labels.models.outputPrice,
+      imageInput: labels.models.imageInput,
+      imageInputDescription: labels.models.imageInputDescription,
+      reasoning: labels.models.reasoning,
+      reasoningDescription: labels.models.reasoningDescription,
+      thinkingLevels: labels.models.thinkingLevels,
+      thinkingLevelsDescription: labels.models.thinkingLevelsDescription,
+      thinkingLevelsSelectionHint: labels.models.thinkingLevelsSelectionHint,
+      defaultThinkingLevel: labels.models.defaultThinkingLevel,
+      defaultThinkingLevelDescription: labels.models.defaultThinkingLevelDescription,
+    },
+    modelSection: {
+      models: labels.sections.models,
+      modelsDescription: labels.sections.modelsDescription,
+      modelDetails: labels.sections.modelDetails,
+      modelDetailsDescription: labels.sections.modelDetailsDescription,
+    },
+    contextPricing: labels.contextPricing,
+    modelIssues: { modelIssues: labels.modelIssues },
+  }
+}
+
 export type HbarProviderCatalogReadIntent = Extract<
   HbarProviderEditorIntent,
   { readonly kind: 'load-presets' | 'apply-preset' | 'load-preset-models' }
@@ -306,7 +529,7 @@ function CatalogReadFeedback({
 function draftIssueProps(
   editor: ProviderEditorState,
   path: string,
-  labels: HbarProviderDialogLabels,
+  validation: HbarProviderDialogLabels['validation'],
 ): { readonly error?: string } {
   const issue = editor.draftIssues.find((candidate) => candidate.path === path)
   const touched =
@@ -314,7 +537,7 @@ function draftIssueProps(
     editor.draftDirty.includes(path) ||
     (path.startsWith('models.') && editor.draftDirty.includes('models'))
   if (!touched) return {}
-  return issue ? { error: labels.validation(issue.path, issue.code) } : {}
+  return issue ? { error: validation(issue.path, issue.code) } : {}
 }
 
 function NumberInput({
@@ -381,7 +604,6 @@ function NumberInput({
 
 function ProviderPresetPicker({
   editor,
-  labels,
   disabled,
   mode,
   catalogRead,
@@ -390,7 +612,6 @@ function ProviderPresetPicker({
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
   readonly mode: 'create' | 'edit'
   readonly catalogRead: HbarProviderCatalogRead | null
@@ -398,6 +619,9 @@ function ProviderPresetPicker({
   readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const messages = t('preset')
+  const labels = { preset: messages.preset, sections: messages.sections }
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -479,15 +703,15 @@ function ProviderPresetPicker({
 
 function ProviderConnectionForm({
   editor,
-  labels,
   disabled,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const labels = t('connection')
   const set = (field: ProviderField, value: string | boolean) => onIntent({ kind: 'set-provider-field', field, value })
   return (
     <LumenFrame as="section" className="hbar-app-react-provider-section">
@@ -501,7 +725,7 @@ function ProviderConnectionForm({
             descriptionPlacement="after-control"
             required
             requiredIndicator={labels.requiredIndicator}
-            {...draftIssueProps(editor, 'id', labels)}
+            {...draftIssueProps(editor, 'id', labels.validation)}
           >
             <LumenInput
               id="provider-id"
@@ -518,7 +742,7 @@ function ProviderConnectionForm({
           descriptionPlacement="after-control"
           required
           requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, 'name', labels)}
+          {...draftIssueProps(editor, 'name', labels.validation)}
         >
           <LumenInput
             id="provider-name"
@@ -534,7 +758,7 @@ function ProviderConnectionForm({
           label={labels.provider.protocol}
           required
           requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, 'protocol', labels)}
+          {...draftIssueProps(editor, 'protocol', labels.validation)}
         >
           <LumenPopupSelect
             id="provider-protocol"
@@ -549,7 +773,7 @@ function ProviderConnectionForm({
           label={labels.provider.baseUrl}
           required
           requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, 'baseUrl', labels)}
+          {...draftIssueProps(editor, 'baseUrl', labels.validation)}
         >
           <LumenInput
             id="provider-base-url"
@@ -585,15 +809,15 @@ function ProviderConnectionForm({
 
 function ProviderCredentials({
   editor,
-  labels,
   disabled,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const labels = t('credentials')
   return (
     <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.credentials} description={labels.sections.credentialsDescription} />
@@ -619,7 +843,6 @@ function ProviderCredentials({
 
 function ModelCatalogPicker({
   editor,
-  labels,
   disabled,
   catalogRead,
   onRetryCatalog,
@@ -627,13 +850,14 @@ function ModelCatalogPicker({
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
   readonly catalogRead: HbarProviderCatalogRead | null
   readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
   readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const labels = { models: t('catalog') }
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const presetId = editor.presets.selectedPresetId
@@ -711,7 +935,6 @@ function ModelCatalogPicker({
 
 function ModelList({
   editor,
-  labels,
   disabled,
   catalogRead,
   onRetryCatalog,
@@ -719,13 +942,14 @@ function ModelList({
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
   readonly catalogRead: HbarProviderCatalogRead | null
   readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
   readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const labels = { sections: t('modelSection'), models: t('modelList'), ...t('modelIssues') }
   const [customModelId, setCustomModelId] = useState('')
   const addCustom = () => {
     const modelId = customModelId.trim()
@@ -790,7 +1014,6 @@ function ModelList({
       </LumenFrame>
       <ModelCatalogPicker
         editor={editor}
-        labels={labels}
         disabled={disabled}
         catalogRead={catalogRead}
         onRetryCatalog={onRetryCatalog}
@@ -832,15 +1055,19 @@ function ModelList({
 
 function ModelEditor({
   editor,
-  labels,
   disabled,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const labels = {
+    ...t('modelEditor'),
+    models: t('modelDetails'),
+    contextPricing: t('contextPricing'),
+  }
   const modelIndex = editor.draft.models.findIndex((model) => model.id === editor.selectedModelId)
   const model = editor.draft.models[modelIndex]
   if (!model)
@@ -885,7 +1112,7 @@ function ModelEditor({
           descriptionPlacement="after-control"
           required
           requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, path('id'), labels)}
+          {...draftIssueProps(editor, path('id'), labels.validation)}
         >
           <LumenInput
             id="provider-model-id"
@@ -900,7 +1127,7 @@ function ModelEditor({
           descriptionPlacement="after-control"
           required
           requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, path('name'), labels)}
+          {...draftIssueProps(editor, path('name'), labels.validation)}
         >
           <LumenInput
             id="provider-model-name"
@@ -913,7 +1140,7 @@ function ModelEditor({
       <LumenFormField
         controlId="provider-model-description"
         label={labels.models.description}
-        {...draftIssueProps(editor, path('description'), labels)}
+        {...draftIssueProps(editor, path('description'), labels.validation)}
       >
         <LumenInput
           id="provider-model-description"
@@ -922,13 +1149,14 @@ function ModelEditor({
           onChange={(event) => set('description', event.currentTarget.value)}
         />
       </LumenFormField>
-      <HbarProviderContextRules
-        key={`${editor.editorId}:${model.id}`}
-        editor={editor}
-        labels={labels.contextPricing}
-        disabled={disabled}
-        onIntent={onIntent}
-      />
+      <HbarProviderContextRulesMessageScope.Provider messages={labels.contextPricing}>
+        <HbarProviderContextRulesView
+          key={`${editor.editorId}:${model.id}`}
+          editor={editor}
+          disabled={disabled}
+          onIntent={onIntent}
+        />
+      </HbarProviderContextRulesMessageScope.Provider>
       <AdvancedSection
         label={labels.advancedModel}
         description={labels.advancedDescription}
@@ -952,7 +1180,7 @@ function ModelEditor({
               label={labels.models.contextWindow}
               required
               requiredIndicator={labels.requiredIndicator}
-              {...draftIssueProps(editor, path('contextWindow'), labels)}
+              {...draftIssueProps(editor, path('contextWindow'), labels.validation)}
             >
               <NumberInput
                 id="provider-model-context"
@@ -967,7 +1195,7 @@ function ModelEditor({
             label={labels.models.maxOutput}
             required
             requiredIndicator={labels.requiredIndicator}
-            {...draftIssueProps(editor, path('maxOutput'), labels)}
+            {...draftIssueProps(editor, path('maxOutput'), labels.validation)}
           >
             <NumberInput
               id="provider-model-output"
@@ -982,7 +1210,7 @@ function ModelEditor({
             <LumenFormField
               controlId="provider-model-input-price"
               label={labels.models.inputPrice}
-              {...draftIssueProps(editor, path('inputPrice'), labels)}
+              {...draftIssueProps(editor, path('inputPrice'), labels.validation)}
             >
               <NumberInput
                 id="provider-model-input-price"
@@ -994,7 +1222,7 @@ function ModelEditor({
             <LumenFormField
               controlId="provider-model-output-price"
               label={labels.models.outputPrice}
-              {...draftIssueProps(editor, path('outputPrice'), labels)}
+              {...draftIssueProps(editor, path('outputPrice'), labels.validation)}
             >
               <NumberInput
                 id="provider-model-output-price"
@@ -1025,7 +1253,7 @@ function ModelEditor({
           controlId="provider-model-thinking-levels"
           label={labels.models.thinkingLevels}
           description={labels.models.thinkingLevelsDescription}
-          {...draftIssueProps(editor, path('thinkingLevels'), labels)}
+          {...draftIssueProps(editor, path('thinkingLevels'), labels.validation)}
         >
           <LumenToggleGroup
             id="provider-model-thinking-levels"
@@ -1073,7 +1301,6 @@ function ModelEditor({
 
 function ProviderModels({
   editor,
-  labels,
   disabled,
   catalogRead,
   onRetryCatalog,
@@ -1081,20 +1308,20 @@ function ProviderModels({
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
   readonly catalogRead: HbarProviderCatalogRead | null
   readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
   readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const labels = { sections: t('modelSection') }
   return (
     <LumenFrame as="section" className="hbar-app-react-provider-section hbar-app-react-provider-model-section">
       <SectionHeading title={labels.sections.models} description={labels.sections.modelsDescription} />
       <LumenFrame className="hbar-app-react-provider-model-workspace">
         <ModelList
           editor={editor}
-          labels={labels}
           disabled={disabled}
           catalogRead={catalogRead}
           onRetryCatalog={onRetryCatalog}
@@ -1110,7 +1337,6 @@ function ProviderModels({
           <ModelEditor
             key={editor.draft.models.findIndex((model) => model.id === editor.selectedModelId)}
             editor={editor}
-            labels={labels}
             disabled={disabled}
             onIntent={onIntent}
           />
@@ -1120,9 +1346,8 @@ function ProviderModels({
   )
 }
 
-export function HbarProviderEditorView({
+function HbarProviderEditorViewContent({
   editor,
-  labels,
   connected,
   actionError,
   catalogRead,
@@ -1133,7 +1358,6 @@ export function HbarProviderEditorView({
   onIntent,
 }: {
   readonly editor: ProviderEditorState
-  readonly labels: HbarProviderDialogLabels
   readonly connected: boolean
   readonly actionError: string | null
   readonly catalogRead: HbarProviderCatalogRead | null
@@ -1143,6 +1367,8 @@ export function HbarProviderEditorView({
   readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
+  const { t } = HbarProviderEditorMessageScope.useMessages()
+  const labels = t('root')
   const container = useRef<HTMLElement>(null)
   const focusCatalogTarget = useCallback(
     (targetId: string) => {
@@ -1248,7 +1474,6 @@ export function HbarProviderEditorView({
         <LumenFrame className="hbar-app-react-provider-primary-column">
           <ProviderPresetPicker
             editor={editor}
-            labels={labels}
             disabled={disabled}
             mode={editor.providerId ? 'edit' : 'create'}
             catalogRead={catalogRead}
@@ -1256,12 +1481,11 @@ export function HbarProviderEditorView({
             focusCatalogTarget={focusCatalogTarget}
             onIntent={onIntent}
           />
-          <ProviderConnectionForm editor={validatedEditor} labels={labels} disabled={disabled} onIntent={onIntent} />
-          <ProviderCredentials editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
+          <ProviderConnectionForm editor={validatedEditor} disabled={disabled} onIntent={onIntent} />
+          <ProviderCredentials editor={editor} disabled={disabled} onIntent={onIntent} />
         </LumenFrame>
         <ProviderModels
           editor={validatedEditor}
-          labels={labels}
           disabled={disabled}
           catalogRead={catalogRead}
           onRetryCatalog={onRetryCatalog}
@@ -1326,5 +1550,25 @@ export function HbarProviderEditorView({
         </LumenFrame>
       </LumenFrame>
     </LumenFrame>
+  )
+}
+
+export function HbarProviderEditorView(props: {
+  readonly editor: ProviderEditorState
+  readonly labels: HbarProviderDialogLabels
+  readonly connected: boolean
+  readonly actionError: string | null
+  readonly catalogRead: HbarProviderCatalogRead | null
+  readonly onBack: () => void
+  readonly onSave: () => void
+  readonly onReconcile: () => void
+  readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
+  readonly onIntent: (intent: HbarProviderEditorIntent) => void
+}) {
+  const { labels, ...viewProps } = props
+  return (
+    <HbarProviderEditorMessageScope.Provider messages={providerEditorMessages(labels)}>
+      <HbarProviderEditorViewContent {...viewProps} />
+    </HbarProviderEditorMessageScope.Provider>
   )
 }

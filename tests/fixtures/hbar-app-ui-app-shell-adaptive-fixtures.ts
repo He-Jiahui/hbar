@@ -1,4 +1,4 @@
-import type { LumenAppShellAdaptiveContent, LumenAdaptiveJob } from '@lumen/app-ui'
+import type { LumenAppShellAdaptiveContent, LumenAdaptiveJob } from '@lumen/app-ui/catalog'
 
 type Seed = readonly [string, string, string, string, string, string, LumenAdaptiveJob['tone'], readonly string[]]
 const seeds: readonly Seed[] = [

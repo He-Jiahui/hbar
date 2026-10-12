@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import { LumenUsageProvider as HbarAppUiUsageProvider } from '@lumen/app-ui'
+import { LumenUsageProvider as HbarAppUiUsageProvider } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { usageOverviewDatasets } from '../../../tests/fixtures/hbar-app-ui-usage-overview-fixtures'
 import { createUsageOverviewPreviewStore, projectUsageOverviewPreview } from './usage-overview-preview-model'

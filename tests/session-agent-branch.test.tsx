@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { HbarRuntimeProvider, SessionAgentBranch } from '@hbar/app-react'
+import { WorkspaceShellMessagesProvider } from '../packages/app-react/src/workspace-shell-messages'
 import { sessionAgentChildrenInputSchema, type SessionAgentChildItem } from '@hbar/contracts/sidebar-directory'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
@@ -69,19 +70,19 @@ test('Agent branch renders localized empty, one, boundary and overflow states in
         const copy = getShellCopy(locale).shell
         const html = renderToStaticMarkup(
           <HbarRuntimeProvider view={runtime.view}>
-            <SessionAgentBranch
-              session={parent}
-              childCount={count}
-              connected
-              labels={copy}
-              treeLabels={copy.agentTree}
-              now={1000}
-              onOpen={() => {}}
-              batchSelecting={false}
-              batchSelection={new Map()}
-              onToggleBatchSelection={() => {}}
-              onExitBatchSelection={() => {}}
-            />
+            <WorkspaceShellMessagesProvider labels={copy} mobileNavigationLabel="导航">
+              <SessionAgentBranch
+                session={parent}
+                childCount={count}
+                connected
+                now={1000}
+                onOpen={() => {}}
+                batchSelecting={false}
+                batchSelection={new Map()}
+                onToggleBatchSelection={() => {}}
+                onExitBatchSelection={() => {}}
+              />
+            </WorkspaceShellMessagesProvider>
           </HbarRuntimeProvider>,
         )
         expect(html).toContain('aria-expanded="true"')

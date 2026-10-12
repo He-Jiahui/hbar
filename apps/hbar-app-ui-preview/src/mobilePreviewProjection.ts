@@ -1,4 +1,4 @@
-import type { LumenMobileContent } from '@lumen/app-ui'
+import type { LumenMobileContent } from '@lumen/app-ui/catalog'
 import type { MobilePreviewModelState, MobilePreviewStoreApi } from './mobilePreviewModel'
 
 export function projectMobilePreview(

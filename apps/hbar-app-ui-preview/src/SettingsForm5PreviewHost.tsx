@@ -1,8 +1,8 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import { LumenSettingsFormProvider, useLumenSettingsFormContent, type LumenSettingsFormContent } from '@lumen/app-ui'
+import { LumenSettingsFormProvider, useLumenSettingsFormContent, type LumenSettingsFormContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
-import type { LumenSettingsForm5KeyAction, LumenSettingsForm5ViewModel } from '@lumen/app-ui'
+import type { LumenSettingsForm5KeyAction, LumenSettingsForm5ViewModel } from '@lumen/app-ui/catalog'
 import { createSettingsForm5PreviewStore } from './settingsForm5PreviewStore'
 import type { SettingsForm5PreviewFixture } from './settingsForm5PreviewFixtures'
 

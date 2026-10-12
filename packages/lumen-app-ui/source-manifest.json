@@ -1,0 +1,1639 @@
+{
+  "sourceHead": "3e2e13219e4654b4f0b5781a7780b66fbd270145",
+  "capturedAt": "2026-09-20T14:40:30.4513311Z",
+  "sourceStatus": [
+    " M apps/hbar-app-ui-preview/src/main.tsx",
+    " M packages/hbar-app-ui/src/components/AgentActivity.tsx",
+    " M packages/hbar-app-ui/src/components/AgentApproval.tsx",
+    " M packages/hbar-app-ui/src/components/AgentPlan.tsx",
+    " M packages/hbar-app-ui/src/components/AiChat.tsx",
+    " M packages/hbar-app-ui/src/components/AppSidebar.tsx",
+    " M packages/hbar-app-ui/src/components/AppSidebarSurface.css",
+    " M packages/hbar-app-ui/src/components/Editor.tsx",
+    " M packages/hbar-app-ui/src/components/Feedback.tsx",
+    " M packages/hbar-app-ui/src/components/FileManager.tsx",
+    " M packages/hbar-app-ui/src/components/Integrations.tsx",
+    " M packages/hbar-app-ui/src/components/Kanban.tsx",
+    " M packages/hbar-app-ui/src/components/Navbar.tsx",
+    " M packages/hbar-app-ui/src/components/Paywall.tsx",
+    " M packages/hbar-app-ui/src/components/SettingsForm.tsx",
+    " M packages/hbar-app-ui/src/components/ToolCalls.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/AgentActivityContent.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/AgentActivityPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/DeploymentActivity.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/FailureActivity.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/HistoryActivity.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/LiveActivity.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/LogActivity.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/NestedActivity.tsx",
+    " M packages/hbar-app-ui/src/components/agent-activity/WorkersActivity.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/AgentApprovalContent.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/AgentApprovalPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/CostApproval.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/DiffApproval.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/HistoryApproval.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/InlineApproval.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/PermissionApproval.tsx",
+    " M packages/hbar-app-ui/src/components/agent-approval/QueueApproval.tsx",
+    " M packages/hbar-app-ui/src/components/agent-plan/AgentPlanContent.tsx",
+    " M packages/hbar-app-ui/src/components/agent-plan/AgentPlanPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/agent-plan/ChecklistPlan.tsx",
+    " M packages/hbar-app-ui/src/components/agent-plan/PlanActual.tsx",
+    " M packages/hbar-app-ui/src/components/agent-plan/PlanBoard.tsx",
+    " M packages/hbar-app-ui/src/components/agent-plan/PlanSummary.tsx",
+    " M packages/hbar-app-ui/src/components/agent-plan/PlanTree.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/AlertRuleDrawer.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/AppDialogActionsMenu.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/DeleteProjectDialog.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/DialogPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/EvidenceDetailsPanel.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/InviteMemberDialog.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/PlanChangeDialog.tsx",
+    " M packages/hbar-app-ui/src/components/app-dialog/WorkspaceWizardDialog.tsx",
+    " M packages/hbar-app-ui/src/components/app-shell/AppShell.css",
+    " M packages/hbar-app-ui/src/components/app-shell/AppShell.tsx",
+    " M packages/hbar-app-ui/src/components/command-menu/CommandPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/editor/CodeWorkspace.tsx",
+    " M packages/hbar-app-ui/src/components/editor/EditorContent.tsx",
+    " M packages/hbar-app-ui/src/components/editor/EditorPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/editor/LongDocumentReader.tsx",
+    " M packages/hbar-app-ui/src/components/editor/MarkdownWorkspace.tsx",
+    " M packages/hbar-app-ui/src/components/editor/RichTextEditor.tsx",
+    " M packages/hbar-app-ui/src/components/editor/SuggestionReview.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/FeatureRequestBoard.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/FeedbackContent.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/FeedbackInbox.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/FeedbackInsights.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/FeedbackPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/FeedbackSurface.css",
+    " M packages/hbar-app-ui/src/components/feedback/FeedbackWidget.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/PostResolutionFeedback.tsx",
+    " M packages/hbar-app-ui/src/components/feedback/SurveyFeedback.tsx",
+    " M packages/hbar-app-ui/src/components/file-manager/AssetLibrary.tsx",
+    " M packages/hbar-app-ui/src/components/file-manager/DriveExplorer.tsx",
+    " M packages/hbar-app-ui/src/components/file-manager/FileDetail.tsx",
+    " M packages/hbar-app-ui/src/components/file-manager/FileManagerContent.tsx",
+    " M packages/hbar-app-ui/src/components/file-manager/FileManagerPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/file-manager/UploadQueue.tsx",
+    " M packages/hbar-app-ui/src/components/forms/FormControls.css",
+    " M packages/hbar-app-ui/src/components/forms/FormControls.tsx",
+    " M packages/hbar-app-ui/src/components/index.ts",
+    " M packages/hbar-app-ui/src/components/mobile/ActivityFeedMobile.tsx",
+    " M packages/hbar-app-ui/src/components/mobile/HomeFeedMobile.tsx",
+    " M packages/hbar-app-ui/src/components/mobile/MobilePrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/mobile/OrdersMobile.tsx",
+    " M packages/hbar-app-ui/src/components/mobile/RunListMobile.tsx",
+    " M packages/hbar-app-ui/src/components/mobile/TaskInboxMobile.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/ActivityNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/AnalyticsNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/ArticleNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/CommerceNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/DeploymentNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/DocsNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/DocumentNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/FilterNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/LandingNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/NavbarContent.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/NavbarPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/PortfolioNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/ProjectBoardNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/navbar/TaskListNavbar.tsx",
+    " M packages/hbar-app-ui/src/components/notifications/ActivityInbox.tsx",
+    " M packages/hbar-app-ui/src/components/notifications/AppBarBell.tsx",
+    " M packages/hbar-app-ui/src/components/notifications/DeliveryPreferences.tsx",
+    " M packages/hbar-app-ui/src/components/notifications/NotificationCenter.tsx",
+    " M packages/hbar-app-ui/src/components/notifications/NotificationsPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/notifications/SystemMessages.tsx",
+    " M packages/hbar-app-ui/src/components/notifications/ToastStack.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/ArticlePaywall.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/FeatureGatePaywall.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/MeteredReadsPaywall.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/PaywallContent.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/PaywallPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/PaywallSurface.css",
+    " M packages/hbar-app-ui/src/components/paywall/PlanComparisonPaywall.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/SeatRequestPaywall.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/TrialExpiredPaywall.tsx",
+    " M packages/hbar-app-ui/src/components/paywall/UsageLimitPaywall.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/ApiKeysSettings.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/DangerSettings.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/MembersSettings.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/ProfileSettings.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/SettingsContent.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/SettingsField.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/SettingsPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/settings-form/SettingsSurface.css",
+    " M packages/hbar-app-ui/src/components/settings-form/WorkspaceSettings.tsx",
+    " M packages/hbar-app-ui/src/components/support/AssistantChat.tsx",
+    " M packages/hbar-app-ui/src/components/support/HelpCenter.tsx",
+    " M packages/hbar-app-ui/src/components/support/RequestList.tsx",
+    " M packages/hbar-app-ui/src/components/support/SupportPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/support/TicketForm.tsx",
+    " M packages/hbar-app-ui/src/components/support/TicketThread.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolActivity.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolCallsContent.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolCallsPrimitives.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolCallsSurface.css",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolCommandOutput.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolDiffResult.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolPermissions.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolSearchResults.tsx",
+    " M packages/hbar-app-ui/src/components/tool-calls/ToolTrace.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/BillingUpgradeWizard.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/EnvironmentWizard.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/InformationWizard.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/InvoiceWizard.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/MigrationWizard.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/ReviewWizard.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/ShippingQuestion.tsx",
+    " M packages/hbar-app-ui/src/components/wizard/WizardPrimitives.tsx",
+    " M packages/hbar-app-ui/src/forms.ts",
+    " M packages/hbar-app-ui/src/index.ts",
+    " M packages/hbar-app-ui/src/primitives.css",
+    " M packages/hbar-app-ui/src/primitives.tsx",
+    " M packages/hbar-app-ui/src/production.ts",
+    " M packages/hbar-app-ui/src/theme.css",
+    "?? packages/hbar-app-ui/src/components/app-shell/ToolPane.css",
+    "?? packages/hbar-app-ui/src/components/app-shell/ToolPane.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/ApiKeysIntegration.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/ConnectionIntegration.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/ConsentIntegration.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/IntegrationContent.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/IntegrationPrimitives.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/IntegrationSurface.css",
+    "?? packages/hbar-app-ui/src/components/integrations/MarketplaceIntegration.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/SyncIntegration.tsx",
+    "?? packages/hbar-app-ui/src/components/integrations/WebhooksIntegration.tsx",
+    "?? tests/fixtures/hbar-app-ui-integrations-fixtures.ts"
+  ],
+  "files": [
+    {
+      "path": "apps/hbar-app-ui-preview/src/AuthenticationPreviewHost.tsx",
+      "sha256": "c614333ef5d65beb594cb6e465dce098a277d1b7b540ca771e2f11b42d23d105"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/CommandPreviewHost.tsx",
+      "sha256": "6130afcfbe171f6128b6cf0a1740798e01e2563a67905ae15d22e63101aac934"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/CommandWorkflowPreview.ts",
+      "sha256": "d0ebd4641b31db647b8d794fb0666ceb5c46de67a61dc1c8aa6563f7e4abf5f4"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/ConversationPreviewHost.tsx",
+      "sha256": "0ac06bd74f88bd0d9fc225dcdba38c0df5ed03a1ab3fc566332c4f9c4c478efa"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/FilePreviewHost.tsx",
+      "sha256": "597da5030354165ed4f628575f8ab07e2fd69e72e46c2021b01be394bd7aac83"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/form-controls-audit.css",
+      "sha256": "8afe8c3dbb8ef130b0e17fa952fd444d14d846032a3e885ef2c4a0578c45ff07"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/FormControlsAudit.tsx",
+      "sha256": "1c1a4fc2d80be01b0d8d7ed021e221d9b8e269ad157f2fadcb28d139b9dfdf6a"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/main.tsx",
+      "sha256": "4491c4b1c74dfa607ed83df84d53ed6588bf5fc8a35e1d919fafd8e1b3484730"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/ObjectivePreviewHost.tsx",
+      "sha256": "a412eae20b74f3b3ccfae48c4aba3f1020fb9c42cc9306548688957a1c2cb207"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/PlanPreviewHost.tsx",
+      "sha256": "961be2aa568437f231ccd8e879464baca341cd2c675a871ddf0eeb3d9995e312"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/preview-layout.json",
+      "sha256": "ee076eb9a519fadccf46e2482f418c98dc2c25af878e5cfa877626aef4ad0472"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/preview-layout.ts",
+      "sha256": "3885842373dc5a5c2757c76d6b759937d601a38e6ef3baa1d1a5abb4220587dc"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/preview.css",
+      "sha256": "d79ce27567586fc65c175092cef0b019bc2b77aee236e23958326e422ff2085c"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/prompt-audit.css",
+      "sha256": "f405353b9e973fc9ad11562ac8e010c1df19211f008a2454745c9b56aedec956"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/PromptAudit.tsx",
+      "sha256": "a474bdffeeaf78515e165274aaf105a244f22364d5261a7e76ee57bcbfd5bd23"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/SessionPreviewHost.tsx",
+      "sha256": "2e19091294b3fb244addac424b80e79179f54755c3a85edaa4aa4217a5b314ef"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/SettingsPreviewHost.tsx",
+      "sha256": "b8f0a76223af5e57cc79813e559ac614ac73c3b9b9b1b44aded57afe8efc3b9a"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/shell-preview.css",
+      "sha256": "fc619ae5fa7ccd4f4daed8c45b19558c5a473e4f062b729aa646069a74e75301"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/ShellPreviewHost.tsx",
+      "sha256": "e999498c6350b23f5dfc5cc9568617656dbbc91a022259e7832764f8d49f2d47"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/UsagePreviewHost.tsx",
+      "sha256": "78f4b7426794ba9211e517d7289e0f2bb6153ead534150cfe3be14b996c2178f"
+    },
+    {
+      "path": "apps/hbar-app-ui-preview/src/VariantHarness.tsx",
+      "sha256": "dfa7d35acc9e1ee3612258791c6793d785752e93357197c2eda276d2108b5b7a"
+    },
+    {
+      "path": "docs/app-ui-integration.md",
+      "sha256": "37b6bc2dc7da3584e1695d7dd7d4d77c1b27e7d72fe5322b457de8af8faf8519"
+    },
+    {
+      "path": "docs/app-ui-variant-inventory.md",
+      "sha256": "0b839f33261ff8f50450a22b7be9d6b1ac6755b996c3ba69dee69b5f314cecad"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "f5c42159f52ac5bc96207af624594ccd338f976b7dcb3feb03d5e4dbcf00f797"
+    },
+    {
+      "path": "packages/hbar-app-ui/package.json",
+      "sha256": "db72dfee294bd694f012343337f0aa06866c040d51e83f5dcba92459c0037694"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/ai-usage.ts",
+      "sha256": "88535b1aab93cf293b99e098a99338b9cd5058cbc5dbbceefe719dfead3bb11b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/app-dialog.ts",
+      "sha256": "071215b4259abe276cd8e6db4969e4aa6ba1c76279ba9fe2dc792c62977edaa1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/appearance.ts",
+      "sha256": "bdaff5d73de51c629ae7ce57ee3d33f91cec344bf2fcae1b7db8c504f490d5a2"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/authentication.ts",
+      "sha256": "04d3c2658452b8b0430b5abce8216b9a06e337f08df5e343d5a2489945be536b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/catalog.ts",
+      "sha256": "2ca3a5762124c6205b3c96ecf487e7532e29b7351868572c6793a20254d7e1be"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/collection.ts",
+      "sha256": "7130bc58eeeef844cb04e3bac6b9690b9b9ae5ba77ff8f0f2551104209515b93"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/command-menu.ts",
+      "sha256": "389dc5cf980d8cb1709e959c2232d3db20812b2d648369d07e7a8bca88f0ecd3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/AgentActivityContent.tsx",
+      "sha256": "836c08c82f199bbcc9267cf5ad6908d47f97242d3ba341c254ead480c524769c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/AgentActivityPrimitives.tsx",
+      "sha256": "481a5532eeac89f0c87534757407718141bec788bb7b100f70344ca48490cc39"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/AgentActivitySurface.css",
+      "sha256": "7eabf53c0b08cbe70840f374f8deb054d4df3995782a644ae5a951041ff2f11a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/DeploymentActivity.tsx",
+      "sha256": "0f27eaaea9738d820f4af0a8daeb74d031a0bb7ea3f810777397dbd3560ecb8a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/EventLog.css",
+      "sha256": "d3b8af4b5965f19b8d85e768bf6017d759b7a2f84a5ce33924b419813aa3ef4d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/EventLog.tsx",
+      "sha256": "50503bc411beec51a8e487af73e7935eb3fb275d11f67362646d54cf02f8b85f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/FailureActivity.tsx",
+      "sha256": "0845d0095b64da2ffcbdba5eee6995b09f56c9f30ae6e27f649b6db9ab2bad62"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/HistoryActivity.tsx",
+      "sha256": "d28664bec9113fcb8064f92762c88f4bceb721d5dff5cabe788e01b2e9cfac22"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/LiveActivity.tsx",
+      "sha256": "dc8b79f7403d98f320ad3b5bc5be6ac2f7833ef0e1e2b17d9815cf86774291c1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/LogActivity.tsx",
+      "sha256": "c09ffb8fd6dc6cde2a13c1b7fd2f92a22349c84f29a058d791d0a306c00321ad"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/NestedActivity.tsx",
+      "sha256": "ed6a70d3f5b50e34a9330a0e706981e02cea8eb83ff8f6df8b4c76c957813819"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-activity/WorkersActivity.tsx",
+      "sha256": "c268db4433125bead9bd83e50ff9a3b68e6168ef5aefc1e847d9d1a74051fe4c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/AgentApprovalContent.tsx",
+      "sha256": "ad667e214c463d11f481b454b2b91e90f9077d13cb3d03a962b8fcd03d9d1f5d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/AgentApprovalPrimitives.tsx",
+      "sha256": "ca487fc408c58ef5651540c44b6fc0d79267bd76938488c9a76494c7ce213260"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/AgentApprovalSurface.css",
+      "sha256": "1e207c87d68d2e39758c524b9604fdd6c3618f240ed5fd37fcbd921c2a14d541"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/CostApproval.tsx",
+      "sha256": "dee533ccff855a13c9b567375e8312b45b39b58a443f9170a8c04e3a1d7e531c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/DiffApproval.tsx",
+      "sha256": "b7fc4de3321848cd9d0df7b0a28475108e05a6b4a50d63fb9e6e09050b5597da"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/HistoryApproval.tsx",
+      "sha256": "b65e4332bc0a7b738da3eb27d7f6d570e2217f200558fa9f9594e98a3806ae29"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/InlineApproval.tsx",
+      "sha256": "d80e570084cb711cffee5d5ea58748f43c0bb1de46c172b22f5b0d4558013d8e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/PermissionApproval.tsx",
+      "sha256": "f1e69392102d934d78a7209a5802d8826b5b5a279e658cfaeb165e6f13466713"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-approval/QueueApproval.tsx",
+      "sha256": "73afbf77f11b8d54190e4d92cae5361016385293850a937972d1c992c8db38b4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/AgentPlanContent.tsx",
+      "sha256": "9e343af3458ecea3d7ad466c116287ea442881a62a87bf4e57090fdee26d5e89"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/AgentPlanPrimitives.tsx",
+      "sha256": "78cae10790f012601ca59a0e8e1f3f9f759baca2aecbc8b85f45d0a1149d92bb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/AgentPlanSurface.css",
+      "sha256": "db59887cc89e1c668de1d99be0e3f3408cb8bf3e2efc6b292a01742c49110109"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/ChecklistPlan.tsx",
+      "sha256": "c2466907817f9e8810d0cc9271cb7a9fc242937b9eec8e1c5f33836a282ae084"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/EditablePlan.tsx",
+      "sha256": "e91ddf4f460ed38809eface4f260f14a2254134ca84513300239d6b88ad67405"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/PlanActual.tsx",
+      "sha256": "d08ad3ce86c37d8645be442e2edd0295e4ec714d4cc5a2004e6a8a02fb9ac127"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/PlanBoard.tsx",
+      "sha256": "cf7e3917d34476e055c7ae1c877ad27c3c3c1a8c12d36d63a7f42f55faf24b17"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/PlanEditor.css",
+      "sha256": "ae86046173579c41bfd858b55f3a7c45da96fc5d4493f28282cb1c94c729b6ef"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/PlanEditor.tsx",
+      "sha256": "9b0938fdb1f095fe683d67d6bb9e17a99aed12022d36017fd96a39964e16e27f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/PlanSummary.tsx",
+      "sha256": "a06b30a9c72eefa4354cd17ee6f88d32d07718a82aa6b612dd1646e0694b23b6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/agent-plan/PlanTree.tsx",
+      "sha256": "2e69b70954121bd91dff58e58961f38c38fd22c5edcf887144d42ec4d20fd508"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AgentActivity.tsx",
+      "sha256": "4af6f92a50dc1a2f0a095c12f388abd5c8252d5c5b2b906298def505e382ec4b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AgentApproval.tsx",
+      "sha256": "c12f9a25b897949a239f98369ae38e643dbeaa92c505f9ee733c783c4cd7a8c0"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AgentPlan.tsx",
+      "sha256": "74b1ed9c45eef92613306fccb51cada7302bf3c1d1454f3259536f584cbb9f38"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ai-chat/Conversation.css",
+      "sha256": "f57254b6210daae553c759921139ae0d27a31a2864b4c525e3ada089bb5b47a1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ai-chat/Conversation.tsx",
+      "sha256": "5fa6da029ff25134c4b322a84e3b574ea89784c404395bd631984077e88155dd"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ai-chat/Message.tsx",
+      "sha256": "0e901b5b0d818c17ef6fc243d93d77f6bc2e972a3962a791233994b23c8cc5dc"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ai-usage/UsageContent.ts",
+      "sha256": "e41f542107b9bc626b3cdeeb35fd2e5dffd6c1e389efa86d4106f7afe324dda5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ai-usage/UsageProvider.tsx",
+      "sha256": "5abca4d2077ed3dcd43b43a1fef9315170ab302cd9ed3e795bc1b28e3fa73a5f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ai-usage/UsageSurfaces.css",
+      "sha256": "04ad7faec26b86b21af8867b4cb13b929054e0b93281f37359715428a6aa146b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ai-usage/UsageSurfaces.tsx",
+      "sha256": "87d06c639d1fdaed6337d644a74246029de07fa526bf87447c7eb531974265da"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AiChat.tsx",
+      "sha256": "9868f621bc2dae6078e59691895eda297283c1d959d86f5c8cb8c1c2792ebcc0"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AiUsage.tsx",
+      "sha256": "fd36efe6fc381ad203848a1a2eb979962e7095a9b2e01dfb750639a8956ea318"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Analytics.tsx",
+      "sha256": "5480d2b58d74659f8bd2352f9efc140a712180e3268bc33104156fb3a1fe5a8b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/AlertRuleDrawer.tsx",
+      "sha256": "a6a7f0448e9514dd97413508153bca8b127b2e06ecfecf3177d8e2ab388dbfad"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/AppDialogActionsMenu.tsx",
+      "sha256": "fcfc7505161881b35965650f239373fb370ebbca92b65198e0cb1301eedf024d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/AppDialogSurface.css",
+      "sha256": "e1d879336a320407d71e6aea481491d5d794a66a82fb14e77d9a7557b79831db"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/DeleteProjectDialog.tsx",
+      "sha256": "127a55a134938e2e8f8306ab6fee49c015ae816709d30b44470123a93ba3c990"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/DialogPrimitives.tsx",
+      "sha256": "c4b7c376fcf50f84cf04b3f9683131576d0d68999bc1161c58d02a46172bd9fb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/EvidenceDetailsPanel.tsx",
+      "sha256": "3b91a23a1ee11ece979da74f7731464897bbccde695a2906a25892aef5199242"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/InviteMemberDialog.tsx",
+      "sha256": "af67948a3a2c691bb8e1eb28de048979f18d201db39e7a05b379ba1075c6b48a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/NativeDialog.css",
+      "sha256": "3344a0879e7489bd963d793ec70fabc9de5a7b1e07c70aa07ac00b234856e9ee"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/NativeDialog.tsx",
+      "sha256": "36c9acd974e91b61ced040192a07bdf759d2a415ed170034d84461ff56d87069"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/PlanChangeDialog.tsx",
+      "sha256": "97a484ba3f8567a63b4c2068e159e96c891e4252c2483e1eaa1d2546653e2ca8"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-dialog/WorkspaceWizardDialog.tsx",
+      "sha256": "c8ef3e94f01d460ad0860e2dc2eab14083694548808a703cf54bf44e1666ba0b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/ActionMenu.css",
+      "sha256": "8b36a1351d0bfffb535f343f93cefd399f05fd82c49a829377e421b6db4670ed"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/ActionMenu.tsx",
+      "sha256": "0b0194e2a06af6cd4a68d41bfc294ff343159adc7f151cf24f9912766cdb32c7"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/AppShell.css",
+      "sha256": "ae2cafc8cf8e26280e1a4788ac3627c79ce2ebd827d4406b125cddeebc079acb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/AppShell.tsx",
+      "sha256": "05f6664a68e60eacd9117a3ef9768f46b42de1e5c57e91fd2a42a22f94633da0"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/PageHeader.css",
+      "sha256": "f39545a1f691b4970bd3ba83f0dab632ddc6f3d0bc3550c7e62d6bbb0b11c3ca"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/PageHeader.tsx",
+      "sha256": "d5eff911af84573f85e7fcd18c423c770e625f24f236226b8635a472404e12c9"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/SettingsList.css",
+      "sha256": "5e3f8443397ed0d9754e4ce00de66fde28b2450d71e8ff773cf587f09d0b530a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/SettingsList.tsx",
+      "sha256": "9e930d20d273c07f851589da4bd651d583a8321d230aac0780cff74254518719"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/ToolPane.css",
+      "sha256": "4751cc548e27c56b1adb144c5df33824201118dbdf2235421a2b384b4913c4c3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/ToolPane.tsx",
+      "sha256": "713531002d732f06389f13d591c7be92749c1cec8f73bfd47c3486c6ddd37562"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/WorkbenchShell.css",
+      "sha256": "1d08693479324a2083f2f59e4c4d21c16a955e26ace3afd3ddf868e73a17ce6d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-shell/WorkbenchShell.tsx",
+      "sha256": "7abc66f115d1798d68b2559fc077ac210874d452f295dca3a8c6f726e2190bc3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-sidebar/SessionNavigator.css",
+      "sha256": "c6495e74cde68bbc9b8c2a16b8ccb33472ffd4ea64205aa28d5139898a5ae8f4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/app-sidebar/SessionNavigator.tsx",
+      "sha256": "5316e8283446c895289e4863d4f8f1268e6e820f582c6e4300ec84b84daedef0"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AppDialog.tsx",
+      "sha256": "d99306c3f6de235a54381cfb7348be7576d104d3b44055be34d2fb9db56cbfaf"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ApprovalRequest.tsx",
+      "sha256": "394dfa8c5d63032c5ba0eeed357bb2dc8610c704ca16ad7f46c1a5b1322566c5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AppShell.tsx",
+      "sha256": "b928c49776fbc32bda43072591a13b3713156403e005bcb82234aae47cb76505"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AppSidebar.tsx",
+      "sha256": "b8612afc2b713a8d92d1633530ed7e381171f95fdbcf68e14c0154ab69572737"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/AppSidebarSurface.css",
+      "sha256": "3c865a2e3a6f48e9db55dc323eff43bd51e7ad435ce6843ad4fe82534c2c61c3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Authentication.tsx",
+      "sha256": "1074f7a42381243136a0926c8ef360d451ce2afbd5246197d26dd3b0dd7640c8"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/AccountChooserAuthentication.tsx",
+      "sha256": "aea271ab664a721a90c75136bd7f45ce8e7d4141dfa8ae66cce821fbc862927a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/AuthContent.tsx",
+      "sha256": "e192d660e379041d35a4bedfcb59210ef290e60b740a097ff2cc5c3a97d4a04d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/AuthenticationSurface.css",
+      "sha256": "692b467f251c2f007b081a638d1ec927b8332ff454ceb098069b1f20083636c4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/AuthPrimitives.tsx",
+      "sha256": "a34e43b1f4253fb2a04b498583e731e43d256f5d497b342b6fa0417c03dcecc6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/CodeAuthentication.tsx",
+      "sha256": "90e5e93ab4b2542c01f7f3aa62cbdf2ddfc6cabf37aee30b844b20fbbbf496fd"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/CodeVerification.css",
+      "sha256": "52feb4dd1656b5916d6d8650ccee93e72380aa7f3022c69e0310e31757b67e10"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/CodeVerification.tsx",
+      "sha256": "cabbf6e5b305bfa4f73f89e354141a68c2db6e0b54abdceac121b9124e3cf899"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/EnterpriseAuthentication.tsx",
+      "sha256": "652d2cfbf618e9cd2e56bf5832327cd4e3dcf6af61647a777b25e61cb93d3bef"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/InvitationAuthentication.tsx",
+      "sha256": "62a46526cf61dc0cd1ff3c5b34ba4bc005b1a5581e9710c938727883e4a24eb0"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/MagicLinkAuthentication.tsx",
+      "sha256": "6234a0bf35170c97cd66199e03c6089faa010a7bcb4b3ceaed74a9c7239c47b6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/PasskeyAuthentication.tsx",
+      "sha256": "6b8c39e49bf6c049df6ad08148b1f45c73dd9bef98340482b9ea8a790c57c4f6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/PasswordResetAuthentication.tsx",
+      "sha256": "79e12749d9f4bc7b46bf69b05c8c7fb654f0328381d1ae05e18aadfa9b327b17"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/ProviderFirstAuthentication.tsx",
+      "sha256": "25a7ba5d85c8bd1073a384aeac4d997f281ab090c2372f0b8cd35e8c5a5934b5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/QuoteAuthentication.tsx",
+      "sha256": "c2dfa05ce7153f363b3427143180f295757395ba823a7723608677b820fe1182"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/SignInApprovalAuthentication.tsx",
+      "sha256": "a3dd36f8d9ce0539148b26517053158e3bed5b4bd0b1565974fbaaca7de49cf7"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/SignInAuthentication.tsx",
+      "sha256": "c0d53d635378747e887e5c17003935b26e9c892cec44e407566cf5c30efeb842"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/SignUpAuthentication.tsx",
+      "sha256": "c07bf9276ea2ff07d2ceed3a5059b0c395578e84a96b3564be585b1e7886801e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/TwoStepAuthentication.tsx",
+      "sha256": "1b932131187fed8ee82b3cd44e38bd596d3059e536cc7381bc5ed06eaaad0e29"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/authentication/WorkspacePickerAuthentication.tsx",
+      "sha256": "fa302b4a90e73d7b4ace22b317c8a183eec2854b3c55f40e99cd891188f5dc51"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Billing.tsx",
+      "sha256": "751a45d58589c516a655998937e2655936c631a286ec90323124f52561e41c1b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/BillingContent.tsx",
+      "sha256": "4c3fc35d52248c872a002badb69fcf9d9801210ad6e3d7a0ed3f50cf89855a74"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/BillingPrimitives.tsx",
+      "sha256": "b101fc6bcb32f743a7931ff780296de029a6d580fa6a7111f5834136bee9f4ca"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/BillingStatement.tsx",
+      "sha256": "451c074ae8b7da4e87125b3e1981d535819475748ed39e27feb9c3e11c74feea"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/BillingSurface.css",
+      "sha256": "a4c5b7a6a5dfb44bbd15a48d0633126a862d60fb9b625c18440c34fa1772aa03"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/ChangePlanBilling.tsx",
+      "sha256": "1c355b822ab51e62928939089d3d4b88b955c2ecc160c10274d1fb0ac755182b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/InvoiceComposerBilling.tsx",
+      "sha256": "c8490636cfcfd735cbe27b35aa3cead0aab43d81554d9f0a31f82492487554d1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/InvoiceDetailBilling.tsx",
+      "sha256": "3c406929c1de74b1856510f84caabd9d56f16b78331008378ce5a31debde1513"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/PaymentMethodsBilling.tsx",
+      "sha256": "fbf8af4a35a1396611f0526645e296677bea933914018f617dc5decaa6b8716b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/PlansBilling.tsx",
+      "sha256": "9e6db45027edff20756ea918b4eae3806aeb11838813e0e5bde56d73edbf52b5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/RecoveryBilling.tsx",
+      "sha256": "5e6e1ccce1d3058fbd28ecd300b9c838b7862565f22b7fb3f5b24d0f17f77c8d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/billing/UsageOveragesBilling.tsx",
+      "sha256": "43818930299de921617a634540957a100996da8eb5d3cdb7f0d75ab079a1afff"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Card.tsx",
+      "sha256": "8bf393723ec26cd3402ba21d2ff6cbc885e6de6d5eed17716f45ecb61321c906"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Chat.tsx",
+      "sha256": "560533c07eab89ac7e8e270be81e9f7ae5d13efafd5c92762373080a166a266b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/AssistantCommandPalette.tsx",
+      "sha256": "993480826da9ff1ac9b45fdf529288dcb073e8116db480a64f86d5be4b34dee2"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandCatalogSurface.tsx",
+      "sha256": "9be2777ed4f3387c9142db92a98d39ad37f893368c25f978e3753e16ceec02c6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandContent.tsx",
+      "sha256": "5ba4ef24b53e5dd0113d54446f88287e3c9b5a2b9347d63e568ace6d36b11c2c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandList.css",
+      "sha256": "0e5568c5ae91d563ff08ea4d8da291a6b7ae14e6b319396e4980a2c1230185ea"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandList.tsx",
+      "sha256": "aa7b0765731feb14a8e3944a5955e0bfa2fecaff70b072647572bebeb81a196f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandMenuSurface.css",
+      "sha256": "c2859ce6085349cdf8a722a856f6ee39d830f6fe174011bdf2aeac9761daa708"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandPrimitives.tsx",
+      "sha256": "b1ceb5f836b483a9beaff7c80665785fe386ca59dea35c424a626485b52adc29"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandWorkflowCatalog.tsx",
+      "sha256": "2a7489d52cf8003b43d13633f8f357ad7c3800f54b84aeaae0a1f20cda3cc5e4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandWorkflows.css",
+      "sha256": "55a078a570da48620f3e9c5f06b7d0da965b9cbab948fb058bf72f5fac3774a9"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/CommandWorkflows.tsx",
+      "sha256": "e6fccda0d13941cac8ecceb9a8e7f1ae830b78979aee1c6ea3ea25c37a89b704"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/GroupedCommandPalette.tsx",
+      "sha256": "3e0d37567cf7275c686ef0150400d5aae20ffc8175d16040ae41bfa6b745bbeb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/InviteCommandDialog.tsx",
+      "sha256": "07032f5644ff9398c31c7b15e676764573a024050aa56de188321af50ca67bbe"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/QuickCommandPalette.tsx",
+      "sha256": "8fde3e2bfd80b5c06a8b3ec9382497318cd6a3c4ebec65214c8ed792fc468df4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/RoomCommandPalette.tsx",
+      "sha256": "db5e2afe0a637b73570262342814dfc2da5b01b19c796dca437f08a0d8329f18"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/command-menu/SearchEverythingPalette.tsx",
+      "sha256": "88db6f633a74b0cf2021c4597f1db22da999d01940a47c839371cae1196ed19c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/CommandMenu.tsx",
+      "sha256": "eb2923d7889027cb180438088a5a89b66f8c64149334d20dfc2b3d8d1d1bb636"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Comments.tsx",
+      "sha256": "8a1f53cf72ab8a6a38c6e451435d5f17c64548464d1cb6d9fc6f3748856afb91"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Dashboard.tsx",
+      "sha256": "c8a9fe241e785f1c59932ad7723c51367d6ba513d4b2d14ec74e867265d06a90"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/data.ts",
+      "sha256": "82ec70bc633c5cc583d9ce3cb5f72e364c4d4e427a6387f45f0983018be57b49"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/DataTable.tsx",
+      "sha256": "459cd58f598f4f0687de62eb29aece026ea2b74fa1d5fd74abbf7dd36ba112f5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/decisions/ApprovalDecision.tsx",
+      "sha256": "330b696124816e8e5a89d41fbfb376751bc21f9b16fc07758c2192a68f0b2877"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/decisions/QuestionnaireForm.tsx",
+      "sha256": "ab2795b84dca461e728b8f824f5e86a4397d89c8122ca6425f37125662271afc"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Editor.tsx",
+      "sha256": "2ef9acb05c9eaef70db2d4a19868f0b4893f528ccb2f29c95c9d7fe56f057877"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/CodeWorkspace.tsx",
+      "sha256": "3eb3c9a9474fb9c37e44ddf8bacf118fa17a1f5a8087136ee7e8900967bdbe7f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/EditorContent.tsx",
+      "sha256": "033d79b1bdde173f767e8f9322bd819a75b8794965c15d7c3d0e7319837b1656"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/EditorPrimitives.tsx",
+      "sha256": "0a124fed1e09d4198fba9d442227e6c3c4e210589726d4adbdb8cf51ef2def26"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/EditorSurface.css",
+      "sha256": "6d116237bb36f7e82d5ac6850f9606577bedb97d62fc61395ab32283f8e1552b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/LongDocumentReader.tsx",
+      "sha256": "8a1c55dddcd53815b987dd86d8b232ceb74bd2ccc787c3c1745032117b1e6a0a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/MarkdownWorkspace.tsx",
+      "sha256": "437391f0e069d78687d21c6550a1db6cb0d8e9e938769da326d7cfa2fd13edc3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/RichTextEditor.tsx",
+      "sha256": "89cfdb52ca1c1a46ad01afc8eae9f0962e37a5a237734f5582a4e4172a9b5e33"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/editor/SuggestionReview.tsx",
+      "sha256": "4af8552bcc7d2a7975b26b95a0cc2a7b8f30495f663762bb585751320208d128"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/EmptyState.tsx",
+      "sha256": "74b6a67fa7051ad05bee10c8946d13334e8cdce8b6f9d0a94235b00521f55c8f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Feedback.tsx",
+      "sha256": "43a7b8c0ddd2949f563801fb85bb83c229d94042aee0ec22a19018b2f6cd9c28"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/FeatureRequestBoard.tsx",
+      "sha256": "ada50752929322a7e3eb9762ef83714e7f5f1fd5d632007943243e97e02e95bb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/FeedbackContent.tsx",
+      "sha256": "c0a12e752c81b716e74c032f914c5c22c4f59bf4145264317f00aab770769852"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/FeedbackInbox.tsx",
+      "sha256": "979a4acb5d9eab2f559040cba54b75d1ee8bedef81352b17f89d847235bc73a0"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/FeedbackInsights.tsx",
+      "sha256": "c529932a0fcca5ad40d86578e30e75746aa678a55f51b31bfe4b1b88953384f8"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/FeedbackPrimitives.tsx",
+      "sha256": "be95cbcce85e82c9f58d23b6bb3b15f3e10b90cd73cadea30a951bc669a785a1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/FeedbackSurface.css",
+      "sha256": "a8823e42788d1727d93893cf2611c1595320bc853cd6aaf575f6624f6c46ef06"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/FeedbackWidget.tsx",
+      "sha256": "6f4211bca0378e5c90217d31b971a3835b36d3542e5b77623b27a6227146cb98"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/PostResolutionFeedback.tsx",
+      "sha256": "666b9ef992347c7057c5dd792d356dcbc8070048b6b90c0b4dc7278a9019b946"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/feedback/SurveyFeedback.tsx",
+      "sha256": "d77c41b6935184bf72bd63e126e4bb0a07397849c0f1b4183b5590c5de132891"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/AssetLibrary.tsx",
+      "sha256": "3e410d34641ba155437c752adee21e5e1fbbb464de91a63dd098fc0815ebf34e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/DriveExplorer.tsx",
+      "sha256": "58876e61f0401f56f6201ad11a333f8d6c7ebaa7132f84d210792b6a129feb8a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/FileDetail.tsx",
+      "sha256": "aa4dde1d1d7cd25c84468224e33a30bcccb59a30caa87e4d52bca63c00137c7b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/FileManagerContent.tsx",
+      "sha256": "110186007e7f52b667b2fc993bdef728154f70ba0a5a16ea6b2080679256eb27"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/FileManagerPrimitives.tsx",
+      "sha256": "f6ee5605d43c3c92950d63b7836df6487c6a30bbe314e0c1abfca3141247a6e6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/FileManagerSurface.css",
+      "sha256": "806654d61e4463e6fb9386c135e6b560f8dfe89de0d51997d72911fb4a816d43"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/UploadQueue.tsx",
+      "sha256": "572d311c1171eebb23d4ecdff7f5d6f6cd2ae8062874f2919702cc3dd6e20ad9"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/WorkspaceFiles.css",
+      "sha256": "4991b0f30a635ca4ccbaada2bf1877c3ea3c00fad7cea6f0de99d9a7af072733"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/file-manager/WorkspaceFiles.tsx",
+      "sha256": "3240c4f07a74e46b0004ae848e24f534d8ead0f746e354e5480918e9f4a7f0e3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/FileManager.tsx",
+      "sha256": "86cb913b262410e47aea1995b8e40f805be5b08c5ff2678656bfbee87b80a524"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Filtering.tsx",
+      "sha256": "a42b9a2aeb8b4f591c9b29fb76c08ef7761d12413c6a0f98d4be4f5f2d1f514b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Forms.tsx",
+      "sha256": "000df49cee4161920d72286298b23f88f88efef37c9de521004f4179094cfee4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/forms/FormControls.css",
+      "sha256": "3eaed87e18cfadfdbec5fc383c72516af9328babe4d48627ad777a7c403cb5b4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/forms/FormControls.tsx",
+      "sha256": "178a7cdaa2b0f8e354306d86615b4d35c01244eafc7f2202b0d0f87c3734c828"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/forms/ObjectiveForm.css",
+      "sha256": "241ec426f80f7c9e19e801eb9b76da845144dfe20ae8d8a3fa0a791d6df2401d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/forms/ObjectiveForm.tsx",
+      "sha256": "8d7ccc1e5e7dd38fac878ea7f2cd5a0808dcbcc8826f64f5d4727bed748daab3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/helpers.ts",
+      "sha256": "bcdaa78471f1b98f096111a44cf7b9aabb9e8cc74eca5a917251f17e42339b2d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/index.ts",
+      "sha256": "78f1502a1fd275ead5d542effa682496a87cea8292f1db26835464c481b62a1b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Integrations.tsx",
+      "sha256": "5e2dadd28d3052c6d388393a664c5cc0b043aaa2ef2e134718c0c4e9bd6efcf8"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/ApiKeysIntegration.tsx",
+      "sha256": "84de40efbaabc1557845b2c1a203a9061dda35dd2544bc28767466b935e5c091"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/ConnectionIntegration.tsx",
+      "sha256": "15be04e7c1ad2e1936976ecbeeb190d99c76960b3244bf43faba31e432bfcc0b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/ConsentIntegration.tsx",
+      "sha256": "1db4e509e0e557496326c77f0a624884c0f21195571d86a924892b7604ae56dc"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/IntegrationContent.tsx",
+      "sha256": "aed0021d99d792d60b8069e00c041713424a672780ccfafe66f5458495ac379f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/IntegrationPrimitives.tsx",
+      "sha256": "b19319015dc9870b6f9e9e931aece15744f8d043f5dc71da77faa8a4931aad12"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/IntegrationSurface.css",
+      "sha256": "fc5373cdfe30c08904644bfd491e8ee2895b04daa2ddd7c9bb06e3a5fa0fac12"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/MarketplaceIntegration.tsx",
+      "sha256": "e6743a8c0e5085c2d84dc3413ba932db025ae82ef85f179f824bb271a590b098"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/SyncIntegration.tsx",
+      "sha256": "30fe6eb09ac16dea6e62c47eb18303305de2d0627b4c324e16519686fd8fb7b0"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/integrations/WebhooksIntegration.tsx",
+      "sha256": "91a7421df63d8590af16cfd56a16ff6f6c02fce04f21f92857d97ca6e6f3cb5b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Kanban.tsx",
+      "sha256": "e3cb0881d19d5f48e1bc3ca3b50b4cbf9e13bd47b2709ede2949e99adb72852a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/KanbanSurface.css",
+      "sha256": "5b4e5a8438a9ee237ceafdf7261236c620df2e659e6d8a1ab47823bda8a21a38"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/List.tsx",
+      "sha256": "b1769043f4d322c7289661c76499aae216ef4184eb22da41b1b912d240842533"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Mobile.tsx",
+      "sha256": "2fe631d0cf99f19557c5d23ed75677216c7ee34a9bdafb5932a71810133e32ca"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/mobile/ActivityFeedMobile.tsx",
+      "sha256": "484289965af8f42643a41f6f8f94fbad843355982c2cd20036a9d529da87132f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/mobile/HomeFeedMobile.tsx",
+      "sha256": "6fc9f6acdac29580cca96cfa8c55a4ae220c8b3b25606930214739d87095892b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/mobile/MobilePrimitives.tsx",
+      "sha256": "17766aa35548cab2843505881791e87abca32c9193aaf7ecf4da9004eca41aa2"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/mobile/MobileSurface.css",
+      "sha256": "0961acc0e7ada8a035004d0f7e9696a5c59adbbcc8c14bf2a98bc8dd60b8e9f1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/mobile/OrdersMobile.tsx",
+      "sha256": "0d0a9ea6f6256a98f011df3c0aacb5d2e84a22712dfd9a8a9760ea2d3b1d9bf3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/mobile/RunListMobile.tsx",
+      "sha256": "8748b9072946e6970bea1fb05cef2d5936cd5323dcb34bd7a22fd9680a037138"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/mobile/TaskInboxMobile.tsx",
+      "sha256": "d629e7a01ccf2fa76951ff52e09083cb2d9b295ecc7576a9341f8f0c6c4609f8"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Monitoring.tsx",
+      "sha256": "a2b12a9d3a5e470d1b99bf74db2bbc23d12fbd7584e0b862511ffaf05eea1c3b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/monitoring/CompactMonitoring.css",
+      "sha256": "6ab229866434fb525b24fcc6cd10f4ceb97d081a494bf08b0d045cf9ba1ddbfd"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/monitoring/CompactMonitoring.tsx",
+      "sha256": "e9c792194a6d90f79b9c25ae062614095beeda73a02d43e1909e76858f4090f4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Navbar.tsx",
+      "sha256": "4486f183e04fbe2f1685b4b5004fae09c0b133db8fa142ef71bb2414d0de2597"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/ActivityNavbar.tsx",
+      "sha256": "880c6299155b1bf23e43e68e406931d826cb9431e00c71a88812cf7019d787fd"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/AnalyticsNavbar.tsx",
+      "sha256": "440db82c4295b996ad028018cc5350de7a6f3bcaaeffe73148965246356b4175"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/ArticleNavbar.tsx",
+      "sha256": "c01e75b279c2cf6b4afa576aba8166361505710a7be1b9b2c5111334ba01bd10"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/CommerceNavbar.tsx",
+      "sha256": "f90ed61e59d22e4a60a922ce094175a74264d3836f4fc8717cf2e74ff81c501e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/DeploymentNavbar.tsx",
+      "sha256": "e6752e79b7c0ddd8556347b300ac87cca93d901a2141388eb69c216a6bffbd56"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/DocsNavbar.tsx",
+      "sha256": "77528424cce0e45d12db10547bf02c067d341fd8dd52780ff9350f12537782be"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/DocumentNavbar.tsx",
+      "sha256": "071a525d96abd41a3cf74f9fd0b78847697ae4be7a84dd20236988358bd7d0fa"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/FilterNavbar.tsx",
+      "sha256": "589fec00288a40e14832bca8905197a3131233bcddc20b2e82384ad398c268ed"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/LandingNavbar.tsx",
+      "sha256": "3869d7837abd03608f71593085dfe3c8d1a55e6c7d3827d166fa29f12b40cfa1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/NavbarContent.tsx",
+      "sha256": "29b7aa8c1cbba8a901fea3cc73cc4a9205d144e339dfd3dbf00a5925fda85e3e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/NavbarPrimitives.tsx",
+      "sha256": "2da91efade8630bd8f8767afae2d7bbbbe56040c3b4e5982d553432477f78d05"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/NavbarSurface.css",
+      "sha256": "0b51757db0a13915dd009d48a6529055c14ead4dd46bba0f6edc924615107899"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/PortfolioNavbar.tsx",
+      "sha256": "afb0e952b8eab0705e663abcb5e30cbc91a9bed6a9fe68537e2d1d98640e3d31"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/ProjectBoardNavbar.tsx",
+      "sha256": "3cf0bb2320726279b85c0b451a5fa64d9cd22006433711558739e7115d0d3b2f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/navbar/TaskListNavbar.tsx",
+      "sha256": "650a1ec79c43aa4480c037ff6c51fbb0200f84be6e0b4f3abfee778c134ea118"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Notifications.tsx",
+      "sha256": "272d5454a1655b3388ae0f1b3c1f0e8f3e78d7c5e6ff045d5f0f1e9a8956710c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/ActivityInbox.tsx",
+      "sha256": "fa10a26e36f4b9f9f91744d4e12a8c894e5d670eb0f6d2a6e842b79534b0f942"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/AppBarBell.tsx",
+      "sha256": "02576392d27600f50cbcbd164907eca795055867cc494528e9384bf4f76e3e65"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/DeliveryPreferences.tsx",
+      "sha256": "9540f9d56ac8ca03e5775dd68872ed529eefa2d5e74ada166ca917d254c44f03"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/NotificationCenter.tsx",
+      "sha256": "d25aa535166322060088b1fa6eca902d471ac5c9204ca2193a1101932c7ee0b5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/NotificationsPrimitives.tsx",
+      "sha256": "9577cf4342a41efd11c469de0ce4edc020bf1d8490bd71ef10486746d656081c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/NotificationsSurface.css",
+      "sha256": "071aa1b4efc10c0e708649fb602c25f3ddf69fbc8cfcf2347aa43e0b9b9ac191"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/SystemMessages.tsx",
+      "sha256": "e210488f122e153689e33b81dac9a8b8265bdfc16f05faee4601027c8a8f3f5d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/notifications/ToastStack.tsx",
+      "sha256": "8df591c1730b65391a505754c4aa1ee92282af3bc696f977952987dbf0afd03d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Onboarding.tsx",
+      "sha256": "da9979c8c3a1bcbee26f4d2c9a6a5e6737b852d83b5ed725da89a187e0de0f59"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Paywall.tsx",
+      "sha256": "d7ead03a8908d9b9974b87be325931e0b3037636b9eec7293c87e2119b343e24"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/ArticlePaywall.tsx",
+      "sha256": "71e6a73f8e1d0141d1e9a251d4f41ec41d5e2368767fea225941c17d0ced4649"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/FeatureGatePaywall.tsx",
+      "sha256": "acd0fd8b19194fea0fa73801a337301a8028a4a0daf41e9aa61893561537f0a7"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/MeteredReadsPaywall.tsx",
+      "sha256": "f83812c3a04b88b177580acf79a8ef7b19b2f6760d80180df1dc30d1e537389c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/PaywallContent.tsx",
+      "sha256": "54588353b2ca7f1e70292d9858a70e13e1836c6c65a15d0e065f8ec5949f07a7"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/PaywallPrimitives.tsx",
+      "sha256": "9c97b53dcf4527650222ed6adf22f25a3800d2b0f01296b81442ab8e32096989"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/PaywallSurface.css",
+      "sha256": "93ed7cd59f147640746bd1de7576969c25bc3121fda3ed60702b5f1f14c174db"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/PlanComparisonPaywall.tsx",
+      "sha256": "e1e69c5b0f7bcb5568b2f25afb4fa0c82f0f5b7427e6274622e2ea2c10dda35e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/SeatRequestPaywall.tsx",
+      "sha256": "243cfbff96392ba6376c5bf1c14f6163fedcf7a02812761066bc36a2cb9a7593"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/TrialExpiredPaywall.tsx",
+      "sha256": "b59c75d856293358667449b789e70a92ab7717d6bc293a9d0f69bf51bad46e64"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/paywall/UsageLimitPaywall.tsx",
+      "sha256": "d506be9872e28f95d832e3dc1331b9ccdf62204fc9164468c4021594f6a659cc"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/prompt-input/Composer.css",
+      "sha256": "c3d9b691116b3b8eb5fef942560926e7f9b3f646fbd6e94f9d8758458a6cfb26"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/prompt-input/Composer.tsx",
+      "sha256": "66f951bd62f901efdde6a56fa434e794a03eb49de0202ff96f54bdce0cffc555"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/PromptInput.tsx",
+      "sha256": "14d39731090940cc053bbdbba3bc864895eb562acae02e4b38cf80b1687db4b4"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Questionnaire.tsx",
+      "sha256": "6fecb88b2d02bec87e7b22a320ad5c2e97406e3944280179232d84da5401bb7b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/run-activity/RunActivity.css",
+      "sha256": "b5c4fca3bdf650c3c904e6fb486294ca6504db42e4bd3f90e96d5df02c37e041"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/run-activity/RunActivity.tsx",
+      "sha256": "8b0271f146cb6c661162e06246fb6e96d26c9117590f8450d8d7dd977a50e818"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/RunActivity.tsx",
+      "sha256": "6927b4e9d79c1c43ed2a2cad9b0c7a3f8195756e996e6b41060a1fb595a926a6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Scheduling.tsx",
+      "sha256": "5ee5f6e2bac89d4d51a649ee6b073b5a8ed23b54d2ca5328766c23ced75c7558"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/ApiKeysSettings.tsx",
+      "sha256": "75c4709a3148f9427c7e87d2cc77eced22d37b278c2a06a3d25fb7d8354c0ed1"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/DangerSettings.tsx",
+      "sha256": "a82b8bfda0b09a331282c24a0e46ccdd9e33a77809360d02b848994e006ca67e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/MembersSettings.tsx",
+      "sha256": "e6c44e5a704722931be13e91d6037952975c827f773d15694175075955192792"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/PreferenceContract.ts",
+      "sha256": "9e8c3e51a49eef0bc5829f317ed61bc2f12e5d253802184507281f751e00d7bc"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/Preferences.css",
+      "sha256": "8b2f51912c111c45563ad55d0e0cc4694323688ef853af2d2e6a2cc472e51bdb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/Preferences.tsx",
+      "sha256": "1998700247e932f4e1bfd94a70af48c31ce2625f2354ca0efbde062bac063558"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/PreferencesSettings.tsx",
+      "sha256": "69639ba88a6d9863ba4bed268492e2af6a3265dcaee67f115da3ea82b9ae3437"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/ProfileSettings.tsx",
+      "sha256": "bb01b7b797f8db15c65444a2548a1560647b2d1aa2e99482482220450276ff55"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/SettingsContent.tsx",
+      "sha256": "388f5c7e7ee5edfe54da056e1c0513e830dc4989dd8c8bddce73216de464bddf"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/SettingsField.tsx",
+      "sha256": "854777990d9f8df3fe2383ac999ddab899a482a55ff5001176008d8af94ed72e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/SettingsPrimitives.tsx",
+      "sha256": "959d218c7278ad794d6969dff5248d8d10d2dca3bf40e859db84886e559625eb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/SettingsSurface.css",
+      "sha256": "005df3a9a7aadb9a9187cbcc346f42bea948892664a4e40acdc89bf7f9028edf"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/settings-form/WorkspaceSettings.tsx",
+      "sha256": "cdd8c142e26c160b2a932bf019f5f0db87bd207f4945aece620721a0b53edb52"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/SettingsForm.tsx",
+      "sha256": "d245bcb0a16a988fe670f7f3121a49966497c0534b5fe7b80b148e7a920039cd"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Support.tsx",
+      "sha256": "52a400d3f3f46ca909d9f752c75174613e868b588369e7468ad704acc51e62ae"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/support/AssistantChat.tsx",
+      "sha256": "dd7b83da163194ac2d79480628121b61757845c29bdd572048872007d5c608ab"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/support/HelpCenter.tsx",
+      "sha256": "0469185d52f2f3a09a580cad5530a71e8f5b109f9d7dbda41d419b1bd6bdf14d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/support/RequestList.tsx",
+      "sha256": "1585d008bf91eff2c238e3fe348c070f004bff44e2f7c12f35b12d52e2cfe544"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/support/SupportPrimitives.tsx",
+      "sha256": "547a98cd23f134de0b3c32f042a31e8ce25cc7e2e2f1ebc1e2309fcda6096ced"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/support/SupportSurface.css",
+      "sha256": "1e5e9d25069ca3d8f889d5b5c98954c9a90361191651cec99bef91743a94feec"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/support/TicketForm.tsx",
+      "sha256": "965b4c7a14e155bc2f616810895349f8bc9ee73be5966b21cd5788ca767bad51"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/support/TicketThread.tsx",
+      "sha256": "918d16eb1fd0664e74bd56fd607f96fe539689fc8e7eef04369c4aaf9793b2a6"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/SurfaceFrame.tsx",
+      "sha256": "1d13909ab102da8aa28a15172511cdd64e985954f2abe3e04f8b403616fbc26a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolActivity.tsx",
+      "sha256": "a94c65f1f310f7b0a255e4e2ec9f22a9ac581f48a678b573b3a6422c952430cf"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolCallsContent.tsx",
+      "sha256": "71418726f7746336b5a71221478da6d592df52330758d75a2d02f41f687842d5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolCallsPrimitives.tsx",
+      "sha256": "9120ceeb4bd1a2655478c668ab772cfad9f7b86808ec190d580c05d4c04b8c1e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolCallsSurface.css",
+      "sha256": "ae921871ffa7698477ccca4d5b11a6c82fdfef42272997d9558d4481bd01143e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolCommandOutput.tsx",
+      "sha256": "7fcf2e01515e54cf36ee0499e1e9634dcdbd81cc2541a1ad8827c54f54eec41d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolDiffResult.tsx",
+      "sha256": "5b2f369910e45ca6b87c2ec4a5954299e5dc2d76302db9b1d99b2e48df9e1fef"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolPermissions.tsx",
+      "sha256": "5695fa500154de0a4a0375e5fd1f43919f162350086dbca2f23a31672e11970a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolSearchResults.tsx",
+      "sha256": "f5d36d6698b3697d553df46207a1b89f5f9b407d43ea5c930373e4541b948ccb"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/tool-calls/ToolTrace.tsx",
+      "sha256": "31a23c1036b573dcae1d462688bb9f20a17e9ddbd4c1a9f91f85409754287409"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/ToolCalls.tsx",
+      "sha256": "561fa2ac154bc95523e7036eb00a00b9f991b765f6e6edf9a496803df47ead9c"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/Wizard.tsx",
+      "sha256": "2c5026792b4a282626e0a435d3678fe834f7283bcf687176e93e5c1161a1d149"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/BillingUpgradeWizard.tsx",
+      "sha256": "78814ced5af85a9faf2b9e7a75d028958963015603c5bc6e620b026a59eefd90"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/EnvironmentWizard.tsx",
+      "sha256": "ff8877a112afe4bc37c777df3a2a74ce07ad8031a82f44e01777fd63d463eb59"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/InformationWizard.tsx",
+      "sha256": "f6a7d05ad2a0f2df714d119970cf3c2175dadcca11f379759f53a5c3dfcbc5a2"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/InvoiceWizard.tsx",
+      "sha256": "1c8804686f41a445d8c9a22d22f03b882fe3ae34373e604bc16be832eba50944"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/MigrationWizard.tsx",
+      "sha256": "a63057bcd9293ad10cfe390461df48b9c4d38c9b391f4266613a7ec523220546"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/ReviewWizard.tsx",
+      "sha256": "50a6a3fbce9098409c13df91ebe14733c8421516204beb4f2dfc369ac0ea282a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/ShippingQuestion.tsx",
+      "sha256": "0a2cbdc25bccb9a7048a63f510157a4e29ff83d15bbcdc965f2f7f5d3297094e"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/WizardPrimitives.tsx",
+      "sha256": "5a273e36da71398d6eede6497872c9cd248e905b00d905c6e92b90f15cc97781"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/components/wizard/WizardSurface.css",
+      "sha256": "6d942090500e2433428ad6d02a758e56421996d4ff999300f9097b2eca999b9a"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/conversation.ts",
+      "sha256": "3d23807278a8248f020f7e1fec6f4e3e4dcb516ef676f49f4c00888ba0bc54af"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/decision-types.ts",
+      "sha256": "54795145c4e0b0669becfc949bcd972d16a814df1542341b12d2ba60c3ccb3c8"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/forms.ts",
+      "sha256": "1ae63f53bdeb47cc894d0b8bf4cb289bb7c9cdcbb17f32069b177d4917e4ecf7"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/icon.tsx",
+      "sha256": "26db1973a65769a93229e76aa4cf8c87ce2761c36b6d99440afe62f4f4999c44"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/index.ts",
+      "sha256": "319830a11c9bc96e172926a1d7bc812de629aa95dba1187894c90bf190017ab7"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/plan-editor.ts",
+      "sha256": "4f9c762f166137c731576fcc0a8573d8bf00aa439e0512406ba00799f4e3fb41"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/primitives.css",
+      "sha256": "5fca15874da3152020fa335de68f2034ee9c0d49776a7f62e2f00991013193ea"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/primitives.tsx",
+      "sha256": "c83ed1c91506a7c48a37c538cea53902a082a8d80f1b87e1f496f0bbd90ac4e3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/production.ts",
+      "sha256": "fc499c3780b3b7edb85c0d154eb04c7132eaabbcd812cfd124ae784f6af3bb92"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/profiles.ts",
+      "sha256": "c7072be0ad730f5988ba79830df8d719c507a9ca59299c8573513b87bcf6f907"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/prompt-composer.ts",
+      "sha256": "da57d221fc5d2f61b556ad07198ca0376e2194e386cdc27b2958a699d060d89d"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/registry.ts",
+      "sha256": "696cbd3e358323943a62b484710edbc77fff6d455e8c2df4c0e20671845953df"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/run-activity-types.ts",
+      "sha256": "9760b3df2a95421253bc1dc3b810ca714f92d58dd874ead4f8b8fae0dd985ff5"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/settings-form.ts",
+      "sha256": "4e47e0f493b4added40ba41cc5237bc0daabdc22588c37667f63d89f28a2ba12"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/specs.ts",
+      "sha256": "fbf527e7abdf3298c46d3671b589dbe5295797778172c550ea73bd3f41f96f6b"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/theme.css",
+      "sha256": "f653463ff1c188e9eeaca7360e6b0ee0fd35d874a6ea44be0a1ad53b66991a35"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/tokens.css",
+      "sha256": "7336f03d3f9e739f1ee5aefcc0f18325614341ab33560e4471b4ec37a9ae5daf"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/tool-pane.css",
+      "sha256": "212cc62c59fa651afe86bb79915f507e756fdad8bc43c03fd05a5d52350b9427"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/tool-pane.tsx",
+      "sha256": "c1704ece2d4db6efc25876420071478da17362888d2b561e63875e6c64d52ecd"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/types.ts",
+      "sha256": "f25fa5b0a3f074ea084754303a94cf825557e492c41501331b962d1790d3b24f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/Variant.tsx",
+      "sha256": "dd82ac942ed4f03b87cb484f6a2e568276af1bfd2802e2d5a80df7a52fedc22f"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/variants.ts",
+      "sha256": "75646f2eea3a59fd9562ee8cd4278ef3c2a71f3bf72993395c196aff85019ba3"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/virtual-list.css",
+      "sha256": "91b39661652a45c747cabcb33eb421f6c9fa7f06883b893a9cec7d42ce8143d2"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/VirtualList.tsx",
+      "sha256": "aee538a5459e9d5fc1280b1853a7980d925d05b939fd64be3918c0ca88376387"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/workbench.ts",
+      "sha256": "4c9bf9f3457380ba5979f8def3665a5494b1f3efa8bff767d66c498bd21b6766"
+    },
+    {
+      "path": "packages/hbar-app-ui/src/workspace-files.ts",
+      "sha256": "e18bdcfdb8fb4ba359fc3a5a4c8cbdb78a7944e8d3057ee30649d324670ddba7"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-agent-activity-fixtures.ts",
+      "sha256": "196ea09c345f7d62a434450098bb965c3f11293f8bd6f8fb626a9cdf306afdf6"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-agent-approval-fixtures.ts",
+      "sha256": "864590aecfdbcdbe73df9a22765de4ae91f6b2c8ba0e77e484508c91b7009998"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-agent-plan-fixtures.ts",
+      "sha256": "c47a2603efd70d3155174b8eb36c03f09b9495db636f26d8d4184e144d4450d8"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-authentication-fixtures.ts",
+      "sha256": "6a15c5e622c8ea76552e469d5ec68e24765ec9fe1c0ce75d913769afd1f85995"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-billing-fixtures.ts",
+      "sha256": "7766d5ec8dff9c184594a38b1377ae8d487376685db1d794a0c2b1036768f14c"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-command-fixtures.ts",
+      "sha256": "bff6e48f5a0afd5a641998a26b5015f1056c7c1b2b221eb1a6f7dc16cb0bcc96"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-command-locale.ts",
+      "sha256": "3c56405569a54b0991ea1d749e4248f025194736a5c73d62c523cfc603d85165"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-command-workflow-fixtures.ts",
+      "sha256": "9e3934d77847b5f7fa53297d07e26107097580e5c8d758cbcf78406108d5ef7e"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-conversation-fixtures.ts",
+      "sha256": "7b42e835b21a989aa6d36c49866f354eb4c18041eeb3e9342cf9f4e6ec1d651f"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-decision-fixtures.ts",
+      "sha256": "5af09164dc6fbbd5c61cd45a15861c4c5c4aadcf5fbd0a984842fee2f12baa46"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-editor-fixtures.tsx",
+      "sha256": "4290a645d0320f73e0482887d558171a724f6d08c4379f20be96a85c9e3f1124"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-feedback-fixtures.ts",
+      "sha256": "b271d71e742183b72ff6c771f759373fa196939d0f56d7668c4467766b3c0ff1"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-file-manager-fixtures.ts",
+      "sha256": "be5c87eafba520ab9b95111a555c41bdc207c0378d2819b7fb406d637bd363e4"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-form-controls-audit.ts",
+      "sha256": "710f0fabc4dd5c6af716dfadb3f8fe9fb1bdf29cd35db2cefa02adb9bb6dc2af"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-goal-locale.ts",
+      "sha256": "a8859184839130c6a14b37d81ad87bde7fbc004da0093d7e763c36c17e3a0249"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-host-copy.ts",
+      "sha256": "181d0e546a8bc48eedb6c819163b74c962de306071ae1a7611e9db2e3d191807"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-integrations-fixtures.ts",
+      "sha256": "a05dc1daa3b23aa3c44f850c63c1429b46f7158db47d7a16e1ba2ac1b4f8ebec"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-navbar-fixtures.ts",
+      "sha256": "584a876414da8bc677ef99d16a6fc33a133ed8d6d59401fc6dcf8a8ece7cab9a"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-paywall-fixtures.ts",
+      "sha256": "74fbaf80adab2c977db568f5515620f339b87fa8b200d257a21f7ee726204a45"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-prompt-audit.ts",
+      "sha256": "f50c5f79a55a130acce71539a007050433a1a67cdb1ae9966a9525c32c219234"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-run-fixtures.ts",
+      "sha256": "e214fc701f83fe00b54736614643ec67515aabe4d4b7cf99df62a4a33bd5d0e3"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-sessions-fixtures.ts",
+      "sha256": "271c51a3b1a03b52e661915c1dd833d87a49fc1628efdd21b244f730888404c1"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-settings-form-fixtures.ts",
+      "sha256": "de18220c263522dd85e2ccd2a80f4e1c6ac019119a112c615e48d326b1f1577e"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-shell-fixtures.ts",
+      "sha256": "9434248d5e3f9b954e1dc383c0f647091300cabca37f357acc142efaa79d6ec4"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-tool-calls-fixtures.ts",
+      "sha256": "b08533e6626ee02ea6182be16cc35d09e35e2cf973a275365c8f86dfab89eeaa"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-usage-fixtures.ts",
+      "sha256": "fc0df01735864e22fe38ae39fae3146a3c12149e3f1519e01ed79413add04536"
+    },
+    {
+      "path": "tests/fixtures/hbar-app-ui-workspace-files-fixtures.ts",
+      "sha256": "f6b33d287574264801ca7e0ccd1d4ae7a68940192d947510f87a8ff9e856bee5"
+    },
+    {
+      "path": "tests/fixtures/render-button-primitives.tsx",
+      "sha256": "7deb4d2873de90b68962a75fabe440264c435446dcfa379fee95fd16498f8665"
+    }
+  ]
+}

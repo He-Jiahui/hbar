@@ -12,7 +12,7 @@ export default defineConfig({
   },
   test: {
     name: 'lumen-host-ui',
-    include: ['hbar-ui/packages/lumen-app-ui/src/*.test.tsx'],
+    include: ['packages/lumen-app-ui/src/*.test.tsx'],
     environment: 'jsdom',
     setupFiles: ['./tests/lumen/setup.ts'],
     sequence: { hooks: 'list' },

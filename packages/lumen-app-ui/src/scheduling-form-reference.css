@@ -1,0 +1,339 @@
+.lumen-scheduling-surface:has(> .lumen-scheduling-form-reference) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling.lumen-scheduling-form-reference {
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 2rem;
+  overflow: auto;
+  color: light-dark(#171717, #f5f5f5);
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling-form-card {
+  display: flex;
+  inline-size: min(35rem, 100%);
+  max-block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 0 1 auto;
+  flex-direction: column;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 0.875rem;
+  padding: 0.25rem;
+  background: light-dark(#fafafa, #171717);
+  font:
+    400 1rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-scheduling-form-card :is(h2, p, button) {
+  margin: 0;
+}
+.lumen-scheduling-form-card header {
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  padding: 0.625rem 0.75rem;
+}
+.lumen-scheduling-form-card header h2 {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.lumen-scheduling-form-card header p {
+  margin-block-start: 0.125rem;
+  color: #737373;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.lumen-scheduling-form-body {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 0.625rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling-form-scroll {
+  min-inline-size: 0;
+  block-size: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+}
+.lumen-scheduling-form-field {
+  min-inline-size: 0;
+  margin-block-end: 1rem;
+}
+.lumen-scheduling-form-field > label,
+.lumen-scheduling-form-attendees > p {
+  color: #a3a3a3;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+.lumen-scheduling-form-field > :is(input, textarea, div) {
+  margin-block-start: 0.375rem;
+}
+.lumen-scheduling-form-field > :is(input, textarea),
+.lumen-scheduling-form-field > div > input,
+.lumen-scheduling-form-select.lumen-control {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  block-size: 2.25rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.5rem;
+  padding: 0 0.75rem;
+  color: inherit;
+  background: light-dark(#fff, #0a0a0a);
+  font:
+    400 0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-scheduling-form-field > :is(input, textarea)::placeholder,
+.lumen-scheduling-form-field > div > input::placeholder,
+.lumen-scheduling-form-attendees input::placeholder {
+  color: #a3a3a3;
+  opacity: 1;
+}
+.lumen-scheduling-form-attendees {
+  min-inline-size: 0;
+  margin-block-end: 1rem;
+}
+.lumen-scheduling-form-attendees > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.5rem;
+  padding: 0.375rem;
+  margin-block-start: 0.375rem;
+}
+.lumen-scheduling-form-attendees > div[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 10rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.lumen-scheduling-form-person {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: 1.5rem;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.375rem;
+  padding: 0 0.25rem;
+  color: light-dark(#404040, #d4d4d4);
+  background: light-dark(#f5f5f5, #262626);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.lumen-scheduling-form-person > span:nth-child(2) {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-scheduling-form-initials {
+  display: flex;
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: light-dark(#fff, #0a0a0a);
+  font-size: 0.5625rem;
+  font-weight: 500;
+  line-height: 0.75rem;
+}
+.lumen-scheduling-form-person button {
+  display: flex;
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  color: #a3a3a3;
+  background: transparent;
+  cursor: pointer;
+}
+.lumen-scheduling-form-person button:hover {
+  color: light-dark(#171717, #f5f5f5);
+}
+.lumen-scheduling-form-icon {
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lumen-scheduling-form-icon.is-remove {
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
+}
+.lumen-scheduling-form-attendees input.lumen-control {
+  inline-size: 0;
+  min-inline-size: 6rem;
+  min-block-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 1 1 0%;
+  border: 0;
+  padding: 0 0.25rem;
+  background: transparent;
+  font:
+    400 0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-scheduling-form-field.is-icon > div > input {
+  padding-inline-end: 2.25rem;
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: var(--lumen-icon-md, 1rem);
+}
+.lumen-scheduling-form-field input.is-calendar {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01'/%3E%3C/svg%3E");
+}
+.lumen-scheduling-form-field input.is-link {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 7h2a5 5 0 0 1 0 10h-2M9 7H7a5 5 0 0 0 0 10h2M8 12h8'/%3E%3C/svg%3E");
+}
+.lumen-scheduling-form-scroll[data-scroll-bottom='true'] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+}
+.lumen-scheduling-form-scroll[data-scroll-top='true'] {
+  mask-image: linear-gradient(to bottom, transparent, #000 2rem);
+}
+.lumen-scheduling-form-scroll[data-scroll-top='true'][data-scroll-bottom='true'] {
+  mask-image: linear-gradient(to bottom, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+}
+.lumen-scheduling-form-times {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.75rem;
+}
+.lumen-scheduling-form-times .lumen-scheduling-form-field {
+  flex: 1 1 0%;
+}
+.lumen-scheduling-form-select.lumen-control {
+  padding-inline-end: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23a3a3a3' stroke-width='1.3'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  background-size: var(--lumen-icon-sm, 0.875rem);
+  appearance: none;
+}
+.lumen-scheduling-form-attachments {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  margin-block-end: 1rem;
+  background: light-dark(#fafafa, #171717);
+}
+.lumen-scheduling-form-attachments > div {
+  min-inline-size: 0;
+}
+.lumen-scheduling-form-attachments p {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-scheduling-form-attachments p + p {
+  margin-block-start: 0.125rem;
+  color: #737373;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.lumen-scheduling-form-attachments button {
+  display: flex;
+  min-block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.5rem;
+  padding: 0 0.625rem;
+  color: inherit;
+  background: light-dark(#fff, #0a0a0a);
+  font:
+    500 0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+.lumen-scheduling-form-attachments button:hover {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-scheduling-form-field.is-notes {
+  margin-block-end: 0;
+}
+.lumen-scheduling-form-field textarea.lumen-control {
+  min-block-size: 0;
+  block-size: auto;
+  padding: 0.5rem 0.75rem;
+  line-height: 1.625;
+  resize: none;
+}
+.lumen-scheduling-form-card footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+}
+.lumen-scheduling-form-card footer button {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.5rem;
+  padding: 0 0.75rem;
+  color: inherit;
+  background: light-dark(#fff, #0a0a0a);
+  font:
+    500 0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+.lumen-scheduling-form-card footer button:hover {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-scheduling-form-card footer button.is-create {
+  border: 0;
+  color: light-dark(#fff, #171717);
+  background: light-dark(#171717, #fff);
+}
+.lumen-scheduling-form-card footer button.is-create:hover {
+  background: light-dark(#262626, #f5f5f5);
+}
+@media (max-width: 39.999rem) {
+  .lumen-scheduling.lumen-scheduling-form-reference {
+    padding: 1.5rem;
+  }
+}

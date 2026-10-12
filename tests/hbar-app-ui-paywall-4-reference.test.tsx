@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenPaywall04, LumenPaywallProvider, useLumenPaywallContent } from '@lumen/app-ui'
+import { LumenPaywall04, LumenPaywallProvider, useLumenPaywallContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant } from '../packages/hbar-app-ui/src/index'
 import { Paywall4PreviewHost } from '../apps/hbar-app-ui-preview/src/Paywall4PreviewHost'
 import { createPaywall4PreviewFixture, type Paywall4PreviewCapacity, type Paywall4PreviewLocale } from '../apps/hbar-app-ui-preview/src/paywall4PreviewFixtures'

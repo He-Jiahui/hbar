@@ -1,3 +1,4 @@
+import './theme-bridge'
 import { createContext, useContext, useId, useLayoutEffect, useState, type ComponentProps } from 'react'
 import type { ExtraProps } from 'react-markdown'
 import { LumenContentText, LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
@@ -7,6 +8,7 @@ import { CODE_BLOCK_PREVIEW_LINES, markdownCodeBlock } from './markdown-code-blo
 import { MarkdownDiagram } from './markdown-diagram'
 import { isDiagramCode } from './markdown-diagram-model'
 import { MarkdownCodeContent } from './markdown-code-content'
+import { createMessageScope } from './messages'
 import './message-code-block.css'
 
 export interface FileMarkdownCodeContext {
@@ -18,6 +20,9 @@ export interface FileMarkdownCodeContext {
   readonly clipboard?: MessageClipboardPort | null | undefined
 }
 
+const { Provider: FileCodeMessagesProvider, useMessages: useFileCodeMessages } =
+  createMessageScope<HbarCodeBlockLabels>()
+
 export const FileCodeContext = createContext<FileMarkdownCodeContext | null>(null)
 
 function FileCodeBlock({
@@ -27,6 +32,7 @@ function FileCodeBlock({
   readonly code: NonNullable<ReturnType<typeof markdownCodeBlock>>
   readonly context: FileMarkdownCodeContext
 }) {
+  const { t } = useFileCodeMessages()
   const [expanded, setExpanded] = useState(false)
   const bodyId = useId()
   const collapsible = code.lines > CODE_BLOCK_PREVIEW_LINES
@@ -35,8 +41,8 @@ function FileCodeBlock({
     <LumenFrame className="hbar-message-code hbar-file-markdown-code" data-code-occurrence={code.occurrenceId}>
       <LumenFrame className="hbar-message-code-header">
         <LumenFrame className="hbar-message-code-metadata">
-          <LumenContentText context="message.inline">{context.labels.language(code.language)}</LumenContentText>
-          <LumenContentText context="message.inline">{context.labels.lines(code.lines)}</LumenContentText>
+          <LumenContentText context="message.inline">{t('language')(code.language)}</LumenContentText>
+          <LumenContentText context="message.inline">{t('lines')(code.lines)}</LumenContentText>
         </LumenFrame>
         <CodeTextCopyAction
           identity={['file', context.previewId, context.path, code.occurrenceId]}
@@ -68,7 +74,7 @@ function FileCodeBlock({
             aria-controls={bodyId}
             onClick={() => setExpanded((value) => !value)}
           >
-            {expanded ? context.labels.showLess : context.labels.showMore(code.lines - CODE_BLOCK_PREVIEW_LINES)}
+            {expanded ? t('showLess') : t('showMore')(code.lines - CODE_BLOCK_PREVIEW_LINES)}
           </LumenButton>
         </LumenFrame>
       )}
@@ -79,7 +85,28 @@ function FileCodeBlock({
 export function FileMarkdownPre({ node, children, className }: ComponentProps<'pre'> & ExtraProps) {
   const context = useContext(FileCodeContext)
   const code = markdownCodeBlock(node)
-  if (context && code && isDiagramCode(code.language, code.text))
+  if (context && code)
+    return (
+      <FileCodeMessagesProvider messages={context.labels}>
+        <FileMarkdownPreView context={context} code={code} />
+      </FileCodeMessagesProvider>
+    )
+  return (
+    <LumenText as="pre" className={className}>
+      {children}
+    </LumenText>
+  )
+}
+
+function FileMarkdownPreView({
+  context,
+  code,
+}: {
+  readonly context: FileMarkdownCodeContext
+  readonly code: NonNullable<ReturnType<typeof markdownCodeBlock>>
+}) {
+  const { t } = useFileCodeMessages()
+  if (isDiagramCode(code.language, code.text))
     return (
       <MarkdownDiagram
         key={JSON.stringify([context.previewId, context.path, code.occurrenceId])}
@@ -87,7 +114,7 @@ export function FileMarkdownPre({ node, children, className }: ComponentProps<'p
         text={code.text}
         sourceText={code.domText}
         owner={context.owner}
-        labels={context.labels.diagram}
+        labels={t('diagram')}
         occurrenceId={code.occurrenceId}
         find={false}
         copy={
@@ -104,15 +131,11 @@ export function FileMarkdownPre({ node, children, className }: ComponentProps<'p
     )
   // The provider mounts once per actual file-preview/runtime lifetime. Replacing
   // source text updates Copy's generation, without constructing a fake message.
-  return context && code ? (
+  return (
     <FileCodeBlock
       key={JSON.stringify([context.previewId, context.path, code.occurrenceId])}
       context={context}
       code={code}
     />
-  ) : (
-    <LumenText as="pre" className={className}>
-      {children}
-    </LumenText>
   )
 }

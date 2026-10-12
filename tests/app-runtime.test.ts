@@ -144,6 +144,35 @@ test('ambiguous, archived, missing and cross-workspace selections never silently
   runtime.dispose()
 })
 
+test('selecting a Session creates its independent empty composer draft before editing', async () => {
+  const runtime = createAppRuntime({ instanceId: 'draft-lifecycle', hostId: 'host', directory: fixture().directory })
+
+  await runtime.view.commands.execute('app.setSession', { sessionId: 's1' })
+  expect(runtime.view.state.drafts.getSnapshot().s1).toMatchObject({
+    sessionId: 's1',
+    text: '',
+    revision: 0,
+    status: 'idle',
+  })
+
+  await runtime.view.commands.execute('draft.setText', { sessionId: 's1', text: 'Session one draft' })
+  await runtime.view.commands.execute('app.setSession', { sessionId: 's2' })
+  expect(runtime.view.state.drafts.getSnapshot().s2).toMatchObject({
+    sessionId: 's2',
+    text: '',
+    revision: 0,
+    status: 'idle',
+  })
+  await runtime.view.commands.execute('draft.setText', { sessionId: 's2', text: 'Session two draft' })
+  await runtime.view.commands.execute('app.setSession', { sessionId: 's1' })
+
+  expect(runtime.view.state.drafts.getSnapshot()).toMatchObject({
+    s1: { text: 'Session one draft' },
+    s2: { text: 'Session two draft' },
+  })
+  runtime.dispose()
+})
+
 test('a late selection cannot replace a newer intent, and disposal rejects late callbacks', async () => {
   const data = fixture()
   const delayed = Promise.withResolvers<unknown>()
@@ -171,6 +200,7 @@ test('a late selection cannot replace a newer intent, and disposal rejects late 
   await expect(pending).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
   await Bun.sleep(0)
   expect(closed.view.state.directory.getSnapshot()).toBe(before)
+  expect(closed.view.state.drafts.getSnapshot().s1).toBeUndefined()
   await expect(closed.view.commands.execute('app.setWorkspace', { workspaceId: 'w1' })).rejects.toMatchObject({
     code: 'DISPOSED',
   })
