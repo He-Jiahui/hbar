@@ -40,6 +40,7 @@ export interface NodeExecutionBackend {
       environment: Readonly<Record<string, string>>
       confinement: OsConfinementOptions | null
       protectedPaths: readonly string[]
+      environmentAllowlist: readonly string[]
     },
   ): Promise<ToolResult>
   dispose?(): Promise<void>
@@ -57,6 +58,7 @@ export class WorkspaceNodeService {
   private paused = false
   private disposed = false
   private starting = 0
+  private changingPolicy = false
   private readonly snapshots = new Map<string, ResolvedSandboxProfile>()
   private readonly active = new Map<string, { controller: AbortController; finished: Promise<void> }>()
   private readonly locks = new Map<string, Promise<void>>()
@@ -99,10 +101,19 @@ export class WorkspaceNodeService {
     return [...this.active.keys()]
   }
   async setPolicy(value: unknown): Promise<NodeFloor> {
-    if (this.active.size) throw new HbarError('NODE_BUSY', 'Stop running processes before changing the floor')
-    const floor = await validateNodeRoots(nodeFloorSchema.parse(value), this.dataRoot)
-    this.floor = await this.state.call('floor.set', floor)
-    return this.policy
+    if (this.active.size || this.starting || this.locks.size || this.changingPolicy)
+      throw new HbarError('NODE_BUSY', 'Stop active operations before changing the floor')
+    this.changingPolicy = true
+    try {
+      const floor = await validateNodeRoots(nodeFloorSchema.parse(value), this.dataRoot)
+      this.floor = await this.state.call('floor.set', floor)
+      return this.policy
+    } finally {
+      this.changingPolicy = false
+    }
+  }
+  get isPaused(): boolean {
+    return this.paused
   }
   capabilities(): NodeCapabilities {
     const { roots, protectedPaths: _paths, environmentAllowlist: _env, ...floor } = this.floor
@@ -136,6 +147,7 @@ export class WorkspaceNodeService {
   private available(): void {
     if (this.disposed) throw new HbarError('NODE_OFFLINE', 'Workspace node is closed')
     if (this.paused) throw new HbarError('NODE_PAUSED', 'Workspace node is paused locally')
+    if (this.changingPolicy) throw new HbarError('NODE_BUSY', 'Node floor is being changed locally')
   }
   async canonicalize(rootId: string, paths: readonly string[]) {
     this.available()
@@ -297,7 +309,8 @@ export class WorkspaceNodeService {
             this.floor.osConfinement === 'required' ||
             !!profile?.osConfinement?.enabled ||
             target.registration.access === 'read' ||
-            !network
+            !network ||
+            nodeProtectedPaths(this.floor, this.dataRoot).length > 0
           if (
             (requireConfinement && !this.backend.filesystem) ||
             (!network && !this.backend.network) ||
@@ -339,6 +352,7 @@ export class WorkspaceNodeService {
                   environment,
                   confinement,
                   protectedPaths: nodeProtectedPaths(this.floor, this.dataRoot),
+                  environmentAllowlist: this.floor.environmentAllowlist,
                 })
                 const details = z
                   .object({
@@ -361,6 +375,10 @@ export class WorkspaceNodeService {
                   },
                 })
               } catch (error) {
+                if (error instanceof HbarError && error.code === 'EFFECT_UNKNOWN') {
+                  await this.state.call('operation.lost', { operationId: request.operationId, reason: 'unknown' })
+                  return
+                }
                 result = this.result(error, true)
               }
               await this.state.call('operation.settle', { operationId: request.operationId, result })

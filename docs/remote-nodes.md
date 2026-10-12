@@ -20,7 +20,21 @@
 
 SSH stdio 和 Noise 中继属于附件中的可选扩展。
 
-执行核心已有 `WorkspaceNodeService` 与独立 `NodeStateStorage` Worker：底线与真实路径复核、有界启动、持久执行/写入回执、断链宽限期和审计可单独验证。身份模块提供 Ed25519 指纹与带双方身份、挑战及方向的签名。节点进程、控制台与网络链路仍需后续接线，当前不因此视为已完成。
+执行核心已有 `WorkspaceNodeService` 与独立 `NodeStateStorage` Worker：底线与真实路径复核、有界启动、持久执行/写入回执、断链宽限期和审计可单独验证。身份模块提供 Ed25519 指纹与带双方身份、挑战及方向的签名。
+
+源码 CLI 与编译后的单文件程序均支持 `hbar serve --role workspace`。节点使用独立数据根，默认 `~/.hbar-node`，可用 `--home` 指定；不会打开会话 Storage 或启动 Kernel、模型、TUI。本机控制接口只监听 loopback，使用节点数据根中独立生成的凭据。`hbar node` 提供共享、底线、状态、暂停、取消、审计和解除链接命令。Web 控制台、本机设备配对和节点网络连接仍待接入。
+
+```powershell
+bun apps/cli/src/main.ts node share D:/Projects/engine --id engine --access write
+bun apps/cli/src/main.ts node policy show
+bun apps/cli/src/main.ts serve --role workspace --listen 127.0.0.1:4318
+bun apps/cli/src/main.ts node status
+bun apps/cli/src/main.ts node pause
+bun apps/cli/src/main.ts node resume
+bun apps/cli/src/main.ts node audit
+```
+
+每次进程执行具有独立的原生进程树所有者，结束、取消和故障必须确认后代退出。当前原始后端仅提供进程树管理，不提供文件系统或网络隔离；节点不会因 `osConfinement=off` 绕过始终存在的数据目录和凭据保护，缺少文件系统保护时拒绝进程启动。后端隔离实现与网络连接仍由后续步骤完成。
 
 ## 权限与故障语义
 

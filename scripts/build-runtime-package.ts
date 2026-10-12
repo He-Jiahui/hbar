@@ -2,11 +2,13 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { RuntimeArtifactStore, type RuntimeArtifact, type RuntimeArtifactPackage } from '@hbar/runtime'
 import { hostRuntimeBuildUnits } from '../apps/host/src/runtime-build'
+import { nodeRuntimeBuildUnit } from '@hbar/node/build'
 
 export async function buildRuntimePackage(sourceRoot: string, artifactRoot: string, profileModule?: string): Promise<RuntimeArtifactPackage> {
   const registry = new RuntimeArtifactStore(artifactRoot, sourceRoot)
   const artifacts: RuntimeArtifact[] = []
   for (const unit of hostRuntimeBuildUnits(profileModule ? { profileModule } : {})) artifacts.push(await registry.build(unit))
+  artifacts.push(await registry.build(nodeRuntimeBuildUnit()))
   return registry.exportPackage(artifacts)
 }
 if (import.meta.main) {

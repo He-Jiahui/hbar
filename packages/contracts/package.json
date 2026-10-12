@@ -9,6 +9,7 @@
     "./runtime": "./src/runtime.ts",
     "./node": "./src/node.ts",
     "./node-state": "./src/node-state.ts",
+    "./node-console": "./src/node-console.ts",
     "./node-address": "./src/node-address.ts",
     "./device": "./src/device.ts",
     "./runtime-notifications": "./src/runtime-notifications.ts",

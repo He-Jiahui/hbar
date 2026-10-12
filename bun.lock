@@ -69,6 +69,7 @@
         "@hbar/commands": "workspace:*",
         "@hbar/decision-laya": "workspace:*",
         "@hbar/image-generation": "workspace:*",
+        "@hbar/node": "workspace:*",
         "@hbar/node-core": "workspace:*",
         "@hbar/sandbox": "workspace:*",
         "@mui/material": "9.4.0",
@@ -109,6 +110,8 @@
         "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",
         "@hbar/host": "workspace:*",
+        "@hbar/node": "workspace:*",
+        "@hbar/runtime": "workspace:*",
         "@hbar/runtime-native": "workspace:*",
         "@hbar/storage": "workspace:*",
         "@hbar/terminal": "workspace:*",
@@ -142,6 +145,20 @@
         "@hbar/commands": "workspace:*",
         "@hbar/image-generation": "workspace:*",
         "@hbar/runtime-native": "workspace:*",
+      },
+    },
+    "apps/node": {
+      "name": "@hbar/node",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/local-tools": "workspace:*",
+        "@hbar/node-core": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "@hbar/runtime": "workspace:*",
+        "@hbar/runtime-native": "workspace:*",
+        "@hbar/storage": "workspace:*",
+        "zod": "4.5.4",
       },
     },
     "apps/web": {
@@ -724,6 +741,8 @@
     "@hbar/local-tools": ["@hbar/local-tools@workspace:plugins/local-tools"],
 
     "@hbar/metrics": ["@hbar/metrics@workspace:packages/metrics"],
+
+    "@hbar/node": ["@hbar/node@workspace:apps/node"],
 
     "@hbar/node-core": ["@hbar/node-core@workspace:packages/node-core"],
 

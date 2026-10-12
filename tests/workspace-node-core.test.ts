@@ -48,10 +48,11 @@ async function fixture(options: { confined?: boolean; floor?: Record<string, unk
   })
   await state.call('floor.set', floor)
   const calls: string[] = []
+  const confined = options.confined ?? true
   const backend: NodeExecutionBackend = {
-    name: options.confined ? 'bwrap' : 'none',
-    filesystem: !!options.confined,
-    network: !!options.confined,
+    name: confined ? 'bwrap' : 'none',
+    filesystem: confined,
+    network: confined,
     processTree: true,
     exec: async (_workspace, command, signal, input) => {
       calls.push(command)
@@ -112,7 +113,7 @@ test('node floor wins over admitted commands, and audit records the refusal with
   expect(await f.state.call('audit.list', {})).toMatchObject([{ tool: 'shell', decision: 'deny', code: 'NODE_DENIED' }])
 })
 test('required filesystem or disabled network refuses a backend that cannot enforce it', async () => {
-  const f = await fixture({ floor: { osConfinement: 'required' } })
+  const f = await fixture({ confined: false, floor: { osConfinement: 'required' } })
   expect(await f.node.start(f.request())).toMatchObject({
     state: 'settled',
     result: { details: { code: 'NODE_CONFINEMENT_UNAVAILABLE', executionStarted: false } },
@@ -121,6 +122,15 @@ test('required filesystem or disabled network refuses a backend that cannot enfo
   expect(await f.node.start(f.request('run:network'))).toMatchObject({
     state: 'settled',
     result: { details: { code: 'NODE_CONFINEMENT_UNAVAILABLE' } },
+  })
+  expect(f.calls).toEqual([])
+})
+
+test('turning confinement off cannot expose node identities or other protected paths to raw processes', async () => {
+  const f = await fixture({ confined: false, floor: { osConfinement: 'off', network: true } })
+  expect(await f.node.start(f.request())).toMatchObject({
+    state: 'settled',
+    result: { details: { code: 'NODE_CONFINEMENT_UNAVAILABLE', executionStarted: false } },
   })
   expect(f.calls).toEqual([])
 })

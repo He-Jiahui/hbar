@@ -71,6 +71,11 @@ export interface CliArgs {
   approval: ApprovalMode
   outputFormat: 'text' | 'jsonl'
   demo: boolean
+  role?: string | undefined
+  join?: string | undefined
+  fingerprint?: string | undefined
+  listen?: string | undefined
+  stdio?: boolean | undefined
 }
 
 export const HELP = `hbar - Pi harness + Cordis workbench
@@ -228,6 +233,11 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       'data-root': { type: 'string' },
       'cache-root': { type: 'string' },
       demo: { type: 'boolean' },
+      role: { type: 'string' },
+      join: { type: 'string' },
+      fingerprint: { type: 'string' },
+      listen: { type: 'string' },
+      stdio: { type: 'boolean' },
     },
   })
   const values = parsed.values as Record<string, string | boolean | undefined>
@@ -236,6 +246,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     'diagnose',
     'version',
     'serve',
+    'node',
     'attach',
     'session',
     'model',
@@ -263,6 +274,11 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
   return {
     command,
     commandArgs,
+    role: values.role as string | undefined,
+    join: values.join as string | undefined,
+    fingerprint: values.fingerprint as string | undefined,
+    listen: values.listen as string | undefined,
+    stdio: Boolean(values.stdio),
     message: (values.message as string | undefined) ?? freeMessage,
     headless: Boolean(values.headless),
     help: Boolean(values.help),

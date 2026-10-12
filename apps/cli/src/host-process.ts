@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 
 export const INTERNAL_HOST_ROLE = '__hbar_internal_host'
 export const INTERNAL_RUNTIME_ROLE = '__hbar_internal_runtime'
+export const INTERNAL_NODE_ROLE = '__hbar_internal_node'
 
 export function isCompiledCli(): boolean {
   return Bun.isStandaloneExecutable

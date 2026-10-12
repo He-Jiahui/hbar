@@ -13,6 +13,8 @@
     "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/host": "workspace:*",
+    "@hbar/node": "workspace:*",
+    "@hbar/runtime": "workspace:*",
     "@hbar/runtime-native": "workspace:*",
     "@hbar/storage": "workspace:*",
     "@hbar/terminal": "workspace:*",

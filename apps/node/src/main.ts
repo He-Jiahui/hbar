@@ -1,0 +1,112 @@
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { parseArgs } from 'node:util'
+import { HbarError } from '@hbar/contracts'
+import { nodeFloorSchema } from '@hbar/contracts/node'
+import { nodeIdFromPublicKey, nodeFingerprint, WorkspaceNodeService, type NodeExecutionBackend } from '@hbar/node-core'
+import { LocalExecution } from '@hbar/local-tools'
+import { NodeStateStorage } from '@hbar/storage/node-state'
+import { acquireProcessLease, type RuntimeArtifactPackage } from '@hbar/runtime'
+import { createManagedNodeBackend } from './managed-backend'
+import { NodeConsoleService } from './console-service'
+import { startNodeControlServer } from './control-server'
+import { nodeDataRoot, openNodeIdentity } from './bootstrap'
+export { runNodeCommand } from './cli'
+export { NodeConsoleService } from './console-service'
+export async function runNode(
+  argv: readonly string[],
+  options: {
+    command?: readonly [string, ...string[]]
+    packaged?: RuntimeArtifactPackage
+    registerSignals?: boolean
+  } = {},
+) {
+  const { values } = parseArgs({
+    args: [...argv],
+    allowPositionals: true,
+    options: {
+      role: { type: 'string' },
+      home: { type: 'string' },
+      'data-root': { type: 'string' },
+      listen: { type: 'string' },
+      join: { type: 'string' },
+      code: { type: 'string' },
+      fingerprint: { type: 'string' },
+      stdio: { type: 'boolean' },
+    },
+  })
+  if (values.role && values.role !== 'workspace') throw new HbarError('INVALID_ROLE', 'Node role must be workspace')
+  if (values.join || values.code || values.fingerprint || values.stdio)
+    throw new HbarError('NODE_LINK_NOT_CONFIGURED', 'Node transport must be configured before joining')
+  const dataRoot = nodeDataRoot(values.home ?? values['data-root'])
+  await mkdir(dataRoot, { recursive: true, mode: 0o700 })
+  const release = await acquireProcessLease(join(dataRoot, 'node.lock'))
+  const state = new NodeStateStorage(join(dataRoot, 'node.sqlite'))
+  let node: WorkspaceNodeService | undefined
+  let backend: NodeExecutionBackend | undefined
+  let execution: LocalExecution | undefined
+  let control: Awaited<ReturnType<typeof startNodeControlServer>> | undefined
+  let closeTask: Promise<void> | undefined
+  const stop = () => {
+    void close().catch((error: unknown) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+  }
+  const close = () =>
+    (closeTask ??= (async () => {
+      process.removeListener('SIGINT', stop)
+      process.removeListener('SIGTERM', stop)
+      try {
+        const outcomes = await Promise.allSettled([
+          control?.close(),
+          node
+            ? node.dispose()
+            : Promise.resolve().then(async () => {
+                await backend?.dispose?.()
+                execution?.dispose()
+              }),
+        ])
+        const failed = outcomes.filter((outcome) => outcome.status === 'rejected')
+        if (failed.length)
+          throw new AggregateError(
+            failed.map((outcome) => outcome.reason as unknown),
+            'Node shutdown did not release all resources',
+          )
+      } finally {
+        try {
+          await state.close()
+        } finally {
+          await release()
+        }
+      }
+    })())
+  try {
+    await state.call('ready', {})
+    const identity = await openNodeIdentity(state)
+    const floor = (await state.call('floor.get', {})) ?? nodeFloorSchema.parse({ roots: [] })
+    if (!(await state.call('floor.get', {}))) await state.call('floor.set', floor)
+    backend = await createManagedNodeBackend({ dataRoot, ...options })
+    execution = new LocalExecution([dataRoot])
+    node = await WorkspaceNodeService.open(nodeIdFromPublicKey(identity.publicKey), dataRoot, state, execution, backend)
+    const service = new NodeConsoleService(state, identity, dataRoot, node)
+    control = await startNodeControlServer(dataRoot, service, values.listen)
+    if (options.registerSignals !== false) {
+      process.on('SIGINT', stop)
+      process.on('SIGTERM', stop)
+    }
+    console.log(
+      JSON.stringify({
+        role: 'workspace',
+        nodeId: node.id,
+        fingerprint: nodeFingerprint(identity.publicKey),
+        control: control.connection.url,
+      }),
+    )
+    return { node, state, control: control.connection, close }
+  } catch (error) {
+    await close()
+    throw error
+  }
+}
+if (import.meta.main) await runNode(Bun.argv.slice(2))

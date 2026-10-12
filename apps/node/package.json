@@ -1,0 +1,21 @@
+{
+  "name": "@hbar/node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/main.ts",
+    "./build": "./src/runtime-build.ts",
+    "./backend": "./src/managed-backend.ts"
+  },
+  "dependencies": {
+    "@hbar/contracts": "workspace:*",
+    "@hbar/local-tools": "workspace:*",
+    "@hbar/node-core": "workspace:*",
+    "@hbar/plugin-sdk": "workspace:*",
+    "@hbar/runtime": "workspace:*",
+    "@hbar/runtime-native": "workspace:*",
+    "@hbar/storage": "workspace:*",
+    "zod": "4.5.4"
+  }
+}

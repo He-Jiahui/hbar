@@ -25,8 +25,13 @@ export class NodeStateStorage implements NodeStatePort {
   private next = 0
   private stopped = false
   private closing: Promise<void> | undefined
-  constructor(path: string, workerPath = new URL('./node-state-worker.ts', import.meta.url)) {
-    this.worker = new Worker(workerPath, { workerData: { path } })
+  constructor(path: string, workerPath?: URL | string) {
+    const options = { workerData: { path } }
+    this.worker = workerPath
+      ? new Worker(workerPath, options)
+      : Bun.isStandaloneExecutable
+        ? new Worker('./packages/storage/src/node-state-worker.ts', options)
+        : new Worker(new URL('./node-state-worker.ts', import.meta.url), options)
     this.worker.on('message', (value: unknown) => {
       const reply = replySchema.safeParse(value)
       if (!reply.success) {
