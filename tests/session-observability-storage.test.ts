@@ -6,6 +6,7 @@ import { Storage } from '@hbar/storage'
 import type { ToolActivity } from '@hbar/contracts/tool-activity'
 import { sessionObservabilityReportSchema } from '@hbar/contracts/session-observability'
 import { parseContextCompactionEvent } from '@hbar/contracts/context-history'
+import { observabilityRange } from '../packages/storage/src/session-observability-range'
 import { Database } from 'bun:sqlite'
 
 const resources: { root: string; storage: Storage }[] = []
@@ -436,6 +437,81 @@ describe('Session SQLite observability', () => {
     const report = await f.storage.call('sessionObservability', { sessionId: f.session.id, scope: 'turn' })
     expect(report.range.label.length).toBeLessThanOrEqual(200)
     expect(report.range.label).not.toContain('\uFFFD')
+  })
+  test('turn/window boundaries retain Goal and queued-guidance behavior in a Worker-free SQLite fixture', () => {
+    const db = new Database(':memory:')
+    try {
+      db.exec(`
+        CREATE TABLE sessions (id TEXT PRIMARY KEY, seq INTEGER NOT NULL, createdAt INTEGER NOT NULL);
+        CREATE TABLE runs (id TEXT PRIMARY KEY, input TEXT NOT NULL);
+        CREATE TABLE events (sessionId TEXT NOT NULL, runId TEXT, seq INTEGER NOT NULL, type TEXT NOT NULL, time INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(sessionId,seq));
+        CREATE INDEX events_session_type_seq ON events(sessionId,type,seq);
+      `)
+      db.query('INSERT INTO sessions(id,seq,createdAt) VALUES(?,?,?)').run('session', 18, 1000)
+      db.query('INSERT INTO runs(id,input) VALUES(?,?)').run('goal-run', JSON.stringify({ source: 'goal' }))
+      db.query('INSERT INTO runs(id,input) VALUES(?,?)').run('system-run', JSON.stringify({ source: 'system' }))
+      const insert = db.query('INSERT INTO events(sessionId,runId,seq,type,time,data) VALUES(?,?,?,?,?,?)')
+      const message = (text: string, queueGuidance?: { activeRunId: string; queuedRunIds: string[] }) => ({
+        role: 'user',
+        content: [{ type: 'text', text }],
+        ...(queueGuidance ? { queueGuidance } : {}),
+      })
+      const add = (seq: number, time: number, type: string, data: unknown, runId: string | null = null) =>
+        insert.run('session', runId, seq, type, time, JSON.stringify(data))
+      add(3, 1030, 'message.committed', message('first user instruction'))
+      add(5, 1050, 'context.compacted', {})
+      add(7, 1070, 'message.committed', message('automatic Goal continuation'), 'goal-run')
+      add(
+        12,
+        1120,
+        'message.committed',
+        message('queued steering', { activeRunId: 'active-run', queuedRunIds: [] }),
+        'system-run',
+      )
+      add(15, 1150, 'context.compacted', {})
+      add(18, 1180, 'message.committed', message('next human instruction'))
+
+      const latest = observabilityRange(db, { sessionId: 'session', scope: 'turn' })
+      expect(latest).toMatchObject({
+        anchor: 18,
+        ordinal: 3,
+        label: 'next human instruction',
+        previous: 12,
+        next: null,
+        fromSeq: 17,
+        throughSeq: 18,
+        startedAt: 1180,
+      })
+      const guided = observabilityRange(db, { sessionId: 'session', scope: 'turn', anchor: 12 })
+      expect(guided).toMatchObject({
+        anchor: 12,
+        ordinal: 2,
+        label: 'queued steering',
+        previous: 3,
+        next: 18,
+        fromSeq: 11,
+        throughSeq: 17,
+        startedAt: 1120,
+        endedAt: 1180,
+      })
+      expect(() => observabilityRange(db, { sessionId: 'session', scope: 'turn', anchor: 7 })).toThrow(
+        'Statistics scope boundary does not belong to this Session',
+      )
+      const window = observabilityRange(db, { sessionId: 'session', scope: 'window', anchor: 5 })
+      expect(window).toMatchObject({
+        anchor: 5,
+        ordinal: 2,
+        label: '',
+        previous: 0,
+        next: 15,
+        fromSeq: 5,
+        throughSeq: 15,
+        startedAt: 1050,
+        endedAt: 1150,
+      })
+    } finally {
+      db.close()
+    }
   })
   test('deduplicates tools, usage and nested results and measures real outcome/timing samples', async () => {
     const f = await fixture()
