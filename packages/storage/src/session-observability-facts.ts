@@ -78,17 +78,17 @@ WITH call_events AS (
 `
 
 export const USAGE_FACTS_SQL = `
-WITH starts AS (
+WITH starts AS MATERIALIZED (
  SELECT runId,MIN(seq) seq,MIN(time) time,COALESCE(json_extract(data,'$.attemptId'),stepId,eventId) attemptId,
   MAX(json_extract(data,'$.modelSelectionId')) model,MAX(json_extract(data,'$.pricing')) pricing,
   CASE WHEN MAX(type='compaction.request') THEN 'compaction' ELSE 'model' END source
  FROM events WHERE sessionId=?1 AND type IN ('request.started','compaction.request')
  GROUP BY runId,attemptId
-), usage_events AS (
+), usage_events AS MATERIALIZED (
  SELECT *,COALESCE(json_extract(data,'$.attemptId'),stepId,eventId) attemptId,
  ROW_NUMBER() OVER(PARTITION BY COALESCE(json_extract(data,'$.usageId'),eventId) ORDER BY seq) ordinal
  FROM events WHERE sessionId=?1 AND type='usage.recorded'
-), usage AS (
+), usage AS MATERIALIZED (
  SELECT e.seq,e.time,e.runId,e.attemptId,COALESCE(s.seq,e.seq) ownerSeq,s.time startedAt,
   CASE WHEN s.time IS NOT NULL AND e.time>=s.time THEN e.time-s.time END durationMs,
   COALESCE(json_extract(e.data,'$.input'),0) input,COALESCE(json_extract(e.data,'$.output'),0) output,
@@ -106,6 +106,71 @@ WITH starts AS (
  WHERE e.ordinal=1 AND COALESCE(s.seq,e.seq)>?2 AND COALESCE(s.seq,e.seq)<=?3
 )
 `
+
+/** One report-scoped statement shares usage identities across totals, series, latency and request concurrency. */
+export const USAGE_REPORT_SQL = `${USAGE_FACTS_SQL},markers AS MATERIALIZED (
+ SELECT runId,COALESCE(json_extract(data,'$.attemptId'),stepId,eventId) attemptId,MIN(time) time
+ FROM events WHERE sessionId=?1 AND type='attempt.firstText' GROUP BY runId,attemptId
+),first_text_ranked AS (
+ SELECT m.time-s.time value,ROW_NUMBER() OVER(ORDER BY m.time-s.time) ordinal,COUNT(*) OVER() total
+ FROM starts s JOIN markers m ON m.runId IS s.runId AND m.attemptId=s.attemptId
+ WHERE s.seq>?2 AND s.seq<=?3 AND m.time>=s.time
+),first_text AS (
+ SELECT MAX(CASE WHEN ordinal=CAST((total*95+99)/100 AS INTEGER) THEN value END) p95Ms,COUNT(*) samples
+ FROM first_text_ranked
+),response_ranked AS (
+ SELECT durationMs,ROW_NUMBER() OVER(ORDER BY durationMs) ordinal,COUNT(*) OVER() total
+ FROM usage WHERE durationMs IS NOT NULL
+),response AS (
+ SELECT MAX(CASE WHEN ordinal=CAST((total*95+99)/100 AS INTEGER) THEN durationMs END) p95Ms,COUNT(*) samples
+ FROM response_ranked
+),series_rows AS (
+ SELECT ?4+MIN(39,MAX(0,CAST((time-?4)/?6 AS INTEGER)))*?6 start,
+  SUM(input) input,SUM(output) output,SUM(cacheRead) cacheRead
+ FROM usage GROUP BY start
+),series AS (
+ SELECT COALESCE(json_group_array(json_object('start',start,'input',input,'output',output,'cacheRead',cacheRead)),'[]') value
+ FROM (SELECT start,input,output,cacheRead FROM series_rows ORDER BY start)
+),request_intervals AS (
+ SELECT startedAt start,time end FROM usage WHERE startedAt IS NOT NULL
+),request_clipped AS (
+ SELECT MAX(?4,start) start,MIN(?5,MAX(start+1,end)) end
+ FROM request_intervals WHERE start IS NOT NULL AND end>=start
+),request_points AS (
+ SELECT start time,1 change FROM request_clipped WHERE end>start
+ UNION ALL SELECT end,-1 FROM request_clipped WHERE end>start
+),request_running AS (
+ SELECT SUM(change) OVER(ORDER BY time,change ROWS UNBOUNDED PRECEDING) active FROM request_points
+),request_concurrency AS (
+ SELECT MAX(active) value FROM request_running
+)
+SELECT COALESCE(SUM(input),0) input,COALESCE(SUM(output),0) output,
+ COALESCE(SUM(cacheRead),0) cacheRead,COALESCE(SUM(cacheWrite),0) cacheWrite,
+ COALESCE(SUM(MAX(0,input-cacheRead)+output),0) billableTokens,COUNT(*) recorded,
+ COUNT(DISTINCT model) models,
+ (SELECT COUNT(*) FROM (
+   SELECT runId,attemptId FROM starts WHERE seq>?2 AND seq<=?3
+   UNION SELECT runId,attemptId FROM usage
+  )) requests,
+ (SELECT COUNT(DISTINCT runId) FROM events WHERE sessionId=?1 AND seq>?2 AND seq<=?3
+  AND type IN ('run.status','run.settled','message.committed','request.started','compaction.request','tool.started')) runs,
+ (SELECT COUNT(*) FROM events e LEFT JOIN runs r ON r.id=e.runId WHERE e.sessionId=?1 AND e.seq>?2 AND e.seq<=?3
+  AND e.type='message.committed' AND json_extract(e.data,'$.role')='user'
+  AND (json_extract(e.data,'$.queueGuidance') IS NOT NULL OR COALESCE(json_extract(r.input,'$.source'),'user')='user')) turns,
+ CASE WHEN COUNT(*)=COUNT(cost) THEN COALESCE(SUM(cost),0) END cost,
+ COALESCE(SUM(cost),0) knownCost,COUNT(cost) pricedRequests,
+ CASE WHEN COUNT(*)=COUNT(eligibleInput) THEN 1.0*SUM(cacheRead)/NULLIF(SUM(eligibleInput),0) END cacheHitRate,
+ 1.0*SUM(cacheRead)/NULLIF(SUM(input),0) cacheInputShare,
+ SUM(durationMs) durationMs,COUNT(durationMs) timingSamples,
+ CASE WHEN COUNT(*)=COUNT(durationMs) THEN 1000.0*SUM(input+output)/NULLIF(SUM(durationMs),0) END tokensPerSecond,
+ CASE WHEN COUNT(*)=COUNT(durationMs) THEN 1000.0*SUM(output)/NULLIF(SUM(durationMs),0) END outputPerSecond,
+ (SELECT p95Ms FROM first_text) firstTextP95Ms,
+ (SELECT samples FROM first_text) firstTextSamples,
+ (SELECT p95Ms FROM response) responseP95Ms,
+ (SELECT samples FROM response) responseSamples,
+ (SELECT value FROM series) seriesJson,
+ (SELECT value FROM request_concurrency) requestConcurrency
+FROM usage`
 
 export const COMPACTION_FACTS_SQL = `
 WITH compaction_events AS (
