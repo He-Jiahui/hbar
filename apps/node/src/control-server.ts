@@ -1,10 +1,18 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import { NODE_LIMITS } from '@hbar/contracts/node'
 import { nodeConsoleConnectionSchema, nodeConsoleRequestSchema } from '@hbar/contracts/node-console'
 import type { NodeConsoleService } from './console-service'
+
+async function removeTemporary(path: string): Promise<void> {
+  try {
+    await rm(path)
+  } catch (error) {
+    if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) throw error
+  }
+}
 
 export async function startNodeControlServer(dataRoot: string, service: NodeConsoleService, listen?: string) {
   const address = listen ? new URL('http://' + listen) : new URL('http://127.0.0.1:0')
@@ -59,7 +67,13 @@ export async function startNodeControlServer(dataRoot: string, service: NodeCons
       token,
       pid: process.pid,
     })
-    await writeFile(path, JSON.stringify(connection), { mode: 0o600 })
+    const temporary = join(dataRoot, '.control-' + crypto.randomUUID())
+    try {
+      await writeFile(temporary, JSON.stringify(connection), { mode: 0o600, flag: 'wx' })
+      await rename(temporary, path)
+    } finally {
+      await removeTemporary(temporary)
+    }
     return {
       connection,
       async close() {
