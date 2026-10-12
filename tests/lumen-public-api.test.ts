@@ -37,4 +37,5 @@ test('workbench and catalog styles have independent public exports and import gr
   visit(resolve(directory, manifest.exports['./styles.css']!))
   expect([...visited].filter((path) => /[\\/](?:authentication|billing|kanban|paywall)/.test(path))).toEqual([])
   expect(manifest.exports['./catalog/styles.css']).toBeDefined()
+  expect(Object.keys(manifest.publishConfig.exports).sort()).toEqual(Object.keys(manifest.exports).sort())
 })

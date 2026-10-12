@@ -88,9 +88,13 @@
         "types": "./dist/types/catalog.d.ts",
         "import": "./dist/catalog.js"
       },
+      "./designs": {
+        "types": "./dist/types/designs/index.d.ts",
+        "import": "./dist/designs.js"
+      },
       "./ui": {
         "types": "./dist/types/ui/index.d.ts",
-        "import": "./dist/ui.mjs"
+        "import": "./dist/ui.js"
       },
       "./variants": {
         "types": "./dist/types/variants/index.d.ts",
@@ -216,7 +220,7 @@
     "validate-boundaries": "bun scripts/validate-lumen-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
-    "build": "bun scripts/sync-workbench-styles.ts && vite build && vite build --config vite.styles.config.ts && tsc -p tsconfig.build.json"
+    "build": "bun scripts/sync-workbench-styles.ts && vite build && vite build --config vite.styles.config.ts && tsc -p tsconfig.build.json && bun scripts/verify-package-exports.ts"
   },
   "peerDependencies": {
     "@emotion/react": "^11.14.0",
