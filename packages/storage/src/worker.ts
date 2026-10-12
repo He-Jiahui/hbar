@@ -15,6 +15,8 @@ import {
   runFailureSchema,
   runSchema,
   sessionEventSchema,
+  sessionEventPageInputSchema,
+  sessionEventPageSchema,
   settingScopeSchema,
 } from '@hbar/contracts'
 import { z } from 'zod'
@@ -62,6 +64,9 @@ import type {
   Run,
   Session,
   SessionEvent,
+  SessionEventPage,
+  SessionEventPageInput,
+  SessionEventPageItem,
   SessionSummary,
   Usage,
   Workspace,
@@ -1517,6 +1522,223 @@ const methods: StorageMethods = {
         .query('SELECT * FROM events WHERE sessionId=? AND seq>? ORDER BY seq LIMIT ?')
         .all(sessionId, after, limit) as Row[]
     ).map(eventRow)
+  },
+  readEventPage(rawInput: SessionEventPageInput): SessionEventPage {
+    const parsed = sessionEventPageInputSchema.safeParse(rawInput)
+    if (!parsed.success) throw new HbarError('EVENT_PAGE_INVALID', 'Session event page request is invalid')
+    const input = parsed.data
+    const session = db.query('SELECT seq FROM sessions WHERE id=?').get(input.sessionId) as { seq: number } | null
+    if (!session) throw new HbarError('SESSION_NOT_FOUND', 'Session was not found')
+    const currentThrough = Math.max(0, session.seq)
+    if (input.afterSeq > currentThrough)
+      throw new HbarError('EVENT_PAGE_CURSOR', 'Session event page cursor is ahead of the session')
+    const throughSeq = input.throughSeq ?? currentThrough
+    if (throughSeq > currentThrough)
+      throw new HbarError('EVENT_PAGE_HORIZON', 'Session event page horizon is ahead of the session')
+
+    const selectionStartedAt = performance.now()
+    const selection = workerDiagnostics.readPhase(
+      'event-page-selection',
+      () => {
+        const total = db
+          .query('SELECT COUNT(*) AS count FROM events WHERE sessionId=? AND seq<=?')
+          .get(input.sessionId, throughSeq) as { count: number }
+        const remaining = db
+          .query('SELECT COUNT(*) AS count FROM events WHERE sessionId=? AND seq>? AND seq<=?')
+          .get(input.sessionId, input.afterSeq, throughSeq) as { count: number }
+        const pageTypes = input.types.map(() => '?').join(',')
+        const runClause = input.runIds ? ` AND runId IN (${input.runIds.map(() => '?').join(',')})` : ''
+        const matching = db
+          .query(
+            `SELECT COUNT(*) AS count FROM events
+             WHERE sessionId=? AND seq>? AND seq<=? AND type IN (${pageTypes})${runClause}`,
+          )
+          .get(input.sessionId, input.afterSeq, throughSeq, ...input.types, ...(input.runIds ?? [])) as {
+          count: number
+        }
+        const headerTypes = new Set(input.headerOnlyTypes)
+        const dataBytesCase = headerTypes.size
+          ? `CASE WHEN type IN (${input.headerOnlyTypes.map(() => '?').join(',')}) THEN 0 ELSE length(CAST(data AS BLOB)) END`
+          : 'length(CAST(data AS BLOB))'
+        const metadataArgs: Array<string | number> = [
+          ...input.headerOnlyTypes,
+          input.sessionId,
+          input.afterSeq,
+          throughSeq,
+          ...input.types,
+          ...(input.runIds ?? []),
+          input.limit + 1,
+        ]
+        const candidates = db
+          .query(
+            `SELECT eventId,sessionId,seq,runId,stepId,type,time,version,${dataBytesCase} AS dataBytes
+             FROM events WHERE sessionId=? AND seq>? AND seq<=? AND type IN (${pageTypes})${runClause}
+             ORDER BY seq LIMIT ?`,
+          )
+          .all(...metadataArgs) as Array<{
+          eventId: string
+          sessionId: string
+          seq: number
+          runId: string | null
+          stepId: string | null
+          type: string
+          time: number
+          version: number
+          dataBytes: number
+        }>
+        // Keep the complete empty-array envelope and reserve one byte for the
+        // longer `hasMore:false`; each item and comma is added below.
+        const emptyReplyBytes = Buffer.byteLength(
+          JSON.stringify({
+            sessionId: input.sessionId,
+            afterSeq: input.afterSeq,
+            throughSeq,
+            totalEventCount: total.count,
+            remainingEventCount: remaining.count,
+            matchingEventCount: matching.count,
+            items: [],
+            nextAfterSeq: Number.MAX_SAFE_INTEGER,
+            hasMore: true,
+          }),
+          'utf8',
+        )
+        const baseReplyBytes = emptyReplyBytes + 1
+        const selected: typeof candidates = []
+        let selectedBytes = baseReplyBytes
+        let oversizedFirstItem = false
+        for (const row of candidates.slice(0, input.limit)) {
+          const kind = headerTypes.has(row.type) ? 'header' : 'event'
+          const eventHeader = {
+            eventId: row.eventId,
+            sessionId: row.sessionId,
+            seq: row.seq,
+            runId: row.runId,
+            stepId: row.stepId,
+            type: row.type,
+            time: row.time,
+            version: row.version,
+          }
+          const dataPropertyBytes = kind === 'event' ? Buffer.byteLength(',"data":', 'utf8') + row.dataBytes : 0
+          const itemBytes = Buffer.byteLength(JSON.stringify({ kind, event: eventHeader }), 'utf8') + dataPropertyBytes
+          const estimatedBytes = itemBytes + (selected.length > 0 ? 1 : 0)
+          if (estimatedBytes + baseReplyBytes > input.maxReplyBytes) {
+            oversizedFirstItem = selected.length === 0
+            break
+          }
+          if (selected.length > 0 && selectedBytes + estimatedBytes > input.maxReplyBytes) break
+          selected.push(row)
+          selectedBytes += estimatedBytes
+        }
+        return {
+          total,
+          remaining,
+          matching,
+          headerTypes,
+          candidates,
+          selected,
+          selectedBytes,
+          oversizedFirstItem,
+          candidatePayloadBytes: candidates.reduce((sum, row) => sum + row.dataBytes, 0),
+        }
+      },
+      { sessionId: input.sessionId, anchorSeq: throughSeq, cursorSeq: input.afterSeq },
+    )
+    const {
+      total,
+      remaining,
+      matching,
+      headerTypes,
+      candidates,
+      selected,
+      selectedBytes,
+      oversizedFirstItem,
+      candidatePayloadBytes,
+    } = selection
+    workerDiagnostics.measuredReadPhase('event-page-selection', {
+      sessionId: input.sessionId,
+      anchorSeq: throughSeq,
+      cursorSeq: input.afterSeq,
+      durationMs: Math.max(0, performance.now() - selectionStartedAt),
+      recordsIn: candidates.length,
+      recordsOut: selected.length,
+      bytesIn: candidatePayloadBytes, // estimated payload bytes among bounded metadata candidates; payload rows have not been fetched
+      bytesOut: selectedBytes,
+      memoryBytes: process.memoryUsage.rss(),
+    })
+    if (oversizedFirstItem)
+      throw new HbarError('EVENT_PAGE_ITEM_TOO_LARGE', 'A selected event exceeds the page reply byte limit')
+    const decodeStartedAt = performance.now()
+    const fullRows = selected.filter((row) => !headerTypes.has(row.type))
+    const items = workerDiagnostics.readPhase(
+      'event-page-decode',
+      () => {
+        const dataBySeq = new Map<number, string>()
+        if (fullRows.length) {
+          const placeholders = fullRows.map(() => '?').join(',')
+          const rows = db
+            .query(`SELECT seq,data FROM events WHERE sessionId=? AND seq IN (${placeholders})`)
+            .all(input.sessionId, ...fullRows.map((row) => row.seq)) as Array<{ seq: number; data: string }>
+          for (const row of rows) dataBySeq.set(row.seq, row.data)
+        }
+        return selected.map((row): SessionEventPageItem => {
+          const event = {
+            eventId: row.eventId,
+            sessionId: row.sessionId,
+            seq: row.seq,
+            runId: row.runId,
+            stepId: row.stepId,
+            type: row.type,
+            time: row.time,
+            version: row.version as 1,
+          }
+          if (headerTypes.has(row.type)) return { kind: 'header', event }
+          const rawData = dataBySeq.get(row.seq)
+          if (rawData === undefined) throw new HbarError('EVENT_PAGE_READ', 'Selected event payload was not available')
+          return { kind: 'event', event: { ...event, data: parseJson(rawData) } }
+        })
+      },
+      { sessionId: input.sessionId, anchorSeq: throughSeq, cursorSeq: input.afterSeq },
+    )
+    const exactReplyBytes = Buffer.byteLength(
+      JSON.stringify({
+        sessionId: input.sessionId,
+        afterSeq: input.afterSeq,
+        throughSeq,
+        totalEventCount: total.count,
+        remainingEventCount: remaining.count,
+        matchingEventCount: matching.count,
+        items,
+        nextAfterSeq: items.at(-1)?.event.seq ?? throughSeq,
+        hasMore: false,
+      }),
+      'utf8',
+    )
+    if (exactReplyBytes > input.maxReplyBytes)
+      throw new HbarError('EVENT_PAGE_REPLY_TOO_LARGE', 'Session event page exceeded its reply byte limit')
+    workerDiagnostics.measuredReadPhase('event-page-decode', {
+      sessionId: input.sessionId,
+      anchorSeq: throughSeq,
+      cursorSeq: input.afterSeq,
+      durationMs: Math.max(0, performance.now() - decodeStartedAt),
+      recordsIn: fullRows.length,
+      recordsOut: items.length,
+      bytesIn: fullRows.reduce((sum, row) => sum + row.dataBytes, 0),
+      bytesOut: exactReplyBytes,
+      memoryBytes: process.memoryUsage.rss(),
+    })
+    const hasMore = candidates.length > selected.length
+    const page = {
+      sessionId: input.sessionId,
+      afterSeq: input.afterSeq,
+      throughSeq,
+      totalEventCount: total.count,
+      remainingEventCount: remaining.count,
+      matchingEventCount: matching.count,
+      items,
+      nextAfterSeq: hasMore ? (items.at(-1)?.event.seq ?? input.afterSeq) : throughSeq,
+      hasMore,
+    }
+    return sessionEventPageSchema.parse(page)
   },
   goalHistory: (input) => readGoalHistory(db, input),
   usageEvents(input: UsageReadInput) {

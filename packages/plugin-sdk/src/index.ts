@@ -1,4 +1,5 @@
 import { Context, Service } from 'cordis'
+import { HbarError, sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
 export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
 export { SKILL_TOOL_NAMES } from './skills'
@@ -18,6 +19,8 @@ import type {
   Run,
   Session,
   SessionEvent,
+  SessionEventPage,
+  SessionEventPageInput,
   SessionSnapshot,
   TerminalContribution,
   ThreadGoal,
@@ -362,6 +365,7 @@ export interface SessionService {
   list(workspaceId?: string): Promise<Session[]>
   children(parentId: string, after?: string, limit?: number): Promise<Session[]>
   events(id: string, after?: number, limit?: number): Promise<SessionEvent[]>
+  readEventPage(input: SessionEventPageInput): Promise<SessionEventPage>
   create(workspaceId: string, title?: string, parentId?: string): Promise<Session>
   submit(sessionId: string, requestId: string, input: UserInput, modelId: string): Promise<Run>
   /** Wake the Host idle dispatcher; this does not enqueue a model turn. */
@@ -371,6 +375,119 @@ export interface SessionService {
   workspace(workspaceId: string): Promise<Workspace>
   createWorkspace(path: string): Promise<Workspace>
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): Promise<SessionEvent>
+}
+export interface SessionEventPageReadOptions {
+  sessionId: string
+  afterSeq?: number
+  throughSeq?: number
+  types: readonly string[]
+  runIds?: readonly string[]
+  headerOnlyTypes?: readonly string[]
+  limit?: number
+  maxReplyBytes?: number
+  /** Maximum cumulative UTF-8 reply bytes yielded by one read. Defaults to 64 MiB. */
+  maxTotalBytes?: number
+}
+/** Read a stable, bounded sequence of selected event pages and reject broken adapters/cursors. */
+export async function* readSessionEventPages(
+  sessions: Pick<SessionService, 'readEventPage'>,
+  options: SessionEventPageReadOptions,
+): AsyncGenerator<SessionEventPage> {
+  let afterSeq = options.afterSeq ?? 0
+  let throughSeq = options.throughSeq
+  let totalEventCount: number | undefined
+  let priorRemainingEventCount: number | undefined
+  let previousPageItemCount: number | undefined
+  let expectedMatchingEventCount: number | undefined
+  let totalReplyBytes = 0
+  const maxTotalBytes = options.maxTotalBytes ?? 64 * 1024 * 1024
+  if (!Number.isSafeInteger(maxTotalBytes) || maxTotalBytes < 1 || maxTotalBytes > 256 * 1024 * 1024)
+    throw new HbarError(
+      'EVENT_PAGE_TOTAL_LIMIT',
+      'Session event cumulative byte limit must be a safe integer up to 256 MiB',
+    )
+  while (true) {
+    const request = sessionEventPageInputSchema.safeParse({
+      sessionId: options.sessionId,
+      afterSeq,
+      ...(throughSeq === undefined ? {} : { throughSeq }),
+      types: [...options.types],
+      ...(options.runIds ? { runIds: [...options.runIds] } : {}),
+      headerOnlyTypes: [...(options.headerOnlyTypes ?? [])],
+      limit: options.limit ?? 500,
+      maxReplyBytes: options.maxReplyBytes ?? 1_048_576,
+    })
+    if (!request.success) throw new HbarError('EVENT_PAGE_INVALID', 'Session event page request is invalid')
+    const response = await sessions.readEventPage(request.data)
+    if (!response || typeof response !== 'object')
+      throw new HbarError('EVENT_PAGE_INVALID', 'Session event page adapter returned a non-object page')
+    if (
+      response.sessionId !== options.sessionId ||
+      response.afterSeq !== afterSeq ||
+      (response.hasMore && response.nextAfterSeq <= afterSeq)
+    )
+      throw new HbarError('EVENT_PAGE_CURSOR', 'Session event page adapter returned an invalid cursor')
+    const parsedPage = sessionEventPageSchema.safeParse(response)
+    if (!parsedPage.success)
+      throw new HbarError('EVENT_PAGE_INVALID', 'Session event page adapter returned an invalid page')
+    const page = parsedPage.data
+    if (page.items.length > request.data.limit)
+      throw new HbarError('EVENT_PAGE_LIMIT', 'Session event page adapter exceeded the requested item count')
+    if (page.sessionId !== options.sessionId || page.afterSeq !== afterSeq)
+      throw new HbarError('EVENT_PAGE_CURSOR', 'Session event page adapter returned a mismatched cursor')
+    const pageBytes = new TextEncoder().encode(JSON.stringify(page)).byteLength
+    if (pageBytes > request.data.maxReplyBytes)
+      throw new HbarError(
+        'EVENT_PAGE_REPLY_TOO_LARGE',
+        'Session event page adapter exceeded the requested reply byte limit',
+      )
+    if (totalReplyBytes + pageBytes > maxTotalBytes)
+      throw new HbarError('EVENT_PAGE_TOTAL_TOO_LARGE', 'Session event history exceeded the cumulative read byte limit')
+    totalReplyBytes += pageBytes
+    if (throughSeq === undefined) throughSeq = page.throughSeq
+    else if (throughSeq !== page.throughSeq)
+      throw new HbarError('EVENT_PAGE_HORIZON', 'Session event page horizon changed while reading')
+    if (totalEventCount === undefined) totalEventCount = page.totalEventCount
+    else if (totalEventCount !== page.totalEventCount)
+      throw new HbarError('EVENT_PAGE_COUNT', 'Session event page total changed at a fixed horizon')
+    if (
+      page.totalEventCount < page.remainingEventCount ||
+      page.matchingEventCount > page.remainingEventCount ||
+      page.remainingEventCount < page.items.length ||
+      page.matchingEventCount < page.items.length ||
+      (priorRemainingEventCount !== undefined &&
+        previousPageItemCount !== undefined &&
+        page.remainingEventCount > priorRemainingEventCount - previousPageItemCount) ||
+      (expectedMatchingEventCount !== undefined && page.matchingEventCount !== expectedMatchingEventCount)
+    )
+      throw new HbarError('EVENT_PAGE_COUNT', 'Session event page event counts are inconsistent')
+    let lastItemSeq = afterSeq
+    for (const item of page.items) {
+      const event = item.event
+      if (
+        event.sessionId !== options.sessionId ||
+        event.seq <= lastItemSeq ||
+        event.seq > page.throughSeq ||
+        !options.types.includes(event.type) ||
+        (options.runIds && !options.runIds.includes(event.runId ?? '')) ||
+        Boolean(options.headerOnlyTypes?.includes(event.type)) !== (item.kind === 'header')
+      )
+        throw new HbarError('EVENT_PAGE_ITEM', 'Session event page contains an invalid selected event')
+      lastItemSeq = event.seq
+    }
+    if (
+      (page.hasMore && (page.nextAfterSeq <= afterSeq || page.nextAfterSeq !== lastItemSeq)) ||
+      (!page.hasMore && page.nextAfterSeq !== page.throughSeq) ||
+      page.hasMore !== page.matchingEventCount > page.items.length
+    )
+      throw new HbarError('EVENT_PAGE_CURSOR', 'Session event page cursor did not advance')
+    yield page
+    if (!page.hasMore) return
+    priorRemainingEventCount = page.remainingEventCount
+    previousPageItemCount = page.items.length
+    expectedMatchingEventCount = page.matchingEventCount - page.items.length
+    afterSeq = page.nextAfterSeq
+  }
 }
 export interface GoalSetInput {
   objective?: string | null | undefined

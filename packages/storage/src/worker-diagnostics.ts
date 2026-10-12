@@ -145,19 +145,31 @@ export function createStorageWorkerDiagnostics(options: StorageWorkerDiagnosticO
       | 'context-history'
       | 'context-compactions'
       | 'runs'
-      | 'tool-events',
+      | 'tool-events'
+      | 'event-page-selection'
+      | 'event-page-decode',
     action: () => T,
+    metadata?: { sessionId: string; anchorSeq: number; cursorSeq: number },
   ): T {
     const owner = currentOperation
     if (!enabled || !owner) return action()
     const startedAt = performance.now()
-    const identity = { method: owner.method, storageRequestId: owner.id, operationId: owner.id, phase }
+    const identity = {
+      method: owner.method,
+      storageRequestId: owner.id,
+      operationId: owner.id,
+      phase,
+      ...(metadata ? { ...metadata, memoryBytes: process.memoryUsage.rss() } : {}),
+    }
     if (fullCoverage) emit({ ...identity, event: 'sqlite.read_phase_started', level: 'debug', outcome: 'unknown' })
     try {
       const result = action()
       const durationMs = Math.max(0, performance.now() - startedAt)
       phaseSequence += 1
-      if (fullCoverage || durationMs >= 100 || phaseSequence % FAST_SAMPLE_EVERY === 0)
+      if (
+        !['event-page-selection', 'event-page-decode'].includes(phase) &&
+        (fullCoverage || durationMs >= 100 || phaseSequence % FAST_SAMPLE_EVERY === 0)
+      )
         emit({
           ...identity,
           event: 'sqlite.read_phase_completed',
@@ -183,12 +195,54 @@ export function createStorageWorkerDiagnostics(options: StorageWorkerDiagnosticO
     }
   }
 
+  function measuredReadPhase(
+    phase: string,
+    input: {
+      readonly sessionId: string
+      readonly anchorSeq: number
+      readonly cursorSeq: number
+      readonly durationMs: number
+      readonly recordsIn: number
+      readonly recordsOut: number
+      readonly bytesIn: number
+      readonly bytesOut: number
+      readonly memoryBytes: number
+    },
+  ): void {
+    const owner = currentOperation
+    if (!enabled || !owner) return
+    const significant =
+      input.durationMs >= 100 || input.recordsIn >= 128 || input.bytesIn >= 1_048_576 || input.bytesOut >= 1_048_576
+    if (!fullCoverage && !significant) return
+    emit({
+      event: 'sqlite.read_phase_completed',
+      phase,
+      level: input.durationMs >= 100 ? 'warn' : 'debug',
+      method: owner.method,
+      storageRequestId: owner.id,
+      operationId: owner.id,
+      sessionId: input.sessionId,
+      anchorSeq: input.anchorSeq,
+      cursorSeq: input.cursorSeq,
+      outcome: 'success',
+      durationMs: input.durationMs,
+      executionMs: input.durationMs,
+      sampled: true,
+      recordsIn: input.recordsIn,
+      recordsOut: input.recordsOut,
+      bytesIn: input.bytesIn,
+      bytesOut: input.bytesOut,
+      memoryBytes: input.memoryBytes,
+    })
+  }
+
   return {
     emit,
     started,
     operation,
     withOperation,
     readPhase,
+    measuredReadPhase,
     getDroppedCount: () => dropped,
   }
 }

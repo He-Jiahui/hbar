@@ -4,11 +4,12 @@ import { HbarError, idSchema, usageSchema } from '@hbar/contracts'
 import type { RunSource, SessionEvent, Usage } from '@hbar/contracts'
 import { budgetReceiptSchema, setBudgetInputSchema } from '@hbar/contracts/commands/budget'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import { appendModelContext, definePlugin, provide } from '@hbar/plugin-sdk'
+import { appendModelContext, definePlugin, provide, readSessionEventPages } from '@hbar/plugin-sdk'
 import type { HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
 
 const MAX_RESTORE_EVENTS = 100_000
 const MAX_ACCOUNTED_RUNS = 512
+const BUDGET_RESTORE_EVENT_TYPES = ['budget.created', 'budget.updated', 'budget.accounted', 'budget.cleared'] as const
 
 export const budgetPhaseSchema = z.enum(['active', 'exhausted', 'completed', 'stopped'])
 export type BudgetPhase = z.infer<typeof budgetPhaseSchema>
@@ -50,16 +51,12 @@ function publicBudget(value: PersistedBudget): SessionBudget {
   return budget
 }
 
-function tokenDelta(events: SessionEvent[], after: number): number {
-  let total = 0
-  for (const event of events) {
-    if (event.seq <= after || event.type !== 'usage.recorded') continue
-    const parsed = usageSchema.safeParse(event.data)
-    if (!parsed.success) continue
-    const usage: Usage = parsed.data
-    total += Math.max(0, usage.input - usage.cacheRead) + usage.output
-  }
-  return Math.max(0, Math.round(total))
+function tokenUsage(event: SessionEvent): number {
+  if (event.type !== 'usage.recorded') return 0
+  const parsed = usageSchema.safeParse(event.data)
+  if (!parsed.success) return 0
+  const usage: Usage = parsed.data
+  return Math.max(0, usage.input - usage.cacheRead) + usage.output
 }
 
 function withPhase(budget: PersistedBudget): PersistedBudget {
@@ -100,63 +97,93 @@ export class BudgetRuntime {
   }
 
   private async restoreSession(sessionId: string) {
-    const events = await this.api.sessions.events(sessionId, 0, MAX_RESTORE_EVENTS + 1)
-    if (events.length > MAX_RESTORE_EVENTS)
-      throw new HbarError(
-        'BUDGET_RESTORE_LIMIT',
-        `Budget replay for ${sessionId} exceeded ${MAX_RESTORE_EVENTS} events`,
-      )
-    for (const event of events) {
-      if (event.type === 'budget.cleared') {
-        const parsed = budgetClearedEventSchema.safeParse(event.data)
-        if (!parsed.success || parsed.data.sessionId !== sessionId)
-          throw new HbarError('BUDGET_REPLAY', `Invalid budget.cleared event in ${sessionId}`)
-        this.budgets.delete(sessionId)
-        continue
-      }
-      if (!['budget.created', 'budget.updated', 'budget.accounted'].includes(event.type)) continue
-      const parsed = budgetEventSchema.safeParse(event.data)
-      if (!parsed.success || parsed.data.budget.sessionId !== sessionId)
-        throw new HbarError('BUDGET_REPLAY', `Invalid ${event.type} event in ${sessionId}`)
-      // Older ledgers settled complete runs. Preserve their high-water mark
-      // without replaying their already-charged usage into the new step ledger.
-      const source = z.object({ budget: z.object({ usageThroughSeq: z.number().optional() }) }).parse(event.data)
-      const budget = {
-        ...parsed.data.budget,
-        usageThroughSeq:
-          source.budget.usageThroughSeq ??
-          (event.type === 'budget.accounted' ? event.seq : (this.budgets.get(sessionId)?.usageThroughSeq ?? event.seq)),
-      }
-      this.budgets.set(sessionId, withPhase(budget))
-      if (parsed.data.command) {
-        const command = parsed.data.command
-        const receipt = budgetReceiptSchema.parse({
-          status: 'succeeded',
-          commandId: 'session.setBudget',
-          commandVersion: 1,
-          requestId: command.requestId,
-          idempotencyKey: command.idempotencyKey,
-          eventId: event.eventId,
-          revision: parsed.data.budget.revision,
-          committedAt: event.time,
-          budget: publicBudget(parsed.data.budget),
-          accountingVersion: 1,
-        })
-        this.rememberCommand(sessionId, command, receipt)
+    let highWaterSeq = 0
+    for await (const page of readSessionEventPages(this.api.sessions, {
+      sessionId,
+      types: BUDGET_RESTORE_EVENT_TYPES,
+      limit: 500,
+      maxReplyBytes: 1_048_576,
+    })) {
+      if (page.totalEventCount > MAX_RESTORE_EVENTS)
+        throw new HbarError(
+          'BUDGET_RESTORE_LIMIT',
+          `Budget replay for ${sessionId} exceeded ${MAX_RESTORE_EVENTS} events`,
+        )
+      highWaterSeq = page.throughSeq
+      for (const item of page.items) {
+        if (item.kind !== 'event') continue
+        const event = item.event
+        if (event.type === 'budget.cleared') {
+          const parsed = budgetClearedEventSchema.safeParse(event.data)
+          if (!parsed.success || parsed.data.sessionId !== sessionId)
+            throw new HbarError('BUDGET_REPLAY', `Invalid budget.cleared event in ${sessionId}`)
+          this.budgets.delete(sessionId)
+          continue
+        }
+        if (!['budget.created', 'budget.updated', 'budget.accounted'].includes(event.type)) continue
+        const parsed = budgetEventSchema.safeParse(event.data)
+        if (!parsed.success || parsed.data.budget.sessionId !== sessionId)
+          throw new HbarError('BUDGET_REPLAY', `Invalid ${event.type} event in ${sessionId}`)
+        // Older ledgers settled complete runs. Preserve their high-water mark
+        // without replaying their already-charged usage into the new step ledger.
+        const source = z.object({ budget: z.object({ usageThroughSeq: z.number().optional() }) }).parse(event.data)
+        const budget = {
+          ...parsed.data.budget,
+          usageThroughSeq:
+            source.budget.usageThroughSeq ??
+            (event.type === 'budget.accounted'
+              ? event.seq
+              : (this.budgets.get(sessionId)?.usageThroughSeq ?? event.seq)),
+        }
+        this.budgets.set(sessionId, withPhase(budget))
+        if (parsed.data.command) {
+          const command = parsed.data.command
+          const receipt = budgetReceiptSchema.parse({
+            status: 'succeeded',
+            commandId: 'session.setBudget',
+            commandVersion: 1,
+            requestId: command.requestId,
+            idempotencyKey: command.idempotencyKey,
+            eventId: event.eventId,
+            revision: parsed.data.budget.revision,
+            committedAt: event.time,
+            budget: publicBudget(parsed.data.budget),
+            accountingVersion: 1,
+          })
+          this.rememberCommand(sessionId, command, receipt)
+        }
       }
     }
     // Usage facts may have committed just before the Host lost its step/end
     // callback. Reconcile them before exposing a budget or admitting a model.
     const prior = this.budgets.get(sessionId)
     if (prior) {
-      const delta = tokenDelta(events, prior.usageThroughSeq)
+      let delta = 0
+      let firstUsagePage = true
+      for await (const page of readSessionEventPages(this.api.sessions, {
+        sessionId,
+        afterSeq: prior.usageThroughSeq,
+        throughSeq: highWaterSeq,
+        types: ['usage.recorded'],
+        limit: 500,
+        maxReplyBytes: 1_048_576,
+      })) {
+        if (firstUsagePage && page.totalEventCount > MAX_RESTORE_EVENTS)
+          throw new HbarError(
+            'BUDGET_RESTORE_LIMIT',
+            `Budget replay for ${sessionId} exceeded ${MAX_RESTORE_EVENTS} events`,
+          )
+        firstUsagePage = false
+        for (const item of page.items) if (item.kind === 'event') delta += tokenUsage(item.event)
+      }
+      delta = Math.max(0, Math.round(delta))
       if (delta > 0)
         await this.persist(
           sessionId,
           withPhase({
             ...prior,
             usedTokens: prior.usedTokens + delta,
-            usageThroughSeq: events.at(-1)?.seq ?? prior.usageThroughSeq,
+            usageThroughSeq: highWaterSeq,
             revision: prior.revision + 1,
             updatedAt: Date.now(),
           }),
@@ -315,10 +342,23 @@ export class BudgetRuntime {
     return this.serial(sessionId, async () => {
       const prior = this.budgets.get(sessionId)
       if (!prior || prior.accountedRuns.includes(runId)) return
-      const events = await this.api.sessions.events(sessionId, prior.usageThroughSeq, MAX_RESTORE_EVENTS + 1)
-      if (events.length > MAX_RESTORE_EVENTS)
-        throw new HbarError('BUDGET_ACCOUNTING_LIMIT', 'Unsettled budget usage exceeded the bounded replay window')
-      const delta = tokenDelta(events, prior.usageThroughSeq)
+      let delta = 0
+      let highWaterSeq = prior.usageThroughSeq
+      let firstPage = true
+      for await (const page of readSessionEventPages(this.api.sessions, {
+        sessionId,
+        afterSeq: prior.usageThroughSeq,
+        types: ['usage.recorded'],
+        limit: 500,
+        maxReplyBytes: 1_048_576,
+      })) {
+        if (firstPage && page.remainingEventCount > MAX_RESTORE_EVENTS)
+          throw new HbarError('BUDGET_ACCOUNTING_LIMIT', 'Unsettled budget usage exceeded the bounded replay window')
+        firstPage = false
+        highWaterSeq = page.throughSeq
+        for (const item of page.items) if (item.kind === 'event') delta += tokenUsage(item.event)
+      }
+      delta = Math.max(0, Math.round(delta))
       if (delta === 0 && !finalRun) return
       const next = withPhase({
         ...prior,
@@ -326,7 +366,7 @@ export class BudgetRuntime {
         remainingTokens: Math.max(0, prior.limit - prior.usedTokens - delta),
         revision: prior.revision + 1,
         updatedAt: Date.now(),
-        usageThroughSeq: events.at(-1)?.seq ?? prior.usageThroughSeq,
+        usageThroughSeq: highWaterSeq,
         accountedRuns: finalRun ? [...prior.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS) : prior.accountedRuns,
       })
       // budget.committed projects exhaustion through the Goal owner. Budget
