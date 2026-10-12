@@ -54,9 +54,15 @@ export class ConversationNodeHandshake {
       this.phase = 'failed'
       if (!verifyNode(this.workspaceKey, this.transcript('workspace'), frame.signature))
         throw new HbarError('NODE_AUTH_INVALID', 'Workspace node signature is invalid')
-      const registered = frame.pairingCode
-        ? await this.registry.join(this.workspaceKey, frame.pairingCode, this.source)
-        : await this.registry.known(this.workspaceKey)
+      let registered: RegisteredNode
+      try {
+        registered = await this.registry.known(this.workspaceKey)
+      } catch (error) {
+        // A may have committed a join whose final acknowledgement never reached B.
+        // Only an unknown, freshly proven key may consume an invitation; revocation remains final.
+        if (!(error instanceof HbarError) || error.code !== 'NODE_UNRECOGNIZED' || !frame.pairingCode) throw error
+        registered = await this.registry.join(this.workspaceKey, frame.pairingCode, this.source)
+      }
       this.registered = registered
       this.phase = 'joined'
       return {

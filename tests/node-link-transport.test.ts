@@ -77,6 +77,40 @@ test('signed handshake binds both identities, challenges and direction; register
     expect(JSON.stringify(next.proof)).not.toContain('privateKey')
   })
 })
+
+test('a fresh signed retry recovers a committed registration after its joined acknowledgement was lost', async () => {
+  await fixture(async (registry, identity, now) => {
+    const invitation = await registry.invite('ack-lost-box')
+    const client = new WorkspaceNodeHandshake({
+      identity,
+      fingerprint: invitation.fingerprint,
+      code: invitation.code,
+    })
+    const server = new ConversationNodeHandshake(registry, 'source')
+    const challenge = await server.receive(encodeNodeFrame(client.hello()))
+    const proof = client.receive(encodeNodeFrame(challenge))
+    if (!proof.reply) throw new Error('Client did not prove its identity')
+    await server.receive(encodeNodeFrame(proof.reply))
+    const registered = server.node
+    expect(registered?.name).toBe('ack-lost-box')
+
+    // A committed the registration, but B never received the final frame or saved its pin.
+    now.value = invitation.expiresAt + 1
+    const retry = await handshake(registry, identity, invitation.code)
+    expect(retry.result.joined?.nodeId).toBe(registered?.nodeId)
+    expect(await registry.list()).toHaveLength(1)
+    expect(await failure(handshake(registry, createNodeIdentity(), invitation.code))).toMatchObject({
+      code: 'NODE_PAIRING_FAILED',
+    })
+
+    await registry.revoke('ack-lost-box')
+    const replacement = await registry.invite('replacement-box')
+    expect(await failure(handshake(registry, identity, replacement.code))).toMatchObject({ code: 'NODE_REVOKED' })
+    expect((await handshake(registry, createNodeIdentity(), replacement.code)).result.joined?.name).toBe(
+      'replacement-box',
+    )
+  })
+})
 test('the workspace refuses changed conversation identity before disclosing the invitation', async () => {
   await fixture(async (registry, identity) => {
     const invitation = await registry.invite('box')
