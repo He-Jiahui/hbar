@@ -1,0 +1,58 @@
+.lumen-prompt-reference-modes {
+  gap: 0.65rem;
+}
+.lumen-prompt-mode-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  min-inline-size: 0;
+  padding: 0.15rem;
+  border-radius: 0.5rem;
+  background: var(--lumen-glass);
+}
+.lumen-prompt-mode-tabs > button {
+  border-color: transparent;
+  padding-inline: 0.6rem;
+}
+.lumen-prompt-mode-tabs > button[aria-selected='true'] {
+  border-color: var(--lumen-edge);
+  background: var(--lumen-contrast);
+}
+.lumen-prompt-mode-description {
+  color: var(--lumen-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.lumen-prompt-mode-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  min-inline-size: 0;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-prompt-mode-hints > span {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-inline-size: 0;
+}
+.lumen-prompt-mode-hints kbd {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.35rem;
+  color: var(--lumen-ink);
+  font: inherit;
+  white-space: nowrap;
+}
+@media (max-width: 34rem) {
+  .lumen-prompt-mode-tabs {
+    flex: 1 1 100%;
+  }
+  .lumen-prompt-mode-tabs > button {
+    flex: 1 1 0;
+  }
+}

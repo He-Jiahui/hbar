@@ -1,0 +1,85 @@
+.lumen-range.lumen-control[type='range'] {
+  appearance: none;
+  min-block-size: var(--lumen-control-size, 2.25rem);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--lumen-ink);
+  cursor: pointer;
+  transition: var(--lumen-state-transition);
+}
+
+.lumen-range::-webkit-slider-runnable-track {
+  block-size: 0.25rem;
+  border: 0;
+  border-radius: 999rem;
+  background: linear-gradient(
+    to right,
+    var(--lumen-ink) 0 var(--lumen-range-progress, 50%),
+    var(--lumen-line) var(--lumen-range-progress, 50%) 100%
+  );
+}
+
+.lumen-range::-moz-range-track {
+  block-size: 0.25rem;
+  border: 0;
+  border-radius: 999rem;
+  background: var(--lumen-line);
+}
+
+.lumen-range::-moz-range-progress {
+  block-size: 0.25rem;
+  border: 0;
+  border-radius: 999rem;
+  background: var(--lumen-ink);
+}
+.lumen-range::-webkit-slider-thumb {
+  appearance: none;
+  inline-size: 1rem;
+  block-size: 1rem;
+  margin-block-start: -0.375rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--lumen-ink);
+  box-shadow: var(--lumen-effect-shadow);
+}
+.lumen-range::-moz-range-thumb {
+  inline-size: 1rem;
+  block-size: 1rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--lumen-ink);
+  box-shadow: var(--lumen-effect-shadow);
+}
+.lumen-range:hover:not(:disabled) {
+  --lumen-effect-level: var(--lumen-glow-hover);
+}
+.lumen-range.lumen-control.lumen-effect[type='range']:focus-visible {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  outline: none;
+}
+.lumen-range:disabled {
+  --lumen-effect-level: 0;
+}
+.lumen-range:focus-visible::-webkit-slider-thumb {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+.lumen-range:focus-visible::-moz-range-thumb {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+@media (forced-colors: active) {
+  .lumen-range::-webkit-slider-runnable-track {
+    background: CanvasText;
+  }
+  .lumen-range::-moz-range-track {
+    background: CanvasText;
+  }
+  .lumen-range::-webkit-slider-thumb,
+  .lumen-range::-moz-range-thumb {
+    background: Highlight;
+    box-shadow: none;
+  }
+}

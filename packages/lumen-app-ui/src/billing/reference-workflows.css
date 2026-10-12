@@ -1,0 +1,296 @@
+.lumen-billing-workflow-root {
+  min-block-size: 0;
+  overflow: auto;
+}
+.lumen-billing-workflow {
+  display: flex;
+  inline-size: min(100%, 62rem);
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-inline: auto;
+}
+.lumen-billing-workflow-header,
+.lumen-billing-workflow-footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+}
+.lumen-billing-workflow-header > div,
+.lumen-billing-workflow-notice {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-wrap: anywhere;
+}
+.lumen-billing-workflow-draft {
+  padding: 0.25rem 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+.lumen-billing-workflow-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1.5rem;
+  overflow: auto;
+  padding: 1.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+}
+.lumen-billing-workflow-steps {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lumen-billing-workflow-steps > li {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+.lumen-billing-workflow-number {
+  display: inline-flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-block-end: 0.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 50%;
+  font-size: 0.75rem;
+}
+.lumen-billing-workflow-steps [aria-current='step'] .lumen-billing-workflow-number {
+  border-style: dashed;
+  background: var(--lumen-glass);
+}
+.lumen-billing-workflow-section {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 1rem;
+}
+.lumen-billing-workflow-section > header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.lumen-billing-workflow-fields {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.lumen-billing-workflow-field {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 calc(50% - 0.5rem);
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.lumen-billing-workflow-field-control {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+.lumen-billing-workflow-field-control > :is(input, select),
+.lumen-billing-workflow-field-control > [data-boundary] {
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+.lumen-billing-workflow-field-control > button {
+  flex: 0 0 auto;
+}
+.lumen-billing-workflow-icon {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+  flex: 0 0 auto;
+  stroke-width: 1.75;
+}
+.lumen-billing-workflow-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.lumen-billing-workflow-actions > button {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+.lumen-billing-change-columns {
+  display: flex;
+  min-inline-size: 0;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+.lumen-billing-change-choices {
+  display: flex;
+  min-inline-size: 0;
+  flex: 2 1 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+}
+.lumen-billing-workflow-sr-label {
+  display: none;
+}
+.lumen-billing-change-choice {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--lumen-radius-control);
+}
+.lumen-billing-change-choice:has(input:checked) {
+  background: var(--lumen-reading);
+  box-shadow: 0 0.125rem 0.5rem color-mix(in srgb, var(--lumen-ink) 8%, transparent);
+}
+.lumen-billing-change-choice-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-wrap: anywhere;
+}
+.lumen-billing-change-choice-copy > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.375rem;
+}
+.lumen-billing-change-price {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.lumen-billing-change-summary {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.lumen-billing-change-summary > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.lumen-billing-change-due {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.875rem;
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+}
+.lumen-billing-change-amount {
+  font-size: 1.875rem;
+  line-height: 1.15;
+}
+.lumen-billing-change-values {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin: 0;
+}
+.lumen-billing-change-values > div {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.lumen-billing-change-values dt {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+.lumen-billing-change-values dd {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.lumen-billing-change-assurances {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lumen-billing-change-assurances > li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.375rem;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 48rem) {
+  .lumen-billing-change-columns {
+    flex-direction: column;
+  }
+  .lumen-billing-change-choices,
+  .lumen-billing-change-summary {
+    inline-size: 100%;
+    flex-basis: auto;
+  }
+}
+@media (max-width: 34rem) {
+  .lumen-billing-workflow {
+    flex: 0 0 auto;
+  }
+  .lumen-billing-workflow-body {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+  .lumen-billing-workflow-field {
+    flex-basis: 100%;
+  }
+  .lumen-billing-workflow-steps p {
+    display: none;
+  }
+  .lumen-billing-workflow-header,
+  .lumen-billing-workflow-footer {
+    padding: 0.75rem;
+  }
+  .lumen-billing-workflow-actions {
+    inline-size: 100%;
+  }
+}

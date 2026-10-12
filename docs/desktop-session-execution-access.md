@@ -78,7 +78,7 @@ composer 先验证原目标、请求值、原基线到提交的版本变化；�
 
 首原生红例保留于 `native/hbar-native-session-execution-lYIeZW/verification.json`：900 Files 抽屉截获模型点击。另修复验收脚本的退出／日志无界等待风险：stderr 直接写文件，按确切身份逐个清理已捕获子进程，再有界等待 desktop；失败聚合在 finally 外，保留原错误。旧等待具体卡在 native exit 还是 stderr EOF 未独立证实，不归因为已经确认的 Host pipe 继承。
 
-最后串行 `bun run check`：原生工具构建、根 strict lint、根 typecheck均通过；Bun **1909 pass / 1 fail / 14208 assertions，344 文件，242.98 秒**，总命令 **exit 1**。唯一失败为 `lumen-canonical-boundary.test.ts` 的 canonical controls 检查，定位到并行未提交的 `hbar-ui/packages/lumen-app-ui/src/notifications.tsx` 中 Bell 新增原生 `<button>`（1413、1414、1416、1424、1434 行，核对时点）。独立重跑该边界文件仍为 2 pass / 1 fail。已核其子模块 diff 与历史，没有修改、暂存或夹带该文件，也没有降低检查规则。完整日志：`artifacts/session-execution-access/final-check.log`。
+最后串行 `bun run check`：原生工具构建、根 strict lint、根 typecheck均通过；Bun **1909 pass / 1 fail / 14208 assertions，344 文件，242.98 秒**，总命令 **exit 1**。唯一失败为 `lumen-canonical-boundary.test.ts` 的 canonical controls 检查，定位到并行未提交的 `packages/lumen-app-ui/src/notifications.tsx` 中 Bell 新增原生 `<button>`（1413、1414、1416、1424、1434 行，核对时点）。独立重跑该边界文件仍为 2 pass / 1 fail。已核其子模块 diff 与历史，没有修改、暂存或夹带该文件，也没有降低检查规则。完整日志：`artifacts/session-execution-access/final-check.log`。
 
 最后集中运行本单元及相邻回归：**214 pass / 0 fail / 1194 assertions，16 文件，22.36 秒**，日志 `artifacts/session-execution-access/final-feature-tests.log`。覆盖 execution access／runtime／composer／UI、模型持久回执、原模型／意图／权限／附件／草稿、detached proposal、归档／页签及 Run activity。
 

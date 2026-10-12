@@ -1,0 +1,257 @@
+.lumen-app-sidebar-stage-surface:has(.lumen-dual-sidebar-root) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  container-type: inline-size;
+}
+.lumen-app-sidebar-stage-surface:has(.lumen-dual-sidebar-root) > [data-edge] {
+  display: none;
+}
+.lumen-dual-sidebar-root {
+  --dual-panel: #fafafa;
+  --dual-canvas: #fff;
+  --dual-ink: #171717;
+  --dual-muted: #737373;
+  --dual-border: #e5e5e5;
+  --dual-hover: #f4f4f5;
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  background: var(--dual-canvas);
+  color: var(--dual-ink);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+[data-lumen-mode='dark'] .lumen-dual-sidebar-root {
+  --dual-panel: #171717;
+  --dual-canvas: #0a0a0a;
+  --dual-ink: #fff;
+  --dual-muted: #9b9b9b;
+  --dual-border: #353535;
+  --dual-hover: #262626;
+}
+.lumen-dual-sidebar-root :where(h2, p, ul) {
+  margin: 0;
+  padding: 0;
+}
+.lumen-dual-sidebar-root ul {
+  list-style: none;
+}
+.lumen-dual-sidebar-root button,
+.lumen-dual-sidebar-root input {
+  font: inherit;
+}
+.lumen-dual-sidebar-root button {
+  cursor: pointer;
+}
+.lumen-dual-sidebar-root :where(button, input):focus-visible {
+  outline: 0.125rem solid var(--lumen-accent);
+  outline-offset: -0.125rem;
+}
+.lumen-dual-sidebar-root svg {
+  flex: 0 0 auto;
+  inline-size: var(--hbar-app-ui-icon-md);
+  block-size: var(--hbar-app-ui-icon-md);
+  stroke-width: 1.75;
+}
+.lumen-dual-sidebar-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 3.5rem;
+  inline-size: 3.5rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  box-shadow: inset -0.0625rem 0 var(--dual-border);
+  background: var(--dual-panel);
+}
+.lumen-dual-sidebar-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  inline-size: 2rem;
+  margin-block: 12px;
+  border-radius: 0.5rem;
+  background: var(--dual-ink);
+  color: var(--dual-panel);
+  font-weight: 600;
+}
+.lumen-app-sidebar-stage .lumen-dual-sidebar-sections[data-hbar-app-ui-list-strategy] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow-y: auto;
+  padding-inline: 8px;
+}
+.lumen-dual-sidebar-sections button,
+.lumen-dual-sidebar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2.5rem;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border: 0;
+  border-radius: 0.625rem;
+  background: transparent;
+  color: var(--dual-muted);
+}
+.lumen-dual-sidebar-sections button:is(:hover, .is-active),
+.lumen-dual-sidebar-settings:hover {
+  background: var(--dual-hover);
+  color: var(--dual-ink);
+}
+.lumen-dual-sidebar-settings {
+  margin-block: 10px;
+}
+.lumen-dual-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 16rem;
+  inline-size: 16rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  background: var(--dual-panel);
+}
+@container (max-width: 40rem) {
+  .lumen-dual-sidebar-panel {
+    flex: 1 1 auto;
+    inline-size: auto;
+  }
+}
+.lumen-dual-sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 3.5rem;
+  padding-inline: 8px;
+}
+.lumen-dual-sidebar-heading h2 {
+  overflow: hidden;
+  padding-inline-start: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.lumen-dual-sidebar-heading button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--dual-hover);
+  color: var(--dual-ink);
+}
+.lumen-dual-sidebar-search {
+  display: flex;
+  align-items: center;
+  flex: 0 0 2.25rem;
+  margin-inline: 8px;
+  margin-block-end: 8px;
+}
+.lumen-dual-sidebar-search input {
+  flex: 1;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 100%;
+  padding-inline: 2.25rem 8px;
+  border: 0.0625rem solid var(--dual-border);
+  border-radius: 0.5rem;
+  background: var(--dual-canvas)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E")
+    no-repeat 0.75rem center;
+  background-size: var(--hbar-app-ui-icon-sm);
+  color: var(--dual-ink);
+  font-size: 0.8125rem;
+}
+.lumen-dual-sidebar-search input::placeholder {
+  color: var(--dual-muted);
+}
+.lumen-app-sidebar-stage .lumen-dual-sidebar-pages[data-hbar-app-ui-list-strategy] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow-y: auto;
+  padding-inline: 8px;
+  overscroll-behavior: contain;
+}
+.lumen-dual-sidebar-group > p {
+  display: flex;
+  align-items: center;
+  min-block-size: 1.28125rem;
+  padding-inline: 12px;
+  color: var(--dual-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+.lumen-dual-sidebar-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lumen-dual-sidebar-group button {
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-block-size: 2rem;
+  padding-inline: 12px;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--dual-muted);
+  font-size: 0.8125rem;
+  text-align: start;
+}
+.lumen-dual-sidebar-group button:is(:hover, .is-active) {
+  background: var(--dual-hover);
+  color: var(--dual-ink);
+}
+.lumen-dual-sidebar-empty {
+  padding: 8px;
+  color: var(--dual-muted);
+}
+.lumen-dual-sidebar-profile {
+  display: flex;
+  align-items: center;
+  flex: 0 0 3.75rem;
+  gap: 10px;
+  padding: 12px;
+  background: var(--dual-panel);
+}
+.lumen-dual-sidebar-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  background: var(--dual-border);
+  color: var(--dual-muted);
+  font-size: 0.625rem;
+}
+.lumen-dual-sidebar-profile > span:last-child {
+  min-inline-size: 0;
+}
+.lumen-dual-sidebar-profile p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.6875rem;
+}
+.lumen-dual-sidebar-profile p:last-child {
+  color: var(--dual-muted);
+}

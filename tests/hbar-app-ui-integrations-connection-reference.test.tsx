@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { HbarAppUiIntegrationContent } from '../packages/hbar-app-ui/src/index'
-import { ReferenceConnectionIntegration } from '../hbar-ui/packages/lumen-app-ui/src/integrations/ReferenceConnectionIntegration'
+import { ReferenceConnectionIntegration } from '../packages/lumen-app-ui/src/integrations/ReferenceConnectionIntegration'
 import { createIntegrationConnectionReferenceFixture } from './fixtures/hbar-app-ui-integrations-connection-reference-fixtures'
 
 type ConnectionContent = NonNullable<HbarAppUiIntegrationContent['connection']>

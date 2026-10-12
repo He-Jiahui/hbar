@@ -1,0 +1,224 @@
+.lumen-wizard-stage-surface:has(> .hbar-app-ui-wizard-information-reference) {
+  border: 0;
+  border-radius: 0;
+  background: light-dark(#fff, #0a0a0a);
+  box-shadow: none;
+}
+.lumen-wizard-stage.hbar-app-ui-wizard-information-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  overflow: auto;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-information-form {
+  display: flex;
+  inline-size: min(48rem, 100%);
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 1rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.hbar-app-ui-wizard-information-steps {
+  display: flex;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 1.125rem 1.5rem;
+  border-block-end: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  list-style: none;
+}
+.hbar-app-ui-wizard-information-steps li {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 0;
+  align-items: center;
+}
+.hbar-app-ui-wizard-information-steps li:last-child {
+  flex: 0 0 auto;
+}
+.hbar-app-ui-wizard-information-steps button {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: light-dark(#777, #737373);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-information-step-number {
+  display: inline-flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 50%;
+  font-size: 0.6875rem;
+}
+.hbar-app-ui-wizard-information-step-number.is-current {
+  border: 0.0625rem dashed light-dark(#a3a3a3, #737373);
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-information-step-number.is-complete {
+  border-color: light-dark(#171717, #f5f5f5);
+  background: light-dark(#171717, #f5f5f5);
+  color: light-dark(#fff, #171717);
+}
+.hbar-app-ui-wizard-information-step-number svg,
+.hbar-app-ui-wizard-information-footer svg {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+.hbar-app-ui-wizard-information-steps li:has(.is-current) button {
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-information-step-line {
+  block-size: 0.0625rem;
+  min-inline-size: 0.5rem;
+  flex: 1 1 auto;
+  margin-inline: 0.75rem;
+  background: light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-information-body {
+  padding: 1.1875rem 1.5rem 1.25rem;
+}
+.hbar-app-ui-wizard-information-body h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+}
+.hbar-app-ui-wizard-information-detail {
+  margin: 0.25rem 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-information-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-block-start: 1.1875rem;
+}
+.hbar-app-ui-wizard-information-field {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 calc(50% - 0.5rem);
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-information-required {
+  margin-inline-start: 0.125rem;
+  color: light-dark(#777, #aaa);
+}
+.hbar-app-ui-wizard-information-input-wrap {
+  display: flex;
+  min-inline-size: 0;
+  block-size: 2.25rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding-inline: 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.5rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.hbar-app-ui-wizard-information-input-wrap > span {
+  color: light-dark(#a3a3a3, #737373);
+}
+.hbar-app-ui-wizard-information-field input,
+.hbar-app-ui-wizard-information-field select {
+  min-inline-size: 0;
+  block-size: 2.25rem;
+  color: inherit;
+  font: inherit;
+}
+.hbar-app-ui-wizard-information-field input {
+  inline-size: 100%;
+  border: 0;
+  background: transparent;
+  outline: 0;
+}
+.hbar-app-ui-wizard-information-input-wrap:focus-within,
+.hbar-app-ui-wizard-information-field select:focus-visible {
+  outline: 0.125rem solid light-dark(#525252, #d4d4d4);
+  outline-offset: 0.0625rem;
+}
+.hbar-app-ui-wizard-information-field select {
+  inline-size: 100%;
+  padding-inline: 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.5rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.hbar-app-ui-wizard-information-hint,
+.hbar-app-ui-wizard-information-empty {
+  margin: 1rem 0 0;
+  color: light-dark(#777, #737373);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-wizard-information-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-block-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  background: light-dark(#fafafa, #171717);
+}
+.hbar-app-ui-wizard-information-footer button {
+  display: inline-flex;
+  min-block-size: 2.25rem;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#404040, #f5f5f5);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.hbar-app-ui-wizard-information-footer button:disabled {
+  color: light-dark(#a3a3a3, #737373);
+  cursor: default;
+}
+.hbar-app-ui-wizard-information-footer button:last-child {
+  padding-inline: 1rem;
+  background: light-dark(#171717, #fff);
+  color: light-dark(#fff, #171717);
+}
+.hbar-app-ui-wizard-information-footer button:focus-visible,
+.hbar-app-ui-wizard-information-steps button:focus-visible {
+  outline: 0.125rem solid currentColor;
+  outline-offset: 0.125rem;
+}
+@media (max-width: 40rem) {
+  .hbar-app-ui-wizard-information-step-label {
+    display: none;
+  }
+  .hbar-app-ui-wizard-information-field {
+    flex-basis: 100%;
+  }
+}

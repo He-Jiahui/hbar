@@ -160,7 +160,7 @@ After the final View freeze, `bun test tests --timeout 20000` completed with
 **2692 passed, 1 failed, 27855 assertions, 391 files**. The sole failure is the
 pre-existing `tests/lumen-canonical-boundary.test.ts` authentication-family
 native-control boundary, unrelated to this unit. Full `bun run lint` also
-remains red at `hbar-ui/packages/lumen-app-ui/src/authentication/primitives.tsx:44`
+remains red at `packages/lumen-app-ui/src/authentication/primitives.tsx:44`
 because `react/no-unused-prop-types` is unavailable. These match the previously
 recorded authentication gates; no unrelated shared UI was modified to mask them.
 Logs: `full-tests-final.log` and `full-lint.log` under this unit's artifact root.

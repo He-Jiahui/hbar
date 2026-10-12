@@ -1,0 +1,389 @@
+.lumen-paywall3-surface {
+  inline-size: min(100%, 56.25rem);
+  block-size: auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  align-self: center;
+  overflow: visible;
+}
+
+.lumen-paywall.lumen-paywall3-reference {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: visible;
+  padding: 0;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+}
+
+.lumen-paywall3-reference :where(h2, p, ul) {
+  margin: 0;
+}
+
+.lumen-paywall3-header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lumen-paywall3-heading {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-heading h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-heading p {
+  margin-block-start: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall3-period-control {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: flex-end;
+}
+
+.lumen-paywall3-period-tabs {
+  display: inline-flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.625rem;
+  padding: 0.1875rem;
+  background: var(--lumen-glass);
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-period-tab {
+  min-block-size: 1.875rem;
+  min-inline-size: 0;
+  border: 0;
+  border-radius: 0.4375rem;
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-period-tab[aria-selected='true'] {
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  box-shadow: 0 0.0625rem 0.1875rem color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-period-note {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall3-plans {
+  display: flex;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  align-items: stretch;
+  gap: 0.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.875rem;
+  padding: 0.25rem;
+  background: var(--lumen-glass);
+}
+
+.lumen-paywall3-plans[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 26rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-paywall3-plan {
+  display: flex;
+  flex: 0 0 calc((100% - 0.5rem) / 3);
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.875rem;
+  padding: 1rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-paywall3-plan[data-badge-kind='recommended'] {
+  border-color: color-mix(in srgb, var(--lumen-ink) 60%, var(--lumen-edge));
+}
+
+.lumen-paywall3-plan-title-row {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.lumen-paywall3-badge {
+  flex: 0 0 auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 99rem;
+  padding: 0.125rem 0.375rem;
+  color: var(--lumen-muted);
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.lumen-paywall3-badge[data-badge-kind='recommended'] {
+  border-color: var(--lumen-ink);
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+}
+
+.lumen-paywall3-plan-heading {
+  min-inline-size: 0;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-plan-name {
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-plan-description {
+  margin-block-start: 0.25rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall3-price {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.375rem;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-price-amount {
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-price-suffix {
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall3-features {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-paywall3-features li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.lumen-paywall3-feature-check {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+  flex: 0 0 auto;
+  margin-block-start: 0.1875rem;
+  color: var(--lumen-muted);
+  stroke-width: 1.8;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-features li span {
+  min-inline-size: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-plan-action {
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lumen-ink);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-plan-action[data-paywall3-plan-action='starter'] {
+  background: transparent;
+  color: var(--lumen-muted);
+}
+
+.lumen-paywall.lumen-paywall3-reference
+  .lumen-paywall3-plan[data-badge-kind='recommended']
+  .lumen-paywall3-plan-action {
+  border-color: var(--lumen-ink);
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+}
+
+.lumen-paywall3-footer {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block-start: 0.25rem;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-price-note {
+  min-inline-size: 0;
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall3-reference .lumen-paywall3-compare {
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  padding: 0.375rem 0.5rem;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lumen-ink);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-paywall3-empty {
+  padding: 1rem;
+}
+
+.lumen-paywall3-reference :where(button, [tabindex='0']):focus-visible {
+  outline: 0.125rem solid var(--lumen-focus, var(--lumen-accent));
+  outline-offset: 0.125rem;
+}
+
+[data-lumen-mode='light'] .lumen-paywall.lumen-paywall3-reference {
+  background: #fff;
+}
+
+[data-lumen-mode='light'] .lumen-paywall3-plans {
+  background: #fafafa;
+}
+
+[data-lumen-mode='light'] .lumen-paywall3-plan,
+[data-lumen-mode='light'] .lumen-paywall.lumen-paywall3-reference .lumen-paywall3-period-tab[aria-selected='true'] {
+  background: #fff;
+}
+
+[data-lumen-mode='dark'] .lumen-paywall.lumen-paywall3-reference {
+  background: #000;
+}
+
+[data-lumen-mode='dark'] .lumen-paywall3-plans {
+  background: #090909;
+}
+
+[data-lumen-mode='dark'] .lumen-paywall3-plan {
+  background: #171717;
+}
+
+[data-lumen-mode='dark'] .lumen-paywall.lumen-paywall3-reference .lumen-paywall3-period-tab[aria-selected='true'] {
+  background: #090909;
+}
+
+@media (max-width: 36rem) {
+  .lumen-paywall3-surface {
+    inline-size: 100%;
+    block-size: auto;
+    align-self: stretch;
+  }
+
+  .lumen-paywall.lumen-paywall3-reference {
+    flex: 0 1 auto;
+    gap: 0.75rem;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .lumen-paywall3-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.625rem;
+  }
+
+  .lumen-paywall3-period-tabs {
+    flex-wrap: nowrap;
+  }
+
+  .lumen-paywall3-plans {
+    overflow: visible;
+  }
+
+  .lumen-paywall3-plan {
+    flex-basis: 100%;
+  }
+
+  .lumen-paywall3-plans[data-hbar-app-ui-list-strategy='pane-scroll'] {
+    min-block-size: 0;
+    flex: 1 1 0%;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .lumen-paywall3-footer {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 22rem) {
+  .lumen-paywall3-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+  }
+
+  .lumen-paywall.lumen-paywall3-reference .lumen-paywall3-compare {
+    align-self: flex-start;
+  }
+}

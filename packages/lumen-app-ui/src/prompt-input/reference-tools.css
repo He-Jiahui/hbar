@@ -1,0 +1,66 @@
+.lumen-prompt-reference-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-inline-size: 0;
+}
+
+.lumen-prompt-reference-tools-options {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+.lumen-prompt-reference-model {
+  min-inline-size: 0;
+}
+
+.lumen-prompt-reference-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-block-size: 2rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.375rem;
+  padding: 0.35rem 0.55rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lumen-prompt-reference-search[aria-pressed='true'] {
+  background: var(--lumen-glass);
+}
+
+.lumen-prompt-reference-search:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.lumen-prompt-reference-icon {
+  flex: 0 0 auto;
+  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  stroke-width: 1.6;
+}
+
+.lumen-prompt-reference-icon-small {
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+}
+
+.lumen-prompt-reference-token-label {
+  margin-inline-start: auto;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.lumen-prompt-reference-tools .lumen-prompt-reference-send {
+  margin-inline-start: 0;
+}

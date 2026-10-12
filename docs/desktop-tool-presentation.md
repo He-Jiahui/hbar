@@ -154,7 +154,7 @@ executed from stored calls.
   file's mixed line endings. Shared kernel/SDK foreign hunks were not formatted.
 - Root `bun run lint`: exit 1 for the existing missing
   `react/no-unused-prop-types` rule at
-  `hbar-ui/packages/lumen-app-ui/src/authentication/primitives.tsx:44`.
+  `packages/lumen-app-ui/src/authentication/primitives.tsx:44`.
   This unrelated dirty submodule was not changed to hide the failed gate.
 - Full Bun suite, web build and native smoke were not rerun for this additive
   canonical prerequisite. New UI acceptance and desktop resource/native checks
@@ -307,7 +307,7 @@ Repository-wide gates are not all green:
   failure was hidden by changing the tests. See
   `artifacts/tool-presentation/full-suite-failures.md` for exact paths and commits.
 - `bun run lint`: exit 1, one missing `react/no-unused-prop-types` rule at
-  `hbar-ui/packages/lumen-app-ui/src/authentication/primitives.tsx:44`, no warnings.
+  `packages/lumen-app-ui/src/authentication/primitives.tsx:44`, no warnings.
   No unrelated shared-library edit or configuration exemption was made.
 
 These failed whole-repository gates remain open; passing focused feature checks

@@ -4,7 +4,7 @@ import * as ts from 'typescript'
 import { z } from 'zod'
 
 const root = resolve(import.meta.dirname, '..')
-const packageRoot = resolve(root, 'hbar-ui/packages/lumen-app-ui')
+const packageRoot = resolve(root, 'packages/lumen-app-ui')
 const publicEntries = [
   { name: '@lumen/app-ui', exportKey: '.' },
   { name: '@lumen/app-ui/catalog', exportKey: './catalog' },

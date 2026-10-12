@@ -1,0 +1,219 @@
+.lumen-settings-form-6-reference {
+  min-inline-size: 0;
+  color: var(--lumen-ink);
+}
+
+.lumen-settings-form-6-reference,
+.lumen-settings-form-6-reference * {
+  box-sizing: border-box;
+}
+
+.lumen-settings-form-6-reference :is(h2, h3, p, ul) {
+  margin: 0;
+}
+
+.lumen-settings-form-6-page-heading,
+.lumen-settings-form-6-content {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: center;
+  padding-inline: clamp(1rem, 2.2vw, 1.5rem);
+}
+
+.lumen-settings-form-6-page-heading {
+  padding-block: 1rem;
+}
+
+.lumen-settings-form-6-page-heading h2 {
+  inline-size: min(100%, 42rem);
+  min-inline-size: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.lumen-settings-form-6-panel {
+  inline-size: min(100%, 42rem);
+  min-inline-size: 0;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--lumen-glass) 72%, transparent);
+}
+
+.lumen-settings-form-6-panel-heading,
+.lumen-settings-form-6-panel-footer {
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--lumen-glass) 88%, transparent);
+}
+
+.lumen-settings-form-6-panel-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-settings-form-6-panel-heading h3,
+.lumen-settings-form-6-action-copy p:first-child,
+.lumen-settings-form-6-impact-list p {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.lumen-settings-form-6-panel-heading h3 {
+  font-size: 0.875rem;
+  line-height: 1.43;
+}
+
+.lumen-settings-form-6-panel-heading p,
+.lumen-settings-form-6-action-copy p:last-child,
+.lumen-settings-form-6-impact-list li,
+.lumen-settings-form-6-panel-footer p {
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-settings-form-6-action-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.375rem;
+}
+
+.lumen-settings-form-6-action-row,
+.lumen-settings-form-6-delete-zone {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--lumen-glass) 78%, transparent);
+}
+
+.lumen-settings-form-6-action-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 0.625rem;
+}
+
+.lumen-settings-form-6-action-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-settings-form-6-secondary-action,
+.lumen-settings-form-6-destructive-action {
+  display: inline-flex;
+  min-block-size: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--lumen-ink);
+  font: inherit;
+  line-height: 1.25;
+  white-space: normal;
+  cursor: pointer;
+}
+
+.lumen-settings-form-6-secondary-action {
+  background: color-mix(in srgb, var(--lumen-glass) 90%, transparent);
+  font-weight: 500;
+}
+
+.lumen-settings-form-6-destructive-action {
+  border-color: var(--lumen-danger);
+  background: var(--lumen-danger);
+  color: var(--lumen-on-danger, #fff);
+  font-weight: 600;
+}
+
+.lumen-settings-form-6-secondary-action:focus-visible,
+.lumen-settings-form-6-destructive-action:focus-visible,
+.lumen-settings-form-6-confirmation-field input:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.lumen-settings-form-6-impact-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-settings-form-6-impact-list ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding-inline-start: 0.75rem;
+}
+
+.lumen-settings-form-6-confirmation-field {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-block-start: 0.125rem;
+}
+
+.lumen-settings-form-6-confirmation-field label {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.lumen-settings-form-6-confirmation-field input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--lumen-glass) 90%, transparent);
+  color: var(--lumen-ink);
+  font: inherit;
+}
+
+.lumen-settings-form-6-delete-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lumen-settings-form-6-panel-footer {
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+@media (max-width: 38rem) {
+  .lumen-settings-form-6-action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lumen-settings-form-6-action-row button,
+  .lumen-settings-form-6-delete-actions button {
+    inline-size: 100%;
+  }
+
+  .lumen-settings-form-6-delete-actions {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,233 @@
+.lumen-editor-root-surface:has(.lumen-markdown-reference) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-editor.lumen-markdown-reference {
+  flex-direction: column;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #fff);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.lumen-markdown-reference :is(h2, h3, h4, p, ul, ol) {
+  margin: 0;
+}
+.lumen-markdown-reference-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 12px 16px;
+  border-block-end: 0.0625rem solid light-dark(#e5e5e5, #262626);
+}
+.lumen-markdown-reference-file {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.lumen-markdown-reference-file h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.lumen-markdown-reference-file p {
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin-block-start: 2px;
+}
+.lumen-markdown-reference-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  max-inline-size: 100%;
+  align-items: center;
+  overflow-x: auto;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.625rem;
+  padding: 4px;
+  background: light-dark(#fafafa, #0a0a0a);
+}
+.lumen-markdown-reference-tabs button {
+  display: inline-flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  block-size: 1.75rem;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0 10px;
+  background: transparent;
+  color: light-dark(#737373, #a3a3a3);
+  font:
+    400 0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+.lumen-markdown-reference-tabs button[aria-selected='true'] {
+  box-shadow: inset 0 0 0 0.0625rem light-dark(#e5e5e5, #262626);
+  background: light-dark(#fff, #171717);
+  color: light-dark(#171717, #fff);
+}
+.lumen-markdown-reference-tabs button:hover:not([aria-selected='true']) {
+  color: light-dark(#171717, #fff);
+}
+.lumen-markdown-reference-icon {
+  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  flex: 0 0 auto;
+}
+.lumen-markdown-reference-panes {
+  display: flex;
+  flex: 1 1 0%;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.lumen-markdown-reference-pane {
+  display: flex;
+  flex: 1 1 50%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+}
+.lumen-markdown-reference-source {
+  border-inline-end: 0.0625rem solid light-dark(#e5e5e5, #262626);
+}
+.lumen-markdown-reference-mode-write .lumen-markdown-reference-source {
+  border-inline-end: 0;
+}
+.lumen-markdown-reference-pane-title {
+  display: flex;
+  flex: 0 0 auto;
+  min-block-size: 2rem;
+  align-items: center;
+  padding: 0 16px;
+  color: #737373;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+}
+.lumen-markdown-reference textarea {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  overflow: auto;
+  resize: none;
+  border: 0;
+  padding: 0 16px 16px;
+  background: transparent;
+  color: light-dark(#525252, #d4d4d4);
+  font:
+    400 0.8125rem/1.5rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-markdown-reference-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  overflow: auto;
+  padding: 0 16px 24px;
+}
+.lumen-markdown-reference-prose {
+  min-inline-size: 0;
+}
+.lumen-markdown-reference-prose h3 {
+  margin-block-end: 16px;
+  font-size: 1.375rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.lumen-markdown-reference-prose h4 {
+  margin-block-end: 16px;
+  padding-block-start: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.lumen-markdown-reference-prose p,
+.lumen-markdown-reference-prose li {
+  color: light-dark(#525252, #a3a3a3);
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  overflow-wrap: anywhere;
+}
+.lumen-markdown-reference-prose p,
+.lumen-markdown-reference-prose :is(ul, ol) {
+  margin-block-end: 16px;
+}
+.lumen-markdown-reference-prose :is(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+.lumen-markdown-reference-prose li {
+  display: flex;
+  gap: 0.625rem;
+  margin-block-end: 6px;
+}
+.lumen-markdown-reference-prose li:last-child {
+  margin-block-end: 0;
+}
+.lumen-markdown-reference-marker {
+  flex: 0 0 auto;
+  min-inline-size: 0.25rem;
+  color: #a3a3a3;
+}
+.lumen-markdown-reference-prose ol .lumen-markdown-reference-marker {
+  inline-size: 1rem;
+  text-align: end;
+}
+.lumen-markdown-reference-prose ul .lumen-markdown-reference-marker::before {
+  display: block;
+  inline-size: 0.25rem;
+  block-size: 0.25rem;
+  border-radius: 50%;
+  margin-block-start: 10px;
+  background: #a3a3a3;
+  content: '';
+}
+.lumen-markdown-reference-prose li > span:last-child {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.lumen-markdown-reference-prose strong {
+  color: light-dark(#171717, #fff);
+  font-weight: 500;
+}
+.lumen-markdown-reference-prose code {
+  border-radius: 0.25rem;
+  padding: 2px 4px;
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#404040, #ebebeb);
+  font:
+    400 0.7875rem/1.5rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-markdown-reference-prose .lumen-markdown-reference-quote {
+  border-radius: 0.5rem;
+  padding: 12px 16px;
+  background: light-dark(#fafafa, #171717);
+}
+@media (max-width: 47.9375rem) {
+  .lumen-markdown-reference-mode-split .lumen-markdown-reference-preview {
+    display: none;
+  }
+  .lumen-markdown-reference-mode-split .lumen-markdown-reference-source {
+    border-inline-end: 0;
+  }
+}

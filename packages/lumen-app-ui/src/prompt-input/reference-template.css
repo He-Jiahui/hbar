@@ -1,0 +1,142 @@
+.lumen-prompt-template-reference {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--lumen-ink);
+}
+
+.lumen-prompt-template-reference-sentence,
+.lumen-prompt-template-reference-fields,
+.lumen-prompt-template-reference-footer {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.625rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-prompt-template-reference-sentence {
+  padding: 0.875rem 1rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.lumen-prompt-template-reference-token {
+  display: inline;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  background: var(--lumen-glass);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.lumen-prompt-template-reference-token[data-missing='true'] {
+  border: 0.0625rem dashed var(--lumen-edge);
+  background: transparent;
+  color: var(--lumen-muted);
+  text-transform: lowercase;
+}
+
+.lumen-prompt-template-reference-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.875rem;
+}
+
+.lumen-prompt-template-reference-field {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+}
+
+.lumen-prompt-template-reference-field input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--lumen-ink);
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.lumen-prompt-template-reference-field input::placeholder {
+  color: var(--lumen-muted);
+  opacity: 0.75;
+}
+
+.lumen-prompt-template-reference-field input:focus-visible,
+.lumen-prompt-template-reference-run:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.lumen-prompt-template-reference-footer {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.lumen-prompt-template-reference-status {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-prompt-template-reference-status > span {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--lumen-warning, #e6952f);
+}
+
+.lumen-prompt-template-reference-status > span[data-ready='true'] {
+  background: var(--lumen-success, #39a66b);
+}
+
+.lumen-prompt-template-reference-run {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-ink);
+  border-radius: 0.5rem;
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.lumen-prompt-template-reference-run:disabled {
+  border-color: var(--lumen-edge);
+  background: var(--lumen-glass);
+  color: var(--lumen-muted);
+  cursor: default;
+}
+
+@media (max-width: 40rem) {
+  .lumen-prompt-template-reference-fields {
+    gap: 0.75rem;
+  }
+
+  .lumen-prompt-template-reference-field {
+    flex-basis: 100%;
+  }
+}

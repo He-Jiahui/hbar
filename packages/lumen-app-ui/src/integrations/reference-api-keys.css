@@ -1,0 +1,167 @@
+.hbar-app-ui-integration-reference-api-keys-page {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.hbar-app-ui-integration-reference-api-keys-topbar {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-block-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+}
+
+.hbar-app-ui-integration-reference-api-keys-topbar > div {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 18rem;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-topbar h1 {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.hbar-app-ui-integration-reference-api-keys-topbar p {
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-reference-api-keys-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hbar-app-ui-integration-reference-api-keys-scroll:focus-visible {
+  outline: 0.125rem solid var(--hbar-app-ui-integration-positive);
+  outline-offset: -0.125rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table {
+  inline-size: max(100%, 68rem);
+  border-collapse: collapse;
+  color: var(--hbar-app-ui-integration-text);
+  font-size: 0.8125rem;
+  table-layout: fixed;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table th,
+.hbar-app-ui-integration-reference-api-keys-table td {
+  min-inline-size: 0;
+  padding: 0.75rem 1rem;
+  border-block-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table th {
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table th:nth-child(1),
+.hbar-app-ui-integration-reference-api-keys-name {
+  inline-size: 18rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table th:nth-child(2),
+.hbar-app-ui-integration-reference-api-keys-key {
+  inline-size: 22rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table th:nth-child(3) {
+  inline-size: 9rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table th:nth-child(4) {
+  inline-size: 9rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table th:nth-child(5) {
+  inline-size: 10rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-name strong,
+.hbar-app-ui-integration-reference-api-keys-name small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-reference-api-keys-name strong {
+  font-weight: 500;
+}
+
+.hbar-app-ui-integration-reference-api-keys-name small,
+.hbar-app-ui-integration-reference-api-keys-table td:nth-child(4) {
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-value {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-value code {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  color: var(--hbar-app-ui-integration-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-reference-api-keys-scope {
+  display: inline-flex;
+  padding: 0.1875rem 0.375rem;
+  border-radius: 0.3125rem;
+  background: var(--hbar-app-ui-integration-border);
+  color: var(--hbar-app-ui-integration-text);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-reference-api-keys-actions {
+  white-space: nowrap;
+}
+
+.hbar-app-ui-integration-reference-api-keys-actions > * + * {
+  margin-inline-start: 0.5rem;
+}
+
+.hbar-app-ui-integration-reference-api-keys-footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  border-block-start: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-reference-api-keys-table td[colspan='5'] {
+  text-align: center;
+}
+
+@media (max-width: 40rem) {
+  .hbar-app-ui-integration-reference-api-keys-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

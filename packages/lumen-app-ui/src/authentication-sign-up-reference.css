@@ -1,0 +1,283 @@
+.lumen-authentication-root-surface:has(> .hbar-app-ui-auth-sign-up-reference) {
+  border: 0;
+  border-radius: 0;
+  background: light-dark(#fff, #0a0a0a);
+  box-shadow: none;
+}
+.lumen-authentication.hbar-app-ui-auth-sign-up-reference {
+  overflow: auto;
+  padding: 2rem !important;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #f5f5f5);
+}
+.lumen-authentication.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-centered {
+  inline-size: min(100%, 26.25rem);
+  align-self: center;
+  gap: 1.25rem;
+  margin: auto;
+  padding: 0;
+}
+.lumen-authentication.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-form {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: none;
+  flex-direction: column;
+  margin: 0;
+  padding: 1.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 1.125rem;
+  background: light-dark(#fff, #171717);
+  box-shadow: none;
+  color: inherit;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-brand {
+  display: flex;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.625rem;
+  background: light-dark(#fafafa, #0a0a0a);
+  font-size: 0.875rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-form > h1 {
+  margin: 1rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.75rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-description {
+  margin: 0.25rem 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-fields {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-block-start: 1.25rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-field {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-field > label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-field > input,
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-password-wrap > input {
+  inline-size: 100%;
+  block-size: 2.25rem !important;
+  min-block-size: 2.25rem !important;
+  padding: 0.5rem 0.75rem !important;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929) !important;
+  border-radius: 0.5rem !important;
+  background: light-dark(#fff, #0a0a0a) !important;
+  box-shadow: none;
+  color: inherit !important;
+  font-size: 0.875rem !important;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-field input::placeholder {
+  color: light-dark(#999, #777);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-field input:focus-visible {
+  border-color: light-dark(#171717, #fff) !important;
+  outline: 0;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-helper {
+  margin: 0.125rem 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-password-wrap {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-password-wrap > input {
+  padding-inline-end: 2.75rem !important;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-reveal {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  min-block-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: -2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.375rem;
+  background: light-dark(#f5f5f5, #262626);
+  box-shadow: none;
+  color: light-dark(#555, #aaa);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-reveal:hover {
+  background: light-dark(#eee, #303030);
+  color: inherit;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-strength {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-start: 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-bars {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  gap: 0.25rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-bars > span {
+  block-size: 0.25rem;
+  flex: 1 1 0;
+  border-radius: 0.25rem;
+  background: light-dark(#e5e5e5, #353535);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-bars > .is-active {
+  background: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirements {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: -0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirements > li {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 calc(50% - 0.5rem);
+  align-items: flex-start;
+  gap: 0.375rem;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirements .is-valid {
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirement-icon {
+  display: flex;
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirement-icon::before {
+  inline-size: 0.625rem;
+  block-size: 0.0625rem;
+  background: light-dark(#e5e5e5, #555);
+  content: '';
+}
+.hbar-app-ui-auth-sign-up-reference
+  .hbar-app-ui-auth-sign-up-requirements
+  .is-valid
+  .hbar-app-ui-auth-sign-up-requirement-icon::before {
+  display: none;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirement-icon svg {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-agreement {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-block-start: 1.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-agreement > .lumen-checkbox-control {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  margin: 0.125rem 0 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-agreement .lumen-checkbox-input {
+  inline-size: 1rem;
+  block-size: 1rem;
+  margin: 0;
+  accent-color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-agreement .lumen-checkbox-mark {
+  border-radius: 0.25rem;
+  box-shadow: inset 0 0 0 0.0625rem light-dark(#d4d4d4, #555);
+  opacity: 1;
+}
+.hbar-app-ui-auth-sign-up-reference
+  .hbar-app-ui-auth-sign-up-agreement
+  .lumen-checkbox-control:has(input:checked)
+  .lumen-checkbox-mark {
+  background: light-dark(#171717, #fff);
+  box-shadow: none;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-agreement .lumen-form-glyph {
+  color: light-dark(#fff, #171717);
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-agreement-emphasis {
+  font-weight: 500;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-submit {
+  inline-size: 100%;
+  min-block-size: 2.5rem;
+  margin-block-start: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 0.625rem;
+  background: light-dark(#171717, #fff);
+  box-shadow: none;
+  color: light-dark(#fff, #171717);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-submit:disabled {
+  background: light-dark(#8e8e8e, #929292);
+  color: light-dark(#fff, #171717);
+  opacity: 1;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-footer {
+  margin: 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  text-align: center;
+}
+.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-footer button {
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: light-dark(#171717, #f5f5f5);
+  font-size: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+@media (max-width: 40rem) {
+  .lumen-authentication.hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-form {
+    padding: 1.5rem;
+  }
+}

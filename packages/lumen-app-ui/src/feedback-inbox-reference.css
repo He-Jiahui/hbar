@@ -1,0 +1,408 @@
+.lumen-feedback-workflow-surface:has(.lumen-feedback-inbox-reference) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-feedback-workflow.lumen-feedback-inbox-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  flex-direction: row;
+  justify-content: center;
+  overflow: hidden;
+  padding: 24px;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #fff);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.lumen-feedback-inbox-reference :is(h2, h3, p, ul, dl, dd) {
+  margin: 0;
+}
+.lumen-feedback-inbox-reference button {
+  cursor: pointer;
+  font-family: inherit;
+}
+.lumen-feedback-inbox-reference svg {
+  flex: 0 0 auto;
+}
+.lumen-feedback-inbox-reference-panel {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+}
+.lumen-feedback-inbox-reference-header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-end: 12px;
+}
+.lumen-feedback-inbox-reference-header h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5rem;
+}
+.lumen-feedback-inbox-reference-header p {
+  margin-block-start: 2px;
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.lumen-feedback-inbox-reference-header button {
+  display: inline-flex;
+  min-block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.5rem;
+  padding: 0 10px;
+  background: transparent;
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.lumen-feedback-inbox-reference-header svg,
+.lumen-feedback-inbox-reference-actions svg {
+  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+}
+.lumen-feedback-inbox-reference-workspace {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  gap: 4px;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.875rem;
+  padding: 4px;
+  background: light-dark(#fafafa, #0a0a0a);
+}
+.lumen-feedback-inbox-reference-list {
+  inline-size: 18.75rem;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 0 0 18.75rem;
+  overflow: auto;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.625rem;
+  padding: 4px;
+  background: light-dark(#fff, #171717);
+}
+.lumen-feedback-inbox-reference-list ul,
+.lumen-feedback-inbox-reference-related {
+  list-style: none;
+  padding: 0;
+}
+.lumen-feedback-inbox-reference-list li {
+  min-inline-size: 0;
+}
+.lumen-feedback-inbox-reference-list button {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 4.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 10px 12px;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+.lumen-feedback-inbox-reference-list button.is-selected {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-feedback-inbox-reference-row-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+.lumen-feedback-inbox-reference-row-heading > span:nth-last-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lumen-feedback-inbox-reference-row-heading small {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  color: light-dark(#a3a3a3, #737373);
+  font-size: 0.6875rem;
+}
+.lumen-feedback-inbox-reference-unread {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: light-dark(#171717, #fff);
+}
+.lumen-feedback-inbox-reference-list button p {
+  overflow: hidden;
+  margin-block-start: 4px;
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-feedback-inbox-reference-row-account {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 4px;
+  margin-block-start: 4px;
+  overflow: hidden;
+  color: light-dark(#a3a3a3, #737373);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+.lumen-feedback-inbox-reference-row-account svg,
+.lumen-feedback-inbox-reference-tags svg {
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+}
+.lumen-feedback-inbox-reference-detail {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.625rem;
+  background: light-dark(#fff, #171717);
+}
+.lumen-feedback-inbox-reference-detail-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  overflow: auto;
+  padding: 16px;
+}
+.lumen-feedback-inbox-reference-person {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+.lumen-feedback-inbox-reference-person > span {
+  display: inline-flex;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.75rem;
+}
+.lumen-feedback-inbox-reference-person > div {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+.lumen-feedback-inbox-reference-person p:first-child {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.lumen-feedback-inbox-reference-person p:last-child {
+  overflow: hidden;
+  margin-block-start: 2px;
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-feedback-inbox-reference-person small {
+  flex: 0 0 auto;
+  border: 0.0625rem solid light-dark(#a3a3a3, #737373);
+  border-radius: 0.25rem;
+  padding: 0 6px;
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.6875rem;
+  line-height: 1.125rem;
+}
+.lumen-feedback-inbox-reference-detail h3 {
+  margin-block-start: 12px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.375rem;
+}
+.lumen-feedback-inbox-reference-body {
+  margin-block-start: 8px !important;
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.8125rem;
+  line-height: 1.375rem;
+}
+.lumen-feedback-inbox-reference-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-block-start: 12px;
+}
+.lumen-feedback-inbox-reference-tags span {
+  display: inline-flex;
+  min-block-size: 1.5rem;
+  align-items: center;
+  gap: 4px;
+  border-radius: 0.375rem;
+  padding: 0 8px;
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.6875rem;
+}
+.lumen-feedback-inbox-reference-tags button {
+  min-block-size: 1.5rem;
+  border: 0.0625rem dashed light-dark(#d4d4d4, #525252);
+  border-radius: 0.375rem;
+  padding: 0 8px;
+  background: transparent;
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.6875rem;
+}
+.lumen-feedback-inbox-reference-metrics {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block-start: 16px !important;
+}
+.lumen-feedback-inbox-reference-metrics > div {
+  min-inline-size: 6rem;
+  flex: 1 1 6rem;
+}
+.lumen-feedback-inbox-reference-metrics dt {
+  color: light-dark(#a3a3a3, #737373);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.lumen-feedback-inbox-reference-metrics dd {
+  margin-block-start: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.lumen-feedback-inbox-reference-related-heading {
+  margin-block-start: 20px !important;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+.lumen-feedback-inbox-reference-related {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 6px;
+  margin-block-start: 8px !important;
+}
+.lumen-feedback-inbox-reference-related li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 0.5rem;
+  padding: 8px 10px;
+  background: light-dark(#f7f7f7, #262626);
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+.lumen-feedback-inbox-reference-related li > span {
+  min-inline-size: 0;
+}
+.lumen-feedback-inbox-reference-related small {
+  flex: 0 0 auto;
+  color: light-dark(#a3a3a3, #737373);
+  font-size: 0.6875rem;
+}
+.lumen-feedback-inbox-reference-detail textarea {
+  display: block;
+  inline-size: 100%;
+  block-size: 4rem;
+  resize: none;
+  margin-block-start: 16px;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.625rem;
+  padding: 12px;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.lumen-feedback-inbox-reference-detail textarea::placeholder {
+  color: light-dark(#a3a3a3, #737373);
+}
+.lumen-feedback-inbox-reference-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 16px;
+}
+.lumen-feedback-inbox-reference-actions button {
+  display: inline-flex;
+  min-block-size: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0.0625rem solid transparent;
+  border-radius: 0.5rem;
+  padding: 0 12px;
+  background: transparent;
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.lumen-feedback-inbox-reference-actions button:first-child {
+  background: light-dark(#171717, #fff);
+  color: light-dark(#fff, #171717);
+}
+.lumen-feedback-inbox-reference-actions button:nth-child(2) {
+  border-color: light-dark(#e5e5e5, #262626);
+}
+.lumen-feedback-inbox-reference-empty {
+  padding: 16px;
+  color: light-dark(#737373, #a3a3a3);
+  font-size: 0.8125rem;
+}
+@media (max-width: 47.9375rem) {
+  .lumen-feedback-workflow.lumen-feedback-inbox-reference {
+    padding: 16px;
+  }
+  .lumen-feedback-inbox-reference-workspace {
+    flex-direction: column;
+  }
+  .lumen-feedback-inbox-reference-list {
+    inline-size: 100%;
+    flex: 0 0 40%;
+  }
+  .lumen-feedback-inbox-reference-detail {
+    flex: 1 1 0%;
+  }
+  .lumen-feedback-inbox-reference-related li {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+@media (max-width: 21.25rem) {
+  .lumen-feedback-inbox-reference-list {
+    flex-basis: 42%;
+  }
+  .lumen-feedback-inbox-reference-list button p {
+    max-inline-size: calc(100% - 1rem);
+  }
+}

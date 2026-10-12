@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 // This is an offline package-CSS contract test, not a React Bits reference.
 // Build @lumen/app-ui first; no hbar stylesheet or preview is loaded here.
 const output = resolve('artifacts/lumen-icon-scale')
-const stylesheet = await Bun.file('hbar-ui/packages/lumen-app-ui/dist/app-ui.css').text()
+const stylesheet = await Bun.file('packages/lumen-app-ui/dist/app-ui.css').text()
 const tiers = ['xs', 'sm', 'md', 'lg', 'xl'] as const
 const sizes = [12, 14, 16, 20, 24]
 const browser = await chromium.launch({

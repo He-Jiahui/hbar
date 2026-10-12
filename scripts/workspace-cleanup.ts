@@ -10,7 +10,7 @@ export interface CleanupRuntime {
 export const CLEANUP_TARGETS = [
   { path: 'dist', kind: 'web-build' },
   { path: 'apps/hbar-app-ui-preview/dist', kind: 'web-build' },
-  { path: 'hbar-ui/packages/lumen-app-ui/dist', kind: 'web-build' },
+  { path: 'packages/lumen-app-ui/dist', kind: 'web-build' },
   { path: 'target', kind: 'rust-build' },
   { path: 'apps/desktop/src-tauri/target', kind: 'rust-build' },
   { path: 'node_modules/.vite', kind: 'cache' },
@@ -21,7 +21,7 @@ export const CLEANUP_TARGETS = [
   { path: 'test-results', kind: 'test-output' },
   { path: 'tsconfig.tsbuildinfo', kind: 'cache' },
   { path: 'apps/web/tsconfig.tsbuildinfo', kind: 'cache' },
-  { path: 'hbar-ui/packages/lumen-app-ui/tsconfig.tsbuildinfo', kind: 'cache' },
+  { path: 'packages/lumen-app-ui/tsconfig.tsbuildinfo', kind: 'cache' },
 ] as const
 
 export type CleanupTarget = (typeof CLEANUP_TARGETS)[number]

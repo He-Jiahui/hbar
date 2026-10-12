@@ -1,0 +1,239 @@
+@import './agent-activity.css';
+@import './agent-approval.css';
+@import './agent-plan.css';
+@import './ai-chat.css';
+@import './analytics.css';
+@import './app-dialog.css';
+@import './app-shell-workflows.css';
+@import './app-sidebar-workflows.css';
+@import './authentication.css';
+@import './authentication/code-verification.css';
+@import './billing.css';
+@import './card.css';
+@import './chat.css';
+@import './command-list.css';
+@import './command-menu.css';
+@import './comments.css';
+@import './dashboard.css';
+@import './data-table.css';
+@import './dialog.css';
+@import './editor.css';
+@import './file-manager.css';
+@import './file-workspace.css';
+@import './feedback.css';
+@import './filtering.css';
+@import './form-workflows.css';
+@import './anchored-popup.css';
+@import './integrations.css';
+@import './kanban.css';
+@import './list.css';
+@import './mobile-layout.css';
+@import './monitoring.css';
+@import './navbar.css';
+@import './notifications.css';
+@import './onboarding.css';
+@import './paywall.css';
+@import './plan-editor.css';
+@import './prompt-input.css';
+@import './scheduling.css';
+@import './session-components.css';
+@import './settings-form.css';
+@import './support.css';
+@import './tool-calls.css';
+@import './ui.css';
+@import './usage.css';
+@import './wizard.css';
+@import './workbench.css';
+@import './workspace-components.css';
+@import './effects.css';
+@import './forms.css';
+@import './floating-surface.css';
+@import './popup-select.css';
+@import './toggle-group.css';
+@import './control-effects.css';
+@import './empty-state-reference.css';
+@import './workbench-compositions.css';
+
+/* Canonical defaults also serve compatibility class names without a hbar host. */
+:root {
+  --hbar-app-ui-icon-xs: 0.75rem;
+  --hbar-app-ui-icon-sm: 0.875rem;
+  --hbar-app-ui-icon-md: 1rem;
+  --hbar-app-ui-icon-lg: 1.25rem;
+  --hbar-app-ui-icon-xl: 1.5rem;
+}
+
+/* Scoped tokens for hosts that render Lumen composition components. */
+[data-lumen-mode='dark'] {
+  --lumen-ink: #eee;
+  --lumen-contrast: #090909;
+  --lumen-info: #81b5ff;
+  --lumen-accent: var(--lumen-info);
+  --lumen-success: #77deb0;
+  --lumen-warning: #efd17a;
+  --lumen-danger: #ff969b;
+  --lumen-muted: #aaa;
+  --lumen-subtle: #858585;
+  --lumen-line: rgb(255 255 255 / 10%);
+  --lumen-edge: rgb(255 255 255 / 17%);
+  --lumen-glass: rgb(20 20 20 / 30%);
+  --lumen-reading: rgb(9 9 9 / 28%);
+  --lumen-frost: rgb(24 24 24 / 88%);
+  --lumen-overlay-edge: rgb(255 255 255 / 26%);
+  --lumen-overlay-glow-near: rgb(255 255 255 / 20%);
+  --lumen-overlay-glow-far: rgb(255 255 255 / 10%);
+  --lumen-glow-near: 0.25rem;
+  --lumen-glow-far: 0.75rem;
+  --lumen-glow-mode-scale: 1;
+}
+
+[data-lumen-mode='light'] {
+  --lumen-ink: #171717;
+  --lumen-contrast: #f5f5f5;
+  --lumen-info: #285bc3;
+  --lumen-accent: var(--lumen-info);
+  --lumen-success: #16724e;
+  --lumen-warning: #996500;
+  --lumen-danger: #b73548;
+  --lumen-muted: #5e5e5e;
+  --lumen-subtle: #666;
+  --lumen-line: rgb(0 0 0 / 10%);
+  --lumen-edge: rgb(0 0 0 / 14%);
+  --lumen-glass: rgb(255 255 255 / 35%);
+  --lumen-reading: rgb(245 245 245 / 45%);
+  --lumen-frost: rgb(250 250 250 / 92%);
+  --lumen-overlay-edge: rgb(0 0 0 / 24%);
+  --lumen-overlay-glow-near: rgb(0 0 0 / 17%);
+  --lumen-overlay-glow-far: rgb(0 0 0 / 8%);
+  --lumen-glow-near: 0.125rem;
+  --lumen-glow-far: 0.375rem;
+  --lumen-glow-mode-scale: 0.5;
+}
+
+html:has([data-lumen-mode]),
+[data-lumen-mode] {
+  --lumen-surface-navigation: color-mix(in srgb, var(--lumen-ink) 3%, var(--lumen-canvas));
+  --lumen-surface-raised: color-mix(in srgb, var(--lumen-ink) 4%, var(--lumen-canvas));
+  --lumen-space-inline: 0.5rem;
+  --lumen-space-group: 1rem;
+  --lumen-space-section: 1.5rem;
+  --lumen-reading-line-height: 1.7;
+  --lumen-reading-width: 52rem;
+  --lumen-motion-duration: 260ms;
+  --lumen-motion-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* prettier-ignore */
+  --hbar-app-ui-icon-xs: .75rem;
+  /* prettier-ignore */
+  --hbar-app-ui-icon-sm: .875rem;
+  --hbar-app-ui-icon-md: 1rem;
+  --hbar-app-ui-icon-lg: 1.25rem;
+  --hbar-app-ui-icon-xl: 1.5rem;
+  --lumen-scrollbar-track: #101010;
+  --lumen-scrollbar-core: #f4f4f4;
+  --lumen-scrollbar-halo: rgb(255 255 255 / 72%);
+  --lumen-scrollbar-edge: rgb(255 255 255 / 17%);
+}
+
+:where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *)::-webkit-scrollbar {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+:where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *)::-webkit-scrollbar-track {
+  background: var(--lumen-scrollbar-track);
+  box-shadow: inset 0 0 0 0.0625rem var(--lumen-scrollbar-edge);
+}
+
+:where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *)::-webkit-scrollbar-thumb {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border: 0.3125rem solid transparent;
+  border-radius: 999rem;
+  background: var(--lumen-scrollbar-core);
+  background-clip: content-box;
+  filter: drop-shadow(0 0 0.3125rem var(--lumen-scrollbar-halo));
+}
+
+:where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *)::-webkit-scrollbar-thumb:hover {
+  filter: drop-shadow(0 0 0.5rem var(--lumen-scrollbar-core));
+}
+
+:where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *)::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+:where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *)::-webkit-scrollbar-corner {
+  background: var(--lumen-scrollbar-track);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  :where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *) {
+    scrollbar-color: var(--lumen-scrollbar-core) var(--lumen-scrollbar-track);
+    scrollbar-width: thin;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(html:has([data-lumen-mode]), [data-lumen-mode], [data-lumen-mode] *) {
+    scrollbar-color: ButtonText Canvas;
+  }
+}
+
+[data-lumen-control-size='s'] {
+  --lumen-control-size: 1.875rem;
+  --lumen-control-padding-inline: 0.625rem;
+  --lumen-input-padding-block: 0.25rem;
+  --lumen-input-padding-inline: 0.625rem;
+}
+
+[data-lumen-control-size='m'] {
+  --lumen-control-size: 2.25rem;
+  --lumen-control-padding-inline: 0.75rem;
+  --lumen-input-padding-block: 0.375rem;
+  --lumen-input-padding-inline: 0.75rem;
+}
+
+[data-lumen-control-size='l'] {
+  --lumen-control-size: 2.625rem;
+  --lumen-control-padding-inline: 0.875rem;
+  --lumen-input-padding-block: 0.5rem;
+  --lumen-input-padding-inline: 0.875rem;
+}
+
+[data-lumen-text-size='s'] {
+  --lumen-font-size: 0.8125rem;
+}
+
+[data-lumen-text-size='m'] {
+  --lumen-font-size: 0.875rem;
+}
+
+[data-lumen-text-size='l'] {
+  --lumen-font-size: 1rem;
+}
+
+[data-lumen-corner-size='s'] {
+  --lumen-radius-base: 0.25rem;
+}
+
+[data-lumen-corner-size='m'] {
+  --lumen-radius-base: 0.375rem;
+}
+
+[data-lumen-corner-size='l'] {
+  --lumen-radius-base: 0.5rem;
+}
+
+[data-lumen-shape='rounded'] {
+  --lumen-radius-control: var(--lumen-radius-base, 0.375rem);
+  --lumen-radius-surface: calc(var(--lumen-radius-base, 0.375rem) * 2);
+  --lumen-radius-panel: calc(var(--lumen-radius-base, 0.375rem) * 3);
+}
+
+[data-lumen-shape='square'] {
+  --lumen-radius-control: 0;
+  --lumen-radius-surface: 0;
+  --lumen-radius-panel: 0;
+}

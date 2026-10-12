@@ -1,0 +1,99 @@
+.lumen-record-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: var(--lumen-space-inline);
+  padding-block: 8px;
+}
+.lumen-record-row[data-density='comfortable'] {
+  padding-block: 12px;
+}
+.lumen-record-content {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+.lumen-record-leading,
+.lumen-record-trailing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--lumen-space-inline);
+}
+.lumen-record-trailing {
+  margin-inline-start: auto;
+}
+.lumen-metric-row {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: var(--lumen-space-group);
+  padding-block: 6px;
+  overflow-x: auto;
+}
+.lumen-metric-row > * {
+  margin: 0;
+}
+.lumen-adaptive-action-toolbar {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+.lumen-adaptive-action-toolbar > [hidden] {
+  display: none;
+}
+.lumen-toolbar-item {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.lumen-toolbar-trailing {
+  display: flex;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  align-items: center;
+}
+.lumen-toolbar-overflow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-inline-size: min(30rem, 95vw);
+  padding: 8px;
+}
+.lumen-toolbar-overflow-item {
+  display: flex;
+  min-inline-size: 0;
+  overflow-x: auto;
+}
+.lumen-toolbar-overflow-item[hidden] {
+  display: none;
+}
+.lumen-toolbar-control {
+  display: flex;
+  flex: 0 0 auto;
+  inline-size: max-content;
+}
+.lumen-reading-marker {
+  min-inline-size: 0;
+  min-block-size: 1.25rem;
+  inline-size: 100%;
+  padding: 2px 4px;
+  color: var(--lumen-muted);
+}
+.lumen-reading-marker-ink {
+  inline-size: 0.75rem;
+  block-size: 0.125rem;
+  border-radius: var(--lumen-radius-control);
+  background: currentColor;
+  opacity: 0.6;
+  transition: opacity var(--lumen-state-duration) var(--lumen-state-easing);
+}
+.lumen-reading-marker:is(:hover, :focus-visible, [aria-current='location']) .lumen-reading-marker-ink {
+  opacity: 1;
+}

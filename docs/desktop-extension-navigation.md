@@ -120,7 +120,7 @@ flow-layout guards passed.
 
 Full `bun run lint` reports the same existing missing
 `react/no-unused-prop-types` rule at
-`hbar-ui/packages/lumen-app-ui/src/authentication/primitives.tsx:44` (one error,
+`packages/lumen-app-ui/src/authentication/primitives.tsx:44` (one error,
 zero warnings). The complete output is `full-lint.log` in this unit's artifact
 root. No unrelated authentication implementation was changed.
 

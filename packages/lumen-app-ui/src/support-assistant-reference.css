@@ -1,0 +1,243 @@
+.lumen-support-assistant-reference-root {
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.lumen-support-assistant-reference,
+.lumen-support-assistant-reference-closed {
+  min-inline-size: 0;
+  inline-size: min(27rem, 100%);
+  margin-inline-start: auto;
+}
+
+.lumen-support-assistant-reference {
+  display: flex;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-reading);
+  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+}
+
+.lumen-support-assistant-reference-header {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-support-assistant-reference-mark {
+  display: inline-flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--lumen-radius-control);
+  background: color-mix(in srgb, var(--lumen-accent) 9%, var(--lumen-glass));
+  color: var(--lumen-accent);
+}
+
+.lumen-support-assistant-reference-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-support-assistant-reference-icon {
+  flex: 0 0 auto;
+  stroke-width: 1.75;
+}
+
+.lumen-support-assistant-reference-icon-sm {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+}
+
+.lumen-support-assistant-reference-icon-md {
+  inline-size: var(--hbar-app-ui-icon-md);
+  block-size: var(--hbar-app-ui-icon-md);
+}
+
+.lumen-support-assistant-reference-close {
+  flex: 0 0 auto;
+  padding: 0.375rem;
+}
+
+.lumen-support-assistant-reference-main {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.lumen-support-assistant-reference-transcript {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.lumen-support-assistant-reference-transcript[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-support-assistant-reference-messages {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lumen-support-assistant-reference-message {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 86%;
+  flex-direction: column;
+  align-self: flex-start;
+  gap: 0.375rem;
+  padding: 0.625rem;
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+  overflow-wrap: anywhere;
+}
+
+.lumen-support-assistant-reference-message > p {
+  white-space: pre-line;
+}
+
+.lumen-support-assistant-reference-message.is-own {
+  align-self: flex-end;
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+}
+
+.lumen-support-assistant-reference-message.is-own [data-tone='muted'] {
+  color: color-mix(in srgb, var(--lumen-contrast) 72%, transparent);
+}
+
+.lumen-support-assistant-reference-empty {
+  padding: 0.625rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-support-assistant-reference-articles {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-support-assistant-reference-articles > li {
+  min-inline-size: 0;
+}
+
+.lumen-support-assistant-reference-articles button {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: flex-start;
+  gap: 0.375rem;
+  padding: 0.25rem 0.375rem;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.lumen-support-assistant-reference-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0 0.75rem 0.5rem;
+}
+
+.lumen-support-assistant-reference-actions > button {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.lumen-support-assistant-reference-composer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-support-assistant-reference-input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  resize: vertical;
+}
+
+.lumen-support-assistant-reference-composer > footer {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lumen-support-assistant-reference-composer > footer > :first-child {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-support-assistant-reference-feedback {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-support-assistant-reference-closed {
+  display: flex;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+@media (max-width: 34rem) {
+  .lumen-support-assistant-reference-root {
+    overflow: auto;
+  }
+
+  .lumen-support-assistant-reference {
+    flex: 0 0 auto;
+  }
+
+  .lumen-support-assistant-reference-main {
+    min-block-size: auto;
+    flex: 0 0 auto;
+  }
+
+  .lumen-support-assistant-reference-transcript[data-hbar-app-ui-list-strategy='pane-scroll'] {
+    max-block-size: min(55vh, 28rem);
+  }
+
+  .lumen-support-assistant-reference-actions {
+    padding-block-end: 0.625rem;
+  }
+}

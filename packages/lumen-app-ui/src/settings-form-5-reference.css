@@ -1,0 +1,319 @@
+.lumen-settings-form-5-surface {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.lumen-settings-form-5-reference {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  color: var(--lumen-ink);
+}
+
+.lumen-settings-form-5-reference,
+.lumen-settings-form-5-reference * {
+  box-sizing: border-box;
+}
+
+.lumen-settings-form-5-reference :is(h2, h3, p) {
+  margin: 0;
+}
+
+.lumen-settings-form-5-page {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-self: center;
+  gap: 1rem;
+  inline-size: min(100%, 42rem);
+  padding: 1rem;
+}
+
+.lumen-settings-form-5-page-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lumen-settings-form-5-page-heading h2 {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.lumen-settings-form-5-create-key {
+  display: inline-flex;
+  min-block-size: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.lumen-settings-form-5-icon {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+  flex: 0 0 auto;
+}
+
+.lumen-settings-form-5-panel {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.875rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-settings-form-5-panel-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+  padding: 0.625rem 1rem;
+  background: var(--lumen-glass);
+}
+
+.lumen-settings-form-5-panel-heading h3 {
+  font-size: 1rem;
+  font-weight: 550;
+  line-height: 1.5;
+}
+
+.lumen-settings-form-5-panel-heading p,
+.lumen-settings-form-5-key-metadata,
+.lumen-settings-form-5-integration-copy > p,
+.lumen-settings-form-5-audit-note {
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-settings-form-5-list {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0.375rem;
+  list-style: none;
+}
+
+.lumen-settings-form-5-key,
+.lumen-settings-form-5-integration {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--lumen-glass) 72%, transparent);
+}
+
+.lumen-settings-form-5-key-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lumen-settings-form-5-key-copy,
+.lumen-settings-form-5-integration-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-settings-form-5-key-name,
+.lumen-settings-form-5-integration-heading {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: var(--lumen-ink);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.lumen-settings-form-5-key-metadata {
+  font-size: 0.75rem;
+}
+
+.lumen-settings-form-5-actions-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.lumen-settings-form-5-icon-button {
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  padding: 0.375rem;
+}
+
+.lumen-settings-form-5-menu {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-end: 0;
+  display: flex;
+  min-inline-size: 9rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.625rem;
+  padding: 0.25rem;
+  background: var(--lumen-contrast);
+  box-shadow: 0 0.5rem 1.25rem color-mix(in srgb, var(--lumen-ink) 14%, transparent);
+}
+
+.lumen-settings-form-5-menu > button {
+  min-block-size: 2rem;
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: transparent;
+  color: var(--lumen-ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.lumen-settings-form-5-menu > button:hover,
+.lumen-settings-form-5-menu > button:focus-visible {
+  background: color-mix(in srgb, var(--lumen-ink) 8%, var(--lumen-contrast));
+}
+
+.lumen-settings-form-5-token-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 0.625rem;
+  padding: 0.25rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-settings-form-5-token {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  color: var(--lumen-ink);
+  font-family: var(--lumen-font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.lumen-settings-form-5-token-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.25rem;
+}
+
+.lumen-settings-form-5-integration {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lumen-settings-form-5-integration-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-settings-form-5-integration-copy > p {
+  font-size: 0.75rem;
+}
+
+.lumen-settings-form-5-connected {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--lumen-muted);
+}
+
+.lumen-settings-form-5-connected > span {
+  inline-size: 0.3rem;
+  block-size: 0.3rem;
+  flex: 0 0 0.3rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.lumen-settings-form-5-switch {
+  position: relative;
+  display: inline-flex;
+  inline-size: 2.25rem;
+  block-size: 1.25rem;
+  flex: 0 0 2.25rem;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.125rem;
+  background: color-mix(in srgb, var(--lumen-ink) 12%, var(--lumen-contrast));
+  cursor: pointer;
+}
+
+.lumen-settings-form-5-switch[aria-checked='true'] {
+  background: var(--lumen-ink);
+}
+
+.lumen-settings-form-5-switch-thumb {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 1rem;
+  border-radius: 50%;
+  background: var(--lumen-contrast);
+  transition: transform 120ms ease;
+}
+
+.lumen-settings-form-5-switch[aria-checked='true'] .lumen-settings-form-5-switch-thumb {
+  transform: translateX(1rem);
+}
+
+.lumen-settings-form-5-audit-note {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  padding: 0.625rem 1rem;
+  background: var(--lumen-glass);
+}
+
+.lumen-settings-form-5-reference :is(button, [role='switch']):focus-visible {
+  outline: 0.125rem solid var(--lumen-primary, var(--lumen-ink));
+  outline-offset: 0.125rem;
+}
+
+@media (max-width: 30rem) {
+  .lumen-settings-form-5-page {
+    inline-size: 100%;
+    padding: 0.75rem;
+  }
+
+  .lumen-settings-form-5-token-row {
+    align-items: flex-start;
+  }
+
+  .lumen-settings-form-5-token {
+    overflow-wrap: anywhere;
+  }
+}

@@ -1,0 +1,201 @@
+.surface {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  box-sizing: border-box;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--lumen-radius-surface, 0.75rem);
+  background: var(--lumen-glass);
+  backdrop-filter: blur(1.25rem);
+  box-shadow: var(--lumen-effect-shadow);
+  transition: var(--lumen-state-transition);
+}
+.surface[data-material='frost'] {
+  border-radius: var(--lumen-radius-control, 0.375rem);
+  background: var(--lumen-frost);
+  backdrop-filter: blur(1.2rem);
+}
+.surface[data-material='solid'] {
+  background: var(--lumen-contrast);
+  backdrop-filter: none;
+}
+.surface[data-elevation='overlay'] {
+  border-color: var(--lumen-overlay-edge);
+  background: var(--lumen-frost);
+  box-shadow:
+    0 0 0 0.0625rem var(--lumen-overlay-edge),
+    0 0 1rem var(--lumen-overlay-glow-near),
+    0 0 2.75rem var(--lumen-overlay-glow-far);
+}
+.surface[data-shape='square'] {
+  border-radius: 0;
+}
+.surface:is([data-surface-role='canvas'], [data-surface-role='reading']) {
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.surface[data-surface-role='navigation'] {
+  border-color: transparent;
+  border-radius: 0;
+  background: var(--lumen-surface-navigation);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.surface[data-surface-role='raised'] {
+  border-color: var(--lumen-line);
+  background: var(--lumen-surface-raised);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.surface[data-surface-role='overlay'] {
+  border-color: var(--lumen-overlay-edge);
+  background: var(--lumen-frost);
+}
+.surface:not([data-surface-role='canvas'], [data-surface-role='reading'], [data-surface-role='navigation']):is(
+    :not([data-boundary='none']),
+    [data-interactive='true']
+  ) {
+  border-color: var(--lumen-edge);
+}
+.surfaceContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  border-radius: inherit;
+}
+/* Filter definitions have no layout footprint; the material lives on the surface. */
+.filter {
+  flex: 0 0 0;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.surface[data-lumen-tone='info'],
+.indicator[data-lumen-tone='info'] {
+  --lumen-effect-color: var(--lumen-info);
+}
+.surface[data-lumen-tone='success'],
+.indicator[data-lumen-tone='success'] {
+  --lumen-effect-color: var(--lumen-success);
+}
+.surface[data-lumen-tone='warning'],
+.indicator[data-lumen-tone='warning'] {
+  --lumen-effect-color: var(--lumen-warning);
+}
+.surface[data-lumen-tone='danger'],
+.indicator[data-lumen-tone='danger'] {
+  --lumen-effect-color: var(--lumen-danger);
+}
+.surface:is([data-lumen-state='selected'], [data-lumen-state='failed']) {
+  --lumen-effect-level: var(--lumen-glow-selected);
+  border-color: color-mix(in srgb, var(--lumen-effect-color) 45%, transparent);
+}
+@media (hover: hover) {
+  .surface[data-interactive='true']:hover:not([data-lumen-state='disabled']) {
+    --lumen-effect-level: var(--lumen-glow-hover);
+    border-color: color-mix(in srgb, var(--lumen-effect-color) 55%, transparent);
+  }
+}
+/* A field inside an ordinary panel owns its focus light independently. */
+.surface[data-interactive='true']:focus-visible:not([data-lumen-state='disabled']) {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  outline: 0.125rem solid var(--lumen-effect-color);
+  outline-offset: 0.125rem;
+}
+.surface[data-lumen-state='disabled'] {
+  --lumen-effect-level: 0;
+  animation: none;
+}
+.indicator {
+  --lumen-effect-level: var(--lumen-glow-rest);
+  display: inline-block;
+  flex: 0 0 auto;
+  inline-size: var(--lumen-status-dot-size, 0.5rem);
+  block-size: var(--lumen-status-dot-size, 0.5rem);
+  align-self: center;
+  border-radius: 50%;
+  background: var(--lumen-effect-color);
+  box-shadow: var(--lumen-effect-shadow);
+  pointer-events: none;
+  transition: var(--lumen-state-transition);
+}
+.indicator[data-lumen-state='idle'][data-lumen-tone='neutral'] {
+  background: var(--lumen-muted);
+  --lumen-effect-level: 0;
+}
+.indicator[data-visible='false'] {
+  opacity: 0;
+}
+.indicator:is([data-lumen-state='selected'], [data-lumen-state='failed']) {
+  --lumen-effect-level: var(--lumen-glow-selected);
+}
+.indicator[data-lumen-state='disabled'] {
+  --lumen-effect-level: 0;
+  background: var(--lumen-subtle);
+  animation: none;
+}
+.divider {
+  --lumen-divider-color: var(--lumen-line);
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  background: var(--lumen-divider-color);
+}
+.divider[data-tone='info'] {
+  --lumen-divider-color: var(--lumen-info);
+}
+.divider[data-tone='success'] {
+  --lumen-divider-color: var(--lumen-success);
+}
+.divider[data-tone='warning'] {
+  --lumen-divider-color: var(--lumen-warning);
+}
+.divider[data-tone='danger'] {
+  --lumen-divider-color: var(--lumen-danger);
+}
+.divider[data-orientation='horizontal'] {
+  inline-size: 100%;
+  block-size: 0.0625rem;
+}
+.divider[data-orientation='vertical'] {
+  align-self: stretch;
+  inline-size: 0.0625rem;
+  min-block-size: 1em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .surface,
+  .indicator {
+    transition: none;
+  }
+  .surface[data-lumen-state='running'],
+  .indicator[data-lumen-state='running'] {
+    animation: none;
+    --lumen-effect-level: var(--lumen-glow-selected);
+  }
+}
+@media (forced-colors: active) {
+  .surface {
+    border-color: CanvasText;
+    background: Canvas;
+    backdrop-filter: none !important;
+    box-shadow: none;
+  }
+  .surface[data-interactive='true']:focus-visible {
+    outline-color: Highlight;
+  }
+  .indicator {
+    background: CanvasText;
+    box-shadow: none;
+  }
+  .indicator[data-lumen-state='disabled'] {
+    background: GrayText;
+  }
+  .divider {
+    background: CanvasText;
+  }
+}

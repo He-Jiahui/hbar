@@ -8,10 +8,30 @@
   },
   "packageManager": "bun@1.4.0",
   "workspaces": [
-    "apps/*",
-    "packages/*",
-    "plugins/*",
-    "hbar-ui/packages/lumen-app-ui"
+    "apps/cli",
+    "apps/desktop",
+    "apps/host",
+    "apps/web",
+    "packages/app-react",
+    "packages/app-runtime",
+    "packages/client",
+    "packages/commands",
+    "packages/contracts",
+    "packages/kernel",
+    "packages/lumen-app-ui",
+    "packages/metrics",
+    "packages/plugin-sdk",
+    "packages/provider-catalog",
+    "packages/runtime",
+    "packages/runtime-native",
+    "packages/schema-core",
+    "packages/schema-react",
+    "packages/settings-core",
+    "packages/storage",
+    "packages/terminal",
+    "packages/ui-sdk",
+    "packages/usage",
+    "plugins/*"
   ],
   "scripts": {
     "dev": "bun run native:build && bun scripts/dev.ts",
@@ -68,7 +88,8 @@
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen"
+    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen",
+    "lumen:build": "bun run --cwd packages/lumen-app-ui build"
   },
   "dependencies": {
     "@lumen/app-ui": "workspace:*",

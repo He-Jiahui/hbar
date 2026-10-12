@@ -1,0 +1,4502 @@
+[
+  {
+    "id": "hbar-app-ui-ai-chat-1",
+    "category": "ai-chat",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-1",
+      "scenario": "Full assistant thread with reasoning disclosure, live tool call, streaming answer, sources, and an attachment composer.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2508331050,
+      "controls": ["attachments", "expand", "compose"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-2",
+    "category": "ai-chat",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-2",
+      "scenario": "Chat with a generated-artifact side panel showing code and document previews with version tabs.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 2491553431,
+      "controls": ["tabs", "compose"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-3",
+    "category": "ai-chat",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-3",
+      "scenario": "Compact embedded assistant panel with empty state, suggested prompts, and a docked composer.",
+      "surface": "rail",
+      "initialState": "empty",
+      "visualMode": "dense",
+      "seed": 2474775812,
+      "controls": ["compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-4",
+    "category": "ai-chat",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-4",
+      "scenario": "Chat with model picker, live context and token meter, and a conversation settings popover.",
+      "surface": "overlay",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2457998193,
+      "controls": ["tabs", "picker", "compose"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-5",
+    "category": "ai-chat",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-5",
+      "scenario": "Chat with inline approval requests that gate destructive agent actions before they run.",
+      "surface": "panel",
+      "initialState": "review",
+      "visualMode": "dense",
+      "seed": 2441220574,
+      "controls": ["confirm", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-6",
+    "category": "ai-chat",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-6",
+      "scenario": "Multi-agent conversation with per-agent identity, handoffs, and a live activity rail.",
+      "surface": "split",
+      "initialState": "active",
+      "visualMode": "dense",
+      "seed": 2424442955,
+      "controls": ["compose"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-7",
+    "category": "ai-chat",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-7",
+      "scenario": "Chat with pinned context sources and per-message citations that map answers to evidence.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2407665336,
+      "controls": ["compose"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-8",
+    "category": "ai-chat",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-8",
+      "scenario": "Voice and multimodal composer with waveform capture, live transcript, and attachment previews.",
+      "surface": "overlay",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 2390887717,
+      "controls": ["attachments", "compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-chat-9",
+    "category": "ai-chat",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-ai-chat-9",
+      "scenario": "Composer model picker with a provider list and a detail card carrying context, cost, and a reasoning effort control.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 2374110098,
+      "controls": ["tabs", "picker", "compose"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-prompt-input-1",
+    "category": "prompt-input",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-prompt-input-1",
+      "scenario": "Autosizing composer with slash-command menu, attachment tray, and send or stop control.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 750899264,
+      "controls": ["search", "attachments", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-prompt-input-2",
+    "category": "prompt-input",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-prompt-input-2",
+      "scenario": "Prompt box with model selector, tool toggles, and a live token counter.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 801232121,
+      "controls": ["tabs", "picker", "compose"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-prompt-input-3",
+    "category": "prompt-input",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-prompt-input-3",
+      "scenario": "Hero prompt launcher with suggestion chips and recent prompt history.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "airy",
+      "seed": 784454502,
+      "controls": ["compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-prompt-input-4",
+    "category": "prompt-input",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-prompt-input-4",
+      "scenario": "Prompt template editor with variable placeholders and inline validation.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 834787359,
+      "controls": ["save", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-prompt-input-5",
+    "category": "prompt-input",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-prompt-input-5",
+      "scenario": "Prompt input with drag-and-drop file zone and per-attachment upload progress.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 818009740,
+      "controls": ["attachments", "upload", "drag", "compose"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-prompt-input-6",
+    "category": "prompt-input",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-prompt-input-6",
+      "scenario": "Prompt bar with @-mention context picker and scoped source pills.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 868342597,
+      "controls": ["search", "picker", "compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-prompt-input-7",
+    "category": "prompt-input",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-prompt-input-7",
+      "scenario": "Prompt input with ask, agent, and edit mode switcher plus keyboard hints.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 851564978,
+      "controls": ["tabs", "picker", "save", "compose"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-activity-1",
+    "category": "agent-activity",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-agent-activity-1",
+      "scenario": "Live activity stream with per-step status dots, elapsed timers, and a cancel control.",
+      "surface": "timeline",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 3811346306,
+      "controls": ["expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-activity-2",
+    "category": "agent-activity",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-agent-activity-2",
+      "scenario": "Collapsible run timeline with nested sub-steps and duration bars.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3794568687,
+      "controls": ["expand"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-activity-3",
+    "category": "agent-activity",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-agent-activity-3",
+      "scenario": "Compact agent status rail showing the current action, progress, and stop control.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 3777791068,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-activity-4",
+    "category": "agent-activity",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-agent-activity-4",
+      "scenario": "Agent run history table with status, duration, cost, and re-run actions.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3761013449,
+      "controls": ["tabs", "retry"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-activity-5",
+    "category": "agent-activity",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-agent-activity-5",
+      "scenario": "Terminal-style log stream with severity filters and an autoscroll pin.",
+      "surface": "panel",
+      "initialState": "active",
+      "visualMode": "dense",
+      "seed": 3744235830,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-activity-6",
+    "category": "agent-activity",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-agent-activity-6",
+      "scenario": "Parallel agent lanes showing concurrent workers, queue depth, and throughput.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3727458211,
+      "controls": ["filter"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-activity-7",
+    "category": "agent-activity",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-agent-activity-7",
+      "scenario": "Run detail panel with inputs, outputs, retry attempts, and an error surface.",
+      "surface": "split",
+      "initialState": "error",
+      "visualMode": "focus",
+      "seed": 3710680592,
+      "controls": ["retry", "compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-tool-calls-1",
+    "category": "tool-calls",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-tool-calls-1",
+      "scenario": "Tool call card with collapsible arguments, formatted result, and timing metadata.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1599943457,
+      "controls": ["expand"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-tool-calls-2",
+    "category": "tool-calls",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-tool-calls-2",
+      "scenario": "Tool call list with pending, success, and failure states plus retry affordances.",
+      "surface": "table",
+      "initialState": "error",
+      "visualMode": "balanced",
+      "seed": 1549610600,
+      "controls": ["retry"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-tool-calls-3",
+    "category": "tool-calls",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-tool-calls-3",
+      "scenario": "File edit tool result rendered as a diff with add and remove line counts.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "split",
+      "seed": 1566388219,
+      "controls": ["attachments", "save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-tool-calls-4",
+    "category": "tool-calls",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-tool-calls-4",
+      "scenario": "Web search tool result with ranked source cards and relevance metadata.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1650276314,
+      "controls": ["search"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-tool-calls-5",
+    "category": "tool-calls",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-tool-calls-5",
+      "scenario": "Code execution tool card with stdout and stderr tabs and an exit code badge.",
+      "surface": "rail",
+      "initialState": "error",
+      "visualMode": "balanced",
+      "seed": 1667053933,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-tool-calls-6",
+    "category": "tool-calls",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-tool-calls-6",
+      "scenario": "Tool permission row with per-tool enable, disable, and scope disclosure.",
+      "surface": "panel",
+      "initialState": "review",
+      "visualMode": "balanced",
+      "seed": 1616721076,
+      "controls": ["confirm", "expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-approval-1",
+    "category": "agent-approval",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-agent-approval-1",
+      "scenario": "Inline approval prompt for a destructive action with a plain-language impact summary.",
+      "surface": "form",
+      "initialState": "review",
+      "visualMode": "dense",
+      "seed": 3374794124,
+      "controls": ["confirm", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-approval-2",
+    "category": "agent-approval",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-agent-approval-2",
+      "scenario": "Approval dialog with diff preview and allow once, always allow, or deny.",
+      "surface": "overlay",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 3425126981,
+      "controls": ["confirm"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-approval-3",
+    "category": "agent-approval",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-agent-approval-3",
+      "scenario": "Batch approval queue with select-all, per-item risk badges, and bulk decisions.",
+      "surface": "table",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 3408349362,
+      "controls": ["picker", "confirm"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-approval-4",
+    "category": "agent-approval",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-agent-approval-4",
+      "scenario": "Permission request card for external tool and API access with itemised scopes.",
+      "surface": "panel",
+      "initialState": "review",
+      "visualMode": "balanced",
+      "seed": 3324461267,
+      "controls": ["confirm"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-approval-5",
+    "category": "agent-approval",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-agent-approval-5",
+      "scenario": "Approval banner for long-running or high-cost operations with an estimate breakdown.",
+      "surface": "panel",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 3307683648,
+      "controls": ["confirm"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-approval-6",
+    "category": "agent-approval",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-agent-approval-6",
+      "scenario": "Audit list of previously approved and denied agent actions with filters.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3358016505,
+      "controls": ["filter", "confirm"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-plan-1",
+    "category": "agent-plan",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-agent-plan-1",
+      "scenario": "Task plan checklist with live step status and a vertical progress rail.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "dense",
+      "seed": 930003560,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-plan-2",
+    "category": "agent-plan",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-agent-plan-2",
+      "scenario": "Editable plan with reorder, add, and skip controls before execution starts.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 980336417,
+      "controls": ["tabs", "save", "sort", "drag"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-plan-3",
+    "category": "agent-plan",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-agent-plan-3",
+      "scenario": "Plan tree with nested subtasks, dependency links, and blocked states.",
+      "surface": "panel",
+      "initialState": "error",
+      "visualMode": "balanced",
+      "seed": 963558798,
+      "controls": ["expand"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-plan-4",
+    "category": "agent-plan",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-agent-plan-4",
+      "scenario": "Plan versus actual comparison with drift indicators and step-level deltas.",
+      "surface": "timeline",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1013891655,
+      "controls": ["expand"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-plan-5",
+    "category": "agent-plan",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-agent-plan-5",
+      "scenario": "Todo board for agent work items grouped by queued, running, and done.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 997114036,
+      "controls": ["filter"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-agent-plan-6",
+    "category": "agent-plan",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-agent-plan-6",
+      "scenario": "Plan summary card with estimated steps, required tools, and projected cost.",
+      "surface": "timeline",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1047446893,
+      "controls": ["expand"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-1",
+    "category": "ai-usage",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-1",
+      "scenario": "Token usage overview with stacked input and output bars and a range switcher.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3105141647,
+      "controls": ["picker", "compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-2",
+    "category": "ai-usage",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-2",
+      "scenario": "Spend by model table with inline share bars, period deltas, and sortable columns.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 3121919266,
+      "controls": ["tabs", "sort"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-3",
+    "category": "ai-usage",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-3",
+      "scenario": "Rate limit panel with utilisation meters per window and a tier switcher.",
+      "surface": "panel",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 3138696885,
+      "controls": ["picker"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-4",
+    "category": "ai-usage",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-4",
+      "scenario": "Per-seat usage list with team filters, search, and individual spend caps.",
+      "surface": "table",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 3021253552,
+      "controls": ["search", "filter"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-5",
+    "category": "ai-usage",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-5",
+      "scenario": "Budget settings with a monthly cap slider, alert thresholds, and hard-stop toggles.",
+      "surface": "form",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 3038031171,
+      "controls": ["save"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-6",
+    "category": "ai-usage",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-6",
+      "scenario": "Overage notice with included-versus-billed split and an inline plan upgrade picker.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 3054808790,
+      "controls": ["picker"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-7",
+    "category": "ai-usage",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-7",
+      "scenario": "Request log with per-call tokens, latency, cost, and an expandable detail row.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 3071586409,
+      "controls": ["expand"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-ai-usage-8",
+    "category": "ai-usage",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-ai-usage-8",
+      "scenario": "Compact plan usage widget with a sparkline, secondary meters, and an upgrade prompt.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 3222584980,
+      "controls": ["compose"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-1",
+    "category": "app-shell",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-1",
+      "scenario": "Sidebar with collapsible nav groups, a breadcrumb header, and an overview screen of metrics and records.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2071858461,
+      "controls": ["expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-2",
+    "category": "app-shell",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-2",
+      "scenario": "Icon rail paired with a nav pane whose contents swap as you move between product areas.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2021525604,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-3",
+    "category": "app-shell",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-3",
+      "scenario": "Global top bar with search and account, above a sidebar that collapses to an icon rail.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2038303223,
+      "controls": ["search", "expand"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-4",
+    "category": "app-shell",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-4",
+      "scenario": "Three-column frame with a toggleable context panel that runs alongside the main content.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1987970366,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-5",
+    "category": "app-shell",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-5",
+      "scenario": "Master-detail triage frame with an icon rail, a filterable list pane, and a reading pane.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2004747985,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-6",
+    "category": "app-shell",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-6",
+      "scenario": "Document workspace with a keyboard-navigable file tree, formatting toolbar, and centered editor.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 1954415128,
+      "controls": ["attachments", "save"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-7",
+    "category": "app-shell",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-7",
+      "scenario": "Scope switcher frame where organization, project, and environment menus drive the whole screen.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1971192747,
+      "controls": ["picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-8",
+    "category": "app-shell",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-8",
+      "scenario": "Adaptive frame that moves from a mobile tab bar to an icon rail to a full sidebar.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 1920859890,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-shell-9",
+    "category": "app-shell",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-app-shell-9",
+      "scenario": "AI chat frame with a model picker, pinned and recent threads, and a full-width composer.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1937637509,
+      "controls": ["tabs", "picker", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-sidebar-1",
+    "category": "app-sidebar",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-app-sidebar-1",
+      "scenario": "Collapsible primary sidebar with grouped sections, badges, and a user menu.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 263340515,
+      "controls": ["expand"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-sidebar-2",
+    "category": "app-sidebar",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-app-sidebar-2",
+      "scenario": "Icon rail sidebar with hover flyout submenus and tooltips.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 280118134,
+      "controls": ["confirm"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-sidebar-3",
+    "category": "app-sidebar",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-app-sidebar-3",
+      "scenario": "Sidebar with workspace switcher, scoped search, and pinned items.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 296895753,
+      "controls": ["search", "picker"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-sidebar-4",
+    "category": "app-sidebar",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-app-sidebar-4",
+      "scenario": "Dual sidebar pairing a compact icon rail with a contextual secondary panel.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 313673372,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-sidebar-5",
+    "category": "app-sidebar",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-app-sidebar-5",
+      "scenario": "Sidebar with nested tree navigation and inline row actions.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 330450991,
+      "controls": ["expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-sidebar-6",
+    "category": "app-sidebar",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-app-sidebar-6",
+      "scenario": "Mobile drawer navigation with sheet, scrim, and collapsed app header.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "stack",
+      "seed": 347228610,
+      "controls": ["expand"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-sidebar-7",
+    "category": "app-sidebar",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-app-sidebar-7",
+      "scenario": "Full app shell composing sidebar, app header, breadcrumbs, and content region.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 364006229,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-command-menu-1",
+    "category": "command-menu",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-command-menu-1",
+      "scenario": "Command palette with grouped results, keyboard hints, and recent commands.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2255001988,
+      "controls": ["search"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-command-menu-2",
+    "category": "command-menu",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-command-menu-2",
+      "scenario": "Command menu with nested pages and back navigation between levels.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2305334845,
+      "controls": ["search", "pagination", "expand"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-command-menu-3",
+    "category": "command-menu",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-command-menu-3",
+      "scenario": "Search-first palette with typed filters and inline result previews.",
+      "surface": "overlay",
+      "initialState": "review",
+      "visualMode": "dense",
+      "seed": 2288557226,
+      "controls": ["search", "filter"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-command-menu-4",
+    "category": "command-menu",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-command-menu-4",
+      "scenario": "Action menu that collects inline arguments and confirms before running.",
+      "surface": "overlay",
+      "initialState": "active",
+      "visualMode": "dense",
+      "seed": 2204669131,
+      "controls": ["search", "confirm"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-command-menu-5",
+    "category": "command-menu",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-command-menu-5",
+      "scenario": "Command palette that falls back to an AI ask mode when nothing matches.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2187891512,
+      "controls": ["search", "tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-command-menu-6",
+    "category": "command-menu",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-command-menu-6",
+      "scenario": "Compact inline command popover anchored to a toolbar trigger.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2238224369,
+      "controls": ["search"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-1",
+    "category": "navbar",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-navbar-1",
+      "scenario": "Project header with a breadcrumb, tab row with a sliding underline, and an avatar stack.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1582518945,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-2",
+    "category": "navbar",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-navbar-2",
+      "scenario": "Compact breadcrumb toolbar with an invite popover, filter chips, sorting, and an overflow menu.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 1532186088,
+      "controls": ["filter", "sort"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-3",
+    "category": "navbar",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-navbar-3",
+      "scenario": "Workspace switcher bar with organisation, searchable project, and environment selectors.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1548963707,
+      "controls": ["search", "picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-4",
+    "category": "navbar",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-navbar-4",
+      "scenario": "Marketing header with animated dropdown panels and an accordion mobile sheet.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "airy",
+      "seed": 1632851802,
+      "controls": ["picker", "drag", "expand"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-5",
+    "category": "navbar",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-navbar-5",
+      "scenario": "Full-width mega menu header with grouped link columns and a footer call to action.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1649629421,
+      "controls": ["confirm"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-6",
+    "category": "navbar",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-navbar-6",
+      "scenario": "App top bar with an expanding search, a notifications popover, and an account menu.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1599296564,
+      "controls": ["search", "expand"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-7",
+    "category": "navbar",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-navbar-7",
+      "scenario": "Two-tier dashboard header with a primary row, tab row, and a contextual sub-navigation strip.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1616074183,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-8",
+    "category": "navbar",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-navbar-8",
+      "scenario": "Segmented tab bar with an animated pill indicator, an overflow view menu, and toolbar actions.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 1431520374,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-9",
+    "category": "navbar",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-navbar-9",
+      "scenario": "Commerce navbar with a category mega panel, a mini-cart popover, and a mobile drawer.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "stack",
+      "seed": 1448297993,
+      "controls": ["confirm"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-10",
+    "category": "navbar",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-navbar-10",
+      "scenario": "Docs header with a version selector, command search, theme toggle, and collapsible mobile nav.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "stack",
+      "seed": 237697603,
+      "controls": ["search", "tabs", "picker", "expand"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-11",
+    "category": "navbar",
+    "variant": 11,
+    "profile": {
+      "key": "hbar-app-ui-navbar-11",
+      "scenario": "Editor toolbar with an inline-editable title, save state, presence avatars, and a share popover.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 220919984,
+      "controls": ["tabs", "save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-12",
+    "category": "navbar",
+    "variant": 12,
+    "profile": {
+      "key": "hbar-app-ui-navbar-12",
+      "scenario": "Floating translucent navbar that gains elevation on scroll, with a drop-down mobile menu.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "stack",
+      "seed": 271252841,
+      "controls": ["drag"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-13",
+    "category": "navbar",
+    "variant": 13,
+    "profile": {
+      "key": "hbar-app-ui-navbar-13",
+      "scenario": "Centred-logo navbar with split links and a staggered full-screen overlay menu.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "airy",
+      "seed": 254475222,
+      "controls": ["confirm"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-navbar-14",
+    "category": "navbar",
+    "variant": 14,
+    "profile": {
+      "key": "hbar-app-ui-navbar-14",
+      "scenario": "Article header with a reading progress bar, table-of-contents menu, bookmark, and copy link.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 304808079,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-mobile-1",
+    "category": "mobile",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-mobile-1",
+      "scenario": "Mobile activity feed with a filter, inline update metadata, an unread badge and five-tab navigation.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "stack",
+      "seed": 3200474445,
+      "controls": ["tabs", "filter"],
+      "itemCount": 7
+    }
+  },
+  {
+    "id": "hbar-app-ui-mobile-2",
+    "category": "mobile",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-mobile-2",
+      "scenario": "Mobile task inbox with searchable open items, completion toggles and a create action.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3150141588,
+      "controls": ["search", "confirm"],
+      "itemCount": 7
+    }
+  },
+  {
+    "id": "hbar-app-ui-mobile-3",
+    "category": "mobile",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-mobile-3",
+      "scenario": "Mobile home feed with semantic update cards and a five-action floating navigation dock.",
+      "surface": "stream",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3166919207,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-mobile-4",
+    "category": "mobile",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-mobile-4",
+      "scenario": "Mobile order list with account and delivery metadata, direct item actions and bottom navigation.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "stack",
+      "seed": 3116586350,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-mobile-5",
+    "category": "mobile",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-mobile-5",
+      "scenario": "Mobile run list with queue, running and completed tabs, a menu overlay and new-run action.",
+      "surface": "panel",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 3133363969,
+      "controls": ["tabs", "expand"],
+      "itemCount": 8
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-1",
+    "category": "card",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-card-1",
+      "scenario": "Centred member cards with a presence dot, a framed three-up stat strip, and a connect toggle.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 145209797,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-2",
+    "category": "card",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-card-2",
+      "scenario": "Full-width integration rows: an icon, a description, and a switch that connects the service.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 94876940,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-3",
+    "category": "card",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-card-3",
+      "scenario": "Tall numbered onboarding columns you tick off, with a live completion count and a reset.",
+      "surface": "split",
+      "initialState": "active",
+      "visualMode": "split",
+      "seed": 111654559,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-4",
+    "category": "card",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-card-4",
+      "scenario": "Agenda cards led by a square date panel, with attendees and an inline RSVP row.",
+      "surface": "calendar",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 61321702,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-5",
+    "category": "card",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-card-5",
+      "scenario": "Plan cards pairing a price header with a specification list and an includes checklist.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 78099321,
+      "controls": ["filter"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-6",
+    "category": "card",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-card-6",
+      "scenario": "Account metrics in one framed row, driven by a segmented date-range control.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 27766464,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-7",
+    "category": "card",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-card-7",
+      "scenario": "Changelog cards with a version overline, a two-line excerpt, an author, and a bookmark.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 44544083,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-8",
+    "category": "card",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-card-8",
+      "scenario": "Selectable file tiles with a preview panel and a toolbar that acts on the selection.",
+      "surface": "table",
+      "initialState": "review",
+      "visualMode": "dense",
+      "seed": 262653130,
+      "controls": ["tabs", "picker", "attachments"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-9",
+    "category": "card",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-card-9",
+      "scenario": "A standalone profile card: identity, tags, a framed stat strip, and follow or message.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 279430749,
+      "controls": ["attachments", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-10",
+    "category": "card",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-card-10",
+      "scenario": "A standalone balance card with a headline figure, a split, recent activity, and money actions.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "split",
+      "seed": 2500443311,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-card-11",
+    "category": "card",
+    "variant": 11,
+    "profile": {
+      "key": "hbar-app-ui-card-11",
+      "scenario": "A standalone invoice card with line items, totals, a paid status, and a PDF download.",
+      "surface": "panel",
+      "initialState": "success",
+      "visualMode": "balanced",
+      "seed": 2483665692,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-1",
+    "category": "data-table",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-data-table-1",
+      "scenario": "Table with toolbar, faceted filters, and a column visibility menu.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 697814742,
+      "controls": ["filter", "tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-2",
+    "category": "data-table",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-data-table-2",
+      "scenario": "Table with row selection, a bulk action bar, and pagination.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 681037123,
+      "controls": ["tabs", "picker", "pagination"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-3",
+    "category": "data-table",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-data-table-3",
+      "scenario": "Table with inline cell editing and optimistic save states.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 664259504,
+      "controls": ["tabs", "save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-4",
+    "category": "data-table",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-data-table-4",
+      "scenario": "Table with expandable row detail panels revealed in place.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 781702837,
+      "controls": ["tabs", "expand"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-5",
+    "category": "data-table",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-data-table-5",
+      "scenario": "Table with sticky header, grouped rows, and a density toggle.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 764925218,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-6",
+    "category": "data-table",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-data-table-6",
+      "scenario": "Master-detail table with a synchronized side detail panel.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "focus",
+      "seed": 748147599,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-7",
+    "category": "data-table",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-data-table-7",
+      "scenario": "Table demonstrating empty, loading skeleton, and error states.",
+      "surface": "table",
+      "initialState": "error",
+      "visualMode": "focus",
+      "seed": 731369980,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-data-table-8",
+    "category": "data-table",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-data-table-8",
+      "scenario": "Wide table with a sticky first column and horizontal scroll affordances.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 848813313,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-1",
+    "category": "dashboard",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-1",
+      "scenario": "Metric card grid with sparklines and period-over-period delta indicators.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2681041161,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-2",
+    "category": "dashboard",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-2",
+      "scenario": "Dashboard with a primary chart panel, breakdown table, and date range control.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2630708304,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-3",
+    "category": "dashboard",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-3",
+      "scenario": "Widget grid with per-card overflow menus and mixed card spans.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2647485923,
+      "controls": ["confirm"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-4",
+    "category": "dashboard",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-4",
+      "scenario": "Operations dashboard with a service status board and incident list.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2731374018,
+      "controls": ["filter"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-5",
+    "category": "dashboard",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-5",
+      "scenario": "Usage dashboard with quota meters, burn-down, and an upgrade call to action.",
+      "surface": "grid",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 2748151637,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-6",
+    "category": "dashboard",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-6",
+      "scenario": "Analytics overview with a segmented control and comparison mode.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2697818780,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-7",
+    "category": "dashboard",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-7",
+      "scenario": "Dashboard showing loading skeletons and a first-run empty project state.",
+      "surface": "grid",
+      "initialState": "empty",
+      "visualMode": "balanced",
+      "seed": 2714596399,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-8",
+    "category": "dashboard",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-8",
+      "scenario": "Module board with sparkline metrics and a sortable delivery table with progress rings.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2798484494,
+      "controls": ["tabs", "sort"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-9",
+    "category": "dashboard",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-9",
+      "scenario": "Weekly worklog grid with a sticky people column, day allocations, and week navigation.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2815262113,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-10",
+    "category": "dashboard",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-10",
+      "scenario": "Metric explorer where a tab strip of six measures drives one large area chart.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3379117243,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-11",
+    "category": "dashboard",
+    "variant": 11,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-11",
+      "scenario": "Workforce coverage board with staffing bars, a demand chart, and a clearable action queue.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3362339624,
+      "controls": ["filter"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-12",
+    "category": "dashboard",
+    "variant": 12,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-12",
+      "scenario": "Payout desk with a headline balance, dual-series pace chart, and sweep lanes.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "split",
+      "seed": 3412672481,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-13",
+    "category": "dashboard",
+    "variant": 13,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-13",
+      "scenario": "Quarterly scorecard pairing objectives with key results and a burn-up against plan.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3395894862,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-dashboard-14",
+    "category": "dashboard",
+    "variant": 14,
+    "profile": {
+      "key": "hbar-app-ui-dashboard-14",
+      "scenario": "Master-detail service board where selecting a service swaps the metrics, chart, and activity.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 3446227719,
+      "controls": ["picker"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-1",
+    "category": "analytics",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-analytics-1",
+      "scenario": "Metric strip with hover-scrubbable sparklines and a range segmented control.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3249495769,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-2",
+    "category": "analytics",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-analytics-2",
+      "scenario": "Area chart with crosshair, keyboard cursor, and period summary stats.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3199162912,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-3",
+    "category": "analytics",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-analytics-3",
+      "scenario": "Grouped bar chart with series toggles and a value-following tooltip.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3215940531,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-4",
+    "category": "analytics",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-analytics-4",
+      "scenario": "Stacked area chart with cumulative totals and a share-of-total mode.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3299828626,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-5",
+    "category": "analytics",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-analytics-5",
+      "scenario": "Donut chart with a bound legend and a hover-following centre total.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3316606245,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-6",
+    "category": "analytics",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-analytics-6",
+      "scenario": "Ranked source list with a segmented composition bar and row sparklines.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3266273388,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-7",
+    "category": "analytics",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-analytics-7",
+      "scenario": "Sparkline card grid with direction-aware deltas and a promoted detail panel.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 3283051007,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-8",
+    "category": "analytics",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-analytics-8",
+      "scenario": "Conversion funnel with per-stage drop-off and worst-step highlighting.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3366939102,
+      "controls": ["tabs", "drag"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-9",
+    "category": "analytics",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-analytics-9",
+      "scenario": "Activity heatmap with intensity legend, keyboard cursor, and day tooltips.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3383716721,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-10",
+    "category": "analytics",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-analytics-10",
+      "scenario": "Radial goal gauges with target ticks and animated attainment sweeps.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3490867403,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-11",
+    "category": "analytics",
+    "variant": 11,
+    "profile": {
+      "key": "hbar-app-ui-analytics-11",
+      "scenario": "Cohort retention matrix with pinned labels and value-driven shading.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3474089784,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-12",
+    "category": "analytics",
+    "variant": 12,
+    "profile": {
+      "key": "hbar-app-ui-analytics-12",
+      "scenario": "Horizontal bar ranking with sortable measures and inline value labels.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 3524422641,
+      "controls": ["tabs", "sort"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-13",
+    "category": "analytics",
+    "variant": 13,
+    "profile": {
+      "key": "hbar-app-ui-analytics-13",
+      "scenario": "Candlestick chart with a volume histogram and an OHLC tooltip.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3507645022,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-14",
+    "category": "analytics",
+    "variant": 14,
+    "profile": {
+      "key": "hbar-app-ui-analytics-14",
+      "scenario": "Scatter plot with quadrant guides, bubble sizing, and nearest-point hit testing.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3557977879,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-15",
+    "category": "analytics",
+    "variant": 15,
+    "profile": {
+      "key": "hbar-app-ui-analytics-15",
+      "scenario": "Bullet chart list with target markers, deltas, and sortable rows.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3541200260,
+      "controls": ["tabs", "sort"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-analytics-16",
+    "category": "analytics",
+    "variant": 16,
+    "profile": {
+      "key": "hbar-app-ui-analytics-16",
+      "scenario": "Combo chart pairing bars with a trend line on a dual axis.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3591533117,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-1",
+    "category": "list",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-list-1",
+      "scenario": "Metric rows that expand in place to reveal how each figure is defined.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2243011503,
+      "controls": ["expand"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-2",
+    "category": "list",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-list-2",
+      "scenario": "Ranked spend list with a period switch, selection, and a footer action.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2259789122,
+      "controls": ["picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-3",
+    "category": "list",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-list-3",
+      "scenario": "Security event feed with facet filtering and scroll-faded overflow.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2276566741,
+      "controls": ["filter"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-4",
+    "category": "list",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-list-4",
+      "scenario": "Publishing queue reorderable by pointer drag or keyboard, with live status messages.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2159123408,
+      "controls": ["sort", "drag", "compose"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-5",
+    "category": "list",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-list-5",
+      "scenario": "Selectable asset library with a bulk action bar and filter-driven empty state.",
+      "surface": "table",
+      "initialState": "empty",
+      "visualMode": "balanced",
+      "seed": 2175901027,
+      "controls": ["filter", "tabs", "picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-6",
+    "category": "list",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-list-6",
+      "scenario": "Webhook delivery log with composed outcome and endpoint filters and expandable payloads.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2192678646,
+      "controls": ["filter", "expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-7",
+    "category": "list",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-list-7",
+      "scenario": "Supplier directory with live search, category filtering, and column labels.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2209456265,
+      "controls": ["search", "filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-8",
+    "category": "list",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-list-8",
+      "scenario": "Inbox with archive, snooze, and a collapsing row that offers undo.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2360454836,
+      "controls": ["expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-9",
+    "category": "list",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-list-9",
+      "scenario": "Contact list with an alphabet jump rail and relationship filtering.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2377232455,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-10",
+    "category": "list",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-list-10",
+      "scenario": "Incident runbook checklist with live progress and scroll-faded steps.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 363107149,
+      "controls": ["filter"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-11",
+    "category": "list",
+    "variant": 11,
+    "profile": {
+      "key": "hbar-app-ui-list-11",
+      "scenario": "Support leaderboard with switchable measures, periods, and rank movement.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 346329530,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-list-12",
+    "category": "list",
+    "variant": 12,
+    "profile": {
+      "key": "hbar-app-ui-list-12",
+      "scenario": "Recursive file tree with indent guides and full keyboard traversal.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 329551911,
+      "controls": ["attachments"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-1",
+    "category": "filtering",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-filtering-1",
+      "scenario": "Faceted product rail with derived counts, a price range, and glaze swatches.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 972921711,
+      "controls": ["filter"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-2",
+    "category": "filtering",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-filtering-2",
+      "scenario": "Filter drawer with a scrolling body and a sticky live result count.",
+      "surface": "overlay",
+      "initialState": "active",
+      "visualMode": "stack",
+      "seed": 989699330,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-3",
+    "category": "filtering",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-filtering-3",
+      "scenario": "Query builder whose editable chips drive a live table of records.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1006476949,
+      "controls": ["search", "filter", "tabs", "save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-4",
+    "category": "filtering",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-filtering-4",
+      "scenario": "Log explorer with severity toggles, a service picker, and a volume histogram.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 889033616,
+      "controls": ["filter", "picker"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-5",
+    "category": "filtering",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-filtering-5",
+      "scenario": "Property search with bed and bath steppers, a price range, and amenities.",
+      "surface": "timeline",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 905811235,
+      "controls": ["search", "filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-6",
+    "category": "filtering",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-filtering-6",
+      "scenario": "Candidate search driven by a skill token input, pay range, and seniority.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 922588854,
+      "controls": ["search", "filter", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-7",
+    "category": "filtering",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-filtering-7",
+      "scenario": "Horizontal facet bar with dropdown pickers over a mixed-orientation asset grid.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 939366473,
+      "controls": ["filter", "picker", "drag"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-8",
+    "category": "filtering",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-filtering-8",
+      "scenario": "Flight filters with time-of-day and duration ranges plus per-airline fares.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1090365044,
+      "controls": ["filter"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-filtering-9",
+    "category": "filtering",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-filtering-9",
+      "scenario": "Scrollable cuisine pills above rating, price level, and dietary filters.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1107142663,
+      "controls": ["filter"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-file-manager-1",
+    "category": "file-manager",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-file-manager-1",
+      "scenario": "Drive explorer with a folder tree, suggested folders, file table, and storage meter.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3017273087,
+      "controls": ["tabs", "attachments"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-file-manager-2",
+    "category": "file-manager",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-file-manager-2",
+      "scenario": "Asset grid with breadcrumbs, type filters, folder cards, and a selection bar.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3034050706,
+      "controls": ["filter", "picker", "attachments"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-file-manager-3",
+    "category": "file-manager",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-file-manager-3",
+      "scenario": "File browser with a detail panel showing preview, metadata, sharing, and activity.",
+      "surface": "table",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 3050828325,
+      "controls": ["attachments"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-file-manager-4",
+    "category": "file-manager",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-file-manager-4",
+      "scenario": "Upload manager with a dropzone, per-file progress, retries, and a transfer summary.",
+      "surface": "timeline",
+      "initialState": "empty",
+      "visualMode": "balanced",
+      "seed": 2933384992,
+      "controls": ["attachments", "upload", "drag"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-1",
+    "category": "monitoring",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-1",
+      "scenario": "Platform health overview with KPI deltas, an interactive throughput chart, and an incident feed.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1852483901,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-2",
+    "category": "monitoring",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-2",
+      "scenario": "Live metric stream with a rolling window, pause control, threshold line, and peak stats.",
+      "surface": "panel",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1802151044,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-3",
+    "category": "monitoring",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-3",
+      "scenario": "Incident detail with a status selector, response timeline, update composer, and responders.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 1818928663,
+      "controls": ["picker", "compose"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-4",
+    "category": "monitoring",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-4",
+      "scenario": "Alert inbox with firing, pending, and resolved tabs, sparklines, runbooks, and silencing.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1768595806,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-5",
+    "category": "monitoring",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-5",
+      "scenario": "Live log tail with level filters, follow mode, pause control, and expandable JSON context.",
+      "surface": "panel",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1785373425,
+      "controls": ["filter", "tabs", "expand"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-6",
+    "category": "monitoring",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-6",
+      "scenario": "Uptime grid with per-day status bars, selectable windows, and per-service incident history.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1735040568,
+      "controls": ["tabs", "picker"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-7",
+    "category": "monitoring",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-7",
+      "scenario": "Fleet table with region filters, sortable resource columns, and per-node utilisation meters.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1751818187,
+      "controls": ["filter", "tabs", "sort"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-8",
+    "category": "monitoring",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-8",
+      "scenario": "Response time panel with percentile cards, a latency histogram, and a sortable endpoint table.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1701485330,
+      "controls": ["tabs", "sort"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-9",
+    "category": "monitoring",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-9",
+      "scenario": "Live run queue grouped by state with progress rings, environments, and attention filtering.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1718262949,
+      "controls": ["filter"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-monitoring-10",
+    "category": "monitoring",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-monitoring-10",
+      "scenario": "Service level objectives with an error budget burn-down chart and per-objective budget bars.",
+      "surface": "rail",
+      "initialState": "error",
+      "visualMode": "focus",
+      "seed": 3739754359,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-empty-state-1",
+    "category": "empty-state",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-empty-state-1",
+      "scenario": "First-run workspace with a ghosted preview of the future table and three starting paths.",
+      "surface": "table",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 1778134540,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-empty-state-2",
+    "category": "empty-state",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-empty-state-2",
+      "scenario": "No search results with the query echoed, removable filter chips, and suggested searches.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1828467397,
+      "controls": ["search", "filter"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-empty-state-3",
+    "category": "empty-state",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-empty-state-3",
+      "scenario": "All caught up view summarising the day's work and offering optional next actions.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1811689778,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-empty-state-4",
+    "category": "empty-state",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-empty-state-4",
+      "scenario": "Failed to load state with request details, a trace ID, and a retry affordance.",
+      "surface": "split",
+      "initialState": "error",
+      "visualMode": "focus",
+      "seed": 1727801683,
+      "controls": ["retry"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-empty-state-5",
+    "category": "empty-state",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-empty-state-5",
+      "scenario": "Empty folder dropzone with drag feedback, supported formats, and a storage footnote.",
+      "surface": "form",
+      "initialState": "empty",
+      "visualMode": "balanced",
+      "seed": 1711024064,
+      "controls": ["upload", "drag"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-settings-form-1",
+    "category": "settings-form",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-settings-form-1",
+      "scenario": "Settings page with section navigation and a sticky unsaved-changes save bar.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3161268395,
+      "controls": ["save", "pagination"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-settings-form-2",
+    "category": "settings-form",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-settings-form-2",
+      "scenario": "Profile form with avatar upload, field validation, and inline help text.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "dense",
+      "seed": 3178046014,
+      "controls": ["attachments", "upload"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-settings-form-3",
+    "category": "settings-form",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-settings-form-3",
+      "scenario": "Preferences form with switches, radio cards, and segmented controls.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3194823633,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-settings-form-4",
+    "category": "settings-form",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-settings-form-4",
+      "scenario": "Team members management with role selects, invite row, and pending states.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3211601252,
+      "controls": ["picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-settings-form-5",
+    "category": "settings-form",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-settings-form-5",
+      "scenario": "API keys and integrations with reveal, copy, rotate, and revoke actions.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3228378871,
+      "controls": ["save"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-settings-form-6",
+    "category": "settings-form",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-settings-form-6",
+      "scenario": "Danger zone with staged destructive confirmations and consequence summaries.",
+      "surface": "form",
+      "initialState": "success",
+      "visualMode": "balanced",
+      "seed": 3245156490,
+      "controls": ["confirm"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-1",
+    "category": "forms",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-forms-1",
+      "scenario": "Label-left record form with a token field, live completion meter, and revert.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2335680534,
+      "controls": ["save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-2",
+    "category": "forms",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-forms-2",
+      "scenario": "Two-column submission form with radio cards, validation, and a derived checklist.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2318902915,
+      "controls": ["filter"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-3",
+    "category": "forms",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-forms-3",
+      "scenario": "Sectioned booking form with an editable line-items table and live totals.",
+      "surface": "calendar",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2302125296,
+      "controls": ["tabs", "save"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-4",
+    "category": "forms",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-forms-4",
+      "scenario": "Inline-edit property panel where one record row opens for editing at a time.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2419568629,
+      "controls": ["save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-5",
+    "category": "forms",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-forms-5",
+      "scenario": "Provisioning form with subdomain availability, password strength, and a success state.",
+      "surface": "calendar",
+      "initialState": "success",
+      "visualMode": "balanced",
+      "seed": 2402791010,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-6",
+    "category": "forms",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-forms-6",
+      "scenario": "Checkout with country-driven regions, card formatting, and a live order summary.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2386013391,
+      "controls": ["sort"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-7",
+    "category": "forms",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-forms-7",
+      "scenario": "Application form with a dropzone, radio cards, token input, and a completion meter.",
+      "surface": "grid",
+      "initialState": "empty",
+      "visualMode": "balanced",
+      "seed": 2369235772,
+      "controls": ["upload", "drag", "compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-8",
+    "category": "forms",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-forms-8",
+      "scenario": "Rule builder whose operators follow the selected field type, with a live test run.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2486679105,
+      "controls": ["picker"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-9",
+    "category": "forms",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-forms-9",
+      "scenario": "Weekly opening hours with per-day intervals, overlap validation, and a live total.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2469901486,
+      "controls": ["save"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-10",
+    "category": "forms",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-forms-10",
+      "scenario": "Guest survey with a 0-10 scale, a rating matrix, and conditional follow-up questions.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1318958034,
+      "controls": ["save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-11",
+    "category": "forms",
+    "variant": 11,
+    "profile": {
+      "key": "hbar-app-ui-forms-11",
+      "scenario": "Create-environment dialog with a segmented kind picker and live slug availability.",
+      "surface": "calendar",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1335735653,
+      "controls": ["tabs", "picker"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-forms-12",
+    "category": "forms",
+    "variant": 12,
+    "profile": {
+      "key": "hbar-app-ui-forms-12",
+      "scenario": "Multi-step quote review with expand-to-edit sections and a running premium summary.",
+      "surface": "form",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 1285402796,
+      "controls": ["save", "expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-dialog-1",
+    "category": "app-dialog",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-app-dialog-1",
+      "scenario": "Standard dialog with header, scrollable body, and a footer action pair.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1443758565,
+      "controls": ["confirm"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-dialog-2",
+    "category": "app-dialog",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-app-dialog-2",
+      "scenario": "Destructive confirmation dialog requiring the resource name to be typed.",
+      "surface": "overlay",
+      "initialState": "success",
+      "visualMode": "balanced",
+      "seed": 1393425708,
+      "controls": ["confirm"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-dialog-3",
+    "category": "app-dialog",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-app-dialog-3",
+      "scenario": "Form dialog with field validation and a sticky footer.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1410203327,
+      "controls": ["confirm"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-dialog-4",
+    "category": "app-dialog",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-app-dialog-4",
+      "scenario": "Multi-step dialog with a progress indicator and back and next navigation.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1359870470,
+      "controls": ["confirm"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-dialog-5",
+    "category": "app-dialog",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-app-dialog-5",
+      "scenario": "Side drawer containing a form with an unsaved-changes guard.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "stack",
+      "seed": 1376648089,
+      "controls": ["save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-dialog-6",
+    "category": "app-dialog",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-app-dialog-6",
+      "scenario": "Detail sheet with summary content, metadata, and secondary actions.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 1326315232,
+      "controls": ["confirm"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-app-dialog-7",
+    "category": "app-dialog",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-app-dialog-7",
+      "scenario": "Popover and dropdown set with menus, submenus, separators, and shortcuts.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1343092851,
+      "controls": ["picker", "drag"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-notifications-1",
+    "category": "notifications",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-notifications-1",
+      "scenario": "Notification center grouped by day with unread filters, per-row read toggles, and dismissal.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3503329909,
+      "controls": ["filter"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-notifications-2",
+    "category": "notifications",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-notifications-2",
+      "scenario": "Toast stack that collapses when idle, expands on hover, and pauses its auto-dismiss timers.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3452997052,
+      "controls": ["expand"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-notifications-3",
+    "category": "notifications",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-notifications-3",
+      "scenario": "Delivery preferences matrix across in-app, email, and push with quiet hours and a save bar.",
+      "surface": "rail",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 3469774671,
+      "controls": ["save"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-notifications-4",
+    "category": "notifications",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-notifications-4",
+      "scenario": "Activity inbox pairing a filterable list with a detail pane holding context and snooze actions.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 3419441814,
+      "controls": ["filter"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-notifications-5",
+    "category": "notifications",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-notifications-5",
+      "scenario": "Inline banner set covering info, warning, error with details, success, and usage limits.",
+      "surface": "split",
+      "initialState": "error",
+      "visualMode": "dense",
+      "seed": 3436219433,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-notifications-6",
+    "category": "notifications",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-notifications-6",
+      "scenario": "App bar bell with an unread badge and an anchored popover panel that closes on Escape.",
+      "surface": "overlay",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 3385886576,
+      "controls": ["confirm"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-onboarding-1",
+    "category": "onboarding",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-onboarding-1",
+      "scenario": "Split-screen profile setup with a live directory preview of what teammates will see.",
+      "surface": "table",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 1717978106,
+      "controls": ["attachments"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-onboarding-2",
+    "category": "onboarding",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-onboarding-2",
+      "scenario": "Six-step vertical stepper with a labelled rail and a real form body on every step.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 1701200487,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-onboarding-3",
+    "category": "onboarding",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-onboarding-3",
+      "scenario": "Getting-started checklist with a live progress bar and a per-task action.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1684422868,
+      "controls": ["filter"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-onboarding-4",
+    "category": "onboarding",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-onboarding-4",
+      "scenario": "Use-case picker with selectable option tiles and a segmented team-size control.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1667645249,
+      "controls": ["tabs", "picker"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-onboarding-5",
+    "category": "onboarding",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-onboarding-5",
+      "scenario": "Invite-teammates rows with per-person role selects, a shareable link, and a copy action.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1650867630,
+      "controls": ["picker"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-onboarding-6",
+    "category": "onboarding",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-onboarding-6",
+      "scenario": "Setup-complete summary listing what was configured, with the two obvious next actions.",
+      "surface": "table",
+      "initialState": "success",
+      "visualMode": "balanced",
+      "seed": 1634090011,
+      "controls": ["filter"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-onboarding-7",
+    "category": "onboarding",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-onboarding-7",
+      "scenario": "Horizontal top stepper over a workspace form with a live URL slug preview.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 1617312392,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-paywall-1",
+    "category": "paywall",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-paywall-1",
+      "scenario": "Article content lock with a fade-out preview and an inline membership card.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "dense",
+      "seed": 947776175,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-paywall-2",
+    "category": "paywall",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-paywall-2",
+      "scenario": "Feature-gate dialog listing what the upgrade unlocks, with a dismiss action.",
+      "surface": "overlay",
+      "initialState": "review",
+      "visualMode": "balanced",
+      "seed": 964553794,
+      "controls": ["confirm"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-paywall-3",
+    "category": "paywall",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-paywall-3",
+      "scenario": "Three-plan comparison with a monthly and yearly switch and a marked current plan.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 981331413,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-paywall-4",
+    "category": "paywall",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-paywall-4",
+      "scenario": "Usage-cap notice with per-quota meters and a top-up or upgrade choice.",
+      "surface": "panel",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 863888080,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-paywall-5",
+    "category": "paywall",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-paywall-5",
+      "scenario": "Trial-expired card showing retained data and one-click reactivation on file.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 880665699,
+      "controls": ["attachments"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-paywall-6",
+    "category": "paywall",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-paywall-6",
+      "scenario": "Metered reads counter with an email capture and a sign-in alternative.",
+      "surface": "form",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 897443318,
+      "controls": ["save"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-paywall-7",
+    "category": "paywall",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-paywall-7",
+      "scenario": "Seat-level gate that routes an upgrade request to the workspace admins.",
+      "surface": "panel",
+      "initialState": "review",
+      "visualMode": "balanced",
+      "seed": 914220937,
+      "controls": ["confirm"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-1",
+    "category": "authentication",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-authentication-1",
+      "scenario": "Centered sign-in card with a password reveal, keep-me-signed-in, and a three-up provider row.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2172082575,
+      "controls": ["save"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-2",
+    "category": "authentication",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-authentication-2",
+      "scenario": "Provider-first sign-in column that swaps the email field for a company domain when SSO is chosen.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2188860194,
+      "controls": ["save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-3",
+    "category": "authentication",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-authentication-3",
+      "scenario": "Split sign-in with a rotating customer quote, author avatar, and a framed stat strip.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "split",
+      "seed": 2205637813,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-4",
+    "category": "authentication",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-authentication-4",
+      "scenario": "Two-step email then password flow that recalls the matched account before asking for a secret.",
+      "surface": "timeline",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2088194480,
+      "controls": ["expand"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-5",
+    "category": "authentication",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-authentication-5",
+      "scenario": "Magic-link confirmation with a delivery summary, resend countdown, and a way back to the form.",
+      "surface": "form",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2104972099,
+      "controls": ["confirm"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-6",
+    "category": "authentication",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-authentication-6",
+      "scenario": "Six-digit code entry with paste support, auto-verify, resend timer, and a recovery-code mode.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2121749718,
+      "controls": ["tabs", "retry"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-7",
+    "category": "authentication",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-authentication-7",
+      "scenario": "Sign-up card with a segmented strength meter and a live two-column password requirement list.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2138527337,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-8",
+    "category": "authentication",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-authentication-8",
+      "scenario": "Enterprise SSO screen that detects the identity provider from the email domain as you type.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2289525908,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-9",
+    "category": "authentication",
+    "variant": 9,
+    "profile": {
+      "key": "hbar-app-ui-authentication-9",
+      "scenario": "Passkey sign-in with a device picker, a waiting state, and fallbacks to password or email link.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2306303527,
+      "controls": ["picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-10",
+    "category": "authentication",
+    "variant": 10,
+    "profile": {
+      "key": "hbar-app-ui-authentication-10",
+      "scenario": "Account chooser listing remembered profiles with session status and an add-account row.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2380416941,
+      "controls": ["picker", "attachments"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-11",
+    "category": "authentication",
+    "variant": 11,
+    "profile": {
+      "key": "hbar-app-ui-authentication-11",
+      "scenario": "Workspace picker with search, invitations, an empty state, and scroll fades over the list.",
+      "surface": "table",
+      "initialState": "empty",
+      "visualMode": "balanced",
+      "seed": 2363639322,
+      "controls": ["search", "picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-12",
+    "category": "authentication",
+    "variant": 12,
+    "profile": {
+      "key": "hbar-app-ui-authentication-12",
+      "scenario": "Invitation acceptance split with the inviting teammate, shared projects, and a member stack.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "split",
+      "seed": 2346861703,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-13",
+    "category": "authentication",
+    "variant": 13,
+    "profile": {
+      "key": "hbar-app-ui-authentication-13",
+      "scenario": "Password reset with match validation and the device sessions the change will end.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2330084084,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-authentication-14",
+    "category": "authentication",
+    "variant": 14,
+    "profile": {
+      "key": "hbar-app-ui-authentication-14",
+      "scenario": "Sign-in approval challenge showing request details, approve or block, and recent activity.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 2313306465,
+      "controls": ["confirm"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-kanban-1",
+    "category": "kanban",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-kanban-1",
+      "scenario": "Status board with pointer drag-and-drop, keyboard card moves, WIP limits, and an inline composer.",
+      "surface": "form",
+      "initialState": "warning",
+      "visualMode": "dense",
+      "seed": 1785099864,
+      "controls": ["drag", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-kanban-2",
+    "category": "kanban",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-kanban-2",
+      "scenario": "Swimlane board with collapsible workstreams, a sticky stage header, and drag between any lane and column.",
+      "surface": "rail",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1835432721,
+      "controls": ["drag", "expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-kanban-3",
+    "category": "kanban",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-kanban-3",
+      "scenario": "Regroupable board where dropping a card into a column sets its status, assignee, or priority.",
+      "surface": "timeline",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1818655102,
+      "controls": ["drag"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-kanban-4",
+    "category": "kanban",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-kanban-4",
+      "scenario": "Board with a master-detail side panel holding properties, stage controls, and an activity thread.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 1868987959,
+      "controls": ["drag"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-kanban-5",
+    "category": "kanban",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-kanban-5",
+      "scenario": "Sprint board with point totals, per-column capacity meters, blocked flags, and a burn-down stat strip.",
+      "surface": "timeline",
+      "initialState": "error",
+      "visualMode": "balanced",
+      "seed": 1852210340,
+      "controls": ["drag"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-kanban-6",
+    "category": "kanban",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-kanban-6",
+      "scenario": "Compact task board with per-card step controls and a segmented column pager on small screens.",
+      "surface": "timeline",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 1902543197,
+      "controls": ["tabs", "pagination", "drag"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-wizard-1",
+    "category": "wizard",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-wizard-1",
+      "scenario": "Card wizard with an inline step header and a two-column details form in a tinted footer frame.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2848436796,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-wizard-2",
+    "category": "wizard",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-wizard-2",
+      "scenario": "Full-screen task wizard with a centred progress bar, a step counter, and grouped form sections.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "airy",
+      "seed": 2898769653,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-wizard-3",
+    "category": "wizard",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-wizard-3",
+      "scenario": "Plan-selection step with radio rows beside a framed invoice preview and a draft status badge.",
+      "surface": "table",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 2881992034,
+      "controls": ["picker"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-wizard-4",
+    "category": "wizard",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-wizard-4",
+      "scenario": "Service-selection step: a two-band header, a checkable tile grid, and a live summary footer.",
+      "surface": "rail",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2798103939,
+      "controls": ["picker"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-wizard-5",
+    "category": "wizard",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-wizard-5",
+      "scenario": "Review-and-confirm step with per-section edit actions and a confirmation checkbox before submit.",
+      "surface": "timeline",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 2781326320,
+      "controls": ["save", "confirm"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-wizard-6",
+    "category": "wizard",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-wizard-6",
+      "scenario": "Running step showing overall progress with per-task done, active, pending, and warning states.",
+      "surface": "timeline",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 2831659177,
+      "controls": ["expand"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-wizard-7",
+    "category": "wizard",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-wizard-7",
+      "scenario": "Compact modal wizard: one question per step, dot pagination, and an inline back and continue pair.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2814881558,
+      "controls": ["pagination"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-comments-1",
+    "category": "comments",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-comments-1",
+      "scenario": "Threaded discussion with nested replies, reactions, sort control, and a composer.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2194405805,
+      "controls": ["sort", "expand", "compose"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-comments-2",
+    "category": "comments",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-comments-2",
+      "scenario": "Inline document annotation with clickable highlighted ranges and a comments rail.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2144072948,
+      "controls": ["tabs"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-comments-3",
+    "category": "comments",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-comments-3",
+      "scenario": "Code review thread pairing a diff panel with review notes and a suggested change.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 2160850567,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-comments-4",
+    "category": "comments",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-comments-4",
+      "scenario": "Comment composer with mention autocomplete, attachment chips, and a formatting bar.",
+      "surface": "rail",
+      "initialState": "success",
+      "visualMode": "balanced",
+      "seed": 2110517710,
+      "controls": ["search", "attachments", "compose"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-comments-5",
+    "category": "comments",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-comments-5",
+      "scenario": "Comment inbox with All, Unresolved, and Mentions tabs plus per-row resolve actions.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2127295329,
+      "controls": ["search", "tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-comments-6",
+    "category": "comments",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-comments-6",
+      "scenario": "Canvas comment panel with numbered pin markers and a linked side rail of notes.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 2076962472,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-scheduling-1",
+    "category": "scheduling",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-scheduling-1",
+      "scenario": "Month calendar beside a scrollable day agenda, with event dots and a filterable list.",
+      "surface": "calendar",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 504467109,
+      "controls": ["filter"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-scheduling-2",
+    "category": "scheduling",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-scheduling-2",
+      "scenario": "Compact time-range card with start and end selects and a wrap-around duration chip set.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 454134252,
+      "controls": ["picker"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-scheduling-3",
+    "category": "scheduling",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-scheduling-3",
+      "scenario": "New-schedule form in a framed card: attendee chips, date, times, attachments, and notes.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 470911871,
+      "controls": ["attachments"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-scheduling-4",
+    "category": "scheduling",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-scheduling-4",
+      "scenario": "Deadline picker with quick presets above a calendar and a scrollable time-slot column.",
+      "surface": "calendar",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 420579014,
+      "controls": ["picker"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-scheduling-5",
+    "category": "scheduling",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-scheduling-5",
+      "scenario": "Weekly availability editor with per-day switches and multiple bookable intervals.",
+      "surface": "calendar",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 437356633,
+      "controls": ["save"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-scheduling-6",
+    "category": "scheduling",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-scheduling-6",
+      "scenario": "Week timeline grid with an hour rail, positioned events, and a view segmented control.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 387023776,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-scheduling-7",
+    "category": "scheduling",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-scheduling-7",
+      "scenario": "Booking page with a meeting summary, a horizontal day strip, and a time-slot grid.",
+      "surface": "calendar",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 403801395,
+      "controls": ["pagination"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-integrations-1",
+    "category": "integrations",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-integrations-1",
+      "scenario": "Integration marketplace grid with category tabs, search, connect toggles, and an empty state.",
+      "surface": "rail",
+      "initialState": "empty",
+      "visualMode": "balanced",
+      "seed": 3919297004,
+      "controls": ["search", "tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-integrations-2",
+    "category": "integrations",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-integrations-2",
+      "scenario": "Connection detail pairing scope switches with an activity feed and a disconnect confirmation.",
+      "surface": "split",
+      "initialState": "success",
+      "visualMode": "focus",
+      "seed": 3969629861,
+      "controls": ["confirm"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-integrations-3",
+    "category": "integrations",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-integrations-3",
+      "scenario": "API key table with masked secrets, reveal, copy, rotate, and revoke row actions.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3952852242,
+      "controls": ["tabs"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-integrations-4",
+    "category": "integrations",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-integrations-4",
+      "scenario": "Webhook endpoints beside an expandable delivery log with payloads and replay controls.",
+      "surface": "panel",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 3868964147,
+      "controls": ["expand"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-integrations-5",
+    "category": "integrations",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-integrations-5",
+      "scenario": "OAuth consent screen with a workspace picker, scope list, and an authorized success state.",
+      "surface": "table",
+      "initialState": "review",
+      "visualMode": "balanced",
+      "seed": 3852186528,
+      "controls": ["picker", "confirm"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-integrations-6",
+    "category": "integrations",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-integrations-6",
+      "scenario": "Sync status dashboard with per-source progress meters, failure detail, and pause controls.",
+      "surface": "split",
+      "initialState": "error",
+      "visualMode": "focus",
+      "seed": 3902519385,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-editor-1",
+    "category": "editor",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-editor-1",
+      "scenario": "Rich text editor with a block type menu, mark toolbar, autosave state, and a word count bar.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 55656666,
+      "controls": ["save"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-editor-2",
+    "category": "editor",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-editor-2",
+      "scenario": "Markdown workspace switching between write, split, and preview with live rendered output.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 38879047,
+      "controls": ["save"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-editor-3",
+    "category": "editor",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-editor-3",
+      "scenario": "Code editor with closable file tabs, a line gutter, a minimap rail, and a status bar.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 22101428,
+      "controls": ["tabs", "attachments", "save"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-editor-4",
+    "category": "editor",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-editor-4",
+      "scenario": "Suggestion review mode pairing inline highlights with an accept and dismiss side panel.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "dense",
+      "seed": 5323809,
+      "controls": ["tabs", "save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-editor-5",
+    "category": "editor",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-editor-5",
+      "scenario": "Long document reader with a collapsible outline rail and a focus mode that dims other sections.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 4283513486,
+      "controls": ["tabs", "save", "expand"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-feedback-1",
+    "category": "feedback",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-feedback-1",
+      "scenario": "In-app feedback widget with a type switch, screenshot attachment, and a sent state.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2834842148,
+      "controls": ["attachments"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-feedback-2",
+    "category": "feedback",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-feedback-2",
+      "scenario": "Recommendation survey with an eleven-point scale and score-aware follow-up.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2885175005,
+      "controls": ["save"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-feedback-3",
+    "category": "feedback",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-feedback-3",
+      "scenario": "Post-resolution rating with hover stars and reason chips that follow the score.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2868397386,
+      "controls": ["save"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-feedback-4",
+    "category": "feedback",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-feedback-4",
+      "scenario": "Feature request board with vote toggles, status pills, and sort tabs.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 2784509291,
+      "controls": ["tabs", "sort"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-feedback-5",
+    "category": "feedback",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-feedback-5",
+      "scenario": "Feedback triage inbox pairing a source list with a taggable detail pane.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 2767731672,
+      "controls": ["filter"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-feedback-6",
+    "category": "feedback",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-feedback-6",
+      "scenario": "Insights view with sentiment split, top themes, and daily response volume.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "split",
+      "seed": 2818064529,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-support-1",
+    "category": "support",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-support-1",
+      "scenario": "Help center home with search, topic cards, popular articles, and a contact row.",
+      "surface": "grid",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1657807466,
+      "controls": ["search"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-support-2",
+    "category": "support",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-support-2",
+      "scenario": "Ticket form with inline article suggestions, priority-driven response time, and attachments.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "dense",
+      "seed": 1641029847,
+      "controls": ["picker", "attachments", "confirm"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-support-3",
+    "category": "support",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-support-3",
+      "scenario": "Ticket conversation thread with a reply composer and a timeline sidebar.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1624252228,
+      "controls": ["compose", "confirm"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-support-4",
+    "category": "support",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-support-4",
+      "scenario": "Support chat widget answering from workspace data, with a handoff to a person.",
+      "surface": "overlay",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1607474609,
+      "controls": ["compose", "expand"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-support-5",
+    "category": "support",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-support-5",
+      "scenario": "Request list with status pills, filter tabs, and per-ticket reply counts.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1590696990,
+      "controls": ["tabs", "search"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-1",
+    "category": "billing",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-billing-1",
+      "scenario": "Billing overview with a statement summary, past due recovery, and an invoice ledger.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3997508118,
+      "controls": ["retry"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-2",
+    "category": "billing",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-billing-2",
+      "scenario": "Plan manager with entitlement cards, unsaved-change bar, and per-plan toggles.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 3980730499,
+      "controls": ["save"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-3",
+    "category": "billing",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-billing-3",
+      "scenario": "New invoice wizard with a step indicator, customer details, and payment terms.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 3963952880,
+      "controls": ["tabs"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-4",
+    "category": "billing",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-billing-4",
+      "scenario": "Recovery queue with retry metrics and an expandable failed-charge attempt log.",
+      "surface": "table",
+      "initialState": "error",
+      "visualMode": "balanced",
+      "seed": 4081396213,
+      "controls": ["retry", "expand"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-5",
+    "category": "billing",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-billing-5",
+      "scenario": "Change plan flow pairing tier selection with a live proration preview.",
+      "surface": "split",
+      "initialState": "review",
+      "visualMode": "focus",
+      "seed": 4064618594,
+      "controls": ["picker"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-6",
+    "category": "billing",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-billing-6",
+      "scenario": "Payment methods with primary card selection, billing contacts, and tax details.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 4047840975,
+      "controls": ["picker"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-7",
+    "category": "billing",
+    "variant": 7,
+    "profile": {
+      "key": "hbar-app-ui-billing-7",
+      "scenario": "Usage and overage view with metered allowances, limits, and an estimated total.",
+      "surface": "panel",
+      "initialState": "warning",
+      "visualMode": "balanced",
+      "seed": 4031063356,
+      "controls": ["tabs"],
+      "itemCount": 3
+    }
+  },
+  {
+    "id": "hbar-app-ui-billing-8",
+    "category": "billing",
+    "variant": 8,
+    "profile": {
+      "key": "hbar-app-ui-billing-8",
+      "scenario": "Invoice detail with line items, totals, an activity timeline, and collection info.",
+      "surface": "split",
+      "initialState": "idle",
+      "visualMode": "focus",
+      "seed": 4148506689,
+      "controls": ["tabs"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-chat-1",
+    "category": "chat",
+    "variant": 1,
+    "profile": {
+      "key": "hbar-app-ui-chat-1",
+      "scenario": "Team channel workspace with a channel sidebar, threaded messages, and a composer.",
+      "surface": "rail",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1847519737,
+      "controls": ["compose"],
+      "itemCount": 4
+    }
+  },
+  {
+    "id": "hbar-app-ui-chat-2",
+    "category": "chat",
+    "variant": 2,
+    "profile": {
+      "key": "hbar-app-ui-chat-2",
+      "scenario": "Direct message inbox with a conversation list, chat bubbles, and read receipts.",
+      "surface": "table",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1797186880,
+      "controls": ["compose"],
+      "itemCount": 2
+    }
+  },
+  {
+    "id": "hbar-app-ui-chat-3",
+    "category": "chat",
+    "variant": 3,
+    "profile": {
+      "key": "hbar-app-ui-chat-3",
+      "scenario": "Social thread with a lead post, nested replies, reactions, and a reply composer.",
+      "surface": "form",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1813964499,
+      "controls": ["expand", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-chat-4",
+    "category": "chat",
+    "variant": 4,
+    "profile": {
+      "key": "hbar-app-ui-chat-4",
+      "scenario": "Support chat widget with a transcript, quick replies, attachments, and a rating.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1897852594,
+      "controls": ["attachments", "compose"],
+      "itemCount": 6
+    }
+  },
+  {
+    "id": "hbar-app-ui-chat-5",
+    "category": "chat",
+    "variant": 5,
+    "profile": {
+      "key": "hbar-app-ui-chat-5",
+      "scenario": "Group chat with image and file attachments, emoji reactions, and thread counts.",
+      "surface": "panel",
+      "initialState": "idle",
+      "visualMode": "balanced",
+      "seed": 1914630213,
+      "controls": ["attachments", "compose"],
+      "itemCount": 5
+    }
+  },
+  {
+    "id": "hbar-app-ui-chat-6",
+    "category": "chat",
+    "variant": 6,
+    "profile": {
+      "key": "hbar-app-ui-chat-6",
+      "scenario": "Live stream chat with a pinned notice, host and moderator badges, and a viewer list.",
+      "surface": "table",
+      "initialState": "active",
+      "visualMode": "balanced",
+      "seed": 1864297356,
+      "controls": ["tabs", "compose"],
+      "itemCount": 3
+    }
+  }
+]

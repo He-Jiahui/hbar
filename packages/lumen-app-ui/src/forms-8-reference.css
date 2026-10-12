@@ -1,0 +1,406 @@
+.lumen-forms-8-surface {
+  display: flex;
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-panel, 0.75rem);
+}
+
+.lumen-forms-8-reference,
+.lumen-forms-8-reference * {
+  box-sizing: border-box;
+}
+
+.lumen-forms-8-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  color: var(--lumen-ink);
+}
+
+.lumen-forms-8-reference :is(h2, h3, p) {
+  margin: 0;
+}
+
+.lumen-forms-8-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  padding: 0.75rem 1rem 0.875rem;
+  background: color-mix(in srgb, var(--lumen-ink) 3%, var(--lumen-contrast));
+}
+
+.lumen-forms-8-heading > h2 {
+  font-size: 1rem;
+  font-weight: 550;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-8-heading > p,
+.lumen-forms-8-action-heading > p {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-8-content {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem;
+}
+
+.lumen-forms-8-when,
+.lumen-forms-8-then,
+.lumen-forms-8-summary {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-forms-8-section-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.lumen-forms-8-section-heading > h3 {
+  min-inline-size: 0;
+  font-size: 0.9375rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.lumen-forms-8-match-mode {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.125rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.125rem;
+  background: color-mix(in srgb, var(--lumen-ink) 3%, var(--lumen-contrast));
+}
+
+.lumen-forms-8-match-option {
+  min-inline-size: 0;
+  padding-inline: 0.625rem;
+  color: var(--lumen-muted);
+}
+
+.lumen-forms-8-match-option[data-selected='true'] {
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  box-shadow: 0 0 0 0.0625rem var(--lumen-edge);
+}
+
+.lumen-forms-8-condition-list,
+.lumen-forms-8-action-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.375rem;
+  background: color-mix(in srgb, var(--lumen-ink) 2%, var(--lumen-contrast));
+}
+
+.lumen-forms-8-condition,
+.lumen-forms-8-action-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.375rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-forms-8-picker,
+.lumen-forms-8-value-control,
+.lumen-forms-8-range-control {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-forms-8-picker {
+  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+  flex: 1 1 0;
+}
+
+.lumen-forms-8-condition > .lumen-forms-8-picker:first-child {
+  flex: 0 1 10.5rem;
+}
+
+.lumen-forms-8-condition > .lumen-forms-8-picker:nth-child(2) {
+  flex: 0 1 9.25rem;
+}
+
+.lumen-forms-8-picker-trigger,
+.lumen-forms-8-action-picker {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  text-align: start;
+}
+
+.lumen-forms-8-picker-trigger > span,
+.lumen-forms-8-action-picker > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-forms-8-options {
+  position: absolute;
+  inset-block-start: calc(100% + 0.375rem);
+  inset-inline-start: 0;
+  z-index: 2;
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  flex-direction: column;
+  gap: 0.125rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.25rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-forms-8-option {
+  display: flex;
+  min-block-size: 2.25rem;
+  min-inline-size: 0;
+  align-items: center;
+  border: 0;
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.375rem 0.5rem;
+  background: transparent;
+  color: var(--lumen-ink);
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.lumen-forms-8-option[data-active='true'],
+.lumen-forms-8-option:hover {
+  background: color-mix(in srgb, var(--lumen-ink) 7%, var(--lumen-contrast));
+}
+
+.lumen-forms-8-icon {
+  display: block;
+  flex: 0 0 auto;
+  color: currentColor;
+  stroke-width: 1.8;
+}
+
+.lumen-forms-8-icon-xs {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+}
+
+.lumen-forms-8-icon-sm {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+}
+
+.lumen-forms-8-input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  text-align: start;
+}
+
+.lumen-forms-8-value-control {
+  flex: 1 1 auto;
+  justify-content: space-between;
+}
+
+.lumen-forms-8-range-control {
+  flex: 1 1 auto;
+}
+
+.lumen-forms-8-range-control > .lumen-forms-8-input {
+  flex-basis: 0;
+}
+
+.lumen-forms-8-unit {
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-forms-8-boolean {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.125rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.125rem;
+}
+
+.lumen-forms-8-boolean-option {
+  padding-inline: 0.625rem;
+  color: var(--lumen-muted);
+}
+
+.lumen-forms-8-boolean-option[data-selected='true'] {
+  background: color-mix(in srgb, var(--lumen-ink) 5%, var(--lumen-contrast));
+  color: var(--lumen-ink);
+  box-shadow: 0 0 0 0.0625rem var(--lumen-edge);
+}
+
+.lumen-forms-8-remove-condition {
+  display: inline-flex;
+  min-inline-size: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  color: var(--lumen-muted);
+}
+
+.lumen-forms-8-remove-condition:hover {
+  color: var(--lumen-ink);
+}
+
+.lumen-forms-8-add-condition {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lumen-forms-8-action-heading {
+  align-items: baseline;
+}
+
+.lumen-forms-8-action-heading > p {
+  flex: 0 1 auto;
+}
+
+.lumen-forms-8-action-row > .lumen-forms-8-action-picker:first-child {
+  flex: 0 1 12.5rem;
+}
+
+.lumen-forms-8-summary-card {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  border-radius: var(--lumen-radius-control, 0.5rem);
+  padding: 0.875rem 1rem;
+  background: color-mix(in srgb, var(--lumen-ink) 4%, var(--lumen-contrast));
+}
+
+.lumen-forms-8-summary-card > p:first-child {
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  font-weight: 550;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lumen-forms-8-summary-card > p:last-child {
+  min-inline-size: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-forms-8-footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--lumen-contrast) 82%, var(--lumen-glass));
+}
+
+.lumen-forms-8-test-button,
+.lumen-forms-8-save-button {
+  flex: 0 0 auto;
+}
+
+.lumen-forms-8-validation {
+  flex: 1 1 auto;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: end;
+}
+
+.lumen-forms-8-reference :is(button, input):focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+@media (max-width: 36rem) {
+  .lumen-forms-8-content {
+    gap: 0.875rem;
+    padding: 0.875rem;
+  }
+
+  .lumen-forms-8-condition,
+  .lumen-forms-8-action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lumen-forms-8-condition > .lumen-forms-8-picker:first-child,
+  .lumen-forms-8-condition > .lumen-forms-8-picker:nth-child(2),
+  .lumen-forms-8-action-row > .lumen-forms-8-action-picker:first-child {
+    flex-basis: auto;
+    inline-size: 100%;
+  }
+
+  .lumen-forms-8-value-control,
+  .lumen-forms-8-range-control,
+  .lumen-forms-8-boolean {
+    inline-size: 100%;
+  }
+
+  .lumen-forms-8-remove-condition {
+    align-self: flex-end;
+  }
+
+  .lumen-forms-8-footer {
+    gap: 0.5rem;
+    padding-inline: 0.875rem;
+  }
+}

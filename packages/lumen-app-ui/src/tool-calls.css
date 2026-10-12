@@ -1,0 +1,649 @@
+.lumen-tool-calls-root-surface {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.lumen-tool-calls {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  overflow: hidden;
+  background: transparent;
+  color: var(--lumen-ink);
+}
+
+.lumen-tool-calls *,
+.lumen-tool-calls *::before,
+.lumen-tool-calls *::after {
+  box-sizing: border-box;
+}
+
+.lumen-tool-calls h2,
+.lumen-tool-calls h3,
+.lumen-tool-calls p,
+.lumen-tool-calls ol,
+.lumen-tool-calls ul,
+.lumen-tool-calls dl,
+.lumen-tool-calls dt,
+.lumen-tool-calls dd,
+.lumen-tool-calls pre {
+  margin: 0;
+}
+
+.lumen-tool-calls ol,
+.lumen-tool-calls ul {
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-tool-calls code,
+.lumen-tool-calls pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.lumen-tool-calls-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.hbar-app-ui-tool-calls-heading,
+.hbar-app-ui-tool-calls-activity-heading,
+.hbar-app-ui-tool-calls-code-heading,
+.hbar-app-ui-tool-calls-search > header,
+.hbar-app-ui-tool-calls-command > header,
+.hbar-app-ui-tool-calls-permissions > header {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hbar-app-ui-tool-calls-heading h2,
+.hbar-app-ui-tool-calls-activity-heading h2,
+.hbar-app-ui-tool-calls-code-heading h2,
+.hbar-app-ui-tool-calls-search > header h2,
+.hbar-app-ui-tool-calls-command > header h2,
+.hbar-app-ui-tool-calls-permissions > header h2 {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-tool-calls-code-heading > code,
+.hbar-app-ui-tool-calls-search > header > code,
+.hbar-app-ui-tool-calls-command > header > code {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-tool-calls-code-heading > span,
+.hbar-app-ui-tool-calls-search > header > span,
+.hbar-app-ui-tool-calls-command > header > time {
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+}
+
+.hbar-app-ui-tool-calls-activity-heading {
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-tool-calls-activity-heading > .hbar-app-ui-tool-calls-activity-filters {
+  margin-inline-start: auto;
+}
+
+.hbar-app-ui-tool-calls-activity-heading h2 {
+  flex: 1 1 10rem;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.hbar-app-ui-tool-calls-trace-pane,
+.hbar-app-ui-tool-calls-activity-pane,
+.hbar-app-ui-tool-calls-diff > main,
+.hbar-app-ui-tool-calls-search > main,
+.hbar-app-ui-tool-calls-command > main,
+.hbar-app-ui-tool-calls-permissions > main {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-surface);
+  background: var(--lumen-glass);
+}
+
+.hbar-app-ui-tool-calls-trace-pane > ol,
+.hbar-app-ui-tool-calls-activity-pane > ol,
+.hbar-app-ui-tool-calls-diff > main > ol,
+.hbar-app-ui-tool-calls-search > main > ol {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-ui-tool-calls-trace-row,
+.hbar-app-ui-tool-calls-activity-row,
+.hbar-app-ui-tool-calls-diff-file,
+.hbar-app-ui-tool-calls-search li > button {
+  inline-size: 100%;
+  justify-content: flex-start;
+  border-radius: 0;
+  text-align: start;
+}
+
+.hbar-app-ui-tool-calls-activity-pane > ol > li > .hbar-app-ui-tool-calls-activity-row {
+  display: grid;
+  inline-size: auto;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  min-block-size: 3.75rem;
+  grid-template-columns: 0.5rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.375rem 0.75rem;
+  padding-block: 0.625rem;
+  text-align: start;
+}
+
+.hbar-app-ui-tool-calls-trace-pane > ol > li,
+.hbar-app-ui-tool-calls-activity-pane > ol > li,
+.hbar-app-ui-tool-calls-diff > main > ol > li,
+.hbar-app-ui-tool-calls-search > main > ol > li {
+  position: relative;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-tool-calls-activity-pane > ol > li {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-trace-pane > ol > li:last-child,
+.hbar-app-ui-tool-calls-activity-pane > ol > li:last-child,
+.hbar-app-ui-tool-calls-diff > main > ol > li:last-child,
+.hbar-app-ui-tool-calls-search > main > ol > li:last-child {
+  border-block-end: 0;
+}
+
+.hbar-app-ui-tool-calls-trace-row code,
+.hbar-app-ui-tool-calls-diff-file code {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-tool-calls-trace-row time,
+.hbar-app-ui-tool-calls-activity-row time {
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-tool-calls-status {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-tool-calls-trace-details {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-reading);
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-tool-calls-trace-details > :nth-child(2n + 1) {
+  flex: 0.4 1 8rem;
+  min-inline-size: 8rem;
+}
+
+.hbar-app-ui-tool-calls-trace-details > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-trace-details dl,
+.hbar-app-ui-tool-calls-trace-details > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hbar-app-ui-tool-calls-trace-details dl > div {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.5rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-tool-calls-trace-details dl > div > :nth-child(2n + 1) {
+  flex: 0 1 auto;
+  min-inline-size: 4rem;
+}
+
+.hbar-app-ui-tool-calls-trace-details dl > div > :nth-child(2n + 2) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-trace-details dd {
+  color: var(--lumen-ink);
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-tool-calls-trace-details pre,
+.hbar-app-ui-tool-calls-command-line,
+.hbar-app-ui-tool-calls-command-output {
+  min-inline-size: 0;
+  overflow: auto;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-tool-calls-trace-details pre {
+  padding: 0.625rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-glass);
+}
+
+.hbar-app-ui-tool-calls-activity-row > span:nth-child(2) {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-tool-calls-activity-row small {
+  color: var(--lumen-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-tool-calls-state-mark {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  flex: 0 0 0.5rem;
+  border-radius: 50%;
+  background: var(--lumen-subtle);
+}
+
+.hbar-app-ui-tool-calls-state-mark.is-complete,
+.hbar-app-ui-tool-calls-state-mark.is-approved {
+  background: var(--lumen-success);
+}
+
+.hbar-app-ui-tool-calls-state-mark.is-running,
+.hbar-app-ui-tool-calls-state-mark.is-streaming,
+.hbar-app-ui-tool-calls-state-mark.is-needs-approval {
+  background: var(--lumen-warning);
+}
+
+.hbar-app-ui-tool-calls-state-mark.is-failed {
+  background: var(--lumen-danger);
+}
+
+.hbar-app-ui-tool-calls-retry {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.hbar-app-ui-tool-calls-diff-file > span:last-child {
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol {
+  min-inline-size: 42rem;
+  overflow: hidden;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-reading);
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li {
+  display: flex;
+  min-inline-size: 0;
+  border-block-end: 0.0625rem solid color-mix(in srgb, var(--lumen-edge) 60%, transparent);
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li > :nth-child(4n + 1) {
+  flex: 0 0 3rem;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li > :nth-child(4n + 2) {
+  flex: 0 0 3rem;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li > :nth-child(4n + 3) {
+  flex: 0 0 1.25rem;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li > :nth-child(4n + 4) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li > span,
+.hbar-app-ui-tool-calls-diff-file + ol > li > code {
+  padding: 0.25rem 0.375rem;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li > span {
+  text-align: end;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li > code {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--lumen-ink);
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li.is-added {
+  background: color-mix(in srgb, var(--lumen-success) 10%, transparent);
+}
+
+.hbar-app-ui-tool-calls-diff-file + ol > li.is-removed {
+  background: color-mix(in srgb, var(--lumen-danger) 10%, transparent);
+}
+
+.hbar-app-ui-tool-calls-search li > button > span:first-child {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  color: var(--lumen-subtle);
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-search li > button > span:nth-child(2) {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hbar-app-ui-tool-calls-search li strong,
+.hbar-app-ui-tool-calls-search li small,
+.hbar-app-ui-tool-calls-search-excerpt {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-tool-calls-search li small,
+.hbar-app-ui-tool-calls-search-excerpt,
+.hbar-app-ui-tool-calls-search li em {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  font-style: normal;
+}
+
+.hbar-app-ui-tool-calls-command > main {
+  padding: 0.5rem;
+}
+
+.hbar-app-ui-tool-calls-command > main > section {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+
+.hbar-app-ui-tool-calls-command > main > section > header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-tool-calls-command-line {
+  flex: 1 1 auto;
+  color: var(--lumen-ink);
+}
+
+.hbar-app-ui-tool-calls-command .lumen-tabs {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-tool-calls-command-output {
+  min-block-size: 12rem;
+  flex: 1 1 auto;
+  padding: 0.75rem;
+}
+
+.hbar-app-ui-tool-calls-permissions > main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.hbar-app-ui-tool-calls-permissions > main > section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.hbar-app-ui-tool-calls-permissions h3 {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.hbar-app-ui-tool-calls-permissions ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+
+.hbar-app-ui-tool-calls-permissions li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-ui-tool-calls-permissions li.is-request {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.hbar-app-ui-tool-calls-permissions li > :nth-child(2n + 1) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-permissions li > :nth-child(2n + 2) {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-tool-calls-permissions li:last-child {
+  border-block-end: 0;
+}
+
+.hbar-app-ui-tool-calls-permissions li > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.hbar-app-ui-tool-calls-permissions li.is-request > div,
+.hbar-app-ui-tool-calls-permissions li.is-request > nav,
+.hbar-app-ui-tool-calls-permissions li.is-request > .hbar-app-ui-tool-calls-request-status {
+  flex: 1 0 100%;
+}
+
+.hbar-app-ui-tool-calls-permissions li small,
+.hbar-app-ui-tool-calls-permissions li > div > span,
+.hbar-app-ui-tool-calls-request-status {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-tool-calls-permissions li > nav {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.hbar-app-ui-tool-calls-permissions li.is-request > nav {
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  row-gap: 0.5rem;
+}
+
+.hbar-app-ui-tool-calls-request-view-actions,
+.hbar-app-ui-tool-calls-request-decision-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: flex-start;
+}
+
+.hbar-app-ui-tool-calls-request-status {
+  flex-basis: 100%;
+}
+
+[data-lumen-shape='square'] .hbar-app-ui-tool-calls-trace-pane,
+[data-lumen-shape='square'] .hbar-app-ui-tool-calls-activity-pane,
+[data-lumen-shape='square'] .hbar-app-ui-tool-calls-diff > main,
+[data-lumen-shape='square'] .hbar-app-ui-tool-calls-search > main,
+[data-lumen-shape='square'] .hbar-app-ui-tool-calls-command > main,
+[data-lumen-shape='square'] .hbar-app-ui-tool-calls-permissions > main,
+[data-lumen-shape='square'] .hbar-app-ui-tool-calls-permissions ul {
+  border-radius: 0;
+}
+
+@media (max-width: 42rem) {
+  .hbar-app-ui-tool-calls-heading,
+  .hbar-app-ui-tool-calls-code-heading,
+  .hbar-app-ui-tool-calls-search > header,
+  .hbar-app-ui-tool-calls-command > header,
+  .hbar-app-ui-tool-calls-permissions > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hbar-app-ui-tool-calls-heading > button,
+  .hbar-app-ui-tool-calls-activity-heading > button {
+    inline-size: 100%;
+  }
+
+  .hbar-app-ui-tool-calls-activity-heading > nav {
+    inline-size: 100%;
+    margin-inline-start: 0;
+    overflow-x: auto;
+  }
+
+  .hbar-app-ui-tool-calls-activity-pane > ol > li > .hbar-app-ui-tool-calls-activity-row {
+    grid-template-columns: 0.5rem minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+  }
+
+  .hbar-app-ui-tool-calls-activity-row > .hbar-app-ui-tool-calls-state-mark,
+  .hbar-app-ui-tool-calls-activity-row > span:nth-child(2) {
+    grid-row: 1 / 3;
+  }
+
+  .hbar-app-ui-tool-calls-activity-row time,
+  .hbar-app-ui-tool-calls-activity-row > .hbar-app-ui-tool-calls-status {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .hbar-app-ui-tool-calls-activity-row time {
+    grid-row: 1;
+  }
+
+  .hbar-app-ui-tool-calls-activity-row > .hbar-app-ui-tool-calls-status {
+    grid-row: 2;
+  }
+
+  .hbar-app-ui-tool-calls-trace-details {
+    flex-direction: column;
+  }
+
+  .hbar-app-ui-tool-calls-permissions li {
+    flex-wrap: wrap;
+  }
+
+  .hbar-app-ui-tool-calls-permissions li > nav {
+    justify-content: flex-start;
+  }
+}

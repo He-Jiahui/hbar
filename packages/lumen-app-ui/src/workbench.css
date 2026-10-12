@@ -1,0 +1,538 @@
+.lumen-app-shell,
+.lumen-app-shell * {
+  box-sizing: border-box;
+}
+
+.lumen-app-shell {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--lumen-ink);
+  background: transparent;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.lumen-app-workspace {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+.lumen-app-tool-content {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.lumen-app-tool-drawer[hidden] {
+  display: none;
+}
+
+.lumen-window-titlebar {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  background: color-mix(in srgb, var(--lumen-frost) 88%, transparent);
+  backdrop-filter: blur(1.5rem);
+  user-select: none;
+}
+
+.lumen-window-titlebar-leading,
+.lumen-window-titlebar-trailing {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.lumen-window-title {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  padding-inline: 0.75rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.lumen-window-controls {
+  display: flex;
+  min-inline-size: 0;
+  align-self: stretch;
+  flex: 0 0 auto;
+}
+
+.lumen-window-control {
+  inline-size: 2.875rem;
+  block-size: 100%;
+  min-block-size: 2.5rem;
+  border-block: 0;
+}
+
+.lumen-window-control:hover {
+  background: color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+}
+
+.lumen-window-close:hover {
+  background: color-mix(in srgb, var(--lumen-danger) 82%, transparent);
+  color: var(--lumen-contrast);
+}
+
+.lumen-window-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.25;
+}
+
+.lumen-window-titlebar[data-platform='macos'] {
+  padding-inline-end: 0.75rem;
+}
+
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-controls {
+  gap: 0.5rem;
+  align-items: center;
+  padding-inline-start: 0.75rem;
+}
+
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-control {
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  min-block-size: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--lumen-muted);
+  color: transparent;
+  box-shadow: none;
+}
+
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-control:hover,
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-control:focus-visible {
+  color: color-mix(in srgb, #000 65%, transparent);
+}
+
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-control:first-child {
+  background: var(--lumen-warning);
+}
+
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-control:nth-child(2) {
+  background: var(--lumen-success);
+}
+
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-close {
+  background: var(--lumen-danger);
+  order: -1;
+}
+
+.lumen-window-titlebar[data-platform='macos'] .lumen-window-glyph {
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+}
+
+.lumen-app-sidebar-drawer {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+  transition: flex-basis var(--lumen-motion-sidebar-duration, 280ms)
+    var(--lumen-motion-sidebar-easing, cubic-bezier(0.22, 1, 0.36, 1));
+  will-change: flex-basis;
+}
+
+.lumen-app-sidebar-drawer[data-open='true'] {
+  flex: 0 0 var(--lumen-sidebar-size);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-app-sidebar-drawer {
+    transition: none;
+  }
+}
+
+.lumen-app-sidebar-backdrop {
+  display: none;
+}
+
+.lumen-app-sidebar-drawer-panel,
+.lumen-app-frame,
+.lumen-app-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-app-frame {
+  flex-direction: column;
+}
+
+.lumen-app-header {
+  display: none;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-frost);
+  backdrop-filter: blur(1.25rem);
+}
+
+.lumen-app-shell[data-sidebar-open='false'] .lumen-app-header {
+  display: flex;
+}
+
+.lumen-app-main {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lumen-app-tool-drawer {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 0 1 var(--lumen-tool-size);
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-frost);
+  backdrop-filter: blur(1.25rem);
+}
+
+.lumen-app-rem-probe {
+  inline-size: 1rem;
+  block-size: 0;
+  flex: 0 0 auto;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.lumen-app-tool-separator,
+.lumen-app-sidebar-separator {
+  display: flex;
+  inline-size: var(--lumen-tool-separator-size);
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 0 0 var(--lumen-tool-separator-size);
+  align-items: stretch;
+  justify-content: center;
+  background: var(--lumen-frost);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.lumen-app-sidebar-separator {
+  inline-size: var(--lumen-sidebar-separator-size);
+  flex-basis: var(--lumen-sidebar-separator-size);
+}
+
+.lumen-app-sidebar-separator[aria-valuenow]:not([aria-valuemin]),
+.lumen-app-sidebar-separator:not([aria-valuenow]) {
+  display: none;
+}
+
+.lumen-app-tool-separator::before,
+.lumen-app-sidebar-separator::before {
+  inline-size: 0.0625rem;
+  background: var(--lumen-edge);
+  content: '';
+}
+
+.lumen-app-tool-separator:hover::before,
+.lumen-app-tool-separator:focus-visible::before,
+.lumen-app-sidebar-separator:hover::before,
+.lumen-app-sidebar-separator:focus-visible::before {
+  background: var(--lumen-ink);
+}
+
+.lumen-app-tool-separator:focus-visible,
+.lumen-app-sidebar-separator:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: -0.125rem;
+}
+
+.lumen-app-tool-separator[aria-disabled='true'],
+.lumen-app-sidebar-separator[aria-disabled='true'] {
+  cursor: default;
+}
+
+.lumen-app-body[data-tool-presentation='split'] > .lumen-app-tool-drawer {
+  flex: 0 0 var(--lumen-tool-size);
+  border-inline-start: 0;
+}
+
+.lumen-app-body[data-tool-presentation='split'] > .lumen-app-main {
+  min-inline-size: var(--lumen-main-min-size);
+}
+
+/* An inert zero-width main remains mounted in normal flow. Unlike display:none,
+   this preserves native top-layer dialogs; the host owns focus and navigation. */
+.lumen-app-body[data-tool-presentation='page'] > .lumen-app-main {
+  inline-size: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+}
+
+.lumen-app-body[data-tool-presentation='page'] > .lumen-app-tool-drawer {
+  inline-size: auto;
+  flex: 1 1 0;
+  border-inline-start: 0;
+}
+
+.lumen-app-body[data-tool-presentation='page'] > .lumen-app-tool-separator {
+  display: none;
+}
+
+.lumen-app-sidebar {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-surface-navigation);
+}
+
+.lumen-app-sidebar > header,
+.lumen-app-sidebar > footer,
+.lumen-app-sidebar-title {
+  flex: 0 0 auto;
+  padding: 0.75rem;
+}
+
+.lumen-app-sidebar > header,
+.lumen-app-sidebar > footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-inline);
+  overflow-x: auto;
+}
+
+.lumen-app-brand-row,
+.lumen-app-sidebar-title,
+.lumen-app-host-status {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lumen-app-brand {
+  display: block;
+  min-inline-size: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.lumen-app-sidebar-title {
+  padding-block: 0.375rem;
+}
+
+.lumen-app-sidebar-title h2 {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lumen-app-sidebar-content {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.375rem 0.5rem 0.75rem;
+  color: var(--lumen-muted);
+}
+
+.lumen-app-sidebar-content p,
+.lumen-app-host-status {
+  margin: 0;
+}
+
+.lumen-app-sidebar > footer {
+  min-block-size: 0;
+  max-block-size: 40%;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-app-host-status {
+  flex-wrap: wrap;
+}
+
+.lumen-sidebar-action {
+  inline-size: 100%;
+  min-inline-size: max-content;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.lumen-sidebar-action > [data-variant='body']:first-of-type {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.lumen-sidebar-action > small:last-of-type {
+  flex: 0 0 auto;
+}
+
+.lumen-icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  flex: 0 0 auto;
+  stroke-width: 1.75;
+}
+
+.lumen-icon[data-tier='xs'] {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+}
+.lumen-icon[data-tier='xl'] {
+  inline-size: var(--hbar-app-ui-icon-xl);
+  block-size: var(--hbar-app-ui-icon-xl);
+}
+.lumen-icon[data-tier='sm'] {
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+}
+
+.lumen-icon[data-tier='lg'] {
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+}
+
+.lumen-action-menu {
+  flex: 0 0 auto;
+}
+
+.lumen-action-menu-trigger-label {
+  justify-content: flex-start;
+  gap: var(--lumen-space-inline);
+}
+
+.lumen-action-menu-trigger {
+  appearance: none;
+  display: inline-flex;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--lumen-muted);
+  cursor: pointer;
+  background: transparent;
+}
+
+.lumen-action-menu-trigger:hover,
+.lumen-action-menu-trigger:focus-visible,
+.lumen-action-menu[data-open='true'] .lumen-action-menu-trigger {
+  border-color: var(--lumen-edge);
+  background: color-mix(in srgb, var(--lumen-ink) 10%, transparent);
+  color: var(--lumen-ink);
+}
+
+.lumen-action-menu-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.1563rem;
+}
+
+.lumen-action-menu-dots i {
+  inline-size: 0.1875rem;
+  block-size: 0.1875rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0.375rem currentColor;
+}
+
+.hbar-app-ui-dialog-menu.lumen-action-menu-popup {
+  display: flex;
+  min-inline-size: 10rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.375rem;
+  overflow: auto;
+}
+
+.lumen-action-menu-popup button {
+  inline-size: 100%;
+  justify-content: flex-start;
+}
+
+:where(.lumen-app-shell) :is(h1, h2, p, strong, code) {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 79.9375rem) {
+  .lumen-app-shell:not([data-tool-presentation]) .hbar-app-ui-app-tool-drawer.lumen-app-tool-drawer {
+    position: fixed;
+    z-index: 20;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inline-size: min(var(--lumen-tool-size), 100%);
+    box-shadow: 0 0 2rem color-mix(in srgb, #000 30%, transparent);
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .lumen-app-sidebar-separator {
+    display: none;
+  }
+  .lumen-app-shell[data-sidebar-open='true'] .lumen-app-frame:not(:has(dialog:modal)) {
+    display: none;
+  }
+
+  .lumen-app-shell[data-sidebar-open='true'] .lumen-app-frame:has(dialog:modal) {
+    display: flex;
+    inline-size: 0;
+    flex: 0 0 0;
+    overflow: hidden;
+  }
+
+  .lumen-app-sidebar-drawer[data-open='true'] {
+    inline-size: 100%;
+    flex: 1 1 100%;
+  }
+
+  .lumen-app-sidebar-drawer-panel,
+  .lumen-app-shell:not([data-tool-presentation]) .lumen-app-tool-drawer {
+    inline-size: 100%;
+  }
+}
+
+@media (forced-colors: active) {
+  .lumen-window-titlebar,
+  .lumen-app-header,
+  .lumen-app-sidebar,
+  .lumen-app-tool-drawer {
+    background: Canvas;
+    backdrop-filter: none;
+  }
+
+  .lumen-window-control {
+    border-color: ButtonBorder;
+  }
+
+  .lumen-app-tool-separator:focus-visible,
+  .lumen-app-sidebar-separator:focus-visible {
+    outline-color: Highlight;
+  }
+
+  .lumen-app-tool-separator::before,
+  .lumen-app-sidebar-separator::before {
+    background: CanvasText;
+  }
+}

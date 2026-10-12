@@ -1,0 +1,239 @@
+{
+  "name": "@lumen/app-ui",
+  "version": "0.12.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./appearance": "./src/appearance.ts",
+    "./provider": "./src/LumenProvider.tsx",
+    "./primitives": "./src/primitives.tsx",
+    "./forms": "./src/forms.tsx",
+    "./range": "./src/range.tsx",
+    "./toggle-button": "./src/toggle-button.tsx",
+    "./catalog": "./src/catalog.ts",
+    "./designs": "./src/designs/index.ts",
+    "./ui": "./src/ui/index.ts",
+    "./variants": "./src/variants/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./app-shell": "./src/app-shell-workflows.tsx",
+    "./app-sidebar": "./src/app-sidebar-workflows.tsx",
+    "./ai-chat": "./src/ai-chat.tsx",
+    "./prompt-input": "./src/prompt-input.tsx",
+    "./agent-activity": "./src/agent-activity.tsx",
+    "./agent-approval": "./src/agent-approval.tsx",
+    "./agent-plan": "./src/agent-plan.tsx",
+    "./tool-calls": "./src/tool-calls.tsx",
+    "./usage": "./src/usage.tsx",
+    "./file-manager": "./src/file-manager.tsx",
+    "./editor": "./src/editor.tsx",
+    "./settings-form": "./src/settings-form.tsx",
+    "./integrations": "./src/integrations.tsx",
+    "./notifications": "./src/notifications.tsx",
+    "./scheduling": "./src/scheduling.tsx",
+    "./kanban": "./src/kanban.tsx",
+    "./dashboard": "./src/dashboard.tsx",
+    "./analytics": "./src/analytics.tsx",
+    "./monitoring": "./src/monitoring.tsx",
+    "./command-menu": "./src/command-menu.tsx",
+    "./onboarding": "./src/onboarding.tsx",
+    "./wizard": "./src/wizard.tsx",
+    "./navbar": "./src/navbar.tsx",
+    "./mobile": "./src/mobile.tsx",
+    "./session-components": "./src/session-components.tsx",
+    "./workspace-components": "./src/workspace-components.tsx",
+    "./workbench": "./src/workbench.tsx"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/types/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./appearance": {
+        "types": "./dist/types/appearance.d.ts",
+        "import": "./dist/appearance.js"
+      },
+      "./provider": {
+        "types": "./dist/types/LumenProvider.d.ts",
+        "import": "./dist/provider.js"
+      },
+      "./primitives": {
+        "types": "./dist/types/primitives.d.ts",
+        "import": "./dist/primitives.js"
+      },
+      "./forms": {
+        "types": "./dist/types/forms.d.ts",
+        "import": "./dist/forms.js"
+      },
+      "./range": {
+        "types": "./dist/types/range.d.ts",
+        "import": "./dist/range.js"
+      },
+      "./toggle-button": {
+        "types": "./dist/types/toggle-button.d.ts",
+        "import": "./dist/toggle-button.js"
+      },
+      "./catalog": {
+        "types": "./dist/types/catalog.d.ts",
+        "import": "./dist/catalog.js"
+      },
+      "./ui": {
+        "types": "./dist/types/ui/index.d.ts",
+        "import": "./dist/ui.mjs"
+      },
+      "./variants": {
+        "types": "./dist/types/variants/index.d.ts",
+        "import": "./dist/variants.js"
+      },
+      "./styles.css": "./dist/app-ui.css",
+      "./app-shell": {
+        "types": "./dist/types/app-shell-workflows.d.ts",
+        "import": "./dist/app-shell.js"
+      },
+      "./app-sidebar": {
+        "types": "./dist/types/app-sidebar-workflows.d.ts",
+        "import": "./dist/app-sidebar.js"
+      },
+      "./ai-chat": {
+        "types": "./dist/types/ai-chat.d.ts",
+        "import": "./dist/ai-chat.js"
+      },
+      "./prompt-input": {
+        "types": "./dist/types/prompt-input.d.ts",
+        "import": "./dist/prompt-input.js"
+      },
+      "./agent-activity": {
+        "types": "./dist/types/agent-activity.d.ts",
+        "import": "./dist/agent-activity.js"
+      },
+      "./agent-approval": {
+        "types": "./dist/types/agent-approval.d.ts",
+        "import": "./dist/agent-approval.js"
+      },
+      "./agent-plan": {
+        "types": "./dist/types/agent-plan.d.ts",
+        "import": "./dist/agent-plan.js"
+      },
+      "./tool-calls": {
+        "types": "./dist/types/tool-calls.d.ts",
+        "import": "./dist/tool-calls.js"
+      },
+      "./usage": {
+        "types": "./dist/types/usage.d.ts",
+        "import": "./dist/usage.js"
+      },
+      "./file-manager": {
+        "types": "./dist/types/file-manager.d.ts",
+        "import": "./dist/file-manager.js"
+      },
+      "./editor": {
+        "types": "./dist/types/editor.d.ts",
+        "import": "./dist/editor.js"
+      },
+      "./settings-form": {
+        "types": "./dist/types/settings-form.d.ts",
+        "import": "./dist/settings-form.js"
+      },
+      "./integrations": {
+        "types": "./dist/types/integrations.d.ts",
+        "import": "./dist/integrations.js"
+      },
+      "./notifications": {
+        "types": "./dist/types/notifications.d.ts",
+        "import": "./dist/notifications.js"
+      },
+      "./scheduling": {
+        "types": "./dist/types/scheduling.d.ts",
+        "import": "./dist/scheduling.js"
+      },
+      "./kanban": {
+        "types": "./dist/types/kanban.d.ts",
+        "import": "./dist/kanban.js"
+      },
+      "./dashboard": {
+        "types": "./dist/types/dashboard.d.ts",
+        "import": "./dist/dashboard.js"
+      },
+      "./analytics": {
+        "types": "./dist/types/analytics.d.ts",
+        "import": "./dist/analytics.js"
+      },
+      "./monitoring": {
+        "types": "./dist/types/monitoring.d.ts",
+        "import": "./dist/monitoring.js"
+      },
+      "./command-menu": {
+        "types": "./dist/types/command-menu.d.ts",
+        "import": "./dist/command-menu.js"
+      },
+      "./onboarding": {
+        "types": "./dist/types/onboarding.d.ts",
+        "import": "./dist/onboarding.js"
+      },
+      "./wizard": {
+        "types": "./dist/types/wizard.d.ts",
+        "import": "./dist/wizard.js"
+      },
+      "./navbar": {
+        "types": "./dist/types/navbar.d.ts",
+        "import": "./dist/navbar.js"
+      },
+      "./mobile": {
+        "types": "./dist/types/mobile.d.ts",
+        "import": "./dist/mobile.js"
+      },
+      "./session-components": {
+        "types": "./dist/types/session-components.d.ts",
+        "import": "./dist/session-components.js"
+      },
+      "./workspace-components": {
+        "types": "./dist/types/workspace-components.d.ts",
+        "import": "./dist/workspace-components.js"
+      },
+      "./workbench": {
+        "types": "./dist/types/workbench.d.ts",
+        "import": "./dist/workbench.js"
+      }
+    }
+  },
+  "scripts": {
+    "validate-boundaries": "bun scripts/validate-lumen-boundaries.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "build": "vite build && tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/material": "^9.4.0",
+    "@tanstack/react-virtual": "^3.14.11",
+    "lucide-react": "^1.43.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.2.2",
+    "typescript": "6.0.2",
+    "vitest": "5.0.0",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "19.2.18",
+    "@types/chai-dom": "1.11.3",
+    "@mui/material": "9.4.0",
+    "@types/react-dom": "19.2.7",
+    "chai-dom": "1.12.1",
+    "jsdom": "30.0.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  }
+}

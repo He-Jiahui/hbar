@@ -1,0 +1,247 @@
+.lumen-notifications.hbar-app-ui-notifications-variant-1 {
+  --notification-ink: light-dark(#202124, #f5f5f5);
+  --notification-muted: light-dark(#707070, #939393);
+  --notification-edge: light-dark(#e9e9e9, #292929);
+  --notification-ground: light-dark(#fff, #0a0a0a);
+  --notification-raised: light-dark(#f8f8f8, #181818);
+  gap: 0;
+  padding: 0;
+  background: var(--notification-ground);
+  color: var(--notification-ink);
+  font:
+    13px/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 65px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--notification-edge);
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hbar-app-ui-notifications-variant-1 h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22.5px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-badge {
+  display: inline-grid;
+  min-width: 18px;
+  height: 20px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--notification-ink);
+  color: var(--notification-ground);
+  font-size: 11px;
+  font-weight: 700;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header > button {
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--notification-edge);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header > button:hover:not(:disabled),
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-actions button:hover {
+  background: var(--notification-raised);
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header > button:disabled {
+  opacity: 0.45;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header svg {
+  width: 14px;
+  height: 14px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-tabs {
+  align-self: flex-start;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 0;
+  margin: 16px 20px 0;
+  padding: 4px;
+  border: 1px solid var(--notification-edge);
+  border-radius: 10px;
+  background: light-dark(#fafafa, #0c0c0c);
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-tabs > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--notification-muted);
+  font:
+    13px/19.5px ui-sans-serif,
+    system-ui,
+    sans-serif;
+  white-space: nowrap;
+  box-shadow: none;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-tab-count {
+  color: var(--notification-muted);
+  font-size: 11px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-tabs > button[aria-selected='true'] {
+  border-color: var(--notification-edge);
+  background: var(--notification-ground);
+  color: var(--notification-ink);
+  box-shadow: none;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-feed {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  padding: 16px 20px 20px;
+  overscroll-behavior: contain;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-feed > section {
+  display: block;
+  margin-bottom: 20px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-feed h3 {
+  margin: 0 0 12px 4px;
+  color: var(--notification-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-feed ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-feed li {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 12px;
+  padding: 10px 12px 20px;
+  border: 0;
+  border-radius: 8px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-feed li:hover {
+  background: var(--notification-raised);
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-icon {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--notification-edge);
+  border-radius: 8px;
+  color: var(--notification-muted);
+}
+.hbar-app-ui-notifications-variant-1 li[data-unread='true'] .lumen-notifications-center-icon {
+  border-color: var(--notification-ink);
+  background: var(--notification-ink);
+  color: var(--notification-ground);
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-copy {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-copy p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--notification-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-copy p:first-child {
+  -webkit-line-clamp: 3;
+  color: var(--notification-muted);
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-copy .is-emphasis {
+  color: var(--notification-ink);
+  font-weight: 600;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-copy p + p {
+  margin-top: 2px;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-top: 3px;
+  color: var(--notification-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-actions {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  z-index: 1;
+  display: flex;
+  gap: 2px;
+  padding-left: 8px;
+  background: var(--notification-raised);
+  opacity: 0;
+}
+.hbar-app-ui-notifications-variant-1 li:hover .lumen-notifications-center-actions,
+.hbar-app-ui-notifications-variant-1 li:focus-within .lumen-notifications-center-actions {
+  opacity: 1;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-actions button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  min-width: 0;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--notification-edge);
+  border-radius: 6px;
+  background: var(--notification-ground);
+  color: var(--notification-muted);
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-actions button > [data-edge] {
+  display: none;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-center-dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+.hbar-app-ui-notifications-variant-1 .lumen-notifications-empty {
+  border: 0;
+  text-align: left;
+}
+@media (max-width: 340px) {
+  .hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header {
+    justify-content: flex-start;
+  }
+  .hbar-app-ui-notifications-variant-1 .lumen-notifications-center-header > button {
+    flex-basis: auto;
+  }
+}

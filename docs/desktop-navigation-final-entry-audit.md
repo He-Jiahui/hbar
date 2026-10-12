@@ -139,7 +139,7 @@ Current hbar seams, pinned to the audit baseline:
   only the tool has a commit coordinator.
 - `packages/app-react/src/lumen-workspace-shell.tsx:119–122,583–590`: pass-through
   width exists, no typed sidebar resize entry.
-- `hbar-ui/packages/lumen-app-ui/src/workbench.tsx:38–59,129–149`: sidebar flex
+- `packages/lumen-app-ui/src/workbench.tsx:38–59,129–149`: sidebar flex
   container is the correct shared seam. Existing tool separator is owned by the
   body and must not be reassigned to the sidebar.
 - Reuse `layout.commit` expectedRevision and existing client-preference port;

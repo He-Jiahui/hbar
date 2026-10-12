@@ -1,0 +1,367 @@
+.lumen-billing-recovery-reference-root {
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.lumen-billing-recovery-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: min-content;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+.lumen-billing-recovery-reference-header,
+.lumen-billing-recovery-reference-heading,
+.lumen-billing-recovery-reference-actions,
+.lumen-billing-recovery-reference-list-header,
+.lumen-billing-recovery-reference-list-header > div,
+.lumen-billing-recovery-reference-metric,
+.lumen-billing-recovery-reference-metric header,
+.lumen-billing-recovery-reference-details,
+.lumen-billing-recovery-reference-details header,
+.lumen-billing-recovery-reference-details header > div,
+.lumen-billing-recovery-reference-details li {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.lumen-billing-recovery-reference-header,
+.lumen-billing-recovery-reference-list-header {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lumen-billing-recovery-reference-heading,
+.lumen-billing-recovery-reference-list-header > div {
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+
+.lumen-billing-recovery-reference-heading h2,
+.lumen-billing-recovery-reference-list-header h3 {
+  font-size: 1rem;
+  font-weight: 550;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-heading p,
+.lumen-billing-recovery-reference-list-header p {
+  color: var(--hbar-app-ui-billing-subtle);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-heading p strong {
+  color: var(--hbar-app-ui-billing-danger);
+  font-weight: 550;
+}
+
+.lumen-billing-recovery-reference-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lumen-billing-recovery-reference-actions > button {
+  flex: 0 0 auto;
+}
+
+.lumen-billing-recovery-reference-metrics {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.lumen-billing-recovery-reference-metric {
+  min-inline-size: 0;
+  flex: 1 1 17rem;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.875rem;
+  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border-radius: 0.625rem;
+  background: var(--hbar-app-ui-billing-surface);
+}
+
+.lumen-billing-recovery-reference-metric header {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--hbar-app-ui-billing-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-metric header small {
+  flex: 0 0 auto;
+  color: var(--hbar-app-ui-billing-subtle);
+}
+
+.lumen-billing-recovery-reference-metric > strong {
+  font-size: 1.375rem;
+  font-weight: 550;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-metric p {
+  color: var(--hbar-app-ui-billing-subtle);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-tone-positive > strong {
+  color: var(--hbar-app-ui-billing-positive);
+}
+
+.lumen-billing-recovery-reference-tone-warning > strong {
+  color: var(--hbar-app-ui-billing-warning);
+}
+
+.lumen-billing-recovery-reference-tone-danger > strong {
+  color: var(--hbar-app-ui-billing-danger);
+}
+
+.lumen-billing-recovery-reference-progress {
+  display: flex;
+  min-inline-size: 0;
+  block-size: 0.3125rem;
+  overflow: hidden;
+  border-radius: 999rem;
+  background: var(--hbar-app-ui-billing-border);
+}
+
+.lumen-billing-recovery-reference-progress i {
+  display: flex;
+  min-inline-size: 0;
+  border-radius: inherit;
+  background: currentColor;
+}
+
+.lumen-billing-recovery-reference-tone-positive .lumen-billing-recovery-reference-progress i {
+  background: var(--hbar-app-ui-billing-positive);
+}
+
+.lumen-billing-recovery-reference-tone-warning .lumen-billing-recovery-reference-progress i {
+  background: var(--hbar-app-ui-billing-warning);
+}
+
+.lumen-billing-recovery-reference-tone-danger .lumen-billing-recovery-reference-progress i {
+  background: var(--hbar-app-ui-billing-danger);
+}
+
+.lumen-billing-recovery-reference-metric-rows {
+  gap: 0.5rem;
+  padding-block-start: 0.25rem;
+  border-block-start: 0.0625rem solid var(--hbar-app-ui-billing-border);
+}
+
+.lumen-billing-recovery-reference-list {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: min-content;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border-radius: 0.625rem;
+  background: var(--hbar-app-ui-billing-surface);
+}
+
+.lumen-billing-recovery-reference-list-header {
+  padding-block-end: 0.625rem;
+  border-block-end: 0.0625rem solid var(--hbar-app-ui-billing-border);
+}
+
+.lumen-billing-recovery-reference-table-viewport {
+  min-inline-size: 0;
+  max-block-size: min(40rem, 66vh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border-radius: 0.5rem;
+}
+
+.lumen-billing-recovery-reference-table {
+  inline-size: 100%;
+  min-inline-size: 66rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  text-align: start;
+}
+
+.lumen-billing-recovery-reference-table caption {
+  padding: 0.5rem 0.625rem;
+  color: var(--hbar-app-ui-billing-muted);
+  font-size: 0.75rem;
+  text-align: start;
+}
+
+.lumen-billing-recovery-reference-table th,
+.lumen-billing-recovery-reference-table td {
+  padding: 0.5rem 0.625rem;
+  border-block-end: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  vertical-align: middle;
+}
+
+.lumen-billing-recovery-reference-table th {
+  color: var(--hbar-app-ui-billing-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: start;
+  white-space: nowrap;
+}
+
+.lumen-billing-recovery-reference-table td > strong,
+.lumen-billing-recovery-reference-table td > small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-table td > small {
+  color: var(--hbar-app-ui-billing-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-billing-recovery-reference-table .is-amount {
+  text-align: end;
+  white-space: nowrap;
+}
+
+.lumen-billing-recovery-reference-row-actions {
+  inline-size: 3rem;
+  text-align: center;
+}
+
+.lumen-billing-recovery-reference-customer-trigger {
+  display: flex;
+  max-inline-size: 100%;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--hbar-app-ui-billing-text);
+  text-align: start;
+}
+
+.lumen-billing-recovery-reference-customer-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-billing-recovery-reference-customer-trigger strong,
+.lumen-billing-recovery-reference-customer-trigger small {
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-customer-trigger strong {
+  font-weight: 550;
+}
+
+.lumen-billing-recovery-reference-customer-trigger small {
+  color: var(--hbar-app-ui-billing-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-billing-recovery-reference-details-row > td {
+  background: var(--hbar-app-ui-billing-surface-soft);
+}
+
+.lumen-billing-recovery-reference-details {
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.375rem 0.5rem 0.5rem;
+}
+
+.lumen-billing-recovery-reference-details header {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.625rem;
+}
+
+.lumen-billing-recovery-reference-details header > div {
+  flex: 1 1 20rem;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-billing-recovery-reference-details h4 {
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+
+.lumen-billing-recovery-reference-details header p,
+.lumen-billing-recovery-reference-details header > span {
+  color: var(--hbar-app-ui-billing-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-details ol {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-billing-recovery-reference-details li {
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding-block-start: 0.5rem;
+  border-block-start: 0.0625rem solid var(--hbar-app-ui-billing-border);
+}
+
+.lumen-billing-recovery-reference-details li > span {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-billing-recovery-reference-details li strong {
+  font-size: 0.8125rem;
+  font-weight: 550;
+}
+
+.lumen-billing-recovery-reference-details li small,
+.lumen-billing-recovery-reference-details li code,
+.lumen-billing-recovery-reference-details li time {
+  color: var(--hbar-app-ui-billing-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-billing-recovery-reference-details li code {
+  flex: 0 1 12rem;
+}
+
+@media (max-width: 42rem) {
+  .lumen-billing-recovery-reference-actions {
+    inline-size: 100%;
+    justify-content: flex-start;
+  }
+
+  .lumen-billing-recovery-reference-metric {
+    flex-basis: 100%;
+  }
+
+  .lumen-billing-recovery-reference-details li {
+    flex-wrap: wrap;
+  }
+}

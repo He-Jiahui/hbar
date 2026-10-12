@@ -4,11 +4,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
   ReferenceConsentIntegration,
   type ReferenceConsentIntegrationProps,
-} from '../hbar-ui/packages/lumen-app-ui/src/integrations/ReferenceConsentIntegration'
+} from '../packages/lumen-app-ui/src/integrations/ReferenceConsentIntegration'
 import {
   ReferenceSyncIntegration,
   type ReferenceSyncIntegrationProps,
-} from '../hbar-ui/packages/lumen-app-ui/src/integrations/ReferenceSyncIntegration'
+} from '../packages/lumen-app-ui/src/integrations/ReferenceSyncIntegration'
 import { createIntegrationConsentReferenceFixture } from './fixtures/hbar-app-ui-integrations-consent-reference-fixtures'
 import { createIntegrationSyncReferenceFixture } from './fixtures/hbar-app-ui-integrations-sync-reference-fixtures'
 

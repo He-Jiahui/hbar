@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { HbarAppUiIntegrationContent } from '../packages/hbar-app-ui/src/index'
-import { ReferenceMarketplaceIntegration } from '../hbar-ui/packages/lumen-app-ui/src/integrations/ReferenceMarketplaceIntegration'
+import { ReferenceMarketplaceIntegration } from '../packages/lumen-app-ui/src/integrations/ReferenceMarketplaceIntegration'
 import { createIntegrationMarketplaceReferenceFixture } from './fixtures/hbar-app-ui-integrations-marketplace-reference-fixtures'
 
 type MarketplaceContent = NonNullable<HbarAppUiIntegrationContent['marketplace']>

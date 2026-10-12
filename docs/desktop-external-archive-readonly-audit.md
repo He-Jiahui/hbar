@@ -115,7 +115,7 @@ Run 是另一条已有权威边界：Storage `enqueue` 在同一事务视图检�
 | 原 Run Stop／Cancel、审批 Allow／Deny、问卷回答、同轮 PlanExit 决定  | 按原 Run／call／pending／unknown 合同决定。接受 archive 不等于 Run 终态；即使通常 active archive 是 BUSY，也不应从 UI 毁掉取消或只读恢复路径。       |
 | Files                                                                | workspace／document 作用域不因 Session archive 自动只读；保留原 instance、文件草稿与已有合法功能。不得被 composer 门禁关闭或清空。                   |
 
-共享 `hbar-ui/packages/lumen-app-ui/src/session-components.tsx:461` 的 Stop 禁用条件包含 `runningActions && props.disabled`。因此最小宿主修复应设置 `canSubmit`／`canAddAttachments` 与准备控件 disabled，不给整个 Prompt 追加 archived disabled。若需要更细的编辑器只读 API，留作独立共享契约，不用 CSS 隐藏按钮或以 aria 文案选择器代替能力。
+共享 `packages/lumen-app-ui/src/session-components.tsx:461` 的 Stop 禁用条件包含 `runningActions && props.disabled`。因此最小宿主修复应设置 `canSubmit`／`canAddAttachments` 与准备控件 disabled，不给整个 Prompt 追加 archived disabled。若需要更细的编辑器只读 API，留作独立共享契约，不用 CSS 隐藏按钮或以 aria 文案选择器代替能力。
 
 ## cc-haha 对照：不是 Archive 同义迁移
 

@@ -1,0 +1,379 @@
+.lumen-notifications.hbar-app-ui-notifications-variant-6 {
+  --lumen-bell-popover-inline-start: auto;
+  --lumen-bell-popover-inline-end: 0;
+  --bell-ground: light-dark(#fff, #0a0a0a);
+  --bell-ink: light-dark(#202020, #f5f5f5);
+  --bell-muted: light-dark(#999, #777);
+  --bell-row-muted: light-dark(#666, #aaa);
+  --bell-edge: light-dark(#e5e5e5, #292929);
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  background: var(--bell-ground);
+  color: var(--bell-ink);
+  font:
+    0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-notifications.hbar-app-ui-notifications-variant-6.lumen-notifications-inline-bell {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  overflow: visible;
+  background: transparent;
+}
+.lumen-notifications-inline-bell.hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar {
+  min-block-size: 0;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.lumen-notifications-inline-bell.hbar-app-ui-notifications-variant-6 .lumen-bell-popover {
+  inline-size: min(22rem, calc(100vw - 2rem));
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar {
+  min-block-size: 3.5rem;
+  flex: 0 0 auto;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-block-end: 0.0625rem solid var(--bell-edge);
+  border-radius: 0;
+  background: var(--bell-ground);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-leading,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-trailing,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-brand {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-leading {
+  flex: 1 1 auto;
+  gap: 1rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-trailing {
+  flex: 0 0 auto;
+  gap: 0.25rem;
+  margin-inline-start: auto;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-brand {
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-brand > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-mark {
+  display: flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  background: var(--bell-ink);
+  color: var(--bell-ground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar nav {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.25rem;
+  overflow-x: auto;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar nav a {
+  display: flex;
+  min-block-size: 2rem;
+  align-items: center;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.5rem;
+  color: var(--bell-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar nav a[aria-current='page'] {
+  background: light-dark(#f5f5f5, #171717);
+  color: var(--bell-ink);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-trailing > button,
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button {
+  display: flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  min-block-size: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--bell-ink);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-trailing .lumen-notifications-glyph {
+  inline-size: var(--hbar-app-ui-icon-md);
+  block-size: var(--hbar-app-ui-icon-md);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-trailing > button > [data-edge],
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > [data-edge] {
+  display: none;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-trailing > button:focus-visible,
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button:focus-visible {
+  outline: 0.125rem solid var(--bell-ink);
+  outline-offset: 0.125rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  display: flex;
+  min-inline-size: 0.875rem;
+  block-size: 0.875rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rem;
+  background: var(--bell-ink);
+  color: var(--bell-ground);
+  font-size: 0.625rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-avatar {
+  display: flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: 0.25rem;
+  border: 0.0625rem solid var(--bell-edge);
+  background: light-dark(#fafafa, #171717);
+  color: var(--bell-ink);
+  font-size: 0.625rem;
+  font-weight: 400;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-hint {
+  display: flex;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-notifications-hint p {
+  max-inline-size: 18.125rem;
+  color: var(--bell-muted);
+  line-height: 1.5rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-popover {
+  position: absolute;
+  inset-block-start: calc(100% + 0.5rem);
+  inset-inline-start: var(--lumen-bell-popover-inline-start);
+  inset-inline-end: var(--lumen-bell-popover-inline-end);
+  z-index: 2;
+  display: flex;
+  inline-size: 22rem;
+  max-inline-size: calc(100vw - 2rem);
+  max-block-size: calc(100vh - 4rem);
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0.0625rem solid var(--bell-edge);
+  border-radius: 0.875rem;
+  background: light-dark(#fff, #171717);
+  box-shadow: 0 0.75rem 2rem light-dark(#0002, #0005);
+  color: var(--bell-ink);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-toolbar,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-toolbar {
+  min-block-size: 2.875rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-filters {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 0.0625rem solid var(--bell-edge);
+  border-radius: 0.5rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-filters button,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all {
+  min-block-size: 1.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--bell-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-filters button {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-filters button[aria-selected='true'] {
+  background: light-dark(#f5f5f5, #0a0a0a);
+  color: var(--bell-ink);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.375rem;
+  white-space: normal;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all:not(:disabled) {
+  color: var(--bell-row-muted);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all .lumen-notifications-glyph {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all:disabled {
+  opacity: 0.45;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-list {
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+  flex-direction: column;
+  flex: 0 1 auto;
+  gap: 0;
+  max-block-size: min(16.5rem, calc(100vh - 9rem));
+  margin: 0;
+  padding: 0.5rem;
+  overflow: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-list li {
+  min-inline-size: 0;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message {
+  display: flex;
+  inline-size: 100%;
+  min-block-size: 3.75rem;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--bell-ink);
+  font: inherit;
+  line-height: 1.25rem;
+  text-align: start;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message:hover,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message:focus-visible {
+  background: light-dark(#f8f8f8, #262626);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message:focus-visible,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-filters button:focus-visible,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all:focus-visible,
+.hbar-app-ui-notifications-variant-6 .lumen-bell-footer button:focus-visible {
+  outline: 0.125rem solid var(--bell-ink);
+  outline-offset: -0.125rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message-icon {
+  display: flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-block-start: 0.125rem;
+  border: 0.0625rem solid var(--bell-edge);
+  border-radius: 0.375rem;
+  background: var(--bell-ground);
+  color: var(--bell-muted);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message-icon[data-unread='true'] {
+  background: var(--bell-ink);
+  color: var(--bell-ground);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message-icon svg {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message-title {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  color: var(--bell-row-muted);
+  font-weight: 400;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-message-title > span {
+  color: var(--bell-ink);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-time {
+  align-self: stretch;
+  flex: 0 0 auto;
+  color: var(--bell-muted);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-empty {
+  display: flex;
+  min-block-size: 6.25rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--bell-muted);
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-status {
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  color: var(--lumen-danger);
+  font-size: 0.75rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-footer {
+  padding: 0.25rem 0.5rem;
+}
+.hbar-app-ui-notifications-variant-6 .lumen-bell-footer button {
+  inline-size: 100%;
+  min-block-size: 2.25rem;
+  border: 0.0625rem solid var(--bell-edge);
+  border-radius: 0.5rem;
+  background: var(--bell-ground);
+  color: var(--bell-ink);
+  font: inherit;
+}
+@media (max-width: 40rem) {
+  .hbar-app-ui-notifications-variant-6 .lumen-bell-brand {
+    flex: 1 1 auto;
+  }
+  .hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar nav {
+    display: none;
+  }
+  .hbar-app-ui-notifications-variant-6 .lumen-notifications-appbar {
+    position: relative;
+  }
+  .hbar-app-ui-notifications-variant-6 .lumen-notifications-bell {
+    position: static;
+  }
+  .hbar-app-ui-notifications-variant-6 .lumen-bell-popover {
+    inset-inline-start: var(--lumen-bell-popover-inline-start);
+    inset-inline-end: var(--lumen-bell-popover-inline-end);
+    inline-size: min(22rem, calc(100% - 2rem));
+  }
+}

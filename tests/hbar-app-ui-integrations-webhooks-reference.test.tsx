@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { HbarAppUiIntegrationContent } from '../packages/hbar-app-ui/src/index'
-import { ReferenceWebhooksIntegration } from '../hbar-ui/packages/lumen-app-ui/src/integrations/ReferenceWebhooksIntegration'
+import { ReferenceWebhooksIntegration } from '../packages/lumen-app-ui/src/integrations/ReferenceWebhooksIntegration'
 import { createIntegrationWebhooksReferenceFixture } from './fixtures/hbar-app-ui-integrations-webhooks-reference-fixtures'
 
 type WebhooksContent = NonNullable<HbarAppUiIntegrationContent['webhooks']>

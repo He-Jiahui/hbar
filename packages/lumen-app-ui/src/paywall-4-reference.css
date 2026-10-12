@@ -1,0 +1,238 @@
+.lumen-paywall4-surface {
+  inline-size: min(100%, 38.75rem);
+  block-size: auto;
+  min-inline-size: 0;
+  align-self: center;
+  overflow: visible;
+}
+
+.lumen-paywall.lumen-paywall4-reference {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  overflow: visible;
+  padding: 0;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+}
+
+.lumen-paywall4-reference :where(h2, p) {
+  margin: 0;
+}
+
+.lumen-paywall4-header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.lumen-paywall4-header > div {
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-header h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-header p {
+  margin-block-start: 0.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.625;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall4-alert {
+  display: inline-flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.625rem;
+  color: var(--lumen-muted);
+}
+
+.lumen-paywall4-alert svg {
+  inline-size: var(--hbar-app-ui-icon-md, 1rem);
+  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  flex: 0 0 auto;
+}
+
+.lumen-paywall4-meters {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block-start: 1rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.875rem;
+  padding: 0.25rem;
+  background: var(--lumen-glass);
+}
+
+.lumen-paywall4-meters[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 18rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-paywall4-meter {
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.625rem;
+  padding: 0.875rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-paywall4-meter-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-meter-heading p:first-child {
+  min-inline-size: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-meter-heading p:last-child {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.lumen-paywall4-meter-heading p:last-child span {
+  color: var(--lumen-ink);
+}
+
+.lumen-paywall4-track {
+  display: block;
+  block-size: 0.375rem;
+  overflow: hidden;
+  margin-block-start: 0.5rem;
+  border-radius: 99rem;
+  background: var(--lumen-glass);
+}
+
+.lumen-paywall4-track span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--lumen-muted);
+}
+
+.lumen-paywall4-track span[data-capped='true'] {
+  background: var(--lumen-ink);
+}
+
+.lumen-paywall4-upgrade-card {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-block-start: 0.75rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.875rem;
+  padding: 1rem;
+  background: var(--lumen-contrast);
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-upgrade-card p:first-child {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-upgrade-card p:last-child {
+  margin-block-start: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-paywall4-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-actions button {
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-top-up {
+  border: 0.0625rem solid var(--lumen-edge);
+  padding-inline: 0.75rem;
+  background: transparent;
+  color: var(--lumen-ink);
+}
+
+.lumen-paywall.lumen-paywall4-reference .lumen-paywall4-upgrade {
+  padding-inline: 1rem;
+}
+
+.lumen-paywall4-empty {
+  padding: 0.875rem;
+}
+
+.lumen-paywall4-reference :where(button, [tabindex='0']):focus-visible {
+  outline: 0.125rem solid var(--lumen-focus, var(--lumen-accent));
+  outline-offset: 0.125rem;
+}
+
+[data-lumen-mode='light'] .lumen-paywall.lumen-paywall4-reference,
+[data-lumen-mode='light'] .lumen-paywall4-meter,
+[data-lumen-mode='light'] .lumen-paywall4-upgrade-card {
+  background: #fff;
+}
+
+[data-lumen-mode='dark'] .lumen-paywall.lumen-paywall4-reference,
+[data-lumen-mode='dark'] .lumen-paywall4-meter,
+[data-lumen-mode='dark'] .lumen-paywall4-upgrade-card {
+  background: #090909;
+}
+
+[data-lumen-mode='light'] .lumen-paywall.lumen-paywall4-reference .lumen-paywall4-upgrade {
+  background: #171717;
+  color: #fff;
+}
+
+[data-lumen-mode='dark'] .lumen-paywall.lumen-paywall4-reference .lumen-paywall4-upgrade {
+  background: #fff;
+  color: #171717;
+}
+
+@media (max-width: 40rem) {
+  .lumen-paywall4-actions {
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+}

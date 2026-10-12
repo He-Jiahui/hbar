@@ -1,0 +1,117 @@
+.lumen-ai-chat-reference-citations {
+  overflow: hidden;
+}
+.lumen-ai-chat-citations-layout {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.lumen-ai-chat-citations-sources {
+  display: flex;
+  flex: 0 0 20rem;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 1rem;
+  border-inline-end: 0.0625rem solid var(--lumen-edge);
+}
+.lumen-ai-chat-citations-sources details {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.lumen-ai-chat-citations-sources summary {
+  display: none;
+  color: var(--lumen-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.lumen-ai-chat-citations-sources details > h2 {
+  margin-block-end: 0.75rem;
+}
+.lumen-ai-chat-citations-sources h2 {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.lumen-ai-chat-citations-sources ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lumen-ai-chat-citations-sources li {
+  min-inline-size: 0;
+}
+.lumen-ai-chat-citations-sources li > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  inline-size: 100%;
+  gap: 0.25rem;
+  text-align: start;
+  border-color: transparent;
+}
+.lumen-ai-chat-citations-sources li > button[aria-pressed='true'] {
+  border-color: var(--lumen-edge);
+  background: var(--lumen-glass);
+}
+.lumen-ai-chat-citations-sources li small {
+  color: var(--lumen-muted);
+}
+.lumen-ai-chat-citations-sources li > button > span {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.lumen-ai-chat-citations-conversation {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.lumen-ai-chat-citations-conversation .lumen-ai-chat-reference-messages {
+  overflow: auto;
+}
+@media (max-width: 48rem) {
+  .lumen-ai-chat-reference-citations {
+    overflow: auto;
+  }
+  .lumen-ai-chat-citations-layout {
+    flex-direction: column;
+    flex: 0 0 auto;
+  }
+  .lumen-ai-chat-citations-sources {
+    flex: 0 0 auto;
+    border-inline-end: 0;
+    border-block-end: 0.0625rem solid var(--lumen-edge);
+  }
+  .lumen-ai-chat-citations-sources summary {
+    display: list-item;
+  }
+  .lumen-ai-chat-citations-sources details {
+    gap: 0.75rem;
+  }
+  .lumen-ai-chat-citations-sources details > h2 {
+    display: none;
+  }
+  .lumen-ai-chat-citations-sources ul {
+    display: flex;
+    flex-flow: row wrap;
+  }
+  .lumen-ai-chat-citations-sources li {
+    flex: 1 1 10rem;
+  }
+  .lumen-ai-chat-citations-conversation {
+    flex: 0 0 auto;
+  }
+  .lumen-ai-chat-citations-conversation .lumen-ai-chat-reference-messages {
+    overflow: visible;
+  }
+}

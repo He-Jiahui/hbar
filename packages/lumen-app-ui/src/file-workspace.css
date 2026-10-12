@@ -1,0 +1,152 @@
+.lumen-workspace-files,
+.lumen-file-document {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex: 1 1 auto;
+  flex-direction: column;
+  color: var(--lumen-ink);
+  background: var(--lumen-frost);
+}
+
+.lumen-workspace-files > header,
+.lumen-file-document > header,
+.lumen-file-error,
+.lumen-file-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.lumen-workspace-files > header,
+.lumen-file-document > header {
+  flex: 0 0 auto;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-workspace-files > header > strong,
+.lumen-file-document-title {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-workspace-files[data-embedded='true'] > header {
+  justify-content: flex-end;
+}
+
+.lumen-file-path,
+.lumen-workspace-files > p,
+.lumen-file-document > p {
+  margin: 0;
+  padding: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-list {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0.5rem;
+  overflow: auto;
+  list-style: none;
+}
+
+.lumen-file-list > li {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto var(--lumen-control-size);
+}
+
+.lumen-file-row {
+  inline-size: 100%;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.lumen-file-row > span {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-file-document-title {
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+}
+
+.lumen-file-document-title > * {
+  min-inline-size: max-content;
+  white-space: nowrap;
+}
+
+.lumen-file-document-title:focus-visible {
+  outline: 0.125rem solid var(--lumen-info);
+}
+
+.lumen-file-document-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+}
+
+:where(.lumen-file-document-body > *) {
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-file-error {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.lumen-file-error > p,
+.lumen-file-empty {
+  margin: 0;
+}
+
+.lumen-file-empty {
+  padding: 1rem;
+  text-align: center;
+}
+
+.lumen-file-glyph {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+@media (max-width: 32rem) {
+  .lumen-file-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (forced-colors: active) {
+  .lumen-workspace-files,
+  .lumen-file-document {
+    background: Canvas;
+  }
+}

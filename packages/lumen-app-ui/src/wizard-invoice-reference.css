@@ -1,0 +1,288 @@
+.lumen-wizard-stage-surface:has(> .hbar-app-ui-wizard-invoice-reference) {
+  border: 0;
+  border-radius: 0;
+  background: light-dark(#fff, #0a0a0a);
+  box-shadow: none;
+}
+.lumen-wizard-stage.hbar-app-ui-wizard-invoice-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  overflow: hidden;
+  background: light-dark(#fff, #0a0a0a);
+  color: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-invoice-header {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 3.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+  border-block-end: 0.0625rem solid light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-invoice-header > button {
+  display: inline-flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0.5rem;
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#525252, #d4d4d4);
+  cursor: pointer;
+}
+.hbar-app-ui-wizard-invoice-header-divider {
+  inline-size: 0.0625rem;
+  block-size: 1.25rem;
+  background: light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-invoice-header h1 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-invoice-progress {
+  inline-size: 15rem;
+  block-size: 0.25rem;
+  flex: 0 1 15rem;
+  margin-inline: auto;
+  border-radius: 999rem;
+  background: light-dark(#e5e5e5, #292929);
+  overflow: hidden;
+}
+.hbar-app-ui-wizard-invoice-progress span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: light-dark(#171717, #f5f5f5);
+}
+.hbar-app-ui-wizard-invoice-header p {
+  margin: 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.lumen-wizard-stage .hbar-app-ui-wizard-invoice-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  max-block-size: none;
+  overflow: auto;
+  padding: 1.5rem;
+  mask-image: linear-gradient(to bottom, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+}
+.hbar-app-ui-wizard-invoice-card {
+  display: flex;
+  inline-size: min(51.25rem, 100%);
+  min-inline-size: 0;
+  flex-direction: column;
+  margin-inline: auto;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.875rem;
+  background: light-dark(#fff, #0a0a0a);
+  overflow: hidden;
+}
+.hbar-app-ui-wizard-invoice-card-header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-block-end: 0.0625rem solid light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-invoice-card-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+}
+.hbar-app-ui-wizard-invoice-card-header p {
+  margin: 0.25rem 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-invoice-card-header > span,
+.hbar-app-ui-wizard-invoice-group-heading > span {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  background: light-dark(#f5f5f5, #262626);
+  color: light-dark(#525252, #d4d4d4);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-invoice-card-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+.hbar-app-ui-wizard-invoice-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hbar-app-ui-wizard-invoice-group-heading h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-invoice-group-detail {
+  margin: 0.25rem 0 0;
+  color: light-dark(#777, #aaa);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.hbar-app-ui-wizard-invoice-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-block-start: 1rem;
+}
+.hbar-app-ui-wizard-invoice-field {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 calc(50% - 0.5rem);
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.hbar-app-ui-wizard-invoice-field label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-wizard-invoice-field label > svg {
+  margin-inline-start: -0.125rem;
+}
+.hbar-app-ui-wizard-invoice-field label svg {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+  color: light-dark(#a3a3a3, #737373);
+}
+.hbar-app-ui-wizard-invoice-control {
+  display: flex;
+  min-inline-size: 0;
+  block-size: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.5rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.hbar-app-ui-wizard-invoice-control:focus-within {
+  outline: 0.125rem solid light-dark(#525252, #d4d4d4);
+  outline-offset: 0.0625rem;
+}
+.hbar-app-ui-wizard-invoice-control > svg,
+.hbar-app-ui-wizard-invoice-control button svg {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+  flex: 0 0 auto;
+  color: light-dark(#a3a3a3, #737373);
+}
+.hbar-app-ui-wizard-invoice-control input,
+.hbar-app-ui-wizard-invoice-control select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.hbar-app-ui-wizard-invoice-control input {
+  padding: 0;
+}
+.hbar-app-ui-wizard-invoice-control select {
+  appearance: none;
+  cursor: pointer;
+}
+.hbar-app-ui-wizard-invoice-control button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.hbar-app-ui-wizard-invoice-terms {
+  margin-block-start: 1.5rem;
+  padding-block-start: 1.5rem;
+  border-block-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
+}
+.hbar-app-ui-wizard-invoice-footer {
+  display: flex;
+  min-block-size: 4.3125rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-block-start: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  background: light-dark(#fafafa, #171717);
+}
+.hbar-app-ui-wizard-invoice-footer button {
+  display: inline-flex;
+  min-inline-size: 5.5rem;
+  min-block-size: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0.0625rem solid light-dark(#e5e5e5, #292929);
+  border-radius: 0.5rem;
+  background: light-dark(#fff, #171717);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.hbar-app-ui-wizard-invoice-footer button:last-child {
+  min-inline-size: 7.25rem;
+  padding-inline: 1rem;
+  border-color: light-dark(#171717, #f5f5f5);
+  background: light-dark(#171717, #f5f5f5);
+  color: light-dark(#fff, #171717);
+}
+.hbar-app-ui-wizard-invoice-header > button:focus-visible,
+.hbar-app-ui-wizard-invoice-footer button:focus-visible,
+.hbar-app-ui-wizard-invoice-control button:focus-visible {
+  outline: 0.125rem solid currentColor;
+  outline-offset: 0.125rem;
+}
+.hbar-app-ui-wizard-invoice-header svg,
+.hbar-app-ui-wizard-invoice-footer svg {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+}
+@media (max-width: 40rem) {
+  .hbar-app-ui-wizard-invoice-progress {
+    display: none;
+  }
+  .hbar-app-ui-wizard-invoice-header p {
+    margin-inline-start: auto;
+  }
+  .lumen-wizard-stage .hbar-app-ui-wizard-invoice-scroll {
+    padding-inline: 1rem;
+  }
+  .hbar-app-ui-wizard-invoice-field {
+    flex-basis: 100%;
+  }
+}

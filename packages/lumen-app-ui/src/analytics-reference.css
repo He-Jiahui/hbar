@@ -1,0 +1,1135 @@
+/*
+ * Reference analytics surfaces
+ *
+ * The preview variants share one semantic flow.  Cards, rows, legends and
+ * summaries use flex so the same DOM can wrap at narrow widths.  SVG owns the
+ * coordinate system for chart marks; this stylesheet only sizes and paints it.
+ */
+
+.lumen-analytics:has(> .lumen-analytics-reference) {
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.lumen-analytics-reference {
+  --analytics-panel: color-mix(in srgb, var(--lumen-glass, rgb(20 20 20 / 32%)) 84%, var(--lumen-reading, #090909));
+  --analytics-panel-raised: color-mix(
+    in srgb,
+    var(--lumen-glass, rgb(20 20 20 / 32%)) 62%,
+    var(--lumen-reading, #090909)
+  );
+  --analytics-edge: var(--lumen-edge, rgb(255 255 255 / 17%));
+  --analytics-line: var(--lumen-line, rgb(255 255 255 / 10%));
+  --analytics-ink: var(--lumen-ink, #eee);
+  --analytics-muted: var(--lumen-muted, #aaa);
+  --analytics-subtle: var(--lumen-subtle, #858585);
+  --analytics-primary: var(--lumen-accent, var(--lumen-info, #81b5ff));
+  --analytics-positive: var(--lumen-success, #77deb0);
+  --analytics-warning: var(--lumen-warning, #efd17a);
+  --analytics-negative: var(--lumen-danger, #ff969b);
+  --analytics-control-radius: var(--lumen-radius-control, 0.375rem);
+  --analytics-surface-radius: var(--lumen-radius-surface, 0.75rem);
+  --lamp-primary: var(--analytics-primary);
+  --lamp-background: var(--analytics-panel-raised);
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1.5rem;
+  overflow: auto;
+  padding: 1.5rem;
+  color: var(--analytics-ink);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.lumen-analytics-reference *,
+.lumen-analytics-reference *::before,
+.lumen-analytics-reference *::after {
+  box-sizing: border-box;
+}
+
+.lumen-analytics-reference :where(h2, h3, p) {
+  margin: 0;
+}
+
+.lumen-analytics-reference :where(button, svg) {
+  min-inline-size: 0;
+}
+
+.lumen-analytics-reference button {
+  font: inherit;
+}
+
+.lumen-analytics-reference button[aria-selected='true'],
+.lumen-analytics-reference button[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--analytics-primary) 44%, var(--analytics-edge));
+  background: color-mix(in srgb, var(--analytics-primary) 13%, var(--analytics-panel-raised));
+  color: var(--analytics-ink);
+}
+
+.lumen-analytics-reference-header,
+.lumen-analytics-reference-controls,
+.lumen-analytics-reference-heading,
+.lumen-analytics-reference-footer,
+.lumen-analytics-reference-tabs,
+.lumen-analytics-reference-series-controls,
+.lumen-analytics-reference-chart-x,
+.lumen-analytics-reference-heatmap-key,
+.lumen-analytics-reference-value-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.lumen-analytics-reference-header {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lumen-analytics-reference-heading {
+  flex: 1 1 14rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.lumen-analytics-reference-heading h2 {
+  color: var(--analytics-ink);
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+}
+
+.lumen-analytics-reference-heading p,
+.lumen-analytics-reference-metric-card h3,
+.lumen-analytics-reference-metric-detail,
+.lumen-analytics-reference-footer,
+.lumen-analytics-reference-notice,
+.lumen-analytics-reference-chart-detail,
+.lumen-analytics-reference-funnel-drop,
+.lumen-analytics-reference-cohort small,
+.lumen-analytics-reference-goal > span {
+  color: var(--analytics-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.lumen-analytics-reference-headline strong {
+  color: var(--analytics-ink);
+  font-size: clamp(1.25rem, 1.1rem + 1vw, 1.75rem);
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-headline span {
+  color: var(--analytics-positive);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-controls {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lumen-analytics-reference-live-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--analytics-positive);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.lumen-analytics-reference-live-state::before {
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.lumen-analytics-reference-tabs {
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-control-radius);
+  background: var(--analytics-panel-raised);
+}
+
+.lumen-analytics-reference-tabs > button {
+  min-block-size: 1.875rem;
+  padding-inline: 0.625rem;
+  color: var(--analytics-muted);
+  white-space: nowrap;
+}
+
+.lumen-analytics-reference-tabs > button[aria-selected='true'] {
+  --lumen-action-color: var(--analytics-ink);
+  color: var(--analytics-ink);
+  box-shadow: inset 0 -0.125rem var(--analytics-primary);
+}
+
+.lumen-analytics-reference-metric-strip,
+.lumen-analytics-reference-chart-summary {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lumen-analytics-reference-metric-card {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 calc(25% - 0.75rem);
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.875rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-surface-radius);
+  background: var(--analytics-panel);
+}
+
+.lumen-analytics-reference-metric-card h3 {
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.lumen-analytics-reference-metric-value {
+  overflow-wrap: anywhere;
+  color: var(--analytics-ink);
+  font-size: clamp(1.25rem, 1.1rem + 1vw, 1.8rem);
+  font-weight: 580;
+  line-height: 1.12;
+}
+
+.lumen-analytics-reference-metric-delta {
+  color: var(--analytics-positive);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-metric-card.is-danger .lumen-analytics-reference-metric-delta {
+  color: var(--analytics-negative);
+}
+
+.lumen-analytics-reference-metric-card.is-warning .lumen-analytics-reference-metric-delta {
+  color: var(--analytics-warning);
+}
+
+.lumen-analytics-reference-metric-card.is-neutral .lumen-analytics-reference-metric-delta {
+  color: var(--analytics-muted);
+}
+
+.lumen-analytics-reference-spark {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 8rem;
+  block-size: auto;
+  aspect-ratio: 2.4 / 1;
+  margin-block-start: auto;
+  overflow: visible;
+  color: var(--analytics-ink);
+}
+
+.lumen-analytics-reference-spark polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-chart,
+.lumen-analytics-reference-metric-detail-panel,
+.lumen-analytics-reference-heatmap,
+.lumen-analytics-reference-cohort-scroll {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-surface-radius);
+  background: var(--analytics-panel);
+}
+
+.lumen-analytics-reference-series-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem 0.5rem;
+  order: -1;
+}
+
+.lumen-analytics-reference-series-controls > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-block-size: 1.75rem;
+  padding-inline: 0.375rem;
+  color: var(--analytics-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-series-controls > button > i {
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--analytics-series-color, var(--analytics-primary));
+}
+
+.lumen-analytics-reference-chart-layout {
+  display: flex;
+  min-inline-size: 0;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.lumen-analytics-reference-chart-y {
+  display: flex;
+  min-inline-size: 2.25rem;
+  flex: 0 0 auto;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-block: 0.25rem;
+  color: var(--analytics-muted);
+  font-size: 0.6875rem;
+  line-height: 1;
+  text-align: end;
+}
+
+.lumen-analytics-reference-chart-body {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-analytics-reference-chart-svg,
+.lumen-analytics-reference-heatmap-svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: 2.45 / 1;
+  overflow: visible;
+  color: var(--analytics-ink);
+}
+
+.lumen-analytics-reference.is-service .lumen-analytics-reference-chart-svg {
+  aspect-ratio: 3.75 / 1;
+}
+
+.lumen-analytics-reference-chart-svg .lumen-analytics-reference-gridline {
+  stroke: var(--analytics-line);
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-chart-svg .lumen-analytics-reference-guide {
+  stroke: var(--analytics-muted);
+  stroke-dasharray: 2 2;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-chart-svg .lumen-analytics-reference-cursor {
+  stroke: var(--analytics-primary);
+  stroke-dasharray: 2 2;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-chart-svg polyline,
+.lumen-analytics-reference-chart-svg polygon {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-chart-svg polyline {
+  stroke-width: 1.6;
+}
+
+.lumen-analytics-reference-chart-svg .lumen-analytics-reference-hit {
+  fill: transparent;
+  stroke: none;
+  cursor: crosshair;
+  pointer-events: all;
+}
+
+.lumen-analytics-reference-chart-x {
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--analytics-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-analytics-reference-chart-x > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-analytics-reference-chart-detail {
+  padding-block-start: 0.5rem;
+  border-block-start: 0.0625rem solid var(--analytics-line);
+}
+
+.lumen-analytics-reference-chart-summary {
+  gap: 0.5rem;
+}
+
+.lumen-analytics-reference-chart-summary .lumen-analytics-reference-metric-card {
+  flex-basis: 8rem;
+  padding: 0.75rem;
+  border-radius: var(--analytics-control-radius);
+}
+
+.lumen-analytics-reference-chart-summary .lumen-analytics-reference-metric-value {
+  font-size: 1rem;
+}
+
+.lumen-analytics-reference-chart-summary .lumen-analytics-reference-spark {
+  display: none;
+}
+
+.lumen-analytics-reference-channel-layout {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-surface-radius);
+  background: var(--analytics-panel);
+}
+
+.lumen-analytics-reference-donut {
+  display: flex;
+  min-inline-size: 10rem;
+  flex: 1 1 14rem;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.lumen-analytics-reference-donut > svg {
+  display: block;
+  inline-size: min(100%, 13rem);
+  block-size: auto;
+  aspect-ratio: 1;
+  flex: 0 1 13rem;
+}
+
+.lumen-analytics-reference-donut > p {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  color: var(--analytics-muted);
+  text-align: center;
+}
+
+.lumen-analytics-reference-donut > p > strong {
+  color: var(--analytics-ink);
+  font-size: clamp(1.25rem, 1.1rem + 1vw, 1.75rem);
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-donut > p > span {
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-donut-total,
+.lumen-analytics-reference-ring > svg > text {
+  fill: var(--analytics-ink);
+  dominant-baseline: middle;
+  font-size: 1rem;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.lumen-analytics-reference-donut-unit {
+  fill: var(--analytics-muted);
+  dominant-baseline: middle;
+  font-size: 0.625rem;
+  text-anchor: middle;
+}
+
+.lumen-analytics-reference-channel-list,
+.lumen-analytics-reference-ranked-list,
+.lumen-analytics-reference-funnel,
+.lumen-analytics-reference-goals,
+.lumen-analytics-reference-bullet-list,
+.lumen-analytics-reference-metric-selectors {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-analytics-reference-channel-list {
+  flex: 1 1 15rem;
+}
+
+.lumen-analytics-reference-channel-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.375rem 0.5rem;
+  text-align: start;
+}
+
+.lumen-analytics-reference-channel-row > i {
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.lumen-analytics-reference-channel-row > span:first-of-type {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-analytics-reference-channel-row > strong,
+.lumen-analytics-reference-channel-row > span:last-child {
+  flex: 0 0 auto;
+  color: var(--analytics-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-channel-row > strong {
+  color: var(--analytics-ink);
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-contribution {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  overflow: hidden;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-control-radius);
+  background: var(--analytics-panel-raised);
+}
+
+.lumen-analytics-reference-contribution > span {
+  display: flex;
+  min-inline-size: 4rem;
+  flex: 1 1 4rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem 0.625rem;
+  color: var(--analytics-ink);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-contribution > span + span {
+  border-inline-start: 0.0625rem solid var(--analytics-edge);
+}
+
+.lumen-analytics-reference-contribution strong {
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-ranked-row {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-control-radius);
+  background: var(--analytics-panel);
+  text-align: start;
+}
+
+.lumen-analytics-reference-abbreviation {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--analytics-primary) 14%, var(--analytics-panel-raised));
+  color: var(--analytics-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.lumen-analytics-reference-ranked-identity {
+  min-inline-size: 6rem;
+  flex: 0.8 1 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-analytics-reference-ranked-row > .lumen-analytics-reference-spark {
+  min-inline-size: 5rem;
+  flex: 1 1 8rem;
+  max-inline-size: 13rem;
+}
+
+.lumen-analytics-reference-ranked-row > strong {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-ranked-row > span:last-child {
+  flex: 0 0 auto;
+  color: var(--analytics-positive);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-ranked-row > span:last-child:empty {
+  display: none;
+}
+
+.lumen-analytics-reference-metric-selectors {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.lumen-analytics-reference-metric-selector {
+  display: flex;
+  min-inline-size: 10rem;
+  flex: 1 1 calc(50% - 0.75rem);
+  padding: 0;
+  text-align: start;
+}
+
+.lumen-analytics-reference-metric-selector > .lumen-analytics-reference-metric-card {
+  inline-size: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.lumen-analytics-reference-metric-detail-panel > h3 {
+  color: var(--analytics-ink);
+  font-size: 0.9375rem;
+  font-weight: 620;
+}
+
+.lumen-analytics-reference-metric-detail-panel > .lumen-analytics-reference-chart {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.lumen-analytics-reference-funnel-stage,
+.lumen-analytics-reference-bullet-row,
+.lumen-analytics-reference-goal {
+  display: flex;
+  min-inline-size: 0;
+  width: 100%;
+  text-align: start;
+}
+
+.lumen-analytics-reference-funnel-stage {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-control-radius);
+  background: var(--analytics-panel);
+}
+
+.lumen-analytics-reference-value-row {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.lumen-analytics-reference-value-row > span:first-child,
+.lumen-analytics-reference-value-row > strong:first-of-type {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.lumen-analytics-reference-value-row > span:last-child {
+  color: var(--analytics-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-funnel-stage > svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: 20 / 1;
+}
+
+.lumen-analytics-reference-funnel-stage > svg rect {
+  fill: var(--analytics-primary);
+}
+
+.lumen-analytics-reference-funnel-drop {
+  padding-inline-start: 0.75rem;
+}
+
+.lumen-analytics-reference-funnel-drop::before {
+  display: inline-block;
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  margin-inline-end: 0.375rem;
+  border-radius: 50%;
+  background: var(--analytics-warning);
+  content: '';
+  vertical-align: -0.125rem;
+}
+
+.lumen-analytics-reference-heatmap {
+  overflow: hidden;
+}
+
+.lumen-analytics-reference-heatmap-months {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-inline-start: 2.75rem;
+  color: var(--analytics-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-analytics-reference-heatmap-months > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-analytics-reference-heatmap-svg {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  aspect-ratio: 5 / 1;
+}
+
+.lumen-analytics-reference-heatmap-svg rect {
+  stroke: color-mix(in srgb, var(--analytics-edge) 48%, transparent);
+  stroke-width: 0.35;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-heatmap-svg rect[aria-label] {
+  cursor: pointer;
+}
+
+.lumen-analytics-reference-heatmap-key {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  color: var(--analytics-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-analytics-reference-heatmap-key i {
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  border-radius: 0.2rem;
+  background: var(--analytics-primary);
+}
+
+.lumen-analytics-reference-goals {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-surface-radius);
+  background: var(--analytics-panel);
+}
+
+.lumen-analytics-reference-goal {
+  min-inline-size: 8rem;
+  flex: 1 1 9rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.lumen-analytics-reference-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--analytics-ink);
+}
+
+.lumen-analytics-reference-ring > svg {
+  display: block;
+  inline-size: clamp(6rem, 28vw, 8rem);
+  block-size: auto;
+  aspect-ratio: 1;
+}
+
+.lumen-analytics-reference-ring > strong {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-goal > strong {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-cohort-scroll {
+  overflow: auto;
+}
+
+.lumen-analytics-reference-cohort {
+  min-inline-size: 42rem;
+  border-spacing: 0.25rem;
+  border-collapse: separate;
+  color: var(--analytics-ink);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-cohort :where(th, td) {
+  min-inline-size: 4rem;
+  padding: 0.5rem 0.375rem;
+  border-radius: var(--analytics-control-radius);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.lumen-analytics-reference-cohort thead th {
+  color: var(--analytics-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lumen-analytics-reference-cohort :where(th:first-child) {
+  min-inline-size: 9rem;
+  text-align: start;
+}
+
+.lumen-analytics-reference-cohort tbody th {
+  background: var(--analytics-panel-raised);
+  font-weight: 500;
+}
+
+.lumen-analytics-reference-cohort tbody th > strong,
+.lumen-analytics-reference-cohort tbody th > small {
+  display: block;
+}
+
+.lumen-analytics-reference-cohort tbody th > small {
+  margin-block-start: 0.125rem;
+  color: var(--analytics-muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.lumen-analytics-reference-cohort tbody td {
+  border: 0.0625rem solid var(--analytics-line);
+  background: var(--analytics-panel-raised);
+}
+
+.lumen-analytics-reference-cohort tfoot th,
+.lumen-analytics-reference-cohort tfoot td {
+  border-block-start: 0.0625rem solid var(--analytics-edge);
+  color: var(--analytics-primary);
+  font-weight: 600;
+}
+
+.lumen-analytics-reference.is-candles .lumen-analytics-reference-chart-svg g.is-up > :where(line, rect) {
+  fill: var(--analytics-ink);
+  stroke: var(--analytics-ink);
+}
+
+.lumen-analytics-reference.is-candles .lumen-analytics-reference-chart-svg g.is-down > :where(line, rect) {
+  fill: transparent;
+  stroke: var(--analytics-negative);
+}
+
+.lumen-analytics-reference.is-candles .lumen-analytics-reference-chart-svg g > rect[opacity='0.3'] {
+  fill: var(--analytics-subtle);
+  stroke: none;
+}
+
+.lumen-analytics-reference-scatter-quadrants {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--analytics-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-analytics-reference-scatter {
+  aspect-ratio: 1.45 / 1;
+}
+
+.lumen-analytics-reference-scatter .lumen-analytics-reference-guide {
+  stroke: var(--analytics-edge);
+  stroke-dasharray: 2 2;
+}
+
+.lumen-analytics-reference-scatter circle {
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-scatter circle.is-healthy {
+  fill: color-mix(in srgb, var(--analytics-ink) 68%, transparent);
+  stroke: color-mix(in srgb, var(--analytics-ink) 40%, transparent);
+}
+
+.lumen-analytics-reference-scatter circle.is-risk {
+  fill: color-mix(in srgb, var(--analytics-ink) 68%, transparent);
+  stroke: var(--analytics-negative);
+}
+
+.lumen-analytics-reference-scatter circle[aria-pressed='true'] {
+  stroke-width: 1.8;
+}
+
+.lumen-analytics-reference-bullet-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem;
+  border: 0.0625rem solid var(--analytics-edge);
+  border-radius: var(--analytics-control-radius);
+  background: var(--analytics-panel);
+}
+
+.lumen-analytics-reference-bullet-row > .lumen-analytics-reference-value-row {
+  min-inline-size: 7rem;
+  flex: 0.8 1 9rem;
+}
+
+.lumen-analytics-reference-bullet-row > svg {
+  min-inline-size: 8rem;
+  flex: 1 1 12rem;
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: 16 / 1;
+  color: var(--analytics-ink);
+}
+
+.lumen-analytics-reference-bullet-chart {
+  display: block;
+}
+
+.lumen-analytics-reference-bullet-row > svg rect:first-child {
+  fill: color-mix(in srgb, var(--analytics-ink) 12%, transparent);
+}
+
+.lumen-analytics-reference-bullet-row > svg line {
+  stroke: var(--analytics-ink);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-analytics-reference-bullet-row > strong {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+
+.lumen-analytics-reference-empty {
+  padding: 1rem;
+  border: 0.0625rem dashed var(--analytics-edge);
+  border-radius: var(--analytics-control-radius);
+  color: var(--analytics-muted);
+  text-align: center;
+}
+
+.lumen-analytics-reference-footer {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-block-start: 0.75rem;
+  border-block-start: 0.0625rem solid var(--analytics-line);
+}
+
+.lumen-analytics-reference-footer > button {
+  color: var(--analytics-primary);
+}
+
+.lumen-analytics-reference-notice {
+  padding: 0.5rem 0.75rem;
+  border: 0.0625rem solid color-mix(in srgb, var(--analytics-primary) 32%, var(--analytics-edge));
+  border-radius: var(--analytics-control-radius);
+  background: color-mix(in srgb, var(--analytics-primary) 8%, var(--analytics-panel));
+}
+
+.lumen-analytics-reference.is-pane-scroll {
+  overflow: hidden;
+}
+
+.lumen-analytics-reference.is-pane-scroll .collection {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-analytics-reference.is-pane-scroll .lumen-analytics-reference-cohort-scroll {
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 48rem) {
+  .lumen-analytics-reference-metric-card {
+    flex-basis: calc(50% - 0.75rem);
+  }
+
+  .lumen-analytics-reference-chart-summary .lumen-analytics-reference-metric-card {
+    flex-basis: 8rem;
+  }
+
+  .lumen-analytics-reference-channel-layout {
+    align-items: stretch;
+  }
+
+  .lumen-analytics-reference-donut {
+    flex-basis: 100%;
+  }
+
+  .lumen-analytics-reference-donut > svg {
+    max-inline-size: 14rem;
+  }
+}
+
+@media (max-width: 36rem) {
+  .lumen-analytics-reference {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .lumen-analytics-reference-header {
+    align-items: stretch;
+  }
+
+  .lumen-analytics-reference-heading,
+  .lumen-analytics-reference-controls {
+    flex-basis: 100%;
+  }
+
+  .lumen-analytics-reference-controls {
+    justify-content: flex-start;
+  }
+
+  .lumen-analytics-reference-metric-card {
+    flex-basis: 100%;
+  }
+
+  .lumen-analytics-reference-chart-summary .lumen-analytics-reference-metric-card {
+    flex-basis: 100%;
+  }
+
+  .lumen-analytics-reference-chart,
+  .lumen-analytics-reference-metric-detail-panel,
+  .lumen-analytics-reference-heatmap,
+  .lumen-analytics-reference-cohort-scroll,
+  .lumen-analytics-reference-channel-layout,
+  .lumen-analytics-reference-goals {
+    padding: 0.75rem;
+  }
+
+  .lumen-analytics-reference-chart-svg {
+    aspect-ratio: 1.45 / 1;
+  }
+
+  .lumen-analytics-reference.is-service .lumen-analytics-reference-chart-svg {
+    aspect-ratio: 1.45 / 1;
+  }
+
+  .lumen-analytics-reference-metric-selector {
+    flex-basis: 100%;
+  }
+
+  .lumen-analytics-reference-donut {
+    min-inline-size: 0;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .lumen-analytics-reference-donut > svg {
+    flex-basis: auto;
+  }
+
+  .lumen-analytics-reference-channel-list {
+    flex-basis: 100%;
+  }
+
+  .lumen-analytics-reference-contribution > span {
+    flex-basis: 8rem;
+  }
+
+  .lumen-analytics-reference-ranked-row {
+    gap: 0.5rem;
+  }
+
+  .lumen-analytics-reference-ranked-identity {
+    min-inline-size: 4rem;
+    flex-basis: 5rem;
+  }
+
+  .lumen-analytics-reference-ranked-row > .lumen-analytics-reference-spark {
+    min-inline-size: 100%;
+    flex-basis: 100%;
+    max-inline-size: none;
+    order: 5;
+  }
+
+  .lumen-analytics-reference-funnel-stage {
+    padding: 0.625rem;
+  }
+
+  .lumen-analytics-reference-heatmap-months {
+    margin-inline-start: 2.25rem;
+  }
+
+  .lumen-analytics-reference-heatmap-svg {
+    aspect-ratio: 2.25 / 1;
+  }
+
+  .lumen-analytics-reference-bullet-row > .lumen-analytics-reference-value-row {
+    flex-basis: 100%;
+  }
+
+  .lumen-analytics-reference-bullet-row > svg {
+    min-inline-size: 100%;
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-analytics-reference * {
+    scroll-behavior: auto;
+  }
+}

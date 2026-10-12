@@ -1,0 +1,340 @@
+.lumen-agent-approval-surface[data-lumen-variant='4'][data-lumen-component='agent-approval'] {
+  border-radius: 0;
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-ui-agent-approval-permission {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-ui-agent-approval-permission-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 3.5rem;
+  padding: 8px 16px;
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-permission-heading h2 {
+  margin: 0;
+  color: var(--lumen-ink);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.hbar-app-ui-agent-approval-permission-heading > span {
+  margin-inline-start: auto;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* The observed fading edges overlay only the pane, not its flowing content. */
+.hbar-app-ui-agent-approval-permission-scroll-frame {
+  position: relative;
+  flex: 1 1 0%;
+  min-block-size: 0;
+}
+
+.hbar-app-ui-agent-approval-permission-scroll {
+  block-size: 100%;
+  min-block-size: 0;
+  padding: 16px;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-permission-card {
+  inline-size: 100%;
+  max-inline-size: 42rem;
+  min-inline-size: 0;
+  padding: 4px;
+  margin-inline: auto;
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: 0.875rem;
+  background: var(--lumen-frost);
+  box-shadow: none;
+}
+
+.hbar-app-ui-agent-approval-permission-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-approval-permission-summary,
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-scope-list,
+.hbar-app-ui-agent-approval-permission-actions {
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: 0.625rem;
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-ui-agent-approval-permission-summary {
+  padding: 16px;
+}
+
+.hbar-app-ui-agent-approval-permission-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-agent-approval-state-mark {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  box-shadow: none;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-agent-approval-state-mark.is-skipped {
+  color: var(--lumen-subtle);
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-permission-summary > h3 {
+  margin: 8px 0 0;
+  color: var(--lumen-ink);
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.375;
+  letter-spacing: -0.015em;
+}
+
+.hbar-app-ui-agent-approval-permission-summary > p {
+  margin: 8px 0 0;
+  color: var(--lumen-muted);
+  font-size: 0.875rem;
+  line-height: 1.625;
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-scope-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-scope-heading {
+  margin: 0;
+  color: var(--lumen-subtle);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-scope-list > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox:has(input:disabled) {
+  cursor: default;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-control {
+  inline-size: var(--hbar-app-ui-icon-md);
+  block-size: var(--hbar-app-ui-icon-md);
+  margin-block-start: 2px;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-mark {
+  pointer-events: none;
+  border-radius: 0.25rem;
+  box-shadow: inset 0 0 0 0.0625rem var(--lumen-line);
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-mark .lumen-form-glyph {
+  inline-size: var(--hbar-app-ui-icon-xs);
+  block-size: var(--hbar-app-ui-icon-xs);
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-control:has(input:checked) .lumen-checkbox-mark {
+  box-shadow: none;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-control:has(input:focus-visible) .lumen-checkbox-mark {
+  outline: 0.125rem solid var(--lumen-muted);
+  outline-offset: 0.125rem;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-copy {
+  gap: 2px;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-copy > span {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox-copy > small {
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+  line-height: 1.625;
+}
+
+.hbar-app-ui-agent-approval-permission .lumen-checkbox:has(input:not(:checked)) .lumen-checkbox-copy > span {
+  color: var(--lumen-subtle);
+  text-decoration: line-through;
+}
+
+.hbar-app-ui-agent-approval-permission-actions {
+  padding: 4px;
+}
+
+.hbar-app-ui-agent-approval-permission-buttons,
+.hbar-app-ui-agent-approval-permission-buttons > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-agent-approval-permission-buttons > div {
+  margin-inline-start: auto;
+  justify-content: flex-end;
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-permission-buttons button {
+  min-inline-size: auto;
+  max-inline-size: 100%;
+  min-block-size: 2rem;
+  padding: 0 10px;
+  border: 0;
+  box-shadow: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-agent-approval-permission-buttons button [data-edge] {
+  display: none;
+}
+
+.hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-permission-buttons > button {
+  gap: 4px;
+  padding-inline: 8px;
+  background: transparent;
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.hbar-app-ui-agent-approval-permission-buttons > button:hover {
+  background: color-mix(in srgb, var(--lumen-ink) 4%, transparent);
+  color: var(--lumen-ink);
+}
+
+.hbar-app-ui-agent-approval-permission-buttons .lumen-agent-approval-glyph {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+}
+
+.hbar-app-ui-agent-approval-permission-buttons > div > button {
+  background: color-mix(in srgb, var(--lumen-ink) 5%, transparent);
+  color: var(--lumen-ink);
+}
+
+.hbar-app-ui-agent-approval-permission-buttons > div > button:hover {
+  background: color-mix(in srgb, var(--lumen-ink) 8%, transparent);
+}
+
+.hbar-app-ui-agent-approval-permission-buttons > div > button:last-child {
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+}
+
+.hbar-app-ui-agent-approval-permission-buttons > div > button:last-child:hover {
+  background: color-mix(in srgb, var(--lumen-ink) 90%, var(--lumen-contrast));
+}
+
+.hbar-app-ui-agent-approval-permission-expiry {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: 8px;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.hbar-app-ui-agent-approval-permission-expiry > span:last-child {
+  color: var(--lumen-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.hbar-app-ui-agent-approval-permission-payload {
+  min-inline-size: 0;
+  padding: 10px 12px;
+  margin: 4px 0 0;
+  border-radius: 0.375rem;
+  background: var(--lumen-frost);
+  color: var(--lumen-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.625;
+  overflow: auto;
+  white-space: pre;
+}
+
+.hbar-app-ui-agent-approval-permission-payload:focus {
+  outline: none;
+}
+
+.hbar-app-ui-agent-approval-permission-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  min-block-size: 2rem;
+}
+
+.hbar-app-ui-agent-approval-permission-result > p {
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 40rem) {
+  .hbar-app-ui-agent-approval-permission-heading {
+    padding-inline: 24px;
+  }
+  .hbar-app-ui-agent-approval-permission-scroll {
+    padding: 20px;
+  }
+  .hbar-app-ui-agent-approval-permission-summary {
+    padding: 20px;
+  }
+  .hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-permission-summary > h3 {
+    font-size: 1.25rem;
+  }
+  .hbar-app-ui-agent-approval-permission .hbar-app-ui-agent-approval-scope-list {
+    padding-inline: 16px;
+  }
+}

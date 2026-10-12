@@ -1,0 +1,131 @@
+.lumen-toggle-group {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-toggle-options {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  overflow-x: auto;
+}
+
+.lumen-toggle-option {
+  display: inline-flex;
+  min-inline-size: min-content;
+  min-block-size: var(--lumen-control-size, 2.25rem);
+  flex: 1 0 8rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  border: 0.0625rem solid var(--lumen-edge, currentColor);
+  border-radius: var(--lumen-radius-control, 0.375rem);
+  padding: 0.375rem var(--lumen-control-padding-inline, 0.75rem);
+  background: transparent;
+  color: var(--lumen-ink, currentColor);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.25;
+  text-align: start;
+  overflow-wrap: anywhere;
+  transition:
+    background-color var(--lumen-state-duration, 240ms) var(--lumen-state-easing, ease),
+    border-color var(--lumen-state-duration, 240ms) var(--lumen-state-easing, ease),
+    color var(--lumen-state-duration, 240ms) var(--lumen-state-easing, ease);
+}
+
+.lumen-toggle-option[data-size='s'] {
+  min-block-size: 1.875rem;
+  padding-inline: 0.625rem;
+  font-size: 0.8125rem;
+}
+
+.lumen-toggle-option[data-size='l'] {
+  min-block-size: 2.625rem;
+  padding-inline: 0.875rem;
+}
+
+.lumen-toggle-option:hover:not(:disabled) {
+  border-color: var(--lumen-info, currentColor);
+  background: color-mix(in srgb, var(--lumen-ink, currentColor) 8%, transparent);
+}
+
+.lumen-toggle-option:is([aria-checked='true'], [aria-pressed='true'], [data-selected='true']) {
+  border-color: var(--lumen-info, currentColor);
+  background: color-mix(in srgb, var(--lumen-info, currentColor) 14%, transparent);
+}
+
+.lumen-toggle-option:focus-visible {
+  outline: 0.125rem solid var(--lumen-info, currentColor);
+  outline-offset: 0.125rem;
+}
+
+.lumen-toggle-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.lumen-toggle-option-copy {
+  display: flex;
+  min-inline-size: min-content;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-toggle-option-label,
+.lumen-toggle-option-detail {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-toggle-option-detail {
+  color: var(--lumen-muted, currentColor);
+  font-size: 0.8125em;
+}
+
+.lumen-toggle-group-validation {
+  inline-size: 0.0625rem;
+  block-size: 0.0625rem;
+  margin: -0.0625rem;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[data-lumen-shape='square'] .lumen-toggle-option {
+  border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-toggle-option {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .lumen-toggle-option {
+    border-color: ButtonBorder;
+    background: ButtonFace;
+    color: ButtonText;
+    transition: none;
+  }
+
+  .lumen-toggle-option:is([aria-checked='true'], [aria-pressed='true'], [data-selected='true']) {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .lumen-toggle-option:focus-visible {
+    outline-color: Highlight;
+  }
+}

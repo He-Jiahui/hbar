@@ -1,0 +1,258 @@
+.hbar-app-ui-integration-connection-reference-surface {
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.hbar-app-ui-integration-connection-reference,
+.hbar-app-ui-integration-connection-reference-header,
+.hbar-app-ui-integration-connection-reference-title,
+.hbar-app-ui-integration-connection-reference-actions,
+.hbar-app-ui-integration-connection-reference-layout,
+.hbar-app-ui-integration-connection-reference-panel,
+.hbar-app-ui-integration-connection-reference-panel > header,
+.hbar-app-ui-integration-connection-reference-scope-list,
+.hbar-app-ui-integration-connection-reference-scope,
+.hbar-app-ui-integration-connection-reference-scope > div,
+.hbar-app-ui-integration-connection-reference-activity-list,
+.hbar-app-ui-integration-connection-reference-activity-item {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.hbar-app-ui-integration-connection-reference {
+  min-block-size: min-content;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hbar-app-ui-integration-connection-reference-header {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-block-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+}
+
+.hbar-app-ui-integration-connection-reference-avatar {
+  display: inline-flex;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--hbar-app-ui-integration-border-strong);
+  border-radius: 0.5rem;
+  background: var(--hbar-app-ui-integration-surface);
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-integration-connection-reference-title {
+  flex: 1 1 24rem;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+
+.hbar-app-ui-integration-connection-reference-title h2 {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-title p {
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.hbar-app-ui-integration-connection-reference-layout {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.hbar-app-ui-integration-connection-reference-panel {
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-radius: 0.75rem;
+  background: var(--hbar-app-ui-integration-surface);
+}
+
+.hbar-app-ui-integration-connection-reference-permissions {
+  flex: 2 1 32rem;
+}
+
+.hbar-app-ui-integration-connection-reference-activity {
+  flex: 1 1 18rem;
+}
+
+.hbar-app-ui-integration-connection-reference-panel > header {
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hbar-app-ui-integration-connection-reference-panel h3 {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-panel > header p {
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-scope-list {
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hbar-app-ui-integration-connection-reference-scope {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hbar-app-ui-integration-connection-reference-scope > div {
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hbar-app-ui-integration-connection-reference-scope strong {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-scope p {
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-required {
+  display: inline-flex;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: var(--hbar-app-ui-integration-border);
+  color: var(--hbar-app-ui-integration-muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.hbar-app-ui-integration-connection-reference-switch {
+  flex: 0 0 auto;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-list {
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item {
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item > i {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  flex: 0 0 auto;
+  margin-block-start: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.hbar-app-ui-integration-connection-reference-tone-positive > i {
+  color: var(--hbar-app-ui-integration-positive);
+}
+
+.hbar-app-ui-integration-connection-reference-tone-warning > i {
+  color: var(--hbar-app-ui-integration-warning);
+}
+
+.hbar-app-ui-integration-connection-reference-tone-danger > i {
+  color: var(--hbar-app-ui-integration-danger);
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item strong {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-activity-item small {
+  color: var(--hbar-app-ui-integration-subtle);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-integration-connection-reference-audit-link {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--hbar-app-ui-integration-text);
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.hbar-app-ui-integration-connection-reference-audit-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 48rem) {
+  .hbar-app-ui-integration-connection-reference-header {
+    padding-inline: 1rem;
+  }
+
+  .hbar-app-ui-integration-connection-reference-layout {
+    padding-inline: 1rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .hbar-app-ui-integration-connection-reference-actions {
+    inline-size: 100%;
+    margin-inline-start: 0;
+  }
+
+  .hbar-app-ui-integration-connection-reference-actions .hbar-app-ui-integration-button {
+    flex: 1 1 8rem;
+  }
+}

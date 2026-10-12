@@ -1,0 +1,279 @@
+.lumen-onboarding5-surface {
+  inline-size: min(100%, 35rem);
+  block-size: auto;
+  min-inline-size: 0;
+  align-self: center;
+  overflow: visible;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1.5rem;
+  overflow: visible;
+  padding: 0;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+}
+
+.lumen-onboarding5-reference :where(h2, p) {
+  margin: 0;
+}
+
+.lumen-onboarding5-header {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-header h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-header p {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.lumen-onboarding5-panel {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.875rem;
+  padding: 0.25rem;
+}
+
+.lumen-onboarding5-link-card,
+.lumen-onboarding5-invitations {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.625rem;
+  padding: 1rem;
+}
+
+.lumen-onboarding5-link-header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-link-header p,
+.lumen-onboarding5-row label {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-link-header button {
+  display: inline-flex;
+  min-inline-size: 0;
+  min-block-size: 1.75rem;
+  max-inline-size: 60%;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.4375rem;
+  padding-inline: 0.5rem;
+  background: var(--lumen-glass);
+  box-shadow: none;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
+}
+
+.lumen-onboarding5-icon {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+  flex: 0 0 auto;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-share-link {
+  min-inline-size: 0;
+  border-radius: 0.4375rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--lumen-glass);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumen-onboarding5-rows {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lumen-onboarding5-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.lumen-onboarding5-email-field,
+.lumen-onboarding5-role-field {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-onboarding5-email-field {
+  flex: 1 1 auto;
+}
+
+.lumen-onboarding5-role-field {
+  inline-size: 7.5rem;
+  flex: 0 0 7.5rem;
+}
+
+.lumen-onboarding5-row :where(input, select) {
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 2.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  padding-inline: 0.75rem;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.lumen-onboarding5-row input::placeholder {
+  color: var(--lumen-muted);
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-remove {
+  inline-size: 2.25rem;
+  min-inline-size: 2.25rem;
+  block-size: 2.25rem;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lumen-muted);
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-add {
+  min-block-size: 2.25rem;
+  align-self: flex-start;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding-inline: 0.75rem;
+  background: var(--lumen-glass);
+  box-shadow: none;
+  font-size: 0.8125rem;
+}
+
+.lumen-onboarding5-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-actions button {
+  min-inline-size: 0;
+  min-block-size: 2.5rem;
+  box-shadow: none;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-skip {
+  flex: 0 1 7rem;
+}
+
+.lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-send {
+  flex: 1 1 auto;
+}
+
+.lumen-onboarding5-reference :where(button, input, select):focus-visible {
+  outline: 0.125rem solid var(--lumen-focus, var(--lumen-accent));
+  outline-offset: 0.125rem;
+}
+
+[data-lumen-mode='light'] .lumen-onboarding.lumen-onboarding5-reference {
+  background: #fff;
+}
+
+[data-lumen-mode='light'] .lumen-onboarding5-row :where(input, select) {
+  background: #fff;
+}
+
+[data-lumen-mode='light'] .lumen-onboarding5-link-header button,
+[data-lumen-mode='light'] .lumen-onboarding5-add {
+  background: #f5f5f5;
+}
+
+[data-lumen-mode='dark'] .lumen-onboarding.lumen-onboarding5-reference {
+  background: #090909;
+}
+
+[data-lumen-mode='dark'] .lumen-onboarding5-row :where(input, select) {
+  background: #090909;
+}
+
+[data-lumen-mode='dark'] .lumen-onboarding5-link-header button,
+[data-lumen-mode='dark'] .lumen-onboarding5-add {
+  background: #242424;
+}
+
+[data-lumen-mode='light'] .lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-send {
+  background: #171717;
+  color: #fff;
+}
+
+[data-lumen-mode='dark'] .lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-send {
+  background: #fff;
+  color: #171717;
+}
+
+@media (max-width: 34rem) {
+  .lumen-onboarding5-surface {
+    inline-size: 100%;
+  }
+
+  .lumen-onboarding5-row {
+    flex-wrap: wrap;
+  }
+
+  .lumen-onboarding5-email-field {
+    flex-basis: 10rem;
+  }
+
+  .lumen-onboarding5-role-field {
+    flex: 1 1 7.5rem;
+  }
+}
+
+@media (max-width: 19rem) {
+  .lumen-onboarding5-email-field,
+  .lumen-onboarding5-role-field {
+    flex-basis: calc(100% - 2.75rem);
+  }
+
+  .lumen-onboarding5-actions {
+    flex-wrap: wrap;
+  }
+
+  .lumen-onboarding.lumen-onboarding5-reference .lumen-onboarding5-actions button {
+    flex-basis: 100%;
+  }
+}

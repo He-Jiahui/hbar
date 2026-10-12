@@ -80,4 +80,4 @@ Lumen 现状、差距与实施边界见 [Lumen 视觉设计评审](docs/lumen-de
 
 容量变化只迁移同一个已经挂载的操作控件。支持时使用浏览器的 `Element.moveBefore` 保留焦点、浮层和动画；相同父容器不重复移动。关闭浮层通过公共 `focusLumenControl` 恢复原控件，包括进入“更多”的控件。侧栏布局恢复使用内部初始化命令；用户主动选择之后，迟到的初始化及快捷键响应不能覆盖选择。
 
-设计实施与实际检查结果见 [全界面评估和验收](docs/ui-visual-upgrade.md)；组件库规则见 [Lumen DESIGN.md](hbar-ui/packages/lumen-app-ui/DESIGN.md)。
+设计实施与实际检查结果见 [全界面评估和验收](docs/ui-visual-upgrade.md)；组件库规则见 [Lumen DESIGN.md](packages/lumen-app-ui/DESIGN.md)。

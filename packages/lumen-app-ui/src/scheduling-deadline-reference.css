@@ -1,0 +1,351 @@
+.lumen-scheduling-surface:has(> .lumen-scheduling-deadline-reference) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling.lumen-scheduling-deadline-reference {
+  align-items: center;
+  gap: 0;
+  padding: 2rem;
+  overflow: auto;
+  color: light-dark(#171717, #f5f5f5);
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling-deadline-card {
+  display: flex;
+  inline-size: min(37.5rem, 100%);
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 0.875rem;
+  padding: 0.25rem;
+  margin-block: auto;
+  background: light-dark(#fafafa, #171717);
+  font:
+    400 1rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.lumen-scheduling-deadline-card :is(p, button) {
+  margin: 0;
+}
+.lumen-scheduling-deadline-card button {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.lumen-scheduling-deadline-card button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.lumen-scheduling-deadline-card header {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+}
+.lumen-scheduling-deadline-card header p {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: #737373;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-scheduling-deadline-card header p > span {
+  color: light-dark(#171717, #f5f5f5);
+  font-weight: 500;
+}
+.lumen-scheduling-deadline-icon {
+  inline-size: var(--hbar-app-ui-icon-md, 1rem);
+  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lumen-scheduling-deadline-icon:is(.is-zone, .is-left, .is-right) {
+  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  color: #a3a3a3;
+}
+.lumen-scheduling-deadline-presets {
+  min-inline-size: 0;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 0.625rem;
+  padding: 0.25rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling-deadline-presets[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 12rem;
+  overflow: auto;
+}
+.lumen-scheduling-deadline-presets > button {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  align-items: center;
+  gap: 0.625rem;
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0 0.625rem;
+  background: transparent;
+}
+.lumen-scheduling-deadline-presets > button > svg {
+  color: #a3a3a3;
+}
+.lumen-scheduling-deadline-presets > button > span:first-of-type {
+  min-inline-size: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-scheduling-deadline-presets > button > span:last-child {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  color: #737373;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  overflow-wrap: anywhere;
+}
+.lumen-scheduling-deadline-presets > button:is(:hover, [aria-pressed='true']) {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-scheduling-deadline-presets > button[aria-pressed='true'] > svg {
+  color: inherit;
+}
+.lumen-scheduling-deadline-columns {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.25rem;
+}
+.lumen-scheduling-deadline-month {
+  min-inline-size: 0;
+  flex: 1 1 0%;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 0.625rem;
+  padding: 0.75rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling-deadline-month-controls {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+.lumen-scheduling-deadline-month-controls > button {
+  display: flex;
+  inline-size: 1.75rem;
+  min-block-size: 1.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0;
+  background: transparent;
+}
+.lumen-scheduling-deadline-month-controls > button:hover {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-scheduling-deadline-select.lumen-control {
+  inline-size: 0;
+  min-inline-size: 0;
+  min-block-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 1 1 0%;
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0 1.5rem 0 0.5rem;
+  color: inherit;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23a3a3a3' stroke-width='1.3'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.375rem center;
+  background-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  font:
+    500 0.8125rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  appearance: none;
+}
+.lumen-scheduling-deadline-dates {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-block-start: 0.75rem;
+}
+.lumen-scheduling-deadline-dates[data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: 14rem;
+  overflow: auto;
+}
+.lumen-scheduling-deadline-dates > :is(button, div) {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  flex: 0 0 calc((100% - 1.5rem) / 7);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: transparent;
+}
+.lumen-scheduling-deadline-dates > div.is-weekday {
+  min-block-size: 0;
+  padding-block-end: 0.25rem;
+  color: #a3a3a3;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+.lumen-scheduling-deadline-dates > div.is-outside {
+  color: light-dark(#d4d4d4, #404040);
+}
+.lumen-scheduling-deadline-dates > button:hover {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-scheduling-deadline-dates > button[aria-pressed='true'] {
+  color: light-dark(#fff, #171717);
+  background: light-dark(#171717, #fff);
+  font-weight: 500;
+}
+.lumen-scheduling-deadline-times {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 0 0 9.375rem;
+  flex-direction: column;
+  contain: size;
+  overflow: hidden;
+  border: 0.0625rem solid light-dark(#e9e9e9, #262626);
+  border-radius: 0.625rem;
+  background: light-dark(#fff, #0a0a0a);
+}
+.lumen-scheduling-deadline-times > p {
+  padding: 0.75rem 0.75rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.lumen-scheduling-deadline-time-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 0.5rem 0.5rem;
+  scrollbar-width: none;
+}
+.lumen-scheduling-deadline-time-scroll > button {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.375rem;
+  padding: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: transparent;
+}
+.lumen-scheduling-deadline-time-scroll > button + button {
+  margin-block-start: 0.25rem;
+}
+.lumen-scheduling-deadline-time-scroll > button:hover {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-scheduling-deadline-time-scroll > button[aria-checked='true'] {
+  border-color: transparent;
+  color: light-dark(#fff, #171717);
+  background: light-dark(#171717, #fff);
+  font-weight: 500;
+}
+.lumen-scheduling-deadline-time-scroll[data-scroll-bottom='true'] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+}
+.lumen-scheduling-deadline-time-scroll[data-scroll-top='true'] {
+  mask-image: linear-gradient(to bottom, transparent, #000 2rem);
+}
+.lumen-scheduling-deadline-time-scroll[data-scroll-top='true'][data-scroll-bottom='true'] {
+  mask-image: linear-gradient(to bottom, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+}
+.lumen-scheduling-deadline-card footer {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+}
+.lumen-scheduling-deadline-card footer > p {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: #737373;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lumen-scheduling-deadline-card footer > p > span {
+  color: light-dark(#171717, #f5f5f5);
+  font-weight: 500;
+}
+.lumen-scheduling-deadline-card footer > div {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
+.lumen-scheduling-deadline-card footer button {
+  display: flex;
+  min-block-size: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid light-dark(#e5e5e5, #262626);
+  border-radius: 0.5rem;
+  padding: 0 0.75rem;
+  background: light-dark(#fff, #0a0a0a);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.lumen-scheduling-deadline-card footer button:hover {
+  background: light-dark(#f5f5f5, #262626);
+}
+.lumen-scheduling-deadline-card footer button.is-apply {
+  border: 0;
+  color: light-dark(#fff, #171717);
+  background: light-dark(#171717, #fff);
+}
+.lumen-scheduling-deadline-card footer button.is-apply:hover {
+  background: light-dark(#262626, #f5f5f5);
+}
+@media (max-width: 39.999rem) {
+  .lumen-scheduling.lumen-scheduling-deadline-reference {
+    padding: 1.5rem;
+  }
+  .lumen-scheduling-deadline-columns {
+    flex-direction: column;
+  }
+  .lumen-scheduling-deadline-times {
+    flex: 0 0 auto;
+    block-size: 17.5rem;
+    contain: none;
+  }
+}

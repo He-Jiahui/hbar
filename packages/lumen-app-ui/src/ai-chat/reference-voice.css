@@ -1,0 +1,98 @@
+.lumen-ai-chat-reference-voice {
+  justify-content: flex-start;
+  overflow: auto;
+}
+.lumen-ai-chat-voice-header {
+  flex: 0 0 auto;
+}
+.lumen-ai-chat-voice-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  inline-size: min(100%, 34rem);
+  min-inline-size: 0;
+  margin: auto;
+  padding: 1.25rem;
+}
+.lumen-ai-chat-voice-waveform {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-inline-size: 0;
+  padding: 1.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.75rem;
+  background: var(--lumen-glass);
+}
+.lumen-ai-chat-voice-waveform > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-inline-size: 0;
+  block-size: 4rem;
+}
+.lumen-ai-chat-voice-waveform > div > span {
+  flex: 1 1 0;
+  min-inline-size: 0.125rem;
+  max-inline-size: 0.4rem;
+  border-radius: 50%;
+  background: var(--lumen-ink);
+}
+.lumen-ai-chat-voice-waveform > div > span[data-level='low'] {
+  block-size: 25%;
+  opacity: 0.45;
+}
+.lumen-ai-chat-voice-waveform > div > span[data-level='medium'] {
+  block-size: 52%;
+  opacity: 0.7;
+}
+.lumen-ai-chat-voice-waveform > div > span[data-level='high'] {
+  block-size: 82%;
+}
+.lumen-ai-chat-voice-waveform p {
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.lumen-ai-chat-voice-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.lumen-ai-chat-voice-attachments > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.4rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.6rem;
+  overflow-wrap: anywhere;
+}
+.lumen-ai-chat-voice-attachments button {
+  padding: 0.2rem;
+  border: 0;
+}
+.lumen-ai-chat-voice-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.lumen-ai-chat-voice-controls p {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.lumen-ai-chat-voice-controls button[type='submit'] {
+  margin-inline-start: auto;
+}
+.lumen-ai-chat-voice-empty-attachments {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+@media (max-width: 40rem) {
+  .lumen-ai-chat-voice-panel {
+    margin: 0 auto;
+    padding: 1rem;
+  }
+}

@@ -1,0 +1,1866 @@
+/*
+ * Monitoring reference surfaces.
+ *
+ * The reference views are content grown by default.  Feed and table regions
+ * opt in to a bounded pane scroll through data-hbar-app-ui-list-strategy, so
+ * their headers and footers remain in the document flow.
+ */
+
+/* The legacy monitoring shell owns a full-height, clipped pane.  Reference
+ * content is a document-flow surface and must be allowed to grow naturally. */
+.lumen-monitoring-surface:has(.lumen-monitoring-reference) {
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.lumen-monitoring:has(.lumen-monitoring-reference) {
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+.lumen-monitoring-reference {
+  --monitoring-panel: color-mix(in srgb, var(--lumen-glass, rgb(20 20 20 / 30%)) 84%, var(--lumen-reading, #090909));
+  --monitoring-raised: color-mix(in srgb, var(--lumen-glass, rgb(20 20 20 / 30%)) 62%, var(--lumen-reading, #090909));
+  --monitoring-edge: var(--lumen-edge, rgb(255 255 255 / 17%));
+  --monitoring-line: var(--lumen-line, rgb(255 255 255 / 10%));
+  --monitoring-ink: var(--lumen-ink, #eee);
+  --monitoring-muted: var(--lumen-muted, #aaa);
+  --monitoring-subtle: var(--lumen-subtle, #858585);
+  --monitoring-accent: var(--lumen-accent, var(--lumen-info, #81b5ff));
+  --monitoring-positive: var(--lumen-success, #77deb0);
+  --monitoring-warning: var(--lumen-warning, #efd17a);
+  --monitoring-negative: var(--lumen-danger, #ff969b);
+  --monitoring-control-radius: var(--lumen-radius-control, 0.375rem);
+  --monitoring-surface-radius: var(--lumen-radius-surface, 0.75rem);
+  --monitoring-icon-xs: var(--hbar-app-ui-icon-xs, 0.75rem);
+  --monitoring-icon-sm: var(--hbar-app-ui-icon-sm, 0.875rem);
+  --monitoring-icon-md: var(--hbar-app-ui-icon-md, 1rem);
+  --monitoring-icon-lg: var(--hbar-app-ui-icon-lg, 1.25rem);
+  --monitoring-icon-xl: var(--hbar-app-ui-icon-xl, 1.5rem);
+  display: flex;
+  inline-size: min(100%, 76rem);
+  min-inline-size: 0;
+  min-block-size: 0;
+  margin-inline: auto;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow: visible;
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  color: var(--monitoring-ink);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.lumen-monitoring-reference[data-reference-kind='incident'],
+.lumen-monitoring-reference[data-reference-kind='alerts'],
+.lumen-monitoring-reference[data-reference-kind='uptime'],
+.lumen-monitoring-reference[data-reference-kind='fleet'],
+.lumen-monitoring-reference[data-reference-kind='response'],
+.lumen-monitoring-reference[data-reference-kind='queue'],
+.lumen-monitoring-reference[data-reference-kind='slo'] {
+  max-inline-size: 65rem;
+}
+
+.lumen-monitoring-reference[data-reference-kind='logs'] {
+  max-inline-size: 76rem;
+}
+
+.lumen-monitoring-reference *,
+.lumen-monitoring-reference *::before,
+.lumen-monitoring-reference *::after {
+  box-sizing: border-box;
+}
+
+.lumen-monitoring-reference :where(h2, h3, p, ul, ol, dl, dt, dd, pre) {
+  margin: 0;
+}
+
+.lumen-monitoring-reference :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-monitoring-reference :where(button, input, select, textarea) {
+  min-inline-size: 0;
+  font: inherit;
+}
+
+.lumen-monitoring-reference :where(button, a) {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference :where(button, input, select, textarea):focus-visible {
+  outline: 0.125rem solid var(--monitoring-accent);
+  outline-offset: 0.125rem;
+}
+
+.lumen-monitoring-reference button {
+  cursor: pointer;
+}
+
+.lumen-monitoring-reference button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.lumen-monitoring-reference :where(small, time, p) {
+  color: var(--monitoring-muted);
+}
+
+.lumen-monitoring-reference-glyph {
+  inline-size: var(--monitoring-icon-md);
+  block-size: var(--monitoring-icon-md);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.lumen-monitoring-reference-dot {
+  display: inline-block;
+  inline-size: var(--monitoring-icon-xs);
+  block-size: var(--monitoring-icon-xs);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--monitoring-muted);
+  vertical-align: -0.0625rem;
+}
+
+.lumen-monitoring-reference-dot[data-tone='success'] {
+  background: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-dot[data-tone='warning'] {
+  background: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-dot[data-tone='danger'] {
+  background: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference [data-tone='success'] {
+  --monitoring-current-tone: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference [data-tone='warning'] {
+  --monitoring-current-tone: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference [data-tone='danger'] {
+  --monitoring-current-tone: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-header,
+.lumen-monitoring-reference-header-copy,
+.lumen-monitoring-reference-heading,
+.lumen-monitoring-reference-actions,
+.lumen-monitoring-reference-toolbar,
+.lumen-monitoring-reference-tabs,
+.lumen-monitoring-reference-footer,
+.lumen-monitoring-reference-panel-heading,
+.lumen-monitoring-reference-composer-footer,
+.lumen-monitoring-reference-service-heading,
+.lumen-monitoring-reference-queue-toolbar,
+.lumen-monitoring-reference-slo-chart-header {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.lumen-monitoring-reference-header {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lumen-monitoring-reference-header-copy {
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-monitoring-reference-heading {
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lumen-monitoring-reference-heading h2 {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: var(--monitoring-ink);
+  font-size: clamp(1.125rem, 1rem + 0.65vw, 1.5rem);
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+}
+
+.lumen-monitoring-reference-header-copy > p,
+.lumen-monitoring-reference-status,
+.lumen-monitoring-reference-panel-heading > p,
+.lumen-monitoring-reference-panel-detail,
+.lumen-monitoring-reference-footer,
+.lumen-monitoring-reference-notice,
+.lumen-monitoring-reference-slo-chart-header p,
+.lumen-monitoring-reference-group-detail {
+  color: var(--monitoring-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-monitoring-reference-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lumen-monitoring-reference-tabs {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-control-radius);
+  background: var(--monitoring-raised);
+}
+
+.lumen-monitoring-reference-tab {
+  display: inline-flex;
+  min-block-size: 1.875rem;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border: 0;
+  border-radius: var(--monitoring-control-radius);
+  background: transparent;
+  color: var(--monitoring-muted);
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-tab small {
+  color: inherit;
+  font-size: 0.6875rem;
+}
+
+.lumen-monitoring-reference-tab[aria-selected='true'] {
+  background: color-mix(in srgb, var(--monitoring-accent) 15%, var(--monitoring-raised));
+  color: var(--monitoring-ink);
+  box-shadow: inset 0 -0.125rem var(--monitoring-accent);
+}
+
+.lumen-monitoring-reference-toolbar,
+.lumen-monitoring-reference-queue-toolbar {
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.lumen-monitoring-reference-toolbar {
+  order: 3;
+}
+
+.lumen-monitoring-reference-query {
+  display: flex;
+  min-inline-size: 10rem;
+  flex: 1 1 14rem;
+  align-items: center;
+  gap: 0.375rem;
+  padding-inline: 0.625rem;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-control-radius);
+  background: var(--monitoring-panel);
+  color: var(--monitoring-muted);
+}
+
+.lumen-monitoring-reference-query > .lumen-monitoring-reference-glyph {
+  inline-size: var(--monitoring-icon-sm);
+  block-size: var(--monitoring-icon-sm);
+}
+
+.lumen-monitoring-reference-query :where(input, input:focus) {
+  inline-size: 100%;
+  min-block-size: 2rem;
+  flex: 1 1 auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--monitoring-ink);
+}
+
+.lumen-monitoring-reference-metrics {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lumen-monitoring-reference-metric {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.875rem;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-surface-radius);
+  background: var(--monitoring-panel);
+}
+
+.lumen-monitoring-reference-metric dt {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+  color: var(--monitoring-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-monitoring-reference-metric dt button {
+  display: inline-flex;
+  min-block-size: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--monitoring-muted);
+}
+
+.lumen-monitoring-reference-metric dt button .lumen-monitoring-reference-glyph {
+  inline-size: var(--monitoring-icon-sm);
+  block-size: var(--monitoring-icon-sm);
+}
+
+.lumen-monitoring-reference-metric dd {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--monitoring-ink);
+  font-size: clamp(1.25rem, 1.1rem + 1vw, 1.8rem);
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.lumen-monitoring-reference-metric dd small {
+  color: var(--monitoring-current-tone, var(--monitoring-positive));
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.lumen-monitoring-reference-metric > p {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+.lumen-monitoring-reference[data-reference-kind='incident'] .lumen-monitoring-reference-metrics {
+  gap: 0.5rem;
+}
+
+.lumen-monitoring-reference[data-reference-kind='incident'] .lumen-monitoring-reference-metric {
+  flex-basis: calc(25% - 0.375rem);
+  gap: 0.25rem;
+  padding: 0.625rem;
+  border-radius: var(--monitoring-control-radius);
+}
+
+.lumen-monitoring-reference-metric[data-tone='danger'] dd small {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-metric[data-tone='warning'] dd small {
+  color: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-panel,
+.lumen-monitoring-reference-composer,
+.lumen-monitoring-reference-empty,
+.lumen-monitoring-reference-table-scroll,
+.lumen-monitoring-reference-notice {
+  min-inline-size: 0;
+  padding: 1rem;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-surface-radius);
+  background: var(--monitoring-panel);
+}
+
+.lumen-monitoring-reference-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.lumen-monitoring-reference-panel-heading {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lumen-monitoring-reference-panel-heading > div,
+.lumen-monitoring-reference-slo-chart-header > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-monitoring-reference-panel-heading h3,
+.lumen-monitoring-reference-slo-chart-header h3 {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: var(--monitoring-ink);
+  font-size: 0.9375rem;
+  font-weight: 620;
+}
+
+.lumen-monitoring-reference-panel-value {
+  color: var(--monitoring-ink);
+  font-size: clamp(1.25rem, 1.1rem + 1vw, 1.8rem);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.lumen-monitoring-reference-split,
+.lumen-monitoring-reference-incident-body {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.lumen-monitoring-reference-split > .lumen-monitoring-reference-panel:first-child,
+.lumen-monitoring-reference-incident-main {
+  min-inline-size: 0;
+  flex: 2 1 32rem;
+}
+
+.lumen-monitoring-reference-split > .lumen-monitoring-reference-panel:last-child,
+.lumen-monitoring-reference-incident-body > aside {
+  min-inline-size: 0;
+  flex: 1 1 16rem;
+}
+
+.lumen-monitoring-reference-chart-wrap,
+.lumen-monitoring-reference-chart {
+  display: block;
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.lumen-monitoring-reference-chart-wrap {
+  aspect-ratio: 2.45 / 1;
+}
+
+.lumen-monitoring-reference-chart {
+  block-size: auto;
+  aspect-ratio: 2.45 / 1;
+  overflow: visible;
+  color: var(--monitoring-accent);
+}
+
+.lumen-monitoring-reference-chart-guide {
+  fill: none;
+  stroke: var(--monitoring-line);
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-monitoring-reference-chart-threshold {
+  fill: none;
+  stroke: var(--monitoring-warning);
+  stroke-dasharray: 4 4;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-monitoring-reference-chart-planned {
+  fill: none;
+  stroke: var(--monitoring-muted);
+  stroke-dasharray: 3 3;
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.lumen-monitoring-reference-chart-wrap[data-tone='success'],
+.lumen-monitoring-reference-chart[data-tone='success'] {
+  color: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-chart-wrap[data-tone='warning'],
+.lumen-monitoring-reference-chart[data-tone='warning'] {
+  color: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-chart-wrap[data-tone='danger'],
+.lumen-monitoring-reference-chart[data-tone='danger'] {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-axis {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-monitoring-reference-axis > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-events,
+.lumen-monitoring-reference-alerts,
+.lumen-monitoring-reference-logs,
+.lumen-monitoring-reference-uptime,
+.lumen-monitoring-reference-queue,
+.lumen-monitoring-reference-slo,
+.lumen-monitoring-reference-updates,
+.lumen-monitoring-reference-affected,
+.lumen-monitoring-reference-responders {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-monitoring-reference [data-hbar-app-ui-list-strategy='pane-scroll'] {
+  max-block-size: min(65vh, 38rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-monitoring-reference-events {
+  padding-inline-end: 0.25rem;
+}
+
+.lumen-monitoring-reference-events > li {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-block: 0.625rem;
+  border-block-end: 0.0625rem solid var(--monitoring-line);
+}
+
+.lumen-monitoring-reference-events > li > p:first-child {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-monitoring-reference-events > li > p:first-child strong {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  color: var(--monitoring-ink);
+}
+
+.lumen-monitoring-reference-events > li > p:last-child {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-incident-body {
+  align-items: stretch;
+}
+
+.lumen-monitoring-reference-incident-main {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.lumen-monitoring-reference-incident-body > aside {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lumen-monitoring-reference-incident-body > aside h3 + ul {
+  margin-block-start: -0.25rem;
+}
+
+.lumen-monitoring-reference-updates {
+  padding-inline-end: 0.25rem;
+}
+
+.lumen-monitoring-reference-updates > li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding-block: 0.625rem;
+  border-block-end: 0.0625rem solid var(--monitoring-line);
+}
+
+.lumen-monitoring-reference-avatar {
+  display: inline-flex;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--monitoring-accent) 17%, var(--monitoring-raised));
+  color: var(--monitoring-accent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.lumen-monitoring-reference-update-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-monitoring-reference-update-copy > p:first-child {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-monitoring-reference-update-copy > p:first-child strong {
+  color: var(--monitoring-ink);
+}
+
+.lumen-monitoring-reference-update-copy > p:first-child time {
+  margin-inline-start: auto;
+}
+
+.lumen-monitoring-reference-update-copy > p:last-child {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.lumen-monitoring-reference-composer :where(textarea) {
+  inline-size: 100%;
+  min-block-size: 6rem;
+  resize: vertical;
+}
+
+.lumen-monitoring-reference-composer-footer {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.lumen-monitoring-reference-composer-footer > p {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  font-size: 0.75rem;
+}
+
+.lumen-monitoring-reference-affected > li,
+.lumen-monitoring-reference-responders > li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.375rem;
+  border-block-end: 0.0625rem solid var(--monitoring-line);
+}
+
+.lumen-monitoring-reference-affected > li {
+  justify-content: space-between;
+}
+
+.lumen-monitoring-reference-affected > li > span:first-child,
+.lumen-monitoring-reference-affected > li > span:last-child {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-affected > li > span:last-child {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--monitoring-muted);
+  text-align: end;
+}
+
+.lumen-monitoring-reference-responders > li > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-monitoring-reference-responders strong {
+  overflow-wrap: anywhere;
+  color: var(--monitoring-ink);
+}
+
+.lumen-monitoring-reference-progress {
+  display: flex;
+  min-inline-size: 0;
+  block-size: 0.375rem;
+  overflow: hidden;
+  border-radius: 999rem;
+  background: var(--monitoring-edge);
+}
+
+.lumen-monitoring-reference-progress > i {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--monitoring-current-tone, var(--monitoring-accent));
+}
+
+.lumen-monitoring-reference-alerts {
+  padding-inline-end: 0.25rem;
+}
+
+.lumen-monitoring-reference-alert-row {
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-control-radius);
+  background: var(--monitoring-panel);
+}
+
+.lumen-monitoring-reference-alert-trigger {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--monitoring-ink);
+  text-align: start;
+}
+
+.lumen-monitoring-reference-alert-trigger > .lumen-monitoring-reference-glyph {
+  color: var(--monitoring-muted);
+  rotate: 0deg;
+}
+
+.lumen-monitoring-reference-alert-trigger[aria-expanded='true'] > .lumen-monitoring-reference-glyph {
+  rotate: 90deg;
+}
+
+.lumen-monitoring-reference-alert-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 13rem;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-monitoring-reference-alert-copy > strong {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-alert-copy > strong > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--monitoring-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.lumen-monitoring-reference-alert-copy > small {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-spark {
+  display: block;
+  min-inline-size: 5rem;
+  max-inline-size: 9rem;
+  flex: 1 1 7rem;
+  aspect-ratio: 2.4 / 1;
+}
+
+.lumen-monitoring-reference-spark .lumen-monitoring-reference-chart {
+  block-size: auto;
+  aspect-ratio: 2.4 / 1;
+}
+
+.lumen-monitoring-reference-alert-value {
+  display: flex;
+  min-inline-size: 4.5rem;
+  flex: 0 1 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+  text-align: end;
+}
+
+.lumen-monitoring-reference-alert-value strong {
+  color: var(--monitoring-current-tone, var(--monitoring-ink));
+  font-weight: 650;
+}
+
+.lumen-monitoring-reference-alert-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.75rem 0.75rem 0.875rem 2.75rem;
+  border-block-start: 0.0625rem solid var(--monitoring-line);
+}
+
+.lumen-monitoring-reference-alert-detail > p {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-footer {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-block-start: 0.75rem;
+  border-block-start: 0.0625rem solid var(--monitoring-line);
+}
+
+.lumen-monitoring-reference-footer > p {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-footer > button {
+  color: var(--monitoring-accent);
+}
+
+.lumen-monitoring-reference-logs {
+  min-block-size: 10rem;
+  padding: 0.625rem 0.75rem;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-surface-radius);
+  background: color-mix(in srgb, var(--monitoring-ink) 94%, var(--monitoring-reading, #090909));
+  color: var(--monitoring-contrast, #090909);
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.lumen-monitoring-reference-logs :where(time, .lumen-monitoring-reference-log-level) {
+  color: var(--monitoring-muted);
+}
+
+.lumen-monitoring-reference-log-trigger {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  align-items: baseline;
+  gap: 0.625rem;
+  padding: 0.375rem 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+
+.lumen-monitoring-reference-log-time {
+  flex: 0 0 7rem;
+  color: var(--monitoring-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.lumen-monitoring-reference-log-level {
+  display: inline-flex;
+  min-inline-size: 4.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-monitoring-reference-log-service {
+  min-inline-size: 7rem;
+  flex: 0 1 11rem;
+  overflow: hidden;
+  color: var(--monitoring-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-log-message {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--monitoring-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-log-message[data-tone='success'] {
+  color: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-log-message[data-tone='warning'] {
+  color: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-log-message[data-tone='danger'] {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-log-context {
+  margin: 0 0 0.5rem 8.5rem;
+  padding: 0.5rem 0.75rem;
+  overflow: auto;
+  border: 0.0625rem solid var(--monitoring-line);
+  border-radius: var(--monitoring-control-radius);
+  background: var(--monitoring-raised);
+  color: var(--monitoring-muted);
+  font: inherit;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.lumen-monitoring-reference-uptime {
+  padding-inline-end: 0.25rem;
+}
+
+.lumen-monitoring-reference-uptime > li {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-control-radius);
+  background: var(--monitoring-panel);
+}
+
+.lumen-monitoring-reference-uptime > li > p {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-service-heading {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lumen-monitoring-reference-service-heading > button {
+  display: inline-flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--monitoring-ink);
+  text-align: start;
+}
+
+.lumen-monitoring-reference-service-heading > button .lumen-monitoring-reference-glyph {
+  rotate: 0deg;
+}
+
+.lumen-monitoring-reference-service-heading > button[aria-expanded='true'] .lumen-monitoring-reference-glyph {
+  rotate: 90deg;
+}
+
+.lumen-monitoring-reference-service-heading > p {
+  flex: 0 1 auto;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.lumen-monitoring-reference-days {
+  display: flex;
+  min-inline-size: 0;
+  align-items: stretch;
+  gap: 0.1875rem;
+}
+
+.lumen-monitoring-reference-days > i {
+  min-inline-size: 0;
+  min-block-size: 1rem;
+  flex: 1 1 0;
+  border-radius: 0.125rem;
+  background: var(--monitoring-edge);
+}
+
+.lumen-monitoring-reference-days > i[data-tone='success'] {
+  background: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-days > i[data-tone='warning'] {
+  background: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-days > i[data-tone='danger'] {
+  background: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-legend {
+  display: inline-flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.lumen-monitoring-reference-legend > li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-table-scroll {
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-monitoring-reference-fleet-table,
+.lumen-monitoring-reference-response-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  color: var(--monitoring-ink);
+  font-size: 0.8125rem;
+  text-align: start;
+}
+
+.lumen-monitoring-reference-fleet-table {
+  min-inline-size: 46rem;
+}
+
+.lumen-monitoring-reference-fleet-table :where(th, td),
+.lumen-monitoring-reference-response-table :where(th, td) {
+  padding: 0.625rem 0.75rem;
+  border-block-end: 0.0625rem solid var(--monitoring-line);
+  vertical-align: middle;
+}
+
+.lumen-monitoring-reference-fleet-table th,
+.lumen-monitoring-reference-response-table th {
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-fleet-table th > button,
+.lumen-monitoring-reference-response-table th > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.lumen-monitoring-reference-fleet-table tbody tr:last-child td,
+.lumen-monitoring-reference-response-table tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.lumen-monitoring-reference-node-trigger {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+
+.lumen-monitoring-reference-node-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 2 1 14rem;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-monitoring-reference-node-copy strong,
+.lumen-monitoring-reference-node-copy small {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-node-status {
+  display: inline-flex;
+  min-inline-size: 7rem;
+  flex: 1 1 7rem;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--monitoring-muted);
+}
+
+.lumen-monitoring-reference-resource {
+  display: flex;
+  min-inline-size: 6rem;
+  flex: 1 1 7rem;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-monitoring-reference-resource > span {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-monitoring-reference-resource > span strong {
+  color: var(--monitoring-ink);
+  font-weight: 600;
+}
+
+.lumen-monitoring-reference-resource > span strong[data-tone='warning'] {
+  color: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-resource > span strong[data-tone='danger'] {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-node-detail {
+  padding-block-start: 0.625rem;
+  color: var(--monitoring-muted);
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-response-table {
+  min-inline-size: 42rem;
+}
+
+.lumen-monitoring-reference-response-table th:not(:first-child),
+.lumen-monitoring-reference-response-table td:not(:first-child) {
+  text-align: end;
+}
+
+.lumen-monitoring-reference-response-table tbody td:first-child > button {
+  display: flex;
+  min-inline-size: 10rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+
+.lumen-monitoring-reference-response-table tbody td:first-child > button[aria-pressed='true'] strong {
+  color: var(--monitoring-accent);
+}
+
+.lumen-monitoring-reference-response-table td small {
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-monitoring-reference-response-table td[data-tone='danger'] {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-histogram {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-end;
+  gap: 0.375rem;
+  padding-block-start: 0.5rem;
+}
+
+.lumen-monitoring-reference-bucket {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--monitoring-muted);
+  text-align: center;
+}
+
+.lumen-monitoring-reference-bucket > svg {
+  display: block;
+  inline-size: 100%;
+  block-size: clamp(5rem, 12vw, 8rem);
+  aspect-ratio: 0.4;
+  overflow: visible;
+}
+
+.lumen-monitoring-reference-bucket > svg rect {
+  fill: var(--monitoring-accent);
+}
+
+.lumen-monitoring-reference-bucket > svg[data-tone='success'] rect {
+  fill: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-bucket > svg[data-tone='warning'] rect {
+  fill: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-bucket > svg[data-tone='danger'] rect {
+  fill: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-bucket > small {
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-summary {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lumen-monitoring-reference-summary > div {
+  display: flex;
+  min-inline-size: 4rem;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-monitoring-reference-summary dt {
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-monitoring-reference-summary dd {
+  margin: 0;
+  color: var(--monitoring-ink);
+  font-weight: 650;
+}
+
+.lumen-monitoring-reference-summary dd[data-tone='success'] {
+  color: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-summary dd[data-tone='warning'] {
+  color: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-summary dd[data-tone='danger'] {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-queue-toolbar {
+  gap: 0.625rem 0.75rem;
+}
+
+.lumen-monitoring-reference-queue-toolbar > .lumen-monitoring-reference-query {
+  flex: 1 1 14rem;
+}
+
+.lumen-monitoring-reference-queue-toolbar > .lumen-monitoring-reference-actions {
+  flex: 1 1 auto;
+}
+
+.lumen-monitoring-reference-queue {
+  padding-inline-end: 0.25rem;
+}
+
+.lumen-monitoring-reference-queue > section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-monitoring-reference-group-heading {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.25rem;
+  border: 0;
+  border-block-end: 0.0625rem solid var(--monitoring-line);
+  background: transparent;
+  color: var(--monitoring-ink);
+  text-align: start;
+}
+
+.lumen-monitoring-reference-group-heading > strong {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-group-heading > span {
+  flex: 0 0 auto;
+  color: var(--monitoring-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lumen-monitoring-reference-group-detail {
+  min-inline-size: 0;
+  margin-inline-start: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-run-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.25rem;
+  border-block-end: 0.0625rem solid var(--monitoring-line);
+}
+
+.lumen-monitoring-reference-run-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 2 1 14rem;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-monitoring-reference-run-copy strong,
+.lumen-monitoring-reference-run-copy p {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-run-owner {
+  display: inline-flex;
+  min-inline-size: 6rem;
+  flex: 1 1 8rem;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--monitoring-muted);
+}
+
+.lumen-monitoring-reference-run-owner > span:last-child {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-monitoring-reference-run-progress {
+  display: inline-flex;
+  inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  flex: 0 0 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.1875rem solid var(--monitoring-edge);
+  border-radius: 50%;
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lumen-monitoring-reference-run-status {
+  min-inline-size: 5rem;
+  flex: 0 1 6rem;
+  color: var(--monitoring-muted);
+  font-size: 0.75rem;
+  text-align: end;
+}
+
+.lumen-monitoring-reference-run-status[data-tone='success'] {
+  color: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-run-status[data-tone='warning'] {
+  color: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-run-status[data-tone='danger'] {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-run-row > button {
+  display: inline-flex;
+  min-block-size: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--monitoring-muted);
+}
+
+.lumen-monitoring-reference-slo-chart-header {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lumen-monitoring-reference-slo-chart-header > dl {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lumen-monitoring-reference-slo-chart-header > dl > div {
+  display: flex;
+  min-inline-size: 4.5rem;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-monitoring-reference-slo-chart-header dt {
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-monitoring-reference-slo-chart-header dd {
+  margin: 0;
+  color: var(--monitoring-ink);
+  font-weight: 650;
+}
+
+.lumen-monitoring-reference-slo-chart-header dd[data-tone='success'] {
+  color: var(--monitoring-positive);
+}
+
+.lumen-monitoring-reference-slo-chart-header dd[data-tone='warning'] {
+  color: var(--monitoring-warning);
+}
+
+.lumen-monitoring-reference-slo-chart-header dd[data-tone='danger'] {
+  color: var(--monitoring-negative);
+}
+
+.lumen-monitoring-reference-slo {
+  padding-inline-end: 0.25rem;
+}
+
+.lumen-monitoring-reference-slo > li {
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--monitoring-edge);
+  border-radius: var(--monitoring-control-radius);
+  background: var(--monitoring-panel);
+}
+
+.lumen-monitoring-reference-objective-trigger {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--monitoring-ink);
+  text-align: start;
+}
+
+.lumen-monitoring-reference-objective-trigger[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--monitoring-accent) 9%, transparent);
+}
+
+.lumen-monitoring-reference-objective-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 2 1 14rem;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-monitoring-reference-objective-copy strong,
+.lumen-monitoring-reference-objective-copy small {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-objective-copy strong {
+  color: var(--monitoring-ink);
+}
+
+.lumen-monitoring-reference-objective-budget {
+  display: flex;
+  min-inline-size: 8rem;
+  flex: 1 1 11rem;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lumen-monitoring-reference-objective-budget small {
+  color: var(--monitoring-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-monitoring-reference-objective-status {
+  display: inline-flex;
+  min-inline-size: 5.5rem;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--monitoring-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-monitoring-reference-empty {
+  display: flex;
+  min-block-size: 5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-style: dashed;
+  color: var(--monitoring-muted);
+  text-align: center;
+}
+
+.lumen-monitoring-reference-empty p {
+  overflow-wrap: anywhere;
+}
+
+.lumen-monitoring-reference-notice {
+  border-color: color-mix(in srgb, var(--monitoring-accent) 35%, var(--monitoring-edge));
+  background: color-mix(in srgb, var(--monitoring-accent) 8%, var(--monitoring-panel));
+}
+
+@media (max-width: 65rem) {
+  .lumen-monitoring-reference-split,
+  .lumen-monitoring-reference-incident-body {
+    flex-direction: column;
+  }
+
+  .lumen-monitoring-reference-split > .lumen-monitoring-reference-panel,
+  .lumen-monitoring-reference-incident-main,
+  .lumen-monitoring-reference-incident-body > aside {
+    flex-basis: auto;
+  }
+}
+
+@media (max-width: 48rem) {
+  .lumen-monitoring-reference {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .lumen-monitoring-reference-header {
+    align-items: stretch;
+  }
+
+  .lumen-monitoring-reference-header-copy,
+  .lumen-monitoring-reference-actions {
+    flex-basis: 100%;
+  }
+
+  .lumen-monitoring-reference-actions {
+    justify-content: flex-start;
+  }
+
+  .lumen-monitoring-reference-toolbar,
+  .lumen-monitoring-reference-queue-toolbar {
+    align-items: stretch;
+  }
+
+  .lumen-monitoring-reference-toolbar > .lumen-monitoring-reference-tabs,
+  .lumen-monitoring-reference-toolbar > .lumen-monitoring-reference-query,
+  .lumen-monitoring-reference-queue-toolbar > .lumen-monitoring-reference-query,
+  .lumen-monitoring-reference-queue-toolbar > .lumen-monitoring-reference-actions {
+    flex-basis: 100%;
+  }
+
+  .lumen-monitoring-reference-queue-toolbar > .lumen-monitoring-reference-actions {
+    justify-content: flex-start;
+  }
+
+  .lumen-monitoring-reference-metric {
+    flex-basis: calc(50% - 0.75rem);
+  }
+
+  .lumen-monitoring-reference[data-reference-kind='incident'] .lumen-monitoring-reference-metric {
+    flex-basis: calc(25% - 0.375rem);
+  }
+
+  .lumen-monitoring-reference-panel,
+  .lumen-monitoring-reference-composer {
+    padding: 0.875rem;
+  }
+
+  .lumen-monitoring-reference-panel-heading,
+  .lumen-monitoring-reference-slo-chart-header {
+    flex-wrap: wrap;
+  }
+
+  .lumen-monitoring-reference-slo-chart-header > dl {
+    flex-basis: 100%;
+  }
+
+  .lumen-monitoring-reference-alert-trigger {
+    align-items: flex-start;
+  }
+
+  .lumen-monitoring-reference-spark {
+    min-inline-size: 4rem;
+    flex-basis: 5rem;
+  }
+
+  .lumen-monitoring-reference-alert-value {
+    min-inline-size: 4rem;
+  }
+
+  .lumen-monitoring-reference-log-time {
+    flex-basis: 6rem;
+  }
+
+  .lumen-monitoring-reference-log-service {
+    min-inline-size: 5rem;
+    flex-basis: 7rem;
+  }
+
+  .lumen-monitoring-reference-log-context {
+    margin-inline-start: 7rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  .lumen-monitoring-reference {
+    padding: 0.75rem;
+  }
+
+  .lumen-monitoring-reference-metric {
+    flex-basis: 100%;
+  }
+
+  .lumen-monitoring-reference[data-reference-kind='incident'] .lumen-monitoring-reference-metric {
+    flex-basis: calc(50% - 0.25rem);
+  }
+
+  .lumen-monitoring-reference-panel,
+  .lumen-monitoring-reference-composer,
+  .lumen-monitoring-reference-table-scroll {
+    padding: 0.75rem;
+  }
+
+  .lumen-monitoring-reference-tabs {
+    inline-size: 100%;
+  }
+
+  .lumen-monitoring-reference-tab {
+    flex: 1 1 6rem;
+    justify-content: center;
+  }
+
+  .lumen-monitoring-reference-alert-trigger {
+    flex-wrap: wrap;
+  }
+
+  .lumen-monitoring-reference-alert-copy {
+    flex-basis: calc(100% - 2rem);
+  }
+
+  .lumen-monitoring-reference-spark {
+    min-inline-size: 7rem;
+    max-inline-size: none;
+    flex-basis: calc(100% - 2rem);
+    margin-inline-start: 2rem;
+    order: 4;
+  }
+
+  .lumen-monitoring-reference-alert-value {
+    margin-inline-start: 2rem;
+    align-items: flex-start;
+    text-align: start;
+  }
+
+  .lumen-monitoring-reference-alert-detail {
+    padding-inline-start: 0.75rem;
+  }
+
+  .lumen-monitoring-reference-log-trigger {
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .lumen-monitoring-reference-log-time {
+    flex-basis: 6.5rem;
+  }
+
+  .lumen-monitoring-reference-log-level {
+    min-inline-size: auto;
+  }
+
+  .lumen-monitoring-reference-log-service {
+    min-inline-size: 0;
+    inline-size: 0;
+    max-inline-size: 0;
+    flex: 0 0 0;
+    overflow: hidden;
+    opacity: 0;
+  }
+
+  .lumen-monitoring-reference-log-message {
+    flex-basis: 0;
+    padding-inline-start: 0;
+    white-space: nowrap;
+  }
+
+  .lumen-monitoring-reference-log-context {
+    margin-inline-start: 0;
+  }
+
+  .lumen-monitoring-reference-service-heading {
+    align-items: flex-start;
+  }
+
+  .lumen-monitoring-reference-service-heading > p {
+    max-inline-size: 8rem;
+  }
+
+  .lumen-monitoring-reference-days {
+    gap: 0.125rem;
+  }
+
+  .lumen-monitoring-reference-days > i {
+    min-block-size: 0.875rem;
+  }
+
+  .lumen-monitoring-reference-fleet-table {
+    min-inline-size: 0;
+  }
+
+  .lumen-monitoring-reference-fleet-table th:not(:first-child),
+  .lumen-monitoring-reference-node-status,
+  .lumen-monitoring-reference-resource {
+    display: none;
+  }
+
+  .lumen-monitoring-reference-node-trigger {
+    align-items: flex-start;
+  }
+
+  .lumen-monitoring-reference-node-copy {
+    flex-basis: 100%;
+  }
+
+  .lumen-monitoring-reference-response-table {
+    min-inline-size: 0;
+  }
+
+  .lumen-monitoring-reference-response-table th[data-column='requests'],
+  .lumen-monitoring-reference-response-table td[data-column='requests'],
+  .lumen-monitoring-reference-response-table th[data-column='p90'],
+  .lumen-monitoring-reference-response-table td[data-column='p90'],
+  .lumen-monitoring-reference-response-table th[data-column='errors'],
+  .lumen-monitoring-reference-response-table td[data-column='errors'] {
+    display: none;
+  }
+
+  .lumen-monitoring-reference-response-table tbody td:first-child > button {
+    min-inline-size: 7rem;
+  }
+
+  .lumen-monitoring-reference-group-detail {
+    display: none;
+  }
+
+  .lumen-monitoring-reference-run-owner,
+  .lumen-monitoring-reference-run-status {
+    display: none;
+  }
+
+  .lumen-monitoring-reference-run-progress {
+    margin-inline-start: auto;
+  }
+
+  .lumen-monitoring-reference-objective-budget,
+  .lumen-monitoring-reference-objective-status {
+    display: none;
+  }
+
+  .lumen-monitoring-reference-objective-trigger > span:nth-child(3) {
+    flex: 0 0 auto;
+    color: var(--monitoring-muted);
+  }
+
+  .lumen-monitoring-reference-slo-chart-header > dl {
+    gap: 0.5rem 1rem;
+  }
+
+  .lumen-monitoring-reference-footer {
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-monitoring-reference * {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .lumen-monitoring-reference {
+    --monitoring-edge: CanvasText;
+    --monitoring-line: CanvasText;
+    --monitoring-ink: CanvasText;
+    --monitoring-muted: GrayText;
+    --monitoring-accent: Highlight;
+    --monitoring-panel: Canvas;
+    --monitoring-raised: Canvas;
+  }
+
+  .lumen-monitoring-reference :where(button, input, select, textarea) {
+    forced-color-adjust: auto;
+  }
+}

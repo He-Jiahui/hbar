@@ -14,8 +14,8 @@
     "examples/**/*.ts",
     "playwright.config.ts",
     "vitest.lumen.config.ts",
-    "hbar-ui/packages/lumen-app-ui/**/*.ts",
-    "hbar-ui/packages/lumen-app-ui/**/*.tsx"
+    "packages/lumen-app-ui/**/*.ts",
+    "packages/lumen-app-ui/**/*.tsx"
   ],
   "exclude": [
     "**/node_modules",

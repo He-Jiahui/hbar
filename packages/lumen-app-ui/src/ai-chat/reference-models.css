@@ -1,0 +1,36 @@
+.lumen-ai-chat-reference-models {
+  overflow: hidden;
+}
+.lumen-ai-chat-models-header {
+  flex: 0 0 auto;
+}
+.lumen-ai-chat-reference-models .lumen-ai-chat-reference-messages {
+  overflow: auto;
+}
+.lumen-ai-chat-model-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-inline-size: 0;
+}
+.lumen-ai-chat-model-trigger > .lumen-ai-chat-reference-icon {
+  color: var(--lumen-muted);
+}
+.lumen-ai-chat-model-disclaimer {
+  flex: 0 0 auto;
+  padding: 0 1.25rem 0.75rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 40rem) {
+  .lumen-ai-chat-reference-models {
+    overflow: auto;
+  }
+  .lumen-ai-chat-reference-models .lumen-ai-chat-reference-messages {
+    overflow: auto;
+  }
+  .lumen-ai-chat-model-disclaimer {
+    padding-inline: 1rem;
+  }
+}

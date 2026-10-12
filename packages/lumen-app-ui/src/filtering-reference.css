@@ -1,0 +1,1052 @@
+/*
+ * Filtering reference surfaces
+ *
+ * The nine examples share one semantic workbench shape: a heading and control
+ * row, a facet column, and a result body.  The result body stays in document
+ * flow at every breakpoint.  Cards use flex wrapping, repeated records use
+ * flex rows or a native table, and long collections opt into a pane-owned
+ * scroll boundary through their data contract.
+ */
+
+.lumen-filtering:has(> .lumen-filtering-reference) {
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.lumen-filtering-reference {
+  --filter-panel: color-mix(in srgb, var(--lumen-glass, rgb(20 20 20 / 32%)) 84%, var(--lumen-reading, #090909));
+  --filter-panel-raised: color-mix(in srgb, var(--lumen-glass, rgb(20 20 20 / 32%)) 62%, var(--lumen-reading, #090909));
+  --filter-edge: var(--lumen-edge, rgb(255 255 255 / 17%));
+  --filter-line: var(--lumen-line, rgb(255 255 255 / 10%));
+  --filter-ink: var(--lumen-ink, #eee);
+  --filter-muted: var(--lumen-muted, #aaa);
+  --filter-subtle: var(--lumen-subtle, #858585);
+  --filter-accent: var(--lumen-accent, var(--lumen-info, #81b5ff));
+  --filter-positive: var(--lumen-success, #77deb0);
+  --filter-warning: var(--lumen-warning, #efd17a);
+  --filter-negative: var(--lumen-danger, #ff969b);
+  --filter-control-radius: var(--lumen-radius-control, 0.375rem);
+  --filter-surface-radius: var(--lumen-radius-surface, 0.75rem);
+  --filter-icon-xs: var(--hbar-app-ui-icon-xs, 0.75rem);
+  --filter-icon-sm: var(--hbar-app-ui-icon-sm, 0.875rem);
+  --filter-icon-md: var(--hbar-app-ui-icon-md, 1rem);
+  --filter-icon-lg: var(--hbar-app-ui-icon-lg, 1.25rem);
+  --filter-icon-xl: var(--hbar-app-ui-icon-xl, 1.5rem);
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow: auto;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  color: var(--filter-ink);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.lumen-filtering-reference *,
+.lumen-filtering-reference *::before,
+.lumen-filtering-reference *::after {
+  box-sizing: border-box;
+}
+
+.lumen-filtering-reference :where(h2, h3, h4, p, ul, ol, dl, dd, dt) {
+  margin: 0;
+}
+
+.lumen-filtering-reference :where(button, input, select, textarea) {
+  font: inherit;
+}
+
+.lumen-filtering-reference :where(button, a) {
+  min-inline-size: 0;
+}
+
+.lumen-filtering-reference-glyph {
+  inline-size: var(--filter-icon-md);
+  block-size: var(--filter-icon-md);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.lumen-filtering-reference-header,
+.lumen-filtering-reference-heading,
+.lumen-filtering-reference-controls,
+.lumen-filtering-reference-layout,
+.lumen-filtering-reference-facets,
+.lumen-filtering-reference-results,
+.lumen-filtering-reference-collection,
+.lumen-filtering-reference-toolbar,
+.lumen-filtering-reference-menu,
+.lumen-filtering-reference-menu-body,
+.lumen-filtering-reference-footer,
+.lumen-filtering-reference-choices,
+.lumen-filtering-reference-range,
+.lumen-filtering-reference-stepper,
+.lumen-filtering-reference-tokens,
+.lumen-filtering-reference-token,
+.lumen-filtering-reference-row,
+.lumen-filtering-reference-identity,
+.lumen-filtering-reference-values,
+.lumen-filtering-reference-volume,
+.lumen-filtering-reference-volume-bars,
+.lumen-filtering-reference-cuisine-rail {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.lumen-filtering-reference-header {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lumen-filtering-reference-heading {
+  flex: 1 1 13rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.lumen-filtering-reference-heading :where(h2, h3) {
+  color: var(--filter-ink);
+  font-size: clamp(1.125rem, 1rem + 0.65vw, 1.5rem);
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+}
+
+.lumen-filtering-reference-heading p,
+.lumen-filtering-reference-heading small,
+.lumen-filtering-reference-results > .lumen-filtering-reference-empty,
+.lumen-filtering-reference-notice,
+.lumen-filtering-reference-footer,
+.lumen-filtering-reference-meta,
+.lumen-filtering-reference-card small,
+.lumen-filtering-reference-row small {
+  color: var(--filter-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-filtering-reference-controls,
+.lumen-filtering-reference-toolbar,
+.lumen-filtering-reference-footer {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lumen-filtering-reference-controls {
+  justify-content: flex-end;
+}
+
+.lumen-filtering-reference-toolbar {
+  justify-content: space-between;
+}
+
+.lumen-filtering-reference-filter-toggle {
+  display: none;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-filtering-reference-icon {
+  inline-size: var(--filter-icon-md);
+  block-size: var(--filter-icon-md);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.lumen-filtering-reference-icon[data-icon-size='xs'],
+.lumen-filtering-reference-icon.is-xs {
+  inline-size: var(--filter-icon-xs);
+  block-size: var(--filter-icon-xs);
+}
+
+.lumen-filtering-reference-icon[data-icon-size='sm'],
+.lumen-filtering-reference-icon.is-sm {
+  inline-size: var(--filter-icon-sm);
+  block-size: var(--filter-icon-sm);
+}
+
+.lumen-filtering-reference-icon[data-icon-size='lg'],
+.lumen-filtering-reference-icon.is-lg {
+  inline-size: var(--filter-icon-lg);
+  block-size: var(--filter-icon-lg);
+}
+
+.lumen-filtering-reference-layout {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: clamp(1rem, 2.25vw, 1.5rem);
+}
+
+.lumen-filtering-reference-facets {
+  min-block-size: 0;
+  flex: 0 1 clamp(14rem, 24vw, 18rem);
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.lumen-filtering-reference-results {
+  min-block-size: 0;
+  flex: 1 1 30rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: auto;
+}
+
+.lumen-filtering-reference-facet {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-block-end: 0.875rem;
+  border-block-end: 0.0625rem solid var(--filter-line);
+}
+
+.lumen-filtering-reference-facet:last-child {
+  border-block-end: 0;
+}
+
+.lumen-filtering-reference-facet > :where(h3, h4, legend, .lumen-filtering-reference-facet-title) {
+  color: var(--filter-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.lumen-filtering-reference-choices {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-filtering-reference-choices.is-segmented,
+.lumen-filtering-reference-choices.is-pills,
+.lumen-filtering-reference-choices.is-swatches,
+.lumen-filtering-reference-choices.is-rail {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.lumen-filtering-reference-choices.is-segmented,
+.lumen-filtering-reference-choices.is-pills {
+  padding: 0.25rem;
+  border-radius: var(--filter-control-radius);
+  background: var(--filter-panel-raised);
+}
+
+.lumen-filtering-reference-choice {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--filter-ink);
+}
+
+.lumen-filtering-reference-choice > :where(input[type='checkbox'], input[type='radio']) {
+  inline-size: var(--filter-icon-md);
+  block-size: var(--filter-icon-md);
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--filter-accent);
+}
+
+.lumen-filtering-reference-choice > :where(span, label, strong) {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.lumen-filtering-reference-choice > :last-child:not(:first-child) {
+  flex: 0 0 auto;
+  color: var(--filter-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-filtering-reference-choice > .lumen-filtering-reference-swatch {
+  inline-size: var(--filter-icon-lg);
+  block-size: var(--filter-icon-lg);
+  flex: 0 0 auto;
+  border: 0.125rem solid var(--filter-panel);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.0625rem var(--filter-edge);
+}
+
+.lumen-filtering-reference-choices.is-swatches .lumen-filtering-reference-choice {
+  min-block-size: var(--filter-icon-lg);
+  padding: 0.125rem;
+}
+
+.lumen-filtering-reference-choices.is-segmented .lumen-filtering-reference-choice,
+.lumen-filtering-reference-choices.is-pills .lumen-filtering-reference-choice {
+  flex: 0 1 auto;
+}
+
+.lumen-filtering-reference-range {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-filtering-reference-range > :where(strong, output, .lumen-filtering-reference-range-value) {
+  color: var(--filter-ink);
+  font-weight: 500;
+}
+
+.lumen-filtering-reference-range-inputs {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lumen-filtering-reference-range-inputs > input[type='range'],
+.lumen-filtering-reference-range > input[type='range'] {
+  inline-size: 100%;
+  min-inline-size: 0;
+  accent-color: var(--filter-ink);
+}
+
+.lumen-filtering-reference-stepper {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lumen-filtering-reference-stepper > :first-child {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.lumen-filtering-reference-stepper > :last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 0 0 auto;
+}
+
+.lumen-filtering-reference-tokens {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-filtering-reference-tokens > .lumen-outlined-field {
+  min-inline-size: 10rem;
+  flex: 1 1 10rem;
+}
+
+.lumen-filtering-reference-token {
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.375rem 0.25rem 0.625rem;
+  border: 0.0625rem solid var(--filter-edge);
+  border-radius: 999rem;
+  background: var(--filter-panel-raised);
+  color: var(--filter-ink);
+  font-size: 0.8125rem;
+}
+
+.lumen-filtering-reference-token > :first-child {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-filtering-reference-token .lumen-action {
+  flex: 0 1 auto;
+}
+
+.lumen-filtering-reference-token > .lumen-action[aria-label] {
+  flex: 0 0 auto;
+}
+
+.lumen-filtering-reference.is-deals > .lumen-filtering-reference-toolbar > .lumen-filtering-reference-facet {
+  flex: 1 1 16rem;
+  padding-block-end: 0;
+  border-block-end: 0;
+}
+
+.lumen-filtering-reference-toolbar > .lumen-filtering-reference-facet {
+  border-block-end: 0;
+}
+
+.lumen-filtering-reference-menu {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-filtering-reference-menu > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lumen-filtering-reference-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lumen-filtering-reference-menu-body {
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.lumen-filtering-reference :where(.lumen-form-field) {
+  min-inline-size: 0;
+}
+
+.lumen-filtering-reference :where(.lumen-outlined-field) {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.lumen-filtering-reference :where(.lumen-control) {
+  min-inline-size: 0;
+}
+
+.lumen-filtering-reference-collection {
+  min-block-size: 0;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-filtering-reference-collection[data-list-strategy='pane-scroll'],
+.lumen-filtering-reference-collection[data-hbar-app-ui-list-strategy='pane-scroll'],
+.lumen-filtering-reference-collection.is-pane-scroll,
+.lumen-filtering-reference.is-pane-scroll .lumen-filtering-reference-collection {
+  max-block-size: min(80vh, 50rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-filtering-reference-collection.is-cards > li {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 calc(25% - 0.75rem);
+}
+
+.lumen-filtering-reference-collection.is-cards > li > .lumen-filtering-reference-card {
+  inline-size: 100%;
+}
+
+.lumen-filtering-reference-card {
+  display: flex;
+  min-inline-size: 10rem;
+  flex: 1 1 calc(25% - 0.75rem);
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border: 0.0625rem solid var(--filter-edge);
+  border-radius: var(--filter-surface-radius);
+  background: var(--filter-panel);
+  color: var(--filter-ink);
+}
+
+.lumen-filtering-reference-collection.is-rows {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.lumen-filtering-reference-collection.is-rows > li {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 1 auto;
+}
+
+.lumen-filtering-reference-collection.is-rows > li > .lumen-filtering-reference-card,
+.lumen-filtering-reference-collection.is-rows > li > .lumen-filtering-reference-row {
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.lumen-filtering-reference-collection.is-rows
+  > li
+  > :where(.lumen-filtering-reference-card, .lumen-filtering-reference-row)
+  > .lumen-filtering-reference-visual {
+  inline-size: var(--filter-icon-xl, 1.5rem);
+  flex: 0 0 auto;
+  aspect-ratio: 1;
+  padding: 0.25rem;
+}
+
+.lumen-filtering-reference-collection.is-rows
+  > li
+  > :where(.lumen-filtering-reference-card, .lumen-filtering-reference-row)
+  > .lumen-filtering-reference-identity {
+  min-inline-size: 10rem;
+  flex: 1 1 12rem;
+}
+
+.lumen-filtering-reference-collection.is-rows
+  > li
+  > :where(.lumen-filtering-reference-card, .lumen-filtering-reference-row)
+  > .lumen-filtering-reference-values {
+  flex: 0 1 auto;
+}
+
+.lumen-filtering-reference-visual {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  padding: 0.5rem;
+  border: 0.0625rem solid var(--filter-line);
+  border-radius: var(--filter-control-radius);
+  background: color-mix(in srgb, var(--filter-ink) 8%, var(--filter-panel-raised));
+  color: var(--filter-muted);
+}
+
+.lumen-filtering-reference-visual > :first-child,
+.lumen-filtering-reference-visual > :last-child {
+  min-inline-size: 0;
+}
+
+.lumen-filtering-reference-identity {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-filtering-reference-identity > :first-child {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--filter-ink);
+  font-weight: 600;
+}
+
+.lumen-filtering-reference-identity > :last-child {
+  overflow-wrap: anywhere;
+  color: var(--filter-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-filtering-reference-values {
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem 0.75rem;
+  margin-inline-start: auto;
+  text-align: end;
+}
+
+.lumen-filtering-reference-values > :where(strong, b) {
+  color: var(--filter-ink);
+  font-weight: 600;
+}
+
+.lumen-filtering-reference-values > :where(small, span) {
+  color: var(--filter-muted);
+}
+
+.lumen-filtering-reference-row {
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem 0.75rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--filter-edge);
+  border-radius: var(--filter-control-radius);
+  background: var(--filter-panel);
+  color: var(--filter-ink);
+}
+
+.lumen-filtering-reference-row > .lumen-filtering-reference-identity {
+  min-inline-size: 10rem;
+  flex: 1 1 12rem;
+}
+
+.lumen-filtering-reference-row > .lumen-filtering-reference-values {
+  flex: 0 1 auto;
+}
+
+.lumen-filtering-reference-avatar {
+  display: inline-flex;
+  inline-size: var(--filter-icon-xl);
+  block-size: var(--filter-icon-xl);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--filter-ink) 11%, var(--filter-panel-raised));
+  color: var(--filter-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.lumen-filtering-reference-meta {
+  flex: 0 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.lumen-filtering-reference-table-scroll {
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.lumen-filtering-reference-table {
+  inline-size: 100%;
+  min-inline-size: 42rem;
+  border-collapse: collapse;
+  color: var(--filter-ink);
+  font-size: 0.8125rem;
+}
+
+.lumen-filtering-reference-table :where(th, td) {
+  padding: 0.5rem 0.625rem;
+  border-block-end: 0.0625rem solid var(--filter-line);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.lumen-filtering-reference-table th {
+  color: var(--filter-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lumen-filtering-reference-table td :where(strong, b) {
+  color: var(--filter-ink);
+  font-weight: 600;
+}
+
+.lumen-filtering-reference-table td :where(small, span) {
+  color: var(--filter-muted);
+}
+
+.lumen-filtering-reference-log-row {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.375rem 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border-block-end: 0.0625rem solid var(--filter-line);
+}
+
+.lumen-filtering-reference-log-row > :where(.time, .lumen-filtering-reference-time) {
+  flex: 0 0 4.5rem;
+  color: var(--filter-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-filtering-reference-log-row > time {
+  flex: 0 0 4.5rem;
+  color: var(--filter-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-filtering-reference-log-row > strong {
+  flex: 0 0 4rem;
+  color: var(--filter-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.lumen-filtering-reference-log-row > span:last-child {
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+  overflow-wrap: anywhere;
+  color: var(--filter-ink);
+}
+
+.lumen-filtering-reference-log-row > strong[data-severity='error'] {
+  color: var(--filter-negative);
+}
+
+.lumen-filtering-reference-log-row > strong[data-severity='warn'] {
+  color: var(--filter-warning);
+}
+
+.lumen-filtering-reference-log-row > :where(.level, .lumen-filtering-reference-level) {
+  flex: 0 0 4rem;
+  color: var(--filter-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.lumen-filtering-reference-log-row > :where(.service, .lumen-filtering-reference-service) {
+  flex: 0 1 7rem;
+  color: var(--filter-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-filtering-reference-log-row > :where(.message, .lumen-filtering-reference-message) {
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+  overflow-wrap: anywhere;
+  color: var(--filter-ink);
+}
+
+.lumen-filtering-reference-volume {
+  min-block-size: 5rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--filter-edge);
+  border-radius: var(--filter-surface-radius);
+  background: var(--filter-panel);
+}
+
+.lumen-filtering-reference-volume-bars {
+  min-block-size: 3rem;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.lumen-filtering-reference-volume-bars > i,
+.lumen-filtering-reference-volume-bar {
+  min-block-size: 0.25rem;
+  flex: 1 1 0;
+  border-radius: 0.25rem 0.25rem 0 0;
+  background: var(--filter-accent);
+  opacity: 0.68;
+}
+
+.lumen-filtering-reference-volume-bars > svg {
+  display: block;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  flex: 1 1 0;
+  inline-size: auto;
+  block-size: 100%;
+  overflow: visible;
+  color: var(--filter-accent);
+}
+
+.lumen-filtering-reference-volume-bars > svg rect {
+  fill: currentColor;
+  opacity: 0.68;
+}
+
+.lumen-filtering-reference-cuisine-rail {
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-block-end: 0.125rem;
+  overscroll-behavior-inline: contain;
+}
+
+.lumen-filtering-reference-cuisine-rail > * {
+  flex: 0 0 auto;
+}
+
+.lumen-filtering-reference-filter-layer,
+.lumen-filtering-reference-filter-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.lumen-filtering-reference-filter-backdrop {
+  display: none;
+}
+
+/* Catalog, asset and restaurant cards use the same four/three/two column flow. */
+.lumen-filtering-reference.is-catalog .lumen-filtering-reference-visual {
+  aspect-ratio: 1 / 1;
+}
+
+.lumen-filtering-reference.is-assets .lumen-filtering-reference-card,
+.lumen-filtering-reference.is-restaurants .lumen-filtering-reference-card {
+  min-inline-size: 9rem;
+}
+
+.lumen-filtering-reference.is-assets .lumen-filtering-reference-card[data-compact='true'],
+.lumen-filtering-reference.is-assets.is-compact .lumen-filtering-reference-card {
+  min-inline-size: 8rem;
+}
+
+.lumen-filtering-reference.is-assets .lumen-filtering-reference-visual {
+  aspect-ratio: 4 / 3;
+}
+
+.lumen-filtering-reference.is-restaurants .lumen-filtering-reference-visual {
+  aspect-ratio: 4 / 3;
+}
+
+.lumen-filtering-reference.is-restaurants .lumen-filtering-reference-visual :where(.rating, .fee) {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--filter-ink);
+  font-size: 0.75rem;
+}
+
+.lumen-filtering-reference.is-restaurants .lumen-filtering-reference-visual .rating {
+  align-self: flex-start;
+}
+
+.lumen-filtering-reference.is-restaurants .lumen-filtering-reference-visual .fee {
+  align-self: flex-end;
+  margin-block-start: auto;
+}
+
+.lumen-filtering-reference.is-restaurants .lumen-filtering-reference-card > .lumen-filtering-reference-values {
+  justify-content: flex-start;
+  margin-inline-start: 0;
+  text-align: start;
+}
+
+/* The bike reference is a centered, single-panel disclosure.  Its heading and
+ * footer remain outside any optional body scroll region supplied by the host. */
+.lumen-filtering-reference.is-bikes {
+  inline-size: min(100%, 36rem);
+  align-self: center;
+  gap: 0;
+  padding: 0;
+  border: 0.0625rem solid var(--filter-edge);
+  border-radius: var(--filter-surface-radius);
+  background: var(--filter-panel);
+}
+
+.lumen-filtering-reference.is-bikes .lumen-filtering-reference-header,
+.lumen-filtering-reference.is-bikes .lumen-filtering-reference-footer {
+  padding: 0.875rem;
+}
+
+.lumen-filtering-reference.is-bikes .lumen-filtering-reference-header {
+  border-block-end: 0.0625rem solid var(--filter-line);
+}
+
+.lumen-filtering-reference.is-bikes .lumen-filtering-reference-layout {
+  flex-direction: column;
+  gap: 0;
+}
+
+.lumen-filtering-reference.is-bikes .lumen-filtering-reference-facets {
+  inline-size: 100%;
+  flex: 1 1 auto;
+  padding: 0.875rem;
+  overflow: auto;
+  display: flex;
+}
+
+.lumen-filtering-reference-filter-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 0.875rem;
+  border-block-start: 0.0625rem solid var(--filter-line);
+}
+
+.lumen-filtering-reference-filter-panel > .lumen-filtering-reference-header {
+  flex: 0 0 auto;
+}
+
+.lumen-filtering-reference.is-bikes .lumen-filtering-reference-footer {
+  justify-content: flex-end;
+  border-block-start: 0.0625rem solid var(--filter-line);
+}
+
+.lumen-filtering-reference.is-bikes .lumen-filtering-reference-filter-toggle {
+  display: none;
+}
+
+.lumen-filtering-reference.is-deals .lumen-filtering-reference-results,
+.lumen-filtering-reference.is-logs .lumen-filtering-reference-results {
+  min-inline-size: 0;
+}
+
+.lumen-filtering-reference.is-deals .lumen-filtering-reference-table-scroll {
+  max-block-size: min(80vh, 50rem);
+}
+
+.lumen-filtering-reference.is-logs .lumen-filtering-reference-collection {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.lumen-filtering-reference.is-rentals .lumen-filtering-reference-collection,
+.lumen-filtering-reference.is-candidates .lumen-filtering-reference-collection,
+.lumen-filtering-reference.is-flights .lumen-filtering-reference-collection {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.lumen-filtering-reference.is-rentals .lumen-filtering-reference-facets,
+.lumen-filtering-reference.is-candidates .lumen-filtering-reference-facets,
+.lumen-filtering-reference.is-flights .lumen-filtering-reference-facets {
+  align-self: stretch;
+}
+
+.lumen-filtering-reference.is-rentals .lumen-filtering-reference-facets .lumen-filtering-reference-choices,
+.lumen-filtering-reference.is-flights .lumen-filtering-reference-facets .lumen-filtering-reference-choices {
+  gap: 0.625rem;
+}
+
+.lumen-filtering-reference.is-rentals
+  .lumen-filtering-reference-facet[data-layout='columns']
+  .lumen-filtering-reference-choices,
+.lumen-filtering-reference.is-rentals .lumen-filtering-reference-facet.is-columns .lumen-filtering-reference-choices {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.lumen-filtering-reference.is-rentals
+  .lumen-filtering-reference-facet[data-layout='columns']
+  .lumen-filtering-reference-choice,
+.lumen-filtering-reference.is-rentals .lumen-filtering-reference-facet.is-columns .lumen-filtering-reference-choice {
+  flex: 1 1 calc(50% - 0.5rem);
+}
+
+@media (max-width: 68rem) {
+  .lumen-filtering-reference-collection.is-cards > li {
+    flex-basis: calc(33.333% - 0.75rem);
+  }
+}
+
+@media (max-width: 52rem) {
+  .lumen-filtering-reference {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .lumen-filtering-reference-filter-toggle {
+    display: inline-flex;
+  }
+
+  .lumen-filtering-reference-layout {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .lumen-filtering-reference-facets {
+    display: none;
+    inline-size: 100%;
+    flex: 0 1 auto;
+    padding-block-end: 0;
+  }
+
+  .lumen-filtering-reference-layout.is-filters-open .lumen-filtering-reference-facets,
+  .lumen-filtering-reference.is-filters-open .lumen-filtering-reference-facets {
+    display: flex;
+    order: -1;
+  }
+
+  .lumen-filtering-reference-layout.is-filters-open .lumen-filtering-reference-results,
+  .lumen-filtering-reference.is-filters-open .lumen-filtering-reference-results {
+    flex-basis: auto;
+  }
+
+  .lumen-filtering-reference-layout.is-filters-open .lumen-filtering-reference-facets,
+  .lumen-filtering-reference-layout.is-filters-open .lumen-filtering-reference-results {
+    flex-shrink: 0;
+  }
+
+  .lumen-filtering-reference-row > .lumen-filtering-reference-values {
+    inline-size: 100%;
+    justify-content: space-between;
+    margin-inline-start: 0;
+    text-align: start;
+  }
+
+  .lumen-filtering-reference-log-row > :where(.message, .lumen-filtering-reference-message) {
+    flex-basis: 100%;
+  }
+
+  .lumen-filtering-reference.is-bikes {
+    inline-size: 100%;
+    max-inline-size: 36rem;
+  }
+}
+
+@media (max-width: 44rem) {
+  .lumen-filtering-reference-collection.is-cards > li {
+    min-inline-size: 8rem;
+    flex-basis: calc(50% - 0.75rem);
+  }
+
+  .lumen-filtering-reference.is-assets .lumen-filtering-reference-card,
+  .lumen-filtering-reference.is-restaurants .lumen-filtering-reference-card {
+    min-inline-size: 8rem;
+  }
+
+  .lumen-filtering-reference-header {
+    align-items: stretch;
+  }
+
+  .lumen-filtering-reference-controls {
+    justify-content: flex-start;
+  }
+
+  .lumen-filtering-reference-toolbar {
+    align-items: stretch;
+  }
+
+  .lumen-filtering-reference-table {
+    min-inline-size: 36rem;
+  }
+
+  .lumen-filtering-reference.is-rentals
+    .lumen-filtering-reference-facet[data-layout='columns']
+    .lumen-filtering-reference-choices,
+  .lumen-filtering-reference.is-rentals .lumen-filtering-reference-facet.is-columns .lumen-filtering-reference-choices {
+    flex-direction: column;
+  }
+
+  .lumen-filtering-reference.is-rentals
+    .lumen-filtering-reference-facet[data-layout='columns']
+    .lumen-filtering-reference-choice,
+  .lumen-filtering-reference.is-rentals .lumen-filtering-reference-facet.is-columns .lumen-filtering-reference-choice {
+    flex-basis: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-filtering-reference * {
+    scroll-behavior: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  .lumen-filtering-reference {
+    --filter-edge: CanvasText;
+    --filter-line: CanvasText;
+    --filter-ink: CanvasText;
+    --filter-muted: CanvasText;
+  }
+
+  .lumen-filtering-reference
+    :where(.lumen-filtering-reference-card, .lumen-filtering-reference-row, .lumen-filtering-reference-volume) {
+    background: Canvas;
+  }
+}

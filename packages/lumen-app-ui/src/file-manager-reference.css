@@ -1,0 +1,1252 @@
+/* Reference file manager surfaces: all content remains in semantic flex flow. */
+
+.lumen-file-manager-reference {
+  --file-manager-panel: color-mix(in srgb, var(--lumen-glass, rgb(20 20 20 / 30%)) 82%, var(--lumen-reading, #090909));
+  --file-manager-raised: color-mix(in srgb, var(--lumen-glass, rgb(20 20 20 / 30%)) 58%, var(--lumen-reading, #090909));
+  --file-manager-edge: var(--lumen-edge, rgb(255 255 255 / 17%));
+  --file-manager-line: var(--lumen-line, rgb(255 255 255 / 10%));
+  --file-manager-ink: var(--lumen-ink, #eee);
+  --file-manager-muted: var(--lumen-muted, #aaa);
+  --file-manager-subtle: var(--lumen-subtle, #858585);
+  --file-manager-accent: var(--lumen-info, #81b5ff);
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+  padding: 0.25rem;
+  color: var(--file-manager-ink);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.lumen-file-manager-reference *,
+.lumen-file-manager-reference *::before,
+.lumen-file-manager-reference *::after {
+  box-sizing: border-box;
+}
+
+.lumen-file-manager-reference :where(h2, h3, h4, p, ul, ol, dl, dt, dd) {
+  margin: 0;
+}
+
+.lumen-file-manager-reference :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+.lumen-file-manager-reference :where(button, input) {
+  font: inherit;
+}
+
+.lumen-file-manager-reference :where(button, input, .lumen-action) {
+  min-inline-size: 0;
+}
+
+.lumen-file-manager-reference :where(p, small, time) {
+  color: var(--file-manager-muted);
+}
+
+.lumen-file-manager-reference :where(button, a) {
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-glyph {
+  display: block;
+  inline-size: var(--hbar-app-ui-icon-md, 1rem);
+  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.lumen-file-manager-reference-glyph[data-tier='xs'] {
+  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+}
+
+.lumen-file-manager-reference-glyph[data-tier='sm'] {
+  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+}
+
+.lumen-file-manager-reference-glyph[data-tier='md'] {
+  inline-size: var(--hbar-app-ui-icon-md, 1rem);
+  block-size: var(--hbar-app-ui-icon-md, 1rem);
+}
+
+.lumen-file-manager-reference-glyph[data-tier='lg'] {
+  inline-size: var(--hbar-app-ui-icon-lg, 1.25rem);
+  block-size: var(--hbar-app-ui-icon-lg, 1.25rem);
+}
+
+.lumen-file-manager-reference-glyph[data-tier='xl'] {
+  inline-size: var(--hbar-app-ui-icon-xl, 1.5rem);
+  block-size: var(--hbar-app-ui-icon-xl, 1.5rem);
+}
+
+.lumen-file-manager-reference-header,
+.lumen-file-manager-reference-actions,
+.lumen-file-manager-reference-toolbar,
+.lumen-file-manager-reference-layout,
+.lumen-file-manager-reference-folder-row,
+.lumen-file-manager-reference-root-folder,
+.lumen-file-manager-reference-value-row,
+.lumen-file-manager-reference-storage > div,
+.lumen-file-manager-reference-menu,
+.lumen-file-manager-reference-selection-footer,
+.lumen-file-manager-reference-detail-actions,
+.lumen-file-manager-reference-access,
+.lumen-file-manager-reference-upload-footer,
+.lumen-file-manager-reference-upload-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.lumen-file-manager-reference-header {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-surface, 0.75rem);
+  background: var(--file-manager-panel);
+}
+
+.lumen-file-manager-reference-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+
+.lumen-file-manager-reference-heading h2 {
+  overflow-wrap: anywhere;
+  color: var(--file-manager-ink);
+  font-size: clamp(1rem, 0.9rem + 0.35vw, 1.25rem);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.lumen-file-manager-reference-heading p {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+.lumen-file-manager-reference-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lumen-file-manager-reference-actions > .lumen-action,
+.lumen-file-manager-reference-actions > button {
+  flex: 0 0 auto;
+}
+
+.lumen-file-manager-reference .lumen-action {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.lumen-file-manager-reference-layout {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.lumen-file-manager-reference-sidebar,
+.lumen-file-manager-reference-main,
+.lumen-file-manager-reference-detail-list-region,
+.lumen-file-manager-reference-detail-panel,
+.lumen-file-manager-reference-upload-panel {
+  min-inline-size: 0;
+  min-block-size: 0;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-surface, 0.75rem);
+  background: var(--file-manager-panel);
+}
+
+.lumen-file-manager-reference-sidebar {
+  display: flex;
+  min-inline-size: 12rem;
+  flex: 0 1 15.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: auto;
+  padding: 0.5rem;
+}
+
+.lumen-file-manager-reference-sidebar nav {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-file-manager-reference-tree,
+.lumen-file-manager-reference-tree ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-file-manager-reference-tree ul {
+  margin-inline-start: 0.875rem;
+}
+
+.lumen-file-manager-reference-folder-row {
+  gap: 0.125rem;
+  border-radius: var(--lumen-radius-control, 0.375rem);
+}
+
+.lumen-file-manager-reference-folder-row > .lumen-action:first-child,
+.lumen-file-manager-reference-folder-row > .lumen-file-manager-reference-glyph:first-child {
+  flex: 0 0 auto;
+}
+
+.lumen-file-manager-reference-folder-row > .lumen-action:nth-child(2) {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+}
+
+.lumen-file-manager-reference-tree .lumen-action,
+.lumen-file-manager-reference-secondary .lumen-action {
+  justify-content: flex-start;
+  padding-inline: 0.5rem;
+  text-align: start;
+}
+
+.lumen-file-manager-reference-tree .lumen-action[aria-current='page'],
+.lumen-file-manager-reference-secondary .lumen-action[aria-current='page'] {
+  background: color-mix(in srgb, var(--file-manager-accent) 12%, transparent);
+  color: var(--file-manager-ink);
+}
+
+.lumen-file-manager-reference-secondary {
+  padding-block-start: 0.5rem;
+  border-block-start: 0.0625rem solid var(--file-manager-line);
+}
+
+.lumen-file-manager-reference-storage {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-block-start: auto;
+  padding: 0.625rem 0.5rem 0.25rem;
+  border-block-start: 0.0625rem solid var(--file-manager-line);
+}
+
+.lumen-file-manager-reference-storage > div {
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--file-manager-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-file-manager-reference-storage small {
+  overflow-wrap: anywhere;
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-meter {
+  inline-size: 100%;
+  block-size: 0.375rem;
+  overflow: hidden;
+  border-radius: 999rem;
+  background: var(--file-manager-line);
+}
+
+.lumen-file-manager-reference-meter > span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--file-manager-ink);
+}
+
+.lumen-file-manager-reference-main {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lumen-file-manager-reference-toolbar {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border-block-end: 0.0625rem solid var(--file-manager-line);
+  background: var(--file-manager-raised);
+}
+
+.lumen-file-manager-reference-toolbar > strong {
+  min-inline-size: 0;
+  flex: 1 1 8rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+}
+
+.lumen-file-manager-reference-search {
+  display: inline-flex;
+  min-inline-size: min(100%, 14rem);
+  flex: 1 1 12rem;
+  align-items: center;
+  gap: 0.375rem;
+  padding-inline: 0.5rem;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-control, 0.375rem);
+  background: var(--file-manager-raised);
+  color: var(--file-manager-muted);
+}
+
+.lumen-file-manager-reference-search input {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  color: var(--file-manager-ink);
+  box-shadow: none;
+}
+
+.lumen-file-manager-reference-search input:focus-visible {
+  outline: 0.125rem solid var(--file-manager-accent);
+  outline-offset: 0.125rem;
+}
+
+.lumen-file-manager-reference-toolbar > .lumen-file-manager-reference-actions {
+  flex: 0 1 auto;
+}
+
+.lumen-file-manager-reference-collection {
+  min-inline-size: 0;
+  min-block-size: 0;
+  max-block-size: min(80vh, 50rem);
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.25rem;
+}
+
+.lumen-file-manager-reference-table {
+  inline-size: 100%;
+  min-inline-size: 38rem;
+  border-collapse: collapse;
+  color: var(--file-manager-ink);
+  font-size: 0.75rem;
+  table-layout: fixed;
+}
+
+.lumen-file-manager-reference-table :where(th, td) {
+  min-inline-size: 0;
+  padding: 0.5rem 0.375rem;
+  border-block-end: 0.0625rem solid var(--file-manager-line);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.lumen-file-manager-reference-table th {
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lumen-file-manager-reference-table th:first-child,
+.lumen-file-manager-reference-table td:first-child {
+  inline-size: 2.25rem;
+}
+
+.lumen-file-manager-reference-table th[data-column='name'],
+.lumen-file-manager-reference-table td[data-column='name'] {
+  inline-size: 44%;
+}
+
+.lumen-file-manager-reference-table th[data-column='size'],
+.lumen-file-manager-reference-table td[data-column='size'] {
+  inline-size: 16%;
+}
+
+.lumen-file-manager-reference-table th[data-column='modified'],
+.lumen-file-manager-reference-table td[data-column='modified'] {
+  inline-size: 15%;
+}
+
+.lumen-file-manager-reference-table th[data-column='owner'],
+.lumen-file-manager-reference-table td[data-column='owner'] {
+  inline-size: 18%;
+}
+
+.lumen-file-manager-reference-table tr.is-selected {
+  background: color-mix(in srgb, var(--file-manager-accent) 9%, transparent);
+}
+
+.lumen-file-manager-reference-table th > .lumen-action {
+  min-block-size: 1.75rem;
+  justify-content: flex-start;
+  padding-inline: 0.25rem;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.lumen-file-manager-reference-table td[data-column='size'],
+.lumen-file-manager-reference-table td[data-column='modified'] {
+  color: var(--file-manager-muted);
+}
+
+.lumen-file-manager-reference-table td[data-column='size'] > span,
+.lumen-file-manager-reference-table td[data-column='size'] > small {
+  display: block;
+}
+
+.lumen-file-manager-reference-file-name {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-file-manager-reference-file-name > .lumen-action:first-of-type {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+}
+
+.lumen-file-manager-reference-file-name > .lumen-action:last-child {
+  flex: 0 0 auto;
+}
+
+.lumen-file-manager-reference-owner {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-file-manager-reference-owner > span:first-child,
+.lumen-file-manager-reference-avatar {
+  display: inline-flex;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: 50%;
+  background: var(--file-manager-raised);
+  color: var(--file-manager-ink);
+  font-size: 0.625rem;
+  font-weight: 650;
+}
+
+.lumen-file-manager-reference-owner > span:last-child {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-file-manager-reference-cards {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lumen-file-manager-reference-cards > .lumen-file-manager-reference-card {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 1 calc(25% - 0.375rem);
+  flex-direction: column;
+}
+
+.lumen-file-manager-reference-card > .lumen-action {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-control, 0.375rem);
+  background: var(--file-manager-raised);
+  text-align: start;
+}
+
+.lumen-file-manager-reference-card > .lumen-action.is-selected,
+.lumen-file-manager-reference-card > .lumen-action[aria-pressed='true'] {
+  border-color: var(--file-manager-ink);
+  background: color-mix(in srgb, var(--file-manager-accent) 12%, var(--file-manager-raised));
+}
+
+.lumen-file-manager-reference-preview {
+  display: flex;
+  inline-size: 100%;
+  aspect-ratio: 16 / 10;
+  align-items: center;
+  justify-content: center;
+  border-block-end: 0.0625rem solid var(--file-manager-line);
+  background: color-mix(in srgb, var(--file-manager-ink) 8%, var(--file-manager-raised));
+  color: var(--file-manager-muted);
+}
+
+.lumen-file-manager-reference-card-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem;
+}
+
+.lumen-file-manager-reference-card-copy .lumen-file-manager-reference-file-name {
+  min-block-size: 1.75rem;
+}
+
+.lumen-file-manager-reference-card-copy > :where(strong, small) {
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-card-copy > small {
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-menu {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border-block-start: 0.0625rem solid var(--file-manager-line);
+  background: var(--file-manager-raised);
+}
+
+.lumen-file-manager-reference-menu > strong {
+  min-inline-size: 0;
+  flex: 1 1 10rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-empty,
+.lumen-file-manager-reference-notice {
+  display: block;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.lumen-file-manager-reference-notice {
+  flex: 0 0 auto;
+  border-block-start: 0.0625rem solid var(--file-manager-line);
+  color: var(--file-manager-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-file-manager-reference-selection-footer,
+.lumen-file-manager-reference-upload-footer {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-surface, 0.75rem);
+  background: var(--file-manager-panel);
+}
+
+.lumen-file-manager-reference-selection-footer > span,
+.lumen-file-manager-reference-upload-footer > small {
+  color: var(--file-manager-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-file-manager-reference-selection-footer > .lumen-file-manager-reference-actions,
+.lumen-file-manager-reference-upload-footer > .lumen-file-manager-reference-actions {
+  flex: 0 1 auto;
+}
+
+.lumen-file-manager-reference[data-reference-kind='assets'] {
+  gap: 0.25rem;
+}
+
+.lumen-file-manager-reference-breadcrumb {
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.lumen-file-manager-reference-breadcrumb ol {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem 0.375rem;
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-breadcrumb li {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-breadcrumb li + li::before {
+  margin-inline-end: 0.375rem;
+  color: var(--file-manager-subtle);
+  content: '›';
+}
+
+.lumen-file-manager-reference-breadcrumb .lumen-action {
+  min-block-size: auto;
+  padding-inline: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.lumen-file-manager-reference-header
+  > .lumen-file-manager-reference-heading:has(.lumen-file-manager-reference-breadcrumb) {
+  flex-basis: 14rem;
+}
+
+.lumen-file-manager-reference-header
+  > .lumen-file-manager-reference-actions:has(.lumen-file-manager-reference-filters) {
+  flex-basis: auto;
+}
+
+.lumen-file-manager-reference-filters {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 0.0625rem solid var(--file-manager-line);
+  border-radius: var(--lumen-radius-control, 0.375rem);
+  background: var(--file-manager-raised);
+}
+
+.lumen-file-manager-reference-filters > .lumen-action {
+  min-block-size: 1.875rem;
+  padding-inline: 0.5rem;
+  color: var(--file-manager-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-file-manager-reference-filters > .lumen-action[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--file-manager-accent) 13%, transparent);
+  color: var(--file-manager-ink);
+}
+
+.lumen-file-manager-reference-asset-body {
+  min-inline-size: 0;
+  min-block-size: 0;
+  max-block-size: min(80vh, 50rem);
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.25rem;
+}
+
+.lumen-file-manager-reference-asset-body > section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem;
+}
+
+.lumen-file-manager-reference-asset-body > section + section {
+  border-block-start: 0.0625rem solid var(--file-manager-line);
+}
+
+.lumen-file-manager-reference-asset-body h3 {
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.lumen-file-manager-reference-folders {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lumen-file-manager-reference-folders > li {
+  min-inline-size: 0;
+  flex: 0 1 calc(33.333% - 0.375rem);
+}
+
+.lumen-file-manager-reference-folder-card {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.625rem;
+  padding-inline: 0.75rem;
+  text-align: start;
+}
+
+.lumen-file-manager-reference-folder-card > span {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-file-manager-reference-folder-card strong,
+.lumen-file-manager-reference-folder-card small {
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-folder-card small {
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-asset-body .lumen-file-manager-reference-card-copy {
+  padding: 0.5rem;
+}
+
+.lumen-file-manager-reference-asset-body .lumen-file-manager-reference-card > .lumen-action {
+  min-block-size: 100%;
+}
+
+.lumen-file-manager-reference-detail-layout {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.lumen-file-manager-reference-detail-list-region {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 32rem;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lumen-file-manager-reference-detail-list-region > .lumen-file-manager-reference-header {
+  border: 0;
+  border-block-end: 0.0625rem solid var(--file-manager-line);
+  border-radius: 0;
+}
+
+.lumen-file-manager-reference-detail-list {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.375rem;
+}
+
+.lumen-file-manager-reference-detail-list > li + li {
+  margin-block-start: 0.125rem;
+}
+
+.lumen-file-manager-reference-detail-row {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  text-align: start;
+}
+
+.lumen-file-manager-reference-detail-row > span {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lumen-file-manager-reference-detail-row strong,
+.lumen-file-manager-reference-detail-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumen-file-manager-reference-detail-row small {
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-detail-row[aria-current='page'] {
+  background: color-mix(in srgb, var(--file-manager-accent) 12%, transparent);
+}
+
+.lumen-file-manager-reference-detail-panel {
+  display: flex;
+  min-inline-size: 15rem;
+  flex: 0 1 20rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+.lumen-file-manager-reference-detail-summary {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lumen-file-manager-reference-detail-summary > .lumen-file-manager-reference-preview {
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-control, 0.375rem);
+}
+
+.lumen-file-manager-reference-detail-summary h3 {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.lumen-file-manager-reference-detail-summary p {
+  font-size: 0.75rem;
+}
+
+.lumen-file-manager-reference-detail-summary > .lumen-file-manager-reference-actions {
+  justify-content: flex-start;
+}
+
+.lumen-file-manager-reference-metadata,
+.lumen-file-manager-reference-collaborators,
+.lumen-file-manager-reference-activity {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-block-start: 0.625rem;
+  border-block-start: 0.0625rem solid var(--file-manager-line);
+}
+
+.lumen-file-manager-reference-metadata h4,
+.lumen-file-manager-reference-collaborators h4,
+.lumen-file-manager-reference-activity h4 {
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.lumen-file-manager-reference-metadata dl {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-file-manager-reference-metadata dl > div {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.25rem;
+  border-block-end: 0.0625rem solid var(--file-manager-line);
+}
+
+.lumen-file-manager-reference-metadata dt,
+.lumen-file-manager-reference-metadata dd {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-metadata dt {
+  color: var(--file-manager-muted);
+}
+
+.lumen-file-manager-reference-metadata dd {
+  flex: 1 1 auto;
+  color: var(--file-manager-ink);
+  text-align: end;
+}
+
+.lumen-file-manager-reference-collaborators ul,
+.lumen-file-manager-reference-activity ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-file-manager-reference-collaborators li {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lumen-file-manager-reference-collaborators li > span:nth-child(2) {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-collaborators li > small {
+  flex: 0 1 auto;
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-access {
+  gap: 0.375rem;
+  margin-block-start: 0.25rem;
+}
+
+.lumen-file-manager-reference-access > .lumen-action:first-child {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  padding-inline: 0;
+  color: var(--file-manager-muted);
+  text-align: start;
+}
+
+.lumen-file-manager-reference-activity li {
+  padding-block: 0.125rem;
+  color: var(--file-manager-muted);
+  font-size: 0.75rem;
+}
+
+.lumen-file-manager-reference-detail-panel > .lumen-action {
+  align-self: flex-start;
+}
+
+.lumen-file-manager-reference-upload-panel {
+  display: flex;
+  inline-size: min(100%, 46rem);
+  min-block-size: 0;
+  margin-inline: auto;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lumen-file-manager-reference-upload-panel > .lumen-file-manager-reference-header {
+  border: 0;
+  border-block-end: 0.0625rem solid var(--file-manager-line);
+  border-radius: 0;
+}
+
+.lumen-file-manager-reference-drop-region {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem;
+}
+
+.lumen-file-manager-reference-drop-zone {
+  display: flex;
+  min-block-size: 7rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-style: dashed;
+  color: var(--file-manager-ink);
+  text-align: center;
+}
+
+.lumen-file-manager-reference-drop-zone small {
+  max-inline-size: 36rem;
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-file-picker {
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 0.375rem;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-control, 0.375rem);
+  background: var(--file-manager-raised);
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-queue-region {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0 0.625rem 0.625rem;
+}
+
+.lumen-file-manager-reference-queue-region h3 {
+  flex: 0 0 auto;
+  color: var(--file-manager-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.lumen-file-manager-reference-upload-queue {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  max-block-size: min(50vh, 24rem);
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+  border: 0.0625rem solid var(--file-manager-edge);
+  border-radius: var(--lumen-radius-control, 0.375rem);
+  background: var(--file-manager-raised);
+}
+
+.lumen-file-manager-reference-upload-row {
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.625rem;
+  border-block-end: 0.0625rem solid var(--file-manager-line);
+}
+
+.lumen-file-manager-reference-upload-row:last-child {
+  border-block-end: 0;
+}
+
+.lumen-file-manager-reference-upload-row > .lumen-file-manager-reference-glyph {
+  margin-block-start: 0.125rem;
+  color: var(--file-manager-muted);
+}
+
+.lumen-file-manager-reference-upload-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-file-manager-reference-upload-copy > .lumen-file-manager-reference-value-row {
+  align-items: baseline;
+}
+
+.lumen-file-manager-reference-upload-copy > .lumen-file-manager-reference-value-row > strong {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.lumen-file-manager-reference-upload-copy > .lumen-file-manager-reference-value-row > small {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+.lumen-file-manager-reference-upload-copy > small {
+  overflow-wrap: anywhere;
+  font-size: 0.6875rem;
+}
+
+.lumen-file-manager-reference-upload-row .lumen-file-manager-reference-actions {
+  flex: 0 0 auto;
+}
+
+.lumen-file-manager-reference-upload-footer {
+  border: 0;
+  border-block-start: 0.0625rem solid var(--file-manager-line);
+  border-radius: 0;
+}
+
+@media (max-width: 64.999rem) {
+  .lumen-file-manager-reference-sidebar {
+    display: none;
+  }
+
+  .lumen-file-manager-reference-layout {
+    flex-direction: column;
+  }
+
+  .lumen-file-manager-reference-main {
+    flex-basis: 100%;
+  }
+
+  .lumen-file-manager-reference-cards > .lumen-file-manager-reference-card {
+    flex-basis: calc(50% - 0.25rem);
+  }
+
+  .lumen-file-manager-reference-folders > li {
+    flex-basis: calc(50% - 0.25rem);
+  }
+
+  .lumen-file-manager-reference-table th[data-column='modified'],
+  .lumen-file-manager-reference-table td[data-column='modified'] {
+    display: none;
+  }
+
+  .lumen-file-manager-reference-detail-panel {
+    flex-basis: 19rem;
+  }
+}
+
+@media (max-width: 48rem) {
+  .lumen-file-manager-reference {
+    padding: 0.125rem;
+  }
+
+  .lumen-file-manager-reference-toolbar {
+    align-items: center;
+  }
+
+  .lumen-file-manager-reference-search {
+    min-inline-size: 0;
+  }
+
+  .lumen-file-manager-reference-detail-layout {
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .lumen-file-manager-reference-detail-list-region,
+  .lumen-file-manager-reference-detail-panel {
+    flex: 0 1 auto;
+  }
+
+  .lumen-file-manager-reference-detail-panel {
+    min-inline-size: 0;
+  }
+
+  .lumen-file-manager-reference-filters {
+    flex: 1 1 auto;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .lumen-file-manager-reference-filters > .lumen-action {
+    flex: 0 0 auto;
+  }
+
+  .lumen-file-manager-reference-header
+    > .lumen-file-manager-reference-actions:has(.lumen-file-manager-reference-filters) {
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 36rem) {
+  .lumen-file-manager-reference-header {
+    padding: 0.625rem;
+  }
+
+  .lumen-file-manager-reference-header > .lumen-file-manager-reference-actions,
+  .lumen-file-manager-reference-selection-footer,
+  .lumen-file-manager-reference-upload-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lumen-file-manager-reference-header > .lumen-file-manager-reference-actions > .lumen-action,
+  .lumen-file-manager-reference-selection-footer > .lumen-file-manager-reference-actions,
+  .lumen-file-manager-reference-upload-footer > .lumen-file-manager-reference-actions {
+    inline-size: 100%;
+  }
+
+  .lumen-file-manager-reference-selection-footer > .lumen-file-manager-reference-actions,
+  .lumen-file-manager-reference-upload-footer > .lumen-file-manager-reference-actions {
+    justify-content: flex-start;
+  }
+
+  .lumen-file-manager-reference-table {
+    min-inline-size: 0;
+  }
+
+  .lumen-file-manager-reference-table th[data-column='size'],
+  .lumen-file-manager-reference-table td[data-column='size'],
+  .lumen-file-manager-reference-table th[data-column='modified'],
+  .lumen-file-manager-reference-table td[data-column='modified'],
+  .lumen-file-manager-reference-table th[data-column='owner'],
+  .lumen-file-manager-reference-table td[data-column='owner'] {
+    display: none;
+  }
+
+  .lumen-file-manager-reference-table th[data-column='name'],
+  .lumen-file-manager-reference-table td[data-column='name'] {
+    inline-size: auto;
+  }
+
+  .lumen-file-manager-reference-cards > .lumen-file-manager-reference-card {
+    flex-basis: 100%;
+  }
+
+  .lumen-file-manager-reference-folders > li {
+    flex-basis: 100%;
+  }
+
+  .lumen-file-manager-reference-filters {
+    display: none;
+  }
+
+  .lumen-file-manager-reference-asset-body > section {
+    padding-inline: 0.25rem;
+  }
+
+  .lumen-file-manager-reference-folder-card {
+    min-block-size: 3.5rem;
+  }
+
+  .lumen-file-manager-reference-upload-row {
+    gap: 0.5rem;
+  }
+
+  .lumen-file-manager-reference-upload-copy > .lumen-file-manager-reference-value-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .lumen-file-manager-reference-upload-copy > .lumen-file-manager-reference-value-row > small {
+    margin-inline-start: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumen-file-manager-reference,
+  .lumen-file-manager-reference-collection,
+  .lumen-file-manager-reference-asset-body,
+  .lumen-file-manager-reference-detail-list,
+  .lumen-file-manager-reference-detail-panel,
+  .lumen-file-manager-reference-upload-queue {
+    scroll-behavior: auto;
+  }
+}

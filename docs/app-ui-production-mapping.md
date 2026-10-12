@@ -46,7 +46,7 @@
 
 ## 生产所有者与公开组件入口
 
-正式 UI 使用 canonical [@lumen/app-ui 包](../hbar-ui/packages/lumen-app-ui/package.json)；
+正式 UI 使用 canonical [@lumen/app-ui 包](../packages/lumen-app-ui/package.json)；
 兼容目录和稳定 hbar-app-ui ID 保留。runtime 拥有领域投影、异步恢复和草稿，
 app-react 将投影转换为受控内容，apps/web 装配页面、locale 和平台端口。
 

@@ -1,0 +1,200 @@
+.lumen-integration-sync-reference-surface {
+  min-block-size: 0;
+}
+
+.lumen-integration-sync-reference {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 100%;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.lumen-integration-sync-reference-header {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lumen-integration-sync-reference-header > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-integration-sync-reference-header h2,
+.lumen-integration-sync-reference-header p {
+  margin: 0;
+}
+
+.lumen-integration-sync-reference-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.lumen-integration-sync-reference-header p {
+  color: var(--hbar-app-ui-integration-subtle);
+  font-size: 0.8125rem;
+}
+
+.lumen-integration-sync-reference-metrics {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.25rem;
+  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-radius: 0.75rem;
+  background: var(--hbar-app-ui-integration-surface-soft);
+}
+
+.lumen-integration-sync-reference-metric {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 9rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-radius: 0.625rem;
+  background: var(--hbar-app-ui-integration-surface);
+}
+
+.lumen-integration-sync-reference-metric dt {
+  color: var(--hbar-app-ui-integration-subtle);
+  font-size: 0.75rem;
+}
+
+.lumen-integration-sync-reference-metric dd {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.lumen-integration-sync-reference-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.lumen-integration-sync-reference-list-pane-scroll {
+  min-block-size: 0;
+  max-block-size: min(68vh, 48rem);
+  overflow-y: auto;
+}
+
+.lumen-integration-sync-reference-item {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-radius: 0.875rem;
+  background: var(--hbar-app-ui-integration-surface);
+}
+
+.lumen-integration-sync-reference-row {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lumen-integration-sync-reference-avatar {
+  display: inline-flex;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-radius: 0.5rem;
+  color: var(--hbar-app-ui-integration-text);
+  background: var(--hbar-app-ui-integration-bg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.lumen-integration-sync-reference-source {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lumen-integration-sync-reference-destination {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+}
+
+.lumen-integration-sync-reference-destination > span {
+  color: var(--hbar-app-ui-integration-subtle);
+}
+
+.lumen-integration-sync-reference-source small {
+  color: var(--hbar-app-ui-integration-subtle);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.lumen-integration-sync-reference-footer {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-block-start: 0.25rem;
+  color: var(--hbar-app-ui-integration-subtle);
+  font-size: 0.75rem;
+}
+
+.lumen-integration-sync-reference-failure {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.625rem;
+  color: var(--hbar-app-ui-integration-danger);
+  background: color-mix(in srgb, var(--hbar-app-ui-integration-danger) 10%, transparent);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 42rem) {
+  .lumen-integration-sync-reference-header {
+    align-items: flex-start;
+  }
+
+  .lumen-integration-sync-reference-metric {
+    flex-basis: calc(50% - 0.125rem);
+  }
+
+  .lumen-integration-sync-reference-row > .hbar-app-ui-integration-status {
+    margin-inline-start: auto;
+  }
+
+  .lumen-integration-sync-reference-row > .hbar-app-ui-integration-icon-button {
+    margin-inline-start: auto;
+  }
+}

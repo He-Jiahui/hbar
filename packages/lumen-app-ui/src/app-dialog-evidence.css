@@ -1,0 +1,358 @@
+/* App Dialog 6: evidence metadata, tags, and history flow inside an edge drawer. */
+.lumen-app-dialog-stage-surface:has(.hbar-app-ui-dialog-variant-6) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.lumen-app-dialog-stage-surface:has(.hbar-app-ui-dialog-variant-6) > [data-edge],
+.hbar-app-ui-dialog-variant-6 button > [data-edge] {
+  display: none;
+}
+.hbar-app-ui-dialog-variant-6 {
+  min-block-size: 0;
+  padding: 0;
+  background: #fff;
+  color: #202020;
+  font:
+    0.875rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-trigger.is-hidden {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: none;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-trigger:not(.is-hidden) {
+  border: 0.0625rem solid #e4e4e7;
+  background: #fff;
+  color: #202020;
+  box-shadow: none;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-backdrop.is-side {
+  padding: 0;
+  background: rgb(0 0 0 / 40%);
+  backdrop-filter: blur(0.25rem);
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel.is-side {
+  inline-size: min(28rem, 100%);
+  min-inline-size: 0;
+  block-size: 100%;
+  border: 0;
+  border-radius: 1.25rem 0 0 1.25rem;
+  background: #fff;
+  box-shadow: 0 1rem 2rem rgb(0 0 0 / 6%);
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel > header {
+  flex: 0 0 auto;
+  min-block-size: 3.5rem;
+  padding: 0 1.5rem;
+  border: 0;
+  background: #fafafa;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel h2 {
+  color: #202020;
+  font:
+    500 1rem/1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel header button {
+  flex: 0 0 2rem;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #f4f4f5;
+  color: #71717a;
+  box-shadow: none;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-body {
+  flex: 1 1 auto;
+  gap: 0;
+  padding: 1.25rem 1.5rem 0.9375rem;
+  overflow: auto;
+  background: #fff;
+  overscroll-behavior: contain;
+  mask-image: linear-gradient(to bottom, transparent, #000 1rem, #000);
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-flow {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 1rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-status {
+  display: flex;
+  min-inline-size: 0;
+  align-items: baseline;
+  gap: 0.375rem;
+  color: #52525b;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-dot {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  flex: 0 0 auto;
+  align-self: center;
+  border-radius: 99rem;
+  background: #d4d4d8;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-description {
+  margin-block-start: -0.5rem;
+  color: #52525b;
+  font-size: 0.8125rem;
+  line-height: 1.625;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-details {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-details > div {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.625rem;
+  background: #fafafa;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-details dt {
+  flex: 0 1 auto;
+  color: #52525b;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-details dd {
+  min-inline-size: 0;
+  margin: 0;
+  font-weight: 500;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-section + .lumen-app-dialog-evidence-section {
+  margin-block-start: 0.3125rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-section h3 {
+  margin: 0;
+  color: #71717a;
+  font:
+    400 0.75rem/1rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+  text-transform: uppercase;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls,
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-history {
+  display: flex;
+  min-inline-size: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls {
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls li {
+  display: inline-flex;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #fafafa;
+  color: #52525b;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls li > span:first-child {
+  flex: 0 0 auto;
+  color: #202020;
+  font-weight: 500;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls li > span:last-child {
+  min-inline-size: 0;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-history {
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-history li {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.9375rem;
+  color: #71717a;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-time {
+  flex: 0 0 5.8125rem;
+  color: #a1a1aa;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-history li > span:last-child {
+  color: #202020;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-history span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel > footer {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 0;
+  background: #fafafa;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel footer button {
+  display: flex;
+  min-block-size: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  border-radius: 0.625rem;
+  font:
+    500 0.875rem/1.25rem ui-sans-serif,
+    system-ui,
+    sans-serif;
+  box-shadow: none;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel footer button:first-child {
+  border: 0.0625rem solid #e4e4e7;
+  background: #fff;
+  color: #202020;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel footer button:nth-of-type(2) {
+  border: 0.0625rem solid #202020;
+  background: #202020;
+  color: #fff;
+}
+.hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel footer .lumen-app-dialog-glyph {
+  inline-size: var(--hbar-app-ui-icon-md, 1rem);
+  block-size: var(--hbar-app-ui-icon-md, 1rem);
+}
+.lumen-app-dialog-evidence-toast {
+  position: absolute;
+  z-index: 1;
+  inset-block-end: 1rem;
+  inset-inline-end: 1rem;
+  display: flex;
+  inline-size: min(24rem, calc(100% - 2rem));
+  flex-direction: column;
+  padding: 0.75rem;
+  border: 0.0625rem solid #e4e4e7;
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 12%);
+}
+.lumen-app-dialog-evidence-toast p:first-child {
+  font-weight: 500;
+}
+.lumen-app-dialog-evidence-toast p:last-child {
+  color: #71717a;
+  font-size: 0.75rem;
+}
+@media (max-width: 40rem) {
+  .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel > header {
+    padding-inline: 1.25rem;
+  }
+  .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-body {
+    padding: 1rem 1.25rem 0.6875rem;
+  }
+  .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel > footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    padding: 1rem 1.25rem;
+  }
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 {
+  background: #0a0a0a;
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-trigger:not(.is-hidden) {
+  border-color: #303030;
+  background: #171717;
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-trigger.is-hidden {
+  opacity: 0.35;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-backdrop.is-side {
+  background: rgb(0 0 0 / 10%);
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel.is-side,
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-body,
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel > header,
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel > footer {
+  background: #171717;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel h2 {
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel header button {
+  background: #292929;
+  color: #a1a1aa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-status,
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-description {
+  color: #a1a1aa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-dot {
+  background: #525252;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-details > div,
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls li {
+  background: #222;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-details dt,
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-section h3,
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-history li {
+  color: #a1a1aa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-details dd {
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-history li > span:last-child {
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls li {
+  color: #a1a1aa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-evidence-controls li > span:first-child {
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel footer button:first-child {
+  border-color: #303030;
+  background: #171717;
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .hbar-app-ui-dialog-variant-6 .lumen-app-dialog-panel footer button:nth-of-type(2) {
+  border-color: #fff;
+  background: #fff;
+  color: #202020;
+}
+[data-lumen-mode='dark'] .lumen-app-dialog-evidence-toast {
+  border-color: #303030;
+  background: #171717;
+  color: #fafafa;
+}
+[data-lumen-mode='dark'] .lumen-app-dialog-evidence-toast p:last-child {
+  color: #a1a1aa;
+}

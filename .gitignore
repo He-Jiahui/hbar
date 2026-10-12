@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# Retired MUI fork checkouts are outside the maintained workspace.
+/hbar-ui/
 .pnpm-store/
 
 # Build output

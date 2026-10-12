@@ -1,0 +1,233 @@
+.lumen-app-sidebar-stage-surface:has(.lumen-drawer-root) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.lumen-app-sidebar-stage-surface:has(.lumen-drawer-root) > [data-edge] {
+  display: none;
+}
+.lumen-drawer-root {
+  --drawer-canvas: #fff;
+  --drawer-panel: #fff;
+  --drawer-ink: #171717;
+  --drawer-muted: #6b6b6b;
+  --drawer-subtle: #fafafa;
+  --drawer-footer: #f7f7f7;
+  --drawer-border: #e5e5e5;
+  --drawer-shadow: rgb(0 0 0 / 6%);
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  background: var(--drawer-canvas);
+  color: var(--drawer-ink);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+[data-lumen-mode='dark'] .lumen-drawer-root {
+  --drawer-canvas: #0a0a0a;
+  --drawer-panel: #171717;
+  --drawer-ink: #fff;
+  --drawer-muted: #a3a3a3;
+  --drawer-subtle: #292929;
+  --drawer-footer: #1d1d1d;
+  --drawer-border: #353535;
+  --drawer-shadow: rgb(0 0 0 / 10%);
+}
+.lumen-drawer-root :where(p, ul) {
+  margin: 0;
+  padding: 0;
+}
+.lumen-drawer-root ul {
+  list-style: none;
+}
+.lumen-drawer-root button,
+.lumen-drawer-root a {
+  font: inherit;
+}
+.lumen-drawer-root :where(button, a):focus-visible {
+  outline: 0.125rem solid var(--lumen-accent);
+  outline-offset: -0.125rem;
+}
+.lumen-drawer-root svg {
+  flex: 0 0 auto;
+  inline-size: var(--hbar-app-ui-icon-md);
+  block-size: var(--hbar-app-ui-icon-md);
+  stroke-width: 1.75;
+}
+.lumen-drawer-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2.25rem;
+  block-size: 2.25rem;
+  margin: 10px 16px;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--drawer-subtle);
+  color: var(--drawer-ink);
+  cursor: pointer;
+}
+.lumen-drawer-scrim {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.lumen-drawer-panel {
+  position: absolute;
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-start: 0;
+  display: flex;
+  flex-direction: column;
+  inline-size: min(18rem, 85%);
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  border-radius: 0 1rem 1rem 0;
+  background: var(--drawer-panel);
+  box-shadow: 1rem 0 2rem var(--drawer-shadow);
+}
+.lumen-drawer-header {
+  display: flex;
+  align-items: center;
+  flex: 0 0 3.5rem;
+  gap: 10px;
+  padding-inline: 12px 8px;
+}
+.lumen-drawer-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border-radius: 0.5rem;
+  background: var(--drawer-ink);
+  color: var(--drawer-panel);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.lumen-drawer-brand {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.lumen-drawer-brand p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lumen-drawer-brand p:first-child {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.lumen-drawer-brand p:last-child {
+  color: var(--drawer-muted);
+}
+.lumen-drawer-header button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--drawer-subtle);
+  color: var(--drawer-muted);
+  cursor: pointer;
+}
+.lumen-app-sidebar-stage .lumen-drawer-navigation[data-hbar-app-ui-list-strategy] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow-y: auto;
+  padding-inline: 8px;
+  overscroll-behavior: contain;
+}
+.lumen-drawer-group > p {
+  display: flex;
+  align-items: center;
+  min-block-size: 1.28125rem;
+  padding-inline: 12px;
+  color: var(--drawer-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+.lumen-drawer-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lumen-drawer-group a {
+  display: flex;
+  align-items: center;
+  min-block-size: 2rem;
+  gap: 8px;
+  padding-inline: 12px;
+  border-radius: 0.5rem;
+  color: var(--drawer-muted);
+  text-decoration: none;
+}
+.lumen-drawer-group a:is(:hover, .is-active) {
+  background: var(--drawer-subtle);
+  color: var(--drawer-ink);
+}
+.lumen-drawer-group a.is-active {
+  font-weight: 500;
+}
+.lumen-drawer-group a > span:not(.lumen-drawer-badge) {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lumen-drawer-badge {
+  margin-inline-start: auto;
+  color: var(--drawer-muted);
+}
+.lumen-drawer-empty {
+  padding: 8px;
+  color: var(--drawer-muted);
+}
+.lumen-drawer-profile {
+  display: flex;
+  align-items: center;
+  flex: 0 0 3.75rem;
+  gap: 10px;
+  padding: 12px;
+  background: var(--drawer-footer);
+}
+.lumen-drawer-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  background: var(--drawer-border);
+  color: var(--drawer-muted);
+  font-size: 0.625rem;
+}
+.lumen-drawer-profile > span:last-child {
+  min-inline-size: 0;
+}
+.lumen-drawer-profile p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.6875rem;
+}
+.lumen-drawer-profile p:last-child {
+  color: var(--drawer-muted);
+}
