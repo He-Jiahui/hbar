@@ -105,7 +105,14 @@ import { createKernelExecutionDiagnostics } from './execution-diagnostics'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
 import { SessionSummaryCoordinator } from './session-summary-coordinator'
 import type { SessionSummaryOverride } from './session-summary-coordinator'
-import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
+import {
+  definePlugin,
+  prependModelInstructions,
+  provide,
+  readSessionEventPages,
+  resolveToolTimeoutMs,
+  RunControlSignal,
+} from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   BudgetService,
@@ -629,13 +636,15 @@ export class Kernel {
       {
         tools: this.tools,
         hooks: this.hooks,
-        ...(options.lifecycle === 'managed' || options.lifecycle === 'candidate' ? { restoreMode: 'projection' as const } : {}),
+        ...(options.lifecycle === 'managed' || options.lifecycle === 'candidate'
+          ? { restoreMode: 'projection' as const }
+          : {}),
         sessions: {
           agentConfiguration: createAgentSessionConfiguration({
             settings: this.permissionSettings,
             model: (id) => this.plugins.get<ModelRegistry>('models').get(id),
             runs: async (id) => (await this.snapshot(id)).runs,
-            permission: sessionId => this.sessionPermissionMode(sessionId),
+            permission: (sessionId) => this.sessionPermissionMode(sessionId),
           }),
           get: (id) => this.storage.call('session', id),
           list: async (workspaceId) => {
@@ -644,6 +653,7 @@ export class Kernel {
           },
           children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
+          readEventPage: (input) => this.storage.call('readEventPage', input),
           create: (id, title, parentId) => this.createSession(id, title, parentId),
           submit: (...args) => this.submit(...args),
           wake: (id) => this.kick(id),
@@ -657,7 +667,8 @@ export class Kernel {
           request: (request, signal) => this.requestUserInput(request, signal),
         } satisfies UserInputService,
         notify: (event) => this.publish(event),
-        taskNotification: (kind, sessionId, runId, title, message) => this.taskNotification(kind, sessionId, runId, title, message),
+        taskNotification: (kind, sessionId, runId, title, message) =>
+          this.taskNotification(kind, sessionId, runId, title, message),
         changed: (kind) => this.changed(kind),
         automationSet: (sessionId, unattended, goalEnabled) => this.automationSet(sessionId, unattended, goalEnabled),
       },
@@ -967,20 +978,20 @@ export class Kernel {
   private async restoreAutomation() {
     this.automation.clear()
     for (const session of await this.storage.call('sessions')) {
-      let cursor = 0
-      while (true) {
-        const events = await this.storage.call('events', session.id, cursor, 128)
-        for (const event of events) {
-          if (event.seq <= cursor)
-            throw new HbarError('RECOVERY_EVENT_ORDER', 'Automation history must advance its applied cursor')
-          cursor = event.seq
-          if (event.type !== 'automation.changed') continue
-          const parsed = automationStateSchema.safeParse(event.data)
+      for await (const page of readSessionEventPages(
+        { readEventPage: (input) => this.storage.call('readEventPage', input) },
+        { sessionId: session.id, types: ['automation.changed'], limit: 128, maxReplyBytes: 1_048_576 },
+      )) {
+        for (const item of page.items) {
+          if (item.kind !== 'event') continue
+          const parsed = automationStateSchema.safeParse(item.event.data)
           if (parsed.success && parsed.data.sessionId === session.id)
-            this.automation.set(session.id, { unattended: parsed.data.unattended, goalEnabled: parsed.data.goalEnabled })
+            this.automation.set(session.id, {
+              unattended: parsed.data.unattended,
+              goalEnabled: parsed.data.goalEnabled,
+            })
         }
-        if (events.length < 128) break
-        await Bun.sleep(0)
+        if (page.hasMore) await Bun.sleep(0)
       }
     }
   }

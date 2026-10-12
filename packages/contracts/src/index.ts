@@ -641,6 +641,97 @@ export const sessionEventSchema = z.object({
   version: z.literal(1),
 })
 export type SessionEvent = z.infer<typeof sessionEventSchema>
+const sessionEventPageSequenceSchema = z.number().int().nonnegative()
+const sessionEventPageTypeSchema = z.string().min(1).max(160)
+export const sessionEventPageInputSchema = z
+  .strictObject({
+    sessionId: idSchema,
+    afterSeq: sessionEventPageSequenceSchema,
+    throughSeq: sessionEventPageSequenceSchema.optional(),
+    types: z.array(sessionEventPageTypeSchema).min(1).max(32),
+    runIds: z.array(idSchema).min(1).max(64).optional(),
+    headerOnlyTypes: z.array(sessionEventPageTypeSchema).max(32).default([]),
+    limit: z.number().int().min(1).max(1_000),
+    maxReplyBytes: z
+      .number()
+      .int()
+      .min(1_024)
+      .max(8 * 1_024 * 1_024),
+  })
+  .superRefine((input, context) => {
+    if (input.throughSeq !== undefined && input.throughSeq < input.afterSeq)
+      context.addIssue({ code: 'custom', path: ['throughSeq'], message: 'Page horizon precedes its cursor' })
+    if (new Set(input.types).size !== input.types.length)
+      context.addIssue({ code: 'custom', path: ['types'], message: 'Event types must be unique' })
+    if (new Set(input.headerOnlyTypes).size !== input.headerOnlyTypes.length)
+      context.addIssue({ code: 'custom', path: ['headerOnlyTypes'], message: 'Header-only types must be unique' })
+    if (input.headerOnlyTypes.some((type) => !input.types.includes(type)))
+      context.addIssue({
+        code: 'custom',
+        path: ['headerOnlyTypes'],
+        message: 'Header-only types must be selected types',
+      })
+    if (input.runIds && new Set(input.runIds).size !== input.runIds.length)
+      context.addIssue({ code: 'custom', path: ['runIds'], message: 'Run ids must be unique' })
+  })
+export type SessionEventPageInput = z.input<typeof sessionEventPageInputSchema>
+export type SessionEventPageRequest = z.output<typeof sessionEventPageInputSchema>
+export const sessionEventHeaderSchema = sessionEventSchema.omit({ data: true })
+export const sessionEventPageItemSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('event'), event: sessionEventSchema }),
+  z.strictObject({ kind: z.literal('header'), event: sessionEventHeaderSchema }),
+])
+export type SessionEventPageItem = z.infer<typeof sessionEventPageItemSchema>
+export const sessionEventPageSchema = z
+  .strictObject({
+    sessionId: idSchema,
+    afterSeq: sessionEventPageSequenceSchema,
+    /** Stable maximum event sequence captured by the first page. */
+    throughSeq: sessionEventPageSequenceSchema,
+    /** All event rows at or below throughSeq, before type/run filtering. */
+    totalEventCount: sessionEventPageSequenceSchema,
+    /** All event rows after this page cursor and at or below throughSeq. */
+    remainingEventCount: sessionEventPageSequenceSchema,
+    /** Selected type/run rows after this page cursor and at or below throughSeq. */
+    matchingEventCount: sessionEventPageSequenceSchema,
+    items: z.array(sessionEventPageItemSchema).max(1_000),
+    nextAfterSeq: sessionEventPageSequenceSchema,
+    hasMore: z.boolean(),
+  })
+  .superRefine((page, context) => {
+    if (page.afterSeq > page.throughSeq || page.nextAfterSeq < page.afterSeq || page.nextAfterSeq > page.throughSeq)
+      context.addIssue({ code: 'custom', message: 'Page cursor and horizon are inconsistent' })
+    const seqs = new Set<number>()
+    const eventIds = new Set<string>()
+    let previousSeq = page.afterSeq
+    for (const item of page.items) {
+      const event = item.event
+      if (
+        event.sessionId !== page.sessionId ||
+        event.seq <= previousSeq ||
+        event.seq > page.throughSeq ||
+        seqs.has(event.seq) ||
+        eventIds.has(event.eventId)
+      )
+        context.addIssue({ code: 'custom', message: 'Page events must be unique, ordered, and session-bound' })
+      seqs.add(event.seq)
+      eventIds.add(event.eventId)
+      previousSeq = event.seq
+    }
+    const lastSeq = page.items.at(-1)?.event.seq
+    if (
+      (page.items.length === 0 && page.hasMore) ||
+      (page.hasMore && (lastSeq === undefined || page.nextAfterSeq !== lastSeq)) ||
+      (!page.hasMore && page.nextAfterSeq !== page.throughSeq) ||
+      page.totalEventCount < page.remainingEventCount ||
+      page.matchingEventCount > page.remainingEventCount ||
+      page.remainingEventCount < page.items.length ||
+      page.matchingEventCount < page.items.length ||
+      page.hasMore !== page.matchingEventCount > page.items.length
+    )
+      context.addIssue({ code: 'custom', message: 'Page continuation does not match its items' })
+  })
+export type SessionEventPage = z.infer<typeof sessionEventPageSchema>
 export interface Approval {
   id: string
   sessionId: string

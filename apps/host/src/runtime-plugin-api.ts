@@ -77,6 +77,7 @@ export function createRuntimePluginAPI(options: {
     sessions: {
       get: id => invoke('sessions.get', [id]), list: workspaceId => invoke('sessions.list', [workspaceId]),
       children: (id, after, limit) => invoke('sessions.children', [id, after, limit]), events: (id, after, limit) => invoke('sessions.events', [id, after, limit]),
+      readEventPage: (input) => invoke('sessions.readEventPage', [input]),
       create: (id, title, parentId) => invoke('sessions.create', [id, title, parentId]), submit: (...args) => invoke('sessions.submit', args),
       cancel: id => invoke('sessions.cancel', [id]), wake: id => observe('sessions.wake', [id]), snapshot: id => invoke('sessions.snapshot', [id]),
       workspace: id => invoke('sessions.workspace', [id]), createWorkspace: path => invoke('sessions.createWorkspace', [path]),

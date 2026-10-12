@@ -10,8 +10,16 @@ import {
   userInputRequestSchema,
   automationStateSchema,
 } from '@hbar/contracts'
-import type { PlanState, PlanStep, Run, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import type {
+  AutomationState,
+  PlanState,
+  PlanStep,
+  Run,
+  RunMode,
+  SessionEvent,
+  UserInputQuestion,
+} from '@hbar/contracts'
+import { definePlugin, provide, readSessionEventPages } from '@hbar/plugin-sdk'
 import type { HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from './instructions.ts'
 
@@ -97,13 +105,19 @@ class PlanRuntime implements PlanService {
   }
 
   private async restoreSession(sessionId: string) {
-    const events = await this.api.sessions.events(sessionId, 0, this.config.maxRestoreEvents + 1)
-    if (events.length > this.config.maxRestoreEvents)
-      throw new HbarError(
-        'PLAN_RESTORE_LIMIT',
-        `Plan replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
-      )
-    for (const event of events) this.applyEvent(sessionId, event)
+    for await (const page of readSessionEventPages(this.api.sessions, {
+      sessionId,
+      types: ['plan_exit.resolved', 'plan.updated', 'plan.cleared', 'mode.changed'],
+      limit: 500,
+      maxReplyBytes: 1_048_576,
+    })) {
+      if (page.totalEventCount > this.config.maxRestoreEvents)
+        throw new HbarError(
+          'PLAN_RESTORE_LIMIT',
+          `Plan replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
+        )
+      for (const item of page.items) if (item.kind === 'event') this.applyEvent(sessionId, item.event)
+    }
   }
   async refreshSession(sessionId: string): Promise<void> {
     await this.serial(sessionId, async () => {
@@ -490,14 +504,19 @@ export const planPlugin = definePlugin({
       if (status !== 'completed' || run.input.mode !== 'plan') return
       const current = await runtime.get(sessionId)
       if (!current?.plan.length) return
-      const events = await ctx.hbar.api.sessions.events(sessionId, 0, 2_000)
-      const automation = events
-        .filter((event) => event.type === 'automation.changed')
-        .map((event) => automationStateSchema.safeParse(event.data))
-        .filter(
-          (result): result is { success: true; data: import('@hbar/contracts').AutomationState } => result.success,
-        )
-        .at(-1)?.data
+      let automation: AutomationState | undefined
+      for await (const page of readSessionEventPages(ctx.hbar.api.sessions, {
+        sessionId,
+        types: ['automation.changed'],
+        limit: 500,
+        maxReplyBytes: 1_048_576,
+      })) {
+        for (const item of page.items) {
+          if (item.kind !== 'event') continue
+          const parsed = automationStateSchema.safeParse(item.event.data)
+          if (parsed.success) automation = parsed.data
+        }
+      }
       if (!automation?.goalEnabled) return
       const objective = [current.explanation, ...current.plan.map((step, index) => `${index + 1}. ${step.step}`)]
         .filter(Boolean)

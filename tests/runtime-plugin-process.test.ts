@@ -1,12 +1,17 @@
-import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
+import { createPathLayout, ensurePathLayout, StableStoragePort, Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
+import type { SessionEventPage } from '@hbar/contracts'
+import type { StorageMethods } from '@hbar/storage'
+import type { RuntimeOwner } from '@hbar/contracts/runtime'
 import { expect, test } from 'bun:test'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { ManagedProcess, RuntimeArtifactStore, RuntimeValuePort } from '@hbar/runtime'
+import { IpcPeer, ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeValuePort } from '@hbar/runtime'
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { PLUGIN_RUNTIME_FINGERPRINT, RUNTIME_PLUGIN_CONTROL_METHODS, runtimePluginResultSchema } from '../apps/host/src/runtime-plugin-contract'
+import { RuntimePluginRelay } from '../apps/host/src/runtime-plugin-relay'
 
 test('an owned Bun plugin prepares without writes, validates and executes locally, and preserves the original commit callback scope', async () => {
   const root = await mkdtemp(join(process.cwd(), 'artifacts', 'runtime-plugin-owner-'))
@@ -19,7 +24,7 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
     const plugin = definePlugin({ manifest: { id: 'owned.fixture', name: 'Owned fixture', description: 'Process boundary verification', version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', provides: { budget: '1.0.0' }, permissions: [] },
       configSchema: z.object({ limit: z.number().int().positive().default(9) }),
       apply(ctx, config) {
-        provide(ctx, 'budget', { get: async sessionId => ({ pid: process.pid, session: await ctx.hbar.api.sessions.get(sessionId), limit: config.limit }) })
+        provide(ctx, 'budget', { get: async sessionId => ({ pid: process.pid, session: await ctx.hbar.api.sessions.get(sessionId), page: await ctx.hbar.api.sessions.readEventPage({ sessionId, afterSeq: 0, types: ['automation.changed'], limit: 5, maxReplyBytes: 1024 }), limit: config.limit }) })
         ctx.hbar.api.tools.register({ name: 'owned_write', description: 'Write once inside the owner', effect: 'write', inputSchema: z.object({ count: z.number().int().positive().default(7) }),
           execute: async args => { await writeFile(${JSON.stringify(marker)}, String(args.count)); return { text: 'owned:' + process.pid } } })
         ctx.hbar.api.hooks.on('goal.beforeComplete', value => ({ ...value, commit: async () => { await value.commit() } }))
@@ -51,13 +56,19 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
     expect(rejected).toMatchObject({ code: 'RUNTIME_PREPARING' })
     await processOwner.activate()
     const host = async (method: string, args: readonly unknown[]) => {
-      if (method !== 'sessions.get') throw new Error('Unexpected fixture API method')
-      return { id: z.string().parse(args[0]) }
+      if (method === 'sessions.get') return { id: z.string().parse(args[0]) }
+      if (method === 'sessions.readEventPage') {
+        const input = z.object({ sessionId: z.string(), afterSeq: z.number(), types: z.array(z.string()) }).parse(args[0])
+        expect(input).toMatchObject({ sessionId: 'session', afterSeq: 0, types: ['automation.changed'] })
+        return { sessionId: input.sessionId, afterSeq: 0, throughSeq: 0, totalEventCount: 0,
+          remainingEventCount: 0, matchingEventCount: 0, items: [], nextAfterSeq: 0, hasMore: false }
+      }
+      throw new Error('Unexpected fixture API method: ' + method)
     }
     const validation = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'validate', name: 'owned_write', catalog: state.tools }, [{}], host]))
     expect(validation).toEqual({ kind: 'value', value: { count: 7 } })
     const capability = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'capability', name: 'budget', method: 'get', catalog: state.tools }, ['session'], host]))
-    expect(capability).toMatchObject({ kind: 'value', value: { pid: processOwner.snapshot().pid, limit: 9, session: { id: 'session' } } })
+    expect(capability).toMatchObject({ kind: 'value', value: { pid: processOwner.snapshot().pid, limit: 9, session: { id: 'session' }, page: { sessionId: 'session', afterSeq: 0, throughSeq: 0, items: [], hasMore: false } } })
     expect(processOwner.snapshot().pid).not.toBe(process.pid)
     const executed = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'execute', name: 'owned_write', catalog: state.tools },
       [{ count: 7 }, { signal: new AbortController().signal, callId: 'owned-call',
@@ -74,3 +85,84 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
     expect(port.snapshot().callbacks).toBe(0)
   } finally { await processOwner.dispose(); application?.dispose(); await rm(root, { recursive: true, force: true }) }
 }, 30_000)
+
+test('the Host plugin relay validates and forwards event-page reads to the actual Storage Worker', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-runtime-plugin-event-page-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  await ensurePathLayout(layout)
+  const storage = new Storage(layout.database, layout)
+  const stable = new StableStoragePort()
+  const storageOwner: RuntimeOwner = { unitId: 'storage', generation: 1, incarnation: 'event-page-storage-owner' }
+  const pluginOwner: RuntimeOwner = { unitId: 'plugin.fixture', generation: 1, incarnation: 'event-page-plugin-owner' }
+  const hostOwner: RuntimeOwner = { unitId: 'host', generation: 1, incarnation: 'event-page-host-owner' }
+  let hostPeer: IpcPeer | undefined
+  const pluginPeer = new IpcPeer({
+    owner: pluginOwner,
+    remote: hostOwner,
+    transport: { send: (frame) => hostPeer?.receive(frame) },
+  })
+  hostPeer = new IpcPeer({
+    owner: hostOwner,
+    remote: pluginOwner,
+    transport: { send: (frame) => pluginPeer.receive(frame) },
+  })
+  let relay: RuntimePluginRelay | undefined
+  let attached: ReturnType<RuntimePluginRelay['attachPlugin']> | undefined
+  let application: RuntimeValuePort | undefined
+  try {
+    await storage.call('ready')
+    const workspace = await storage.call('createWorkspace', root, 'Event page relay')
+    const session = await storage.call('createSession', workspace.id, 'Event page fixture')
+    stable.install({
+      owner: storageOwner,
+      call<K extends keyof StorageMethods>(method: K, args: Parameters<StorageMethods[K]>) {
+        return storage.call(method, ...args)
+      },
+      retire: async () => {},
+    })
+    const coordinator = new RuntimeCoordinator({
+      claim: async (lease) => lease,
+      release: async () => {},
+      revoke: async () => {},
+    })
+    relay = new RuntimePluginRelay({
+      storage: stable,
+      coordinator,
+      current: () => [],
+      resolve: () => {
+        throw new Error('No endpoint resolution is expected in a Host read')
+      },
+    })
+    attached = relay.attachPlugin(hostPeer, pluginOwner)
+    application = new RuntimeValuePort(pluginPeer, { prefix: 'plugin.application' })
+    const page = await application.call<SessionEventPage>('host.read', [
+      'sessions.readEventPage',
+      [
+        {
+          sessionId: session.id,
+          afterSeq: 0,
+          types: ['session.created'],
+          limit: 10,
+          maxReplyBytes: 4_096,
+        },
+      ],
+    ])
+    expect(page).toMatchObject({
+      sessionId: session.id,
+      afterSeq: 0,
+      throughSeq: 1,
+      items: [{ kind: 'event', event: { sessionId: session.id, type: 'session.created', seq: 1 } }],
+      nextAfterSeq: 1,
+      hasMore: false,
+    })
+    expect(stable.snapshot()).toMatchObject({ phase: 'serving', owner: storageOwner, inFlight: 0, queued: 0 })
+  } finally {
+    attached?.dispose()
+    application?.dispose()
+    hostPeer?.close()
+    pluginPeer.close()
+    await stable.close()
+    await storage.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})

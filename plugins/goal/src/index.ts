@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { HbarError, RUN_STEP_LIMIT_CODE, runSchema, threadGoalSchema, usageSchema } from '@hbar/contracts'
-import type { GoalStatus, Run, SessionEvent, ThreadGoal, Usage } from '@hbar/contracts'
-import { appendModelContext, definePlugin, provide, RunControlSignal } from '@hbar/plugin-sdk'
+import type { GoalStatus, Run, SessionEvent, ThreadGoal } from '@hbar/contracts'
+import { appendModelContext, definePlugin, provide, readSessionEventPages, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
   BudgetService,
   GoalService,
@@ -12,6 +12,7 @@ import type {
   ModelRequest,
   ModeService,
   ModelRegistry,
+  SessionService,
   ToolDefinition,
   ToolContext,
 } from '@hbar/plugin-sdk'
@@ -24,6 +25,22 @@ const MAX_EVENTS = 100_000
 const MAX_AUDIT_RUNS = 32
 const MAX_EXECUTION_FAILURE_RUNS = 32
 const MAX_ACCOUNTED_RUNS = 256
+const GOAL_RESTORE_EVENT_TYPES = [
+  'goal.run_bound',
+  'goal.created',
+  'goal.accounted',
+  'goal.updated',
+  'goal.cleared',
+  'run.settled',
+] as const
+const GOAL_STATE_EVENT_TYPES = [
+  'goal.run_bound',
+  'goal.created',
+  'goal.accounted',
+  'goal.updated',
+  'goal.cleared',
+] as const
+const GOAL_PROGRESS_EVENT_TYPES = ['message.committed', 'tool.sequence_result', 'plan.updated'] as const
 const SESSION_STOP_REASONS = new Set<GoalContinuation['reason']>([
   'run_failed',
   'result_unknown',
@@ -43,6 +60,37 @@ const runAccountingSchema = z.object({
   repairKey: z.string().optional(),
 })
 type RunAccounting = z.infer<typeof runAccountingSchema>
+
+async function readGoalEvents(
+  sessions: Pick<SessionService, 'readEventPage'>,
+  sessionId: string,
+  types: readonly string[],
+  errorCode: string,
+  runIds?: readonly string[],
+): Promise<SessionEvent[]> {
+  const events: SessionEvent[] = []
+  for await (const page of readSessionEventPages(sessions, {
+    sessionId,
+    ...(runIds ? { runIds } : {}),
+    types,
+    limit: 500,
+    maxReplyBytes: 1_048_576,
+  })) {
+    if (page.totalEventCount > MAX_EVENTS)
+      throw new HbarError(errorCode, `Goal audit for ${sessionId} exceeded ${MAX_EVENTS} events`)
+    for (const item of page.items) if (item.kind === 'event') events.push(item.event)
+  }
+  return events
+}
+
+function readGoalProgressEvents(
+  sessions: Pick<SessionService, 'readEventPage'>,
+  sessionId: string,
+  runId: string,
+  errorCode: string,
+) {
+  return readGoalEvents(sessions, sessionId, GOAL_PROGRESS_EVENT_TYPES, errorCode, [runId])
+}
 
 type AccountingMode = 'bound-run' | 'active-status-only' | 'active-only' | 'active-or-complete' | 'active-or-stopped'
 
@@ -152,18 +200,6 @@ function isUsageLimitError(run: Run) {
   )
 }
 
-function usageDelta(events: SessionEvent[], runId: string) {
-  let tokens = 0
-  for (const event of events) {
-    if (event.runId !== runId || event.type !== 'usage.recorded') continue
-    const parsed = usageSchema.safeParse(event.data)
-    if (!parsed.success) continue
-    const usage: Usage = parsed.data
-    tokens += Math.max(0, usage.input - usage.cacheRead) + usage.output
-  }
-  return Math.max(0, Math.round(tokens))
-}
-
 function elapsedSince(startedAt: number, endedAt = Date.now()) {
   return Math.max(0, Math.floor((endedAt - startedAt) / 1000))
 }
@@ -213,46 +249,53 @@ class GoalRuntime implements GoalService {
       const batch = sessions.slice(offset, offset + 8)
       await Promise.all(
         batch.map(async (session) => {
-          const events = await this.api.sessions.events(session.id, 0, MAX_EVENTS + 1)
-          if (events.length > MAX_EVENTS)
-            throw new HbarError('GOAL_RESTORE_LIMIT', `Goal replay for ${session.id} exceeded ${MAX_EVENTS} events`)
-          for (const event of events) {
-            const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
-            if (
-              ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type) &&
-              checkpoint.success &&
-              event.runId
-            ) {
-              if (checkpoint.data.accounting.sessionId !== session.id)
-                throw new HbarError('GOAL_REPLAY', `Invalid run accounting in ${session.id}`)
-              this.activeRuns.set(event.runId, checkpoint.data.accounting)
-              this.boundRuns.add(event.runId)
-            }
-            if (event.type === 'goal.cleared') {
-              this.goals.delete(session.id)
-              this.sequences.set(session.id, event.seq)
-              this.continuationTriggers.delete(session.id)
-              continue
-            }
-            const goal = eventGoal(event)
-            if (goal) {
-              if (goal.threadId !== session.id)
-                throw new HbarError('GOAL_REPLAY', `Invalid goal event in ${session.id}`)
-              this.rememberTriggers(goal)
-              this.goals.set(session.id, goal)
-              this.sequences.set(session.id, event.seq)
-              for (const runId of goal.accountedRuns) {
-                this.boundRuns.add(runId)
-                this.activeRuns.delete(runId)
+          const settled = new Map<string, Run>()
+          for await (const page of readSessionEventPages(this.api.sessions, {
+            sessionId: session.id,
+            types: GOAL_RESTORE_EVENT_TYPES,
+            limit: 500,
+            maxReplyBytes: 1_048_576,
+          })) {
+            if (page.totalEventCount > MAX_EVENTS)
+              throw new HbarError('GOAL_RESTORE_LIMIT', `Goal replay for ${session.id} exceeded ${MAX_EVENTS} events`)
+            for (const item of page.items) {
+              if (item.kind !== 'event') continue
+              const event = item.event
+              const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
+              if (
+                ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type) &&
+                checkpoint.success &&
+                event.runId
+              ) {
+                if (checkpoint.data.accounting.sessionId !== session.id)
+                  throw new HbarError('GOAL_REPLAY', `Invalid run accounting in ${session.id}`)
+                this.activeRuns.set(event.runId, checkpoint.data.accounting)
+                this.boundRuns.add(event.runId)
+              }
+              if (event.type === 'goal.cleared') {
+                this.goals.delete(session.id)
+                this.sequences.set(session.id, event.seq)
+                this.continuationTriggers.delete(session.id)
+                continue
+              }
+              const goal = eventGoal(event)
+              if (goal) {
+                if (goal.threadId !== session.id)
+                  throw new HbarError('GOAL_REPLAY', `Invalid goal event in ${session.id}`)
+                this.rememberTriggers(goal)
+                this.goals.set(session.id, goal)
+                this.sequences.set(session.id, event.seq)
+                for (const runId of goal.accountedRuns) {
+                  this.boundRuns.add(runId)
+                  this.activeRuns.delete(runId)
+                }
+              }
+              if (event.type === 'run.settled') {
+                const parsed = z.object({ run: runSchema }).safeParse(event.data)
+                if (parsed.success && parsed.data.run.sessionId === session.id)
+                  settled.set(parsed.data.run.id, parsed.data.run)
               }
             }
-          }
-          const settled = new Map<string, Run>()
-          for (const event of events) {
-            if (event.type !== 'run.settled') continue
-            const parsed = z.object({ run: runSchema }).safeParse(event.data)
-            if (parsed.success && parsed.data.run.sessionId === session.id)
-              settled.set(parsed.data.run.id, parsed.data.run)
           }
           for (const [runId, tracking] of this.activeRuns) {
             if (tracking.sessionId !== session.id) continue
@@ -262,7 +305,13 @@ class GoalRuntime implements GoalService {
             if (!projectionOnly && current?.goalId === tracking.goalId && !current.accountedRuns.includes(runId)) {
               const accounted = await this.accountProgressUnlocked(session.id, runId, 'bound-run', run)
               if (accounted) {
-                const progress = auditProgress(events, runId, accounted.progressKeys)
+                const progressEvents = await readGoalProgressEvents(
+                  this.api.sessions,
+                  session.id,
+                  runId,
+                  'GOAL_RESTORE_LIMIT',
+                )
+                const progress = auditProgress(progressEvents, runId, accounted.progressKeys)
                 await this.persist(
                   {
                     ...accounted,
@@ -592,22 +641,40 @@ class GoalRuntime implements GoalService {
     if (!existing || !tracking || tracking.goalId !== existing.goalId) return existing ?? null
     if (!statusAllowsAccounting(existing.status, mode)) return existing
 
-    const events = await this.api.sessions.events(sessionId, tracking.usageThroughSeq, MAX_EVENTS + 1)
-    if (events.length > MAX_EVENTS)
-      throw new HbarError('GOAL_ACCOUNTING_LIMIT', `Goal accounting for ${sessionId} exceeded ${MAX_EVENTS} events`)
-    const tokenDelta = usageDelta(events, runId)
+    let tokenDelta = 0
+    let accountedThrough = tracking.startedAt + tracking.timeAccounted * 1000
+    let highWaterSeq = tracking.usageThroughSeq
+    let firstPage = true
+    for await (const page of readSessionEventPages(this.api.sessions, {
+      sessionId,
+      afterSeq: tracking.usageThroughSeq,
+      runIds: [runId],
+      types: ['usage.recorded', 'request.started', 'tool.started'],
+      headerOnlyTypes: ['request.started', 'tool.started'],
+      limit: 500,
+      maxReplyBytes: 1_048_576,
+    })) {
+      if (firstPage && page.remainingEventCount > MAX_EVENTS)
+        throw new HbarError('GOAL_ACCOUNTING_LIMIT', `Goal accounting for ${sessionId} exceeded ${MAX_EVENTS} events`)
+      firstPage = false
+      highWaterSeq = page.throughSeq
+      for (const item of page.items) {
+        if (item.kind === 'event' && item.event.type === 'usage.recorded' && item.event.runId === runId) {
+          const parsed = usageSchema.safeParse(item.event.data)
+          if (parsed.success) tokenDelta += Math.max(0, parsed.data.input - parsed.data.cacheRead) + parsed.data.output
+        }
+        if (
+          item.event.runId === runId &&
+          ['usage.recorded', 'request.started', 'tool.started'].includes(item.event.type)
+        )
+          accountedThrough = Math.max(accountedThrough, item.event.time)
+      }
+    }
+    tokenDelta = Math.max(0, Math.round(tokenDelta))
     // Recovery timestamps describe when the Host came back, not when execution
     // stopped. Charge only known live progress, never the time the Host was down.
     const recovered = finalRun?.status === 'interrupted'
-    const accountedThrough = recovered
-      ? events.reduce(
-          (latest, event) =>
-            event.runId === runId && ['usage.recorded', 'request.started', 'tool.started'].includes(event.type)
-              ? Math.max(latest, event.time)
-              : latest,
-          tracking.startedAt + tracking.timeAccounted * 1000,
-        )
-      : (finalRun?.endedAt ?? Date.now())
+    if (!recovered) accountedThrough = finalRun?.endedAt ?? Date.now()
     const totalTime = elapsedSince(tracking.startedAt, accountedThrough)
     const timeDelta = Math.max(0, totalTime - tracking.timeAccounted)
     if (tokenDelta === 0 && timeDelta === 0) return existing
@@ -620,7 +687,7 @@ class GoalRuntime implements GoalService {
     }
     const accounting: RunAccounting = {
       ...tracking,
-      usageThroughSeq: events.at(-1)?.seq ?? tracking.usageThroughSeq,
+      usageThroughSeq: highWaterSeq,
       tokensAccounted: tracking.tokensAccounted + tokenDelta,
       timeAccounted: Math.max(tracking.timeAccounted, totalTime),
     }
@@ -950,8 +1017,12 @@ class GoalRuntime implements GoalService {
   }
   async reconcileRun(run: Run): Promise<void> {
     if (run.status !== 'interrupted') throw new HbarError('GOAL_RECOVERY_INVALID', 'Goal accounting recovery requires an interrupted Run')
-    const events = await this.api.sessions.events(run.sessionId, 0, MAX_EVENTS + 1)
-    if (events.length > MAX_EVENTS) throw new HbarError('GOAL_ACCOUNTING_LIMIT', 'Goal reconciliation exceeded its journal limit')
+    const events = await readGoalEvents(
+      this.api.sessions,
+      run.sessionId,
+      GOAL_STATE_EVENT_TYPES,
+      'GOAL_ACCOUNTING_LIMIT',
+    )
     for (const event of events) {
       const goal = eventGoal(event)
       if (goal) {
@@ -968,8 +1039,7 @@ class GoalRuntime implements GoalService {
   }
   async refreshSession(sessionId: string): Promise<void> {
     await this.serial(sessionId, async () => {
-      const events = await this.api.sessions.events(sessionId, 0, MAX_EVENTS + 1)
-      if (events.length > MAX_EVENTS) throw new HbarError('GOAL_RESTORE_LIMIT', 'Goal handoff exceeded its journal limit')
+      const events = await readGoalEvents(this.api.sessions, sessionId, GOAL_STATE_EVENT_TYPES, 'GOAL_RESTORE_LIMIT')
       this.goals.delete(sessionId); this.sequences.delete(sessionId); this.continuationTriggers.delete(sessionId)
       this.uncertainSessions.delete(sessionId); this.restoredRuns.delete(sessionId)
       for (const [runId, accounting] of this.activeRuns) if (accounting.sessionId === sessionId) this.activeRuns.delete(runId)
@@ -1288,9 +1358,7 @@ class GoalRuntime implements GoalService {
             'GOAL_BLOCK_REASON_REQUIRED',
             'Describe the specific blocking condition in reason; it must recur for three consecutive Goal turns',
           )
-        const events = await this.api.sessions.events(sessionId, 0, MAX_EVENTS + 1)
-        if (events.length > MAX_EVENTS)
-          throw new HbarError('GOAL_AUDIT_LIMIT', 'Goal blocker audit exceeded the replay window')
+        const events = await readGoalProgressEvents(this.api.sessions, sessionId, runId, 'GOAL_AUDIT_LIMIT')
         const progress = auditProgress(events, runId, existing.progressKeys)
         const sameReason = existing.blockedReason?.toLocaleLowerCase() === normalized.toLocaleLowerCase()
         const sameRun = existing.blockedAuditRuns.at(-1) === runId
@@ -1356,12 +1424,6 @@ class GoalRuntime implements GoalService {
         this.activeRuns.delete(event.runId)
         return
       }
-      const events = await this.api.sessions.events(event.sessionId, 0, MAX_EVENTS + 1)
-      if (events.length > MAX_EVENTS)
-        throw new HbarError(
-          'GOAL_ACCOUNTING_LIMIT',
-          `Goal accounting for ${event.sessionId} exceeded ${MAX_EVENTS} events`,
-        )
       const accounted = await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run', run)
       existing = accounted ?? this.goals.get(event.sessionId)
       if (!existing) {
@@ -1376,7 +1438,13 @@ class GoalRuntime implements GoalService {
           : usageLimited
             ? 'usage_limited'
             : existing.status
-      const progress = auditProgress(events, event.runId, existing.progressKeys)
+      const progressEvents = await readGoalProgressEvents(
+        this.api.sessions,
+        event.sessionId,
+        event.runId,
+        'GOAL_ACCOUNTING_LIMIT',
+      )
+      const progress = auditProgress(progressEvents, event.runId, existing.progressKeys)
       const noProgressStreak = progress.progress ? 0 : existing.noProgressStreak + 1
       let goal = await this.persist(
         {

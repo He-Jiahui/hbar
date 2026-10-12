@@ -125,7 +125,7 @@ export class RuntimePluginAdapter {
       const allowed = serviceName && Object.hasOwn(RUNTIME_PLUGIN_SERVICES, serviceName) ? RUNTIME_PLUGIN_SERVICES[serviceName as keyof typeof RUNTIME_PLUGIN_SERVICES] : []
       if (!name || !(allowed as readonly string[]).includes(name)) throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Undeclared service callback')
       object = api.service(serviceName ?? '')
-    } else if (segments[0] === 'sessions' && ['get', 'list', 'children', 'events', 'create', 'submit', 'cancel', 'wake', 'snapshot', 'workspace', 'createWorkspace', 'append'].includes(segments[1] ?? '')) { object = api.sessions; name = segments[1] }
+    } else if (segments[0] === 'sessions' && ['get', 'list', 'children', 'events', 'readEventPage', 'create', 'submit', 'cancel', 'wake', 'snapshot', 'workspace', 'createWorkspace', 'append'].includes(segments[1] ?? '')) { object = api.sessions; name = segments[1] }
     else if (segments[0] === 'agentConfiguration' && ['read', 'initialize', 'policy', 'setPolicy'].includes(segments[1] ?? '')) { object = api.sessions.agentConfiguration; name = segments[1] }
     else if (method === 'userInput.request') { object = api.userInput; name = 'request' }
     else if (method === 'taskNotification' || method === 'automationSet') { object = api; name = method }

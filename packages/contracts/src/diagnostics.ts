@@ -17,6 +17,8 @@ export const diagnosticEventSchema = z.strictObject({
   requestId: z.string().min(1).max(160).optional(),
   rpcId: z.string().min(1).max(160).optional(),
   storageRequestId: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
+  anchorSeq: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
+  cursorSeq: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
   contextId: z.string().min(1).max(160).optional(),
   sessionId: z.string().min(1).max(160).optional(),
   runId: z.string().min(1).max(160).optional(),
@@ -205,6 +207,8 @@ export const diagnosticEventSchema = z.strictObject({
     .nonnegative()
     .max(2 ** 53 - 1)
     .optional(),
+  recordsIn: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
+  recordsOut: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
   memoryBytes: z
     .number()
     .int()

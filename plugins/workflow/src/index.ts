@@ -29,7 +29,14 @@ import type {
   WorkflowWorkItem,
 } from '@hbar/contracts'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
-import { appendModelContext, definePlugin, provide, SKILL_TOOL_NAMES, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
+import {
+  appendModelContext,
+  definePlugin,
+  provide,
+  readSessionEventPages,
+  SKILL_TOOL_NAMES,
+  TOOL_SEQUENCE_RESULT_CHARACTERS,
+} from '@hbar/plugin-sdk'
 import type {
   AgentService,
   HookEvents,
@@ -361,13 +368,25 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   private async restoreSession(sessionId: string) {
-    const events = await this.api.sessions.events(sessionId, 0, this.config.maxRestoreEvents + 1)
-    if (events.length > this.config.maxRestoreEvents)
-      throw new HbarError(
-        'WORKFLOW_RESTORE_LIMIT',
-        `Workflow replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
-      )
-    for (const event of events) this.applyEvent(sessionId, event)
+    for await (const page of readSessionEventPages(this.api.sessions, {
+      sessionId,
+      types: [
+        'workflow.plan.saved',
+        'workflow.started',
+        'workflow.updated',
+        'workflow.migrated.v2',
+        'workflow.focus.set',
+      ],
+      limit: 500,
+      maxReplyBytes: 1_048_576,
+    })) {
+      if (page.totalEventCount > this.config.maxRestoreEvents)
+        throw new HbarError(
+          'WORKFLOW_RESTORE_LIMIT',
+          `Workflow replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
+        )
+      for (const item of page.items) if (item.kind === 'event') this.applyEvent(sessionId, item.event)
+    }
     if (this.api.restoreMode === 'projection') {
       const plan = await this.agentPlans.get(sessionId)
       if (plan) this.agentPlanSnapshots.set(sessionId, plan)

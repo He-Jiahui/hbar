@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HbarError, resolveProviderModel } from '@hbar/contracts'
+import { HbarError, resolveProviderModel, sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
 import type { ExecutionOwnership, RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
 import type { RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimeValuePort, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
@@ -97,6 +97,10 @@ export class RuntimePluginRelay {
     }
     if (method === 'sessions.get') return storage.call('session', z.string().parse(args[0]))
     if (method === 'sessions.events') return storage.call('events', z.string().parse(args[0]), z.number().int().nonnegative().parse(args[1] ?? 0), z.number().int().positive().max(200_001).parse(args[2] ?? 2_000))
+    if (method === 'sessions.readEventPage') {
+      const input = sessionEventPageInputSchema.parse(args[0])
+      return sessionEventPageSchema.parse(await storage.call('readEventPage', input))
+    }
     if (method === 'sessions.snapshot') return storage.call('snapshot', z.string().parse(args[0]))
     if (method === 'sessions.workspace') return storage.call('workspace', z.string().parse(args[0]))
     if (method === 'service.models.list') return storage.call('providers')
