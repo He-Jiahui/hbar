@@ -287,7 +287,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const toolSection = page
         .locator('.hbar-mobile-header-menu-content')
         .getByRole('region', { name: copy.session.tools.label, exact: true })
-      await toolSection.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
+      await toolSection.getByRole('button', { name: copy.session.tools.panel, exact: true }).click()
+      await page.getByRole('tablist', { name: copy.session.tools.panel, exact: true }).getByRole('tab', { name: copy.session.tools.activity, exact: true }).click()
       const activity = page.locator('.hbar-session-activity-workspace')
       const row = activity.locator(`[data-activity-agent-id="${created.agentId}"]`)
       await expect(activity).toBeVisible()

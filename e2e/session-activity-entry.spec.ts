@@ -1,3 +1,4 @@
+import { openSessionTool } from './support/session-tools-menu'
 import { expect, test } from '@playwright/test'
 import { createAgentCommandClient, createRunCommandClient } from '@hbar/client'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -42,9 +43,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const draft = 'Keep the parent draft while inspecting delegated work.'
       await prompt.fill(draft)
       await expectComposerText(prompt, draft)
-      const activity = page.getByRole('button', { name: copy.session.tools.activity, exact: true })
-      await expect(activity).toBeVisible()
-      await activity.click()
+      await openSessionTool(page, copy.session.tools, 'activity')
       const pane = page.locator('.hbar-session-activity-workspace')
       const runGroup = pane.locator('.hbar-session-activity-runs')
       await expect(pane).toBeVisible()
@@ -73,7 +72,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: queued.operationId })).status)
         .toBe('queued')
-      await activity.click()
+      await openSessionTool(page, copy.session.tools, 'activity')
       await expect(runGroup.getByRole('listitem')).toHaveCount(2)
       const approvedRun = pane.locator(`[data-operation-id="${accepted.operationId}"]`)
       const queuedRun = pane.locator(`[data-operation-id="${queued.operationId}"]`)
@@ -150,14 +149,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await showSidebar.isVisible()) await showSidebar.click()
       await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
-      await activity.click()
+      await openSessionTool(page, copy.session.tools, 'activity')
       await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
       await expect(runGroup.getByRole('listitem')).toHaveCount(0)
       await expect(pane.locator('[data-activity-agent-id]')).toHaveCount(0)
       await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
       if (await showSidebar.isVisible()) await showSidebar.click()
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
-      await activity.click()
+      await openSessionTool(page, copy.session.tools, 'activity')
       await expect(runGroup.getByRole('listitem')).toHaveCount(1)
       await expect(agentRow).toBeVisible()
       await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
@@ -169,7 +168,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
         .toBe('completed')
-      await activity.click()
+      await openSessionTool(page, copy.session.tools, 'activity')
       await pane.getByRole('button', { name: copy.activity.refresh, exact: true }).click()
       await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
       expect(errors).toEqual([])

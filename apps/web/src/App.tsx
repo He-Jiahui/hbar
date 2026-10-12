@@ -1,3 +1,4 @@
+import { SessionPanel, isSessionPanelSection } from './SessionPanel'
 import {
   Suspense,
   useCallback,
@@ -1168,8 +1169,10 @@ function WorkspaceTool({
         }
       />
     )
-  if (panel.panelId === 'monitoring')
-    return (
+  if (isSessionPanelSection(panel.panelId)) {
+    const content = (() => {
+    if (panel.panelId === 'monitoring')
+      return (
       <SessionMonitoring
         labels={copy.monitoring}
         instanceId={instanceId}
@@ -1177,8 +1180,8 @@ function WorkspaceTool({
         connected={connected}
       />
     )
-  if (panel.panelId === 'activity')
-    return (
+    if (panel.panelId === 'activity')
+      return (
       <SessionActivityWorkspace
         labels={copy.activity}
         connected={connected}
@@ -1186,14 +1189,18 @@ function WorkspaceTool({
         targetLabel={targetLabel}
       />
     )
-  if (panel.panelId === 'agents')
-    return (
+    if (panel.panelId === 'agents')
+      return (
       <AgentWorkspace labels={copy.agents} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
     )
-  if (panel.panelId === 'goals')
-    return (
+    if (panel.panelId === 'goals')
+      return (
       <GoalPlanWorkspace labels={copy.goals} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
     )
+    return null
+    })()
+    return <SessionPanel panel={panel} labels={copy.session.tools}>{content}</SessionPanel>
+  }
 
   return null
 }

@@ -2044,6 +2044,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     tools: {
       label: choose('会话工具', 'Session tools'),
+      panel: choose('会话面板', 'Session panel'),
       more: choose('更多工具', 'More tools'),
       current: (label) => choose(`更多工具：当前打开${label}`, `More tools: ${label} is open`),
       files: choose('工程文件', 'Project files'),

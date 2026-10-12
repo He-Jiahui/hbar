@@ -1,3 +1,4 @@
+import { openSessionTool } from './support/session-tools-menu'
 import { expect, test } from '@playwright/test'
 import { createAgentCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -136,7 +137,7 @@ test('Project and Time sidebar keep an idle parent active while a child works an
     await expect(groupedIndicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.waiting_approval)
     await page.screenshot({ path: join(evidence, 'zh-project-child-waiting.png') })
 
-    await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
+    await openSessionTool(page, copy.session.tools, 'activity')
     const pane = page.locator('.hbar-session-activity-workspace')
     const openChild = pane
       .locator(`[data-activity-agent-id="${waiting.agentId}"]`)

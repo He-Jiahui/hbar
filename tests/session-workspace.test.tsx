@@ -466,17 +466,17 @@ test('Find and session tools expose host-owned names, hints and semantic icons, 
       expect(result.controls.map((control) => control.label)).toEqual([
         labels.find.entry,
         labels.tools.files,
-        labels.tools.activity,
-        labels.tools.more,
+        labels.tools.panel,
+        labels.tools.settings,
       ])
       expect(result.controls).toHaveLength(4)
       for (const [index, control] of result.controls.entries()) {
         expect(control.title).toBe(control.label)
-        expect(control.text).toBe(index === 3 ? labels.tools.more : '')
+        expect(control.text).toBe('')
         expect(control).toMatchObject({
           // The local Find owner is created on client mount, never during SSR.
           disabled: index === 0 || !hasSession,
-          pressed: index > 0 && index < result.controls.length - 1 ? 'false' : null,
+          pressed: index > 0 ? 'false' : null,
           type: 'button',
           tabIndex: null,
           hiddenIcons: 1,
@@ -485,8 +485,8 @@ test('Find and session tools expose host-owned names, hints and semantic icons, 
       const tabOwned = await toolControls(render(false))
       expect(tabOwned.controls.map((control) => control.label)).toEqual([
         labels.find.entry,
-        labels.tools.activity,
-        labels.tools.more,
+        labels.tools.panel,
+        labels.tools.settings,
       ])
     }
   } finally {
@@ -519,8 +519,8 @@ test('tool pressed states track only the matching workspace and session and clea
     const pressedStates = (activePanelId: (typeof panelIds)[number] | null) => [
       null,
       activePanelId === 'files' ? 'true' : 'false',
-      activePanelId === 'activity' ? 'true' : 'false',
-      activePanelId && ['monitoring', 'agents', 'goals'].includes(activePanelId) ? 'true' : 'false',
+      activePanelId && ['activity', 'monitoring', 'agents', 'goals'].includes(activePanelId) ? 'true' : 'false',
+      'false',
     ]
     for (const panelId of panelIds) {
       await runtime.view.commands.execute('app.openPanel', {

@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  Bot,
-  ChartNoAxesColumnIncreasing,
   FolderOpen,
   ListChecks,
-  ListTodo,
   Search,
   Settings,
   type LucideIcon,
@@ -91,7 +88,7 @@ import { groupCompletedSessionActivities } from './session-activity-group-model'
 import { messageActivitySummary } from './session-message'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
-import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
+import type { HbarSessionToolsMenuLabels } from './session-tools-labels'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
 import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
@@ -220,6 +217,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly proposedPlanReadOnly: string
   readonly proposedPlanAvailability: (value: PlanProposalState['availability']) => string | null
   readonly tools: HbarSessionToolsMenuLabels & {
+    readonly panel: string
     readonly label: string
     readonly files: string
     readonly activity: string
@@ -1293,40 +1291,13 @@ function SessionWorkspaceContent({
         ]
       : []),
     {
-      id: 'activity',
+      id: 'session-panel',
       order: 2,
-      label: labels.tools.activity,
+      label: labels.tools.panel,
       icon: ListChecks,
       disabled: !sessionId,
-      pressed: isToolActive('activity'),
-      onActivate: () => toggleTool('activity'),
-    },
-    {
-      id: 'monitoring',
-      order: 3,
-      label: labels.tools.monitoring,
-      icon: ChartNoAxesColumnIncreasing,
-      disabled: !sessionId,
-      pressed: isToolActive('monitoring'),
+      pressed: ['activity', 'monitoring', 'agents', 'goals'].some((id) => activeTool?.panelId === id && activeTool.sessionId === sessionId && activeTool.workspaceId === navigation.workspaceId),
       onActivate: () => toggleTool('monitoring'),
-    },
-    {
-      id: 'agents',
-      order: 4,
-      label: labels.tools.agents,
-      icon: Bot,
-      disabled: !sessionId,
-      pressed: isToolActive('agents'),
-      onActivate: () => toggleTool('agents'),
-    },
-    {
-      id: 'goals',
-      order: 5,
-      label: labels.tools.goals,
-      icon: ListTodo,
-      disabled: !sessionId,
-      pressed: isToolActive('goals'),
-      onActivate: () => toggleTool('goals'),
     },
     {
       id: 'settings',
@@ -2826,26 +2797,17 @@ function SessionWorkspaceContent({
             )}
             <SessionToolButton
               icon={ListChecks}
-              label={labels.tools.activity}
-              selected={isToolActive('activity')}
+              label={labels.tools.panel}
+              selected={['activity', 'monitoring', 'agents', 'goals'].some((id) => activeTool?.panelId === id && activeTool.sessionId === sessionId && activeTool.workspaceId === navigation.workspaceId)}
               disabled={!sessionId}
-              onClick={() => toggleTool('activity')}
+              onClick={() => toggleTool('monitoring')}
             />
-            <HbarSessionToolsMenu
-              key={`${sessionId}:${navigation.workspaceId}:${sourceTab?.instanceKey ?? ''}`}
-              labels={labels.tools}
-              selected={
-                isToolActive('monitoring')
-                  ? 'monitoring'
-                  : isToolActive('agents')
-                    ? 'agents'
-                    : isToolActive('goals')
-                      ? 'goals'
-                      : null
-              }
+            <SessionToolButton
+              icon={Settings}
+              label={labels.tools.settings}
+              selected={false}
               disabled={!sessionId}
-              onToggleTool={toggleTool}
-              onSettings={() => {
+              onClick={() => {
                 if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })
               }}
             />
