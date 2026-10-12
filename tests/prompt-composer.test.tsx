@@ -49,9 +49,13 @@ async function mountDom() {
     container,
     render: (element: ReactNode) => act(() => root.render(element)),
     click: (label: string) => {
-      const button = [...container.querySelectorAll('button')].find((candidate) => candidate.getAttribute('aria-label') === label)
+      const button = [...container.querySelectorAll('button')].find(
+        (candidate) => candidate.getAttribute('aria-label') === label,
+      )
       if (!button) throw new Error(`Missing attachment removal action: ${label}`)
-      act(() => button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+      return act(() => {
+        button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+      })
     },
     unmount: () => act(() => root.unmount()),
     restore: () => {
@@ -234,7 +238,7 @@ test('attachment fallback is content-grown at 0/1/normal/12/13 and keeps origina
   const onRemoveAttachment = (id: string, kind: 'image' | 'file') => removed.push({ id, kind })
   const mounted = await mountDom()
   try {
-    mounted.render(
+    await mounted.render(
       <HbarPromptComposer
         {...base}
         attachments={[first, { ...first, name: '重复文件' }, image]}
@@ -249,18 +253,18 @@ test('attachment fallback is content-grown at 0/1/normal/12/13 and keeps origina
     // decorative so Lumen intentionally exposes an empty alt value.
     expect(html).toContain('alt=""')
     expect(html).toContain(`aria-label="${base.labels.removeAttachment(first)}"`)
-    mounted.click(base.labels.removeAttachment(first))
+    await mounted.click(base.labels.removeAttachment(first))
     expect(removed).toEqual([{ id: first.id, kind: first.kind }])
     // Retarget the same source ID to a different kind and verify the rendered
     // control still reports its original kind:id pair to the host callback.
-    mounted.render(<HbarPromptComposer {...base} attachments={[image]} onRemoveAttachment={onRemoveAttachment} />)
-    mounted.click(base.labels.removeAttachment(image))
+    await mounted.render(<HbarPromptComposer {...base} attachments={[image]} onRemoveAttachment={onRemoveAttachment} />)
+    await mounted.click(base.labels.removeAttachment(image))
     expect(removed).toEqual([
       { id: first.id, kind: first.kind },
       { id: image.id, kind: image.kind },
     ])
   } finally {
-    mounted.unmount()
+    await mounted.unmount()
     mounted.restore()
   }
   const hidden = renderToStaticMarkup(<HbarPromptComposer {...base} attachments={[first]} attachmentContent={null} />)

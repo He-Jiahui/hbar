@@ -165,6 +165,7 @@
     "@testing-library/user-event": "14.6.1",
     "@types/bun": "1.4.2",
     "@types/chai-dom": "1.11.3",
+    "@types/jsdom": "30.0.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@types/semver": "7.8.0",
