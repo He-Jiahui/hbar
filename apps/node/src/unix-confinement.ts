@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path/posix'
 import { HbarError } from '@hbar/contracts'
 import type { OsConfinementOptions } from '@hbar/plugin-sdk'
+import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 
 export type UnixConfinementBackend = 'bwrap' | 'seatbelt'
 export interface UnixConfinementCapabilities {
@@ -16,11 +17,14 @@ export interface UnixConfinementCapabilities {
 }
 export interface UnixConfinementRequest {
   readonly backend: UnixConfinementBackend
-  readonly command: string
+  readonly operation:
+    | { readonly kind: 'command'; readonly command: string }
+    | { readonly kind: 'argv'; readonly argv: readonly [string, ...string[]] }
   readonly cwd: string
   readonly environment: Readonly<Record<string, string>>
   readonly confinement: OsConfinementOptions
   readonly protectedPaths: readonly string[]
+  readonly readOnlyPaths?: readonly string[]
 }
 export interface UnixConfinementLaunchPlan {
   readonly argv: readonly [string, ...string[]]
@@ -126,6 +130,73 @@ async function bwrapProcessTreeWorks(executable: string): Promise<boolean> {
     return false
   }
 }
+async function seatbeltManagedProcessTreeWorks(executable: string, profile: string): Promise<boolean> {
+  const nativeModuleUrl = import.meta.resolve('@hbar/runtime-native')
+  const helperCode = [
+    `const native = await import(${JSON.stringify(nativeModuleUrl)});`,
+    `native.enterRuntimeProcessGroup();`,
+    `const child = Bun.spawn(JSON.parse(process.env.HBAR_TREE_COMMAND), { stdin:'ignore', stdout:'inherit', stderr:'ignore' });`,
+    `console.log('hbar-owner-ready');`,
+    `await child.exited;`,
+  ].join('\n')
+  const target = [executable, '-f', profile, '/bin/sh', '-c', 'sleep 60 & echo hbar-descendant-ready; wait'] as const
+  const helper = Bun.spawn([process.execPath, '-e', helperCode], {
+    stdin: 'ignore',
+    stdout: 'pipe',
+    stderr: 'ignore',
+    env: {
+      ...process.env,
+      HBAR_RUNTIME_PROCESS_GROUP: '1',
+      HBAR_TREE_COMMAND: JSON.stringify(target),
+    },
+    detached: true,
+    timeout: probeTimeoutMs,
+    killSignal: 'SIGKILL',
+  })
+  let tree: Awaited<ReturnType<ReturnType<typeof createRuntimeProcessTreePort>['attach']>> | undefined
+  try {
+    const reader = helper.stdout.getReader()
+    let output = ''
+    const deadline = Date.now() + probeTimeoutMs
+    try {
+      while (!(output.includes('hbar-owner-ready') && output.includes('hbar-descendant-ready'))) {
+        if (Date.now() >= deadline) return false
+        const next = await Promise.race([
+          reader.read(),
+          Bun.sleep(20).then(() => ({ done: false as const, value: new Uint8Array() })),
+        ])
+        if (next.done) return false
+        output += new TextDecoder().decode(next.value)
+        if (output.length > 4_000) return false
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined)
+      reader.releaseLock()
+    }
+    tree = await createRuntimeProcessTreePort().attach(helper.pid, AbortSignal.timeout(probeTimeoutMs))
+    tree.terminate()
+    await helper.exited
+    await tree.join(probeTimeoutMs)
+    tree.close()
+    return true
+  } catch {
+    tree?.terminate()
+    helper.kill('SIGKILL')
+    await helper.exited.catch(() => undefined)
+    try {
+      await tree?.join(probeTimeoutMs)
+      tree?.close()
+    } catch {
+      return false
+    }
+    return false
+  } finally {
+    if (helper.exitCode === null) {
+      helper.kill('SIGKILL')
+      await helper.exited.catch(() => undefined)
+    }
+  }
+}
 function commandPath(name: string): string | undefined {
   return Bun.which(name) ?? undefined
 }
@@ -155,17 +226,19 @@ function isWithin(root: string, path: string): boolean {
   return value === '' || (value !== '..' && !value.startsWith(`..${sep}`) && !isAbsolute(value))
 }
 export function validateUnixConfinementRoots(
-  input: Pick<UnixConfinementRequest, 'cwd' | 'confinement' | 'protectedPaths'>,
+  input: Pick<UnixConfinementRequest, 'cwd' | 'confinement' | 'protectedPaths' | 'readOnlyPaths'>,
 ): {
   readableRoots: string[]
   writableRoots: string[]
   protectedPaths: string[]
+  readOnlyPaths: string[]
   cwd: string
 } {
   const cwd = assertPosixPath(input.cwd, 'working directory')
   const readableRoots = input.confinement.readableRoots.map((path) => assertPosixPath(path, 'read root'))
   const writableRoots = input.confinement.writableRoots.map((path) => assertPosixPath(path, 'write root'))
   const protectedPaths = [...new Set(input.protectedPaths.map((path) => assertPosixPath(path, 'protected path')))]
+  const readOnlyPaths = [...new Set((input.readOnlyPaths ?? []).map((path) => assertPosixPath(path, 'read-only path')))]
   if (!readableRoots.some((root) => isWithin(root, cwd)))
     throw new HbarError('NODE_DENIED', 'The command working directory is outside the readable roots')
   for (const root of writableRoots)
@@ -178,10 +251,16 @@ export function validateUnixConfinementRoots(
       writableRoots.some((root) => isWithin(protectedPath, root))
     )
       throw new HbarError('NODE_DENIED', 'Protected paths cannot contain a readable or writable root')
+  for (const path of readOnlyPaths) {
+    if (!readableRoots.some((root) => isWithin(root, path)))
+      throw new HbarError('NODE_DENIED', 'Read-only paths must be contained in a readable root')
+    if (writableRoots.some((root) => isWithin(path, root)))
+      throw new HbarError('NODE_DENIED', 'A read-only path cannot contain a writable root')
+  }
   for (const root of [...readableRoots, ...writableRoots])
     if (systemMounts.some((system) => isWithin(system, root) || isWithin(root, system)))
       throw new HbarError('NODE_DENIED', 'A shared root cannot replace an operating system directory')
-  return { readableRoots, writableRoots, protectedPaths, cwd }
+  return { readableRoots, writableRoots, protectedPaths, readOnlyPaths, cwd }
 }
 
 /** Runs a bounded live probe. A binary being installed is not sufficient evidence of enforcement. */
@@ -292,8 +371,9 @@ export async function probeUnixConfinement(backend: UnixConfinementBackend): Pro
       } finally {
         await new Promise<void>((resolveClose) => server.close(() => resolveClose()))
       }
-      // The managed owner must independently prove tree cleanup before Seatbelt can advertise it.
-      return { backend, available: true, filesystem: true, network: true, processTree: false }
+      if (!(await seatbeltManagedProcessTreeWorks(executable, profile)))
+        return unavailable(backend, 'Seatbelt did not prove descendant cleanup through the native runtime process tree')
+      return { backend, available: true, filesystem: true, network: true, processTree: true }
     } finally {
       await rm(outsideWrite, { force: true })
       await rm(probeRoot, { recursive: true, force: true })
@@ -314,6 +394,7 @@ function seatbeltProfile(input: {
   readableRoots: readonly string[]
   writableRoots: readonly string[]
   protectedPaths: readonly string[]
+  readOnlyPaths?: readonly string[]
   networkEnabled: boolean
   tempRoot: string
 }): string {
@@ -334,6 +415,7 @@ function seatbeltProfile(input: {
     ),
     ...unique(input.protectedPaths).map((path) => `(deny file-read* (subpath ${sbplQuote(path)}))`),
     ...unique(input.protectedPaths).map((path) => `(deny file-write* (subpath ${sbplQuote(path)}))`),
+    ...unique(input.readOnlyPaths ?? []).map((path) => `(deny file-write* (subpath ${sbplQuote(path)}))`),
     ...(input.networkEnabled ? ['(allow network*)'] : []),
   ]
   return `${rules.join('\n')}\n`
@@ -371,12 +453,24 @@ async function addProtectedMount(
   }
 }
 
+async function addReadOnlyMount(args: string[], knownDirs: Set<string>, path: string): Promise<void> {
+  try {
+    const info = await stat(path)
+    addDir(args, knownDirs, dirname(path))
+    if (info.isDirectory()) args.push('--ro-bind', path, path)
+    else if (info.isFile()) args.push('--ro-bind', path, path)
+  } catch (error) {
+    if (!(error instanceof Error) || !('code' in error) || String(error.code) !== 'ENOENT') throw error
+    throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', 'A read-only path must exist before it can be mounted safely')
+  }
+}
+
 async function prepareBwrap(input: UnixConfinementRequest): Promise<UnixConfinementLaunchPlan> {
   const probe = await probeUnixConfinement('bwrap')
   if (!probe.available) throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', probe.reason ?? 'bubblewrap is unavailable')
   const executable = commandPath('bwrap')
   if (!executable) throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', 'bubblewrap disappeared after its probe')
-  const { readableRoots, writableRoots, protectedPaths, cwd } = validateUnixConfinementRoots(input)
+  const { readableRoots, writableRoots, protectedPaths, readOnlyPaths, cwd } = validateUnixConfinementRoots(input)
   const args = [
     '--die-with-parent',
     '--new-session',
@@ -425,10 +519,12 @@ async function prepareBwrap(input: UnixConfinementRequest): Promise<UnixConfinem
     addDir(args, knownDirs, dirname(root))
     args.push('--bind', root, root)
   }
+  for (const path of readOnlyPaths) await addReadOnlyMount(args, knownDirs, path)
   for (const path of protectedPaths) await addProtectedMount(args, knownDirs, path, writableRoots)
   args.push('--chdir', cwd, '--clearenv')
   for (const [name, value] of Object.entries(input.environment)) args.push('--setenv', name, value)
-  args.push('--setenv', 'TMPDIR', '/tmp', '--', '/bin/sh', '-c', input.command)
+  args.push('--setenv', 'TMPDIR', '/tmp', '--')
+  args.push(...unixTargetArgv(input.operation))
   return {
     argv: [executable, ...args],
     cwd: '/',
@@ -442,7 +538,7 @@ async function prepareSeatbelt(input: UnixConfinementRequest): Promise<UnixConfi
   if (!probe.available) throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', probe.reason ?? 'Seatbelt is unavailable')
   const executable = commandPath('sandbox-exec')
   if (!executable) throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', 'sandbox-exec disappeared after its probe')
-  const { readableRoots, writableRoots, protectedPaths, cwd } = validateUnixConfinementRoots(input)
+  const { readableRoots, writableRoots, protectedPaths, readOnlyPaths, cwd } = validateUnixConfinementRoots(input)
   const privateRoot = await mkdtemp(join(tmpdir(), 'hbar-exec-'))
   const tempRoot = join(privateRoot, 'tmp')
   try {
@@ -455,6 +551,7 @@ async function prepareSeatbelt(input: UnixConfinementRequest): Promise<UnixConfi
         readableRoots: [...readableRoots, '/usr', '/bin', '/sbin', '/System'],
         writableRoots,
         protectedPaths,
+        readOnlyPaths,
         networkEnabled: input.confinement.networkEnabled,
         tempRoot,
       }),
@@ -462,7 +559,7 @@ async function prepareSeatbelt(input: UnixConfinementRequest): Promise<UnixConfi
     )
     const env = { ...input.environment, TMPDIR: tempRoot }
     return {
-      argv: [executable, '-f', profile, '/bin/sh', '-c', input.command],
+      argv: [executable, '-f', profile, ...unixTargetArgv(input.operation)],
       cwd,
       env,
       cleanup: async () => await rm(privateRoot, { recursive: true, force: true }),
@@ -475,8 +572,15 @@ async function prepareSeatbelt(input: UnixConfinementRequest): Promise<UnixConfi
 
 /** Prepare an OS launch only after a successful, bounded live capability probe. */
 export async function prepareUnixConfinement(input: UnixConfinementRequest): Promise<UnixConfinementLaunchPlan> {
-  if (!input.command.trim()) throw new HbarError('INVALID_INPUT', 'A command is required')
+  if (input.operation.kind === 'command' && !input.operation.command.trim())
+    throw new HbarError('INVALID_INPUT', 'A command is required')
+  if (input.operation.kind === 'argv' && (!input.operation.argv.length || !input.operation.argv[0]))
+    throw new HbarError('INVALID_INPUT', 'An executable is required')
   return input.backend === 'bwrap' ? await prepareBwrap(input) : await prepareSeatbelt(input)
+}
+
+function unixTargetArgv(operation: UnixConfinementRequest['operation']): readonly [string, ...string[]] {
+  return operation.kind === 'argv' ? operation.argv : ['/bin/sh', '-c', operation.command]
 }
 
 /** Testable SBPL renderer; callers still must use a successful live probe before launch. */

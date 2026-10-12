@@ -21,6 +21,7 @@ async function verifyBwrap(): Promise<void> {
   const missingProtectedRoot = join(writableRoot, '.node-protected-missing')
   const protectedSecret = join(protectedRoot, 'secret')
   const allowedWrite = join(writableRoot, 'allowed.txt')
+  const readOnlyFile = join(writableRoot, 'read-only.txt')
   const deniedWorkspaceWrite = join(workspace, 'denied.txt')
   const deniedProtectedWrite = join(protectedRoot, 'denied.txt')
   const deniedProtectedMkdir = join(protectedRoot, 'created')
@@ -28,19 +29,24 @@ async function verifyBwrap(): Promise<void> {
     await mkdir(writableRoot, { recursive: true })
     await mkdir(protectedRoot, { recursive: true })
     await Bun.write(protectedSecret, 'protected')
+    await Bun.write(readOnlyFile, 'keep')
     const plan = await prepareUnixConfinement({
       backend: 'bwrap',
       cwd: workspace,
-      command: [
-        'set -eu',
-        `printf allowed > ${shellQuote(allowedWrite)}`,
-        `if printf denied > ${shellQuote(deniedWorkspaceWrite)} 2>/dev/null; then exit 41; fi`,
-        `if printf denied > ${shellQuote(deniedProtectedWrite)} 2>/dev/null; then exit 42; fi`,
-        `if mkdir ${shellQuote(deniedProtectedMkdir)} 2>/dev/null; then exit 43; fi`,
-        `test ! -e ${shellQuote(protectedSecret)}`,
-        'test ! -e /etc/shadow',
-        'printf verified',
-      ].join('\n'),
+      operation: {
+        kind: 'command',
+        command: [
+          'set -eu',
+          `printf allowed > ${shellQuote(allowedWrite)}`,
+          `if printf denied > ${shellQuote(readOnlyFile)} 2>/dev/null; then exit 44; fi`,
+          `if printf denied > ${shellQuote(deniedWorkspaceWrite)} 2>/dev/null; then exit 41; fi`,
+          `if printf denied > ${shellQuote(deniedProtectedWrite)} 2>/dev/null; then exit 42; fi`,
+          `if mkdir ${shellQuote(deniedProtectedMkdir)} 2>/dev/null; then exit 43; fi`,
+          `test ! -e ${shellQuote(protectedSecret)}`,
+          'test ! -e /etc/shadow',
+          'printf verified',
+        ].join('\n'),
+      },
       environment: {},
       confinement: {
         level: 'elevated',
@@ -50,6 +56,7 @@ async function verifyBwrap(): Promise<void> {
         envOverrides: {},
       },
       protectedPaths: [protectedRoot],
+      readOnlyPaths: [readOnlyFile],
     })
     try {
       const child = Bun.spawn([...plan.argv], {
@@ -72,13 +79,51 @@ async function verifyBwrap(): Promise<void> {
         throw new Error('The admitted writable root did not accept its write')
       for (const denied of [deniedWorkspaceWrite, deniedProtectedWrite, deniedProtectedMkdir])
         if (await Bun.file(denied).exists()) throw new Error(`A denied host path changed: ${denied}`)
+      if ((await readFile(readOnlyFile, 'utf8')) !== 'keep') throw new Error('A snapshot-read path changed')
       if ((await readFile(protectedSecret, 'utf8')) !== 'protected') throw new Error('The protected host file changed')
+      const argvPlan = await prepareUnixConfinement({
+        backend: 'bwrap',
+        cwd: workspace,
+        operation: {
+          kind: 'argv',
+          argv: ['/usr/bin/printf', '%s', 'literal space; $(touch /tmp/hbar-argv-injection)'],
+        },
+        environment: {},
+        confinement: {
+          level: 'elevated',
+          readableRoots: [workspace],
+          writableRoots: [writableRoot],
+          networkEnabled: false,
+          envOverrides: {},
+        },
+        protectedPaths: [protectedRoot],
+      })
+      try {
+        const argvChild = Bun.spawn([...argvPlan.argv], {
+          cwd: argvPlan.cwd,
+          env: argvPlan.env,
+          stdin: 'ignore',
+          stdout: 'pipe',
+          stderr: 'pipe',
+          timeout: 10_000,
+          killSignal: 'SIGKILL',
+        })
+        const [argvStdout, argvStderr, argvExit] = await Promise.all([
+          new Response(argvChild.stdout).text(),
+          new Response(argvChild.stderr).text(),
+          argvChild.exited,
+        ])
+        if (argvExit !== 0 || argvStdout !== 'literal space; $(touch /tmp/hbar-argv-injection)')
+          throw new Error(`argv launch was not preserved literally: ${argvStderr.slice(-1_000)}`)
+      } finally {
+        await argvPlan.cleanup()
+      }
       let missingPathRejected = false
       try {
         await prepareUnixConfinement({
           backend: 'bwrap',
           cwd: workspace,
-          command: 'true',
+          operation: { kind: 'command', command: 'true' },
           environment: {},
           confinement: {
             level: 'elevated',
@@ -102,11 +147,13 @@ async function verifyBwrap(): Promise<void> {
           checks: [
             'read-only-root',
             'writable-root',
+            'snapshot-read-path-remains-read-only-under-writable-root',
             'protected-directory-read',
             'protected-directory-write',
             'protected-directory-mkdir',
             'missing-protected-path-refused-without-host-mutation',
             'pid-namespace-and-die-with-parent',
+            'direct-argv-preserves-argument-boundaries',
           ],
           status: 'passed',
         }),

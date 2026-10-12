@@ -116,7 +116,7 @@ export async function runNode(
     const identity = await openNodeIdentity(state)
     const floor = (await state.call('floor.get', {})) ?? nodeFloorSchema.parse({ roots: [] })
     if (!(await state.call('floor.get', {}))) await state.call('floor.set', floor)
-    backend = await createManagedNodeBackend({ dataRoot, ...options })
+    backend = await createManagedNodeBackend({ dataRoot, ...options, backend: floor.backend })
     execution = new LocalExecution([dataRoot], undefined, undefined, {
       get: () => nodeProtectedPaths(node?.policy ?? floor, dataRoot),
     })

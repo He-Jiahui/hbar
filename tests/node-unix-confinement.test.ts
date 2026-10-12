@@ -22,6 +22,7 @@ describe('workspace node Unix confinement plans', () => {
     expect(plan.readableRoots).toEqual(['/srv/build'])
     expect(plan.writableRoots).toEqual(['/srv/build/out'])
     expect(plan.protectedPaths).toEqual(['/srv/build/.git/hooks'])
+    expect(plan.readOnlyPaths).toEqual([])
   })
 
   it('rejects sibling writes, protected working directories, and writes through protected paths', () => {
@@ -51,6 +52,24 @@ describe('workspace node Unix confinement plans', () => {
         cwd: '/srv/build',
         confinement: confinement({ readableRoots: ['/'] }),
         protectedPaths: [],
+      }),
+    ).toThrow(HbarError)
+  })
+
+  it('accepts read-only snapshot paths under a broader writable root but rejects paths outside readable roots', () => {
+    const plan = validateUnixConfinementRoots({
+      cwd: '/srv/build',
+      confinement: confinement({ writableRoots: ['/srv/build'] }),
+      protectedPaths: [],
+      readOnlyPaths: ['/srv/build/src'],
+    })
+    expect(plan.readOnlyPaths).toEqual(['/srv/build/src'])
+    expect(() =>
+      validateUnixConfinementRoots({
+        cwd: '/srv/build',
+        confinement: confinement(),
+        protectedPaths: [],
+        readOnlyPaths: ['/srv/private'],
       }),
     ).toThrow(HbarError)
   })

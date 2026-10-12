@@ -94,38 +94,42 @@ test('node operator CLI persists an independent floor and uses the authenticated
   }
 }, 30_000)
 
-test('a real managed execution owner reaps inherited descendants before settling a result', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'hbar-node-process-'))
-  const home = join(root, 'node'),
-    workspace = join(root, 'workspace')
-  await mkdir(workspace)
-  let backend: Awaited<ReturnType<typeof createManagedNodeBackend>> | undefined
-  let leaf = 0
-  try {
-    const script = join(workspace, 'spawn.ts'),
-      pidFile = join(workspace, 'pid')
-    await writeFile(
-      script,
-      `import { writeFileSync } from 'node:fs'; const leaf = Bun.spawn([process.execPath, '-e', 'setInterval(()=>{},1000)'], {stdout:'inherit',stderr:'inherit',windowsHide:true}); writeFileSync(${JSON.stringify(pidFile)},String(leaf.pid)); console.log('node-command-ok'); process.exit(0)`,
-    )
-    backend = await createManagedNodeBackend({ dataRoot: home })
-    const result = await backend.exec(workspace, shellScript(script), AbortSignal.timeout(15_000), {
-      timeoutMs: 5_000,
-      environment: {},
-      environmentAllowlist: [],
-      protectedPaths: [],
-      confinement: null,
-    })
-    expect(result.isError).toBe(false)
-    expect(result.text).toContain('node-command-ok')
-    leaf = Number(await readFile(pidFile, 'utf8'))
-    expect(alive(leaf)).toBe(false)
-  } finally {
-    await backend?.dispose?.()
-    if (leaf && alive(leaf)) process.kill(leaf, 'SIGKILL')
-    await rm(root, { recursive: true, force: true })
-  }
-}, 30_000)
+test.skipIf(process.platform === 'win32')(
+  'a real managed execution owner reaps inherited descendants before settling a result',
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hbar-node-process-'))
+    const home = join(root, 'node'),
+      workspace = join(root, 'workspace')
+    await mkdir(workspace)
+    let backend: Awaited<ReturnType<typeof createManagedNodeBackend>> | undefined
+    let leaf = 0
+    try {
+      const script = join(workspace, 'spawn.ts'),
+        pidFile = join(workspace, 'pid')
+      await writeFile(
+        script,
+        `import { writeFileSync } from 'node:fs'; const leaf = Bun.spawn([process.execPath, '-e', 'setInterval(()=>{},1000)'], {stdout:'inherit',stderr:'inherit',windowsHide:true}); writeFileSync(${JSON.stringify(pidFile)},String(leaf.pid)); console.log('node-command-ok'); process.exit(0)`,
+      )
+      backend = await createManagedNodeBackend({ dataRoot: home })
+      const result = await backend.exec(workspace, shellScript(script), AbortSignal.timeout(15_000), {
+        timeoutMs: 5_000,
+        environment: {},
+        environmentAllowlist: [],
+        protectedPaths: [],
+        confinement: null,
+      })
+      expect(result.isError).toBe(false)
+      expect(result.text).toContain('node-command-ok')
+      leaf = Number(await readFile(pidFile, 'utf8'))
+      expect(alive(leaf)).toBe(false)
+    } finally {
+      await backend?.dispose?.()
+      if (leaf && alive(leaf)) process.kill(leaf, 'SIGKILL')
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+  30_000,
+)
 
 test('CLI workspace role starts without the interactive application and crash recovery never replays started work', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-node-cli-'))
@@ -178,50 +182,54 @@ test('CLI workspace role starts without the interactive application and crash re
   }
 }, 30_000)
 
-test('cancelling a managed command confirms descendant exit before returning cancellation', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'hbar-node-cancel-'))
-  let backend: Awaited<ReturnType<typeof createManagedNodeBackend>> | undefined
-  let leaf = 0
-  try {
-    const pidFile = join(root, 'pid'),
-      script = join(root, 'long.ts')
-    await writeFile(
-      script,
-      `import { writeFileSync } from 'node:fs'; const leaf = Bun.spawn([process.execPath, '-e', 'setInterval(()=>{},1000)'], {windowsHide:true,stdout:'ignore',stderr:'ignore'}); writeFileSync(${JSON.stringify(pidFile)},String(leaf.pid)); setInterval(()=>{},1000)`,
-    )
-    backend = await createManagedNodeBackend({ dataRoot: join(root, 'node') })
-    const controller = new AbortController()
-    const execution = backend
-      .exec(root, shellScript(script), controller.signal, {
-        timeoutMs: 30_000,
-        environment: {},
-        environmentAllowlist: [],
-        protectedPaths: [],
-        confinement: null,
-      })
-      .then(
-        () => null,
-        (error: unknown) => error,
+test.skipIf(process.platform === 'win32')(
+  'cancelling a managed command confirms descendant exit before returning cancellation',
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hbar-node-cancel-'))
+    let backend: Awaited<ReturnType<typeof createManagedNodeBackend>> | undefined
+    let leaf = 0
+    try {
+      const pidFile = join(root, 'pid'),
+        script = join(root, 'long.ts')
+      await writeFile(
+        script,
+        `import { writeFileSync } from 'node:fs'; const leaf = Bun.spawn([process.execPath, '-e', 'setInterval(()=>{},1000)'], {windowsHide:true,stdout:'ignore',stderr:'ignore'}); writeFileSync(${JSON.stringify(pidFile)},String(leaf.pid)); setInterval(()=>{},1000)`,
       )
-    leaf = await waitFor(async () => {
-      try {
-        return Number(await readFile(pidFile, 'utf8'))
-      } catch {
-        return null
-      }
-    })
-    expect(alive(leaf)).toBe(true)
-    controller.abort()
-    expect(await execution).toMatchObject({ code: 'CANCELLED' })
-    expect(alive(leaf)).toBe(false)
-  } finally {
-    await backend?.dispose?.()
-    if (leaf && alive(leaf)) process.kill(leaf, 'SIGKILL')
-    await rm(root, { recursive: true, force: true })
-  }
-}, 30_000)
+      backend = await createManagedNodeBackend({ dataRoot: join(root, 'node') })
+      const controller = new AbortController()
+      const execution = backend
+        .exec(root, shellScript(script), controller.signal, {
+          timeoutMs: 30_000,
+          environment: {},
+          environmentAllowlist: [],
+          protectedPaths: [],
+          confinement: null,
+        })
+        .then(
+          () => null,
+          (error: unknown) => error,
+        )
+      leaf = await waitFor(async () => {
+        try {
+          return Number(await readFile(pidFile, 'utf8'))
+        } catch {
+          return null
+        }
+      })
+      expect(alive(leaf)).toBe(true)
+      controller.abort()
+      expect(await execution).toMatchObject({ code: 'CANCELLED' })
+      expect(alive(leaf)).toBe(false)
+    } finally {
+      await backend?.dispose?.()
+      if (leaf && alive(leaf)) process.kill(leaf, 'SIGKILL')
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+  30_000,
+)
 
-test('node environment includes B lookup, its allowlist and safe snapshot values only', () => {
+test('node environment inherits only the B allowlist and safe snapshot values', () => {
   process.env.HBAR_NODE_TEST_SECRET = 'private'
   process.env.HBAR_NODE_TEST_PUBLIC = 'allowed'
   try {
@@ -229,7 +237,9 @@ test('node environment includes B lookup, its allowlist and safe snapshot values
     expect(result.HBAR_NODE_TEST_SECRET).toBeUndefined()
     expect(result.HBAR_NODE_TEST_PUBLIC).toBe('allowed')
     expect(result.APP_ENV).toBe('snapshot')
-    expect(Object.keys(result).some((name) => name.toLowerCase() === 'path')).toBe(true)
+    expect(Object.keys(result).some((name) => name.toLowerCase() === 'path')).toBe(false)
+    const pathAllowed = nodeProcessEnvironment(['PATH'], {})
+    expect(Object.keys(pathAllowed).some((name) => name.toLowerCase() === 'path')).toBe(true)
     expect(() => nodeProcessEnvironment([], { NODE_OPTIONS: '--require attacker' })).toThrow('Unsafe')
   } finally {
     delete process.env.HBAR_NODE_TEST_SECRET
@@ -246,7 +256,7 @@ test('node CLI parameters reject incompatible or unknown floor fields', async ()
     await expect(runNodeCommand(['policy', 'set', 'secret=1', '--home', root], () => {})).rejects.toThrow('named floor')
     await expect(
       runNode(['--home', root, '--listen', '0.0.0.0:4318'], { registerSignals: false }),
-    ).rejects.toMatchObject({ code: 'NODE_CONTROL_LOCAL_ONLY' })
+    ).rejects.toMatchObject({ code: 'NODE_CONTROL_TLS_REQUIRED' })
     expect(await Bun.file(resolve(root, 'node.lock')).exists()).toBe(false)
   } finally {
     await rm(root, { recursive: true, force: true })
