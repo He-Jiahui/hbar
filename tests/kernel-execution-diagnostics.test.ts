@@ -1,8 +1,11 @@
 import { test, expect } from 'bun:test'
-import { diagnosticEventSchema, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
+import { diagnosticEventSchema, HbarError, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
 import { createDiagnosticScope } from '@hbar/kernel/diagnostic-scope'
 import { protectDiagnosticSink } from '../packages/kernel/src/diagnostic-scope'
-import { createKernelExecutionDiagnostics } from '../packages/kernel/src/execution-diagnostics'
+import {
+  createKernelExecutionDiagnostics,
+  toolFailureDiagnosticCode,
+} from '../packages/kernel/src/execution-diagnostics'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -12,6 +15,20 @@ import { z } from 'zod'
 function collector(events: DiagnosticEvent[]): DiagnosticSink {
   return { emit: (event) => events.push(event) }
 }
+
+test('tool failure diagnostic classification preserves Hbar codes and allowlists filesystem codes', () => {
+  for (const code of ['ENOENT', 'EACCES', 'EPERM', 'EISDIR', 'ENOTDIR', 'EBUSY', 'ENOSPC']) {
+    expect(toolFailureDiagnosticCode(Object.assign(new Error('sensitive path and credential'), { code }))).toBe(code)
+  }
+  expect(toolFailureDiagnosticCode(new HbarError('SESSION_ARCHIVED', 'private message'))).toBe('SESSION_ARCHIVED')
+  expect(
+    toolFailureDiagnosticCode(
+      Object.assign(new Error('C:\\private\\repo\\token=secret'), { code: 'C:\\private\\dynamic-code' }),
+    ),
+  ).toBe('TOOL_FAILED')
+  expect(toolFailureDiagnosticCode(Object.assign(new Error('private'), { code: 'API_KEY_SECRET' }))).toBe('TOOL_FAILED')
+  expect(toolFailureDiagnosticCode(new Error('private exception text'))).toBe('TOOL_FAILED')
+})
 
 async function removeFixture(root: string): Promise<void> {
   const resolved = await realpath(root)

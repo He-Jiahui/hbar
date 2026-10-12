@@ -1,4 +1,5 @@
 import {
+  HbarError,
   diagnosticEvent,
   diagnosticEventSchema,
   type DiagnosticCorrelation,
@@ -6,6 +7,21 @@ import {
   type DiagnosticSink,
 } from '@hbar/contracts'
 import type { DiagnosticScopePort } from '@hbar/contracts'
+
+const SAFE_FILESYSTEM_ERROR_CODES = new Set(['ENOENT', 'EACCES', 'EPERM', 'EISDIR', 'ENOTDIR', 'EBUSY', 'ENOSPC'])
+
+/** Returns a bounded error category for diagnostics without serializing error text or arbitrary codes. */
+export function toolFailureDiagnosticCode(error: unknown): string {
+  try {
+    if (error instanceof HbarError) return error.code
+    if (!error || typeof error !== 'object') return 'TOOL_FAILED'
+    const codeDescriptor = Object.getOwnPropertyDescriptor(error, 'code')
+    const code: unknown = codeDescriptor?.value as unknown
+    return typeof code === 'string' && SAFE_FILESYSTEM_ERROR_CODES.has(code) ? code : 'TOOL_FAILED'
+  } catch {
+    return 'TOOL_FAILED'
+  }
+}
 
 export interface KernelExecutionDiagnosticsOptions {
   readonly sink?: DiagnosticSink | undefined
