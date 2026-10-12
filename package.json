@@ -49,6 +49,7 @@
     "typecheck": "node --stack-size=8192 node_modules/typescript/bin/tsc --noEmit",
     "lint": "bun scripts/lint.ts",
     "check:docs": "bun scripts/check-doc-links.ts",
+    "check:sandbox-evaluator": "bun scripts/generate-sandbox-evaluator.ts --check",
     "check:reactbits-reference": "bun scripts/check-reactbits-reference.ts",
     "capture:reactbits-reference": "bun scripts/capture-reactbits-reference.ts",
     "capture:reactbits-preview": "bun scripts/capture-reactbits-preview.ts",
@@ -68,7 +69,7 @@
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen"
+    "check": "bun run lint && bun run typecheck && bun run check:sandbox-evaluator && bun run check:theme-tokens && bun run test && bun run test:lumen"
   },
   "dependencies": {
     "@lumen/app-ui": "workspace:*",
@@ -128,6 +129,7 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@hbar/sandbox": "workspace:*",
     "@hbar/agent": "workspace:*",
     "@hbar/image-generation": "workspace:*",
     "@eslint/js": "10.0.1",

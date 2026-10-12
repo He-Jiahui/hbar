@@ -69,6 +69,7 @@
         "@hbar/commands": "workspace:*",
         "@hbar/decision-laya": "workspace:*",
         "@hbar/image-generation": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
         "@mui/material": "9.4.0",
         "@playwright/test": "1.63.0",
         "@tauri-apps/cli": "2.11.4",
@@ -270,6 +271,7 @@
         "@hbar/contracts": "workspace:*",
         "@hbar/image-generation": "workspace:*",
         "@hbar/provider-catalog": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
         "@hbar/usage": "workspace:*",
@@ -312,6 +314,13 @@
       "dependencies": {
         "@hbar/contracts": "workspace:*",
         "zod": "4.5.4",
+      },
+    },
+    "packages/sandbox": {
+      "name": "@hbar/sandbox",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
       },
     },
     "packages/schema-core": {
@@ -716,6 +725,8 @@
     "@hbar/runtime": ["@hbar/runtime@workspace:packages/runtime"],
 
     "@hbar/runtime-native": ["@hbar/runtime-native@workspace:packages/runtime-native"],
+
+    "@hbar/sandbox": ["@hbar/sandbox@workspace:packages/sandbox"],
 
     "@hbar/schema-core": ["@hbar/schema-core@workspace:packages/schema-core"],
 

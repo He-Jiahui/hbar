@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { sandboxSnapshotContent } from '@hbar/sandbox'
 import { HbarError } from '@hbar/contracts'
 import {
   BUILTIN_SANDBOX_PROFILE_IDS,
@@ -38,18 +38,6 @@ export interface SandboxProfileStoragePort {
 
 const SNAPSHOT_CACHE_LIMIT = 64
 
-/** Key-sorted JSON; array order is preserved. */
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
-  if (value !== null && typeof value === 'object')
-    return `{${Object.entries(value)
-      .filter(([, item]) => item !== undefined)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
-      .join(',')}}`
-  return JSON.stringify(value) ?? 'null'
-}
-
 function summary(profile: SandboxProfile): SandboxProfileSummary {
   return {
     id: profile.id,
@@ -84,8 +72,7 @@ export class SandboxProfileService {
   /** Resolve the profile now and persist the merged rules under their content digest. */
   async createSnapshot(id: SandboxProfileId): Promise<SandboxSnapshotRef> {
     const resolved = await this.resolve(id)
-    const data = canonical(resolved)
-    const digest = createHash('sha256').update(data).digest('hex')
+    const { data, digest } = sandboxSnapshotContent(resolved)
     await this.port.putSnapshot({ digest, profileId: id, data })
     this.remember(digest, resolved)
     return { profileId: id, digest }
