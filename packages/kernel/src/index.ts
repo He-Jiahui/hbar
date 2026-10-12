@@ -101,7 +101,8 @@ import type {
   DiagnosticSink,
   DiagnosticScopePort,
 } from '@hbar/contracts'
-import { createKernelExecutionDiagnostics } from './execution-diagnostics'
+import { createKernelExecutionDiagnostics, toolFailureDiagnosticCode } from './execution-diagnostics'
+import { kernelCapabilityPlugins } from './plugin-composition'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
 import { SessionSummaryCoordinator } from './session-summary-coordinator'
 import type { SessionSummaryOverride } from './session-summary-coordinator'
@@ -1121,6 +1122,9 @@ export class Kernel {
           }),
       }),
     )
+    for (const plugin of kernelCapabilityPlugins(
+      typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS,
+    )) this.plugins.add(plugin)
     if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
       for (const id of [
         'tools.workspace',
@@ -2870,7 +2874,7 @@ export class Kernel {
             this.executionDiagnostics.toolFailed(
               toolDiagnosticIdentity,
               name,
-              hostFailure.code,
+              toolFailureDiagnosticCode(error),
               performance.now() - toolStartedAt,
             )
         }

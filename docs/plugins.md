@@ -2,6 +2,14 @@
 
 面向使用者的插件说明和安全提示见 [Wiki 的插件与扩展](wiki/Plugins.md)；本页面向实现 SDK 和 Host 插件的开发者。
 
+## 网页搜索工具
+
+内置 `web_search` 使用显式选择的 OpenAI Responses 兼容 provider 调用 hosted `web_search` 工具，并且只返回完成的 `web_search_call` 以及该响应携带的 URL citation/source。它不同于 `search_text`（工作区文件搜索）、`session.search`（本地会话索引）和 `browser.*`（网页导航与交互）。查询文本和 provider API 凭据只发送到选择的 provider endpoint；`web_search` 走正常 network 工具批准流程，搜索来源视为不可信内容。
+
+要启用该工具，在 Host 环境设置 `HBAR_WEB_SEARCH_PROVIDER_ID` 为已保存的 Responses provider id，例如 `niuma_openai`。插件通过 Host 的 `ModelRegistry` 读取该 provider 的 endpoint 与已有安全凭据，不复制或输出 API key。未设置 provider id 时，工具返回 `WEB_SEARCH_NOT_CONFIGURED`；protocol 不匹配、凭据缺失、endpoint 拒绝内置工具或返回无搜索调用/来源也都会给出独立错误，不回退到模型猜测或页面抓取。[OpenAI 官方 Responses web-search 文档](https://developers.openai.com/api/docs/guides/tools-web-search)定义 `web_search`、`web_search_call.action.sources` 和 `url_citation`；Niuma 等兼容服务是否实现这些能力仍要由实际 provider 请求确认，协议标签不能证明兼容。Provider 查询可能产生费用，未知超时不会自动重试。
+
+Adapter 请求只包含用户查询、一个 `web_search` provider tool 和 `search_context_size: low`，结果最多十条、超时三十秒、响应体最多 2 MB、并发最多两次。验证通过可注入的本地 fetch fixture 完成，不会访问付费 provider。
+
 Goal、Plan、Workflow 与 Agent 插件之间的状态边界、模型工具、委派队列和补丁协议见[专注工作流](workflows.md)。
 
 ## 受管进程与兼容更新

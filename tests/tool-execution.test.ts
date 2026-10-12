@@ -1,9 +1,15 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
-import { mkdtemp, realpath, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { toolBatchProgressSchema, toolExecutionSchema, toolProgressSchema, type ToolExecution } from '@hbar/contracts'
+import {
+  toolBatchProgressSchema,
+  toolExecutionSchema,
+  toolProgressSchema,
+  type DiagnosticEvent,
+  type ToolExecution,
+} from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { ToolContext } from '@hbar/plugin-sdk'
 import { createToolExecutionReporter } from '../packages/kernel/src/tool-execution'
@@ -74,11 +80,13 @@ test('the last coalesced progress is published within the bounded interval even 
 
 test('real Host publishes timing/progress, restores active facts, freezes results and rejects plugin-spoofed timing', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-tool-execution-'))
+  const diagnostics: DiagnosticEvent[] = []
   const kernel = await Kernel.create({
     home: join(root, 'data'),
     workspace: root,
     demo: true,
     secrets: new MemorySecrets(),
+    diagnostics: { emit: (event) => diagnostics.push(event) },
   })
   let release = () => {}
   const gate = new Promise<void>((resolve) => {
@@ -87,6 +95,7 @@ test('real Host publishes timing/progress, restores active facts, freezes result
   let captured: ToolContext['reportProgress']
   let dispose: () => void | Promise<void> = () => {}
   let disposeBatch: () => void | Promise<void> = () => {}
+  let disposeFilesystemProbe: () => void | Promise<void> = () => {}
   try {
     await kernel.changePlugin('goal.codex', true, { autoContinue: false })
     dispose = kernel.tools.register({
@@ -157,6 +166,11 @@ test('real Host publishes timing/progress, restores active facts, freezes result
     )
     await kernel.waitForIdle()
     const batchSnapshot = await kernel.snapshot(session.id)
+    const missingFileFailure = diagnostics.find(
+      (event) => event.event === 'tool.failed' && event.method === 'read_file',
+    )
+    expect(missingFileFailure?.errorCode).toBe('ENOENT')
+    expect(JSON.stringify(diagnostics)).not.toContain('does-not-exist.txt')
     const batchResult = batchSnapshot.messages
       .flatMap((message) => message.content)
       .find((block) => block.type === 'tool_result' && block.name === 'timing_batch_fixture')
@@ -182,11 +196,37 @@ test('real Host publishes timing/progress, restores active facts, freezes result
         (event) => toolBatchProgressSchema.safeParse((event.data as { progress: unknown }).progress).success,
       ),
     ).toBe(true)
+
+    disposeFilesystemProbe = kernel.tools.register({
+      name: 'filesystem_error_fixture',
+      description: 'Read a fixture path to capture a native filesystem error category',
+      effect: 'read',
+      inputSchema: z.object({ path: z.string() }),
+      async execute(args) {
+        const input = z.object({ path: z.string() }).parse(args)
+        await readFile(input.path, 'utf8')
+        return { text: 'unexpected fixture read success' }
+      },
+    })
+    await kernel.submit(
+      session.id,
+      crypto.randomUUID(),
+      { text: `/tool filesystem_error_fixture ${JSON.stringify({ path: root })}`, images: [], approval: 'allow' },
+      'local-fixture',
+    )
+    await kernel.waitForIdle()
+    const accessFailure = diagnostics.find(
+      (event) => event.event === 'tool.failed' && event.method === 'filesystem_error_fixture',
+    )
+    if (!accessFailure?.errorCode) throw new Error('Filesystem access fixture did not emit an error code')
+    expect(['EISDIR', 'EPERM']).toContain(accessFailure.errorCode)
+    expect(JSON.stringify(diagnostics)).not.toContain(root)
   } finally {
     release()
     await kernel.waitForIdle()
     await dispose()
     await disposeBatch()
+    await disposeFilesystemProbe()
     await kernel.close()
     const resolved = await realpath(root)
     if (dirname(resolved) === (await realpath(tmpdir())) && basename(resolved).startsWith('hbar-tool-execution-'))

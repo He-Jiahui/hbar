@@ -1,0 +1,13 @@
+{
+  "name": "@hbar/web-search",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@hbar/contracts": "workspace:*",
+    "@hbar/plugin-sdk": "workspace:*",
+    "zod": "4.5.4"
+  }
+}
