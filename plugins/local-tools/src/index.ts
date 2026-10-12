@@ -31,6 +31,13 @@ export { mountedPath } from './workspace-mounts'
 // ---------------------------------------------------------------------------
 interface SandboxAddon {
   isAvailable(): boolean
+  probeConfinement(): {
+    available: boolean
+    filesystem: boolean
+    network: boolean
+    processTree: boolean
+    reason?: string
+  }
   spawnSandboxed(profile: Record<string, unknown>, argv: string[], cwd: string): Promise<SandboxedProcess>
 }
 interface SandboxedProcess {
@@ -44,12 +51,13 @@ function loadSandboxAddon(): SandboxAddon | null {
       mod !== null &&
       typeof mod === 'object' &&
       typeof (mod as Record<string, unknown>).isAvailable === 'function' &&
+      typeof (mod as Record<string, unknown>).probeConfinement === 'function' &&
       typeof (mod as Record<string, unknown>).spawnSandboxed === 'function'
     ) {
       return mod as SandboxAddon
     }
   } catch {
-    // Not available; fall back to plain Bun.spawn.
+    // Confined requests fail closed below when the native capability API is unavailable.
   }
   return null
 }
@@ -395,7 +403,8 @@ export class LocalExecution implements ExecutionProvider {
           ]
         : ['/bin/sh', '-c', command]
 
-    // Route through the OS-level sandbox addon when confinement is requested.
+    // Keep the legacy adapter fail-closed until it consumes process output,
+    // cancellation, and protected paths through the full native lifecycle.
     if (options?.osConfinement && process.platform === 'win32') {
       if (!sandboxAddon) {
         // Addon missing (not built yet or build skipped). Fail loudly so the user
@@ -406,26 +415,35 @@ export class LocalExecution implements ExecutionProvider {
           details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
         }
       }
-      const { osConfinement } = options
-      const profile = {
-        workspaceRoot: workingDirectory,
-        writableRoots: osConfinement.writableRoots,
-        readableRoots: osConfinement.readableRoots,
-        networkEnabled: osConfinement.networkEnabled,
-        envOverrides: { ...osConfinement.envOverrides },
-        level: osConfinement.level === 'elevated' ? 'Elevated' : 'Unelevated',
-      }
       try {
-        // spawnSandboxed currently returns a stub error (not yet implemented).
-        // When the vendor unelevated path lands, this will return stdout/stderr via
-        // channels managed by the Rust-side Tokio runtime.
-        await sandboxAddon.spawnSandboxed(profile, argv, workingDirectory)
-        // Unreachable until the vendor implementation lands.
-        return { text: '', isError: false, details: { code: 0, truncated: false } }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const capabilities = sandboxAddon.probeConfinement()
+        const backendReady =
+          sandboxAddon.isAvailable() &&
+          capabilities.available &&
+          capabilities.filesystem &&
+          capabilities.network &&
+          capabilities.processTree
+        const reason = backendReady
+          ? 'The native confinement probe passed, but the LocalExecution lifecycle adapter is not implemented; the command was not run.'
+          : `The native Windows confinement capability probe failed${capabilities.reason ? `: ${capabilities.reason}` : '.'} The command was not run.`
         return {
-          text: `[hbar] Sandboxed execution failed: ${message}`,
+          text: `[hbar] ${reason}`,
+          isError: true,
+          details: {
+            code: 'SANDBOX_BACKEND_UNAVAILABLE',
+            executionStarted: false,
+            truncated: false,
+            capabilities: {
+              filesystem: capabilities.filesystem,
+              network: capabilities.network,
+              processTree: capabilities.processTree,
+            },
+          },
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        return {
+          text: `[hbar] Native Windows confinement capability check failed: ${reason}; the command was not run.`,
           isError: true,
           details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
         }

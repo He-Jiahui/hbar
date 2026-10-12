@@ -29,11 +29,24 @@ pub use types::*;
 #[cfg(windows)]
 mod vendor;
 
-/// Returns `true` when the OS-level sandbox is available on this platform.
-/// Always `true` on Windows; `false` elsewhere.
+/// Performs and caches a real AppContainer confinement probe.
 #[napi]
 pub fn is_available() -> bool {
-    cfg!(windows)
+    #[cfg(windows)]
+    {
+        vendor::spawn::probe_confinement().available
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+/// Returns which AppContainer restrictions have passed live process tests.
+#[cfg(windows)]
+#[napi]
+pub fn probe_confinement() -> vendor::spawn::SandboxProbeCapabilities {
+    vendor::spawn::probe_confinement()
 }
 
 /// Spawn a command inside an OS-level sandbox.

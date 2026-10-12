@@ -17,7 +17,7 @@ test('confinement contracts reject malformed and undeclared requirements', () =>
   expect(osConfinementOptionsSchema.safeParse({ ...request, fallback: true }).success).toBe(false)
 })
 
-for (const platform of ['linux', 'darwin'])
+for (const platform of ['linux', 'darwin', 'win32'])
   test(`a ${platform} execution refuses unavailable confinement before creating effects`, async () => {
     const root = await mkdtemp(join(tmpdir(), 'hbar-confinement-'))
     const source = `
