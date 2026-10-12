@@ -2065,14 +2065,23 @@ export default function App({
               onOpen={() => openFeaturePanel('notifications')}
             />
           }
-          featureNavigation={
-            <GlobalFeatureNavigation
-              locale={locale}
-              connected={connection === 'connected'}
-              hasWorkspace={Boolean(activeNavigation.workspaceId)}
-              onOpen={openFeaturePanel}
-            />
-          }
+          featureNavigation={(compact) => (
+                <GlobalFeatureNavigation
+                  compact={compact}
+                  locale={locale}
+                  connected={connection === 'connected'}
+                  hasWorkspace={Boolean(activeNavigation.workspaceId)}
+                  onOpen={openFeaturePanel}
+                  onStatus={() =>
+                    void runtime.view.commands
+                      .execute('app.openStatus', { section: 'dashboard' })
+                      .catch(() => undefined)
+                  }
+                  onCommands={() =>
+                    void runtime.view.commands.execute('app.openPanel', { panelId: 'commands' }).catch(() => undefined)
+                  }
+                />
+              )}
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
           desktopToolPresentation={desktopLayoutModel.layout.children?.some((node) => node.id === 'session-tool') ? 'split' : 'drawer'}
           toolWidthRem={toolLayout.size.preferredRem}

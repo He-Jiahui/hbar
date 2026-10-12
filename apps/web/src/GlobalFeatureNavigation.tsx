@@ -1,5 +1,6 @@
 import { LumenActionMenu } from '@lumen/app-ui'
 import { globalFeatureCopy, type GlobalFeaturePageId } from './global-feature-copy'
+import { getShellCopy } from './shell-copy'
 import type { ShellLocale } from './shell-copy'
 
 export interface GlobalFeatureNavigationProps {
@@ -7,21 +8,39 @@ export interface GlobalFeatureNavigationProps {
   readonly connected: boolean
   readonly hasWorkspace: boolean
   readonly onOpen: (page: GlobalFeaturePageId) => void
+  readonly compact?: boolean
+  readonly onStatus: () => void
+  readonly onCommands: () => void
 }
 
-/** Secondary destinations share one nearby menu; schedules and notifications retain their primary entries. */
-export function GlobalFeatureNavigation({ locale, connected, hasWorkspace, onOpen }: GlobalFeatureNavigationProps) {
+/** A bounded menu owns secondary destinations; notifications and settings remain directly reachable. */
+export function GlobalFeatureNavigation({
+  locale,
+  connected,
+  hasWorkspace,
+  onOpen,
+  compact,
+  onStatus,
+  onCommands,
+}: GlobalFeatureNavigationProps) {
   const copy = globalFeatureCopy(locale)
+  const shell = getShellCopy(locale).shell
+  type Action = GlobalFeaturePageId | 'status' | 'commands'
   return (
-    <LumenActionMenu
+    <LumenActionMenu<Action>
       label={copy.navigation}
-      labelVisible
-      items={(['run-board', 'prompt-templates', 'onboarding'] as const).map((id) => ({
-        id,
-        label: copy.titles[id],
-        disabled: id === 'run-board' && (!connected || !hasWorkspace),
-      }))}
-      onAction={onOpen}
+      labelVisible={!compact}
+      items={[
+        { id: 'status', label: shell.status },
+        ...(['run-board', 'schedules', 'prompt-templates', 'onboarding'] as const).map((id) => ({
+          id,
+          label: copy.titles[id],
+          disabled:
+            (id === 'run-board' || id === 'schedules' || id === 'prompt-templates') && (!connected || !hasWorkspace),
+        })),
+        { id: 'commands', label: shell.commands },
+      ]}
+      onAction={(id) => (id === 'status' ? onStatus() : id === 'commands' ? onCommands() : onOpen(id))}
     />
   )
 }

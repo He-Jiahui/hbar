@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import {
   LumenContentText,
+  LumenActionMenu,
   LumenAppShell09,
   LumenAppShell04,
   LumenAppSidebar,
@@ -53,6 +54,7 @@ import {
 import { HbarActionIconButton } from './action-icon-button'
 import { usePersistentPane } from './persistent-pane'
 import { WorkspaceSidebarRail } from './workspace-sidebar-rail'
+import { WorkspaceSidebarFooter } from './workspace-sidebar-footer'
 import { SidebarCaption } from './sidebar-caption'
 import {
   SESSION_ARCHIVE_BATCH_MAX_ITEMS,
@@ -164,6 +166,7 @@ export interface HbarWorkspaceShellLabels {
   readonly cancel: string
   readonly createSessionInWorkspace: (name: string) => string
   readonly commands: string
+  readonly more: string
   readonly commandShortcut: string
   readonly settingsShortcut: string
   readonly searchChats: string
@@ -228,7 +231,7 @@ export interface HbarWorkspaceShellProps {
   readonly sidebarLayout?: LumenAppShellProps['sidebarLayout']
   readonly sidebarResize?: LumenAppShellProps['sidebarResize']
   readonly sidebarFeedback?: ReactNode
-  readonly featureNavigation?: ReactNode
+  readonly featureNavigation?: ReactNode | ((compact: boolean) => ReactNode)
   readonly notificationNavigation?: ReactNode
   /** Host-owned title for global feature pages, including the compact mobile header. */
   readonly pageTitle?: string | undefined
@@ -621,7 +624,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [loading, setLoading] = useState<ReadonlySet<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
   const [workspaceActionError, setWorkspaceActionError] = useState<{ workspaceId: string; code: string } | null>(null)
-  const [extensionsEntryError, setExtensionsEntryError] = useState<string | null>(null)
   const [navigationAction, setNavigationAction] = useState<WorkspaceNavigationActionState>({
     status: 'idle',
     action: null,
@@ -1039,11 +1041,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const navigationBusy = navigationAction.status === 'submitting'
   const navigationBlocked = navigationBusy || navigationAction.status === 'unknown'
   const connected = props.connection === 'connected'
-  const settingsPanel =
-    presentation.page.kind === 'settings' ? surfaces.panels[presentation.page.instanceId] : undefined
-  const extensionsSelected =
-    settingsPanel?.params.scope === 'global' &&
-    (settingsPanel.params.section === 'extensions' || settingsPanel.params.section === 'skills')
   const actionTargetName = navigationAction.action
     ? navigationAction.action.kind === 'open-workspace'
       ? navigationAction.action.path
@@ -1170,6 +1167,29 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
 
   const shellSlots = props.slots
 
+  const secondaryNavigation = (compact: boolean) =>
+    props.featureNavigation !== undefined ? (
+      typeof props.featureNavigation === 'function' ? (
+        props.featureNavigation(compact)
+      ) : (
+        props.featureNavigation
+      )
+    ) : (
+      <LumenActionMenu<'status' | 'schedules' | 'commands'>
+        label={props.labels.more}
+        labelVisible={!compact}
+        items={[
+          { id: 'status', label: props.labels.status },
+          { id: 'schedules', label: props.labels.schedules, disabled: !connected || !navigation.workspaceId },
+          { id: 'commands', label: props.labels.commands },
+        ]}
+        onAction={(id) => {
+          if (id === 'status') settleNavigation(execute('app.openStatus', { section: 'dashboard' }))
+          else if (id === 'commands') openPanel('commands')
+          else if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
+        }}
+      />
+    )
   const sidebarPane = railCollapsed ? (
     <LumenAppSidebar06
       slots={{
@@ -1179,13 +1199,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               navigation: props.labels.projectsAndSessions,
               expand: props.labels.showSidebar,
               newSession: props.labels.newSession,
-              extensions: props.labels.extensionsAndSkills,
-              commands: props.labels.commands,
-              schedules: props.labels.schedules,
               search: props.labels.searchChats,
-              status: props.labels.status,
               settings: props.labels.settings,
-              reconnect: props.labels.reconnect,
               serverValue: `${props.labels.server} · ${serverValue}`,
             }}
             expandRef={sidebarFocusRef}
@@ -1193,22 +1208,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             serverTone={serverTone}
             newDisabled={!connected || navigationBlocked}
             newBusy={navigationBusy}
-            extensionsSelected={extensionsSelected}
-            commandsSelected={presentation.modalInstanceId === 'commands'}
-            schedulesSelected={presentation.page.kind === 'schedules'}
-            schedulesDisabled={!connected || !navigation.workspaceId}
+            secondaryNavigation={secondaryNavigation(true)}
             notificationNavigation={props.notificationNavigation}
             searchSelected={presentation.modalInstanceId === 'chat-search'}
-            statusSelected={presentation.page.kind === 'status'}
-            settingsSelected={presentation.page.kind === 'settings' && !extensionsSelected}
+            settingsSelected={presentation.page.kind === 'settings'}
             onExpand={() => setSidebarVisible(true)}
             onNew={() => newSession()}
-            onExtensions={() => {
-              setExtensionsEntryError(null)
-              void execute('app.openSettings', { scope: 'global', section: 'skills' }).catch((reason: unknown) =>
-                setExtensionsEntryError(reason instanceof Error ? reason.message : String(reason)),
-              )
-            }}
             onSearch={() => {
               const node = document.activeElement
               if (node instanceof HTMLElement)
@@ -1224,13 +1229,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 recordError(reason)
               })
             }}
-            onStatus={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
             onSettings={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
-            onCommands={() => openPanel('commands')}
-            onSchedules={() => {
-              if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
-            }}
-            onReconnect={props.onReconnect}
           >
             {!projectPicker && actionWorkspaceId === null && (
               <NavigationActionFeedback
@@ -1241,9 +1240,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 onReconcile={reconcileNavigationAction}
               />
             )}
-            {(extensionsEntryError || error) && (
+            {error && (
               <LumenContentText context="feedback.message" role="alert">
-                {props.labels.error(extensionsEntryError ?? error ?? '')}
+                {props.labels.error(error ?? '')}
               </LumenContentText>
             )}
           </WorkspaceSidebarRail>
@@ -1311,63 +1310,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           </LumenFrame>
         }
         actions={
-          <LumenFrame className="hbar-app-react-sidebar-actions">
-            {connected && props.sidebarFeedback}
-            {props.featureNavigation}
-            <WorkspaceSidebarAction
-              icon="activity"
-              label={props.labels.status}
-              selected={presentation.page.kind === 'status'}
-              onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
-            />
-            <WorkspaceSidebarAction
-              icon="calendar"
-              label={props.labels.schedules}
-              selected={presentation.page.kind === 'schedules'}
-              disabled={!connected || !navigation.workspaceId}
-              title={!navigation.workspaceId ? props.labels.chooseWorkspace : undefined}
-              onClick={() => {
-                if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
-              }}
-            />
-            <WorkspaceSidebarAction
-              icon="blocks"
-              label={props.labels.extensionsAndSkills}
-              selected={extensionsSelected}
-              onClick={() => {
-                setExtensionsEntryError(null)
-                void execute('app.openSettings', { scope: 'global', section: 'skills' })
-                  .then(closeAfterNavigation())
-                  .catch((reason: unknown) =>
-                    setExtensionsEntryError(reason instanceof Error ? reason.message : String(reason)),
-                  )
-              }}
-            />
-            {extensionsEntryError && (
-              <LumenContentText context="feedback.message" role="alert" className="hbar-app-react-sidebar-action-error">
-                {props.labels.error(extensionsEntryError)}
-              </LumenContentText>
-            )}
-            <WorkspaceSidebarAction
-              icon="command"
-              label={props.labels.commands}
-              detail={props.labels.commandShortcut}
-              aria-label={props.labels.commands}
-              selected={presentation.modalInstanceId === 'commands'}
-              onClick={() => openPanel('commands')}
-            />
-            <WorkspaceSidebarAction
-              icon="settings"
-              label={props.labels.settings}
-              detail={props.labels.settingsShortcut}
-              aria-label={props.labels.settings}
-              selected={presentation.page.kind === 'settings' && !extensionsSelected}
-              onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
-            />
-            {props.connection !== 'connected' && (
-              <WorkspaceSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
-            )}
-          </LumenFrame>
+          <WorkspaceSidebarFooter
+            feedback={connected && props.sidebarFeedback}
+            secondaryNavigation={secondaryNavigation(false)}
+            settings={props.labels.settings}
+            settingsShortcut={props.labels.settingsShortcut}
+            settingsSelected={presentation.page.kind === 'settings'}
+            onSettings={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
+          />
         }
       >
         <LumenFrame className="hbar-app-react-sidebar-primary" data-sidebar-session-actions="true">

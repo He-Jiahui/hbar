@@ -88,6 +88,7 @@ const labels: HbarWorkspaceShellLabels = {
   cancel: '取消',
   createSessionInWorkspace: (name) => `在 ${name} 中创建新会话`,
   commands: '打开命令目录',
+  more: '更多工作台操作',
   commandShortcut: 'Ctrl Shift P',
   settingsShortcut: 'Ctrl ,',
   searchChats: '搜索全部聊天记录中的内容',
@@ -323,15 +324,14 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('需要键盘导航的会话')
     expect(html).toContain('title="完整更新时间 3"')
     expect(html).toContain('aria-current="page"')
-    expect(html).toContain('打开命令目录')
+    expect(html).toContain(labels.more)
     expect(html).toContain(labels.searchChats)
     expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.searchChats))
     expect(html.indexOf(labels.searchChats)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
-    expect(html.indexOf('hbar-app-react-project-tree')).toBeLessThan(html.indexOf(labels.extensionsAndSkills))
-    expect(html.indexOf(labels.extensionsAndSkills)).toBeLessThan(html.indexOf(labels.commands))
+    expect(html.indexOf('hbar-app-react-project-tree')).toBeLessThan(html.indexOf(labels.more))
+    expect(html).not.toContain(labels.extensionsAndSkills)
     expect(html).not.toContain(getShellCopy('zh-CN').session.tools.files)
     expect(html).toContain('打开工作区')
-    expect(html).toContain('打开状态中心')
     expect(html).toContain('打开设置')
     expect(html).toContain('已经连接')
     expect(html).toContain('非常长的工程名称 的工程操作')
@@ -439,12 +439,11 @@ test('English host copy keeps global navigation separate from session Project fi
       </HbarRuntimeProvider>,
     )
     expect(html).toContain(english.searchChats)
-    expect(html).toContain(english.commands)
+    expect(html).toContain(english.more)
     expect(html).not.toContain(getShellCopy('en-US').session.tools.files)
-    expect(html).toContain(english.extensionsAndSkills)
-    expect(html.indexOf(english.searchChats)).toBeLessThan(html.indexOf(english.commands))
+    expect(html).not.toContain(english.extensionsAndSkills)
+    expect(html.indexOf(english.searchChats)).toBeLessThan(html.indexOf(english.more))
     expect(html).toContain(english.searchShortcut)
-    expect(html).toContain(english.commandShortcut)
   } finally {
     runtime.dispose()
   }
@@ -596,15 +595,16 @@ test('settings and status highlight only their page while preserving the selecte
     await runtime.view.commands.execute('app.back', {})
     expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'skills' })
-    expect(await currentPageLabels()).toEqual([labels.extensionsAndSkills])
+    expect(await currentPageLabels()).toEqual([labels.settings])
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'extensions' })
-    expect(await currentPageLabels()).toEqual([labels.extensionsAndSkills])
+    expect(await currentPageLabels()).toEqual([labels.settings])
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
     expect(await currentPageLabels()).toEqual([labels.settings])
     await runtime.view.commands.execute('app.back', {})
     expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openStatus', { section: 'dashboard' })
-    expect(await currentPageLabels()).toEqual([labels.status])
+    expect(await currentPageLabels()).toEqual([])
+    expect(runtime.view.state.presentation.getSnapshot().page.kind).toBe('status')
     await runtime.view.commands.execute('app.back', {})
     expect(await currentPageLabels()).toEqual([session.title])
   } finally {
