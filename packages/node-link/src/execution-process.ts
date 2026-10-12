@@ -1,4 +1,5 @@
 import { setTimeout as pause } from 'node:timers/promises'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { HbarError } from '@hbar/contracts'
 import { nodeReceiptSchema, type NodeReceipt } from '@hbar/contracts/node'
 import type { ToolResult } from '@hbar/plugin-sdk'
@@ -37,9 +38,11 @@ export async function executeNodeCommand(
       .catch(() => null)
     return cancelling
   }
-  const onAbort = () => {
-    void cancel()
-  }
+  const originalInvocation = AsyncLocalStorage.snapshot()
+  const onAbort = () =>
+    originalInvocation(() => {
+      void cancel()
+    })
   target.signal.addEventListener('abort', onAbort, { once: true })
   const end = Date.now() + timeoutMs + 5_000
   try {

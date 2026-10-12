@@ -2,9 +2,12 @@ import { z } from 'zod'
 import { HbarError, resolveProviderModel } from '@hbar/contracts'
 import type { ExecutionOwnership, RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
 import type { RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
+import type { WorkspaceExecutionScope } from '@hbar/plugin-sdk'
 import { RuntimeValuePort, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
 import type { StableStoragePort } from '@hbar/storage'
 import { runtimePluginAuthoritySchema, runtimePluginInvocationSchema } from './runtime-plugin-contract'
+import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
+import { invokeRuntimeNodeExecution } from './runtime-node-execution-call'
 
 export interface RuntimePluginEndpoint {
   readonly owner: RuntimeOwner
@@ -12,7 +15,8 @@ export interface RuntimePluginEndpoint {
   readonly state: RuntimePluginState
   readonly version: RuntimeVersion
 }
-interface Pending { readonly owner: RuntimeOwner; readonly permitId?: string; readonly resourceId?: string }
+interface Pending { readonly owner: RuntimeOwner; readonly permitId?: string; readonly resourceId?: string;
+  readonly execution?: ExecutionOwnership; readonly workspaceScope?: WorkspaceExecutionScope }
 /** Authentication, version routing and physical capacity live in the stable process. */
 export class RuntimePluginRelay {
   private readonly pending = new Map<string, Pending>()
@@ -21,10 +25,22 @@ export class RuntimePluginRelay {
     readonly coordinator: RuntimeCoordinator
     readonly current: () => readonly RuntimePluginEndpoint[]
     readonly resolve: (unitId: string, execution?: ExecutionOwnership, sessionId?: string) => RuntimePluginEndpoint
+    readonly nodeLink?: () => RuntimeNodeLinkPort
   }) {}
   attachPlugin(peer: IpcPeer, owner: RuntimeOwner): { application: RuntimeValuePort; dispose(): void } {
-    const application = new RuntimeValuePort(peer, { prefix: 'plugin.application' })
-    const cleanup = application.register('host.read', ([method, args]) => this.read(z.string().parse(method), z.array(z.unknown()).max(32).parse(args)))
+    const application = new RuntimeValuePort(peer, { prefix: 'plugin.application', callbackTimeoutMs: 1_325_000 })
+    const cleanup = application.register('host.read', ([methodValue, argsValue], signal) => {
+      const method = z.string().parse(methodValue), args = z.array(z.unknown()).max(32).parse(argsValue)
+      this.options.coordinator.assertCanRead(owner)
+      if (method === 'execution.nodeSettlement') {
+        const invocationId = z.string().uuid().parse(args[0]), pending = this.pending.get(invocationId)
+        if (!pending || pending.owner.incarnation !== owner.incarnation || !pending.workspaceScope || !pending.execution)
+          throw new HbarError('RUNTIME_CALLBACK_EXPIRED', 'The original node invocation is no longer owned')
+        return this.nodeCall(args.slice(1), pending.workspaceScope, pending.execution, signal, true)
+      }
+      if (method === 'execution.nodeCall') return this.nodeCall(args, undefined, undefined, signal)
+      return this.read(method, args)
+    })
     const finished = peer.onEvent('plugin.finished', z.strictObject({ invocationId: z.string().uuid() }), input => {
       const pending = this.pending.get(input.invocationId)
       if (!pending || pending.owner.incarnation !== owner.incarnation) return
@@ -34,7 +50,7 @@ export class RuntimePluginRelay {
     return { application, dispose: () => { cleanup(); finished(); application.dispose() } }
   }
   attachKernel(peer: IpcPeer, owner: RuntimeOwner): () => void {
-    const application = new RuntimeValuePort(peer, { prefix: 'kernel.plugins' })
+    const application = new RuntimeValuePort(peer, { prefix: 'kernel.plugins', callbackTimeoutMs: 1_325_000 })
     application.register('catalog', () => {
       this.options.coordinator.assertCanRead(owner)
       return this.options.current().map(endpoint => ({ unitId: endpoint.owner.unitId, state: endpoint.state }))
@@ -47,11 +63,17 @@ export class RuntimePluginRelay {
       if (execution && execution.owner.incarnation !== owner.incarnation) throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Session capability belongs to another Kernel')
       this.options.coordinator.assertCanWrite(owner, execution)
       const endpoint = this.options.resolve(unitId, execution, authority.sessionId), request = runtimePluginInvocationSchema.parse(description)
+      const workspaceScope = request.workspaceExecutionScope ? {
+        workspace: structuredClone(request.workspaceExecutionScope.workspace),
+        ...(request.workspaceExecutionScope.authority ? { authority: structuredClone(request.workspaceExecutionScope.authority) } : {}),
+        signal: request.workspaceExecutionScope.signal,
+      } : undefined
       const args = z.array(z.unknown()).max(32).parse(rawArgs)
       if (typeof callback !== 'function') throw new HbarError('RUNTIME_HOST_REQUIRED', 'Plugin dispatch needs its owned host callback')
       const invokeHost = async (method: string, parameters: readonly unknown[]): Promise<unknown> => {
         this.options.coordinator.assertCanWrite(owner, execution)
         this.options.coordinator.assertCanWrite(endpoint.owner, execution)
+        if (method === 'execution.nodeCall') return this.nodeCall(parameters, workspaceScope, execution, signal)
         const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
         return result
       }
@@ -68,9 +90,11 @@ export class RuntimePluginRelay {
         try { permitId = this.options.coordinator.reserveTool(execution, callId, endpoint.owner).id }
         catch (error) { if (resource) this.options.coordinator.releaseResource(endpoint.owner, resource.id); throw error }
       }
-      this.pending.set(invocationId, { owner: endpoint.owner, ...(permitId ? { permitId } : {}), ...(resource ? { resourceId: resource.id } : {}) })
+      this.pending.set(invocationId, { owner: endpoint.owner, ...(permitId ? { permitId } : {}), ...(resource ? { resourceId: resource.id } : {}),
+        ...(execution ? { execution } : {}), ...(workspaceScope ? { workspaceScope } : {}) })
       try {
-        return await endpoint.application.call('invoke', [{ ...request, invocationId }, args, invokeHost], { signal, timeoutMs: 120_000 })
+        return await endpoint.application.call('invoke', [{ ...request, invocationId }, args, invokeHost], { signal,
+          timeoutMs: request.toolTimeoutMs === undefined ? 120_000 : Math.min(1_325_000, request.toolTimeoutMs + 125_000) })
       } catch (error) {
         // Cancellation/transport failure is not physical completion. The owner's finally notification or actual exit releases its permit.
         if (!signal.aborted && !(error instanceof HbarError && ['IPC_DISCONNECTED', 'IPC_TIMEOUT'].includes(error.code))) {
@@ -88,6 +112,12 @@ export class RuntimePluginRelay {
   private release(pending: Pending): void {
     if (pending.permitId) this.options.coordinator.releaseTool(pending.owner, pending.permitId)
     if (pending.resourceId) this.options.coordinator.releaseResource(pending.owner, pending.resourceId)
+  }
+  private nodeCall(args: readonly unknown[], scope: WorkspaceExecutionScope | undefined, execution: ExecutionOwnership | undefined,
+    signal: AbortSignal, settlement = false): Promise<unknown> {
+    const node = this.options.nodeLink?.()
+    if (!node) throw new HbarError('NODE_LINK_UNAVAILABLE', 'The workspace node link is unavailable')
+    return invokeRuntimeNodeExecution({ node, scope, execution, signal, settlement }, args)
   }
   private async read(method: string, args: readonly unknown[]): Promise<unknown> {
     const storage = this.options.storage

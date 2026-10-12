@@ -74,6 +74,8 @@ export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
   readonly demo?: boolean
   readonly workspace?: string
+  /** Conversation-only hosts reject all calls into the local execution provider. */
+  readonly noLocalExec?: boolean
   readonly secrets?: SecretStore
   readonly sourceRoot?: string
   readonly processCommand?: readonly [string, ...string[]]
@@ -238,6 +240,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       coordinator: this.coordinator,
       current: () => this.pluginEndpoints(),
       resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId),
+      nodeLink: () => this.nodeLink,
     })
     this.facade = new RuntimeKernelFacade({
       instanceId,
@@ -1108,6 +1111,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                 ? {
                     dataRoot: layout.dataRoot,
                     cacheRoot: layout.cacheRoot,
+                    noLocalExec: this.options.noLocalExec ?? false,
                     config: artifact.pluginConfiguration ?? this.pluginConfigs.get(artifact.unitId) ?? {},
                   }
                 : {}
