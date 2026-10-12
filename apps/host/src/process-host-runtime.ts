@@ -63,6 +63,7 @@ import { RuntimeStatusFeed } from './runtime-status-feed'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import { hostRuntimeProcessCommand } from './runtime-package'
 import { recoverRuntimeStartup } from './runtime-startup'
+import { recordRuntimeStartupFailure, RuntimeStartupDiagnostics } from './runtime-startup-diagnostics'
 
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
@@ -189,11 +190,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private startupRecovered = false
   private startupAttempts = 0
   private startupNextAttemptAt: number | null = null
+  private readonly startupDiagnostics: RuntimeStartupDiagnostics
 
   private constructor(
     private readonly options: ProcessHostRuntimeOptions,
     readonly instanceId = crypto.randomUUID(),
   ) {
+    this.startupDiagnostics = new RuntimeStartupDiagnostics(options.diagnostics, process.pid)
     this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
     this.artifacts = new RuntimeArtifactStore(
       join(options.layout.cacheRoot, 'runtime-artifacts'),
@@ -375,6 +378,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         runtime.startupAttempts++
         runtime.startupNextAttemptAt = nextAttemptAt
         runtime.reasonCode = runtimeDomainError(error)?.code ?? 'RUNTIME_START_FAILED'
+        recordRuntimeStartupFailure(runtime.startupDiagnostics, error, runtime.startupAttempts)
         runtime.statusFeed.refresh()
         console.error(
           `[hbar runtime] startup preparation failed (${runtime.reasonCode}); next attempt ${nextAttemptAt}`,
@@ -428,14 +432,18 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async initialize(): Promise<void> {
     const options = this.options
     this.sourceAbort.signal.throwIfAborted()
+    this.startupDiagnostics.beginAttempt()
     this.startupNextAttemptAt = null
+    this.setStartupPhase('artifact.prepare')
     try {
       if (!this.initialArtifacts || (options.watchSource && !this.sourceBaseline))
         this.initialArtifacts = options.artifactPackage
           ? await this.artifacts.installPackage(options.artifactPackage, options.artifactPackage.id)
           : this.artifacts.registerSet(await this.buildInitial())
       const prepared = this.initialArtifacts
+      this.completeStartupPhase()
       if (!this.migrated) {
+        this.setStartupPhase('storage.migration')
         const release = await acquireHostProcessLock(`${options.layout.database}.runtime-writer.lock`)
         try {
           const artifact = prepared.artifacts.find((unit) => unit.unitId === 'maintenance')
@@ -466,9 +474,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         } finally {
           await release()
         }
+        this.completeStartupPhase()
       }
       for (const id of ['storage', 'driver.pi', 'controller']) await this.initializeUnit(prepared, id)
       if (!this.configurationLoaded) {
+        this.setStartupPhase('configuration.load')
         const stored = await this.storage.call('plugins')
         const owners: Record<string, string> = {
           'execution.local': 'plugin.local',
@@ -485,15 +495,25 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         for (const entry of stored)
           if (!entry.projectId && owners[entry.id]) this.pluginConfigs.set(owners[entry.id] ?? '', entry.config)
         this.configurationLoaded = true
+        this.completeStartupPhase()
       }
-      if (options.watchSource && !this.sourceBaseline) await this.watchSource()
+      if (options.watchSource && !this.sourceBaseline) {
+        this.setStartupPhase('source.watch')
+        await this.watchSource()
+        this.completeStartupPhase()
+      }
       for (const unit of this.buildUnits.filter((unit) => unit.descriptor.kind === 'plugin'))
         await this.initializeUnit(prepared, unit.descriptor.id)
       await this.initializeUnit(prepared, 'kernel')
       if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance'))
         await this.initializeUnit(prepared, 'maintenance')
-      if (options.workspace) await this.kernel.createWorkspace(options.workspace)
-      if (options.demo)
+      if (options.workspace) {
+        this.setStartupPhase('workspace.create')
+        await this.kernel.createWorkspace(options.workspace)
+        this.completeStartupPhase()
+      }
+      if (options.demo) {
+        this.setStartupPhase('demo.configure')
         await this.storage.call(
           'saveProvider',
           providerSchema.parse({
@@ -506,10 +526,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             reasoning: true,
           }),
         )
+        this.completeStartupPhase()
+      }
       if (!this.startupRecovered) {
+        this.setStartupPhase('startup.recover')
         await this.recoverStartup()
         this.startupRecovered = true
+        this.completeStartupPhase()
       }
+      this.setStartupPhase('runtime.resume')
       this.initializing = false
       if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance')) await this.maintenance.reconcile()
       await this.resume()
@@ -517,6 +542,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       if (this.controllerStarted) await this.controllerAdapter().resume()
       this.reasonCode = null
       this.startupNextAttemptAt = null
+      this.completeStartupPhase()
       this.statusFeed.refresh()
     } catch (error) {
       this.initializing = true
@@ -524,10 +550,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
   }
   private async initializeUnit(prepared: RuntimeArtifactSet, id: string): Promise<void> {
+    this.setStartupPhase(`unit.${id}`)
     this.sourceAbort.signal.throwIfAborted()
     const unit = this.manager.snapshot().units.find((unit) => unit.descriptor.id === id)
     const defaults = unit?.generations.filter((generation) => generation.role === 'default') ?? []
-    if (defaults.some((generation) => generation.phase === 'serving')) return
+    if (defaults.some((generation) => generation.phase === 'serving')) {
+      this.completeStartupPhase()
+      return
+    }
     const latest = this.initialArtifacts ?? prepared
     const desired = latest.artifacts.find((artifact) => artifact.unitId === id)
     const pending = unit?.queuedArtifactId || unit?.generations.some((generation) => generation.role === 'candidate')
@@ -541,6 +571,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         ? undefined
         : this.manager.reload(latest.id, [id], !defaults.length)
     await this.waitReady([id], operation?.operationId)
+    this.completeStartupPhase()
+  }
+  private setStartupPhase(phase: string): void {
+    this.startupDiagnostics.begin(phase)
+  }
+  private completeStartupPhase(): void {
+    this.startupDiagnostics.succeeded(this.startupAttempts)
   }
   snapshot(): RuntimeSnapshot {
     return this.statusFeed.snapshot()
