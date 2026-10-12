@@ -190,8 +190,8 @@
 }
 .lumen-usage-rate-footer svg {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-usage-rate-footer button[data-size='s'] {
   --lumen-control-size: 2rem;

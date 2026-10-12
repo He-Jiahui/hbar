@@ -47,8 +47,8 @@
 }
 
 .lumen-paywall7-lock-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   stroke-width: 1.75;
 }
@@ -74,8 +74,8 @@
 }
 
 .lumen-paywall7-building-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   color: var(--lumen-muted);
   stroke-width: 1.75;

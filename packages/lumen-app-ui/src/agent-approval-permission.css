@@ -152,8 +152,8 @@
 }
 
 .hbar-app-ui-agent-approval-permission .lumen-checkbox-control {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   margin-block-start: 2px;
 }
 
@@ -164,8 +164,8 @@
 }
 
 .hbar-app-ui-agent-approval-permission .lumen-checkbox-mark .lumen-form-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 
 .hbar-app-ui-agent-approval-permission .lumen-checkbox-control:has(input:checked) .lumen-checkbox-mark {
@@ -249,8 +249,8 @@
 }
 
 .hbar-app-ui-agent-approval-permission-buttons .lumen-agent-approval-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .hbar-app-ui-agent-approval-permission-buttons > div > button {

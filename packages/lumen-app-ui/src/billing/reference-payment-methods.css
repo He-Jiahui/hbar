@@ -44,7 +44,7 @@
 
 .hbar-app-ui-billing-reference-payment-methods-topbar h1,
 .hbar-app-ui-billing-reference-payment-methods-section-head h2 {
-  color: var(--hbar-app-ui-billing-text);
+  color: var(--lumen-billing-text);
   font-size: 1.0625rem;
   font-weight: 500;
   line-height: 1.35;
@@ -52,7 +52,7 @@
 
 .hbar-app-ui-billing-reference-payment-methods-topbar p,
 .hbar-app-ui-billing-reference-payment-methods-section-head p {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.8125rem;
   line-height: 1.45;
 }
@@ -65,9 +65,9 @@
 .hbar-app-ui-billing-reference-payment-methods-list,
 .hbar-app-ui-billing-reference-payment-contacts-list {
   flex-direction: column;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 .hbar-app-ui-billing-reference-payment-methods-list[data-hbar-app-ui-list-strategy='pane-scroll'],
@@ -85,8 +85,8 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
-  border-block-start: 0.0625rem solid var(--hbar-app-ui-billing-border);
-  color: var(--hbar-app-ui-billing-text);
+  border-block-start: 0.0625rem solid var(--lumen-billing-border);
+  color: var(--lumen-billing-text);
 }
 
 .hbar-app-ui-billing-reference-payment-method-row:first-child,
@@ -112,7 +112,7 @@
 
 .hbar-app-ui-billing-reference-payment-method-copy small,
 .hbar-app-ui-billing-reference-payment-contact-row small {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
@@ -126,8 +126,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  background: var(--hbar-app-ui-billing-surface-soft);
-  color: var(--hbar-app-ui-billing-muted);
+  background: var(--lumen-billing-surface-soft);
+  color: var(--lumen-billing-muted);
   font-size: 0.75rem;
 }
 
@@ -157,7 +157,7 @@
 }
 
 .hbar-app-ui-billing-reference-payment-address-column h2 {
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -176,13 +176,13 @@
 
 .hbar-app-ui-billing-reference-payment-tax-notice,
 .hbar-app-ui-billing-reference-payment-methods-error {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .hbar-app-ui-billing-reference-payment-methods-error {
-  color: var(--hbar-app-ui-billing-danger);
+  color: var(--lumen-billing-danger);
 }
 
 @media (max-width: 42rem) {

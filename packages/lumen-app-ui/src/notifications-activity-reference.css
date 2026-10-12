@@ -121,8 +121,8 @@
   color: var(--activity-ground);
 }
 .hbar-app-ui-notifications-variant-4 .lumen-activity-icon svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -296,8 +296,8 @@
   text-decoration: underline;
 }
 .hbar-app-ui-notifications-variant-4 .lumen-activity-detail .lumen-notifications-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-notifications-variant-4 .lumen-activity-status {
   margin-top: 0.5rem;

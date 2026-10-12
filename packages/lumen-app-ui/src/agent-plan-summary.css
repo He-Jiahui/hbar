@@ -208,8 +208,8 @@
   gap: 0.5rem;
 }
 .lumen-plan-summary .lumen-agent-plan-glyph {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
 }
 .lumen-agent-plan.lumen-plan-summary button[data-tone='primary'] {
   background: var(--lumen-ink);

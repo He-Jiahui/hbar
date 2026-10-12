@@ -31,8 +31,8 @@
   outline-offset: -0.125rem;
 }
 .lumen-contracts-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
 }
 .lumen-contracts-truncate {

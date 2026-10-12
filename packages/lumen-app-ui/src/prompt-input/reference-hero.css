@@ -77,8 +77,8 @@
 
 .lumen-prompt-reference-icon {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   stroke-width: 1.6;
 }
 

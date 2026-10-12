@@ -17,8 +17,8 @@
   color: var(--lumen-warning);
 }
 .hbar-context-usage-ring {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   fill: none;
   stroke-width: 2;

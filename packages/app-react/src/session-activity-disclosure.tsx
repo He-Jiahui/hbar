@@ -1,3 +1,4 @@
+import './theme-bridge'
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { LumenButton, LumenContentText, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'

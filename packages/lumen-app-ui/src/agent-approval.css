@@ -454,8 +454,8 @@
 }
 
 .hbar-app-ui-agent-approval-inline .lumen-agent-approval-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 
 .hbar-app-ui-agent-approval-inline .lumen-agent-approval-state-mark {

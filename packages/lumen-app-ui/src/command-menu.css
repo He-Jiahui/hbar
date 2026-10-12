@@ -344,8 +344,8 @@
 }
 
 .lumen-command-menu-glyph {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -355,8 +355,8 @@
 }
 
 .lumen-command-menu-glyph[data-tier='xl'] {
-  inline-size: var(--hbar-app-ui-icon-xl, 1.5rem);
-  block-size: var(--hbar-app-ui-icon-xl, 1.5rem);
+  inline-size: var(--lumen-icon-xl, 1.5rem);
+  block-size: var(--lumen-icon-xl, 1.5rem);
   color: var(--lumen-subtle);
 }
 

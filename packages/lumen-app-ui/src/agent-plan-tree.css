@@ -113,8 +113,8 @@
 }
 .lumen-plan-tree-glyph {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   fill: none;
   stroke: currentColor;
   stroke-width: 2;

@@ -1,9 +1,4 @@
 /* Host composition of the user-selected DESIGN.md family. Lumen owns action paint and motion. */
-[data-hbar-app-ui-shell='app'] {
-  --hbar-workbench-brand-size: calc(var(--lumen-font-size) * 1.35);
-  --hbar-workbench-title-size: calc(var(--lumen-font-size) * 1.65);
-  --hbar-workbench-caption-size: calc(var(--lumen-font-size) * 0.9);
-}
 
 [data-hbar-app-ui-shell='app'] .lumen-app-sidebar {
   border-inline-end-color: var(--lumen-line);

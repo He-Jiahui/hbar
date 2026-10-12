@@ -51,7 +51,7 @@
 .lumen-billing-usage-reference-meter-heading p,
 .lumen-billing-usage-reference-meter > footer,
 .lumen-billing-usage-reference-cycle {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.8125rem;
 }
 
@@ -61,16 +61,16 @@
   flex-wrap: wrap;
   gap: 0.125rem;
   padding: 0.25rem;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.625rem;
-  background: var(--hbar-app-ui-billing-muted);
+  background: var(--lumen-billing-muted);
 }
 
 .lumen-billing-usage-reference-periods > button {
   border: 0;
   border-radius: 0.375rem;
   padding: 0.375rem 0.625rem;
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   background: transparent;
   cursor: pointer;
   font: inherit;
@@ -78,13 +78,13 @@
 }
 
 .lumen-billing-usage-reference-periods > button[aria-selected='true'] {
-  color: var(--hbar-app-ui-billing-text);
-  background: var(--hbar-app-ui-billing-surface);
+  color: var(--lumen-billing-text);
+  background: var(--lumen-billing-surface);
   box-shadow: 0 0.0625rem 0.1875rem color-mix(in srgb, currentColor 12%, transparent);
 }
 
 .lumen-billing-usage-reference-periods > button:focus-visible {
-  outline: 0.125rem solid var(--hbar-app-ui-billing-accent);
+  outline: 0.125rem solid var(--lumen-billing-accent);
   outline-offset: 0.125rem;
 }
 
@@ -132,9 +132,9 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 .lumen-billing-usage-reference-meter-label {
@@ -146,7 +146,7 @@
 }
 
 .lumen-billing-usage-reference-meter > header > span:last-child {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.8125rem;
 }
 
@@ -155,7 +155,7 @@
   min-inline-size: 0;
   align-items: center;
   gap: 0.75rem;
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.75rem;
 }
 
@@ -165,7 +165,7 @@
   flex: 1 1 auto;
   overflow: hidden;
   border-radius: 999rem;
-  background: var(--hbar-app-ui-billing-muted);
+  background: var(--lumen-billing-muted);
 }
 
 .lumen-billing-usage-reference-progress-track,
@@ -176,20 +176,20 @@
 .lumen-billing-usage-reference-progress-track > i {
   display: block;
   border-radius: inherit;
-  background: var(--hbar-app-ui-billing-accent);
+  background: var(--lumen-billing-accent);
 }
 
 .lumen-billing-usage-reference-meter > footer strong,
 .lumen-billing-usage-reference-cycle strong {
-  color: var(--hbar-app-ui-billing-text);
+  color: var(--lumen-billing-text);
   font-weight: 600;
 }
 
 .lumen-billing-usage-reference-cycle {
   padding: 0.75rem 1rem;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 @media (max-width: 42rem) {

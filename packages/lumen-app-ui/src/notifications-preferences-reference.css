@@ -84,8 +84,8 @@
   gap: 0.375rem;
 }
 .hbar-app-ui-notifications-variant-3 .lumen-preferences-channel-icon {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
 }
 .hbar-app-ui-notifications-variant-3 .lumen-preferences-matrix section + section {
@@ -136,8 +136,8 @@
 }
 .hbar-app-ui-notifications-variant-3 .lumen-preferences-switch {
   display: flex;
-  inline-size: var(--hbar-app-ui-switch-width, 2.25rem);
-  block-size: var(--hbar-app-ui-switch-height, 1.25rem);
+  inline-size: var(--lumen-switch-width, 2.25rem);
+  block-size: var(--lumen-switch-height, 1.25rem);
   min-block-size: 0;
   flex: 0 0 auto;
   align-items: center;
@@ -153,8 +153,8 @@
   background: light-dark(#202020, #fff);
 }
 .hbar-app-ui-notifications-variant-3 .lumen-preferences-switch > span {
-  inline-size: var(--hbar-app-ui-switch-thumb, 0.875rem);
-  block-size: var(--hbar-app-ui-switch-thumb, 0.875rem);
+  inline-size: var(--lumen-switch-thumb, 0.875rem);
+  block-size: var(--lumen-switch-thumb, 0.875rem);
   flex: 0 0 auto;
   border-radius: 99rem;
   background: light-dark(#fff, #151515);
@@ -206,8 +206,8 @@
   color: var(--preferences-muted);
 }
 .hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-icon svg {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 .hbar-app-ui-notifications-variant-3 .lumen-preferences-quiet-heading p:first-child {
   font-weight: 500;

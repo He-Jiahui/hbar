@@ -210,13 +210,13 @@
 }
 
 .lumen-forms-2-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-forms-2-icon-md {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .lumen-forms-2-select-row {
@@ -350,8 +350,8 @@
 
 .lumen-forms-2-requirement input,
 .lumen-forms-2-consent input {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   margin: 0.0625rem 0 0;
   accent-color: var(--lumen-ink);

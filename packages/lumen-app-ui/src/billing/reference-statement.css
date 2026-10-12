@@ -48,7 +48,7 @@
 
 .lumen-billing-statement-reference-heading p,
 .lumen-billing-statement-reference-ledger-header p {
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
 }
@@ -64,9 +64,9 @@
   flex-wrap: wrap;
   gap: 1rem;
   padding: 1rem;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.625rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 .lumen-billing-statement-reference-balance {
@@ -79,7 +79,7 @@
 
 .lumen-billing-statement-reference-balance-label,
 .lumen-billing-statement-reference-metrics dt {
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   font-size: 0.75rem;
   letter-spacing: 0.04em;
 }
@@ -91,7 +91,7 @@
 }
 
 .lumen-billing-statement-reference-balance p {
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
 }
@@ -105,7 +105,7 @@
   gap: 0.875rem 1rem;
   margin: 0;
   padding-inline-start: 1rem;
-  border-inline-start: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border-inline-start: 0.0625rem solid var(--lumen-billing-border);
 }
 
 .lumen-billing-statement-reference-metrics > div {
@@ -126,23 +126,23 @@
 }
 
 .lumen-billing-statement-reference-tone-positive {
-  color: var(--hbar-app-ui-billing-positive);
+  color: var(--lumen-billing-positive);
 }
 
 .lumen-billing-statement-reference-tone-warning {
-  color: var(--hbar-app-ui-billing-warning);
+  color: var(--lumen-billing-warning);
 }
 
 .lumen-billing-statement-reference-tone-danger {
-  color: var(--hbar-app-ui-billing-danger);
+  color: var(--lumen-billing-danger);
 }
 
 .lumen-billing-statement-reference-recovery {
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.625rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 .lumen-billing-statement-reference-recovery p {
@@ -152,7 +152,7 @@
 }
 
 .lumen-billing-statement-reference-recovery strong {
-  color: var(--hbar-app-ui-billing-danger);
+  color: var(--lumen-billing-danger);
   font-weight: 500;
 }
 
@@ -168,14 +168,14 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.625rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 .lumen-billing-statement-reference-ledger-header {
   padding-block-end: 0.625rem;
-  border-block-end: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border-block-end: 0.0625rem solid var(--lumen-billing-border);
 }
 
 .lumen-billing-statement-reference-ledger-actions {
@@ -190,9 +190,9 @@
   align-items: center;
   gap: 0.5rem;
   padding-inline: 0.625rem;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.5rem;
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
 }
 
 .lumen-billing-statement-reference-search input {
@@ -207,7 +207,7 @@
   max-block-size: min(38rem, 66vh);
   overflow: auto;
   overscroll-behavior: contain;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.5rem;
 }
 
@@ -221,7 +221,7 @@
 
 .lumen-billing-statement-reference-table-caption {
   padding: 0.5rem 0.625rem;
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   font-size: 0.75rem;
   text-align: start;
 }
@@ -229,12 +229,12 @@
 .lumen-billing-statement-reference-table th,
 .lumen-billing-statement-reference-table td {
   padding: 0.5rem 0.625rem;
-  border-block-end: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border-block-end: 0.0625rem solid var(--lumen-billing-border);
   vertical-align: middle;
 }
 
 .lumen-billing-statement-reference-table th {
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   font-size: 0.75rem;
   font-weight: 500;
   text-align: start;
@@ -248,7 +248,7 @@
 }
 
 .lumen-billing-statement-reference-table td > small {
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   font-size: 0.75rem;
 }
 
@@ -264,7 +264,7 @@
 
 .lumen-billing-statement-reference-empty {
   padding: 1rem;
-  color: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-muted);
   text-align: center;
 }
 

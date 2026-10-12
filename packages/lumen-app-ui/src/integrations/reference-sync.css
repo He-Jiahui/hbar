@@ -39,7 +39,7 @@
 }
 
 .lumen-integration-sync-reference-header p {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.8125rem;
 }
 
@@ -50,9 +50,9 @@
   gap: 0.25rem;
   margin: 0;
   padding: 0.25rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-integration-surface-soft);
+  background: var(--lumen-integration-surface-soft);
 }
 
 .lumen-integration-sync-reference-metric {
@@ -62,13 +62,13 @@
   flex-direction: column;
   gap: 0.125rem;
   padding: 0.75rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.625rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .lumen-integration-sync-reference-metric dt {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
 }
 
@@ -99,9 +99,9 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.875rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.875rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .lumen-integration-sync-reference-row {
@@ -119,10 +119,10 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.5rem;
-  color: var(--hbar-app-ui-integration-text);
-  background: var(--hbar-app-ui-integration-bg);
+  color: var(--lumen-integration-text);
+  background: var(--lumen-integration-bg);
   font-size: 0.6875rem;
   font-weight: 600;
 }
@@ -146,11 +146,11 @@
 }
 
 .lumen-integration-sync-reference-destination > span {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
 }
 
 .lumen-integration-sync-reference-source small {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
@@ -163,7 +163,7 @@
   justify-content: space-between;
   gap: 0.5rem 1rem;
   padding-block-start: 0.25rem;
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
 }
 
@@ -175,8 +175,8 @@
   margin: 0;
   padding: 0.5rem 0.625rem;
   border-radius: 0.625rem;
-  color: var(--hbar-app-ui-integration-danger);
-  background: color-mix(in srgb, var(--hbar-app-ui-integration-danger) 10%, transparent);
+  color: var(--lumen-integration-danger);
+  background: color-mix(in srgb, var(--lumen-integration-danger) 10%, transparent);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }

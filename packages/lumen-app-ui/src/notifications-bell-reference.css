@@ -114,8 +114,8 @@
   color: var(--bell-ink);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-trailing .lumen-notifications-glyph {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-trailing > button > [data-edge],
 .hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > [data-edge] {
@@ -241,8 +241,8 @@
   color: var(--bell-row-muted);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all .lumen-notifications-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-mark-all:disabled {
   opacity: 0.45;
@@ -309,8 +309,8 @@
   color: var(--bell-ground);
 }
 .hbar-app-ui-notifications-variant-6 .lumen-bell-message-icon svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;

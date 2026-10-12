@@ -113,8 +113,8 @@
   font-size: 0.8125rem;
 }
 .hbar-app-ui-kanban-swimlane-lane > header > button > svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
   color: light-dark(#777, #aaa);
 }
@@ -175,8 +175,8 @@
   line-height: 1rem;
 }
 .hbar-app-ui-kanban-swimlane-card-top svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
   color: light-dark(#d4d4d4, #555);
 }

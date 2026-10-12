@@ -81,8 +81,8 @@
 }
 
 .hbar-app-ui-agent-plan-checklist .lumen-agent-plan-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .hbar-app-ui-agent-plan-checklist button [data-edge] {

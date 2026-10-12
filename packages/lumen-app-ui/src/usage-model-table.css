@@ -139,8 +139,8 @@
 }
 .lumen-usage-model-delta svg {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .lumen-usage-model-mobile-cost {
   flex: 0 0 auto;

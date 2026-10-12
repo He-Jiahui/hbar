@@ -59,13 +59,13 @@
 }
 
 .lumen-support-assistant-reference-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-support-assistant-reference-icon-md {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .lumen-support-assistant-reference-close {

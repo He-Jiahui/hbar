@@ -78,8 +78,8 @@
 }
 
 .lumen-forms-6-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-forms-6-main {
@@ -291,8 +291,8 @@
 }
 
 .lumen-forms-6-shipping-option > input {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   margin: 0;
   accent-color: var(--lumen-ink);

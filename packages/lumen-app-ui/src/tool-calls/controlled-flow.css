@@ -40,9 +40,9 @@
 }
 
 .lumen-tool-calls-controlled .lumen-tool-calls-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
-  flex: 0 0 var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
+  flex: 0 0 var(--lumen-icon-sm);
 }
 
 .lumen-tool-calls-controlled > main {

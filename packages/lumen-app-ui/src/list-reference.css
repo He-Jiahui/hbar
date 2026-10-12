@@ -197,8 +197,8 @@ button.lumen-list-reference-row {
 .lumen-list-reference-glyph {
   display: block;
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   fill: none;
   stroke: currentcolor;
   stroke-linecap: round;
@@ -634,8 +634,8 @@ button.lumen-list-reference-row {
 }
 
 .is-runbook .lumen-list-reference-row > a > .lumen-list-reference-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
 }
 
 .is-runbook .lumen-list-reference-row > .lumen-action {

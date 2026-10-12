@@ -108,8 +108,8 @@
   color: light-dark(#171717, #fff);
 }
 .lumen-feedback-rating-reference-stars svg {
-  inline-size: var(--hbar-app-ui-icon-xl, 1.5rem);
-  block-size: var(--hbar-app-ui-icon-xl, 1.5rem);
+  inline-size: var(--lumen-icon-xl, 1.5rem);
+  block-size: var(--lumen-icon-xl, 1.5rem);
 }
 .lumen-feedback-rating-reference-caption {
   margin-block-start: 8px !important;

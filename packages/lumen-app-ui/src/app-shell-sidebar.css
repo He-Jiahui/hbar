@@ -46,13 +46,13 @@
   white-space: nowrap;
 }
 .lumen-sidebar-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
 }
 .lumen-sidebar-small-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
 }
 .lumen-sidebar-pane {

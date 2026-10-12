@@ -7,7 +7,7 @@
 }
 
 .lumen-data-table {
-  --lumen-data-table-icon: var(--hbar-app-ui-icon-sm, 0.875rem);
+  --lumen-data-table-icon: var(--lumen-icon-sm, 0.875rem);
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;

@@ -115,8 +115,8 @@
   background: light-dark(#e5e5e5, #262626);
 }
 .hbar-app-ui-kanban-reference-column > header > button svg {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 .hbar-app-ui-kanban-reference-column > ul {
   display: flex;
@@ -167,8 +167,8 @@
   background: light-dark(#171717, #fff);
 }
 .hbar-app-ui-kanban-reference-card-top > svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   margin-inline-start: auto;
   color: light-dark(#d4d4d4, #555);
 }
@@ -193,8 +193,8 @@
   gap: 0.1875rem;
 }
 .hbar-app-ui-kanban-reference-card-footer svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-kanban-reference-tag {
   padding: 0.125rem 0.375rem;
@@ -260,8 +260,8 @@
   color: light-dark(#777, #aaa);
 }
 .hbar-app-ui-kanban-reference-composer > div > button svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-kanban-reference-drop-target {
   min-block-size: 0;

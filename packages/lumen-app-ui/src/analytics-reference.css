@@ -153,8 +153,8 @@
 }
 
 .lumen-analytics-reference-live-state::before {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
   border-radius: 50%;
   background: currentColor;
   content: '';
@@ -284,8 +284,8 @@
 }
 
 .lumen-analytics-reference-series-controls > button > i {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--analytics-series-color, var(--analytics-primary));
@@ -498,8 +498,8 @@
 }
 
 .lumen-analytics-reference-channel-row > i {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
   flex: 0 0 auto;
   border-radius: 50%;
 }
@@ -696,8 +696,8 @@
 
 .lumen-analytics-reference-funnel-drop::before {
   display: inline-block;
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
   margin-inline-end: 0.375rem;
   border-radius: 50%;
   background: var(--analytics-warning);
@@ -751,8 +751,8 @@
 }
 
 .lumen-analytics-reference-heatmap-key i {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
   border-radius: 0.2rem;
   background: var(--analytics-primary);
 }

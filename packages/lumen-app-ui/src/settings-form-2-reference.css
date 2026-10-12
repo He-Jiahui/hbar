@@ -231,8 +231,8 @@
 }
 
 .lumen-settings-form-2-upload-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   stroke-width: 1.8;
 }

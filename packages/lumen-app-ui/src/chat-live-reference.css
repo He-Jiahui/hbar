@@ -42,8 +42,8 @@
 }
 
 .lumen-chat-live-reference-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-chat-live-reference-pinned {

@@ -27,8 +27,8 @@
   margin: 0;
 }
 .lumen-dashboard-glyph {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -513,8 +513,8 @@
     flex-wrap: wrap;
   }
   .lumen-dashboard-services > article > small {
-    flex-basis: calc(100% - var(--hbar-app-ui-icon-md, 1rem) - 0.5rem);
-    margin-inline-start: calc(var(--hbar-app-ui-icon-md, 1rem) + 0.5rem);
+    flex-basis: calc(100% - var(--lumen-icon-md, 1rem) - 0.5rem);
+    margin-inline-start: calc(var(--lumen-icon-md, 1rem) + 0.5rem);
   }
   .lumen-dashboard-coverage > article {
     flex-wrap: wrap;
@@ -834,8 +834,8 @@
 }
 
 .lumen-dashboard-reference-search > .lumen-dashboard-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   color: var(--lumen-dashboard-reference-muted);
 }
 
@@ -1288,8 +1288,8 @@
 }
 
 .lumen-dashboard-reference-service-list > button[aria-pressed='true']::before {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--lumen-accent, #81b5ff);
@@ -1304,8 +1304,8 @@
 }
 
 .lumen-dashboard-reference-objectives > button > .lumen-dashboard-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   color: var(--lumen-dashboard-reference-muted);
 }
 

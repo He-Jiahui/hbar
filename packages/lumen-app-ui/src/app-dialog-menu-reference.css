@@ -57,8 +57,8 @@
   outline: 0;
 }
 .hbar-app-ui-dialog-variant-7 .lumen-app-dialog-reference-menu-trigger .lumen-app-dialog-glyph {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
 }
 .hbar-app-ui-dialog-variant-7 .lumen-app-dialog-reference-menu-scrim {
   position: absolute;
@@ -127,8 +127,8 @@
   color: #ef0016;
 }
 .hbar-app-ui-dialog-variant-7 .lumen-app-dialog-reference-menu-row .lumen-app-dialog-glyph {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
   color: #71717a;
 }
 .hbar-app-ui-dialog-variant-7 .lumen-app-dialog-reference-menu-row .is-danger .lumen-app-dialog-glyph {

@@ -19,8 +19,8 @@
 }
 
 .lumen-chat-direct-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-chat-direct-rail {
@@ -279,8 +279,8 @@
 }
 
 .lumen-chat-direct-read > svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   stroke-width: 1.75;
 }
 

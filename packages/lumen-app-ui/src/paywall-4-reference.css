@@ -63,8 +63,8 @@
 }
 
 .lumen-paywall4-alert svg {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
   flex: 0 0 auto;
 }
 

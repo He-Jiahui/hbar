@@ -174,8 +174,8 @@
 
 .hbar-app-ui-agent-approval-queue-buttons > button .lumen-agent-approval-glyph {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .hbar-app-ui-agent-approval-queue .hbar-app-ui-agent-approval-queue-buttons > button:hover {

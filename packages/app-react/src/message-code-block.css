@@ -1,15 +1,3 @@
-[data-lumen-mode] {
-  --hbar-code-comment: color-mix(in srgb, var(--lumen-ink) 55%, var(--lumen-muted));
-  --hbar-code-string: color-mix(in srgb, var(--lumen-success) 80%, var(--lumen-ink));
-  --hbar-code-keyword: color-mix(in srgb, var(--lumen-danger) 65%, var(--lumen-warning));
-  --hbar-code-function: color-mix(in srgb, var(--lumen-info) 80%, var(--lumen-ink));
-  --hbar-code-type: color-mix(in srgb, var(--lumen-warning) 80%, var(--lumen-ink));
-  --hbar-code-number: color-mix(in srgb, var(--lumen-success) 55%, var(--lumen-info));
-  --hbar-code-property: color-mix(in srgb, var(--lumen-warning) 65%, var(--lumen-ink));
-  --hbar-code-punctuation: color-mix(in srgb, var(--lumen-ink) 65%, var(--lumen-muted));
-  --hbar-code-inserted: var(--lumen-success);
-  --hbar-code-deleted: var(--lumen-danger);
-}
 .hbar-message-code {
   display: flex;
   flex-direction: column;

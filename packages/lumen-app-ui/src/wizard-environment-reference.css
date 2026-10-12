@@ -49,8 +49,8 @@
   color: light-dark(#777, #737373);
 }
 .hbar-app-ui-wizard-environment-back svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-wizard-environment-title {
   min-inline-size: 0;
@@ -125,8 +125,8 @@
   color: light-dark(#171717, #f5f5f5);
 }
 .hbar-app-ui-wizard-environment-step-mark svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-wizard-environment-steps li:has(.is-complete),
 .hbar-app-ui-wizard-environment-steps li:has(.is-current) {
@@ -216,8 +216,8 @@
   color: light-dark(#171717, #f5f5f5);
 }
 .hbar-app-ui-wizard-environment-icon svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   stroke-width: 1.7;
 }
 .hbar-app-ui-wizard-environment-check {
@@ -237,8 +237,8 @@
   color: light-dark(#fff, #171717);
 }
 .hbar-app-ui-wizard-environment-check svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   stroke-width: 2.5;
 }
 .hbar-app-ui-wizard-environment-name {

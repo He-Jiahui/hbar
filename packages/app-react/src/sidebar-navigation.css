@@ -45,7 +45,7 @@
 
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group:not([data-flat-depth='true']) {
   margin-inline-start: 0;
-  padding-inline-start: calc(var(--hbar-app-ui-icon-md) + 0.5rem);
+  padding-inline-start: calc(var(--lumen-icon-md) + 0.5rem);
 }
 
 /* Root project children share the full row surface; disclosure slots supply the text indent. */
@@ -65,8 +65,8 @@
 }
 
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-icon[data-tier='md'] {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-workspace-row,

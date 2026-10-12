@@ -141,8 +141,8 @@
   line-height: 1rem;
 }
 .hbar-app-ui-kanban-sprint-card-top > svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   margin-inline-start: auto;
   color: light-dark(#d4d4d4, #555);
 }

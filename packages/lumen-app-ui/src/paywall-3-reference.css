@@ -221,8 +221,8 @@
 }
 
 .lumen-paywall3-feature-check {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
   margin-block-start: 0.1875rem;
   color: var(--lumen-muted);

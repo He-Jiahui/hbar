@@ -8,7 +8,7 @@ test('icons share five semantic tiers while preserving accessibility and control
   const tiers: readonly HbarAppUiIconTier[] = ['xs', 'sm', 'md', 'lg', 'xl']
   for (const tier of tiers) {
     const markup = renderToStaticMarkup(createElement(HbarAppUiIcon, { icon: Check, tier, className: 'is-complete' }))
-    expect(markup).toContain(`var(--hbar-app-ui-icon-${tier})`)
+    expect(markup).toContain(`var(--lumen-icon-${tier})`)
     expect(markup).toContain('aria-hidden="true"')
     expect(markup).toContain('is-complete')
   }

@@ -1,3 +1,4 @@
+import './theme-bridge'
 import { createContext, useContext, useId, useLayoutEffect, useState, type ComponentProps } from 'react'
 import type { ExtraProps } from 'react-markdown'
 import { LumenContentText, LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'

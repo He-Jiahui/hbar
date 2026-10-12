@@ -69,8 +69,8 @@
 }
 .lumen-feedback-inbox-reference-header svg,
 .lumen-feedback-inbox-reference-actions svg {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
 }
 .lumen-feedback-inbox-reference-workspace {
   display: flex;
@@ -165,8 +165,8 @@
 }
 .lumen-feedback-inbox-reference-row-account svg,
 .lumen-feedback-inbox-reference-tags svg {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
 }
 .lumen-feedback-inbox-reference-detail {
   display: flex;

@@ -108,8 +108,8 @@
   line-height: 1rem;
 }
 .hbar-app-ui-kanban-detail-card-top svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   margin-inline-start: auto;
   color: light-dark(#d4d4d4, #555);
 }
@@ -137,8 +137,8 @@
   color: light-dark(#777, #aaa);
 }
 .hbar-app-ui-kanban-detail-comment svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-kanban-detail-avatar {
   display: inline-flex;
@@ -209,8 +209,8 @@
   color: light-dark(#777, #aaa);
 }
 .hbar-app-ui-kanban-detail-pane-top svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-kanban-detail-pane h3 {
   margin: 0.75rem 0;

@@ -133,8 +133,8 @@
 }
 
 .lumen-onboarding4-check-icon {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
   stroke-width: 2.25;
 }

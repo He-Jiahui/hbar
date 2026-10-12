@@ -398,12 +398,12 @@
 }
 
 .lumen-icon[data-tier='xs'] {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .lumen-icon[data-tier='xl'] {
-  inline-size: var(--hbar-app-ui-icon-xl);
-  block-size: var(--hbar-app-ui-icon-xl);
+  inline-size: var(--lumen-icon-xl);
+  block-size: var(--lumen-icon-xl);
 }
 .lumen-icon[data-tier='sm'] {
   inline-size: 0.875rem;

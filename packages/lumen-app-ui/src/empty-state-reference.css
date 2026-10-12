@@ -79,28 +79,28 @@
 }
 
 .lumen-empty-state-inline-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .lumen-empty-state-small-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-empty-state-medium-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .lumen-empty-state-large-icon {
-  inline-size: var(--hbar-app-ui-icon-xl);
-  block-size: var(--hbar-app-ui-icon-xl);
+  inline-size: var(--lumen-icon-xl);
+  block-size: var(--lumen-icon-xl);
 }
 
 .lumen-empty-state-choice-icon {
-  inline-size: var(--hbar-app-ui-icon-lg);
-  block-size: var(--hbar-app-ui-icon-lg);
+  inline-size: var(--lumen-icon-lg);
+  block-size: var(--lumen-icon-lg);
 }
 
 .lumen-empty-state-actions {
@@ -575,8 +575,8 @@
 }
 
 .lumen-empty-state-failure-icon {
-  inline-size: var(--hbar-app-ui-icon-lg);
-  block-size: var(--hbar-app-ui-icon-lg);
+  inline-size: var(--lumen-icon-lg);
+  block-size: var(--lumen-icon-lg);
   flex: 0 0 auto;
   color: var(--lumen-danger);
 }

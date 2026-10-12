@@ -175,8 +175,8 @@
 }
 .hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirement-icon {
   display: flex;
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -194,8 +194,8 @@
   display: none;
 }
 .hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-requirement-icon svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-auth-sign-up-reference .hbar-app-ui-auth-sign-up-agreement {
   display: flex;

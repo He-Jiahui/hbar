@@ -39,8 +39,8 @@
   outline-offset: 0.125rem;
 }
 .lumen-adaptive-shell svg {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   stroke-width: 1.8;
 }
@@ -123,8 +123,8 @@
   background: var(--lumen-frost);
 }
 .lumen-adaptive-queue-nav svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   color: var(--lumen-subtle);
 }
 .lumen-adaptive-queue-label {
@@ -233,8 +233,8 @@
   color: var(--lumen-contrast);
 }
 .lumen-adaptive-book svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-adaptive-mobile-menu,
 .lumen-adaptive-mobile-search {
@@ -260,8 +260,8 @@
   border-radius: 0.5rem;
 }
 .lumen-adaptive-search svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   color: var(--lumen-subtle);
 }
 .lumen-adaptive-search input {
@@ -416,8 +416,8 @@
   fill: currentColor;
 }
 .lumen-adaptive-flag svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-adaptive-job-detail,
 .lumen-adaptive-bottom-nav {
@@ -434,8 +434,8 @@
   text-align: center;
 }
 .lumen-adaptive-empty > svg {
-  inline-size: var(--hbar-app-ui-icon-lg);
-  block-size: var(--hbar-app-ui-icon-lg);
+  inline-size: var(--lumen-icon-lg);
+  block-size: var(--lumen-icon-lg);
   color: var(--lumen-subtle);
 }
 .lumen-adaptive-empty p:first-of-type {
@@ -553,8 +553,8 @@
   }
   .lumen-adaptive-mobile-menu svg,
   .lumen-adaptive-mobile-search svg {
-    inline-size: var(--hbar-app-ui-icon-md);
-    block-size: var(--hbar-app-ui-icon-md);
+    inline-size: var(--lumen-icon-md);
+    block-size: var(--lumen-icon-md);
   }
   .lumen-adaptive-book {
     display: none;
@@ -701,8 +701,8 @@
     color: var(--lumen-ink);
   }
   .lumen-adaptive-bottom-nav svg {
-    inline-size: var(--hbar-app-ui-icon-md);
-    block-size: var(--hbar-app-ui-icon-md);
+    inline-size: var(--lumen-icon-md);
+    block-size: var(--lumen-icon-md);
   }
   .lumen-adaptive-bottom-nav span {
     overflow: hidden;

@@ -92,8 +92,8 @@
 }
 
 .lumen-card-glyph {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -103,28 +103,28 @@
 }
 
 .lumen-card-icon-xs {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 
 .lumen-card-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-card-icon-md {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .lumen-card-icon-lg {
-  inline-size: var(--hbar-app-ui-icon-lg);
-  block-size: var(--hbar-app-ui-icon-lg);
+  inline-size: var(--lumen-icon-lg);
+  block-size: var(--lumen-icon-lg);
 }
 
 .lumen-card-icon-xl {
-  inline-size: var(--hbar-app-ui-icon-xl);
-  block-size: var(--hbar-app-ui-icon-xl);
+  inline-size: var(--lumen-icon-xl);
+  block-size: var(--lumen-icon-xl);
 }
 
 .lumen-card-panel,
@@ -714,8 +714,8 @@ footer.lumen-card-reference-footer > button {
 
 .lumen-card-plan-grid li .lumen-card-glyph,
 .lumen-card-plan-features li .lumen-card-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   color: var(--lumen-success, #29965f);
 }
 

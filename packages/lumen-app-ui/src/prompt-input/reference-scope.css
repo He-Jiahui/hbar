@@ -38,8 +38,8 @@
   overflow-wrap: anywhere;
 }
 .lumen-prompt-scope-chip > .lumen-prompt-reference-icon {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
 }
 .lumen-prompt-scope-chip > button {
   flex: 0 0 auto;
@@ -47,8 +47,8 @@
   padding: 0.1rem;
 }
 .lumen-prompt-scope-chip > button > .lumen-prompt-reference-icon {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
 }
 .lumen-prompt-scope-picker {
   display: flex;

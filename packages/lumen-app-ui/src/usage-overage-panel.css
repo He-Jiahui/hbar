@@ -163,8 +163,8 @@
   font-weight: 500;
 }
 .lumen-usage-overage-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -199,8 +199,8 @@
   color: var(--lumen-subtle);
 }
 .lumen-usage-overage-plan li .lumen-usage-overage-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   margin-block-start: 2px;
 }
 .lumen-usage-overage-plan li > span {

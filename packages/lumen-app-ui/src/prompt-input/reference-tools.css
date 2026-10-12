@@ -44,14 +44,14 @@
 
 .lumen-prompt-reference-icon {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   stroke-width: 1.6;
 }
 
 .lumen-prompt-reference-icon-small {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
 }
 
 .lumen-prompt-reference-token-label {

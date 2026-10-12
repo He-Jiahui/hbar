@@ -125,8 +125,8 @@
   background: light-dark(#f5f5f5, #262626);
 }
 .hbar-app-ui-auth-provider-first-surface .hbar-app-ui-auth-provider-buttons .hbar-app-ui-auth-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-auth-provider-first-surface .hbar-app-ui-auth-divider {
   margin-block: 1.5rem;

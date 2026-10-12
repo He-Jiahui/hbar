@@ -10,9 +10,9 @@ import {
   isThemeEventRelevant,
   mergeThemeContributions,
   themeContrastRatio,
-  themeCssVariables,
   useThemeSettings,
 } from '../apps/web/src/theme-store'
+import { getLumenColorProperties } from '@lumen/app-ui/appearance'
 
 test('default theme uses neutral non-purple tokens and validates', () => {
   expect(themeProfileSchema.parse(DEFAULT_THEME_PROFILE)).toEqual(DEFAULT_THEME_PROFILE)
@@ -96,13 +96,17 @@ test('theme background references accept artifacts or managed plugin assets only
   ).toThrow()
 })
 
-test('theme CSS projects a visible primary-colour hover state', () => {
-  const variables = themeCssVariables(DEFAULT_THEME_PROFILE)
-  expect(variables['--hbar-ac-soft']).toContain('color-mix')
-  expect(variables['--hbar-ac-soft-hover']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
-  expect(variables['--hbar-ac-border']).toContain(DEFAULT_THEME_PROFILE.colors.primary)
-  expect(variables['--hbar-link']).toBe(DEFAULT_THEME_PROFILE.colors.primary)
-  expect(variables['--radius-md']).toBe(`${DEFAULT_THEME_PROFILE.surface.cornerRadius}px`)
+test('the canonical Lumen palette preserves custom colours without a second host variable writer', () => {
+  const variables = getLumenColorProperties('dark', {
+    foreground: DEFAULT_THEME_PROFILE.colors.textPrimary,
+    background: DEFAULT_THEME_PROFILE.colors.background,
+    info: DEFAULT_THEME_PROFILE.colors.primary,
+  })
+  expect(variables['--lumen-canvas']).toBe(DEFAULT_THEME_PROFILE.colors.background)
+  expect(variables['--lumen-ink']).toBe(DEFAULT_THEME_PROFILE.colors.textPrimary)
+  expect(variables['--lumen-accent']).toBe(DEFAULT_THEME_PROFILE.colors.primary)
+  expect(variables['--lumen-overlay-edge']).toContain('color-mix')
+  expect(Object.keys(variables).every((name) => name.startsWith('--lumen-'))).toBe(true)
 })
 
 test('default theme maintains readable text and accent contrast', () => {

@@ -69,8 +69,8 @@
   color: light-dark(#fff, #171717);
 }
 .hbar-app-ui-wizard-review-step-number svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-wizard-review-steps li:has(.is-complete),
 .hbar-app-ui-wizard-review-steps li:has(.is-current) {
@@ -158,8 +158,8 @@
   font-size: 0.75rem;
 }
 .hbar-app-ui-wizard-review-section-header button svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-wizard-review-section dl {
   min-inline-size: 0;
@@ -238,8 +238,8 @@
   color: light-dark(#fff, #171717);
 }
 .hbar-app-ui-wizard-review-confirmation > button svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-wizard-review-confirmation > span {
   min-inline-size: 0;

@@ -45,7 +45,7 @@
 }
 
 .hbar-app-ui-integration-marketplace-reference-heading p {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.8125rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -56,9 +56,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem 0.625rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.5rem;
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
 }
 
 .hbar-app-ui-integration-marketplace-reference-search input {
@@ -67,12 +67,12 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 0.8125rem;
 }
 
 .hbar-app-ui-integration-marketplace-reference-search input::placeholder {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
 }
 
 .hbar-app-ui-integration-marketplace-reference-tabs {
@@ -84,13 +84,13 @@
   min-block-size: 1.75rem;
   border-color: transparent;
   background: transparent;
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
 }
 
 .hbar-app-ui-integration-marketplace-reference-tabs .hbar-app-ui-integration-button[aria-selected='true'] {
-  border-color: var(--hbar-app-ui-integration-text);
-  background: var(--hbar-app-ui-integration-text);
-  color: var(--hbar-app-ui-integration-bg);
+  border-color: var(--lumen-integration-text);
+  background: var(--lumen-integration-text);
+  color: var(--lumen-integration-bg);
 }
 
 .hbar-app-ui-integration-marketplace-reference-tabs .hbar-app-ui-integration-button:disabled {
@@ -105,7 +105,7 @@
   gap: 0.75rem;
   overflow: auto;
   padding-block-start: 0.875rem;
-  border-block-start: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-block-start: 0.0625rem solid var(--lumen-integration-border);
 }
 
 .hbar-app-ui-integration-marketplace-reference-card {
@@ -114,9 +114,9 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .hbar-app-ui-integration-marketplace-reference-card header {
@@ -131,10 +131,10 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border-strong);
+  border: 0.0625rem solid var(--lumen-integration-border-strong);
   border-radius: 0.5rem;
-  background: var(--hbar-app-ui-integration-bg);
-  color: var(--hbar-app-ui-integration-muted);
+  background: var(--lumen-integration-bg);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -152,7 +152,7 @@
 
 .hbar-app-ui-integration-marketplace-reference-card header small,
 .hbar-app-ui-integration-marketplace-reference-card p {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.8125rem;
   line-height: 1.45;
   overflow-wrap: anywhere;

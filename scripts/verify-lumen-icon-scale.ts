@@ -52,7 +52,7 @@ try {
       checks.push({ mode, rootFontSize, widths: boxes.map((box) => box.width) })
     }
   }
-  await page.addStyleTag({ content: '[data-lumen-mode] { --hbar-app-ui-icon-sm: 1.125rem; }' })
+  await page.addStyleTag({ content: '[data-lumen-mode] { --lumen-icon-sm: 1.125rem; }' })
   const overridden = await page
     .locator('.hbar-app-ui-agent-approval-diff-arrow')
     .evaluate((element) => element.getBoundingClientRect().width)

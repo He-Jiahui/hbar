@@ -138,8 +138,8 @@
   color: inherit;
 }
 .hbar-app-ui-auth-quote-surface .hbar-app-ui-auth-quote-password-input .hbar-app-ui-auth-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-auth-quote-surface .hbar-app-ui-auth-quote-form-content > form > .hbar-app-ui-auth-button {
   inline-size: 100%;
@@ -200,8 +200,8 @@
   white-space: normal;
 }
 .hbar-app-ui-auth-quote-surface .hbar-app-ui-auth-provider-buttons > .hbar-app-ui-auth-button > .hbar-app-ui-auth-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 .hbar-app-ui-auth-quote-surface .hbar-app-ui-auth-provider-buttons > .hbar-app-ui-auth-button > span:last-child {
   min-inline-size: 0;
@@ -391,8 +391,8 @@
   background: light-dark(#f5f5f5, #262626);
 }
 .hbar-app-ui-auth-quote-surface .hbar-app-ui-auth-quote-arrows .hbar-app-ui-auth-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-auth-quote-surface button:focus-visible {
   outline: 0.125rem solid currentColor;

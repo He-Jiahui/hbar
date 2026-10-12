@@ -63,8 +63,8 @@
 }
 
 .lumen-mobile-glyph {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -74,18 +74,18 @@
 }
 
 .lumen-mobile-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
 }
 
 .lumen-mobile-icon-md {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
 }
 
 .lumen-mobile-icon-lg {
-  inline-size: var(--hbar-app-ui-icon-lg, 1.25rem);
-  block-size: var(--hbar-app-ui-icon-lg, 1.25rem);
+  inline-size: var(--lumen-icon-lg, 1.25rem);
+  block-size: var(--lumen-icon-lg, 1.25rem);
 }
 
 .lumen-mobile-phone {
@@ -510,8 +510,8 @@
 }
 
 .lumen-mobile-home-dock .lumen-mobile-glyph {
-  inline-size: var(--hbar-app-ui-icon-lg, 1.25rem);
-  block-size: var(--hbar-app-ui-icon-lg, 1.25rem);
+  inline-size: var(--lumen-icon-lg, 1.25rem);
+  block-size: var(--lumen-icon-lg, 1.25rem);
 }
 
 .lumen-mobile-home-dock > button[aria-current='page'] {
@@ -584,8 +584,8 @@
 }
 
 .lumen-mobile-run-icon .lumen-mobile-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
 }
 
 .lumen-mobile-action-layer {

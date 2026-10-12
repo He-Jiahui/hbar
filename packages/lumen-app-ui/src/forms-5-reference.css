@@ -186,8 +186,8 @@
 }
 
 .lumen-forms-5-icon-xs {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 
 .lumen-forms-5-region-combobox {
@@ -286,8 +286,8 @@
 
 .lumen-forms-5-plan-option input,
 .lumen-forms-5-consent input {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   margin: 0.125rem 0 0;
   accent-color: var(--lumen-ink);

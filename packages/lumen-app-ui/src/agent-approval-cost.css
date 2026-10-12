@@ -215,8 +215,8 @@
   color: var(--lumen-ink);
 }
 .hbar-app-ui-agent-approval-cost-buttons .lumen-agent-approval-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-agent-approval-cost-buttons > div > button {
   background: color-mix(in srgb, var(--lumen-ink) 5%, transparent);

@@ -45,8 +45,8 @@
   outline-offset: 0.125rem;
 }
 .lumen-chat-shell svg {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   stroke-width: 1.75;
 }
@@ -107,8 +107,8 @@
   color: var(--lumen-subtle);
 }
 .lumen-chat-side-heading button svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-chat-new {
   display: flex;
@@ -124,13 +124,13 @@
   font-weight: 500 !important;
 }
 .lumen-chat-new svg:first-child {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-chat-new svg:last-child {
   margin-inline-start: auto;
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-chat-side-scroll {
   flex: 1;
@@ -182,8 +182,8 @@
   color: var(--lumen-ink);
 }
 .lumen-chat-model-radios button svg {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 .lumen-chat-pinned {
   display: flex;
@@ -199,8 +199,8 @@
   color: var(--lumen-ink);
 }
 .lumen-chat-pinned > svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   color: var(--lumen-subtle);
 }
 .lumen-chat-pinned > span {
@@ -240,8 +240,8 @@
   color: var(--lumen-ink);
 }
 .lumen-chat-side-link svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-chat-side-link > span:nth-child(2) {
   flex: 1;
@@ -323,8 +323,8 @@
   color: var(--lumen-ink);
 }
 .lumen-shell-chat-header button svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-chat-mobile-navigation {
   display: none !important;
@@ -352,8 +352,8 @@
 }
 .lumen-chat-model-trigger svg:last-child {
   color: var(--lumen-subtle);
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .lumen-chat-model-anchor {
   position: relative;
@@ -383,8 +383,8 @@
   text-align: start;
 }
 .lumen-chat-model-menu button > svg:first-child {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   color: var(--lumen-subtle);
 }
 .lumen-chat-model-menu button:hover,
@@ -509,8 +509,8 @@
   color: var(--lumen-subtle);
 }
 .lumen-shell-chat-composer-actions button svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-shell-chat-composer-actions .lumen-chat-search {
   flex: 0 0 auto;
@@ -562,8 +562,8 @@
   white-space: nowrap;
 }
 .lumen-chat-suggestions button svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   color: var(--lumen-subtle);
 }
 .lumen-chat-disclaimer {

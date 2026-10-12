@@ -55,8 +55,8 @@
 
 .lumen-file-manager-reference-glyph {
   display: block;
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -66,28 +66,28 @@
 }
 
 .lumen-file-manager-reference-glyph[data-tier='xs'] {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
 }
 
 .lumen-file-manager-reference-glyph[data-tier='sm'] {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
 }
 
 .lumen-file-manager-reference-glyph[data-tier='md'] {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
 }
 
 .lumen-file-manager-reference-glyph[data-tier='lg'] {
-  inline-size: var(--hbar-app-ui-icon-lg, 1.25rem);
-  block-size: var(--hbar-app-ui-icon-lg, 1.25rem);
+  inline-size: var(--lumen-icon-lg, 1.25rem);
+  block-size: var(--lumen-icon-lg, 1.25rem);
 }
 
 .lumen-file-manager-reference-glyph[data-tier='xl'] {
-  inline-size: var(--hbar-app-ui-icon-xl, 1.5rem);
-  block-size: var(--hbar-app-ui-icon-xl, 1.5rem);
+  inline-size: var(--lumen-icon-xl, 1.5rem);
+  block-size: var(--lumen-icon-xl, 1.5rem);
 }
 
 .lumen-file-manager-reference-header,

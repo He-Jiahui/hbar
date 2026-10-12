@@ -19,9 +19,9 @@
   flex-direction: column;
   gap: 1.25rem;
   padding: 1.5rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 1.125rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .lumen-integration-consent-reference-brands {
@@ -38,10 +38,10 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
-  color: var(--hbar-app-ui-integration-text);
-  background: var(--hbar-app-ui-integration-bg);
+  color: var(--lumen-integration-text);
+  background: var(--lumen-integration-bg);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -49,7 +49,7 @@
 .lumen-integration-consent-reference-brand-workspace {
   border-color: transparent;
   color: var(--lumen-contrast);
-  background: var(--hbar-app-ui-integration-text);
+  background: var(--lumen-integration-text);
 }
 
 .lumen-integration-consent-reference-connector {
@@ -62,7 +62,7 @@
   inline-size: 0.25rem;
   block-size: 0.25rem;
   border-radius: 50%;
-  background: var(--hbar-app-ui-integration-border-strong);
+  background: var(--lumen-integration-border-strong);
 }
 
 .lumen-integration-consent-reference-heading {
@@ -84,7 +84,7 @@
 }
 
 .lumen-integration-consent-reference-heading p {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.8125rem;
 }
 
@@ -93,7 +93,7 @@
   min-inline-size: 0;
   flex-direction: column;
   gap: 0.5rem;
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
 }
 
@@ -113,7 +113,7 @@
 .lumen-integration-consent-reference-workspace-trigger > strong {
   min-inline-size: 0;
   flex: 1 1 auto;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 0.8125rem;
   font-weight: 500;
   overflow-wrap: anywhere;
@@ -127,13 +127,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 0.375rem;
-  color: var(--hbar-app-ui-integration-text);
-  background: var(--hbar-app-ui-integration-surface-soft);
+  color: var(--lumen-integration-text);
+  background: var(--lumen-integration-surface-soft);
   font-size: 0.625rem;
 }
 
 .lumen-integration-consent-reference-workspace-role {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
 }
 
@@ -146,7 +146,7 @@
   flex-direction: column;
   gap: 0.125rem;
   padding: 0.25rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
   background: var(--lumen-contrast);
   box-shadow: 0 0.5rem 1.25rem color-mix(in srgb, black 15%, transparent);
@@ -162,7 +162,7 @@
   border: 0;
   border-radius: 0.5rem;
   padding: 0.625rem 0.75rem;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   background: transparent;
   cursor: pointer;
   font: inherit;
@@ -171,7 +171,7 @@
 }
 
 .lumen-integration-consent-reference-workspace-option[aria-selected='true'] {
-  background: var(--hbar-app-ui-integration-surface-soft);
+  background: var(--lumen-integration-surface-soft);
 }
 
 .lumen-integration-consent-reference-workspace-option > span:last-child {
@@ -179,7 +179,7 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 0.5rem;
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
 }
 
@@ -190,7 +190,7 @@
   gap: 0.75rem;
   padding: 0.875rem;
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-integration-bg);
+  background: var(--lumen-integration-bg);
 }
 
 .lumen-integration-consent-reference-permissions > li {
@@ -202,7 +202,7 @@
 
 .lumen-integration-consent-reference-permissions > li > .hbar-app-ui-integration-icon {
   margin-block-start: 0.125rem;
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
 }
 
 .lumen-integration-consent-reference-permissions > li > div {
@@ -219,7 +219,7 @@
 
 .lumen-integration-consent-reference-permissions p {
   margin: 0;
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
@@ -231,7 +231,7 @@
   align-items: flex-start;
   justify-content: center;
   gap: 0.5rem;
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }

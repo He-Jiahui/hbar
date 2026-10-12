@@ -42,8 +42,8 @@
   opacity: 0.5;
 }
 .lumen-rich-editor-icon {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -140,13 +140,13 @@
   margin-inline-start: auto;
 }
 .lumen-rich-editor-menu-icon-placeholder {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   flex: 0 0 auto;
 }
 .lumen-rich-editor-icon[data-icon-tier='md'] {
-  inline-size: var(--hbar-app-ui-icon-md, 1rem);
-  block-size: var(--hbar-app-ui-icon-md, 1rem);
+  inline-size: var(--lumen-icon-md, 1rem);
+  block-size: var(--lumen-icon-md, 1rem);
 }
 .lumen-rich-editor-main {
   flex: 1 1 0%;

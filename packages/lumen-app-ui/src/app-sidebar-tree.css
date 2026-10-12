@@ -55,8 +55,8 @@
 }
 .lumen-tree-root svg {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   stroke-width: 1.75;
 }
 .lumen-tree-pane {
@@ -108,8 +108,8 @@
   color: var(--tree-muted);
 }
 .lumen-tree-search svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-tree-search input {
   flex: 1;
@@ -176,8 +176,8 @@
   gap: 6px;
 }
 .lumen-tree-label.is-folder svg:first-child {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .lumen-tree-label.is-document {
   padding-inline-start: 48px;

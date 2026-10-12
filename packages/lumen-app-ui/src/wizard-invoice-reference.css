@@ -168,8 +168,8 @@
   margin-inline-start: -0.125rem;
 }
 .hbar-app-ui-wizard-invoice-field label svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   color: light-dark(#a3a3a3, #737373);
 }
 .hbar-app-ui-wizard-invoice-control {
@@ -189,8 +189,8 @@
 }
 .hbar-app-ui-wizard-invoice-control > svg,
 .hbar-app-ui-wizard-invoice-control button svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
   color: light-dark(#a3a3a3, #737373);
 }
@@ -269,8 +269,8 @@
 }
 .hbar-app-ui-wizard-invoice-header svg,
 .hbar-app-ui-wizard-invoice-footer svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 @media (max-width: 40rem) {
   .hbar-app-ui-wizard-invoice-progress {

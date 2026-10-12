@@ -38,8 +38,8 @@
 }
 
 .lumen-onboarding6-check-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .lumen-onboarding.lumen-onboarding6-reference .lumen-onboarding6-title {
@@ -120,8 +120,8 @@
 }
 
 .lumen-onboarding6-arrow-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   margin-inline-start: 0.5rem;
 }
 

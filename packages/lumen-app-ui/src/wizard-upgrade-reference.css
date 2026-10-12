@@ -118,8 +118,8 @@
   color: light-dark(#fff, #171717);
 }
 .hbar-app-ui-wizard-upgrade-step-number svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
@@ -341,8 +341,8 @@
   white-space: nowrap;
 }
 .hbar-app-ui-wizard-upgrade-footer svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-wizard-upgrade-options button:focus-visible,
 .hbar-app-ui-wizard-upgrade-steps button:focus-visible,

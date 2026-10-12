@@ -56,8 +56,8 @@
 }
 .lumen-app-sidebar-rail-root svg {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   stroke-width: 1.75;
 }
 .lumen-rail-sidebar {

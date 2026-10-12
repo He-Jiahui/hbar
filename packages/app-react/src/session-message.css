@@ -9,13 +9,6 @@
   min-inline-size: 0;
   flex-direction: column;
 }
-
-.hbar-session-message-blocks,
-.hbar-session-activity {
-  --hbar-session-prose-size: calc(var(--lumen-font-size) * 1.05);
-  --hbar-session-detail-size: calc(var(--lumen-font-size) * 0.95);
-  --hbar-session-caption-size: calc(var(--lumen-font-size) * 0.9);
-}
 .hbar-session-message-blocks {
   gap: 12px;
 }

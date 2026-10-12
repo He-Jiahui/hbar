@@ -107,8 +107,8 @@
   line-height: 1.125rem;
 }
 .hbar-app-ui-kanban-compact-card-top > svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   color: light-dark(#d4d4d4, #555);
 }
 .hbar-app-ui-kanban-compact-card-footer {
@@ -165,8 +165,8 @@
   outline-offset: -0.125rem;
 }
 .hbar-app-ui-kanban-compact-arrows svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-kanban-compact-announcement {
   block-size: 0;

@@ -132,8 +132,8 @@
 }
 
 .lumen-forms-form-1-help-icon {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 
 .lumen-forms-form-1-visually-hidden {
@@ -180,8 +180,8 @@
 }
 
 .lumen-forms-form-1-combobox-icon {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
 }
 
@@ -227,8 +227,8 @@
 }
 
 .lumen-forms-form-1-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   color: var(--lumen-muted);
 }
@@ -298,8 +298,8 @@
 }
 
 .lumen-forms-form-1-remove-icon {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
 }
 

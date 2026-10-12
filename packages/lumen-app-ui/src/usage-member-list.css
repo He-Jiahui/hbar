@@ -67,8 +67,8 @@
 }
 .lumen-usage-member-search-content > svg {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   color: var(--lumen-subtle);
 }
 .lumen-usage-member-search input.lumen-control[data-size='s'] {

@@ -74,8 +74,8 @@
 }
 .lumen-feedback-board-reference-header svg,
 .lumen-feedback-board-reference-search svg {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
 }
 .lumen-feedback-board-reference-toolbar {
   display: flex;
@@ -183,8 +183,8 @@
 }
 .lumen-feedback-board-reference-vote svg,
 .lumen-feedback-board-reference-meta svg {
-  inline-size: var(--hbar-app-ui-icon-xs, 0.75rem);
-  block-size: var(--hbar-app-ui-icon-xs, 0.75rem);
+  inline-size: var(--lumen-icon-xs, 0.75rem);
+  block-size: var(--lumen-icon-xs, 0.75rem);
 }
 .lumen-feedback-board-reference-copy {
   min-inline-size: 0;

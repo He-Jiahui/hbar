@@ -50,7 +50,7 @@
 .hbar-app-ui-billing-reference-plans-kicker,
 .hbar-app-ui-billing-reference-plans-feature-value,
 .hbar-app-ui-billing-reference-plans-error {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.8125rem;
   line-height: 1.45;
 }
@@ -69,7 +69,7 @@
 }
 
 .hbar-app-ui-billing-reference-plans-save-copy p {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.8125rem;
 }
 
@@ -82,7 +82,7 @@
 }
 
 .hbar-app-ui-billing-reference-plans-error {
-  color: var(--hbar-app-ui-billing-danger);
+  color: var(--lumen-billing-danger);
 }
 
 .hbar-app-ui-billing-reference-plans-list {

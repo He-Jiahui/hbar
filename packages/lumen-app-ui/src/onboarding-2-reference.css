@@ -96,8 +96,8 @@
 }
 
 .lumen-onboarding2-complete-icon {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   stroke-width: 2;
 }
 

@@ -1,3 +1,4 @@
+import './theme-bridge'
 import {
   createContext,
   useContext,

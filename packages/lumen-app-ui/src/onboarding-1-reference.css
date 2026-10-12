@@ -109,8 +109,8 @@
 }
 
 .lumen-onboarding1-photo-icon {
-  inline-size: var(--hbar-app-ui-icon-xl);
-  block-size: var(--hbar-app-ui-icon-xl);
+  inline-size: var(--lumen-icon-xl);
+  block-size: var(--lumen-icon-xl);
   stroke-width: 1.75;
 }
 

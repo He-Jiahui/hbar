@@ -41,9 +41,9 @@
 .lumen-billing-invoice-reference-totals,
 .lumen-billing-invoice-reference-help {
   min-inline-size: 0;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 .lumen-billing-invoice-reference-party {
@@ -65,7 +65,7 @@
 .lumen-billing-invoice-reference-address h2,
 .lumen-billing-invoice-reference-panel h2 {
   margin: 0;
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -100,7 +100,7 @@
 }
 
 .lumen-billing-invoice-reference-value dt {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.75rem;
 }
 
@@ -114,20 +114,20 @@
 }
 
 .lumen-billing-invoice-reference-value dd small {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.75rem;
 }
 
 .lumen-billing-invoice-reference-table-scroll {
   min-inline-size: 0;
   overflow-x: auto;
-  border: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border: 0.0625rem solid var(--lumen-billing-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-billing-surface);
+  background: var(--lumen-billing-surface);
 }
 
 .lumen-billing-invoice-reference-table-scroll:focus-visible {
-  outline: 0.125rem solid var(--hbar-app-ui-billing-accent);
+  outline: 0.125rem solid var(--lumen-billing-accent);
   outline-offset: 0.125rem;
 }
 
@@ -142,12 +142,12 @@
 .lumen-billing-invoice-reference-table-scroll th,
 .lumen-billing-invoice-reference-table-scroll td {
   padding: 0.625rem 1rem;
-  border-block-end: 0.0625rem solid var(--hbar-app-ui-billing-border);
+  border-block-end: 0.0625rem solid var(--lumen-billing-border);
 }
 
 .lumen-billing-invoice-reference-table-scroll th {
-  color: var(--hbar-app-ui-billing-subtle);
-  background: var(--hbar-app-ui-billing-muted);
+  color: var(--lumen-billing-subtle);
+  background: var(--lumen-billing-muted);
   font-size: 0.75rem;
   font-weight: 500;
 }
@@ -173,7 +173,7 @@
 
 .lumen-billing-invoice-reference-table-scroll td:first-child small {
   margin-block-start: 0.25rem;
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.75rem;
 }
 
@@ -200,7 +200,7 @@
 
 .lumen-billing-invoice-reference-total-rows .lumen-billing-invoice-reference-value:last-child dt,
 .lumen-billing-invoice-reference-total-rows .lumen-billing-invoice-reference-value:last-child dd {
-  color: var(--hbar-app-ui-billing-text);
+  color: var(--lumen-billing-text);
   font-size: 1rem;
   font-weight: 600;
 }
@@ -250,7 +250,7 @@
 
 .lumen-billing-invoice-reference-activity-item > div > span,
 .lumen-billing-invoice-reference-activity-item time {
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   overflow-wrap: anywhere;
   font-size: 0.75rem;
 }
@@ -283,7 +283,7 @@
   gap: 0.625rem;
   margin: 0;
   padding: 1rem;
-  color: var(--hbar-app-ui-billing-subtle);
+  color: var(--lumen-billing-subtle);
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
 }

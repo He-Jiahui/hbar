@@ -217,8 +217,8 @@
   font-size: 0.8125rem;
 }
 .lumen-comments-document-icon {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;

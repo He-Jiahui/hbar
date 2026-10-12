@@ -37,8 +37,8 @@
 }
 
 .lumen-prompt-upload-reference-icon {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   flex: 0 0 auto;
   stroke-width: 1.5;
 }
@@ -131,6 +131,6 @@
 
   .lumen-prompt-upload-reference-detail {
     flex: 1 1 auto;
-    margin-inline-start: calc(var(--hbar-app-ui-icon-sm, 0.875rem) + 0.5rem);
+    margin-inline-start: calc(var(--lumen-icon-sm, 0.875rem) + 0.5rem);
   }
 }

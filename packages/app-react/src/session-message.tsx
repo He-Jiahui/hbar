@@ -1,3 +1,4 @@
+import './theme-bridge'
 import { Children, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { MessageResourceSourceProvider } from './message-resource'
 import {

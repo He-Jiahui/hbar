@@ -160,8 +160,8 @@
 }
 .lumen-usage-request-chevron {
   flex: 0 0 auto;
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   padding-inline-start: 4px;
   box-sizing: content-box;
   color: var(--lumen-subtle);

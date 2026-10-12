@@ -127,8 +127,8 @@
   color: light-dark(#fff, #171717);
 }
 .hbar-app-ui-wizard-shipping-options button > span:first-child svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-wizard-shipping-option-label {
   min-inline-size: 0;
@@ -177,8 +177,8 @@
   cursor: default;
 }
 .hbar-app-ui-wizard-shipping-actions button svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-wizard-shipping-skip {
   display: block;

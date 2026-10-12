@@ -28,11 +28,11 @@
   --filter-negative: var(--lumen-danger, #ff969b);
   --filter-control-radius: var(--lumen-radius-control, 0.375rem);
   --filter-surface-radius: var(--lumen-radius-surface, 0.75rem);
-  --filter-icon-xs: var(--hbar-app-ui-icon-xs, 0.75rem);
-  --filter-icon-sm: var(--hbar-app-ui-icon-sm, 0.875rem);
-  --filter-icon-md: var(--hbar-app-ui-icon-md, 1rem);
-  --filter-icon-lg: var(--hbar-app-ui-icon-lg, 1.25rem);
-  --filter-icon-xl: var(--hbar-app-ui-icon-xl, 1.5rem);
+  --filter-icon-xs: var(--lumen-icon-xs, 0.75rem);
+  --filter-icon-sm: var(--lumen-icon-sm, 0.875rem);
+  --filter-icon-md: var(--lumen-icon-md, 1rem);
+  --filter-icon-lg: var(--lumen-icon-lg, 1.25rem);
+  --filter-icon-xl: var(--lumen-icon-xl, 1.5rem);
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;

@@ -62,18 +62,18 @@
 }
 
 .lumen-checkbox-control.lumen-effect .lumen-form-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .lumen-checkbox-control.lumen-effect[data-size='s'] .lumen-form-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 
 .lumen-checkbox-control.lumen-effect[data-size='l'] .lumen-form-glyph {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .lumen-checkbox-control.lumen-effect:is(:has(.lumen-checkbox-input:checked), [data-indeterminate='true']) {

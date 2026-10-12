@@ -67,8 +67,8 @@
   gap: 0.375rem;
 }
 .hbar-app-ui-notifications-variant-5 .lumen-system-restore .lumen-notifications-glyph {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 .hbar-app-ui-notifications-variant-5 .lumen-system-restore p[role='alert'] {
   color: var(--lumen-danger);
@@ -105,8 +105,8 @@
   background: var(--system-card);
 }
 .hbar-app-ui-notifications-variant-5 .lumen-system-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
   margin-block-start: 0.125rem;
   fill: none;
@@ -155,8 +155,8 @@
   background: transparent;
 }
 .hbar-app-ui-notifications-variant-5 .lumen-system-disclosure .lumen-notifications-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   rotate: 90deg;
 }
 .hbar-app-ui-notifications-variant-5 .lumen-system-disclosure[aria-expanded='true'] .lumen-notifications-glyph {
@@ -204,8 +204,8 @@
   color: var(--system-muted);
 }
 .hbar-app-ui-notifications-variant-5 .lumen-system-dismiss .lumen-notifications-glyph {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 .hbar-app-ui-notifications-variant-5 .lumen-system-status {
   color: var(--lumen-danger);

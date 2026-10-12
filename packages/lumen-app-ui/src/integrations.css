@@ -7,24 +7,24 @@
 }
 
 .lumen-integrations.hbar-app-ui-integration-surface {
-  --hbar-app-ui-integration-bg: var(--lumen-reading);
-  --hbar-app-ui-integration-surface: var(--lumen-glass);
-  --hbar-app-ui-integration-surface-soft: color-mix(in srgb, var(--lumen-muted) 6%, transparent);
-  --hbar-app-ui-integration-border: var(--lumen-edge);
-  --hbar-app-ui-integration-border-strong: color-mix(in srgb, var(--lumen-muted) 50%, var(--lumen-edge));
-  --hbar-app-ui-integration-text: var(--lumen-ink);
-  --hbar-app-ui-integration-muted: var(--lumen-muted);
-  --hbar-app-ui-integration-subtle: color-mix(in srgb, var(--lumen-muted) 78%, transparent);
-  --hbar-app-ui-integration-positive: var(--lumen-success, oklch(58% 0.15 153deg));
-  --hbar-app-ui-integration-warning: var(--lumen-warning, oklch(66% 0.14 82deg));
-  --hbar-app-ui-integration-danger: var(--lumen-danger, oklch(60% 0.18 28deg));
+  --lumen-integration-bg: var(--lumen-reading);
+  --lumen-integration-surface: var(--lumen-glass);
+  --lumen-integration-surface-soft: color-mix(in srgb, var(--lumen-muted) 6%, transparent);
+  --lumen-integration-border: var(--lumen-edge);
+  --lumen-integration-border-strong: color-mix(in srgb, var(--lumen-muted) 50%, var(--lumen-edge));
+  --lumen-integration-text: var(--lumen-ink);
+  --lumen-integration-muted: var(--lumen-muted);
+  --lumen-integration-subtle: color-mix(in srgb, var(--lumen-muted) 78%, transparent);
+  --lumen-integration-positive: var(--lumen-success, oklch(58% 0.15 153deg));
+  --lumen-integration-warning: var(--lumen-warning, oklch(66% 0.14 82deg));
+  --lumen-integration-danger: var(--lumen-danger, oklch(60% 0.18 28deg));
   /* prettier-ignore */
-  --hbar-app-ui-icon-xs: .75rem;
+  --lumen-icon-xs: .75rem;
   /* prettier-ignore */
-  --hbar-app-ui-icon-sm: .875rem;
-  --hbar-app-ui-icon-md: 1rem;
-  --hbar-app-ui-icon-lg: 1.25rem;
-  --hbar-app-ui-icon-xl: 1.5rem;
+  --lumen-icon-sm: .875rem;
+  --lumen-icon-md: 1rem;
+  --lumen-icon-lg: 1.25rem;
+  --lumen-icon-xl: 1.5rem;
   display: flex;
   min-inline-size: 0;
   min-block-size: 100%;
@@ -35,8 +35,8 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: var(--hbar-app-ui-integration-bg);
-  color: var(--hbar-app-ui-integration-text);
+  background: var(--lumen-integration-bg);
+  color: var(--lumen-integration-text);
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.5;
@@ -86,55 +86,55 @@
 }
 
 .hbar-app-ui-icon-xs {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
 }
 
 .hbar-app-ui-icon-sm {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .hbar-app-ui-icon-md {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
 }
 
 .hbar-app-ui-icon-lg {
-  inline-size: var(--hbar-app-ui-icon-lg);
-  block-size: var(--hbar-app-ui-icon-lg);
+  inline-size: var(--lumen-icon-lg);
+  block-size: var(--lumen-icon-lg);
 }
 
 .hbar-app-ui-icon-xl {
-  inline-size: var(--hbar-app-ui-icon-xl);
-  block-size: var(--hbar-app-ui-icon-xl);
+  inline-size: var(--lumen-icon-xl);
+  block-size: var(--lumen-icon-xl);
 }
 
 .hbar-app-ui-integration-icon-button {
   --lumen-control-size: 2rem;
   flex: 0 0 auto;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border-strong);
+  border: 0.0625rem solid var(--lumen-integration-border-strong);
   background: transparent;
 }
 
 .hbar-app-ui-integration-icon-button > svg {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
 }
 
 .hbar-app-ui-integration-tone-positive,
 .hbar-app-ui-integration-tone-positive > strong {
-  color: var(--hbar-app-ui-integration-positive);
+  color: var(--lumen-integration-positive);
 }
 
 .hbar-app-ui-integration-tone-warning,
 .hbar-app-ui-integration-tone-warning > strong {
-  color: var(--hbar-app-ui-integration-warning);
+  color: var(--lumen-integration-warning);
 }
 
 .hbar-app-ui-integration-tone-danger,
 .hbar-app-ui-integration-tone-danger > strong {
-  color: var(--hbar-app-ui-integration-danger);
+  color: var(--lumen-integration-danger);
 }
 
 .hbar-app-ui-integration-progress {
@@ -143,9 +143,9 @@
 
 .hbar-app-ui-integration-empty {
   padding: 1rem;
-  border: 0.0625rem dashed var(--hbar-app-ui-integration-border-strong);
+  border: 0.0625rem dashed var(--lumen-integration-border-strong);
   border-radius: 0.625rem;
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.8125rem;
 }
 
@@ -182,7 +182,7 @@
 .hbar-app-ui-integration-topbar h1,
 .hbar-app-ui-integration-section-head h2,
 .hbar-app-ui-integration-section-head h3 {
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 1.0625rem;
   font-weight: 500;
   line-height: 1.35;
@@ -190,7 +190,7 @@
 
 .hbar-app-ui-integration-topbar p,
 .hbar-app-ui-integration-section-head p {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.8125rem;
   line-height: 1.45;
 }
@@ -206,9 +206,9 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .hbar-app-ui-integration-pane-scroll {
@@ -223,9 +223,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem 0.625rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.5rem;
-  background: var(--hbar-app-ui-integration-bg);
+  background: var(--lumen-integration-bg);
 }
 
 .hbar-app-ui-integration-search input {
@@ -234,12 +234,12 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 0.8125rem;
 }
 
 .hbar-app-ui-integration-search input::placeholder {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
 }
 
 .hbar-app-ui-integration-market-tabs {
@@ -253,13 +253,13 @@
   min-block-size: 1.75rem;
   border-color: transparent;
   background: transparent;
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
 }
 
 .hbar-app-ui-integration-market-tabs .hbar-app-ui-integration-button[aria-pressed='true'] {
-  border-color: var(--hbar-app-ui-integration-text);
-  background: var(--hbar-app-ui-integration-text);
-  color: var(--hbar-app-ui-integration-bg);
+  border-color: var(--lumen-integration-text);
+  background: var(--lumen-integration-text);
+  color: var(--lumen-integration-bg);
 }
 
 .hbar-app-ui-integration-market-list {
@@ -270,7 +270,7 @@
   align-content: flex-start;
   gap: 0.75rem;
   padding-block-start: 1rem;
-  border-block-start: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-block-start: 0.0625rem solid var(--lumen-integration-border);
   overflow: auto;
 }
 
@@ -281,9 +281,9 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .hbar-app-ui-integration-market-card header {
@@ -300,17 +300,17 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border-strong);
+  border: 0.0625rem solid var(--lumen-integration-border-strong);
   border-radius: 0.5rem;
-  background: var(--hbar-app-ui-integration-bg);
-  color: var(--hbar-app-ui-integration-muted);
+  background: var(--lumen-integration-bg);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
 .hbar-app-ui-integration-avatar-bright {
-  border-color: var(--hbar-app-ui-integration-text);
-  background: var(--hbar-app-ui-integration-text);
-  color: var(--hbar-app-ui-integration-bg);
+  border-color: var(--lumen-integration-text);
+  background: var(--lumen-integration-text);
+  color: var(--lumen-integration-bg);
 }
 
 .hbar-app-ui-integration-market-card header > div {
@@ -326,7 +326,7 @@
 
 .hbar-app-ui-integration-market-card header small,
 .hbar-app-ui-integration-market-card p {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.8125rem;
 }
 
@@ -355,7 +355,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  border-block-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-block-end: 0.0625rem solid var(--lumen-integration-border);
 }
 
 .hbar-app-ui-integration-connection-header > .hbar-app-ui-integration-avatar {
@@ -382,7 +382,7 @@
 }
 
 .hbar-app-ui-integration-connection-title p {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.8125rem;
 }
 
@@ -418,7 +418,7 @@
 }
 
 .hbar-app-ui-integration-permissions header p {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.8125rem;
 }
 
@@ -456,7 +456,7 @@
 }
 
 .hbar-app-ui-integration-scope p {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -464,8 +464,8 @@
   display: inline-flex;
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  background: var(--hbar-app-ui-integration-border);
-  color: var(--hbar-app-ui-integration-muted);
+  background: var(--lumen-integration-border);
+  color: var(--lumen-integration-muted);
   font-size: 0.6875rem;
   font-weight: 400;
 }
@@ -514,12 +514,12 @@
 }
 
 .hbar-app-ui-integration-activity-item small {
-  color: var(--hbar-app-ui-integration-subtle);
+  color: var(--lumen-integration-subtle);
   font-size: 0.75rem;
 }
 
 .hbar-app-ui-integration-audit-link {
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 0.8125rem;
   text-decoration: none;
 }
@@ -535,7 +535,7 @@
 
 .hbar-app-ui-integration-keys-page .hbar-app-ui-integration-topbar {
   padding: 1rem 1.25rem;
-  border-block-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-block-end: 0.0625rem solid var(--lumen-integration-border);
 }
 
 .hbar-app-ui-integration-key-table {
@@ -556,12 +556,12 @@
 }
 
 .hbar-app-ui-integration-key-header {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
 .hbar-app-ui-integration-key-row {
-  border-block-start: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-block-start: 0.0625rem solid var(--lumen-integration-border);
 }
 
 .hbar-app-ui-integration-key-cell {
@@ -594,7 +594,7 @@
 
 .hbar-app-ui-integration-key-cell small,
 .hbar-app-ui-integration-key-cell span {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
@@ -609,7 +609,7 @@
 
 .hbar-app-ui-integration-key-value code {
   min-inline-size: 0;
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
   overflow-wrap: anywhere;
@@ -620,8 +620,8 @@
   flex: 0 0 auto;
   align-items: center;
   padding: 0.75rem 1.25rem;
-  border-block-start: 0.0625rem solid var(--hbar-app-ui-integration-border);
-  color: var(--hbar-app-ui-integration-muted);
+  border-block-start: 0.0625rem solid var(--lumen-integration-border);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -640,7 +640,7 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.75rem 0.5rem;
-  border-inline-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-inline-end: 0.0625rem solid var(--lumen-integration-border);
 }
 
 .hbar-app-ui-integration-endpoints-pane > header,
@@ -677,7 +677,7 @@
   border: 0;
   border-radius: 0.5rem;
   background: transparent;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   cursor: pointer;
   text-align: start;
 }
@@ -712,7 +712,7 @@
 }
 
 .hbar-app-ui-integration-endpoint-button small {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -722,11 +722,11 @@
   block-size: 0.375rem;
   flex: 0 0 auto;
   border-radius: 100%;
-  background: var(--hbar-app-ui-integration-subtle);
+  background: var(--lumen-integration-subtle);
 }
 
 .hbar-app-ui-integration-endpoint-dot.is-enabled {
-  background: var(--hbar-app-ui-integration-positive);
+  background: var(--lumen-integration-positive);
 }
 
 .hbar-app-ui-integration-webhook-main {
@@ -738,7 +738,7 @@
 
 .hbar-app-ui-integration-webhook-head {
   padding: 0.75rem 1.25rem;
-  border-block-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-block-end: 0.0625rem solid var(--lumen-integration-border);
 }
 
 .hbar-app-ui-integration-webhook-title {
@@ -760,7 +760,7 @@
 }
 
 .hbar-app-ui-integration-topic-list .lumen-chip {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -783,7 +783,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  border-block-start: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border-block-start: 0.0625rem solid var(--lumen-integration-border);
 }
 
 .hbar-app-ui-integration-delivery .hbar-app-ui-integration-delivery-trigger {
@@ -796,7 +796,7 @@
   padding: 0.75rem 1.25rem;
   border: 0;
   background: transparent;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   cursor: pointer;
   text-align: start;
 }
@@ -809,12 +809,12 @@
 
 .hbar-app-ui-integration-delivery-trigger > .hbar-app-ui-integration-delivery-event {
   flex: 1 1 10rem;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 0.8125rem;
 }
 
 .hbar-app-ui-integration-delivery-trigger > small {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -822,10 +822,10 @@
   display: flex;
   margin: 0 1.25rem 0.75rem;
   padding: 0.875rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
-  background: var(--hbar-app-ui-integration-surface);
-  color: var(--hbar-app-ui-integration-muted);
+  background: var(--lumen-integration-surface);
+  color: var(--lumen-integration-muted);
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
   overflow: auto;
@@ -848,9 +848,9 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1.5rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.875rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .hbar-app-ui-integration-consent-brands {
@@ -874,7 +874,7 @@
 }
 
 .hbar-app-ui-integration-consent-title p {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.8125rem;
 }
 
@@ -883,7 +883,7 @@
   min-inline-size: 0;
   flex-direction: column;
   gap: 0.375rem;
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 0.8125rem;
 }
 
@@ -893,9 +893,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.625rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.5rem;
-  background: var(--hbar-app-ui-integration-bg);
+  background: var(--lumen-integration-bg);
 }
 
 .hbar-app-ui-integration-workspace-select .lumen-choice-select {
@@ -909,7 +909,7 @@
   gap: 0.875rem;
   padding: 0.875rem;
   border-radius: 0.625rem;
-  background: var(--hbar-app-ui-integration-bg);
+  background: var(--lumen-integration-bg);
 }
 
 .hbar-app-ui-integration-consent-permission {
@@ -926,7 +926,7 @@
   flex: 0 0 auto;
   margin-block-start: 0.375rem;
   border-radius: 100%;
-  background: var(--hbar-app-ui-integration-text);
+  background: var(--lumen-integration-text);
 }
 
 .hbar-app-ui-integration-consent-permission > div {
@@ -943,7 +943,7 @@
 .hbar-app-ui-integration-consent-permission p,
 .hbar-app-ui-integration-consent-assurance,
 .hbar-app-ui-integration-consent-footer {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -987,7 +987,7 @@
   gap: 0.25rem;
   margin: 0 1.25rem;
   padding: 0.25rem;
-  border: 0.0625rem solid var(--hbar-app-ui-integration-border);
+  border: 0.0625rem solid var(--lumen-integration-border);
   border-radius: 0.75rem;
 }
 
@@ -999,16 +999,16 @@
   gap: 0.125rem;
   padding: 0.75rem;
   border-radius: 0.5rem;
-  background: var(--hbar-app-ui-integration-surface);
+  background: var(--lumen-integration-surface);
 }
 
 .hbar-app-ui-integration-sync-metric span {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
 .hbar-app-ui-integration-sync-metric b {
-  color: var(--hbar-app-ui-integration-text);
+  color: var(--lumen-integration-text);
   font-size: 1.125rem;
   font-weight: 500;
 }
@@ -1063,7 +1063,7 @@
 
 .hbar-app-ui-integration-sync-source-title strong span,
 .hbar-app-ui-integration-sync-source-title small {
-  color: var(--hbar-app-ui-integration-muted);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
   font-weight: 400;
 }
@@ -1078,8 +1078,8 @@
   gap: 0.5rem;
   padding: 0.75rem;
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--hbar-app-ui-integration-danger) 15%, var(--hbar-app-ui-integration-bg));
-  color: var(--hbar-app-ui-integration-danger);
+  background: color-mix(in srgb, var(--lumen-integration-danger) 15%, var(--lumen-integration-bg));
+  color: var(--lumen-integration-danger);
   font-size: 0.75rem;
 }
 
@@ -1091,8 +1091,8 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem 1.25rem;
-  border-block-start: 0.0625rem solid var(--hbar-app-ui-integration-border);
-  color: var(--hbar-app-ui-integration-muted);
+  border-block-start: 0.0625rem solid var(--lumen-integration-border);
+  color: var(--lumen-integration-muted);
   font-size: 0.75rem;
 }
 
@@ -1130,7 +1130,7 @@
   .hbar-app-ui-integration-endpoints-pane {
     flex: 0 0 auto;
     border-inline-end: 0;
-    border-block-end: 0.0625rem solid var(--hbar-app-ui-integration-border);
+    border-block-end: 0.0625rem solid var(--lumen-integration-border);
   }
 
   .hbar-app-ui-integration-endpoint-list {

@@ -29,8 +29,8 @@
   margin: 0;
 }
 .lumen-inbox-icon {
-  inline-size: var(--hbar-app-ui-icon-md);
-  block-size: var(--hbar-app-ui-icon-md);
+  inline-size: var(--lumen-icon-md);
+  block-size: var(--lumen-icon-md);
   flex: 0 0 auto;
 }
 .lumen-inbox-shell button[data-size='s'] {
@@ -527,8 +527,8 @@
   color: var(--lumen-subtle);
 }
 .lumen-inbox-empty-icon svg {
-  inline-size: var(--hbar-app-ui-icon-lg);
-  block-size: var(--hbar-app-ui-icon-lg);
+  inline-size: var(--lumen-icon-lg);
+  block-size: var(--lumen-icon-lg);
 }
 .lumen-inbox-empty-reader {
   justify-content: center;

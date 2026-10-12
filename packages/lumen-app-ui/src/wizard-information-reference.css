@@ -79,8 +79,8 @@
 }
 .hbar-app-ui-wizard-information-step-number svg,
 .hbar-app-ui-wizard-information-footer svg {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;

@@ -22,8 +22,8 @@
   font-family: inherit;
 }
 .lumen-reader-reference button svg {
-  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
-  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  inline-size: var(--lumen-icon-sm, 0.875rem);
+  block-size: var(--lumen-icon-sm, 0.875rem);
   flex: 0 0 auto;
 }
 .lumen-reader-reference-outline {

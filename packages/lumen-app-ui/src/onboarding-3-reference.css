@@ -129,8 +129,8 @@
 }
 
 .lumen-onboarding3-check-icon {
-  inline-size: var(--hbar-app-ui-icon-xs);
-  block-size: var(--hbar-app-ui-icon-xs);
+  inline-size: var(--lumen-icon-xs);
+  block-size: var(--lumen-icon-xs);
   flex: 0 0 auto;
   stroke-width: 2.25;
 }
@@ -183,8 +183,8 @@
 }
 
 .lumen-onboarding3-action-icon {
-  inline-size: var(--hbar-app-ui-icon-sm);
-  block-size: var(--hbar-app-ui-icon-sm);
+  inline-size: var(--lumen-icon-sm);
+  block-size: var(--lumen-icon-sm);
   flex: 0 0 auto;
   stroke-width: 1.75;
 }

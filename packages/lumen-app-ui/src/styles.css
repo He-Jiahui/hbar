@@ -54,17 +54,19 @@
 @import './empty-state-reference.css';
 @import './workbench-compositions.css';
 
-/* Canonical defaults also serve compatibility class names without a hbar host. */
+/* Foundation tokens are independent of host naming and also serve catalog compositions. */
 :root {
-  --hbar-app-ui-icon-xs: 0.75rem;
-  --hbar-app-ui-icon-sm: 0.875rem;
-  --hbar-app-ui-icon-md: 1rem;
-  --hbar-app-ui-icon-lg: 1.25rem;
-  --hbar-app-ui-icon-xl: 1.5rem;
+  --lumen-canvas: #090909;
+  --lumen-icon-xs: 0.75rem;
+  --lumen-icon-sm: 0.875rem;
+  --lumen-icon-md: 1rem;
+  --lumen-icon-lg: 1.25rem;
+  --lumen-icon-xl: 1.5rem;
 }
 
 /* Scoped tokens for hosts that render Lumen composition components. */
 [data-lumen-mode='dark'] {
+  --lumen-canvas: #090909;
   --lumen-ink: #eee;
   --lumen-contrast: #090909;
   --lumen-info: #81b5ff;
@@ -88,6 +90,7 @@
 }
 
 [data-lumen-mode='light'] {
+  --lumen-canvas: #f5f5f5;
   --lumen-ink: #171717;
   --lumen-contrast: #f5f5f5;
   --lumen-info: #285bc3;
@@ -122,12 +125,12 @@ html:has([data-lumen-mode]),
   --lumen-motion-duration: 260ms;
   --lumen-motion-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
   /* prettier-ignore */
-  --hbar-app-ui-icon-xs: .75rem;
+  --lumen-icon-xs: .75rem;
   /* prettier-ignore */
-  --hbar-app-ui-icon-sm: .875rem;
-  --hbar-app-ui-icon-md: 1rem;
-  --hbar-app-ui-icon-lg: 1.25rem;
-  --hbar-app-ui-icon-xl: 1.5rem;
+  --lumen-icon-sm: .875rem;
+  --lumen-icon-md: 1rem;
+  --lumen-icon-lg: 1.25rem;
+  --lumen-icon-xl: 1.5rem;
   --lumen-scrollbar-track: #101010;
   --lumen-scrollbar-core: #f4f4f4;
   --lumen-scrollbar-halo: rgb(255 255 255 / 72%);
