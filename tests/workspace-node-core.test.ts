@@ -195,6 +195,17 @@ test('relative paths, readonly roots, protected directories and symlinks cannot 
   expect(await Bun.file(join(f.workspace, 'file.txt')).text()).toBe('old')
 })
 
+test('node policy updates validate before CAS and publish the committed revision', async () => {
+  const f = await fixture()
+  const initial = await f.state.call('floor.snapshot', {})
+  if (!initial.floor) throw new Error('Fixture floor was not initialized')
+  await expect(f.node.updatePolicy({ ...initial.floor, maxTimeoutMs: -1 }, initial.revision)).rejects.toThrow()
+  expect(await f.state.call('floor.snapshot', {})).toEqual(initial)
+  const recovered = await f.node.updatePolicy({ ...initial.floor, network: false }, initial.revision)
+  expect(recovered).toEqual({ floor: { ...initial.floor, network: false }, revision: initial.revision + 1 })
+  expect(f.node.policy).toEqual(recovered.floor)
+})
+
 test('the node protects credential and hooks case aliases even if their configured spelling is absent', async () => {
   const f = await fixture()
   await mkdir(join(f.workspace, '.GIT/HOOKS'), { recursive: true })

@@ -170,8 +170,39 @@ function dispatch(method: NodeStateMethod, value: unknown): unknown {
     }
     case 'floor.set': {
       const input = nodeStateMethods[method].input.parse(value)
-      saveConfig('floor', input)
+      db.transaction(() => {
+        const revision = Number(config('floorRevision') ?? 0)
+        if (!Number.isSafeInteger(revision) || revision < 0 || revision >= Number.MAX_SAFE_INTEGER)
+          throw new HbarError('INVALID_STATE', 'Node floor revision is invalid or exhausted')
+        saveConfig('floor', input)
+        saveConfig('floorRevision', revision + 1)
+      }).immediate()
       return input
+    }
+    case 'floor.snapshot': {
+      return db
+        .transaction(() => ({
+          floor: nodeFloorSchema.nullable().parse(config('floor')),
+          revision: Number(config('floorRevision') ?? 0),
+        }))
+        .immediate()
+    }
+    case 'floor.update': {
+      const input = nodeStateMethods[method].input.parse(value)
+      const updated = db
+        .transaction(() => {
+          const revision = Number(config('floorRevision') ?? 0)
+          if (revision !== input.expectedRevision) return null
+          const nextRevision = revision + 1
+          if (!Number.isSafeInteger(nextRevision))
+            throw new HbarError('INVALID_STATE', 'Node floor revision is exhausted')
+          saveConfig('floor', input.floor)
+          saveConfig('floorRevision', nextRevision)
+          return { floor: input.floor, revision: nextRevision }
+        })
+        .immediate()
+      if (!updated) throw new HbarError('NODE_POLICY_CONFLICT', 'Node floor changed since it was read')
+      return updated
     }
     case 'config.get':
       return config(nodeStateMethods[method].input.parse(value).key)

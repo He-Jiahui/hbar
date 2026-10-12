@@ -55,6 +55,10 @@ export const nodeConsoleInviteResultSchema = z.strictObject({
   code: z.string().regex(/^\d{8}$/),
   expiresAt: z.number().int().nonnegative().safe(),
 })
+export const nodePolicySnapshotSchema = z.strictObject({
+  floor: nodeFloorSchema,
+  revision: z.number().int().nonnegative().safe(),
+})
 /** B-local operator methods. Never registered on the A-B connection. */
 export const nodeConsoleMethods = {
   'node.status': {
@@ -70,6 +74,11 @@ export const nodeConsoleMethods = {
   },
   'node.policy.get': { input: empty, output: nodeFloorSchema },
   'node.policy.set': { input: nodeFloorSchema, output: nodeFloorSchema },
+  'node.policy.snapshot': { input: empty, output: nodePolicySnapshotSchema },
+  'node.policy.update': {
+    input: z.strictObject({ floor: nodeFloorSchema, expectedRevision: nodePolicySnapshotSchema.shape.revision }),
+    output: nodePolicySnapshotSchema,
+  },
   'node.pause': { input: z.strictObject({ paused: z.boolean() }), output: done },
   'node.kill': {
     input: z
@@ -116,6 +125,8 @@ const names: [NodeConsoleMethod, ...NodeConsoleMethod[]] = [
   'node.status',
   'node.policy.get',
   'node.policy.set',
+  'node.policy.snapshot',
+  'node.policy.update',
   'node.pause',
   'node.kill',
   'node.audit',

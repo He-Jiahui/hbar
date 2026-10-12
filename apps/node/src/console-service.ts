@@ -275,6 +275,21 @@ export class NodeConsoleService {
         requireOperator(principal)
         result = this.node?.policy ?? (await this.state.call('floor.get', {})) ?? { roots: [] }
         break
+      case 'node.policy.snapshot': {
+        requireOperator(principal)
+        result = await this.state.call('floor.snapshot', {})
+        break
+      }
+      case 'node.policy.update': {
+        requireOperator(principal)
+        const request = nodeConsoleMethods[method].input.parse(value)
+        if (this.node) result = await this.node.updatePolicy(request.floor, request.expectedRevision)
+        else {
+          const floor = await validateNodeRoots(request.floor, this.dataRoot, true)
+          result = await this.state.call('floor.update', { floor, expectedRevision: request.expectedRevision })
+        }
+        break
+      }
       case 'node.policy.set': {
         requireOperator(principal)
         const floor = nodeConsoleMethods['node.policy.set'].input.parse(value)

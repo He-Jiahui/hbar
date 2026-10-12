@@ -40,6 +40,7 @@ function outputTail(text: string): string {
 }
 export class WorkspaceNodeService {
   private floor: NodeFloor
+  private floorRevision: number
   private paused = false
   private disposed = false
   private starting = 0
@@ -59,9 +60,11 @@ export class WorkspaceNodeService {
     private readonly state: NodeStatePort,
     private readonly execution: ExecutionProvider,
     floor: NodeFloor,
+    floorRevision: number,
     private readonly backend: NodeExecutionBackend,
   ) {
     this.floor = nodeFloorSchema.parse(floor)
+    this.floorRevision = floorRevision
   }
   static async open(
     id: string,
@@ -71,13 +74,23 @@ export class WorkspaceNodeService {
     backend: NodeExecutionBackend,
   ) {
     await state.call('ready', {})
-    const floor = (await state.call('floor.get', {})) ?? nodeFloorSchema.parse({ roots: [] })
+    let snapshot = await state.call('floor.snapshot', {})
+    if (!snapshot) {
+      await state.call('floor.set', nodeFloorSchema.parse({ roots: [] }))
+      snapshot = await state.call('floor.snapshot', {})
+    }
+    const floor = snapshot.floor ?? nodeFloorSchema.parse({ roots: [] })
+    if (!snapshot.floor) {
+      await state.call('floor.set', floor)
+      snapshot = await state.call('floor.snapshot', {})
+    }
     const node = new WorkspaceNodeService(
       id,
       dataRoot,
       state,
       execution,
       await validateNodeRoots(floor, dataRoot),
+      snapshot.revision,
       backend,
     )
     node.paused = (await state.call('config.get', { key: 'paused' })) === true
@@ -90,12 +103,18 @@ export class WorkspaceNodeService {
     return [...this.active.keys()]
   }
   async setPolicy(value: unknown): Promise<NodeFloor> {
+    const result = await this.updatePolicy(value, this.floorRevision)
+    return result.floor
+  }
+  async updatePolicy(value: unknown, expectedRevision: number): Promise<{ floor: NodeFloor; revision: number }> {
     if (this.active.size || this.starting || this.locks.size || this.changingPolicy)
       throw new HbarError('NODE_BUSY', 'Stop active operations before changing the floor')
     this.changingPolicy = true
     try {
       const floor = await validateNodeRoots(nodeFloorSchema.parse(value), this.dataRoot, true)
-      this.floor = await this.state.call('floor.set', floor)
+      const updated = await this.state.call('floor.update', { floor, expectedRevision })
+      this.floor = updated.floor
+      this.floorRevision = updated.revision
       for (const listener of this.policyListeners) {
         try {
           listener()
@@ -103,7 +122,7 @@ export class WorkspaceNodeService {
           /* A notification observer cannot roll back the persisted floor. */
         }
       }
-      return this.policy
+      return { floor: this.policy, revision: this.floorRevision }
     } finally {
       this.changingPolicy = false
     }

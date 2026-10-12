@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { createHash, generateKeyPairSync, sign } from 'node:crypto'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
@@ -132,8 +132,12 @@ function observation(): NodeConsoleObservationPort {
 }
 async function startFixture() {
   const directory = await mkdtemp(join(tmpdir(), 'hbar-node-console-auth-'))
-  const state = new NodeStateStorage(join(directory, 'node.sqlite'))
+  const dataRoot = join(directory, 'node-data')
+  await mkdir(dataRoot)
+  const state = new NodeStateStorage(join(dataRoot, 'node.sqlite'))
   await state.call('ready', {})
+  await mkdir(join(directory, 'engine'))
+  await mkdir(join(directory, 'docs'))
   await state.call(
     'floor.set',
     nodeFloorSchema.parse({
@@ -143,8 +147,8 @@ async function startFixture() {
       ],
     }),
   )
-  const service = new NodeConsoleService(state, createNodeIdentity(), directory, undefined, undefined, observation())
-  const control = await startNodeControlServer(directory, service)
+  const service = new NodeConsoleService(state, createNodeIdentity(), dataRoot, undefined, undefined, observation())
+  const control = await startNodeControlServer(dataRoot, service)
   return { directory, state, service, control, url: (path: string) => new URL(path, control.connection.url).href }
 }
 async function createInvite(service: NodeConsoleService, role: 'operator' | 'observer', roots: string[]) {
@@ -193,6 +197,53 @@ test('B console challenges are one-use, source-bound, short-lived and capped', (
   for (let index = 0; index < 120; index++)
     auth.issue({ purpose: 'request', deviceId: 'paired-device' }, 'limited', 20_000)
   expect(() => auth.issue({ purpose: 'request', deviceId: 'paired-device' }, 'limited', 20_000)).toThrow('rate limit')
+})
+
+test('operator policy snapshot and CAS update use only B node state', async () => {
+  const fixture = await startFixture()
+  try {
+    const url = fixture.url('/rpc')
+    const headers = {
+      'content-type': 'application/json',
+      authorization: 'Bearer ' + fixture.control.connection.token,
+    }
+    const snapshotResponse = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ method: 'node.policy.snapshot', input: {} }),
+    })
+    const snapshot = z
+      .object({ result: z.object({ floor: nodeFloorSchema, revision: z.number().int().nonnegative() }) })
+      .parse(await snapshotResponse.json())
+    const updatedResponse = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        method: 'node.policy.update',
+        input: { floor: { ...snapshot.result.floor, process: false }, expectedRevision: snapshot.result.revision },
+      }),
+    })
+    expect(updatedResponse.ok).toBe(true)
+    const updated = z
+      .object({ result: z.object({ floor: nodeFloorSchema, revision: z.number().int().nonnegative() }) })
+      .parse(await updatedResponse.json())
+    expect(updated.result).toEqual({ floor: { ...snapshot.result.floor, process: false }, revision: 2 })
+    const staleResponse = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        method: 'node.policy.update',
+        input: { floor: snapshot.result.floor, expectedRevision: snapshot.result.revision },
+      }),
+    })
+    expect(staleResponse.status).toBe(400)
+    expect(await staleResponse.json()).toMatchObject({ code: 'NODE_POLICY_CONFLICT' })
+    expect(await fixture.state.call('floor.snapshot', {})).toEqual(updated.result)
+  } finally {
+    await fixture.control.close()
+    await fixture.state.close()
+    await rm(fixture.directory, { recursive: true, force: true })
+  }
 })
 
 test('B console pairs Ed25519 devices independently and enforces observer root read scope', async () => {
@@ -275,6 +326,22 @@ test('B console pairs Ed25519 devices independently and enforces observer root r
       process: false,
     })
     expect(deniedWrite.response.status).toBe(403)
+    const deniedPolicySnapshot = await authenticatedRequest(
+      fixture.url('/rpc'),
+      joined.key,
+      deviceId,
+      'node.policy.snapshot',
+      {},
+    )
+    expect(deniedPolicySnapshot.response.status).toBe(403)
+    const deniedPolicyUpdate = await authenticatedRequest(
+      fixture.url('/rpc'),
+      joined.key,
+      deviceId,
+      'node.policy.update',
+      { floor: { roots: [], process: false }, expectedRevision: 0 },
+    )
+    expect(deniedPolicyUpdate.response.status).toBe(403)
 
     const replay = await post(fixture.url('/rpc'), { ...snapshot.base, signature: snapshot.signature })
     expect(replay.status).toBe(401)

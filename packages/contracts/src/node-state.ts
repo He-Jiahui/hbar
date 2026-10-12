@@ -68,6 +68,14 @@ export const nodeStateMethods = {
   ready: { input: empty, output: z.strictObject({ version: z.literal(3) }) },
   'floor.get': { input: empty, output: nodeFloorSchema.nullable() },
   'floor.set': { input: nodeFloorSchema, output: nodeFloorSchema },
+  'floor.snapshot': {
+    input: empty,
+    output: z.strictObject({ floor: nodeFloorSchema.nullable(), revision: z.number().int().nonnegative().safe() }),
+  },
+  'floor.update': {
+    input: z.strictObject({ floor: nodeFloorSchema, expectedRevision: z.number().int().nonnegative().safe() }),
+    output: z.strictObject({ floor: nodeFloorSchema, revision: z.number().int().nonnegative().safe() }),
+  },
   'config.get': { input: z.strictObject({ key: z.enum(['identity', 'link', 'paused']) }), output: z.json().nullable() },
   'config.set': {
     input: z.strictObject({ key: z.enum(['identity', 'link', 'paused']), value: z.json().nullable() }),
