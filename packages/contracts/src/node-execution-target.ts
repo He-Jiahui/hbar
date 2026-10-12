@@ -7,6 +7,7 @@ const executionFloorSummarySchema = z.strictObject({
   network: z.boolean(),
   terminal: z.boolean(),
   osConfinement: z.enum(['required', 'preferred', 'off']),
+  backend: z.enum(['auto', 'bwrap', 'container', 'seatbelt', 'windows-restricted', 'windows-elevated']).optional(),
 })
 
 /** A target is captured by A at admission and describes observed B capability, never an execution claim. */
@@ -21,6 +22,8 @@ export const nodeExecutionTargetSchema = z.discriminatedUnion('kind', [
     rootAccess: z.enum(['read', 'write']),
     capabilitySummary: z.strictObject({
       backends: z.array(nodeBackendSchema).max(8),
+      /** The active B backend used by its enforcement capabilities; absent only in older saved observations. */
+      selectedBackend: nodeBackendSchema.optional(),
       filesystem: z.enum(['enforced', 'none']),
       network: z.enum(['enforced', 'env-only', 'none']),
       floor: executionFloorSummarySchema,

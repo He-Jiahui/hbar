@@ -2,6 +2,7 @@ import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError, providerSchema, diagnosticEventSchema, type DiagnosticSink } from '@hbar/contracts'
 import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
+import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import type {
   ExecutionOwnership,
   RuntimeOwner,
@@ -19,6 +20,7 @@ import {
   runtimeKernelRecoverySchema,
   runtimeKernelNodeIntentRecoverySchema,
   runtimeKernelRunSchema,
+  runtimeKernelNodeWorkspaceInspectionSchema,
 } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import {
@@ -71,6 +73,7 @@ import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
 import { RuntimeNodeLinkRelay } from './runtime-node-link-relay'
 import { RUNTIME_NODE_LINK_CONTROLS } from './runtime-node-link-contract'
 import { createRuntimeNodeIntentRecovery } from './runtime-node-intent-recovery'
+import { createRuntimeNodeWorkspaceInspection } from './runtime-node-workspace-inspection'
 
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
@@ -124,6 +127,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly controller: RuntimeControllerPort
   readonly nodeLink: RuntimeNodeLinkRelay
   private readonly nodeIntentRecovery: ReturnType<typeof createRuntimeNodeIntentRecovery>
+  private readonly nodeWorkspaceInspection: ReturnType<typeof createRuntimeNodeWorkspaceInspection>
   private controllerStarted = false
   private readonly statusFeed: RuntimeStatusFeed
   private readonly disposeStatus: () => void
@@ -286,6 +290,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       settle: async (identity, result) => {
         await this.storage.call('nodeExecutionIntentSettle', { identity, result })
       },
+    })
+    this.nodeWorkspaceInspection = createRuntimeNodeWorkspaceInspection({
+      storage: {
+        findSession: (id) => this.storage.call('findSession', id),
+        run: (id) => this.storage.call('run', id),
+        findWorkspace: (id) => this.storage.call('findWorkspace', id),
+        node: (id) => this.storage.call('node', id),
+      },
+      nodeCapabilities: { read: (id, signal) => this.nodeLink.call(id, 'node.capabilities', {}, signal) },
     })
     this.maintenance = new RuntimeMaintenanceRelay({
       layout: options.layout,
@@ -1393,6 +1406,23 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     )
     const id = z.string().min(1).max(160)
     record.cleanup.push(
+      peer.register(
+        'kernel.nodeWorkspaceInspection.captureExecutionTarget',
+        procedure(runtimeKernelNodeWorkspaceInspectionSchema, nodeExecutionTargetSchema, async (input, call) => {
+          const assertCurrentOwner = () => {
+            if (this.closing || this.manager.defaultOwner('kernel').incarnation !== owner.incarnation ||
+                this.coordinator.role(owner) !== 'default')
+              throw new HbarError('RUNTIME_OWNER_REVOKED', 'Node inspection requires the current default Kernel owner')
+            this.coordinator.assertCanWrite(owner)
+          }
+          assertCurrentOwner()
+          const target = await this.nodeWorkspaceInspection.captureExecutionTarget(
+            input, AbortSignal.any([call.signal, AbortSignal.timeout(15_000)]),
+          )
+          assertCurrentOwner()
+          return target
+        }),
+      ),
       peer.register(
         'kernel.secret.get',
         procedure(z.strictObject({ id }), z.string().nullable(), (input) => {

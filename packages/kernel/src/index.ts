@@ -2,10 +2,13 @@ import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
+import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
+import { admitNodeProcess } from './node-admission-gate'
 import { createNativeSecrets, type SecretStore } from './secrets'
 export { MemorySecrets, createNativeSecrets, type SecretStore } from './secrets'
 export { RuntimeRecoveryService } from './runtime-recovery'
 export type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
+export type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 export { reconcileNodeToolIntent } from './node-intent-recovery'
 export type { NodeToolIntentRecoveryIdentity, NodeToolIntentRecoveryResult } from './node-intent-recovery'
 export type { RuntimeRecoveryAdmission } from './runtime-recovery'
@@ -390,6 +393,8 @@ export interface KernelOptions {
   execution?: KernelExecutionPort | undefined
   /** Private Host bridge for authenticated remote execution intent recovery. */
   nodeIntentRecovery?: NodeIntentRecoveryPort | undefined
+  /** Stable Host adapter captures authenticated node facts before remote process admission. */
+  nodeWorkspaceInspection?: NodeWorkspaceInspectionPort | undefined
   /** The stable Host owns identity across managed Kernel generations. */
   instanceId?: string | undefined
   diagnostics?: DiagnosticSink | undefined
@@ -2798,6 +2803,7 @@ export class Kernel {
       let denial = 'Tool denied by policy'
       let environment: Readonly<Record<string, string>> | undefined
       let osConfinement: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
+      let snapshotNetworkEnabled = false
       // A policy plugin may still forbid a call; otherwise the Run's sandbox profile decides.
       if (mode === 'sandbox' && decision !== 'deny') {
         const sandbox = await this.sandboxDecision(tool, args, context, pinnedSandbox)
@@ -2805,6 +2811,36 @@ export class Kernel {
         denial = sandbox.denial
         environment = sandbox.environment
         osConfinement = sandbox.osConfinement
+        snapshotNetworkEnabled = sandbox.networkEnabled ?? false
+      }
+      let executionTarget: import('@hbar/contracts/node-execution-target').NodeExecutionTarget | undefined
+      const remoteWorkspaceAdmission = context.workspace.location?.kind === 'node' &&
+        ((tool.workspaceAccess !== undefined && tool.workspaceAccess.kind !== 'none') ||
+          (tool.effect === 'process' && tool.commandArgument !== undefined) ||
+          tool.requiresProcess === true)
+      if (remoteWorkspaceAdmission) {
+        if (!this.options.nodeWorkspaceInspection)
+          throw new HbarError('NODE_CAPABILITIES_UNAVAILABLE', 'Remote process admission requires verified node capabilities')
+        executionTarget = await this.options.nodeWorkspaceInspection.captureExecutionTarget(
+          { sessionId: context.session.id, runId: context.run.id, workspaceId: context.workspace.id },
+          hostSignal,
+        )
+        const pinnedLocation = context.workspace.location
+        if (
+          executionTarget.kind !== 'node' || pinnedLocation?.kind !== 'node' ||
+          executionTarget.nodeId !== pinnedLocation.nodeId ||
+          executionTarget.rootId !== pinnedLocation.rootId ||
+          executionTarget.nodePath !== pinnedLocation.nodePath
+        )
+          throw new HbarError('EXECUTION_TARGET_STALE', 'Remote workspace admission did not capture a node target')
+        const requiresNodeProcess = tool.effect === 'process' || tool.requiresProcess === true
+        const admitted = admitNodeProcess({
+          target: executionTarget,
+          snapshotNetworkEnabled,
+          ...(requiresNodeProcess && tool.effect !== 'process' ? { requiresProcess: true } : {}),
+          toolEffect: tool.effect === 'network' ? 'other' : tool.effect,
+        })
+        if (osConfinement) osConfinement = { ...osConfinement, networkEnabled: admitted.networkEnabled }
       }
       // The sandbox has already decided which calls need the user, so they are asked like `ask` mode.
       const gate = mode === 'sandbox' ? 'ask' : mode
@@ -2814,7 +2850,7 @@ export class Kernel {
       }
       if (tool.humanApproval === 'required' || (decision === 'ask' && gate === 'ask')) {
         this.executionDiagnostics.toolApproval(toolDiagnosticIdentity, name)
-        const resolution = await this.requestApproval(name, args, context, hostSignal)
+        const resolution = await this.requestApproval(name, args, context, hostSignal, executionTarget)
         const replacementStop = this.boundaryStops.get(context.run.id)
         if (replacementStop && !hostSignal.aborted) throw replacementStop
         if (resolution.source === 'abort') {
@@ -3036,6 +3072,7 @@ export class Kernel {
   ): Promise<{
     decision: 'allow' | 'ask' | 'deny'
     denial: string
+    networkEnabled?: boolean | undefined
     environment?: Readonly<Record<string, string>> | undefined
     osConfinement?: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
   }> {
@@ -3045,7 +3082,7 @@ export class Kernel {
       profile = await this.sandboxProfiles.loadSnapshot(ref)
     } catch (error) {
       if (!(error instanceof HbarError)) throw error
-      return { decision: 'deny', denial: `Denied: ${error.message}` }
+      return { decision: 'deny', denial: `Denied: ${error.message}`, networkEnabled: false }
     }
     const remoteLocation = context.workspace.location?.kind === 'node' ? context.workspace.location : undefined
     const remoteWorkspace = remoteLocation !== undefined
@@ -3078,11 +3115,13 @@ export class Kernel {
     const result: {
       decision: 'allow' | 'ask' | 'deny'
       denial: string
+      networkEnabled: boolean
       environment?: Readonly<Record<string, string>>
       osConfinement?: import('@hbar/plugin-sdk').OsConfinementOptions
     } = {
       decision: verdict.decision,
       denial: `Denied by sandbox profile ${profile.profileId}: ${describeSandboxReason(verdict.reason)}`,
+      networkEnabled: profile.network.enabled,
     }
     if (Object.keys(profile.environment.set).length) result.environment = profile.environment.set
     if (profile.osConfinement?.enabled) {
@@ -3127,6 +3166,7 @@ export class Kernel {
     args: Record<string, unknown>,
     context: ToolContext,
     hostSignal: AbortSignal,
+    executionTarget?: import('@hbar/contracts/node-execution-target').NodeExecutionTarget,
   ) {
     const approval: Approval = {
       id: crypto.randomUUID(),
@@ -3137,6 +3177,7 @@ export class Kernel {
       args,
       status: 'pending',
       createdAt: Date.now(),
+      ...(executionTarget ? { executionTarget } : {}),
     }
     let resolve!: (value: ApprovalResolution) => void
     const outcome = new Promise<ApprovalResolution>((done) => {

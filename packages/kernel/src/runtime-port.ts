@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { approvalModeSchema, inputSchema, runSchema, runModeSchema, userInputRequestSchema, terminalContributionSchema,
   toolWindowContributionSchema, settingsContributionSchema, themeContributionSchema } from '@hbar/contracts'
 import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
+import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
@@ -29,6 +30,8 @@ export const runtimeKernelCancelSchema = runtimeKernelRunSchema.extend({ persist
 export const runtimeKernelRunsSchema = z.strictObject({ runIds: z.array(id).max(256) })
 /** Private Host-only receipt reconciliation request; this is never registered on /node or operator RPC. */
 export const runtimeKernelNodeIntentRecoverySchema = z.enum(['settled', 'waiting'])
+/** Kernel-only request for Host-verified workspace provenance before admission. */
+export const runtimeKernelNodeWorkspaceInspectionSchema = z.strictObject({ sessionId: id, runId: id, workspaceId: id })
 export const runtimeKernelStateSchema = z.strictObject({
   instanceId: id, permission: approvalModeSchema, recovered: z.number().int().nonnegative(),
   driverIsolation: z.enum(['managed', 'legacy']),
@@ -45,7 +48,7 @@ export const runtimeKernelStateSchema = z.strictObject({
 })
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
 /** Kernel-initiated callbacks to the stable Host, never exposed as Kernel services or operator RPC. */
-export const RUNTIME_KERNEL_HOST_METHODS = ['kernel.nodeIntentRecovery.reconcileRun'] as const
+export const RUNTIME_KERNEL_HOST_METHODS = ['kernel.nodeIntentRecovery.reconcileRun', 'kernel.nodeWorkspaceInspection.captureExecutionTarget'] as const
 export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 'kernel.cancel', 'kernel.recover', 'kernel.recovery.resume', 'kernel.session.refresh', 'kernel.wake', 'kernel.application.control', 'kernel.application.callback'] as const
 export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.stringify([
   'hbar.kernel.runtime.v1', z.toJSONSchema(runtimeKernelConfigurationSchema), z.toJSONSchema(runtimeKernelSubmitSchema),
@@ -54,6 +57,7 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.strin
   RUNTIME_KERNEL_HOST_METHODS,
   z.toJSONSchema(runtimeKernelCancelSchema),
   z.toJSONSchema(runtimeKernelNodeIntentRecoverySchema),
+  z.toJSONSchema(runtimeKernelNodeWorkspaceInspectionSchema), z.toJSONSchema(nodeExecutionTargetSchema),
   z.toJSONSchema(runtimeWireNotificationSchema),
   z.toJSONSchema(runtimeKernelStateSchema), z.toJSONSchema(runSchema), z.toJSONSchema(runtimeKernelRecoverySchema),
 ])).digest('hex')

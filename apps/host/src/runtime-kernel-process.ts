@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
+import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
+import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
 import { Kernel, type KernelProfile, type NodeIntentRecoveryPort } from '@hbar/kernel'
 import { createDiagnosticScope, protectDiagnosticSink } from '@hbar/kernel/diagnostic-scope'
 import {
@@ -14,6 +16,7 @@ import {
   runtimeKernelStateSchema,
   runtimeKernelRecoverySchema,
   runtimeKernelNodeIntentRecoverySchema,
+  runtimeKernelNodeWorkspaceInspectionSchema,
   runtimeKernelCancelSchema,
 } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
@@ -159,6 +162,14 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
+      nodeWorkspaceInspection: {
+        captureExecutionTarget: (request, signal) => context.peer.call(
+          'kernel.nodeWorkspaceInspection.captureExecutionTarget',
+          runtimeKernelNodeWorkspaceInspectionSchema.parse(request),
+          nodeExecutionTargetSchema,
+          { signal, timeoutMs: 20_000 },
+        ),
+      } satisfies NodeWorkspaceInspectionPort,
       nodeIntentRecovery: {
         reconcileRun: (runId, signal) => context.peer.call(
           'kernel.nodeIntentRecovery.reconcileRun',

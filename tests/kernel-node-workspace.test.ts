@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { WorkspaceExecutionScope } from '@hbar/kernel'
 import type { Workspace } from '@hbar/contracts'
+import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
+import type { NodeExecutionTarget } from '@hbar/contracts/node-execution-target'
 import { nodeCapabilitiesSchema } from '@hbar/contracts/node'
 import { createNodeIdentity, nodeIdFromPublicKey } from '@hbar/node-core'
 import { SANDBOX_EVALUATOR_FINGERPRINT } from '@hbar/sandbox'
@@ -13,11 +15,16 @@ import { z } from 'zod'
 
 test('a node-owned Run keeps its B workspace and supplies admitted authority only during tool execution', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-kernel-node-workspace-'))
+  let executionTarget: NodeExecutionTarget = { kind: 'local' }
+  const nodeWorkspaceInspection: NodeWorkspaceInspectionPort = {
+    captureExecutionTarget: async () => executionTarget,
+  }
   const kernel = await Kernel.create({
     home: join(root, 'data'),
     workspace: root,
     demo: true,
     secrets: new MemorySecrets(),
+    nodeWorkspaceInspection,
   })
   try {
     const identity = createNodeIdentity()
@@ -39,6 +46,21 @@ test('a node-owned Run keeps its B workspace and supplies admitted authority onl
     })
     await kernel.storage.call('nodeTouch', nodeId, Date.now(), capabilities)
     const workspace = await kernel.createNodeWorkspace({ nodeId, rootId: 'engine' })
+    executionTarget = {
+      kind: 'node',
+      nodeId,
+      nodeName: 'Builder',
+      rootId: 'engine',
+      nodePath: '/srv/engine',
+      rootAccess: 'write',
+      capabilitySummary: {
+        backends: ['none'],
+        filesystem: 'none',
+        network: 'none',
+        floor: { process: true, network: false, terminal: false, osConfinement: 'off' },
+        observedAt: Date.now(),
+      },
+    }
     const session = await kernel.createSession(workspace.id)
     const targetSpy = spyOn(kernel.sessionLaunchTargets, 'workspaceForRun')
     const mountSpy = spyOn(kernel.workspaceSandboxes, 'prepare')

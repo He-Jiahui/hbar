@@ -172,6 +172,8 @@ export interface ToolDefinition extends ToolTimeoutPolicy {
   /** Declared managed owner; admission retains capacity until this process confirms physical completion. */
   runtimeOwner?: string
   effect: 'read' | 'write' | 'process' | 'network'
+  /** Declares a workspace operation whose implementation launches a process (for example Git). */
+  requiresProcess?: boolean | undefined
   /** Requested-input display only; the Host captures this declaration, never localized text or execution proof. */
   presentation?: ToolPresentationDeclaration
   /** A dedicated user decision is required even when the Run permits ordinary tool calls. */

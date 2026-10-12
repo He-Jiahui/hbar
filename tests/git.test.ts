@@ -239,6 +239,7 @@ test('Git rejects overlong or NUL-containing worktree targets before filesystem 
 test('AI Git commits persist tool-owned session, run, and operation provenance', async () => {
   const { root, runtime } = await fixture()
   await writeFile(join(root, 'automatic.txt'), 'automatic\n')
+  expect(gitTools(runtime).every((tool) => tool.requiresProcess)).toBe(true)
   const tool = gitTools(runtime).find((candidate) => candidate.name === 'git_commit')
   expect(tool).toBeDefined()
   const result = await tool!.execute(

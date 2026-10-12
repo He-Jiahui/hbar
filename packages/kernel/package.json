@@ -11,6 +11,7 @@
     "./secrets": "./src/secrets.ts",
     "./runtime-port": "./src/runtime-port.ts",
     "./runtime-application": "./src/runtime-application.ts",
+    "./node-workspace-inspection": "./src/node-workspace-inspection.ts",
     "./diagnostics": "./src/diagnostic-journal.ts",
     "./diagnostic-scope": "./src/diagnostic-scope.ts",
     "./session-search-commands": "./src/session-search-commands.ts",

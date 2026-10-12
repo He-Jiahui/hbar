@@ -5,6 +5,7 @@ import { resolveToolTimeoutMs, type ToolDefinition, type ToolContext, type HookE
 
 export const runtimePluginToolSchema = runtimeDriverToolSchema.extend({
   presentation: toolPresentationDeclarationSchema.optional(), humanApproval: z.literal('required').optional(),
+  requiresProcess: z.boolean().optional(),
   commandArgument: z.string().min(1).max(128).optional(),
   workspaceAccess: z.discriminatedUnion('kind', [z.strictObject({ kind: z.literal('none') }), z.strictObject({ kind: z.literal('workspace') }),
     z.strictObject({ kind: z.literal('paths'), arguments: z.array(z.strictObject({ field: z.string().min(1).max(128), access: z.enum(['read', 'write']) })).max(64) })]).optional(),
@@ -77,6 +78,7 @@ export function describeRuntimeTool(tool: ToolDefinition): RuntimePluginTool {
     ...(tool.timeoutArgument ? { timeoutArgument: tool.timeoutArgument } : {}),
     ...(tool.presentation ? { presentation: tool.presentation } : {}),
     ...(tool.humanApproval ? { humanApproval: tool.humanApproval } : {}),
+    ...(tool.requiresProcess === undefined ? {} : { requiresProcess: tool.requiresProcess }),
     ...(tool.commandArgument ? { commandArgument: tool.commandArgument } : {}),
     ...(tool.workspaceAccess ? { workspaceAccess: tool.workspaceAccess } : {}),
   })
@@ -88,6 +90,7 @@ export function runtimeToolAdapter(raw: unknown, port: RuntimeToolInvocation): T
     ...(tool.timeoutArgument ? { timeoutArgument: tool.timeoutArgument } : {}),
     ...(tool.presentation ? { presentation: tool.presentation } : {}),
     ...(tool.humanApproval ? { humanApproval: tool.humanApproval } : {}),
+    ...(tool.requiresProcess === undefined ? {} : { requiresProcess: tool.requiresProcess }),
     ...(tool.commandArgument ? { commandArgument: tool.commandArgument } : {}),
     ...(tool.workspaceAccess ? { workspaceAccess: tool.workspaceAccess } : {}),
     async validate(args) {
