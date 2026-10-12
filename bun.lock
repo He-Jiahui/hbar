@@ -322,6 +322,7 @@
       "dependencies": {
         "@hbar/contracts": "workspace:*",
         "@hbar/node-core": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
         "zod": "4.5.4",
       },
     },

@@ -30,3 +30,11 @@ export const nodeHandshakeFrameSchema = z.discriminatedUnion('type', [
 ])
 export type NodeRpcFrame = z.infer<typeof nodeRpcFrameSchema>
 export type NodeHandshakeFrame = z.infer<typeof nodeHandshakeFrameSchema>
+export const NODE_CLOSE_CODES = Object.freeze({
+  authentication: 4001,
+  protocol: 4002,
+  heartbeat: 4003,
+  evaluator: 4004,
+  revoked: 4005,
+  replaced: 4006,
+})
