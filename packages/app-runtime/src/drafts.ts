@@ -70,6 +70,22 @@ function initial(sessionId: string): SessionDraftState {
   }
 }
 
+function isDisposableEmptyDraft(draft: SessionDraftState): boolean {
+  return (
+    draft.status === 'idle' &&
+    draft.text.length === 0 &&
+    draft.mentions.length === 0 &&
+    (draft.workspaceContexts?.length ?? 0) === 0 &&
+    draft.attachments.length === 0 &&
+    draft.attachmentTransfers.length === 0 &&
+    draft.uploading === 0 &&
+    draft.uploadError === null &&
+    draft.error === null &&
+    draft.lastOperationId === null &&
+    !draft.pendingSubmission
+  )
+}
+
 function errorCode(error: unknown): string | null {
   if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') return error.code
   return null
@@ -471,6 +487,21 @@ export function createDrafts(
 
   return {
     reader: state.reader,
+    /** Create the empty writable projection when a Session becomes active. */
+    ensure(sessionId: string): void {
+      const current = state.reader.getSnapshot()
+      if (current[sessionId]) return
+      const next = { ...current }
+      if (Object.keys(next).length >= MAX_DRAFTS) {
+        const disposable = Object.entries(next).find(
+          ([candidateId, draft]) => candidateId !== sessionId && isDisposableEmptyDraft(draft),
+        )
+        if (!disposable) throw new CommandError('BUSY', 'Too many session drafts are open')
+        delete next[disposable[0]]
+      }
+      next[sessionId] = initial(sessionId)
+      state.replace(next)
+    },
     serializeSubmission(sessionId: string, expectedRevision: number, workspaceId: string, displayText: string): string {
       const current = entry(sessionId)
       checkRevision(current, expectedRevision)

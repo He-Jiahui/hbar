@@ -952,6 +952,17 @@ export function createAppRuntime(options: RuntimeOptions) {
     options.initialDrafts,
     draftArtifactReferences,
   )
+  const ensureSelectedSessionDraft = () => {
+    const selected = navigation.reader.getSnapshot()
+    if (
+      selected.status === 'idle' &&
+      selected.sessionId &&
+      !directory.reader.getSnapshot().deletedSessions?.[selected.sessionId]
+    )
+      drafts.ensure(selected.sessionId)
+  }
+  const offSelectedSessionDraft = navigation.reader.subscribe(ensureSelectedSessionDraft)
+  ensureSelectedSessionDraft()
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
     ...(options.settings ? { settings: options.settings } : {}),
@@ -1618,6 +1629,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       if (disposed) return
       disposed = true
       sessionDeletions.dispose()
+      offSelectedSessionDraft()
       offDraftArtifactConnection?.()
       draftArtifactReferences?.dispose()
       messageFork.dispose()
