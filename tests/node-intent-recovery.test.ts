@@ -96,7 +96,12 @@ describe('reconcileNodeToolIntent', () => {
       state: 'unknown',
       result: { hostFailure: { code: 'EFFECT_UNKNOWN', executionStarted: true } },
     })
-    expect(h.calls).toEqual(['scope', 'receipt', 'scope'])
+    expect(h.calls).toEqual([
+      'scope',
+      'receipt',
+      'scope',
+      'commit:The remote process may have produced effects before its receipt was lost. Inspect state before retrying.',
+    ])
   })
 
   test('settles known-not-started only after a validated online absent receipt; retry requires fresh admission', async () => {

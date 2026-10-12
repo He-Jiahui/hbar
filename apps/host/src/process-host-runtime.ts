@@ -14,8 +14,11 @@ import type { KernelControllerPort } from '@hbar/kernel/controller'
 import { createNativeSecrets, type SecretStore } from '@hbar/kernel/secrets'
 import {
   RUNTIME_KERNEL_CONTROL_METHODS,
+  RUNTIME_KERNEL_HOST_METHODS,
   runtimeKernelStateSchema,
   runtimeKernelRecoverySchema,
+  runtimeKernelNodeIntentRecoverySchema,
+  runtimeKernelRunSchema,
 } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import {
@@ -67,6 +70,7 @@ import { recordRuntimeStartupFailure, RuntimeStartupDiagnostics } from './runtim
 import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
 import { RuntimeNodeLinkRelay } from './runtime-node-link-relay'
 import { RUNTIME_NODE_LINK_CONTROLS } from './runtime-node-link-contract'
+import { createRuntimeNodeIntentRecovery } from './runtime-node-intent-recovery'
 
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
@@ -119,6 +123,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly maintenance: RuntimeMaintenanceRelay
   readonly controller: RuntimeControllerPort
   readonly nodeLink: RuntimeNodeLinkRelay
+  private readonly nodeIntentRecovery: ReturnType<typeof createRuntimeNodeIntentRecovery>
   private controllerStarted = false
   private readonly statusFeed: RuntimeStatusFeed
   private readonly disposeStatus: () => void
@@ -273,6 +278,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         workspace: (id) => this.storage.call('findWorkspace', id),
         snapshot: (id, before, limit) => this.kernel.snapshot(id, before, limit),
         events: (id, after, limit) => this.storage.call('events', id, after, limit),
+      },
+    })
+    this.nodeIntentRecovery = createRuntimeNodeIntentRecovery({
+      storage: this.storage,
+      node: this.nodeLink,
+      settle: async (identity, result) => {
+        await this.storage.call('nodeExecutionIntentSettle', { identity, result })
       },
     })
     this.maintenance = new RuntimeMaintenanceRelay({
@@ -1139,6 +1151,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
       controlMethods: [
         ...RUNTIME_KERNEL_CONTROL_METHODS,
+        ...RUNTIME_KERNEL_HOST_METHODS,
         ...RUNTIME_COORDINATION_CONTROL_METHODS,
         ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
@@ -1358,6 +1371,23 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Kernel storage authority belongs to another executor')
           this.coordinator.assertCanWrite(owner, input.authority)
           return this.storage.executeRpc(input)
+        }),
+      ),
+      peer.register(
+        'kernel.nodeIntentRecovery.reconcileRun',
+        procedure(runtimeKernelRunSchema, runtimeKernelNodeIntentRecoverySchema, async (input, call) => {
+          const assertHostAuthority = () => {
+            const current = this.manager.defaultOwner('kernel')
+            if (this.closing || current.incarnation !== owner.incarnation || this.coordinator.role(owner) !== 'default')
+              throw new HbarError('RUNTIME_OWNER_REVOKED', 'Node recovery requires the current default Kernel owner')
+            this.coordinator.assertCanWrite(owner)
+          }
+          assertHostAuthority()
+          return this.nodeIntentRecovery.reconcileRun(
+            input.runId,
+            AbortSignal.any([call.signal, AbortSignal.timeout(60_000)]),
+            assertHostAuthority,
+          )
         }),
       ),
     )

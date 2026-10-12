@@ -1,9 +1,13 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
+import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import { createNativeSecrets, type SecretStore } from './secrets'
 export { MemorySecrets, createNativeSecrets, type SecretStore } from './secrets'
 export { RuntimeRecoveryService } from './runtime-recovery'
+export type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
+export { reconcileNodeToolIntent } from './node-intent-recovery'
+export type { NodeToolIntentRecoveryIdentity, NodeToolIntentRecoveryResult } from './node-intent-recovery'
 export type { RuntimeRecoveryAdmission } from './runtime-recovery'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 export type { KernelExecutionPort } from './runtime-execution'
@@ -384,6 +388,8 @@ export interface KernelOptions {
   /** Managed activation never runs global recovery or starts scheduling during construction. */
   lifecycle?: 'automatic' | 'managed' | 'candidate' | undefined
   execution?: KernelExecutionPort | undefined
+  /** Private Host bridge for authenticated remote execution intent recovery. */
+  nodeIntentRecovery?: NodeIntentRecoveryPort | undefined
   /** The stable Host owns identity across managed Kernel generations. */
   instanceId?: string | undefined
   diagnostics?: DiagnosticSink | undefined
@@ -578,7 +584,7 @@ export class Kernel {
       }),
       check: run => this.checkRuntimeRecovery(run),
       publish: record => { this.changed('runtime-recovery'); if (record.run) this.kick(record.chain.sessionId) },
-    })
+    }, options.nodeIntentRecovery)
     this.removeStorageFatalListener = suppliedStorage.onFatal?.((event) => this.handleStorageFatal(event))
     this.workspaceSandboxes = new WorkspaceSandboxService(
       this.storage,
@@ -3982,6 +3988,7 @@ export class Kernel {
       await Promise.all([...this.drains.values(), ...this.scheduledWakeups.waiting])
   }
   async close() {
+    this.runtimeRecovery.close()
     this.closing = true
     this.continuationDiagnosticKeys.clear()
     this.removeStorageFatalListener?.()

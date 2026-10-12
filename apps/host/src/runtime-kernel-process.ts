@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
-import { Kernel, type KernelProfile } from '@hbar/kernel'
+import { Kernel, type KernelProfile, type NodeIntentRecoveryPort } from '@hbar/kernel'
 import { createDiagnosticScope, protectDiagnosticSink } from '@hbar/kernel/diagnostic-scope'
 import {
   KERNEL_RUNTIME_FINGERPRINT,
@@ -13,6 +13,7 @@ import {
   runtimeKernelSessionSchema,
   runtimeKernelStateSchema,
   runtimeKernelRecoverySchema,
+  runtimeKernelNodeIntentRecoverySchema,
   runtimeKernelCancelSchema,
 } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
@@ -158,6 +159,14 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
+      nodeIntentRecovery: {
+        reconcileRun: (runId, signal) => context.peer.call(
+          'kernel.nodeIntentRecovery.reconcileRun',
+          { runId },
+          runtimeKernelNodeIntentRecoverySchema,
+          { signal, timeoutMs: 65_000 },
+        ),
+      } satisfies NodeIntentRecoveryPort,
       onFatal: () => process.exit(76),
       ...(configuration.diagnosticsEnabled ? {
         diagnostics: protectDiagnosticSink({ emit: event => { void context.peer.notify('runtime.diagnostic', event).catch(() => {}) } }, diagnosticScope),

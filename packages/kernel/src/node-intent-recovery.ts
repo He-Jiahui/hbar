@@ -51,6 +51,7 @@ export async function reconcileNodeToolIntent(
         text: receipt.result.text,
         isError: receipt.result.isError,
         details: receipt.result.details,
+        outcome: { kind: receipt.result.isError ? 'failed' : 'succeeded', executionStarted: true },
       }
       await ports.commitSettled(identity, result)
       return { state: 'settled', result }
@@ -58,16 +59,17 @@ export async function reconcileNodeToolIntent(
     case 'accepted':
     case 'started':
       return { state: 'waiting' }
-    case 'lost':
-      return {
-        state: 'unknown',
-        result: {
-          text: 'The remote process may have produced effects before its receipt was lost. Inspect state before retrying.',
-          isError: true,
-          details: { code: 'EFFECT_UNKNOWN', executionStarted: true, reason: receipt.reason },
-          hostFailure: { code: 'EFFECT_UNKNOWN', executionStarted: true },
-        },
+    case 'lost': {
+      const result: ToolResult = {
+        text: 'The remote process may have produced effects before its receipt was lost. Inspect state before retrying.',
+        isError: true,
+        details: { code: 'EFFECT_UNKNOWN', executionStarted: true, reason: receipt.reason },
+        hostFailure: { code: 'EFFECT_UNKNOWN', executionStarted: true },
+        outcome: { kind: 'unknown', executionStarted: true },
       }
+      await ports.commitSettled(identity, result)
+      return { state: 'unknown', result }
+    }
     case 'absent':
       // Absence is actionable only because readReceipt resolved from the live, verified B.
       await ports.settleNeverAccepted(identity)
