@@ -28,6 +28,7 @@ export const RUNTIME_APPLICATION_METHODS = {
     'changePluginTree',
     'compact',
     'createWorkspace',
+    'createNodeWorkspace',
     'deleteProvider',
     'editQueuedRunText',
     'getContextUsage',

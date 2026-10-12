@@ -29,7 +29,15 @@ export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKe
   }
   registry.register(
     workspaceSessionCommands['workspace.create'],
-    ({ path }) => translate(() => kernel.createWorkspace(path)),
+    (input) => {
+      const path = input.path
+      if (typeof path !== 'string')
+        throw new CommandError(
+          'NODE_LINK_UNAVAILABLE',
+          'Remote workspace creation must be handled by Host node management',
+        )
+      return translate(() => kernel.createWorkspace(path))
+    },
     { durable: true },
   )
   registry.register(

@@ -44,6 +44,13 @@ import { undoRunFileChanges } from './run-file-changes'
 import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { nodeCallAuthoritySchema, type NodeCallAuthority } from '@hbar/contracts/node'
+import { nodeWorkspaceCreateSchema, type NodeWorkspaceCreate } from '@hbar/contracts/node-workspaces'
+import {
+  WorkspaceExecutionScopes,
+  remoteSandboxPathPort,
+  type RemoteSandboxPathPort,
+} from './workspace-execution-scope'
+export type { WorkspaceExecutionScope } from './workspace-execution-scope'
 import {
   assertContextCapacity,
   compactionBoundary,
@@ -480,6 +487,7 @@ type ApprovalResolution =
 
 export class Kernel {
   private readonly executionScope: KernelExecutionScope
+  private readonly workspaceExecutionScopes = new WorkspaceExecutionScopes()
   private readonly sessionSummaryCoordinator: SessionSummaryCoordinator
   private readonly runtimeRecovery: RuntimeRecoveryService
   private readonly executionDiagnostics: KernelExecutionDiagnostics
@@ -1226,6 +1234,14 @@ export class Kernel {
     this.changed('workspaces')
     return workspace
   }
+  async createNodeWorkspace(input: NodeWorkspaceCreate) {
+    const parsed = nodeWorkspaceCreateSchema.parse(input)
+    // Storage rechecks the persisted, non-revoked node and derives nodePath
+    // from its last verified capabilities inside the workspace transaction.
+    const workspace = await this.storage.call('createNodeWorkspace', parsed)
+    this.changed('workspaces')
+    return workspace
+  }
   async createSession(workspaceId: string, title?: string, parentId?: string) {
     const session = await this.storage.call('createSession', workspaceId, title, parentId)
     this.changed('sessions')
@@ -1802,22 +1818,29 @@ export class Kernel {
         images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
+      const admittedSession = await this.storage.call('session', sessionId)
+      const admittedWorkspace = await this.storage.call('workspace', admittedSession.workspaceId)
+      const remoteWorkspace = admittedWorkspace.location?.kind === 'node'
+      if (remoteWorkspace && (await this.getSessionLaunchTarget(sessionId)).selection.mode !== 'shared-current')
+        throw new HbarError('REMOTE_WORKTREE_UNSUPPORTED', 'Worktree execution is not available for workspace nodes')
       const run = await this.withSessionLaunchTargetLock(
         sessionId,
-        () =>
-          this.withSharedCheckoutLock(
+        () => {
+          const enqueue = async () => {
+            const binding = remoteWorkspace
+              ? undefined
+              : await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
+            signal?.throwIfAborted()
+            return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+          }
+          return remoteWorkspace
+            ? enqueue()
+            : this.withSharedCheckoutLock(
             sessionId,
-            async () => {
-              const binding = await this.sessionLaunchTargets.bindForRun(
-                sessionId,
-                signal,
-                expectedLaunchTargetRevision,
-              )
-              signal?.throwIfAborted()
-              return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
-            },
+            enqueue,
             signal,
-          ),
+          )
+        },
         signal,
       )
       if (run.status === 'queued') {
@@ -1975,18 +1998,26 @@ export class Kernel {
       const session = await this.storage.call('session', sessionId)
       const workspace = await this.storage.call('workspace', session.workspaceId)
       idleTimeout.progress()
-      const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)
-      idleTimeout.progress()
-      branchTargetRevision = branchTarget?.revision ?? null
-      branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal)
-      idleTimeout.progress()
-      const workspaceForRun: Workspace = {
-        ...workspace,
-        path: await this.workspaceSandboxes.prepare(
-          workspace.id,
-          branchExecutionPath,
-          controller.signal,
-        ),
+      const remoteWorkspace = workspace.location?.kind === 'node'
+      let workspaceForRun: Workspace
+      if (remoteWorkspace) {
+        // A node-owned workspace stays bound to its B path. Local worktree and
+        // materialized-sandbox preparation would silently move execution to A.
+        workspaceForRun = workspace
+      } else {
+        const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)
+        idleTimeout.progress()
+        branchTargetRevision = branchTarget?.revision ?? null
+        branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal)
+        idleTimeout.progress()
+        workspaceForRun = {
+          ...workspace,
+          path: await this.workspaceSandboxes.prepare(
+            workspace.id,
+            branchExecutionPath,
+            controller.signal,
+          ),
+        }
       }
       idleTimeout.progress()
       const model = resolveModelContextMode(await this.plugins.get<ModelRegistry>('models').get(run.modelId), run.input.maxMode === true)
@@ -2557,11 +2588,12 @@ export class Kernel {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
     const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
+    const modelWorkspacePath = workspace.location?.kind === 'node' ? workspace.location.nodePath : workspace.path
     const messages = steering
       ? buildSteeringContext(context.messages, { ...steering, compactedThroughSeq: context.throughSeq })
       : context.messages
     return hooks.dispatch('context.build', {
-      system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(workspace.path)}${run?.recovery ? '\nThis Run safely continues an interrupted execution. Use the durable conversation and tool results below. Continue only unfinished work under the original authorization; do not repeat committed operations or perform an operation whose prior result is unknown.' : ''}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
+      system: `You are hbar, a coding assistant. Work in ${modelWorkspacePath}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(modelWorkspacePath)}${run?.recovery ? '\nThis Run safely continues an interrupted execution. Use the durable conversation and tool results below. Continue only unfinished work under the original authorization; do not repeat committed operations or perform an operation whose prior result is unknown.' : ''}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
       messages:
         context.summary && messages[0]?.role !== 'user'
           ? [
@@ -2580,7 +2612,7 @@ export class Kernel {
       model,
       context: {
         sessionId,
-        workspacePath: workspace.path,
+        workspacePath: modelWorkspacePath,
         ...(this.active.get(sessionId)?.selectedToolNames
           ? { selectedToolNames: this.active.get(sessionId)?.selectedToolNames }
           : {}),
@@ -2636,7 +2668,24 @@ export class Kernel {
     this.streams.delete(id)
     this.streamPublished.delete(id)
   }
+  /** Private Host composition hook; deliberately omitted from RuntimeApplication's operator surface. */
+  workspaceExecutionScope() {
+    return this.workspaceExecutionScopes.current()
+  }
   private async execute(
+    name: string,
+    rawArgs: Record<string, unknown>,
+    context: ToolContext,
+    scope: RuntimeScope,
+    selectedTools?: readonly ToolDefinition[],
+  ): Promise<ToolResult> {
+    const workspace = structuredClone(context.workspace)
+    return this.workspaceExecutionScopes.run(
+      { workspace, signal: context.signal },
+      () => this.executeAdmittedTool(name, rawArgs, context, scope, selectedTools),
+    )
+  }
+  private async executeAdmittedTool(
     name: string,
     rawArgs: Record<string, unknown>,
     context: ToolContext,
@@ -2815,7 +2864,7 @@ export class Kernel {
           // These execution fields are Host-owned, even when hooks mutate ToolContext.
           const { environment: _hookEnvironment, reportProgress: _hookProgress,
             osConfinement: _hookConfinement, nodeAuthority: _hookNodeAuthority, ...plain } = context
-          let executed = await tool.execute(args, {
+          const toolContext: ToolContext = {
             ...plain,
             ...structuredClone(executionFacts),
             signal: controller.signal,
@@ -2827,7 +2876,11 @@ export class Kernel {
             },
             ...(environment ? { environment } : {}),
             ...(osConfinement ? { osConfinement } : {}),
-          })
+          }
+          let executed = await this.workspaceExecutionScopes.run(
+            { workspace: executionFacts.workspace, authority: nodeAuthority, signal: controller.signal },
+            () => tool.execute(args, toolContext),
+          )
           completedFileChanges = executed.fileChanges
           if (controller.signal.reason instanceof ToolTimeoutError) controller.signal.throwIfAborted()
           executed = (await scope.hooks.dispatch('tool.after', { name, result: executed, context })).result
@@ -2961,9 +3014,34 @@ export class Kernel {
       if (!(error instanceof HbarError)) throw error
       return { decision: 'deny', denial: `Denied: ${error.message}` }
     }
-    const mount = this.workspaceSandboxes.get(context.workspace.path)
+    const remoteLocation = context.workspace.location?.kind === 'node' ? context.workspace.location : undefined
+    const remoteWorkspace = remoteLocation !== undefined
+    const mount = remoteWorkspace ? undefined : this.workspaceSandboxes.get(context.workspace.path)
     if (mount) await this.workspaceSandboxes.verify(mount, context.signal)
-    const verdict = await evaluateSandboxCall(profile, { tool, args, workspace: context.workspace.path, mount })
+    const evaluate = async (workspace: string, paths?: RemoteSandboxPathPort) => {
+      const verdict = await evaluateSandboxCall(profile, {
+        tool,
+        args,
+        workspace,
+        ...(mount ? { mount } : {}),
+        ...(paths ? { paths } : {}),
+      })
+      return { verdict, paths }
+    }
+    const evaluated = remoteWorkspace
+      ? await this.workspaceExecutionScopes.run(
+          { workspace: context.workspace, signal: context.signal },
+          async () => {
+            const ownerPaths = await remoteSandboxPathPort(
+              this.plugins.get<ExecutionProvider>('execution'),
+              context.workspace,
+              context.signal,
+            )
+            return evaluate(ownerPaths.root, ownerPaths.port)
+          },
+        )
+      : await evaluate(context.workspace.path)
+    const { verdict } = evaluated
     const result: {
       decision: 'allow' | 'ask' | 'deny'
       denial: string
@@ -2975,12 +3053,32 @@ export class Kernel {
     }
     if (Object.keys(profile.environment.set).length) result.environment = profile.environment.set
     if (profile.osConfinement?.enabled) {
-      const writableRoots = profile.filesystem.grants
-        .filter((g) => g.access === 'write')
-        .flatMap((g) => this.workspaceSandboxes.grantPaths(context.workspace.path, g.path))
-      const readableRoots = profile.filesystem.grants
-        .filter((g) => g.access === 'read')
-        .flatMap((g) => this.workspaceSandboxes.grantPaths(context.workspace.path, g.path))
+      if (remoteWorkspace && tool.effect !== 'process') return result
+      if (remoteWorkspace && profile.filesystem.grants.some((grant) => /[*?]/.test(grant.path))) {
+        result.decision = 'deny'
+        result.denial = `Denied by sandbox profile ${profile.profileId}: OS confinement cannot map glob grants to exact workspace roots`
+        return result
+      }
+      const localGrantRoots = (access: 'read' | 'write') =>
+        profile.filesystem.grants
+          .filter((grant) => grant.access === access)
+          .flatMap((grant) => this.workspaceSandboxes.grantPaths(context.workspace.path, grant.path))
+      let writableRoots: readonly string[]
+      let readableRoots: readonly string[]
+      if (remoteWorkspace) {
+        const grants = profile.filesystem.grants
+        const ownerPaths = evaluated.paths
+        if (!ownerPaths) throw new HbarError('WORKSPACE_CANONICALIZATION_UNAVAILABLE', 'Workspace node paths are unavailable')
+        const canonical = await ownerPaths.canonicalMany(
+          grants.map((grant) => ownerPaths.resolve(remoteLocation.nodePath, grant.path)),
+          context.signal,
+        )
+        writableRoots = canonical.filter((_path, index) => grants[index]?.access === 'write')
+        readableRoots = canonical.filter((_path, index) => grants[index]?.access === 'read')
+      } else {
+        writableRoots = localGrantRoots('write')
+        readableRoots = localGrantRoots('read')
+      }
       result.osConfinement = {
         level: profile.osConfinement.mode,
         writableRoots,

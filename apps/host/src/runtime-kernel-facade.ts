@@ -91,6 +91,7 @@ export class RuntimeKernelFacade {
     const self = this
     this.api = {
       ...this.methods('kernel'),
+      createNodeWorkspace: (input) => this.call('kernel', 'createNodeWorkspace', [input]),
       ...(options.configurePlugin ? {
         changePlugin: options.configurePlugin,
         changePluginTree: async () => { throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Changing the plugin capability graph requires an explicit restart') },

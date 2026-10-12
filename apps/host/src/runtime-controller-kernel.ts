@@ -62,6 +62,7 @@ export class RuntimeControllerKernel {
     const self = this
     this.api = {
       ...this.methods('kernel'),
+      createNodeWorkspace: (input) => this.call('kernel.createNodeWorkspace', [input]),
       instanceId,
       options: { layout, demo },
       storage,

@@ -30,7 +30,7 @@ export type InteractionCommandKernelPort = Pick<
 export type ModelCommandKernelPort = Pick<Kernel, 'models' | 'getContextUsage'>
 export type WorkspaceSessionCommandKernelPort = Pick<
   Kernel,
-  'storage' | 'changed' | 'createWorkspace' | 'updateSession'
+  'storage' | 'changed' | 'createWorkspace' | 'createNodeWorkspace' | 'updateSession'
 > & {
   readonly options: Pick<Kernel['options'], 'layout'>
   readonly active: { has(sessionId: string): boolean }
