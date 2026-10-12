@@ -3,16 +3,41 @@ import { flushSync } from 'react-dom'
 import { Maximize, Minus, Plus, Workflow } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { clampDiagramZoom, fitDiagramZoom, type HbarDiagramLabels } from './markdown-diagram-model'
+import { createMessageScope } from './messages'
 import { renderMarkdownDiagram, type DiagramRenderResult } from './markdown-diagram-render'
 import { registerSessionCodeBlock } from './session-code-block-dom'
 import './markdown-diagram.css'
 
+const { Provider: MarkdownDiagramMessagesProvider, useMessages: useMarkdownDiagramMessages } =
+  createMessageScope<HbarDiagramLabels>()
+
+function useMarkdownDiagramLabels(): HbarDiagramLabels {
+  const { t } = useMarkdownDiagramMessages()
+  return {
+    title: t('title'),
+    source: t('source'),
+    diagram: t('diagram'),
+    preview: t('preview'),
+    previewTitle: t('previewTitle'),
+    close: t('close'),
+    loading: t('loading'),
+    generating: t('generating'),
+    retry: t('retry'),
+    failure: t('failure'),
+    zoomIn: t('zoomIn'),
+    zoomOut: t('zoomOut'),
+    resetZoom: t('resetZoom'),
+    fit: t('fit'),
+    zoom: t('zoom'),
+    panHelp: t('panHelp'),
+  }
+}
+
 /** A single original source pane, with a static graphic as renderer-owned chrome. */
-export function MarkdownDiagram({
+function MarkdownDiagramView({
   text,
   sourceText,
   owner,
-  labels,
   copy,
   find,
   occurrenceId,
@@ -22,13 +47,13 @@ export function MarkdownDiagram({
   readonly text: string
   readonly sourceText: string
   readonly owner?: object | undefined
-  readonly labels: HbarDiagramLabels
   readonly copy: ReactNode
   readonly find: boolean
   readonly occurrenceId: string
   readonly className?: string | undefined
   readonly streaming?: boolean | undefined
 }) {
+  const labels = useMarkdownDiagramLabels()
   const root = useRef<HTMLDivElement>(null)
   const header = useRef<HTMLDivElement>(null)
   const graphic = useRef<HTMLDivElement>(null)
@@ -326,5 +351,25 @@ export function MarkdownDiagram({
         )}
       </LumenFrame>
     </LumenFrame>
+  )
+}
+
+/** The existing labels prop adapts direct SDK callers to the diagram scope. */
+export function MarkdownDiagram(props: {
+  readonly text: string
+  readonly sourceText: string
+  readonly owner?: object | undefined
+  readonly labels: HbarDiagramLabels
+  readonly copy: ReactNode
+  readonly find: boolean
+  readonly occurrenceId: string
+  readonly className?: string | undefined
+  readonly streaming?: boolean | undefined
+}) {
+  const { labels, ...diagram } = props
+  return (
+    <MarkdownDiagramMessagesProvider messages={labels}>
+      <MarkdownDiagramView {...diagram} />
+    </MarkdownDiagramMessagesProvider>
   )
 }

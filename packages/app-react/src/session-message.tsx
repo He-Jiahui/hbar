@@ -1,4 +1,5 @@
 import './theme-bridge'
+import { createMessageScope } from './messages'
 import { Children, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { MessageResourceSourceProvider } from './message-resource'
 import {
@@ -136,6 +137,62 @@ export interface HbarMessageActionLabels {
   readonly copyFailed: string
   readonly copyUnavailable: string
   readonly retryCopy: string
+}
+
+const { Provider: MessageBlocksMessagesProvider, useMessages: useMessageBlocksMessages } =
+  createMessageScope<HbarMessageBlocksLabels>()
+const { Provider: MessageActionMessagesProvider, useMessages: useMessageActionMessages } =
+  createMessageScope<HbarMessageActionLabels>()
+
+function useMessageBlocksLabels(): HbarMessageBlocksLabels {
+  const { t } = useMessageBlocksMessages()
+  const feedback = t('feedback')
+  return {
+    input: t('input'),
+    output: t('output'),
+    toolResultCopy: t('toolResultCopy'),
+    emptyOutput: t('emptyOutput'),
+    unavailableInput: t('unavailableInput'),
+    showFullContent: t('showFullContent'),
+    showLessContent: t('showLessContent'),
+    command: t('command'),
+    originalInput: t('originalInput'),
+    errorOutput: t('errorOutput'),
+    showMoreOutput: t('showMoreOutput'),
+    showRawOutput: t('showRawOutput'),
+    showReadingOutput: t('showReadingOutput'),
+    emptyReadingOutput: t('emptyReadingOutput'),
+    thinking: t('thinking'),
+    thought: t('thought'),
+    activity: t('activity'),
+    tool: t('tool'),
+    failed: t('failed'),
+    denied: t('denied'),
+    cancelled: t('cancelled'),
+    interrupted: t('interrupted'),
+    unknown: t('unknown'),
+    incomplete: t('incomplete'),
+    resultAvailable: t('resultAvailable'),
+    awaitingResult: t('awaitingResult'),
+    running: t('running'),
+    ...(feedback === undefined ? {} : { feedback }),
+    codeBlock: t('codeBlock'),
+    attachment: t('attachment'),
+  }
+}
+
+function useMessageActionLabels(): HbarMessageActionLabels {
+  const { t } = useMessageActionMessages()
+  const copyMessage = t('copyMessage')
+  return {
+    copy: t('copy'),
+    ...(copyMessage === undefined ? {} : { copyMessage }),
+    copying: t('copying'),
+    copied: t('copied'),
+    copyFailed: t('copyFailed'),
+    copyUnavailable: t('copyUnavailable'),
+    retryCopy: t('retryCopy'),
+  }
 }
 
 export interface HbarMessageActionBarProps extends MessageCopyInput {
@@ -302,16 +359,15 @@ function Disclosure({
 function ToolStatus({
   outcome,
   running,
-  labels,
   activity,
   pending,
 }: {
   readonly outcome: ReturnType<typeof sessionToolOutcome>
   readonly running: boolean
-  readonly labels: HbarMessageBlocksLabels
   readonly activity?: SessionToolActivity | undefined
   readonly pending?: boolean | undefined
 }) {
+  const labels = useMessageBlocksLabels()
   const active = outcome === 'pending' && running
   const tone = active
     ? 'info'
@@ -358,7 +414,6 @@ function ToolStatus({
 function ToolRow({
   row,
   running,
-  labels,
   describeTool,
   sessionId,
   messageId,
@@ -369,7 +424,6 @@ function ToolRow({
 }: {
   readonly row: SessionToolRow
   readonly running: boolean
-  readonly labels: HbarMessageBlocksLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool'] | undefined
   readonly sessionId: string
   readonly messageId: string
@@ -378,6 +432,7 @@ function ToolRow({
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
   readonly toolActivity?: SessionToolActivities | undefined
 }) {
+  const labels = useMessageBlocksLabels()
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
   const icon = toolIcons[presentation?.icon ?? 'tool']
   const fallbackError = toolErrorPreview(row.result, labels.showFullContent)
@@ -395,7 +450,6 @@ function ToolRow({
         <ToolStatus
           outcome={outcome}
           running={active}
-          labels={labels}
           activity={activity}
           pending={Boolean(activity?.pending && !row.result)}
         />
@@ -475,7 +529,6 @@ export function messageActivitySummary(
 function Activity({
   rows,
   streaming,
-  labels,
   describeTool,
   sessionId,
   messageId,
@@ -487,7 +540,6 @@ function Activity({
 }: {
   readonly rows: readonly ActivityRow[]
   readonly streaming: boolean
-  readonly labels: HbarMessageBlocksLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool'] | undefined
   readonly sessionId: string
   readonly messageId: string
@@ -497,6 +549,7 @@ function Activity({
   readonly toolActivity?: SessionToolActivities | undefined
   readonly activityDisplay?: HbarMessageBlocksProps['activityDisplay']
 }) {
+  const labels = useMessageBlocksLabels()
   const activity = labels.activity(messageActivitySummary(rows, labels, describeTool))
   const tools = rows.filter((row): row is SessionToolRow => row.kind === 'tool')
   const counts = activityCounts(tools, toolActivity)
@@ -536,7 +589,6 @@ function Activity({
         key={row.id}
         row={row}
         running={streaming}
-        labels={labels}
         describeTool={describeTool}
         sessionId={sessionId}
         messageId={messageId}
@@ -578,7 +630,6 @@ function MessageBlocksContent({
   textFormat = 'markdown',
   results,
   streaming = false,
-  labels,
   describeTool,
   renderText,
   toolDecisions,
@@ -586,7 +637,8 @@ function MessageBlocksContent({
   renderToolAction,
   toolActivity,
   activityDisplay,
-}: HbarMessageBlocksProps) {
+}: Omit<HbarMessageBlocksProps, 'labels'>) {
+  const labels = useMessageBlocksLabels()
   const rows = buildMessageRows(blocks, results)
   const groups: Array<
     | { readonly id: string; readonly rows: readonly ActivityRow[] }
@@ -644,7 +696,6 @@ function MessageBlocksContent({
             key={group.id}
             rows={group.rows}
             streaming={streaming}
-            labels={labels}
             describeTool={describeTool}
             sessionId={sessionId}
             messageId={messageId}
@@ -663,7 +714,6 @@ function MessageBlocksContent({
             <ToolRow
               row={group}
               running={streaming}
-              labels={labels}
               describeTool={describeTool}
               sessionId={sessionId}
               messageId={messageId}
@@ -714,14 +764,16 @@ function MessageBlocksContent({
 }
 
 /** Normal-flow message content; the timeline remains the owner of history paging/virtualization. */
-export function HbarMessageBlocks(props: HbarMessageBlocksProps) {
+export function HbarMessageBlocks({ labels, ...message }: HbarMessageBlocksProps) {
   return (
-    <MessageResourceSourceProvider context={props.fileReferences}>
-      <MessageBlocksWithImages {...props} />
-    </MessageResourceSourceProvider>
+    <MessageBlocksMessagesProvider messages={labels}>
+      <MessageResourceSourceProvider context={message.fileReferences}>
+        <MessageBlocksWithImages {...message} />
+      </MessageResourceSourceProvider>
+    </MessageBlocksMessagesProvider>
   )
 }
-function MessageBlocksWithImages(props: HbarMessageBlocksProps) {
+function MessageBlocksWithImages(props: Omit<HbarMessageBlocksProps, 'labels'>) {
   if (!props.blocks.some((block) => block.type === 'image'))
     return <MessageBlocksContent key={JSON.stringify([props.sessionId, props.messageId])} {...props} />
   return (
@@ -740,13 +792,13 @@ function MessageBlocksWithImages(props: HbarMessageBlocksProps) {
 type CopyStatus = MessageCopyResult['status'] | 'idle' | 'copying'
 
 function MessageActionBarContent({
-  labels,
   copyLabel,
   clipboard,
   metadata,
   fork,
   ...input
-}: HbarMessageActionBarProps) {
+}: Omit<HbarMessageActionBarProps, 'labels'>) {
+  const labels = useMessageActionLabels()
   const text = messageCopyText(input.content)
   const [receipt, setReceipt] = useState<{ readonly text: string; readonly status: CopyStatus }>({
     text,
@@ -856,6 +908,10 @@ function MessageActionBarContent({
 }
 
 /** Local clipboard feedback remounts on target change; fork navigation is a separate runtime action. */
-export function HbarMessageActionBar(props: HbarMessageActionBarProps) {
-  return <MessageActionBarContent key={JSON.stringify([props.sessionId, props.messageId])} {...props} />
+export function HbarMessageActionBar({ labels, ...message }: HbarMessageActionBarProps) {
+  return (
+    <MessageActionMessagesProvider messages={labels}>
+      <MessageActionBarContent key={JSON.stringify([message.sessionId, message.messageId])} {...message} />
+    </MessageActionMessagesProvider>
+  )
 }

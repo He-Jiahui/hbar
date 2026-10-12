@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, FileDiff, Undo2 } from 'lucide-react'
 import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { RunFileChangesSummary, RunFileChangeDiff } from '@hbar/contracts/run-file-changes'
 import { runFileChangeReviewKey, EMPTY_FILE_CHANGE_REVIEW, type RunFileChangeReview } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarRunFileChangeRendererSlot, type HbarRunFileChangeRenderer } from './run-file-change-renderer'
 import './run-file-changes.css'
@@ -39,10 +40,13 @@ export interface HbarRunFileChangesLabels {
   readonly lineNumber: (value: number | null) => string
   readonly linePrefix: (kind: RunFileChangeDiff['items'][number]['kind']) => string
 }
-export function HbarRunFileChanges({
+
+const { Provider: RunFileChangesMessagesProvider, useMessages: useRunFileChangesMessages } =
+  createMessageScope<HbarRunFileChangesLabels>()
+
+function RunFileChangesView({
   summary,
   review = EMPTY_FILE_CHANGE_REVIEW,
-  labels,
   disabled = false,
   onFiles,
   onCollapse,
@@ -54,7 +58,6 @@ export function HbarRunFileChanges({
 }: {
   readonly summary: RunFileChangesSummary
   readonly review?: RunFileChangeReview
-  readonly labels: HbarRunFileChangesLabels
   readonly disabled?: boolean
   readonly onFiles: (direction: 'expand' | 'next' | 'previous') => void
   readonly onCollapse: () => void
@@ -64,6 +67,38 @@ export function HbarRunFileChanges({
   readonly onRetry: () => void
   readonly renderer?: HbarRunFileChangeRenderer | undefined
 }) {
+  const { t } = useRunFileChangesMessages()
+  const labels: HbarRunFileChangesLabels = {
+    edited: t('edited'),
+    added: t('added'),
+    removed: t('removed'),
+    delta: t('delta'),
+    undo: t('undo'),
+    undoing: t('undoing'),
+    undone: t('undone'),
+    undoUnavailable: t('undoUnavailable'),
+    view: t('view'),
+    hideDiff: t('hideDiff'),
+    more: t('more'),
+    less: t('less'),
+    loading: t('loading'),
+    incomplete: t('incomplete'),
+    retry: t('retry'),
+    error: t('error'),
+    openFile: t('openFile'),
+    fileKind: t('fileKind'),
+    previousFiles: t('previousFiles'),
+    nextFiles: t('nextFiles'),
+    filePage: t('filePage'),
+    diff: t('diff'),
+    diffCaption: t('diffCaption'),
+    noTextDiff: t('noTextDiff'),
+    previousLines: t('previousLines'),
+    nextLines: t('nextLines'),
+    linePage: t('linePage'),
+    lineNumber: t('lineNumber'),
+    linePrefix: t('linePrefix'),
+  }
   const listId = useId(),
     diffId = useId()
   if (summary.totalFiles === 0) return null
@@ -303,6 +338,28 @@ export function HbarRunFileChanges({
     </LumenFrame>
   )
 }
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarRunFileChanges({ labels, ...props }: {
+  readonly summary: RunFileChangesSummary
+  readonly review?: RunFileChangeReview
+  readonly labels: HbarRunFileChangesLabels
+  readonly disabled?: boolean
+  readonly onFiles: (direction: 'expand' | 'next' | 'previous') => void
+  readonly onCollapse: () => void
+  readonly onDiff: (path: string, offset?: number) => void
+  readonly onCloseDiff: () => void
+  readonly onUndo: () => void
+  readonly onRetry: () => void
+  readonly renderer?: HbarRunFileChangeRenderer | undefined
+}) {
+  return (
+    <RunFileChangesMessagesProvider messages={labels}>
+      <RunFileChangesView {...props} />
+    </RunFileChangesMessagesProvider>
+  )
+}
+
 export function HbarRunFileChangesConnected({
   sessionId,
   runId,

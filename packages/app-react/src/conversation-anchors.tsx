@@ -18,6 +18,7 @@ import {
   LumenReadingMarker,
 } from '@lumen/app-ui'
 import type { ConversationReadingTarget, SessionTimelineState } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 import { useHbarRuntime, type HbarRuntimeView } from './runtime'
 import {
   CONVERSATION_ANCHOR_PAGE_SIZE,
@@ -53,18 +54,33 @@ export interface HbarConversationAnchorRailProps {
   readonly onLoadOlder: () => void
 }
 
+const { Provider: ConversationAnchorMessagesProvider, useMessages: useConversationAnchorMessages } =
+  createMessageScope<HbarConversationAnchorLabels>()
+
 /** At most 24 markers; previous/next groups retain access to every loaded user turn. */
-export function HbarConversationAnchorRail({
+function ConversationAnchorRailView({
   anchors,
   activeId,
-  labels,
   hasOlder,
   olderStatus,
   canLoadOlder,
   navigating,
   onNavigate,
   onLoadOlder,
-}: HbarConversationAnchorRailProps) {
+}: Omit<HbarConversationAnchorRailProps, 'labels'>) {
+  const { t } = useConversationAnchorMessages()
+  const labels: HbarConversationAnchorLabels = {
+    navigation: t('navigation'),
+    jump: t('jump'),
+    preview: t('preview'),
+    attachments: t('attachments'),
+    previous: t('previous'),
+    next: t('next'),
+    older: t('older'),
+    loadingOlder: t('loadingOlder'),
+    retryOlder: t('retryOlder'),
+    historyLimit: t('historyLimit'),
+  }
   const nav = useRef<HTMLElement>(null)
   const popupAnchor = useRef<HTMLElement | null>(null)
   const tooltipId = useId()
@@ -266,6 +282,15 @@ export function HbarConversationAnchorRail({
         )}
       </LumenFloatingSurface>
     </LumenFrame>
+  )
+}
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarConversationAnchorRail({ labels, ...props }: HbarConversationAnchorRailProps) {
+  return (
+    <ConversationAnchorMessagesProvider messages={labels}>
+      <ConversationAnchorRailView {...props} />
+    </ConversationAnchorMessagesProvider>
   )
 }
 

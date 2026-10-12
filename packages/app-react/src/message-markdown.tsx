@@ -15,7 +15,12 @@ import { resourceReferenceSchema, parseResourceReference } from '@hbar/contracts
 import { MessageResourceLink, useMessageResources, useMessageResourceSource } from './message-resource'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
-import { CodeBlockCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
+import {
+  CodeBlockCopyAction,
+  CodeBlockMessagesProvider,
+  useCodeBlockLabels,
+  type HbarCodeBlockLabels,
+} from './code-block-copy-action'
 import { CODE_BLOCK_PREVIEW_LINES, messageCodeBlock } from './message-code-block-model'
 import { registerSessionCodeBlock } from './session-code-block-dom'
 import { MarkdownDiagram } from './markdown-diagram'
@@ -54,6 +59,7 @@ function MessageCodeBlock({
   readonly code: NonNullable<ReturnType<typeof messageCodeBlock>>
   readonly context: MessageCodeContext & { readonly source: string }
 }) {
+  const labels = useCodeBlockLabels()
   const [expanded, setExpanded] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const header = useRef<HTMLDivElement>(null)
@@ -88,8 +94,8 @@ function MessageCodeBlock({
     >
       <LumenFrame ref={header} className="hbar-message-code-header" data-session-find-exclude="code-chrome">
         <LumenFrame className="hbar-message-code-metadata">
-          <LumenText as="span">{context.labels.language(code.language)}</LumenText>
-          <LumenText as="span">{context.labels.lines(code.lines)}</LumenText>
+          <LumenText as="span">{labels.language(code.language)}</LumenText>
+          <LumenText as="span">{labels.lines(code.lines)}</LumenText>
         </LumenFrame>
         <CodeBlockCopyAction {...context} occurrenceId={code.occurrenceId} text={code.text} />
       </LumenFrame>
@@ -115,7 +121,7 @@ function MessageCodeBlock({
             aria-controls={bodyId}
             onClick={() => setExpanded((value) => !value)}
           >
-            {expanded ? context.labels.showLess : context.labels.showMore(code.lines - CODE_BLOCK_PREVIEW_LINES)}
+            {expanded ? labels.showLess : labels.showMore(code.lines - CODE_BLOCK_PREVIEW_LINES)}
           </LumenButton>
         </LumenFrame>
       )}
@@ -125,6 +131,7 @@ function MessageCodeBlock({
 
 function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & ExtraProps) {
   const context = useContext(CodeContext)
+  const labels = useCodeBlockLabels()
   const code = messageCodeBlock(node)
   if (context && code && isDiagramCode(code.language, code.text))
     return (
@@ -134,7 +141,7 @@ function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & Extr
         sourceText={code.domText}
         owner={context.owner}
         streaming={context.streaming}
-        labels={context.labels.diagram}
+        labels={labels.diagram}
         occurrenceId={code.occurrenceId}
         find
         copy={<CodeBlockCopyAction {...context} occurrenceId={code.occurrenceId} text={code.text} />}
@@ -319,6 +326,26 @@ export function MessageInlineMarkdown({ text }: { readonly text: string }) {
 
 /** One sanitized Markdown body shared by messages and Plan documents. */
 export function MessageMarkdown({
+  text,
+  findSegmentId,
+  code,
+  fileReferences,
+}: {
+  readonly text: string
+  readonly findSegmentId?: string | undefined
+  readonly code?: MessageCodeContext | undefined
+  readonly fileReferences?: MessageFileReferenceContext | undefined
+}) {
+  if (code)
+    return (
+      <CodeBlockMessagesProvider messages={code.labels}>
+        <MessageMarkdownBody text={text} findSegmentId={findSegmentId} code={code} fileReferences={fileReferences} />
+      </CodeBlockMessagesProvider>
+    )
+  return <MessageMarkdownBody text={text} findSegmentId={findSegmentId} fileReferences={fileReferences} />
+}
+
+function MessageMarkdownBody({
   text,
   findSegmentId,
   code,

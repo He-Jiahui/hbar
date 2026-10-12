@@ -6,6 +6,7 @@ import { MessageMarkdown } from './message-markdown'
 import type { HbarCodeBlockLabels } from './code-block-copy-action'
 import type { MessageClipboardPort } from './message-copy'
 import { useDecisionResultFocus } from './decision-result-focus'
+import { createMessageScope } from './messages'
 import './plan-exit-decision.css'
 
 export interface HbarPlanExitDecisionLabels {
@@ -20,6 +21,17 @@ export interface HbarPlanExitDecisionLabels {
   readonly continued: string
   readonly invalidPlan: string
 }
+type PlanExitStatusLabels = {
+  readonly pending: string
+  readonly submitting: string
+  readonly unknown: string
+  readonly cancelled: string
+  readonly reconcile: string
+  readonly error: (code: string) => string
+}
+type PlanExitDecisionMessages = HbarPlanExitDecisionLabels & PlanExitStatusLabels
+const { Provider: PlanExitDecisionMessagesProvider, useMessages: usePlanExitDecisionMessages } =
+  createMessageScope<PlanExitDecisionMessages>()
 
 export interface HbarPlanExitTarget {
   readonly sessionId: string
@@ -30,14 +42,12 @@ export interface HbarPlanExitTarget {
   readonly feedback?: string
 }
 
-export function HbarPlanExitDecision({
+function PlanExitDecisionView({
   copyOwner,
   clipboard,
   decision,
   action,
   connected,
-  labels,
-  statusLabels,
   onDecision,
   onReconcile,
 }: {
@@ -46,18 +56,10 @@ export function HbarPlanExitDecision({
   readonly decision: Extract<SessionDecision, { kind: 'approval' }>
   readonly action?: InteractionActionState | undefined
   readonly connected: boolean
-  readonly labels: HbarPlanExitDecisionLabels
-  readonly statusLabels: {
-    readonly pending: string
-    readonly submitting: string
-    readonly unknown: string
-    readonly cancelled: string
-    readonly reconcile: string
-    readonly error: (code: string) => string
-  }
   readonly onDecision: (target: HbarPlanExitTarget) => void
   readonly onReconcile: (target: { readonly sessionId: string; readonly actionId: string }) => void
 }) {
+  const { t } = usePlanExitDecisionMessages()
   const id = useId()
   // This is the card's explicitly owned feedback draft, not a copy of Host state.
   const [feedback, setFeedback] = useState('')
@@ -84,16 +86,16 @@ export function HbarPlanExitDecision({
   const confirmedFeedback = decision.approval.feedback ?? scoped?.submittedFeedback ?? feedback.trim()
   const statusText =
     status === 'allowed'
-      ? labels.implemented
+      ? t('implemented')
       : status === 'denied'
-        ? labels.continued
+        ? t('continued')
         : status === 'cancelled'
-          ? statusLabels.cancelled
+          ? t('cancelled')
           : unknown
-            ? statusLabels.unknown
+            ? t('unknown')
             : busy
-              ? statusLabels.submitting
-              : statusLabels.pending
+              ? t('submitting')
+              : t('pending')
   return (
     <LumenFrame
       as="section"
@@ -102,7 +104,7 @@ export function HbarPlanExitDecision({
       }}
       tabIndex={-1}
       className="hbar-plan-exit"
-      aria-label={labels.title}
+      aria-label={t('title')}
       aria-describedby={`${id}-status`}
       data-decision-id={decision.id}
       data-decision-kind="planExit"
@@ -111,7 +113,7 @@ export function HbarPlanExitDecision({
     >
       <LumenFrame className="hbar-plan-exit-heading">
         <LumenIcon icon={PencilLine} tier="md" />
-        <LumenContentText context="record.title">{labels.title}</LumenContentText>
+        <LumenContentText context="record.title">{t('title')}</LumenContentText>
         <LumenContentText context="control.status" id={`${id}-status`} role="status" className="hbar-plan-exit-status">
           {statusText}
         </LumenContentText>
@@ -120,9 +122,9 @@ export function HbarPlanExitDecision({
         <LumenFrame className="hbar-plan-exit-document">
           <LumenFrame className="hbar-plan-exit-document-heading">
             <LumenIcon icon={FileText} tier="sm" />
-            <LumenContentText context="record.title">{labels.document}</LumenContentText>
+            <LumenContentText context="record.title">{t('document')}</LumenContentText>
           </LumenFrame>
-          <LumenFrame className="hbar-plan-exit-markdown" role="region" aria-label={labels.document} tabIndex={0}>
+          <LumenFrame className="hbar-plan-exit-markdown" role="region" aria-label={t('document')} tabIndex={0}>
             {plan ? (
               <MessageMarkdown
                 text={plan}
@@ -130,21 +132,21 @@ export function HbarPlanExitDecision({
                   sessionId: decision.sessionId,
                   messageId: decision.id,
                   segmentId: 'plan-exit',
-                  labels: labels.codeBlock,
+                  labels: t('codeBlock'),
                   owner: copyOwner,
                   clipboard,
                 }}
               />
             ) : (
               <LumenContentText context="feedback.message" role="alert">
-                {labels.invalidPlan}
+                {t('invalidPlan')}
               </LumenContentText>
             )}
           </LumenFrame>
         </LumenFrame>
         {!complete ? (
           <LumenFrame as="label" className="hbar-plan-exit-feedback" htmlFor={`${id}-feedback`}>
-            <LumenContentText context="message.inline">{labels.feedback}</LumenContentText>
+            <LumenContentText context="message.inline">{t('feedback')}</LumenContentText>
             <LumenTextarea
               id={`${id}-feedback`}
               variant="plain"
@@ -152,7 +154,7 @@ export function HbarPlanExitDecision({
               maxLength={4000}
               value={feedback}
               disabled={blocked}
-              placeholder={labels.feedbackPlaceholder}
+              placeholder={t('feedbackPlaceholder')}
               onChange={(event) => setFeedback(event.currentTarget.value)}
             />
           </LumenFrame>
@@ -175,7 +177,7 @@ export function HbarPlanExitDecision({
             }}
           >
             <LumenIcon icon={Check} tier="sm" />
-            {labels.implement}
+            {t('implement')}
           </LumenButton>
           <LumenButton
             size="s"
@@ -188,7 +190,7 @@ export function HbarPlanExitDecision({
             }}
           >
             <LumenIcon icon={PencilLine} tier="sm" />
-            {labels.continuePlanning}
+            {t('continuePlanning')}
           </LumenButton>
           {unknown ? (
             <LumenButton
@@ -204,16 +206,36 @@ export function HbarPlanExitDecision({
               }}
             >
               <LumenIcon icon={RefreshCw} tier="sm" />
-              {statusLabels.reconcile}
+              {t('reconcile')}
             </LumenButton>
           ) : null}
         </LumenFrame>
       ) : null}
       {!complete && scoped?.error ? (
         <LumenContentText context="feedback.message" role="alert" tone="danger" className="hbar-plan-exit-error">
-          {statusLabels.error(scoped.error)}
+          {t('error')(scoped.error)}
         </LumenContentText>
       ) : null}
     </LumenFrame>
+  )
+}
+
+/** Existing label props adapt direct SDK callers to the Plan Exit message scope. */
+export function HbarPlanExitDecision(props: {
+  readonly copyOwner?: object | undefined
+  readonly clipboard?: MessageClipboardPort | null | undefined
+  readonly decision: Extract<SessionDecision, { kind: 'approval' }>
+  readonly action?: InteractionActionState | undefined
+  readonly connected: boolean
+  readonly labels: HbarPlanExitDecisionLabels
+  readonly statusLabels: PlanExitStatusLabels
+  readonly onDecision: (target: HbarPlanExitTarget) => void
+  readonly onReconcile: (target: { readonly sessionId: string; readonly actionId: string }) => void
+}) {
+  const { labels, statusLabels, ...decision } = props
+  return (
+    <PlanExitDecisionMessagesProvider messages={{ ...labels, ...statusLabels }}>
+      <PlanExitDecisionView {...decision} />
+    </PlanExitDecisionMessagesProvider>
   )
 }

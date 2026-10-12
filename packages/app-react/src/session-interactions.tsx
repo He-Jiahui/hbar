@@ -20,6 +20,7 @@ import {
   LumenTextarea,
 } from '@lumen/app-ui'
 import type { InteractionActionState, QuestionnaireDraftState, SessionDecision } from '@hbar/app-runtime'
+import { createMessageScope } from './messages'
 import { toolInputText } from './session-message-model'
 import './session-interactions.css'
 import { HbarPlanExitDecision, type HbarPlanExitDecisionLabels, type HbarPlanExitTarget } from './plan-exit-decision'
@@ -85,13 +86,50 @@ export interface HbarSessionDecisionProps {
   readonly onReconcile: (target: { readonly sessionId: string; readonly actionId: string }) => void
 }
 
+const { Provider: SessionDecisionMessagesProvider, useMessages: useSessionDecisionMessages } =
+  createMessageScope<HbarSessionDecisionLabels>()
+
+function useSessionDecisionLabels(): HbarSessionDecisionLabels {
+  const { t } = useSessionDecisionMessages()
+  return {
+    planExit: t('planExit'),
+    approval: t('approval'),
+    questionnaire: t('questionnaire'),
+    pending: t('pending'),
+    submitting: t('submitting'),
+    submitted: t('submitted'),
+    unknown: t('unknown'),
+    unavailable: t('unavailable'),
+    allow: t('allow'),
+    deny: t('deny'),
+    allowed: t('allowed'),
+    denied: t('denied'),
+    cancelled: t('cancelled'),
+    answered: t('answered'),
+    failed: t('failed'),
+    reconcile: t('reconcile'),
+    details: t('details'),
+    hideDetails: t('hideDetails'),
+    unavailableInput: t('unavailableInput'),
+    path: t('path'),
+    command: t('command'),
+    proposedContent: t('proposedContent'),
+    oldFragment: t('oldFragment'),
+    newFragment: t('newFragment'),
+    customAnswer: t('customAnswer'),
+    customPlaceholder: t('customPlaceholder'),
+    submit: t('submit'),
+    secretAnswer: t('secretAnswer'),
+    error: t('error'),
+  }
+}
+
 function ApprovalPreview({
   decision,
-  labels,
 }: {
   readonly decision: Extract<SessionDecision, { kind: 'approval' }>
-  readonly labels: HbarSessionDecisionLabels
 }) {
+  const labels = useSessionDecisionLabels()
   const [expanded, setExpanded] = useState(false)
   const id = useId()
   const { args } = decision.approval
@@ -160,13 +198,13 @@ function DecisionContent({
   decision,
   action,
   answers = {},
-  labels,
   connected,
   onDecision,
   onAnswer,
   onSubmit,
   onReconcile,
-}: HbarSessionDecisionProps) {
+}: Omit<HbarSessionDecisionProps, 'labels'>) {
+  const labels = useSessionDecisionLabels()
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null)
   const id = useId()
   const scopedAction =
@@ -250,7 +288,7 @@ function DecisionContent({
         </LumenContentText>
       </LumenFrame>
       {decision.kind === 'approval' ? (
-        <ApprovalPreview decision={decision} labels={labels} />
+        <ApprovalPreview decision={decision} />
       ) : (
         <LumenFrame className="hbar-decision-questions">
           {questions.length > 1 ? (
@@ -451,7 +489,8 @@ function DecisionContent({
   )
 }
 
-export function HbarSessionDecision(props: HbarSessionDecisionProps) {
+function SessionDecisionView(props: Omit<HbarSessionDecisionProps, 'labels'>) {
+  const labels = useSessionDecisionLabels()
   if (props.decision.kind === 'approval' && props.decision.tool === 'exit_plan_mode')
     return (
       <HbarPlanExitDecision
@@ -461,11 +500,21 @@ export function HbarSessionDecision(props: HbarSessionDecisionProps) {
         decision={props.decision}
         action={props.action}
         connected={props.connected}
-        labels={props.labels.planExit}
-        statusLabels={props.labels}
+        labels={labels.planExit}
+        statusLabels={labels}
         onDecision={props.onPlanExit}
         onReconcile={props.onReconcile}
       />
     )
   return <DecisionContent key={JSON.stringify([props.decision.sessionId, props.decision.id])} {...props} />
+}
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarSessionDecision(props: HbarSessionDecisionProps) {
+  const { labels, ...decision } = props
+  return (
+    <SessionDecisionMessagesProvider messages={labels}>
+      <SessionDecisionView {...decision} />
+    </SessionDecisionMessagesProvider>
+  )
 }

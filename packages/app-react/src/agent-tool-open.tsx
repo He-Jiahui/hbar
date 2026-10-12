@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
+import { createMessageScope } from './messages'
 import { useHbarRuntime } from './runtime'
 import './agent-tool-open.css'
 
@@ -11,8 +12,11 @@ export interface HbarAgentToolOpenLabels {
   readonly error: (code: string) => string
 }
 
+const { Provider: AgentToolOpenMessagesProvider, useMessages: useAgentToolOpenMessages } =
+  createMessageScope<HbarAgentToolOpenLabels>()
+
 /** One content-grown action alongside its tool disclosure; no child/status mirror is retained here. */
-export function HbarAgentToolOpen({
+function AgentToolOpenView({
   parentSessionId,
   messageId,
   callId,
@@ -20,7 +24,6 @@ export function HbarAgentToolOpen({
   objective,
   sourceTabInstanceKey,
   connected,
-  labels,
 }: {
   readonly parentSessionId: string
   readonly messageId: string
@@ -29,8 +32,14 @@ export function HbarAgentToolOpen({
   readonly objective: string
   readonly sourceTabInstanceKey: string
   readonly connected: boolean
-  readonly labels: HbarAgentToolOpenLabels
 }) {
+  const { t } = useAgentToolOpenMessages()
+  const labels: HbarAgentToolOpenLabels = {
+    open: t('open'),
+    openNamed: t('openNamed'),
+    opening: t('opening'),
+    error: t('error'),
+  }
   const runtime = useHbarRuntime()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -88,5 +97,26 @@ export function HbarAgentToolOpen({
         </LumenContentText>
       )}
     </LumenFrame>
+  )
+}
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function HbarAgentToolOpen({
+  labels,
+  ...identity
+}: {
+  readonly parentSessionId: string
+  readonly messageId: string
+  readonly callId: string
+  readonly childSessionId: string
+  readonly objective: string
+  readonly sourceTabInstanceKey: string
+  readonly connected: boolean
+  readonly labels: HbarAgentToolOpenLabels
+}) {
+  return (
+    <AgentToolOpenMessagesProvider messages={labels}>
+      <AgentToolOpenView {...identity} />
+    </AgentToolOpenMessagesProvider>
   )
 }

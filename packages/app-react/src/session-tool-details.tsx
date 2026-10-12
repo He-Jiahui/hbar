@@ -12,6 +12,7 @@ import { MarkdownCodeContent } from './markdown-code-content'
 import { serializedReadingLanguage } from './plain-code-tokens'
 import { HbarToolResultImages } from './session-images'
 import { ToolOutputImageLinks } from './tool-output-image-links'
+import { createMessageScope } from './messages'
 
 function SourceText({
   text,
@@ -51,6 +52,9 @@ export interface HbarToolDetailsLabels {
   readonly emptyReadingOutput: string
 }
 
+const { Provider: ToolDetailsMessagesProvider, useMessages: useToolDetailsMessages } =
+  createMessageScope<HbarToolDetailsLabels>()
+
 export interface HbarMessageToolPresentation {
   readonly icon: 'file' | 'file-write' | 'file-edit' | 'directory' | 'terminal' | 'search' | 'tool'
   /** Host-localized action; the original tool name remains the row's identity. */
@@ -68,17 +72,16 @@ const DETAIL_PREVIEW_CHARACTERS = 12_000
 
 function DetailText({
   text,
-  labels,
   command = false,
   language,
   owner,
 }: {
   readonly text: string
-  readonly labels: HbarToolDetailsLabels
   readonly command?: boolean
   readonly language?: string | null | undefined
   readonly owner?: object | undefined
 }) {
+  const { t } = useToolDetailsMessages()
   const [full, setFull] = useState(false)
   const long = text.length > DETAIL_PREVIEW_CHARACTERS
   return (
@@ -92,7 +95,7 @@ function DetailText({
       </LumenText>
       {long ? (
         <LumenButton variant="text" indicator="none" size="s" onClick={() => setFull(!full)} aria-expanded={full}>
-          {full ? labels.showLessContent : labels.showFullContent}
+          {full ? t('showLessContent') : t('showFullContent')}
         </LumenButton>
       ) : null}
     </LumenFrame>
@@ -102,7 +105,6 @@ function DetailText({
 function CommandDetails({
   row,
   command,
-  labels,
   sessionId,
   messageId,
   clipboard,
@@ -110,12 +112,12 @@ function CommandDetails({
 }: {
   readonly row: SessionToolRow
   readonly command: string
-  readonly labels: HbarToolDetailsLabels
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
   readonly copyOwner?: object | undefined
 }) {
+  const { t } = useToolDetailsMessages()
   const [expanded, setExpanded] = useState(false)
   const [rawView, setRawView] = useState(false)
   const outputId = useId()
@@ -133,9 +135,9 @@ function CommandDetails({
     <LumenFrame className="hbar-session-command" data-outcome={outcome}>
       <LumenFrame className="hbar-session-command-input">
         <LumenContentText context="message.inline" className="hbar-session-tool-heading">
-          {labels.command}
+          {t('command')}
         </LumenContentText>
-        <DetailText text={command} labels={labels} language="shellscript" owner={copyOwner} />
+        <DetailText text={command} language="shellscript" owner={copyOwner} />
       </LumenFrame>
       {row.result && (
         <LumenFrame
@@ -146,7 +148,7 @@ function CommandDetails({
         >
           <LumenFrame className="hbar-session-tool-result-heading">
             <LumenContentText context="message.inline" className="hbar-session-tool-heading">
-              {failed ? labels.errorOutput : labels.output}
+              {failed ? t('errorOutput') : t('output')}
             </LumenContentText>
             <LumenFrame className="hbar-session-command-output-actions">
               {reading.changed && (
@@ -160,7 +162,7 @@ function CommandDetails({
                   aria-controls={outputId}
                   onClick={() => setRawView((value) => !value)}
                 >
-                  {rawView ? labels.showReadingOutput : labels.showRawOutput}
+                  {rawView ? t('showReadingOutput') : t('showRawOutput')}
                 </LumenButton>
               )}
               <ToolResultCopyAction
@@ -169,7 +171,7 @@ function CommandDetails({
                 callId={row.result.callId}
                 toolName={row.result.name}
                 text={output}
-                labels={labels.toolResultCopy}
+                labels={t('toolResultCopy')}
                 clipboard={clipboard}
               />
             </LumenFrame>
@@ -192,9 +194,9 @@ function CommandDetails({
                 )}
               </>
             ) : reading.changed && !rawView ? (
-              labels.emptyReadingOutput
+              t('emptyReadingOutput')
             ) : (
-              labels.emptyOutput
+              t('emptyOutput')
             )}
           </LumenText>
           <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
@@ -211,22 +213,17 @@ function CommandDetails({
               onClick={() => setExpanded((value) => !value)}
             >
               {expanded
-                ? labels.showLessContent
+                ? t('showLessContent')
                 : window.hiddenLines
-                  ? labels.showMoreOutput(window.hiddenLines)
-                  : labels.showFullContent}
+                  ? t('showMoreOutput')(window.hiddenLines)
+                  : t('showFullContent')}
             </LumenButton>
           )}
         </LumenFrame>
       )}
       {row.call && (
-        <HbarLumenDisclosure label={labels.originalInput} className="hbar-session-command-original">
-          <DetailText
-            text={toolInputText(row.call.args, labels.unavailableInput)}
-            labels={labels}
-            language="json"
-            owner={copyOwner}
-          />
+        <HbarLumenDisclosure label={t('originalInput')} className="hbar-session-command-original">
+          <DetailText text={toolInputText(row.call.args, t('unavailableInput'))} language="json" owner={copyOwner} />
         </HbarLumenDisclosure>
       )}
     </LumenFrame>
@@ -234,10 +231,9 @@ function CommandDetails({
 }
 
 /** Mounted only after disclosure. Preview capacity never changes the copied original output. */
-export function SessionToolDetails({
+function SessionToolDetailsView({
   row,
   presentation,
-  labels,
   sessionId,
   messageId,
   clipboard,
@@ -245,18 +241,17 @@ export function SessionToolDetails({
 }: {
   readonly row: SessionToolRow
   readonly presentation?: HbarMessageToolPresentation | undefined
-  readonly labels: HbarToolDetailsLabels
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
   readonly copyOwner?: object | undefined
 }) {
+  const { t } = useToolDetailsMessages()
   if (row.call && presentation?.command !== undefined)
     return (
       <CommandDetails
         row={row}
         command={presentation.command}
-        labels={labels}
         sessionId={sessionId}
         messageId={messageId}
         clipboard={clipboard}
@@ -268,11 +263,10 @@ export function SessionToolDetails({
       {row.call ? (
         <LumenFrame className="hbar-session-tool-section" data-content-kind="input">
           <LumenContentText context="message.inline" className="hbar-session-tool-heading">
-            {labels.input}
+            {t('input')}
           </LumenContentText>
           <DetailText
-            text={presentation?.input?.text ?? toolInputText(row.call.args, labels.unavailableInput)}
-            labels={labels}
+            text={presentation?.input?.text ?? toolInputText(row.call.args, t('unavailableInput'))}
             command={presentation?.input?.format === 'command'}
             language={presentation?.input ? (presentation.input.format === 'command' ? 'shellscript' : null) : 'json'}
             owner={copyOwner}
@@ -288,7 +282,7 @@ export function SessionToolDetails({
         >
           <LumenFrame className="hbar-session-tool-result-heading">
             <LumenContentText context="message.inline" className="hbar-session-tool-heading">
-              {labels.output}
+              {t('output')}
             </LumenContentText>
             <ToolResultCopyAction
               sessionId={sessionId}
@@ -296,13 +290,12 @@ export function SessionToolDetails({
               callId={row.result.callId}
               toolName={row.result.name}
               text={row.result.text}
-              labels={labels.toolResultCopy}
+              labels={t('toolResultCopy')}
               clipboard={clipboard}
             />
           </LumenFrame>
           <DetailText
-            text={row.result.text || labels.emptyOutput}
-            labels={labels}
+            text={row.result.text || t('emptyOutput')}
             command={presentation?.input?.format === 'command'}
             owner={copyOwner}
           />
@@ -311,5 +304,23 @@ export function SessionToolDetails({
         </LumenFrame>
       ) : null}
     </>
+  )
+}
+
+/** The legacy labels prop remains the host adapter for existing SDK callers. */
+export function SessionToolDetails(props: {
+  readonly row: SessionToolRow
+  readonly presentation?: HbarMessageToolPresentation | undefined
+  readonly labels: HbarToolDetailsLabels
+  readonly sessionId: string
+  readonly messageId: string
+  readonly clipboard?: MessageClipboardPort | null | undefined
+  readonly copyOwner?: object | undefined
+}) {
+  const { labels, ...details } = props
+  return (
+    <ToolDetailsMessagesProvider messages={labels}>
+      <SessionToolDetailsView {...details} />
+    </ToolDetailsMessagesProvider>
   )
 }

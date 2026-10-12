@@ -1,11 +1,15 @@
 import type { SessionDraftState, SessionTimelineState } from '@hbar/app-runtime'
 import { LumenContentText, LumenFrame } from '@lumen/app-ui'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionEmptyHeroLabels {
   readonly markUrl: string
   readonly title: string
   readonly description: string
 }
+
+const { Provider: SessionEmptyHeroMessagesProvider, useMessages: useSessionEmptyHeroMessages } =
+  createMessageScope<HbarSessionEmptyHeroLabels>()
 
 export interface SessionEmptyHeroFacts {
   readonly connected: boolean
@@ -46,13 +50,17 @@ export function showSessionEmptyHero(facts: SessionEmptyHeroFacts): boolean {
   )
 }
 
-export function HbarSessionEmptyHero({
-  labels,
+function SessionEmptyHeroView({
   headingAs = 'h2',
 }: {
-  readonly labels: HbarSessionEmptyHeroLabels
   readonly headingAs?: 'h1' | 'h2'
 }) {
+  const { t } = useSessionEmptyHeroMessages()
+  const labels: HbarSessionEmptyHeroLabels = {
+    markUrl: t('markUrl'),
+    title: t('title'),
+    description: t('description'),
+  }
   return (
     <LumenFrame className="hbar-app-react-session-empty-hero">
       <LumenFrame
@@ -70,5 +78,20 @@ export function HbarSessionEmptyHero({
         {labels.description}
       </LumenContentText>
     </LumenFrame>
+  )
+}
+
+/** The existing labels prop adapts both session and pre-session callers. */
+export function HbarSessionEmptyHero({
+  labels,
+  headingAs = 'h2',
+}: {
+  readonly labels: HbarSessionEmptyHeroLabels
+  readonly headingAs?: 'h1' | 'h2'
+}) {
+  return (
+    <SessionEmptyHeroMessagesProvider messages={labels}>
+      <SessionEmptyHeroView headingAs={headingAs} />
+    </SessionEmptyHeroMessagesProvider>
   )
 }
