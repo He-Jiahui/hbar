@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm, rename, symlink, unlink, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
@@ -39,6 +39,7 @@ async function fixture(
     protocol: WorkspaceNodeProtocol,
     workspace: string,
     state: NodeStateStorage,
+    execution: LocalExecution,
   ) => Promise<void>,
 ) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-node-protocol-')),
@@ -60,7 +61,7 @@ async function fixture(
   node = service
   const protocol = new WorkspaceNodeProtocol(service)
   try {
-    await run(service, protocol, workspace, state)
+    await run(service, protocol, workspace, state, execution)
   } finally {
     protocol.dispose()
     await service.dispose()
@@ -150,6 +151,127 @@ test('file versions remain scoped to the original root and the current floor', a
       .invoke('fs.receipt.chunk', { rootId: 'engine', operationId: 'run:version', version: 'before' }, signal())
       .catch((error: unknown) => error)
     expect(protectedVersion).toMatchObject({ code: 'NODE_DENIED' })
+  })
+})
+
+test('a reused root ID refuses the previous workspace binding and its durable file versions', async () => {
+  await fixture(async (node, protocol, workspace) => {
+    await writeFile(join(workspace, 'file.txt'), 'original')
+    await protocol.invoke('fs.write', writeChunk('file.txt', 'run:bound', Buffer.from('after'), 5, 0, true), signal())
+    const replacement = join(workspace, 'replacement')
+    await mkdir(replacement)
+    await writeFile(join(replacement, 'file.txt'), 'replacement')
+    await node.setPolicy({
+      ...node.policy,
+      roots: [{ rootId: 'engine', name: 'replacement', path: replacement, access: 'write' }],
+    })
+    for (const [method, input] of [
+      ['fs.readBytes', { rootId: 'engine', path: 'file.txt', authority }],
+      ['fs.canonicalize', { rootId: 'engine', paths: ['.'] }],
+      ['fs.write', writeChunk('file.txt', 'run:misrouted', Buffer.from('wrong'), 5, 0, true)],
+    ] as const) {
+      const error = await protocol
+        .invoke(method, { ...input, expectedRoot: workspace }, signal())
+        .catch((error: unknown) => error)
+      expect(error).toMatchObject({ code: 'NODE_ROOT_CHANGED' })
+    }
+    const versions = await protocol
+      .invoke(
+        'fs.receipt.chunk',
+        {
+          rootId: 'engine',
+          operationId: 'run:bound',
+          version: 'before',
+          expectedRoot: replacement,
+        },
+        signal(),
+      )
+      .catch((error: unknown) => error)
+    expect(versions).toMatchObject({ code: 'NODE_RECEIPT_SCOPE' })
+    expect(await readFile(join(replacement, 'file.txt'), 'utf8')).toBe('replacement')
+    expect(await node.receipt('run:misrouted')).toEqual({ state: 'absent' })
+  })
+})
+
+test('a shared root replaced by a directory link cannot redirect execution or silently rebind on restart', async () => {
+  await fixture(async (node, protocol, workspace, state) => {
+    const original = workspace + '-original',
+      replacement = workspace + '-replacement'
+    await mkdir(replacement)
+    await writeFile(join(replacement, 'file.txt'), 'redirected')
+    await rename(workspace, original)
+    await symlink(replacement, workspace, process.platform === 'win32' ? 'junction' : 'dir')
+    try {
+      const error = await protocol
+        .invoke(
+          'fs.readBytes',
+          {
+            rootId: 'engine',
+            path: 'file.txt',
+            authority,
+            expectedRoot: workspace,
+          },
+          signal(),
+        )
+        .catch((error: unknown) => error)
+      expect(error).toMatchObject({ code: 'NODE_ROOT_CHANGED' })
+      const reopened = await WorkspaceNodeService.open(
+        'build-box',
+        node.dataRoot,
+        state,
+        new LocalExecution([node.dataRoot]),
+        backend,
+      ).catch((error: unknown) => error)
+      expect(reopened).toMatchObject({ code: 'NODE_ROOT_CHANGED' })
+      if (reopened instanceof WorkspaceNodeService) await reopened.dispose()
+      // An explicit local policy change may register the new target and persists its canonical location.
+      const policy = await node.setPolicy(node.policy)
+      expect(policy.roots[0]?.path).toBe(await realpath(replacement))
+      const rebound = await protocol.invoke(
+        'fs.readBytes',
+        {
+          rootId: 'engine',
+          path: 'file.txt',
+          authority,
+          expectedRoot: policy.roots[0]?.path,
+        },
+        signal(),
+      )
+      expect(rebound).toMatchObject({ data: Buffer.from('redirected').toString('base64') })
+    } finally {
+      await unlink(workspace)
+      await rename(original, workspace)
+    }
+  })
+})
+
+test('a root change during a real read refuses the completed bytes before returning them to A', async () => {
+  await fixture(async (node, protocol, workspace, _state, execution) => {
+    await writeFile(join(workspace, 'file.txt'), 'original')
+    const replacement = join(workspace, 'replacement')
+    await mkdir(replacement)
+    const readBytes = execution.readBytes.bind(execution)
+    execution.readBytes = async (root, path) => {
+      const bytes = await readBytes(root, path)
+      await node.setPolicy({
+        ...node.policy,
+        roots: [{ rootId: 'engine', name: 'replacement', path: replacement, access: 'write' }],
+      })
+      return bytes
+    }
+    const error = await protocol
+      .invoke(
+        'fs.readBytes',
+        {
+          rootId: 'engine',
+          path: 'file.txt',
+          authority,
+          expectedRoot: workspace,
+        },
+        signal(),
+      )
+      .catch((error: unknown) => error)
+    expect(error).toMatchObject({ code: 'NODE_ROOT_CHANGED' })
   })
 })
 test('native node search filters protected paths and applies the current profile before returning matches', async () => {

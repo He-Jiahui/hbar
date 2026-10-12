@@ -108,7 +108,7 @@ export class WorkspaceNodeService {
       throw new HbarError('NODE_BUSY', 'Stop active operations before changing the floor')
     this.changingPolicy = true
     try {
-      const floor = await validateNodeRoots(nodeFloorSchema.parse(value), this.dataRoot)
+      const floor = await validateNodeRoots(nodeFloorSchema.parse(value), this.dataRoot, true)
       this.floor = await this.state.call('floor.set', floor)
       for (const listener of this.policyListeners) {
         try {
@@ -225,7 +225,13 @@ export class WorkspaceNodeService {
   }
   async fileVersion(rootId: string, operationId: string, version: 'before' | 'after'): Promise<Uint8Array> {
     const operation = await this.state.call('operation.get', { operationId })
-    if (!operation?.versions || !operation.target || operation.target.rootId !== rootId)
+    if (
+      !operation?.versions ||
+      !operation.target ||
+      operation.target.rootId !== rootId ||
+      !operation.target.nodePath ||
+      this.floor.roots.find((root) => root.rootId === rootId)?.path !== operation.target.nodePath
+    )
       throw new HbarError('NODE_RECEIPT_SCOPE', 'The file receipt has no verified target in this root')
     await this.checkFile(rootId, operation.target.path, operation.authority)
     return Buffer.from(operation.versions[version])
@@ -506,7 +512,15 @@ export class WorkspaceNodeService {
       if (prior) {
         if (prior.argumentsDigest !== argumentsDigest)
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'File operation key has different parameters')
-        if (prior.versions) return prior.versions
+        if (prior.versions) {
+          if (
+            !prior.target?.nodePath ||
+            this.floor.roots.find((root) => root.rootId === rootId)?.path !== prior.target.nodePath
+          )
+            throw new HbarError('NODE_RECEIPT_SCOPE', 'The file receipt belongs to a different shared root location')
+          await this.checkFile(rootId, path, authority, true)
+          return prior.versions
+        }
         if (prior.receipt.state === 'settled' && prior.receipt.result.isError)
           throw new HbarError(
             String(prior.receipt.result.details.code ?? 'NODE_WRITE_FAILED'),
@@ -520,7 +534,7 @@ export class WorkspaceNodeService {
         argumentsDigest,
         kind: 'write',
         authority,
-        target: { rootId, path },
+        target: { rootId, path, nodePath: root },
       })
       await this.state.call('operation.start', { operationId })
       try {
@@ -593,7 +607,7 @@ export class WorkspaceNodeService {
         argumentsDigest,
         kind: 'restore',
         authority,
-        target: { rootId, path: '.' },
+        target: { rootId, path: '.', nodePath: root },
       })
       await this.state.call('operation.start', { operationId })
       try {

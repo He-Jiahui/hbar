@@ -129,7 +129,11 @@ export const nodeCallAuthoritySchema = z.strictObject({
   sandbox: sandboxSnapshotRefSchema.nullable(),
   admission: nodeAdmissionSchema,
 })
-const scoped = z.strictObject({ rootId: nodeRootIdSchema })
+const scoped = z.strictObject({
+  rootId: nodeRootIdSchema,
+  /** The A workspace binds this exact B-owned root; a reused root ID must not change its target. */
+  expectedRoot: z.string().min(1).max(4_000).optional(),
+})
 const file = scoped.extend({ path: nodeRelativePathSchema })
 const admittedFile = file.extend({ authority: nodeCallAuthoritySchema })
 export const nodeExecStartSchema = scoped.extend({

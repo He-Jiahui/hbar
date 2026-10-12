@@ -13,6 +13,7 @@ interface Transfer {
   offset: number
   lastAt: number
 }
+const rootBindingSchema = z.object({ rootId: z.string(), expectedRoot: z.string() })
 /** B-side allowlisted methods. Partial transfers never write a file. */
 export class WorkspaceNodeProtocol {
   private readonly transfers = new Map<string, Transfer>()
@@ -50,6 +51,7 @@ export class WorkspaceNodeProtocol {
     await this.node.checkFile(input.rootId, input.path, input.authority, true)
     const metadata = canonicalSandboxJSON({
       rootId: input.rootId,
+      expectedRoot: input.expectedRoot ?? null,
       path: input.path,
       authority: input.authority,
       totalBytes: input.totalBytes,
@@ -110,6 +112,14 @@ export class WorkspaceNodeProtocol {
   async invoke(method: string, value: unknown, signal: AbortSignal): Promise<unknown> {
     if (this.closed) throw new HbarError('NODE_OFFLINE', 'Node protocol is closed')
     signal.throwIfAborted()
+    const binding = rootBindingSchema.safeParse(value)
+    const verifyBinding = () => {
+      if (!binding.success) return
+      const root = this.node.capabilities().roots.find((root) => root.rootId === binding.data.rootId)
+      if (!root || root.nodePath !== binding.data.expectedRoot)
+        throw new HbarError('NODE_ROOT_CHANGED', 'The workspace binding no longer matches the shared node root')
+    }
+    verifyBinding()
     let result: unknown
     switch (method) {
       case 'node.capabilities':
@@ -213,6 +223,8 @@ export class WorkspaceNodeProtocol {
     const table: Readonly<Record<string, { output: z.ZodType }>> = nodeWorkspaceMethods
     const schema = table[method]?.output
     if (!schema) throw new HbarError('METHOD_NOT_FOUND', 'No node response schema')
+    verifyBinding()
+    signal.throwIfAborted()
     return boundedNodeResult(schema.parse(result))
   }
   resetTransfers(): void {

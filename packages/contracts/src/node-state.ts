@@ -21,7 +21,14 @@ export const nodeStoredOperationSchema = z.strictObject({
   operationId,
   argumentsDigest: digest,
   kind: z.enum(['exec', 'write', 'restore']),
-  target: z.strictObject({ rootId: nodeRootIdSchema, path: nodeRelativePathSchema }).nullable().default(null),
+  target: z
+    .strictObject({
+      rootId: nodeRootIdSchema,
+      path: nodeRelativePathSchema,
+      nodePath: z.string().min(1).max(4_000).optional(),
+    })
+    .nullable()
+    .default(null),
   authority: nodeCallAuthoritySchema,
   receipt: nodeReceiptSchema,
   versions: z

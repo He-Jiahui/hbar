@@ -59,6 +59,8 @@ export async function nodeOwnedPath(
   if (!root) throw new HbarError('NODE_DENIED', 'The node root is not shared')
   if (writing && root.access !== 'write') throw new HbarError('NODE_DENIED', 'The shared root is read only')
   const canonicalRoot = await realpath(root.path)
+  if (canonicalRoot !== resolve(root.path))
+    throw new HbarError('NODE_ROOT_CHANGED', 'The registered shared root resolves to a different location')
   const lexical = resolve(root.path, requested)
   const path = await canonicalNodePath(lexical)
   if (!inside(canonicalRoot, path)) throw new HbarError('NODE_DENIED', 'The path leaves the shared root')
@@ -70,16 +72,20 @@ export async function nodeOwnedPath(
   }
   return { root: canonicalRoot, path, registration: root }
 }
-export async function validateNodeRoots(floor: NodeFloor, dataRoot: string): Promise<NodeFloor> {
+export async function validateNodeRoots(floor: NodeFloor, dataRoot: string, register = false): Promise<NodeFloor> {
   const seen = new Set<string>()
+  const roots: NodeFloor['roots'] = []
   for (const root of floor.roots) {
     if (!isAbsolute(root.path)) throw new HbarError('INVALID_INPUT', 'Shared roots must be absolute local paths')
     const canonical = await realpath(root.path)
+    if (!register && canonical !== resolve(root.path))
+      throw new HbarError('NODE_ROOT_CHANGED', 'The persisted shared root resolves to a different location')
     if (!(await stat(canonical)).isDirectory()) throw new HbarError('INVALID_INPUT', 'Shared root is not a directory')
     if (inside(await canonicalNodePath(dataRoot), canonical))
       throw new HbarError('NODE_DENIED', 'The node data directory cannot be shared')
     if (seen.has(canonical)) throw new HbarError('INVALID_INPUT', 'Shared roots must be distinct')
     seen.add(canonical)
+    roots.push({ ...root, path: canonical })
   }
-  return floor
+  return { ...floor, roots }
 }
