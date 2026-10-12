@@ -64,7 +64,8 @@ export type {
   SessionLaunchTargetWriteOptions,
 } from '@hbar/contracts/commands/session-launch-target'
 export { createExtensionCommandClient } from './extensions'
-export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
+export { allWorkspaceSessionCommands, createWorkspace, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
+export type { WorkspaceCreateInput } from '@hbar/contracts/commands/workspaces'
 export {
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,

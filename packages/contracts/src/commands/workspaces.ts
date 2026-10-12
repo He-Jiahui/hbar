@@ -5,6 +5,7 @@ import { sessionSchema, workspaceSchema } from '../state/directory'
 import { workspaceOrganizationCommands } from './workspace-organization'
 import { workspaceDisplayNamesCommands } from './workspace-display-names'
 import { workspaceFolderCommands } from './workspace-folders'
+import { nodeRootIdSchema } from '../node-address'
 
 const metadata = (id: string, kind: 'command' | 'query', scope: 'global' | 'workspace' | 'session') => ({
   id,
@@ -39,6 +40,21 @@ export const forkableMessagesResultSchema = z.strictObject({
     .max(200),
 })
 
+export const workspaceCreateInputSchema = z
+  .strictObject({
+    path: z.string().min(1).max(4_000).optional(),
+    node: z.string().min(1).max(160).optional(),
+    rootId: nodeRootIdSchema.optional(),
+    name: z.string().trim().min(1).max(160).optional(),
+  })
+  .superRefine((value, context) => {
+    const local = value.path !== undefined && value.node === undefined && value.rootId === undefined
+    const remote = value.path === undefined && value.node !== undefined && value.rootId !== undefined
+    if (!local && !remote)
+      context.addIssue({ code: 'custom', message: 'Provide either a local path or both a node and root ID' })
+  })
+export type WorkspaceCreateInput = z.infer<typeof workspaceCreateInputSchema>
+
 export const workspaceSessionCommands = {
   ...workspaceFolderCommands,
   ...workspaceOrganizationCommands,
@@ -46,9 +62,16 @@ export const workspaceSessionCommands = {
   'workspace.create': defineCommand(
     {
       ...metadata('workspace.create', 'command', 'global'),
-      cli: { arguments: [{ field: 'path', type: 'string', position: 0 }] },
+      cli: {
+        arguments: [
+          { field: 'path', type: 'string', position: 0 },
+          { field: 'node', type: 'string', flag: 'node' },
+          { field: 'rootId', type: 'string', flag: 'root' },
+          { field: 'name', type: 'string', flag: 'name' },
+        ],
+      },
     },
-    z.strictObject({ path: z.string().min(1).max(4_000) }),
+    workspaceCreateInputSchema,
     workspaceSchema,
   ),
   'session.create': defineCommand(

@@ -80,11 +80,14 @@ export interface CliArgs {
   demo: boolean
   role?: string | undefined
   name?: string | undefined
+  node?: string | undefined
+  root?: string | undefined
   join?: string | undefined
   code?: string | undefined
   fingerprint?: string | undefined
   listen?: string | undefined
   stdio?: boolean | undefined
+  noLocalExec?: boolean | undefined
 }
 
 export const HELP = `hbar - Pi harness + Cordis workbench
@@ -96,6 +99,7 @@ Usage:
   hbar --connect-only ...           Use a healthy existing Host; do not create anything implicitly
   hbar serve                        Start a background Host
   hbar serve --role conversation --host <address> --port <port> --cert <pem> --key <pem>
+  hbar serve --role conversation --no-local-exec
   hbar serve --role workspace --home <node-data> --join <A-url> --code <8-digits> --fingerprint <A-fingerprint>
   hbar serve --role workspace --listen <address> --cert <pem> --key <pem> --public-host <hostname>
   hbar node status|share|unshare|policy|pause|resume|kill|audit|unlink [--home <node-data>]
@@ -217,11 +221,14 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     commandArgs,
     role: values.role as string | undefined,
     name: values.name as string | undefined,
+    node: values.node as string | undefined,
+    root: values.root as string | undefined,
     join: values.join as string | undefined,
     code: values.code as string | undefined,
     fingerprint: values.fingerprint as string | undefined,
     listen: values.listen as string | undefined,
     stdio: Boolean(values.stdio),
+    noLocalExec: Boolean(values['no-local-exec']),
     message: (values.message as string | undefined) ?? freeMessage,
     headless: Boolean(values.headless),
     help: Boolean(values.help),

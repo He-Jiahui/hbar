@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test'
 import { resolve } from 'node:path'
 import { publicServiceEntry, conversationHostArguments } from '../apps/cli/src/service-entry'
 import { parseCli } from '../apps/cli/src/args'
+import { parseArguments } from '@hbar/commands'
+import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 
 test('service dispatch accepts global options before commands without interpreting their values as commands', () => {
   expect(publicServiceEntry(['--home', 'node', '--role', 'workspace', 'serve', '--listen', '127.0.0.1:0'])).toEqual({
@@ -66,6 +68,7 @@ test('conversation service preserves bind address, TLS, data paths and profile w
     'profile.ts',
     '--project',
     'engine',
+    '--no-local-exec',
   ])
   expect(conversationHostArguments(args)).toEqual([
     '--supervisor',
@@ -86,6 +89,7 @@ test('conversation service preserves bind address, TLS, data paths and profile w
     resolve('engine'),
     '--profile',
     resolve('profile.ts'),
+    '--no-local-exec',
   ])
   for (const port of ['-1', '65536', '12px', '1.5', 'Infinity', ''])
     expect(() => conversationHostArguments(parseCli(['serve', '--port=' + port]))).toThrow('Invalid --port')
@@ -93,4 +97,15 @@ test('conversation service preserves bind address, TLS, data paths and profile w
   expect(() => conversationHostArguments(parseCli(['serve', '--join', 'https://a.example']))).toThrow(
     'require --role workspace',
   )
+})
+
+test('conversation service carries no-local-exec and workspace.create parses node and root selectors', () => {
+  const args = parseCli(['serve', '--role', 'conversation', '--no-local-exec'])
+  expect(args.noLocalExec).toBe(true)
+  expect(conversationHostArguments(args)).toContain('--no-local-exec')
+  const definition = workspaceSessionCommands['workspace.create']
+  const input = definition.input.parse(parseArguments(definition.metadata, ['--node', 'build-box', '--root', 'engine']))
+  expect(input).toEqual({ node: 'build-box', rootId: 'engine' })
+  expect(definition.input.safeParse({ node: 'build-box' }).success).toBe(false)
+  expect(definition.input.safeParse({ path: 'C:/repo', rootId: 'engine' }).success).toBe(false)
 })

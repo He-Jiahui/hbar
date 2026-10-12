@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarClient, createNodeCommandClient } from '@hbar/client'
+import { HbarClient, createNodeCommandClient, createWorkspace } from '@hbar/client'
 import { createPathLayout } from '@hbar/storage'
 import { MemorySecrets } from '@hbar/kernel/secrets'
 import { runNode, runNodeCommand } from '@hbar/node'
@@ -69,6 +69,23 @@ test('stable /node and operator node commands complete joining, scoped files and
     )
     const registered = (await commands.execute('node.list', { limit: 1 })).items[0]
     expect(registered).toMatchObject({ name: 'build-box', nodeId: live.node.id, online: true })
+    const remoteWorkspace = await createWorkspace(operator, {
+      node: 'build-box',
+      rootId: 'engine',
+      name: 'Remote engine',
+    })
+    expect(remoteWorkspace).toMatchObject({
+      path: `hbar-node://${live.node.id}/engine`,
+      name: 'Remote engine',
+      location: { kind: 'node', nodeId: live.node.id, rootId: 'engine', nodePath: workspace },
+    })
+    expect(await createWorkspace(operator, { node: live.node.id, rootId: 'engine' })).toMatchObject({
+      id: remoteWorkspace.id,
+      location: remoteWorkspace.location,
+    })
+    await expect(createWorkspace(operator, { node: live.node.id, rootId: 'missing' })).rejects.toMatchObject({
+      code: 'NODE_ROOT_NOT_FOUND',
+    })
     expect(await runtime.storage.call('devices')).toHaveLength(1)
     await writeFile(join(workspace, 'file.txt'), 'content on B')
     expect(
@@ -127,7 +144,7 @@ test('node upgrades require dedicated machine authentication and encryption for 
     commandVersion: 1,
     input: {},
   })
-  for (const commandId of ['node.invite', 'node.list', 'node.revoke'])
+  for (const commandId of ['node.invite', 'node.list', 'node.revoke', 'workspace.create'])
     expect(isStableRpc('command.execute', invocation(commandId))).toBe(true)
   expect(isStableRpc('node.invite', {})).toBe(false)
 })

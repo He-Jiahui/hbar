@@ -54,5 +54,6 @@ export function conversationHostArguments(args: CliArgs): readonly string[] {
     ...(args.project || args.workspace ? ['--workspace', resolve(args.project ?? args.workspace ?? '')] : []),
     ...(args.profile ? ['--profile', resolve(args.profile)] : []),
     ...(args.demo ? ['--demo'] : []),
+    ...(args.noLocalExec ? ['--no-local-exec'] : []),
   ]
 }

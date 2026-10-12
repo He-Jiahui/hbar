@@ -36,6 +36,7 @@ export async function runHost(
       key: { type: 'string' },
       'web-root': { type: 'string' },
       profile: { type: 'string' },
+      'no-local-exec': { type: 'boolean' },
       supervisor: { type: 'boolean' },
       supervised: { type: 'boolean' },
     },
@@ -111,6 +112,7 @@ export async function runHost(
       ...(values.demo !== undefined ? { demo: values.demo } : {}),
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(values.profile ? { profileModule: resolve(values.profile) } : {}),
+      ...(values['no-local-exec'] === true ? { noLocalExec: true } : {}),
       ...(['1', 'prepare'].includes(process.env.HBAR_RUNTIME_WATCH ?? '') ? {
         watchSource: true, autoApplySource: process.env.HBAR_RUNTIME_WATCH !== 'prepare',
       } : {}),

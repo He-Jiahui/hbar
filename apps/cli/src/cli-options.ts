@@ -74,9 +74,12 @@ export const CLI_OPTIONS = {
   demo: { type: 'boolean' },
   role: { type: 'string' },
   name: { type: 'string' },
+  node: { type: 'string' },
+  root: { type: 'string' },
   join: { type: 'string' },
   code: { type: 'string' },
   fingerprint: { type: 'string' },
   listen: { type: 'string' },
   stdio: { type: 'boolean' },
+  'no-local-exec': { type: 'boolean' },
 } as const

@@ -22,8 +22,9 @@ import { CommandError } from '@hbar/commands/protocol'
 
 import { Auth, requestToken } from './auth.ts'
 import { DeviceAuthorization } from './device-authorization'
-import { createNodeCommands } from './node-commands'
+import { createNodeCommands, createRemoteWorkspaceCreator } from './node-commands'
 import { nodeCommands as nodeDefinitions } from '@hbar/contracts/commands/nodes'
+import { workspaceCreateInputSchema } from '@hbar/contracts/commands/workspaces'
 import { NodeSocketSurface, nodeRequestAllowed } from './node-sockets'
 import { resourceReadInputSchema } from '@hbar/contracts/commands/resources'
 import { createSystemCommands } from './system-commands.ts'
@@ -386,6 +387,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     commandDispatchers.set(id, nodeCommands.dispatch)
     commandDescribers.set(id, () => nodeCommands.describe(id))
   }
+  const createRemoteWorkspace = createRemoteWorkspaceCreator(options.nodeLink, (input) => kernel.createNodeWorkspace(input))
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
     if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
     clearTimeout(pending.timer)
@@ -453,6 +455,10 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        if (invocation.commandId === 'workspace.create') {
+          const input = workspaceCreateInputSchema.safeParse(invocation.input)
+          if (input.success && input.data.path === undefined) return createRemoteWorkspace(input.data)
+        }
         const dispatch =
           commandDispatchers.get(invocation.commandId) ?? application.resolveCommand?.(invocation.commandId)?.dispatch
         if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
