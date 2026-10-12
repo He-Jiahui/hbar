@@ -8,6 +8,7 @@ import {
   type LumenOnboarding3ReferenceContent,
   type LumenOnboarding6ReferenceContent,
 } from '@lumen/app-ui'
+import { createMessageScope } from './messages'
 
 export interface OnboardingReadiness {
   readonly connected: boolean
@@ -61,6 +62,38 @@ export interface OnboardingReadinessLabels {
   readonly loading: string
   readonly unavailable: string
 }
+type OnboardingReadinessMessageLabels = Pick<
+  OnboardingReadinessLabels,
+  | 'connected'
+  | 'disconnected'
+  | 'workspace'
+  | 'workspaceDetail'
+  | 'model'
+  | 'modelDetail'
+  | 'project'
+  | 'projectDetail'
+  | 'configure'
+  | 'create'
+  | 'open'
+  | 'progress'
+  | 'progressText'
+  | 'footer'
+  | 'empty'
+  | 'readyTitle'
+  | 'readyDescription'
+  | 'readyProject'
+  | 'openWorkspace'
+  | 'takeTour'
+  | 'inboxNote'
+  | 'setupTitle'
+  | 'setupDescription'
+  | 'back'
+  | 'continue'
+  | 'setupPath'
+  | 'setupPathPlaceholder'
+  | 'setupPathHint'
+>
+const OnboardingReadinessMessages = createMessageScope<OnboardingReadinessMessageLabels>()
 export interface OnboardingReadinessActions {
   readonly onConfigure: (kind: 'workspace' | 'model' | 'project') => void
   readonly onCreate: (path: string) => void
@@ -80,72 +113,83 @@ export function resolveOnboardingVariant(readiness: OnboardingReadiness): 3 | 6 
 }
 function checklistContent(
   readiness: OnboardingReadiness,
-  labels: OnboardingReadinessLabels,
+  t: ReturnType<typeof OnboardingReadinessMessages.useMessages>['t'],
 ): LumenOnboarding3ReferenceContent {
   const tasks = [
     {
       id: 'connection',
-      label: labels.connected,
-      detail: labels.disconnected,
+      label: t('connected'),
+      detail: t('disconnected'),
       checked: readiness.connected,
-      checkboxLabel: labels.connected,
-      actionLabel: labels.configure,
+      checkboxLabel: t('connected'),
+      actionLabel: t('configure'),
     },
     {
       id: 'workspace',
-      label: labels.workspace,
-      detail: labels.workspaceDetail,
+      label: t('workspace'),
+      detail: t('workspaceDetail'),
       checked: readiness.workspaceCount > 0,
-      checkboxLabel: labels.workspace,
-      actionLabel: readiness.workspaceCount > 0 ? labels.open : labels.create,
+      checkboxLabel: t('workspace'),
+      actionLabel: readiness.workspaceCount > 0 ? t('open') : t('create'),
     },
     {
       id: 'model',
-      label: labels.model,
-      detail: labels.modelDetail,
+      label: t('model'),
+      detail: t('modelDetail'),
       checked: readiness.modelCount > 0,
-      checkboxLabel: labels.model,
-      actionLabel: labels.configure,
+      checkboxLabel: t('model'),
+      actionLabel: t('configure'),
     },
     {
       id: 'project',
-      label: labels.project,
-      detail: labels.projectDetail,
+      label: t('project'),
+      detail: t('projectDetail'),
       checked: readiness.projectReady,
-      checkboxLabel: labels.project,
-      actionLabel: labels.configure,
+      checkboxLabel: t('project'),
+      actionLabel: t('configure'),
     },
   ] as const
   const completedCount = tasks.filter((task) => task.checked).length
   return {
-    title: labels.setupTitle,
-    description: labels.setupDescription,
-    progressLabel: labels.progress,
-    progressText: labels.progressText(completedCount, tasks.length),
+    title: t('setupTitle'),
+    description: t('setupDescription'),
+    progressLabel: t('progress'),
+    progressText: t('progressText')(completedCount, tasks.length),
     completedCount,
     totalCount: tasks.length,
     visualFillPercent: (completedCount / tasks.length) * 100,
     tasks,
-    footerText: labels.footer,
-    emptyTasksText: labels.empty,
+    footerText: t('footer'),
+    emptyTasksText: t('empty'),
   }
 }
-export function OnboardingReadinessView({
-  readiness,
-  labels,
-  actions,
-}: {
+interface OnboardingReadinessViewProps {
   readonly readiness: OnboardingReadiness
   readonly labels: OnboardingReadinessLabels
   readonly actions: OnboardingReadinessActions
-}) {
+}
+
+export function OnboardingReadinessView(props: OnboardingReadinessViewProps) {
+  const { labels, ...viewProps } = props
+  return (
+    <OnboardingReadinessMessages.Provider messages={labels}>
+      <OnboardingReadinessContent {...viewProps} />
+    </OnboardingReadinessMessages.Provider>
+  )
+}
+
+function OnboardingReadinessContent({
+  readiness,
+  actions,
+}: Omit<OnboardingReadinessViewProps, 'labels'>) {
+  const { t } = OnboardingReadinessMessages.useMessages()
   const variant = resolveOnboardingVariant(readiness)
   if (variant === 3)
     return (
       <LumenOnboarding3Reference
         variantId="hbar-onboarding-readiness"
         viewModel={{
-          content: checklistContent(readiness, labels),
+          content: checklistContent(readiness, t),
           onCompletionChangeRequest: (id) =>
             actions.onConfigure(id === 'workspace' ? 'workspace' : id === 'model' ? 'model' : 'project'),
           onTaskActionRequest: (id) =>
@@ -163,17 +207,17 @@ export function OnboardingReadinessView({
           content={{
             shipping: {
               labels: {
-                title: labels.setupTitle,
-                detail: labels.setupDescription,
-                options: labels.project,
-                back: labels.back,
-                continue: labels.continue,
-                empty: labels.empty,
+                title: t('setupTitle'),
+                detail: t('setupDescription'),
+                options: t('project'),
+                back: t('back'),
+                continue: t('continue'),
+                empty: t('empty'),
               },
               options: [
-                { id: 'workspace', label: labels.workspace },
-                { id: 'model', label: labels.model },
-                { id: 'project', label: labels.project },
+                { id: 'workspace', label: t('workspace') },
+                { id: 'model', label: t('model') },
+                { id: 'project', label: t('project') },
               ],
               initialOptionId: selectedOptionId,
               selectedOptionId,
@@ -193,32 +237,32 @@ export function OnboardingReadinessView({
         {workspaceSelected ? (
           <LumenFrame className="hbar-onboarding-workspace-form">
             <LumenFrame as="label" htmlFor="hbar-onboarding-workspace-path">
-              {labels.setupPath}
+              {t('setupPath')}
             </LumenFrame>
             <LumenInput
               id="hbar-onboarding-workspace-path"
               value={actions.setupPath ?? ''}
               onChange={(event) => actions.onPathChange?.(event.target.value)}
-              placeholder={labels.setupPathPlaceholder}
+              placeholder={t('setupPathPlaceholder')}
               disabled={actions.busy === true}
             />
-            <LumenContentText context="record.description">{labels.setupPathHint}</LumenContentText>
+            <LumenContentText context="record.description">{t('setupPathHint')}</LumenContentText>
           </LumenFrame>
         ) : null}
       </LumenFrame>
     )
   }
   const content: LumenOnboarding6ReferenceContent = {
-    title: labels.readyTitle,
-    description: labels.readyDescription,
+    title: t('readyTitle'),
+    description: t('readyDescription'),
     summaryRows: [
-      { id: 'workspace', label: labels.workspace, value: String(readiness.workspaceCount) },
-      { id: 'model', label: labels.model, value: String(readiness.modelCount) },
-      { id: 'project', label: labels.project, value: labels.readyProject },
+      { id: 'workspace', label: t('workspace'), value: String(readiness.workspaceCount) },
+      { id: 'model', label: t('model'), value: String(readiness.modelCount) },
+      { id: 'project', label: t('project'), value: t('readyProject') },
     ],
-    openWorkspaceLabel: labels.openWorkspace,
-    takeTourLabel: labels.takeTour,
-    inboxNote: labels.inboxNote,
+    openWorkspaceLabel: t('openWorkspace'),
+    takeTourLabel: t('takeTour'),
+    inboxNote: t('inboxNote'),
   }
   return (
     <LumenOnboarding6Reference

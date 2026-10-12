@@ -19,6 +19,7 @@ import {
 } from './composer-slash'
 import './composer-mention-editor.css'
 import './pre-session-slash-editor.css'
+import { createMessageScope } from './messages'
 
 export type PreSessionLocalSlashCommand = Extract<LocalSlashCommand, 'model' | 'settings' | 'goal'>
 
@@ -49,6 +50,8 @@ export interface HbarPreSessionSlashEditorProps {
   readonly onLocalCommand: (command: PreSessionLocalSlashCommand) => void | Promise<void>
 }
 
+const PreSessionSlashEditorMessages = createMessageScope<HbarComposerSlashLabels>()
+
 type SlashTrigger = { readonly from: number; readonly to: number; readonly term: string }
 type PendingCaret = { readonly value: string; readonly offset: number }
 
@@ -74,19 +77,28 @@ function isSubmitShortcut(
 }
 
 /** Controlled no-tab input: local setup actions and completion-only Agent parent prompts. */
-export function HbarPreSessionSlashEditor({
+export function HbarPreSessionSlashEditor(props: HbarPreSessionSlashEditorProps) {
+  const { labels, ...viewProps } = props
+  return (
+    <PreSessionSlashEditorMessages.Provider messages={labels}>
+      <HbarPreSessionSlashEditorView {...viewProps} />
+    </PreSessionSlashEditorMessages.Provider>
+  )
+}
+
+function HbarPreSessionSlashEditorView({
   value,
   inputLabel,
   placeholder,
   disabled,
   sendBehavior,
-  labels,
   slashOpenRequest = 0,
   editorRef,
   onChange,
   onSubmit,
   onLocalCommand,
-}: HbarPreSessionSlashEditorProps) {
+}: Omit<HbarPreSessionSlashEditorProps, 'labels'>) {
+  const { t } = PreSessionSlashEditorMessages.useMessages()
   const localEditorRef = useRef<HTMLTextAreaElement | null>(null)
   const inputRef = editorRef ?? localEditorRef
   const menuId = useId()
@@ -97,15 +109,33 @@ export function HbarPreSessionSlashEditor({
   const dismissedSlashRef = useRef<SlashTrigger | null>(null)
 
   const availableCommands = useMemo(
-    () => labels.commands.filter((command) => isPreSessionSuggestion(command.id)).map((command) => command.id),
-    [labels.commands],
+    () => t('commands').filter((command) => isPreSessionSuggestion(command.id)).map((command) => command.id),
+    [t],
   )
   const slashLabels = useMemo<HbarComposerSlashLabels>(
     () => ({
-      ...labels,
-      commands: labels.commands.filter((command) => isPreSessionSuggestion(command.id)),
+      menu: t('menu'),
+      commands: t('commands').filter((command) => isPreSessionSuggestion(command.id)),
+      select: t('select'),
+      hint: t('hint'),
+      agentProfile: t('agentProfile'),
+      agentTaskHint: t('agentTaskHint'),
+      agentRequired: t('agentRequired'),
+      agentCatalogUnavailable: t('agentCatalogUnavailable'),
+      agentProfileUnavailable: t('agentProfileUnavailable'),
+      agentNotice: t('agentNotice'),
+      attachmentsBlocked: t('attachmentsBlocked'),
+      modelBusy: t('modelBusy'),
+      goalRequired: t('goalRequired'),
+      goalBusy: t('goalBusy'),
+      goalSnapshotUnavailable: t('goalSnapshotUnavailable'),
+      goalConfirmReplace: t('goalConfirmReplace'),
+      goalConfirmClear: t('goalConfirmClear'),
+      goalConfirm: t('goalConfirm'),
+      goalCancel: t('goalCancel'),
+      error: t('error'),
     }),
-    [labels],
+    [t],
   )
   const [slashTrigger, setSlashTrigger] = useState<SlashTrigger | null>(() =>
     disabled ? null : getSlashTrigger(value, value.length, availableCommands),
