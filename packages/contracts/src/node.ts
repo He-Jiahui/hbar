@@ -312,8 +312,8 @@ export const nodeWorkspaceMethods = {
         .array(
           z.strictObject({
             path: nodeRelativePathSchema,
-            before: z.string().max(NODE_LIMITS.chunkBytes),
-            after: z.string().max(NODE_LIMITS.chunkBytes),
+            before: z.string().max(NODE_LIMITS.chunkBytes).nullable(),
+            after: z.string().max(NODE_LIMITS.chunkBytes).nullable(),
             created: z.boolean().optional(),
           }),
         )

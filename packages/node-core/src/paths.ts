@@ -12,7 +12,8 @@ export async function canonicalNodePath(path: string): Promise<string> {
     try {
       return join(await realpath(current), ...missing.reverse())
     } catch (error) {
-      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
+      if (!(error instanceof Error) || !('code' in error) || !['ENOENT', 'ENOTDIR'].includes(String(error.code)))
+        throw error
       const parent = dirname(current)
       if (parent === current) throw error
       missing.push(basename(current))

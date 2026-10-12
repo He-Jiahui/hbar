@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { nodeRootIdSchema, nodeRelativePathSchema } from './node-address'
 import {
   nodeFloorSchema,
   nodeReceiptSchema,
@@ -20,6 +21,7 @@ export const nodeStoredOperationSchema = z.strictObject({
   operationId,
   argumentsDigest: digest,
   kind: z.enum(['exec', 'write', 'restore']),
+  target: z.strictObject({ rootId: nodeRootIdSchema, path: nodeRelativePathSchema }).nullable().default(null),
   authority: nodeCallAuthoritySchema,
   receipt: nodeReceiptSchema,
   versions: z
@@ -33,7 +35,7 @@ export const nodeStoredOperationSchema = z.strictObject({
     .nullable(),
 })
 export const nodeStateMethods = {
-  ready: { input: empty, output: z.strictObject({ version: z.literal(1) }) },
+  ready: { input: empty, output: z.strictObject({ version: z.literal(2) }) },
   'floor.get': { input: empty, output: nodeFloorSchema.nullable() },
   'floor.set': { input: nodeFloorSchema, output: nodeFloorSchema },
   'config.get': { input: z.strictObject({ key: z.enum(['identity', 'link', 'paused']) }), output: z.json().nullable() },

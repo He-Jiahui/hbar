@@ -202,6 +202,7 @@ export class LocalExecution implements ExecutionProvider {
     private blocked: string[] = [],
     private readonly managedWorkspace?: VerifiedManagedWorkspaceAccess,
     private readonly mounts?: WorkspaceMountAccess,
+    private readonly additionalBlocked?: { get(workspace: string): readonly string[] },
   ) {
     const query = new WorkspaceQueryRuntime(
       blocked,
@@ -214,7 +215,7 @@ export class LocalExecution implements ExecutionProvider {
   }
 
   private async blockedForWorkspace(workspace: string) {
-    return effectiveBlockedPaths(workspace, this.blocked, this.managedWorkspace)
+    return effectiveBlockedPaths(workspace, [...this.blocked, ...(this.additionalBlocked?.get(workspace) ?? [])], this.managedWorkspace)
   }
 
   private async workspacePath(workspace: string, requested: string, writing = false) {

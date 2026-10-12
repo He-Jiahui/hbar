@@ -15,7 +15,7 @@ const configuration = z.strictObject({ path: z.string().min(1).max(4_000) }).par
 const db = new Database(configuration.path, { create: true, strict: true })
 db.exec('PRAGMA busy_timeout=1000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;')
 const current = z.object({ user_version: z.number().int() }).parse(db.query('PRAGMA user_version').get()).user_version
-if (current > 1) throw new Error('Unsupported workspace-node database version')
+if (current > 2) throw new Error('Unsupported workspace-node database version')
 if (current === 0)
   db.transaction(() => {
     db.exec(`
@@ -29,6 +29,12 @@ if (current === 0)
     CREATE TABLE audit(seq INTEGER PRIMARY KEY AUTOINCREMENT,data TEXT NOT NULL CHECK(json_valid(data))) STRICT;
     PRAGMA user_version=1;
   `)
+  }).immediate()
+if (current < 2)
+  db.transaction(() => {
+    db.exec(
+      'ALTER TABLE operations ADD COLUMN target TEXT CHECK(target IS NULL OR json_valid(target)); PRAGMA user_version=2;',
+    )
   }).immediate()
 // A process lost across node restart has an unknown effect. Acceptance without start is safe to refuse/retry.
 db.transaction(() => {
@@ -80,18 +86,20 @@ function operation(id: string) {
         operationId: string
         argumentsDigest: string
         kind: string
+        target: string | null
         authority: string
         receipt: string
         versions: string | null
       },
       [string]
-    >('SELECT operationId,argumentsDigest,kind,authority,receipt,versions FROM operations WHERE operationId=?')
+    >('SELECT operationId,argumentsDigest,kind,target,authority,receipt,versions FROM operations WHERE operationId=?')
     .get(id)
   if (row === null) return null
   const authority: unknown = JSON.parse(row.authority)
+  const target: unknown = row.target === null ? null : JSON.parse(row.target)
   const receipt: unknown = JSON.parse(row.receipt)
   const versions: unknown = row.versions === null ? null : JSON.parse(row.versions)
-  return nodeStoredOperationSchema.parse({ ...row, authority, receipt, versions })
+  return nodeStoredOperationSchema.parse({ ...row, target, authority, receipt, versions })
 }
 function required(id: string) {
   const found = operation(id)
@@ -111,7 +119,7 @@ function saveConfig(key: string, value: unknown): void {
 function dispatch(method: NodeStateMethod, value: unknown): unknown {
   switch (method) {
     case 'ready':
-      return { version: 1 }
+      return { version: 2 }
     case 'floor.get': {
       const value = config('floor')
       return value === null ? null : nodeFloorSchema.parse(value)
@@ -147,7 +155,7 @@ function dispatch(method: NodeStateMethod, value: unknown): unknown {
           if (count >= NODE_LIMITS.receipts) throw new HbarError('NODE_BUSY', 'Node receipt capacity is full')
           const receipt: NodeReceipt = { state: 'accepted', acceptedAt: Date.now() }
           db.query(
-            'INSERT INTO operations(operationId,argumentsDigest,kind,authority,receipt,versions,updatedAt) VALUES(?,?,?,?,?,NULL,?)',
+            'INSERT INTO operations(operationId,argumentsDigest,kind,authority,receipt,versions,updatedAt,target) VALUES(?,?,?,?,?,NULL,?,?)',
           ).run(
             input.operationId,
             input.argumentsDigest,
@@ -155,6 +163,7 @@ function dispatch(method: NodeStateMethod, value: unknown): unknown {
             JSON.stringify(input.authority),
             JSON.stringify(receipt),
             Date.now(),
+            JSON.stringify(input.target),
           )
           return { accepted: true, operation: required(input.operationId) }
         })

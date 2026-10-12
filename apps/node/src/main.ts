@@ -3,7 +3,13 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { HbarError } from '@hbar/contracts'
 import { nodeFloorSchema } from '@hbar/contracts/node'
-import { nodeIdFromPublicKey, nodeFingerprint, WorkspaceNodeService, type NodeExecutionBackend } from '@hbar/node-core'
+import {
+  nodeIdFromPublicKey,
+  nodeFingerprint,
+  nodeProtectedPaths,
+  WorkspaceNodeService,
+  type NodeExecutionBackend,
+} from '@hbar/node-core'
 import { LocalExecution } from '@hbar/local-tools'
 import { NodeStateStorage } from '@hbar/storage/node-state'
 import { acquireProcessLease, type RuntimeArtifactPackage } from '@hbar/runtime'
@@ -87,7 +93,9 @@ export async function runNode(
     const floor = (await state.call('floor.get', {})) ?? nodeFloorSchema.parse({ roots: [] })
     if (!(await state.call('floor.get', {}))) await state.call('floor.set', floor)
     backend = await createManagedNodeBackend({ dataRoot, ...options })
-    execution = new LocalExecution([dataRoot])
+    execution = new LocalExecution([dataRoot], undefined, undefined, {
+      get: () => nodeProtectedPaths(node?.policy ?? floor, dataRoot),
+    })
     node = await WorkspaceNodeService.open(nodeIdFromPublicKey(identity.publicKey), dataRoot, state, execution, backend)
     const service = new NodeConsoleService(state, identity, dataRoot, node)
     control = await startNodeControlServer(dataRoot, service, values.listen)
