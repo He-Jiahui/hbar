@@ -3,6 +3,7 @@ import { mkdir, lstat, realpath, symlink } from 'node:fs/promises'
 import { join, resolve, isAbsolute } from 'node:path'
 import { mountedPath } from '@hbar/local-tools/workspace-mounts'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type { StoragePort } from '@hbar/storage'
 import type { WorkspaceMount, WorkspaceMountAccess } from '@hbar/local-tools/workspace-mounts'
 
@@ -28,6 +29,7 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
       : ''
   }
   grantPaths(root: string, path: string): string[] {
+    assertLocalWorkspace(root)
     if (isAbsolute(path) || /^[a-z]:/i.test(path)) return [path]
     const mount = this.get(root)
     if (!mount) return [resolve(root, path)]
@@ -40,6 +42,8 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
 
   async verify(mount: WorkspaceMount, signal?: AbortSignal) {
     signal?.throwIfAborted()
+    assertLocalWorkspace(mount.root)
+    for (const folder of mount.folders) assertLocalWorkspace(folder.path)
     if (key(await realpath(mount.root)) !== key(resolve(mount.root)))
       throw new HbarError('PATH_DENIED', 'Virtual workspace container was redirected')
     for (const folder of mount.folders) {
@@ -53,9 +57,12 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
 
   async prepare(workspaceId: string, checkoutPath: string, signal: AbortSignal): Promise<string> {
     signal.throwIfAborted()
+    assertLocalWorkspace(checkoutPath)
+    const owner = await this.storage.call('workspace', workspaceId)
+    assertLocalWorkspace(owner)
     const snapshot = await this.storage.call('workspaceFolders', workspaceId)
     if (snapshot.revision === 0) return checkoutPath
-    const owner = await this.storage.call('workspace', workspaceId)
+    for (const folder of snapshot.folders) assertLocalWorkspace(folder.path)
     const folders = snapshot.folders.map((folder) => ({
       alias: folder.alias,
       path: folder.path === owner.path ? checkoutPath : folder.path,

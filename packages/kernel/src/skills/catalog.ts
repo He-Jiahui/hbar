@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
 import { realpath } from 'node:fs/promises'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { z } from 'zod'
 import {
   canonicalSkillRoot,
@@ -159,6 +160,7 @@ export function createRuntimeSkillCatalog(globalRoot: string) {
   }
   async function snapshot(workspace: string, signal?: AbortSignal, refresh = false): Promise<SkillCatalogSnapshot> {
     checkSkillSignal(signal)
+    assertLocalWorkspace(workspace)
     const key = resolve(workspace)
     const saved = cache.get(key)
     if (!refresh && saved && Date.now() - saved.savedAt < SKILL_LIMITS.cacheMilliseconds) return saved.snapshot

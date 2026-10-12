@@ -42,6 +42,7 @@ import { toolActivitySchema } from '@hbar/contracts/tool-activity'
 import { toolFileChangesSchema } from '@hbar/contracts/run-file-changes'
 import { undoRunFileChanges } from './run-file-changes'
 import type { ExecutionProvider } from '@hbar/plugin-sdk'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import {
   assertContextCapacity,
   compactionBoundary,
@@ -1208,6 +1209,7 @@ export class Kernel {
     }
   }
   async createWorkspace(path: string) {
+    assertLocalWorkspace(path)
     let resolved: string
     let isDirectory: boolean
     try {

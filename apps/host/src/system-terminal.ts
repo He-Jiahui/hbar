@@ -1,4 +1,5 @@
 import type { TerminalInfo } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 
 interface ManagedTerminal {
   info: TerminalInfo
@@ -24,6 +25,7 @@ export class SystemTerminalManager {
   }
 
   open(owner: string, workspaceId: string, cwd: string, cols: number, rows: number, callbacks: SystemTerminalCallbacks): TerminalInfo {
+    assertLocalWorkspace(cwd)
     const id = crypto.randomUUID()
     const startedAt = new Date().toISOString()
     const shell =

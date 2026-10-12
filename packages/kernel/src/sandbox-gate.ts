@@ -2,6 +2,7 @@ import { realpath } from 'node:fs/promises'
 import { basename, dirname, join, resolve, relative, isAbsolute } from 'node:path'
 import { mountedPath, type WorkspaceMount } from '@hbar/local-tools/workspace-mounts'
 import type { ResolvedSandboxProfile } from '@hbar/contracts/sandbox'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import {
   evaluateSandboxCall as evaluate,
   type SandboxToolDeclaration,
@@ -13,6 +14,7 @@ export { describeSandboxReason } from '@hbar/sandbox'
 export const SANDBOX_CASE_INSENSITIVE = process.platform === 'win32' || process.platform === 'darwin'
 /** The real path, or the real path of the nearest existing ancestor joined with the missing remainder. */
 async function canonical(path: string): Promise<string> {
+  assertLocalWorkspace(path)
   const missing: string[] = []
   let current = path
   for (;;) {
@@ -44,6 +46,7 @@ export interface SandboxGateInput {
 }
 /** Kernel adapter: filesystem and mounted-folder ownership stay outside the shared evaluator. */
 export function evaluateSandboxCall(profile: ResolvedSandboxProfile, input: SandboxGateInput): Promise<SandboxVerdict> {
+  if (!input.paths) assertLocalWorkspace(input.workspace)
   const mount = input.mount
   return evaluate(
     profile,

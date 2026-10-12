@@ -3,6 +3,8 @@ import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import {
   WORKSPACE_DIRECTORY_PAGE_SIZE,
   workspaceDirectoryPageSchema,
@@ -29,6 +31,7 @@ export class WorkspaceFolderService {
   ) {}
 
   async canonicalFolders(folders: readonly WorkspaceFolder[], signal: AbortSignal) {
+    for (const folder of folders) assertLocalWorkspace(folder.path)
     const protectedRoots = await Promise.all(
       this.protectedPaths.map((path) => realpath(path).catch(() => resolve(path))),
     )
@@ -60,6 +63,7 @@ export class WorkspaceFolderService {
     signal: AbortSignal,
   ): Promise<WorkspaceDirectoryPage> {
     signal.throwIfAborted()
+    if (input.path !== undefined) assertLocalWorkspace(input.path)
     let path: string
     try {
       path = await realpath(input.path ?? homedir())
@@ -83,7 +87,12 @@ export class WorkspaceFolderService {
       }
     } else roots.push({ name: '/', path: '/' })
     for (const owner of (await this.storage.call('workspaces')).slice(0, 32))
-      if (!roots.some((root) => root.path === owner.path)) roots.push({ name: owner.name, path: owner.path })
+      if (
+        owner.location?.kind !== 'node' &&
+        !isNodeWorkspacePath(owner.path) &&
+        !roots.some((root) => root.path === owner.path)
+      )
+        roots.push({ name: owner.name, path: owner.path })
     const items: WorkspaceDirectoryPage['items'] = []
     let scanned = 0
     let scanTruncated = false
@@ -131,6 +140,8 @@ export class WorkspaceFolderService {
     signal.throwIfAborted()
     const previous = await this.storage.call('workspaceFolderReceipt', actorId, key, request)
     if (previous) return previous.result
+    if (request.operation === 'save')
+      assertLocalWorkspace(await this.storage.call('workspace', request.input.workspaceId))
     const folders = await this.canonicalFolders(request.input.folders, signal)
     signal.throwIfAborted()
     return this.storage.call('applyWorkspaceFolders', { actorId, idempotencyKey: key, request, folders })

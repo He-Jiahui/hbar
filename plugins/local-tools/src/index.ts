@@ -6,6 +6,7 @@ import { definePlugin, provide, resolveToolTimeoutMs } from '@hbar/plugin-sdk'
 import type { ExecOptions, ExecutionProvider, ToolResult, WorkspaceQueryProvider } from '@hbar/plugin-sdk'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import {
   workspaceFindInputSchema,
   workspaceFindToolInputSchema,
@@ -166,6 +167,7 @@ export async function workspacePath(
   writing = false,
   blocked: string[] = [],
 ): Promise<string> {
+  assertLocalWorkspace(workspace)
   const root = await realpath(workspace)
   const path = resolve(root, requested)
   if (!inside(root, path)) throw new HbarError('PATH_DENIED', 'Path is outside the workspace')
@@ -215,10 +217,12 @@ export class LocalExecution implements ExecutionProvider {
   }
 
   private async blockedForWorkspace(workspace: string) {
+    assertLocalWorkspace(workspace)
     return effectiveBlockedPaths(workspace, [...this.blocked, ...(this.additionalBlocked?.get(workspace) ?? [])], this.managedWorkspace)
   }
 
   private async workspacePath(workspace: string, requested: string, writing = false) {
+    assertLocalWorkspace(workspace)
     const mount = this.mounts?.get(workspace)
     if (mount) {
       await this.mounts?.verify(mount)
@@ -229,6 +233,7 @@ export class LocalExecution implements ExecutionProvider {
   }
 
   async list(workspace: string, requested: string): Promise<Awaited<ReturnType<ExecutionProvider['list']>>> {
+    assertLocalWorkspace(workspace)
     const mount = this.mounts?.get(workspace)
     if (mount) {
       await this.mounts?.verify(mount)
@@ -306,6 +311,7 @@ export class LocalExecution implements ExecutionProvider {
     return { before, after: text, path: recordedPath, revision: revision(text), created }
   }
   async restoreFiles(workspace: string, changes: readonly ToolFileChange[], signal: AbortSignal): Promise<void> {
+    assertLocalWorkspace(workspace)
     const paths = await Promise.all(changes.map((file) => this.workspacePath(workspace, file.path, true)))
     await this.fileMutations.run(paths, () =>
       restoreFileVersions(
@@ -334,6 +340,7 @@ export class LocalExecution implements ExecutionProvider {
   }
   async exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
     signal.throwIfAborted()
+    assertLocalWorkspace(workspace)
     if (options?.osConfinement && process.platform !== 'win32')
       return {
         text: '[hbar] No OS-level sandbox backend is available on this platform; the command was not run.',

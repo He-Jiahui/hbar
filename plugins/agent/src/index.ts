@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { agentPatchSchema, HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type { AgentPatch, Run, WorkflowScope } from '@hbar/contracts'
 import {
   agentCreateInputSchema,
@@ -295,6 +296,7 @@ export class AgentRuntime implements AgentService {
   ): Promise<CreatedAgent> {
     const parent = await this.sessions.get(parsed.parentSessionId)
     const parentWorkspace = await this.sessions.workspace(parent.workspaceId)
+    assertLocalWorkspace(parentWorkspace)
     const worktreeKey = `agent-${crypto.randomUUID()}`
     const worktree = await this.git.worktree(parentWorkspace.path, {
       operation: 'add',

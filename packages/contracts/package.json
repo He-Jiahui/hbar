@@ -17,6 +17,7 @@
     "./node-registry": "./src/node-registry.ts",
     "./node-wire": "./src/node-wire.ts",
     "./node-address": "./src/node-address.ts",
+    "./local-workspace": "./src/local-workspace.ts",
     "./device": "./src/device.ts",
     "./runtime-notifications": "./src/runtime-notifications.ts",
     "./diagnostics": "./src/diagnostics.ts",

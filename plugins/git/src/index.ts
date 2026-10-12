@@ -1,6 +1,7 @@
 import { lstat, mkdir, readdir, realpath } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import {
   HbarError,
@@ -124,6 +125,7 @@ async function collect(stream: ReadableStream<Uint8Array>, limit: number, state:
 export class ProcessGitRunner implements GitRunner {
   async run(cwd: string, args: string[], signal: AbortSignal, limits: { timeoutMs: number; maxOutputBytes: number }) {
     signal.throwIfAborted()
+    assertLocalWorkspace(cwd)
     const child = Bun.spawn(['git', ...args], {
       cwd,
       env: environment(),
@@ -547,6 +549,8 @@ export class GitRuntime implements GitService {
     private readonly onChanged?: (cwd: string) => void | Promise<void>,
     private readonly statsIndexes = new Map<string, GitStatsIndex>(),
   ) {
+    assertLocalWorkspace(root)
+    if (config.worktreeRoot) assertLocalWorkspace(config.worktreeRoot)
     this.rootPromise = realpath(root)
     this.worktreeRootPromise = config.worktreeRoot
       ? this.resolveWithinRoot(config.worktreeRoot)
@@ -569,6 +573,7 @@ export class GitRuntime implements GitService {
   }
 
   private async resolveWithinRoot(requested?: string) {
+    if (requested !== undefined) assertLocalWorkspace(requested)
     const root = await this.rootPromise
     const candidate = resolve(root, requested ?? '.')
     if (!inside(root, candidate)) {
