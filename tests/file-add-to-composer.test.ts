@@ -157,6 +157,7 @@ async function fixture() {
   const tabs = runtime.view.state.workspaceTabs.getSnapshot()
   const source = tabs.items.find((item) => item.kind === 'session' && item.id === 'a')!
   const workbench = tabs.items.find((item) => item.id === opened.id)!
+  const initialDrafts = runtime.view.state.drafts.getSnapshot()
   const target = {
     instanceId: 'files-a',
     workspaceId: 'w',
@@ -173,6 +174,7 @@ async function fixture() {
     execute,
     target,
     fileTarget,
+    initialDrafts,
     sessions,
     reads: () => reads,
     offline: () => {
@@ -211,7 +213,7 @@ test('a Files workbench adds a structured path to its original Session without n
       },
     ])
     expect(serializeMentions(draft.text, draft.mentions, 'w')).toBe('Review @spec doc.md @"src/spec doc.md"')
-    expect(f.runtime.view.state.drafts.getSnapshot().b).toBeUndefined()
+    expect(f.runtime.view.state.drafts.getSnapshot().b).toEqual(f.initialDrafts.b)
     expect(f.runtime.view.state.workspaceTabs.getSnapshot().activeId).toBe(f.target.workbenchTabId)
     expect(f.runtime.view.state.navigation.getSnapshot().sessionId).toBe('b')
     expect(await f.execute('fileWorkspace.addToComposer', { ...f.target, expectedRevision: 2 })).toEqual({
@@ -272,7 +274,7 @@ test('source selection adds a deduplicated snapshot to its owning composer witho
       }),
     ).rejects.toMatchObject({ code: 'TARGET_CHANGED' })
     expect(f.runtime.view.state.drafts.getSnapshot().a).toEqual(draft)
-    expect(f.runtime.view.state.drafts.getSnapshot().b).toBeUndefined()
+    expect(f.runtime.view.state.drafts.getSnapshot().b).toEqual(f.initialDrafts.b)
     expect(f.runtime.view.state.workspaceTabs.getSnapshot().activeId).toBe(f.target.workbenchTabId)
   } finally {
     f.runtime.dispose()
@@ -350,7 +352,7 @@ test('a changed source draft, offline Host, or archived source fails closed with
     } catch (error) {
       expect(error).toMatchObject({ code: 'SESSION_NOT_FOUND' })
     }
-    expect(archived.runtime.view.state.drafts.getSnapshot().a).toBeUndefined()
+    expect(archived.runtime.view.state.drafts.getSnapshot().a).toEqual(archived.initialDrafts.a)
   } finally {
     archived.runtime.dispose()
   }
@@ -375,7 +377,7 @@ test('a late Host read never writes after the selected file changes', async () =
     } catch (error) {
       expect(error).toMatchObject({ code: 'TARGET_CHANGED' })
     }
-    expect(f.runtime.view.state.drafts.getSnapshot().a).toBeUndefined()
+    expect(f.runtime.view.state.drafts.getSnapshot().a).toEqual(f.initialDrafts.a)
   } finally {
     gate.resolve(session('a'))
     f.runtime.dispose()
@@ -393,7 +395,7 @@ test('an unsaved file edit blocks a disk-path reference and preserves the edit',
       expect(error).toMatchObject({ code: 'FILE_DRAFT_PENDING' })
     }
     expect(f.runtime.view.state.files.getSnapshot().entries['files-a']?.document?.draft).toBe('uncommitted')
-    expect(f.runtime.view.state.drafts.getSnapshot().a).toBeUndefined()
+    expect(f.runtime.view.state.drafts.getSnapshot().a).toEqual(f.initialDrafts.a)
   } finally {
     f.runtime.dispose()
   }
@@ -417,7 +419,7 @@ test('an unknown file save cannot be represented as the saved on-disk path', asy
     } catch (error) {
       expect(error).toMatchObject({ code: 'FILE_DRAFT_PENDING' })
     }
-    expect(f.runtime.view.state.drafts.getSnapshot().a).toBeUndefined()
+    expect(f.runtime.view.state.drafts.getSnapshot().a).toEqual(f.initialDrafts.a)
   } finally {
     f.runtime.dispose()
   }
@@ -444,7 +446,7 @@ test('a replaced source tab instance or a switched active workbench cannot recei
     } catch (error) {
       expect(error).toMatchObject({ code: 'TARGET_CHANGED' })
     }
-    expect(f.runtime.view.state.drafts.getSnapshot().a).toBeUndefined()
+    expect(f.runtime.view.state.drafts.getSnapshot().a).toEqual(f.initialDrafts.a)
   } finally {
     gate.resolve(session('a'))
     f.runtime.dispose()
