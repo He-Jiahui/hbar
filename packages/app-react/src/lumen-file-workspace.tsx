@@ -33,6 +33,7 @@ import { HbarFilePreviewTabs, type HbarFilePreviewItem, type HbarFilePreviewLabe
 import { HbarFileSourceSurface, type HbarFileContextLabels } from './file-context-surfaces'
 import { HbarFileMarkdownPreview, canRenderFileMarkdown, isMarkdownFile } from './file-markdown-preview'
 import type { HbarCodeBlockLabels } from './code-block-copy-action'
+import { fileWorkspaceMessages } from './file-workspace-messages'
 import './lumen-file-workspace.css'
 
 export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
@@ -80,18 +81,7 @@ export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly addToChatError: (code: string) => string
 }
 
-export function HbarFileWorkspace({
-  labels,
-  connected,
-  instanceId: requestedInstanceId,
-  targetLabel,
-  mode = 'dock',
-  onExpand,
-  onReturnToSource,
-  onCloseWorkbench,
-  actionError,
-  returnLabel,
-}: {
+type HbarFileWorkspaceProps = {
   readonly labels: HbarFileWorkspaceLabels
   readonly connected: boolean
   readonly instanceId?: string
@@ -102,7 +92,39 @@ export function HbarFileWorkspace({
   readonly onCloseWorkbench?: (() => void) | undefined
   readonly actionError?: string | null | undefined
   readonly returnLabel?: string | undefined
-}) {
+}
+
+export function HbarFileWorkspace(props: HbarFileWorkspaceProps) {
+  const { labels, ...contentProps } = props
+  return (
+    <fileWorkspaceMessages.Provider messages={labels}>
+      <FileWorkspaceContent {...contentProps} />
+    </fileWorkspaceMessages.Provider>
+  )
+}
+
+function FileWorkspaceContent({
+  connected,
+  instanceId: requestedInstanceId,
+  targetLabel,
+  mode = 'dock',
+  onExpand,
+  onReturnToSource,
+  onCloseWorkbench,
+  actionError,
+  returnLabel,
+}: Omit<HbarFileWorkspaceProps, 'labels'>) {
+  const { t } = fileWorkspaceMessages.useMessages()
+  const previewMessages = t('previews')
+  const fileDocumentLabels: LumenWorkspaceFileLabels = {
+    title: t('title'),
+    parent: t('parent'),
+    refresh: t('refresh'),
+    loading: t('loading'),
+    empty: t('empty'),
+    retry: t('retry'),
+    readOnly: t('readOnly'),
+  }
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
@@ -243,10 +265,10 @@ export function HbarFileWorkspace({
         // A reader already owns this error. Only add strip feedback when no current reader displays it.
         if (filePreviewOwnsFailure(latest, name, input)) return
         if (code !== 'CANCELLED' && code !== 'TARGET_CHANGED' && code !== 'RESULT_UNKNOWN')
-          setPreviewFeedback({ target, message: labels.previews.error(code) })
+          setPreviewFeedback({ target, message: previewMessages.error(code) })
       })
     },
-    [runtime.commands, runtime.state.files, instanceId, sourceSessionId, entry?.sessionTarget, target, labels.previews],
+    [runtime.commands, runtime.state.files, instanceId, sourceSessionId, entry?.sessionTarget, target, previewMessages],
   )
   useEffect(() => {
     if (instanceId && panel?.panelId === 'files' && panel.workspaceId && entry?.workspaceId !== panel.workspaceId)
@@ -351,7 +373,7 @@ export function HbarFileWorkspace({
           if (item)
             setPreviewFeedback({
               target,
-              message: labels.previews.blocked(item.path, blocked.reason),
+              message: t('previews').blocked(item.path, blocked.reason),
               blockedId: item.id,
             })
           return
@@ -370,14 +392,14 @@ export function HbarFileWorkspace({
           reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
             ? reason.code
             : 'EXECUTION_FAILED'
-        setPreviewFeedback({ target, message: labels.previews.error(code) })
+        setPreviewFeedback({ target, message: t('previews').error(code) })
       })
   }
   const singleClose =
     !showPreviewTabs && activePreview ? (
       <LumenIconButton
         className="hbar-file-single-preview-close"
-        label={labels.previews.close(activePreview.path, activePreview.kind)}
+        label={t('previews').close(activePreview.path, activePreview.kind)}
         onClick={() => closePreviews([activePreview.id])}
       >
         <LumenIcon icon={X} tier="sm" />
@@ -456,13 +478,13 @@ export function HbarFileWorkspace({
       : null
   const addHint =
     !sourceTab || !sourceSessionId
-      ? labels.addNoSource
+      ? t('addNoSource')
       : blockedFileDraft
-        ? labels.addFileDraftPending
+        ? t('addFileDraftPending')
         : !connected
-          ? labels.addOffline
+          ? t('addOffline')
           : addingTarget === addTarget
-            ? labels.addingToChat
+            ? t('addingToChat')
             : null
   const addCurrentFile = async (context?: FileComposerContextSelection): Promise<boolean> => {
     if (!canAdd || !workspaceId || !selectedPath || !sourceSessionId || !sourceTab || addInFlight.current) return false
@@ -489,7 +511,7 @@ export function HbarFileWorkspace({
         setAddFeedback({
           target,
           kind: 'success',
-          message: result.added ? labels.addedToChat(result.sessionTitle) : labels.alreadyInChat(result.sessionTitle),
+          message: result.added ? t('addedToChat')(result.sessionTitle) : t('alreadyInChat')(result.sessionTitle),
           revision: result.revision,
         })
         return true
@@ -500,7 +522,7 @@ export function HbarFileWorkspace({
           reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
             ? reason.code
             : 'EXECUTION_FAILED'
-        setAddFeedback({ target, kind: 'error', message: labels.addToChatError(code) })
+        setAddFeedback({ target, kind: 'error', message: t('addToChatError')(code) })
         return false
       })
       .finally(() => {
@@ -530,12 +552,12 @@ export function HbarFileWorkspace({
   return (
     <>
       <LumenToolPane
-        title={labels.title}
+        title={t('title')}
         targetLabel={targetLabel}
-        description={entry ? (entry.path === '.' ? labels.root : entry.path) : undefined}
+        description={entry ? (entry.path === '.' ? t('root') : entry.path) : undefined}
         icon={FolderTree}
-        backLabel={document || diff ? labels.backToFiles : undefined}
-        closeLabel={mode === 'workbench' ? labels.closeWorkbench : labels.close}
+        backLabel={document || diff ? t('backToFiles') : undefined}
+        closeLabel={mode === 'workbench' ? t('closeWorkbench') : t('close')}
         onBack={
           document || diff
             ? () => invoke('fileWorkspace.showBrowser', { instanceId, workspaceId, previewId })
@@ -547,7 +569,7 @@ export function HbarFileWorkspace({
             {hasPreview && (
               <LumenIconButton
                 ref={navigator.trigger}
-                label={navigator.shown ? labels.hideNavigator : labels.showNavigator}
+                label={navigator.shown ? t('hideNavigator') : t('showNavigator')}
                 aria-expanded={navigator.shown}
                 onClick={navigator.toggle}
               >
@@ -555,7 +577,7 @@ export function HbarFileWorkspace({
               </LumenIconButton>
             )}
             {mode === 'dock' && onExpand ? (
-              <LumenIconButton label={labels.expandWorkbench} onClick={onExpand}>
+              <LumenIconButton label={t('expandWorkbench')} onClick={onExpand}>
                 <LumenIcon icon={Maximize2} tier="sm" />
               </LumenIconButton>
             ) : null}
@@ -565,7 +587,7 @@ export function HbarFileWorkspace({
           mode === 'workbench' && onReturnToSource ? (
             <LumenButton variant="text" size="s" onClick={onReturnToSource}>
               <LumenIcon icon={ArrowLeft} tier="sm" />
-              {returnLabel ?? labels.returnToConversation}
+              {returnLabel ?? t('returnToConversation')}
             </LumenButton>
           ) : undefined
         }
@@ -586,7 +608,7 @@ export function HbarFileWorkspace({
           <HbarFilePreviewTabs
             items={previews}
             activeId={previewId ?? null}
-            labels={labels.previews}
+            labels={t('previews')}
             onSelect={selectPreview}
             onClose={closePreviews}
           />
@@ -603,7 +625,7 @@ export function HbarFileWorkspace({
                     if (previewFeedback.blockedId) selectPreview(previewFeedback.blockedId)
                   }}
                 >
-                  {labels.previews.showBlocked}
+                  {t('previews').showBlocked}
                 </LumenButton>
               )}
           </LumenFrame>
@@ -629,11 +651,11 @@ export function HbarFileWorkspace({
                     <LumenFileDocument
                       path={document.path}
                       name={fileName(document.path)}
-                      labels={labels}
+                      labels={fileDocumentLabels}
                       loading={document.status === 'loading'}
                       error={
                         document.status !== 'unknown' && (document.error || entry?.error)
-                          ? labels.error(document.error ?? entry?.error ?? '')
+                          ? t('error')(document.error ?? entry?.error ?? '')
                           : undefined
                       }
                       contentAvailable={document.sha256 !== null}
@@ -656,7 +678,7 @@ export function HbarFileWorkspace({
                             })
                           }
                         >
-                          {labels.preview}
+                          {t('preview')}
                         </LumenButton>
                         {markdownFile && (
                           <LumenButton
@@ -672,7 +694,7 @@ export function HbarFileWorkspace({
                               })
                             }
                           >
-                            {labels.source}
+                            {t('source')}
                           </LumenButton>
                         )}
                         <LumenButton
@@ -688,7 +710,7 @@ export function HbarFileWorkspace({
                             })
                           }
                         >
-                          {labels.edit}
+                          {t('edit')}
                         </LumenButton>
                         {sourceTab && (mode !== 'workbench' || workbenchTab) && (
                           <LumenButton
@@ -700,7 +722,7 @@ export function HbarFileWorkspace({
                             }}
                           >
                             <LumenIcon icon={MessageCircle} tier="sm" />
-                            {labels.addToChat}
+                            {t('addToChat')}
                           </LumenButton>
                         )}
                       </LumenFrame>
@@ -720,7 +742,7 @@ export function HbarFileWorkspace({
                       )}
                       {markdownFile && entry?.documentMode === 'preview' && !renderedMarkdown && (
                         <LumenContentText context="feedback.message" role="status" className="hbar-file-add-feedback">
-                          {labels.markdownTooLarge}
+                          {t('markdownTooLarge')}
                         </LumenContentText>
                       )}
                       {editing ? (
@@ -744,10 +766,10 @@ export function HbarFileWorkspace({
                           key={previewId}
                           path={document.path}
                           value={document.draft}
-                          label={labels.textPreview(document.path)}
-                          imageLabel={labels.markdownImage}
-                          openFileLabel={labels.openLinkedFile}
-                          code={{ previewId, owner: runtime, labels: labels.markdownCode }}
+                          label={t('textPreview')(document.path)}
+                          imageLabel={t('markdownImage')}
+                          openFileLabel={t('openLinkedFile')}
+                          code={{ previewId, owner: runtime, labels: t('markdownCode') }}
                           onOpenFile={(path) =>
                             invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
                           }
@@ -758,8 +780,8 @@ export function HbarFileWorkspace({
                           path={document.path}
                           value={document.draft}
                           sha256={document.sha256}
-                          previewLabel={labels.textPreview(document.path)}
-                          labels={labels.context}
+                          previewLabel={t('textPreview')(document.path)}
+                          labels={t('context')}
                           disabled={!canAdd || addingTarget !== null}
                           revealedLine={revealedLine}
                           onAdd={addCurrentFile}
@@ -767,19 +789,19 @@ export function HbarFileWorkspace({
                       )}
                       {unknown && document.error && (
                         <LumenContentText context="feedback.message" role="alert">
-                          {labels.error(document.error)}
+                          {t('error')(document.error)}
                         </LumenContentText>
                       )}
                       <LumenFrame as="footer">
                         <LumenContentText context="message.inline" role="status">
-                          {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
+                          {dirty ? t('dirty') : document.status === 'succeeded' ? t('saved') : null}
                         </LumenContentText>
                         {dirty && !unknown && (
                           <LumenButton
                             disabled={!connected || busy || document.status === 'loading'}
                             onClick={requestReload}
                           >
-                            {labels.reload}
+                            {t('reload')}
                           </LumenButton>
                         )}
                         {unknown ? (
@@ -787,7 +809,7 @@ export function HbarFileWorkspace({
                             disabled={!connected}
                             onClick={() => invoke('fileWorkspace.reconcile', { instanceId, workspaceId, previewId })}
                           >
-                            {labels.reconcile}
+                            {t('reconcile')}
                           </LumenButton>
                         ) : editing ? (
                           <LumenButton
@@ -795,7 +817,7 @@ export function HbarFileWorkspace({
                             tone="primary"
                             onClick={() => invoke('fileWorkspace.save', { instanceId, workspaceId, previewId })}
                           >
-                            {busy ? labels.saving : labels.save}
+                            {busy ? t('saving') : t('save')}
                           </LumenButton>
                         ) : null}
                       </LumenFrame>
@@ -808,7 +830,7 @@ export function HbarFileWorkspace({
                 key={previewId}
                 diff={diff}
                 change={entry.changes.items.find((item) => item.path === diff.path)}
-                labels={labels.changes}
+                labels={t('changes')}
                 connected={connected}
                 pagination={diffPagination}
                 headerActions={singleClose}
@@ -822,7 +844,7 @@ export function HbarFileWorkspace({
                 addToChat={
                   sourceTab && (mode !== 'workbench' || workbenchTab)
                     ? {
-                        label: labels.addToChat,
+                        label: t('addToChat'),
                         disabled: !canAdd || addingTarget !== null,
                         onClick: () => {
                           void addCurrentFile()
@@ -836,7 +858,7 @@ export function HbarFileWorkspace({
                 context={
                   sourceTab && (mode !== 'workbench' || workbenchTab)
                     ? {
-                        labels: labels.context,
+                        labels: t('context'),
                         disabled: !canAdd || addingTarget !== null,
                         onAdd: addCurrentFile,
                         captureCommentCompletion,
@@ -849,19 +871,19 @@ export function HbarFileWorkspace({
           <LumenFrame
             ref={navigator.navigator}
             role="region"
-            aria-label={labels.navigator}
+            aria-label={t('navigator')}
             className="hbar-app-react-file-browser"
             hidden={hasPreview && !navigator.shown}
           >
             <LumenFrame className="hbar-file-browser-mode">
               <LumenPopupSelect
-                aria-label={labels.changes.mode}
+                aria-label={t('changes').mode}
                 id="hbar-file-browser-mode"
                 value={entry?.browserMode ?? 'all'}
                 disabled={!connected || !entry}
                 options={[
-                  { id: 'all', label: labels.changes.all },
-                  { id: 'changed', label: labels.changes.changed },
+                  { id: 'all', label: t('changes').all },
+                  { id: 'changed', label: t('changes').changed },
                 ]}
                 onValueChange={(mode) =>
                   invoke('fileWorkspace.setBrowserMode', {
@@ -879,7 +901,7 @@ export function HbarFileWorkspace({
                   content: (
                     <HbarFileChanges
                       changes={entry.changes}
-                      labels={labels.changes}
+                      labels={t('changes')}
                       connected={connected}
                       selectedPath={selectedPath}
                       onRefresh={() =>
@@ -901,7 +923,7 @@ export function HbarFileWorkspace({
                   navigation: (
                     <HbarFileTree
                       entry={entry}
-                      labels={labels.tree}
+                      labels={t('tree')}
                       connected={connected}
                       selectedPath={selectedPath}
                       onFilter={(filter) => invoke('fileWorkspace.filterTree', { instanceId, workspaceId, filter })}
@@ -934,14 +956,14 @@ export function HbarFileWorkspace({
       <LumenDialog
         open={reloadTarget !== null}
         size="small"
-        title={labels.reloadTitle(reloadTarget?.path ?? '')}
-        closeLabel={labels.keepDraft}
+        title={t('reloadTitle')(reloadTarget?.path ?? '')}
+        closeLabel={t('keepDraft')}
         onClose={() => setReloadTarget(null)}
         footer={
           <>
-            <LumenButton onClick={() => setReloadTarget(null)}>{labels.keepDraft}</LumenButton>
+            <LumenButton onClick={() => setReloadTarget(null)}>{t('keepDraft')}</LumenButton>
             <LumenButton tone="danger" onClick={reload}>
-              {labels.discardAndReload}
+              {t('discardAndReload')}
             </LumenButton>
           </>
         }
@@ -950,7 +972,7 @@ export function HbarFileWorkspace({
           {reloadTarget?.path}
         </LumenContentText>
         <LumenContentText context="dialog.body" className="hbar-app-react-file-reload-description">
-          {labels.reloadDescription}
+          {t('reloadDescription')}
         </LumenContentText>
       </LumenDialog>
     </>

@@ -14,8 +14,8 @@ test('Files target and Host errors have localized copy without raw codes or fals
       locale: 'zh-CN' as const,
       unresolved: '请先运行此会话，再刷新“文件”面板。',
       changed: '会话文件目标已变化；请先刷新“文件”面板。',
-      invalid: 'Host 返回的文件响应无效；请刷新“文件”面板或重新连接。',
-      capability: '所需的 Host 能力不可用；请重新连接后刷新“文件”面板。',
+      invalid: '宿主返回的文件响应无效；请刷新“文件”面板或重新连接。',
+      capability: '所需的宿主能力不可用；请重新连接后刷新“文件”面板。',
     },
   ]
   for (const expected of cases) {
