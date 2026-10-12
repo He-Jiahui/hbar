@@ -3,6 +3,7 @@ import { LumenContentText, LumenButton, LumenCompactMetrics, LumenFrame } from '
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { monitoringModels, monitoringUsageBuckets, SESSION_MONITORING_MODEL_PAGE } from './session-monitoring-model'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionMonitoringUsageLabels {
   readonly unavailable: string
@@ -46,6 +47,8 @@ export interface HbarSessionMonitoringUsageLabels {
   readonly model: (provider: string, model: string) => string
 }
 
+export const sessionMonitoringUsageMessages = createMessageScope<HbarSessionMonitoringUsageLabels>()
+
 function metricValue(
   metric: { readonly value: number | null; readonly availability: string },
   format: (value: number) => string,
@@ -56,22 +59,21 @@ function metricValue(
 
 function TokenTimeline({
   report,
-  labels,
 }: {
   readonly report: UsageQueryResult
-  readonly labels: HbarSessionMonitoringUsageLabels
 }) {
+  const { t } = sessionMonitoringUsageMessages.useMessages()
   const buckets = useMemo(() => monitoringUsageBuckets(report.series), [report.series])
   const [focused, setFocused] = useState<number | null>(null)
   const maximum = Math.max(0, ...buckets.map((bucket) => bucket.input + bucket.output))
   const point = focused === null ? null : buckets.find((bucket) => bucket.start === focused)
   const width = 320 / Math.max(1, buckets.length)
   return (
-    <LumenFrame as="section" className="hbar-monitoring-token-timeline" aria-label={labels.series}>
+    <LumenFrame as="section" className="hbar-monitoring-token-timeline" aria-label={t('series')}>
       <LumenFrame as="header" className="hbar-monitoring-section-heading">
-        <LumenContentText context="section.subtitle">{labels.series}</LumenContentText>
+        <LumenContentText context="section.subtitle">{t('series')}</LumenContentText>
         <LumenContentText context="message.inline" tone="muted">
-          {labels.chart.peak(maximum)}
+          {t('chart').peak(maximum)}
         </LumenContentText>
       </LumenFrame>
       {buckets.length > 0 ? (
@@ -79,7 +81,7 @@ function TokenTimeline({
           className="hbar-monitoring-token-chart"
           viewBox="0 0 320 104"
           role="img"
-          aria-label={labels.series}
+          aria-label={t('series')}
           onMouseLeave={() => setFocused(null)}
         >
           {[0, 33, 66, 100].map((y) => (
@@ -88,7 +90,7 @@ function TokenTimeline({
           {buckets.map((bucket, index) => {
             const input = maximum === 0 ? 0 : (bucket.input / maximum) * 100
             const output = maximum === 0 ? 0 : (bucket.output / maximum) * 100
-            const caption = labels.chart.bucket(bucket.start, bucket.end, bucket.input, bucket.output)
+            const caption = t('chart').bucket(bucket.start, bucket.end, bucket.input, bucket.output)
             return (
               <g
                 key={bucket.start}
@@ -122,25 +124,24 @@ function TokenTimeline({
         </svg>
       ) : (
         <LumenContentText context="section.description" tone="muted">
-          {labels.unavailable}
+          {t('unavailable')}
         </LumenContentText>
       )}
       <LumenContentText context="section.description" className="hbar-monitoring-chart-caption" aria-live="polite">
         {point
-          ? labels.chart.bucket(point.start, point.end, point.input, point.output)
-          : labels.chart.window(report.window.from, report.window.to)}
+          ? t('chart').bucket(point.start, point.end, point.input, point.output)
+          : t('chart').window(report.window.from, report.window.to)}
       </LumenContentText>
     </LumenFrame>
   )
 }
 
-export function HbarSessionMonitoringUsage({
+export function SessionMonitoringUsageView({
   report,
-  labels,
 }: {
   readonly report: UsageQueryResult
-  readonly labels: HbarSessionMonitoringUsageLabels
 }) {
+  const { t } = sessionMonitoringUsageMessages.useMessages()
   const [visibleModels, setVisibleModels] = useState(SESSION_MONITORING_MODEL_PAGE)
   const models = useMemo(() => monitoringModels(report.models), [report.models])
   const total = report.totals.input + report.totals.output
@@ -148,7 +149,7 @@ export function HbarSessionMonitoringUsage({
   const value = (
     metric: { readonly value: number | null; readonly availability: string },
     format: (item: number) => string,
-  ) => metricValue(metric, format, labels.unavailable)
+  ) => metricValue(metric, format, t('unavailable'))
   const metric = (id: string, label: string, text: string, detail?: string) => ({
     id,
     label,
@@ -161,30 +162,30 @@ export function HbarSessionMonitoringUsage({
     <LumenFrame className="hbar-monitoring-usage">
       <LumenFrame className="hbar-monitoring-primary-metrics">
         <LumenCompactMetrics
-          label={labels.composition.title}
+          label={t('composition').title}
           metrics={[
-            metric('tokens', labels.totals.tokens, labels.number(total)),
-            metric('cost', labels.totals.cost, value(report.cost, labels.currency)),
+            metric('tokens', t('totals').tokens, t('number')(total)),
+            metric('cost', t('totals').cost, value(report.cost, t('currency'))),
           ]}
         />
       </LumenFrame>
       <LumenCompactMetrics
-        label={labels.composition.title}
+        label={t('composition').title}
         metrics={[
-          metric('rate', labels.totals.rate, value(report.rates.total, labels.rate)),
-          metric('cache', labels.totals.cache, value(report.cacheHitRate, labels.percent)),
-          metric('runs', labels.totals.runs, labels.number(report.totals.runs)),
-          metric('attempts', labels.totals.attempts, labels.number(report.totals.attempts)),
+          metric('rate', t('totals').rate, value(report.rates.total, t('rate'))),
+          metric('cache', t('totals').cache, value(report.cacheHitRate, t('percent'))),
+          metric('runs', t('totals').runs, t('number')(report.totals.runs)),
+          metric('attempts', t('totals').attempts, t('number')(report.totals.attempts)),
         ]}
       />
       <LumenFrame as="section" className="hbar-monitoring-composition">
-        <LumenContentText context="section.subtitle">{labels.composition.title}</LumenContentText>
+        <LumenContentText context="section.subtitle">{t('composition').title}</LumenContentText>
         <LumenFrame className="hbar-monitoring-composition-body">
           <svg
             className="hbar-monitoring-token-ring"
             viewBox="0 0 100 100"
             role="img"
-            aria-label={labels.composition.summary(report.totals.input, report.totals.output)}
+            aria-label={t('composition').summary(report.totals.input, report.totals.output)}
           >
             <circle className="hbar-monitoring-ring-track" cx="50" cy="50" r="40" />
             {total > 0 && (
@@ -204,31 +205,31 @@ export function HbarSessionMonitoringUsage({
           </svg>
           <LumenFrame className="hbar-monitoring-composition-legend">
             <LumenCompactMetrics
-              label={labels.composition.title}
+              label={t('composition').title}
               metrics={[
-                metric('input', labels.composition.input, labels.number(report.totals.input)),
-                metric('output', labels.composition.output, labels.number(report.totals.output)),
-                metric('billable', labels.composition.billable, labels.number(report.totals.billableTokens)),
+                metric('input', t('composition').input, t('number')(report.totals.input)),
+                metric('output', t('composition').output, t('number')(report.totals.output)),
+                metric('billable', t('composition').billable, t('number')(report.totals.billableTokens)),
               ]}
             />
           </LumenFrame>
         </LumenFrame>
         <LumenCompactMetrics
-          label={labels.composition.title}
+          label={t('composition').title}
           metrics={[
-            metric('cache-read', labels.composition.cacheRead, labels.number(report.totals.cacheRead)),
-            metric('cache-write', labels.composition.cacheWrite, labels.number(report.totals.cacheWrite)),
+            metric('cache-read', t('composition').cacheRead, t('number')(report.totals.cacheRead)),
+            metric('cache-write', t('composition').cacheWrite, t('number')(report.totals.cacheWrite)),
           ]}
         />
       </LumenFrame>
-      <TokenTimeline report={report} labels={labels} />
-      <LumenFrame as="section" className="hbar-monitoring-models" aria-label={labels.models}>
-        <LumenContentText context="section.subtitle">{labels.models}</LumenContentText>
+      <TokenTimeline report={report} />
+      <LumenFrame as="section" className="hbar-monitoring-models" aria-label={t('models')}>
+        <LumenContentText context="section.subtitle">{t('models')}</LumenContentText>
         <LumenFrame role="list">
           {models.slice(0, visibleModels).map((model) => {
             const amount = model.input + model.output
             const fraction = modelTotal === 0 ? 0 : amount / modelTotal
-            const name = labels.model(model.providerId, model.modelId)
+            const name = t('model')(model.providerId, model.modelId)
             return (
               <LumenFrame
                 role="listitem"
@@ -240,9 +241,9 @@ export function HbarSessionMonitoringUsage({
                   {name}
                 </LumenContentText>
                 <LumenFrame className="hbar-monitoring-model-values">
-                  <LumenContentText context="message.inline">{labels.tokens(amount)}</LumenContentText>
-                  <LumenContentText context="message.inline">{labels.percent(fraction)}</LumenContentText>
-                  <LumenContentText context="message.inline">{value(model.cost, labels.currency)}</LumenContentText>
+                  <LumenContentText context="message.inline">{t('tokens')(amount)}</LumenContentText>
+                  <LumenContentText context="message.inline">{t('percent')(fraction)}</LumenContentText>
+                  <LumenContentText context="message.inline">{value(model.cost, t('currency'))}</LumenContentText>
                 </LumenFrame>
                 <LumenFrame className="hbar-monitoring-model-track" aria-hidden="true">
                   <LumenFrame as="span" style={{ inlineSize: `${fraction * 100}%` }} />
@@ -253,7 +254,7 @@ export function HbarSessionMonitoringUsage({
         </LumenFrame>
         {models.length === 0 && (
           <LumenContentText context="section.description" tone="muted">
-            {labels.unavailable}
+            {t('unavailable')}
           </LumenContentText>
         )}
         {visibleModels < models.length && (
@@ -263,15 +264,15 @@ export function HbarSessionMonitoringUsage({
             indicator="none"
             onClick={() => setVisibleModels((count) => count + SESSION_MONITORING_MODEL_PAGE)}
           >
-            {labels.moreModels(Math.min(SESSION_MONITORING_MODEL_PAGE, models.length - visibleModels))}
+            {t('moreModels')(Math.min(SESSION_MONITORING_MODEL_PAGE, models.length - visibleModels))}
           </LumenButton>
         )}
       </LumenFrame>
-      <HbarLumenDisclosure label={labels.latency.title}>
+      <HbarLumenDisclosure label={t('latency').title}>
         <LumenFrame className="hbar-monitoring-latency">
           {[
-            { id: 'first-token', label: labels.latency.firstToken, latency: report.latency.firstText },
-            { id: 'response', label: labels.latency.response, latency: report.latency.response },
+            { id: 'first-token', label: t('latency').firstToken, latency: report.latency.firstText },
+            { id: 'response', label: t('latency').response, latency: report.latency.response },
           ].map(({ id, label, latency }) => {
             const available = latency.availability === 'available' && latency.p95 !== null
             return (
@@ -279,7 +280,7 @@ export function HbarSessionMonitoringUsage({
                 <LumenFrame className="hbar-monitoring-section-heading">
                   <LumenContentText context="control.label">{label}</LumenContentText>
                   <LumenContentText context="choice.title">
-                    {available ? labels.duration(latency.p95 ?? 0) : labels.unavailable}
+                    {available ? t('duration')(latency.p95 ?? 0) : t('unavailable')}
                   </LumenContentText>
                 </LumenFrame>
                 {available && (
@@ -293,7 +294,7 @@ export function HbarSessionMonitoringUsage({
                   </LumenFrame>
                 )}
                 <LumenContentText context="choice.description" tone="muted">
-                  {labels.chart.samples(latency.sampleCount)}
+                  {t('chart').samples(latency.sampleCount)}
                 </LumenContentText>
               </LumenFrame>
             )
@@ -301,15 +302,15 @@ export function HbarSessionMonitoringUsage({
         </LumenFrame>
       </HbarLumenDisclosure>
       {report.execution && (
-        <HbarLumenDisclosure label={labels.execution.title}>
+        <HbarLumenDisclosure label={t('execution').title}>
           <LumenCompactMetrics
-            label={labels.execution.title}
+            label={t('execution').title}
             metrics={[
               metric(
                 'tool-calls',
-                labels.execution.toolCalls,
-                labels.number(report.execution.toolCalls.total),
-                labels.execution.toolCallsDetail(
+                t('execution').toolCalls,
+                t('number')(report.execution.toolCalls.total),
+                t('execution').toolCallsDetail(
                   report.execution.toolCalls.succeeded,
                   report.execution.toolCalls.failed,
                   report.execution.toolCalls.unknown,
@@ -317,40 +318,54 @@ export function HbarSessionMonitoringUsage({
               ),
               metric(
                 'request-concurrency',
-                labels.execution.requestConcurrency,
-                value(report.execution.requestConcurrency, labels.number),
+                t('execution').requestConcurrency,
+                value(report.execution.requestConcurrency, t('number')),
               ),
               metric(
                 'tool-concurrency',
-                labels.execution.toolConcurrency,
-                value(report.execution.toolConcurrency, labels.number),
+                t('execution').toolConcurrency,
+                value(report.execution.toolConcurrency, t('number')),
               ),
               metric(
                 'total-duration',
-                labels.execution.totalDuration,
-                value(report.execution.totalRunDuration, labels.duration),
+                t('execution').totalDuration,
+                value(report.execution.totalRunDuration, t('duration')),
               ),
               metric(
                 'run-duration',
-                labels.execution.runDuration,
+                t('execution').runDuration,
                 report.execution.runDuration.availability !== 'available' || report.execution.runDuration.p95 === null
-                  ? labels.unavailable
-                  : labels.duration(report.execution.runDuration.p95),
+                  ? t('unavailable')
+                  : t('duration')(report.execution.runDuration.p95),
               ),
               metric(
                 'tool-duration',
-                labels.execution.toolDuration,
+                t('execution').toolDuration,
                 report.execution.toolDuration.availability !== 'available' || report.execution.toolDuration.p95 === null
-                  ? labels.unavailable
-                  : labels.duration(report.execution.toolDuration.p95),
+                  ? t('unavailable')
+                  : t('duration')(report.execution.toolDuration.p95),
               ),
             ]}
           />
         </HbarLumenDisclosure>
       )}
       <LumenContentText context="section.description" tone="muted" className="hbar-monitoring-observed">
-        {labels.chart.observed(report.observedAt)}
+        {t('chart').observed(report.observedAt)}
       </LumenContentText>
     </LumenFrame>
+  )
+}
+
+export function HbarSessionMonitoringUsage({
+  report,
+  labels,
+}: {
+  readonly report: UsageQueryResult
+  readonly labels: HbarSessionMonitoringUsageLabels
+}) {
+  return (
+    <sessionMonitoringUsageMessages.Provider messages={labels}>
+      <SessionMonitoringUsageView report={report} />
+    </sessionMonitoringUsageMessages.Provider>
   )
 }

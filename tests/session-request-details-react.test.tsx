@@ -6,6 +6,8 @@ import {
   sessionRequestLatency,
 } from '../packages/app-react/src/session-request-details'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import type { ReactNode } from 'react'
+import { sessionRequestMessages } from '../packages/app-react/src/session-request-details'
 import { sessionRequestItem, sessionRequestMessage } from './fixtures/session-request-fixtures'
 
 test('per-request latency keeps a valid zero timestamp and distinguishes missing or inconsistent facts', () => {
@@ -17,6 +19,8 @@ test('per-request latency keeps a valid zero timestamp and distinguishes missing
 })
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
+  const renderWithMessages = (labels: ReturnType<typeof getShellCopy>['monitoring']['requests'], view: ReactNode) =>
+    renderToStaticMarkup(<sessionRequestMessages.Provider messages={labels}>{view}</sessionRequestMessages.Provider>)
   test(`compact request copy omits missing facts without hiding measured zero values: ${locale}`, () => {
     const labels = getShellCopy(locale).monitoring.requests
     const item = sessionRequestItem()
@@ -31,7 +35,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
   test(`request details preserve cache accounting, unavailable cost and lazy raw data: ${locale}`, () => {
     const labels = getShellCopy(locale).monitoring.requests
     const item = sessionRequestItem()
-    const html = renderToStaticMarkup(<HbarSessionRequestRecord item={item} messages={[]} labels={labels} />)
+    const html = renderWithMessages(labels, <HbarSessionRequestRecord item={item} messages={[]} />)
     expect(html).toContain(labels.fields.cacheRead)
     expect(html).toContain(labels.fields.cacheWrite)
     expect(html).toContain('120')
@@ -51,9 +55,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     test(`raw messages render bounded lazy rows without truncating their source: ${locale}, ${count}`, () => {
       const labels = getShellCopy(locale).monitoring.requests
       const messages = Array.from({ length: count }, (_, index) => sessionRequestMessage(`message-${index}`, index + 1))
-      const html = renderToStaticMarkup(
-        <HbarSessionRawMessages messages={messages} identity="session-A" labels={labels} />,
-      )
+      const html = renderWithMessages(labels, <HbarSessionRawMessages messages={messages} identity="session-A" />)
       expect((html.match(/data-message-id=/g) ?? []).length).toBe(Math.min(20, count))
       expect(html).toContain(labels.raw.count(Math.min(20, count), count))
       expect(html).not.toContain('Original content')
