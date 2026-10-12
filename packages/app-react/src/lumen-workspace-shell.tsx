@@ -530,7 +530,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     media.addEventListener('change', update)
     return () => media.removeEventListener('change', update)
   }, [])
-  const desktopToolDock = useRef<HTMLDivElement>(null)
   const resolvedToolPresentation = props.renderLayout
     ? props.tool
       ? (props.desktopToolPresentation ?? 'split')
@@ -2245,12 +2244,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       overlay={
         <>
           {overlayRegion}
-          {props.renderLayout && toolRegion ? (
+          {props.renderLayout && toolRegion && resolvedToolPresentation === 'drawer' ? (
             <LumenFloatingSurface
               mode="modal"
               open={resolvedToolPresentation === 'drawer'}
-              docked={resolvedToolPresentation === 'split'}
-              dockRef={desktopToolDock}
               keepMounted
               label={props.toolLabel}
               onClose={props.onCloseTool ?? (() => {})}
@@ -2292,11 +2289,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   'session-tool': toolRegion ? (
                     <LumenFrame
                       as="aside"
-                      ref={desktopToolDock}
+                      ref={resolvedToolPresentation === 'split' ? attachTool : undefined}
                       tabIndex={-1}
                       className="hbar-desktop-tool-pane"
                       aria-label={props.toolLabel}
-                    ></LumenFrame>
+                    >
+                      {resolvedToolPresentation === 'split' ? sessionToolPane.outlet : null}
+                    </LumenFrame>
                   ) : null,
                 },
                 null,

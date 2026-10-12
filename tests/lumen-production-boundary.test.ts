@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { expect, test } from 'bun:test'
-import { productionDesignSystemFiles } from '../scripts/verify-design-system-boundaries'
+import { auditProductionTsx, collectProductionAppSourceFiles } from '../scripts/verify-design-system-boundaries'
 
 async function collectSourceFiles(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true })
@@ -18,21 +18,21 @@ async function collectSourceFiles(root: string): Promise<string[]> {
 }
 
 test('production app sources use only the Lumen component boundary', async () => {
-  const files = (await productionDesignSystemFiles()).filter(
-    (file) => /\.(?:ts|tsx)$/.test(file) && !file.replaceAll('\\', '/').includes('/apps/hbar-app-ui-preview/'),
-  )
+  const files = await collectProductionAppSourceFiles()
   const violations: string[] = []
   for (const file of files) {
     const source = await readFile(file, 'utf8')
     if (/from\s+['"]hbar-app-ui(?:\/|['"])/.test(source) || /\bHbarAppUi[A-Z]/.test(source)) {
       violations.push(`${relative('.', file)}:legacy-ui-import`)
     }
-    if (/<\s*(?:button|input|select|textarea|details|summary)(?:\s|>)/.test(source)) {
-      violations.push(`${relative('.', file)}:native-visible-control`)
-    }
+    violations.push(
+      ...auditProductionTsx(relative('.', file).replaceAll('\\', '/'), source).map(
+        (violation) => `${violation.file}:${violation.line}:${violation.rule}`,
+      ),
+    )
   }
   expect(violations).toEqual([])
-})
+}, 30_000)
 
 test('the compatibility catalog and preview render controls through Lumen', async () => {
   const roots = ['packages/hbar-app-ui/src', 'apps/hbar-app-ui-preview/src']
@@ -45,9 +45,11 @@ test('the compatibility catalog and preview render controls through Lumen', asyn
     if (/@mui\/material(?:\/|['"])/.test(source) && !referenceEntry) {
       violations.push(`${relative('.', file)}:mui-import`)
     }
-    if (/<\s*(?:button|input|select|textarea|details|summary)(?:\s|>)/.test(source)) {
-      violations.push(`${relative('.', file)}:native-control`)
-    }
+    violations.push(
+      ...auditProductionTsx(relative('.', file).replaceAll('\\', '/'), source).map(
+        (violation) => `${violation.file}:${violation.line}:${violation.rule}`,
+      ),
+    )
   }
   expect(violations).toEqual([])
 })

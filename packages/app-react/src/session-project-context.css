@@ -57,19 +57,17 @@
   display: flex;
 }
 
-.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]):has(
-    .lumen-composer-toolbar > button[aria-expanded='true']
-  )
-  .hbar-session-project-context-below {
-  display: none;
-}
-
 .hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-toolbar {
   display: none;
 }
 
 .hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-below {
   display: flex;
+}
+
+/* Keep the single below-toolbar context visible while the adaptive actions surface is open. */
+.lumen-toolbar-overflow .hbar-session-project-context-toolbar {
+  display: none;
 }
 
 @container session-project-context (max-width: 44rem) {

@@ -300,6 +300,80 @@ test('desktop projection keeps a reachable sidebar reveal without empty default 
   }
 })
 
+test('desktop split projection owns the tool outlet inside the right pane', async () => {
+  const runtime = runtimeFixture('desktop-tool-outlet')
+  try {
+    await prepareSidebar(runtime)
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          toolWidthRem={24}
+          toolLayout={{ constrainedPresentation: 'drawer', mainMinWidthRem: 32, minWidthRem: 20, maxWidthRem: 36 }}
+          desktopToolPresentation="split"
+          connection="connected"
+          onReconnect={() => {}}
+          tool={<div data-tool-outlet="goal-plan">目标与计划工具</div>}
+          renderLayout={(panes) => (
+            <div data-desktop-layout="split">
+              {panes.workspace}
+              {panes['session-tool']}
+            </div>
+          )}
+        >
+          <h1>宿主会话内容</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html.match(/data-tool-outlet="goal-plan"/g)).toHaveLength(1)
+    const rightPaneStart = html.indexOf('class="hbar-desktop-tool-pane"')
+    const outlet = html.indexOf('data-tool-outlet="goal-plan"')
+    expect(rightPaneStart).toBeGreaterThanOrEqual(0)
+    expect(outlet).toBeGreaterThan(rightPaneStart)
+    expect(html).not.toContain('lumen-tool-drawer-surface')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('desktop drawer projection keeps the tool outlet in the drawer owner only', async () => {
+  const runtime = runtimeFixture('desktop-tool-drawer')
+  try {
+    await prepareSidebar(runtime)
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          toolWidthRem={24}
+          toolLayout={{ constrainedPresentation: 'drawer', mainMinWidthRem: 32, minWidthRem: 20, maxWidthRem: 36 }}
+          desktopToolPresentation="drawer"
+          connection="connected"
+          onReconnect={() => {}}
+          tool={<div data-tool-outlet="goal-plan-drawer">目标与计划工具</div>}
+          renderLayout={(panes) => (
+            <div data-desktop-layout="drawer">
+              {panes.workspace}
+              {panes['session-tool']}
+            </div>
+          )}
+        >
+          <h1>宿主会话内容</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html.match(/data-tool-outlet="goal-plan-drawer"/g)).toHaveLength(1)
+    expect(html).toContain('lumen-tool-drawer-surface')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('app-react renders host-owned workspace and session content from read-only runtime state', async () => {
   const runtime = runtimeFixture()
   try {

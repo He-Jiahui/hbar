@@ -1,6 +1,8 @@
-import { readFile } from 'node:fs/promises'
-import { dirname, extname, join, relative, resolve } from 'node:path'
-import ts from 'typescript'
+import { readdir, readFile } from 'node:fs/promises'
+import { extname, join, relative, resolve } from 'node:path'
+import * as ts from 'typescript'
+import { classifyDesktopSource } from './desktop-element-audit/classify'
+import { loadDesktopSourceGraph } from './desktop-element-audit/graph'
 
 export interface DesignSystemViolation {
   readonly file: string
@@ -85,24 +87,47 @@ function lineAt(source: string, offset: number): number {
 }
 
 export function auditProductionTsx(file: string, source: string): readonly DesignSystemViolation[] {
+  const syntax = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  )
   const violations: DesignSystemViolation[] = []
-  for (const match of source.matchAll(/<([a-z][a-z0-9-]*)\b/g)) {
-    const element = match[1]
-    if (!element || !nativeVisibleElements.has(element)) continue
+  for (const element of classifyDesktopSource(file.replaceAll('\\', '/'), syntax)) {
+    if (!nativeVisibleElements.has(element.component) || !element.issues.includes('native-element-outside-renderer'))
+      continue
     violations.push({
       file,
-      line: lineAt(source, match.index),
-      rule: nativeControls.has(element) ? 'native-control' : 'native-element',
-      detail: `Render <${element}> through an @lumen/app-ui component`,
+      line: element.line,
+      rule: nativeControls.has(element.component) ? 'native-control' : 'native-element',
+      detail: `Render <${element.component}> through an @lumen/app-ui component`,
     })
   }
-  for (const match of source.matchAll(/\bsize=\{\s*\d+(?:\.\d+)?\s*\}/g))
-    violations.push({
-      file,
-      line: lineAt(source, match.index),
-      rule: 'numeric-size',
-      detail: 'Use the semantic S/M/L component size',
-    })
+  function visit(node: ts.Node): void {
+    if (
+      ts.isJsxAttribute(node) &&
+      node.name.getText(syntax) === 'size' &&
+      node.initializer &&
+      ts.isJsxExpression(node.initializer)
+    ) {
+      const value = node.initializer.expression
+      if (
+        value &&
+        (ts.isNumericLiteral(value) || (ts.isPrefixUnaryExpression(value) && ts.isNumericLiteral(value.operand)))
+      ) {
+        violations.push({
+          file,
+          line: syntax.getLineAndCharacterOfPosition(node.getStart(syntax)).line + 1,
+          rule: 'numeric-size',
+          detail: 'Use the component semantic size tier',
+        })
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(syntax)
   return violations
 }
 
@@ -130,86 +155,53 @@ export function auditProductionCss(file: string, source: string): readonly Desig
   return violations
 }
 
-const rendererElements: Readonly<Record<string, readonly string[]>> = {
-  'packages/app-react/src/echarts-chart.tsx': ['div'],
-  'packages/app-react/src/message-markdown.tsx': ['span'],
+async function sourceFiles(directory: string): Promise<readonly string[]> {
+  const files: string[] = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) files.push(...(await sourceFiles(path)))
+    else if (entry.isFile() && ['.css', '.ts', '.tsx'].includes(extname(entry.name))) files.push(path)
+  }
+  return files
 }
 
-/** Follow application imports, including public React exports, rather than independent brand reference routes. */
-export async function productionDesignSystemFiles(root = process.cwd()): Promise<readonly string[]> {
-  const configuration = ts.readConfigFile(join(root, 'tsconfig.json'), ts.sys.readFile)
-  if (configuration.error) throw new Error('Cannot read application TypeScript configuration')
-  const raw: unknown = configuration.config
-  const parsed = ts.parseJsonConfigFileContent(raw, ts.sys, root)
-  const pending = [
-    resolve(root, 'apps/web/src/LanguageApp.tsx'),
-    resolve(root, 'apps/hbar-app-ui-preview/src/main.tsx'),
-    resolve(root, 'apps/hbar-app-ui-preview/src/WorkbenchAcceptance.tsx'),
-    resolve(root, 'apps/hbar-app-ui-preview/src/VisualUpgradeReport.tsx'),
-  ]
-  const visited = new Set<string>()
-  const owned = (file: string) =>
-    /^(?:apps\/web\/src|packages\/app-react\/src|apps\/hbar-app-ui-preview\/src)\//.test(file) &&
-    !file.includes('/react-bits/reference/')
-  while (pending.length) {
-    const path = pending.pop()
-    if (!path || visited.has(path)) continue
-    const file = relative(root, path).replaceAll('\\', '/')
-    if (!owned(file)) continue
-    visited.add(path)
-    if (extname(path) === '.css') continue
-    const source = await readFile(path, 'utf8')
-    const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true)
-    for (const statement of tree.statements) {
-      if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue
-      const specifier = statement.moduleSpecifier
-      if (
-        !specifier ||
-        !ts.isStringLiteral(specifier) ||
-        (ts.isExportDeclaration(statement) && statement.isTypeOnly) ||
-        (ts.isImportDeclaration(statement) && statement.importClause?.isTypeOnly)
-      )
-        continue
-      const child =
-        specifier.text.endsWith('.css') && specifier.text.startsWith('.')
-          ? resolve(dirname(path), specifier.text)
-          : ts.resolveModuleName(specifier.text, path, parsed.options, ts.sys).resolvedModule?.resolvedFileName
-      if (child) pending.push(resolve(child))
-    }
-    // Lazy production views use the same boundary as static imports.
-    const lazy = (node: ts.Node) => {
-      if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-        const specifier = node.arguments[0]
-        if (specifier && ts.isStringLiteral(specifier)) {
-          const child = ts.resolveModuleName(specifier.text, path, parsed.options, ts.sys).resolvedModule
-            ?.resolvedFileName
-          if (child) pending.push(resolve(child))
-        }
-      }
-      ts.forEachChild(node, lazy)
-    }
-    ts.forEachChild(tree, lazy)
-  }
-  return [...visited].sort()
+function desktopSourceInputs(root: string): ReadonlySet<string> {
+  return new Set(
+    [...loadDesktopSourceGraph(root).sources.keys()].map((file) => relative(root, file).replaceAll('\\', '/')),
+  )
+}
+
+/** Runtime imports and demanded barrel exports, plus the maintained application composition package. */
+export async function collectProductionAppSourceFiles(root = process.cwd()): Promise<readonly string[]> {
+  const inputs = desktopSourceInputs(root)
+  const application = await sourceFiles(resolve(root, 'packages/app-react/src'))
+  const host = await sourceFiles(resolve(root, 'apps/web/src'))
+  return [...application, ...host.filter((file) => inputs.has(relative(root, file).replaceAll('\\', '/')))]
+    .filter((file) => ['.ts', '.tsx'].includes(extname(file)))
+    .sort()
 }
 
 export async function auditProductionDesignSystem(root = process.cwd()): Promise<readonly DesignSystemViolation[]> {
   const violations: DesignSystemViolation[] = []
-  for (const file of await productionDesignSystemFiles(root)) {
-    const source = await readFile(file, 'utf8')
-    const display = relative(root, file).replaceAll('\\', '/')
-    violations.push(
-      ...(extname(file) === '.css'
-        ? auditProductionCss(display, source)
-        : extname(file) === '.tsx'
-          ? auditProductionTsx(display, source).filter(
-              (violation) =>
-                !rendererElements[display]?.some(
-                  (element) => violation.detail === `Render <${element}> through an @lumen/app-ui component`,
-                ),
-            )
-          : []),
-    )
+  const inputs = desktopSourceInputs(root)
+  for (const directory of [
+    'packages/app-react/src',
+    'apps/web/src',
+    'packages/hbar-app-ui/src',
+    'apps/hbar-app-ui-preview/src',
+  ]) {
+    for (const file of await sourceFiles(resolve(root, directory))) {
+      const display = relative(root, file).replaceAll('\\', '/')
+      if (directory === 'apps/web/src' && extname(file) === '.tsx' && !inputs.has(display)) continue
+      const source = await readFile(file, 'utf8')
+      violations.push(
+        ...(extname(file) === '.css' && !directory.startsWith('packages/hbar-app-ui')
+          ? auditProductionCss(display, source)
+          : extname(file) === '.tsx'
+            ? auditProductionTsx(display, source)
+            : []),
+      )
+    }
   }
   return violations
 }
