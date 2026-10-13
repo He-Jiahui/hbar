@@ -25,6 +25,7 @@ import type {
   WorkflowPlan,
   WorkflowPlanItem,
   WorkflowPlanItemInput,
+  WorkflowFocusPlanItemInput,
   WorkflowPublicState,
   WorkflowScope,
   WorkflowSnapshot,
@@ -749,7 +750,7 @@ export class WorkflowRuntime implements WorkflowService {
     return this.snapshot(sessionId)
   }
 
-  private normalizeFocusItem(value: WorkflowPlanItemInput) {
+  private normalizeFocusItem(value: WorkflowFocusPlanItemInput) {
     const normalized = workflowFocusPlanItemSchema.parse({
       ...value,
       scope: {
@@ -861,7 +862,7 @@ export class WorkflowRuntime implements WorkflowService {
   async focus(
     sessionId: string,
     stepIndex: number,
-    itemValue: WorkflowPlanItemInput,
+    itemValue: WorkflowFocusPlanItemInput,
     completionPolicy: WorkflowCompletionPolicy,
     expectedPlanRevision: number,
   ) {

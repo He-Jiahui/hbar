@@ -51,6 +51,7 @@ import type {
   SettingsContributionInput,
   TaskNotificationKind,
   WorkflowPlanItemInput,
+  WorkflowFocusPlanItemInput,
   WorkflowCompletionPolicy,
   WorkflowScope,
   WorkflowSnapshot,
@@ -447,7 +448,7 @@ export interface WorkflowService {
   focus(
     sessionId: string,
     stepIndex: number,
-    item: WorkflowPlanItemInput,
+    item: WorkflowFocusPlanItemInput,
     completionPolicy: WorkflowCompletionPolicy,
     expectedPlanRevision: number,
   ): Promise<WorkflowSnapshot>

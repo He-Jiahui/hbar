@@ -222,6 +222,7 @@ export const workflowPlanItemsSchema = z
   })
 
 export const workflowFocusPlanItemSchema = workflowPlanItemSchema.omit({ dependsOnItemIds: true })
+export type WorkflowFocusPlanItemInput = z.input<typeof workflowFocusPlanItemSchema>
 
 export const workflowPlanSchema = z
   .strictObject({

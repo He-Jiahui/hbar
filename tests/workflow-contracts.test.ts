@@ -9,11 +9,35 @@ import {
   WORKFLOW_SCHEMA_VERSION,
   agentPatchSchema,
   workflowPlanSchema,
+  type WorkflowPlanItemInput,
+  type WorkflowFocusPlanItemInput,
   workflowWorkItemSchema,
   workflowSnapshotSchema,
   workflowStateSchema,
 } from '@hbar/contracts/workflow'
 import { workflowCommands } from '@hbar/contracts/commands/workflows'
+import type { WorkflowService } from '@hbar/plugin-sdk'
+
+type HasDependencyKey<T> = 'dependsOnItemIds' extends keyof T ? true : false
+type AssertFalse<T extends false> = T
+type FocusServiceItemHasNoDependencies = AssertFalse<HasDependencyKey<Parameters<WorkflowService['focus']>[2]>>
+const focusServiceTypeBoundary: FocusServiceItemHasNoDependencies = false
+const canonicalPlanItemTypeBoundary: WorkflowPlanItemInput = {
+  id: 'dependent',
+  title: 'A canonical Plan item may depend on an earlier item',
+  scope: { readPaths: [], writePaths: [], tools: [] },
+  acceptanceChecks: [],
+  dependsOnItemIds: ['prerequisite'],
+}
+const focusPlanItemTypeBoundary: WorkflowFocusPlanItemInput = {
+  id: 'focused',
+  title: 'A focused item has no dependency field',
+  scope: { readPaths: [], writePaths: [], tools: [] },
+  acceptanceChecks: [],
+}
+void focusServiceTypeBoundary
+void canonicalPlanItemTypeBoundary
+void focusPlanItemTypeBoundary
 
 const item = {
   id: 'inspect',
