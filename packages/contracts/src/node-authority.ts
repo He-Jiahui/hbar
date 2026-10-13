@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { sandboxSnapshotRefSchema } from './sandbox'
+import { nodeWorkspaceMountManifestSchema } from './node-workspace-mount-plan'
 
 const entityId = z.string().min(1).max(160)
 
@@ -15,6 +16,7 @@ export const nodeCallAuthoritySchema = z.strictObject({
   callId: entityId,
   sandbox: sandboxSnapshotRefSchema.nullable(),
   admission: nodeAdmissionSchema,
+  workspaceMounts: nodeWorkspaceMountManifestSchema.optional(),
   managedWorktree: z
     .strictObject({
       worktreeId: z.string().regex(/^[a-f0-9]{32}$/),
