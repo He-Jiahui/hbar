@@ -11,6 +11,7 @@ import { nodeRuntimeBuildUnit } from './runtime-build'
 import { nodeProcessOutputSchema, nodeArgvOutputSchema } from './execution-contract'
 import { probeUnixConfinement, type UnixConfinementBackend, type UnixConfinementCapabilities } from './unix-confinement'
 import { createContainerNodeBackend, type ContainerCapabilities } from './container-backend'
+import { createWindowsExecutionBackend } from './windows-backend'
 import { probeContainerConfinement, type ContainerConfinementConfig } from './container-confinement'
 
 type ManagedIsolationBackend = UnixConfinementBackend | 'container' | 'none'
@@ -301,6 +302,8 @@ export async function createManagedNodeBackend(options: {
   container?: ContainerConfinementConfig
 }): Promise<NodeExecutionBackend> {
   const requested = options.backend ?? 'auto'
+  if (process.platform === 'win32' && (requested === 'auto' || requested === 'windows-restricted'))
+    return createWindowsExecutionBackend({ dataRoot: options.dataRoot })
   const containerConfig = resolveContainerConfig(options.dataRoot, options.container)
   const probe = await probeManagedNodeBackend(requested, containerConfig)
   if (probe.selected === 'container' && containerConfig) return await createContainerNodeBackend(containerConfig)

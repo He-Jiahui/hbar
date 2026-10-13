@@ -8,6 +8,9 @@ export interface NodeExecutionBackendOptions {
   readonly protectedPaths: readonly string[]
   readonly readOnlyPaths?: readonly string[]
   readonly environmentAllowlist: readonly string[]
+  /** Local B-only process output callback; never serialized over the node link. */
+  readonly onOutput?: ((text: string) => void) | undefined
+  readonly onOutputReset?: (() => void) | undefined
 }
 
 export interface NodeArgvResult {

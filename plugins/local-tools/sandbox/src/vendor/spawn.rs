@@ -2,6 +2,7 @@
 //! kill-on-close Job Object. Root ACL grants in this unit are scoped to roots
 //! passed by the caller and restored when the owned process is released.
 
+use super::lease::FilesystemLease;
 use crate::{HbarPermissionProfile, SandboxedProcessHandle};
 use napi_derive::napi;
 use std::collections::HashMap;
@@ -16,23 +17,16 @@ use windows_sys::Win32::Foundation::{
     CloseHandle, GetLastError, LocalFree, HANDLE, INVALID_HANDLE_VALUE, STILL_ACTIVE,
     WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
-use windows_sys::Win32::Security::Authorization::REVOKE_ACCESS;
-use windows_sys::Win32::Security::Authorization::{
-    GetNamedSecurityInfoW, SetEntriesInAclW, SetNamedSecurityInfoW, EXPLICIT_ACCESS_W,
-    GRANT_ACCESS, SE_FILE_OBJECT, TRUSTEE_IS_SID, TRUSTEE_IS_UNKNOWN, TRUSTEE_W,
-};
 use windows_sys::Win32::Security::Isolation::{
     CreateAppContainerProfile, DeleteAppContainerProfile,
 };
 use windows_sys::Win32::Security::{
-    CONTAINER_INHERIT_ACE, DACL_SECURITY_INFORMATION, OBJECT_INHERIT_ACE, SECURITY_ATTRIBUTES,
-    SECURITY_CAPABILITIES, SID_AND_ATTRIBUTES,
+    SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, SID_AND_ATTRIBUTES,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateFileW, ReadFile, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_EXECUTE, FILE_GENERIC_READ,
-    FILE_GENERIC_WRITE, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+    CreateFileW, ReadFile, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_SHARE_READ,
+    FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use windows_sys::Win32::System::Environment::{FreeEnvironmentStringsW, GetEnvironmentStringsW};
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectBasicAccountingInformation,
     JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
@@ -59,145 +53,6 @@ pub struct SandboxProbeCapabilities {
     pub reason: Option<String>,
 }
 
-struct RootAclLease {
-    path: Vec<u16>,
-    sid: Vec<u8>,
-}
-unsafe impl Send for RootAclLease {}
-impl RootAclLease {
-    unsafe fn grant(path: &str, sid: *mut core::ffi::c_void, access: u32) -> io::Result<Self> {
-        let canonical = std::fs::canonicalize(path)?;
-        if !canonical.is_dir() || std::fs::read_dir(&canonical)?.next().is_some() {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "native root grants currently require an empty existing directory",
-            ));
-        }
-        let path = canonical.to_string_lossy().into_owned();
-        let wide_path = wide(&path);
-        let (mut owner, mut group, mut old_dacl, mut sacl, mut descriptor) =
-            (null_mut(), null_mut(), null_mut(), null_mut(), null_mut());
-        let result = GetNamedSecurityInfoW(
-            wide_path.as_ptr(),
-            SE_FILE_OBJECT,
-            DACL_SECURITY_INFORMATION,
-            &mut owner,
-            &mut group,
-            &mut old_dacl,
-            &mut sacl,
-            &mut descriptor,
-        );
-        if result != 0 {
-            return Err(io::Error::from_raw_os_error(result as i32));
-        }
-        if old_dacl.is_null() {
-            LocalFree(descriptor);
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "refusing to lease a null DACL",
-            ));
-        }
-        let sid_len = windows_sys::Win32::Security::GetLengthSid(sid) as usize;
-        if sid_len == 0 {
-            LocalFree(descriptor);
-            return Err(io::Error::last_os_error());
-        }
-        let mut sid_copy = vec![0u8; sid_len];
-        if windows_sys::Win32::Security::CopySid(sid_len as u32, sid_copy.as_mut_ptr().cast(), sid)
-            == 0
-        {
-            LocalFree(descriptor);
-            return Err(io::Error::last_os_error());
-        }
-        let trustee = TRUSTEE_W {
-            TrusteeForm: TRUSTEE_IS_SID,
-            TrusteeType: TRUSTEE_IS_UNKNOWN,
-            ptstrName: sid.cast(),
-            ..Default::default()
-        };
-        let entry = EXPLICIT_ACCESS_W {
-            grfAccessPermissions: access,
-            grfAccessMode: GRANT_ACCESS,
-            grfInheritance: CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE,
-            Trustee: trustee,
-        };
-        let mut new_dacl = null_mut();
-        let result = SetEntriesInAclW(1, &entry, old_dacl, &mut new_dacl);
-        if result != 0 {
-            LocalFree(descriptor);
-            return Err(io::Error::from_raw_os_error(result as i32));
-        }
-        let result = SetNamedSecurityInfoW(
-            wide_path.as_ptr() as *mut u16,
-            SE_FILE_OBJECT,
-            DACL_SECURITY_INFORMATION,
-            null_mut(),
-            null_mut(),
-            new_dacl,
-            null_mut(),
-        );
-        if result != 0 {
-            LocalFree(new_dacl.cast());
-            LocalFree(descriptor);
-            return Err(io::Error::from_raw_os_error(result as i32));
-        }
-        LocalFree(new_dacl.cast());
-        LocalFree(descriptor);
-        Ok(Self {
-            path: wide_path,
-            sid: sid_copy,
-        })
-    }
-}
-impl Drop for RootAclLease {
-    fn drop(&mut self) {
-        unsafe {
-            let (mut owner, mut group, mut dacl, mut sacl, mut descriptor) =
-                (null_mut(), null_mut(), null_mut(), null_mut(), null_mut());
-            let result = GetNamedSecurityInfoW(
-                self.path.as_ptr(),
-                SE_FILE_OBJECT,
-                DACL_SECURITY_INFORMATION,
-                &mut owner,
-                &mut group,
-                &mut dacl,
-                &mut sacl,
-                &mut descriptor,
-            );
-            if result == 0 && !dacl.is_null() {
-                let trustee = TRUSTEE_W {
-                    TrusteeForm: TRUSTEE_IS_SID,
-                    TrusteeType: TRUSTEE_IS_UNKNOWN,
-                    ptstrName: self.sid.as_ptr() as *mut u16,
-                    ..Default::default()
-                };
-                let entry = EXPLICIT_ACCESS_W {
-                    grfAccessPermissions: 0,
-                    grfAccessMode: REVOKE_ACCESS,
-                    grfInheritance: CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE,
-                    Trustee: trustee,
-                };
-                let mut cleaned = null_mut();
-                if SetEntriesInAclW(1, &entry, dacl, &mut cleaned) == 0 {
-                    let _ = SetNamedSecurityInfoW(
-                        self.path.as_ptr() as *mut u16,
-                        SE_FILE_OBJECT,
-                        DACL_SECURITY_INFORMATION,
-                        null_mut(),
-                        null_mut(),
-                        cleaned,
-                        null_mut(),
-                    );
-                    LocalFree(cleaned.cast());
-                }
-            }
-            if !descriptor.is_null() {
-                LocalFree(descriptor);
-            }
-        }
-    }
-}
-
 struct Child {
     process: HANDLE,
     thread: HANDLE,
@@ -206,10 +61,27 @@ struct Child {
     stderr: HANDLE,
     root_exit_code: Option<i32>,
     termination_sent: bool,
+    _leases: FilesystemLease,
     _profile: AppContainerProfile,
-    _leases: Vec<RootAclLease>,
 }
 unsafe impl Send for Child {}
+struct OwnedJob(HANDLE);
+impl OwnedJob {
+    fn into_raw(mut self) -> HANDLE {
+        let handle = self.0;
+        self.0 = null_mut();
+        handle
+    }
+}
+impl Drop for OwnedJob {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe {
+                CloseHandle(self.0);
+            }
+        }
+    }
+}
 impl Drop for Child {
     fn drop(&mut self) {
         unsafe {
@@ -322,7 +194,7 @@ static CHILDREN: OnceLock<Mutex<HashMap<String, Child>>> = OnceLock::new();
 fn children() -> &'static Mutex<HashMap<String, Child>> {
     CHILDREN.get_or_init(|| Mutex::new(HashMap::new()))
 }
-fn wide(text: &str) -> Vec<u16> {
+pub(super) fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
 }
 fn quote_arg(value: &str) -> String {
@@ -348,102 +220,46 @@ fn quote_arg(value: &str) -> String {
     out.push('"');
     out
 }
-fn environment_block(overrides: &HashMap<String, String>) -> io::Result<Vec<u16>> {
-    let mut entries = Vec::<Vec<u16>>::new();
-    let environment = unsafe { GetEnvironmentStringsW() };
-    if environment.is_null() {
-        return Err(io::Error::last_os_error());
-    }
-    let mut cursor = environment;
-    unsafe {
-        while *cursor != 0 {
-            let start = cursor;
-            while *cursor != 0 {
-                cursor = cursor.add(1);
-            }
-            let entry =
-                std::slice::from_raw_parts(start, cursor.offset_from(start) as usize).to_vec();
-            let separator = entry.iter().position(|unit| *unit == '=' as u16);
-            let is_drive_current_directory = separator == Some(0);
-            let safe_names = [
-                "PATH",
-                "PATHEXT",
-                "SYSTEMROOT",
-                "WINDIR",
-                "COMSPEC",
-                "TEMP",
-                "TMP",
-                "SYSTEMDRIVE",
-                "USERPROFILE",
-                "HOMEDRIVE",
-                "HOMEPATH",
-                "APPDATA",
-                "LOCALAPPDATA",
-                "PROGRAMDATA",
-                "PROGRAMFILES",
-                "PROGRAMFILES(X86)",
-                "COMMONPROGRAMFILES",
-                "COMMONPROGRAMFILES(X86)",
-                "COMMONPROGRAMW6432",
-                "OS",
-                "PROCESSOR_ARCHITECTURE",
-                "PROCESSOR_IDENTIFIER",
-                "PROCESSOR_LEVEL",
-                "PROCESSOR_REVISION",
-                "NUMBER_OF_PROCESSORS",
-                "PSMODULEPATH",
-                "PUBLIC",
-                "ALLUSERSPROFILE",
-                "COMPUTERNAME",
-                "USERDOMAIN",
-                "USERDOMAIN_ROAMINGPROFILE",
-            ];
-            if is_drive_current_directory
-                || separator.is_some_and(|position| {
-                    let name = String::from_utf16_lossy(&entry[..position]);
-                    safe_names
-                        .iter()
-                        .any(|allowed| name.eq_ignore_ascii_case(allowed))
-                })
-            {
-                entries.push(entry);
-            }
-            cursor = cursor.add(1);
-        }
-        if FreeEnvironmentStringsW(environment) == 0 {
-            return Err(io::Error::last_os_error());
+fn environment_block(
+    base: &HashMap<String, String>,
+    overrides: &HashMap<String, String>,
+    allowlist: &[String],
+    cwd: &str,
+) -> io::Result<Vec<u16>> {
+    let allowed = allowlist
+        .iter()
+        .map(|name| {
+            validate_environment_pair(name, "", false)?;
+            Ok(name.to_ascii_uppercase())
+        })
+        .collect::<io::Result<std::collections::HashSet<_>>>()?;
+    let mut values = HashMap::<String, String>::new();
+    for (name, value) in base {
+        validate_environment_pair(name, value, false)?;
+        if allowed.contains(&name.to_ascii_uppercase()) {
+            values.insert(name.to_ascii_uppercase(), value.clone());
         }
     }
     for (name, value) in overrides {
-        if name.is_empty()
-            || name.contains('=')
-            || name.contains('\0')
-            || value.contains('\0')
-            || matches!(
-                name.to_ascii_uppercase().as_str(),
-                "PATH"
-                    | "PATHEXT"
-                    | "SYSTEMROOT"
-                    | "WINDIR"
-                    | "COMSPEC"
-                    | "NODE_OPTIONS"
-                    | "BASH_ENV"
-                    | "ENV"
-            )
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "unsafe environment override",
-            ));
+        validate_environment_pair(name, value, true)?;
+        if allowed.contains(&name.to_ascii_uppercase()) {
+            values.insert(name.to_ascii_uppercase(), value.clone());
         }
-        entries.retain(|entry| {
-            let separator = environment_name_end(entry);
-            !String::from_utf16_lossy(&entry[..separator]).eq_ignore_ascii_case(name)
-        });
-        let mut entry = name.encode_utf16().collect::<Vec<_>>();
-        entry.push('=' as u16);
-        entry.extend(value.encode_utf16());
-        entries.push(entry);
+    }
+    let mut entries = values
+        .into_iter()
+        .map(|(name, value)| {
+            let mut entry = name.encode_utf16().collect::<Vec<_>>();
+            entry.push('=' as u16);
+            entry.extend(value.encode_utf16());
+            entry
+        })
+        .collect::<Vec<_>>();
+    let cwd_units = cwd.encode_utf16().collect::<Vec<_>>();
+    if cwd_units.len() >= 3 && cwd_units[1] == ':' as u16 && cwd_units[2] == '\\' as u16 {
+        let mut drive_entry = vec!['=' as u16, cwd_units[0], ':' as u16, '=' as u16];
+        drive_entry.extend(cwd_units);
+        entries.push(drive_entry);
     }
     entries.sort_by(|left, right| {
         let left_name = environment_name_end(left);
@@ -458,7 +274,37 @@ fn environment_block(overrides: &HashMap<String, String>) -> io::Result<Vec<u16>
         block.push(0);
     }
     block.push(0);
+    if block.len() == 1 {
+        block.push(0);
+    }
     Ok(block)
+}
+
+fn validate_environment_pair(name: &str, value: &str, is_override: bool) -> io::Result<()> {
+    let unsafe_override = is_override
+        && matches!(
+            name.to_ascii_uppercase().as_str(),
+            "PATH"
+                | "PATHEXT"
+                | "SYSTEMROOT"
+                | "WINDIR"
+                | "COMSPEC"
+                | "NODE_OPTIONS"
+                | "BASH_ENV"
+                | "ENV"
+        );
+    if name.is_empty()
+        || name.contains('=')
+        || name.contains('\0')
+        || value.contains('\0')
+        || unsafe_override
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "unsafe environment entry",
+        ));
+    }
+    Ok(())
 }
 fn environment_name_end(entry: &[u16]) -> usize {
     let separator = entry
@@ -515,6 +361,7 @@ unsafe fn spawn_inner(
     profile: &HbarPermissionProfile,
     argv: &[String],
     cwd: &str,
+    journal_root: &Path,
 ) -> io::Result<SandboxedProcessHandle> {
     if argv.is_empty() {
         return Err(io::Error::new(
@@ -522,6 +369,12 @@ unsafe fn spawn_inner(
             "argv must not be empty",
         ));
     }
+    let journal_root = std::fs::canonicalize(journal_root).map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            format!("trusted host journal directory: {error}"),
+        )
+    })?;
     let app_container = create_profile().map_err(|error| {
         io::Error::new(
             error.kind(),
@@ -530,25 +383,33 @@ unsafe fn spawn_inner(
     })?;
     let app_sid = app_container.sid;
     let capabilities = AppContainerCapabilities::network(profile.network_enabled)?;
-    let environment = environment_block(&profile.env_overrides)?;
-    let mut leases = Vec::new();
-    let mut roots = HashMap::<String, bool>::new();
-    for path in &profile.readable_roots {
-        roots.insert(path.clone(), false);
+    let environment = environment_block(
+        &profile.environment,
+        &profile.env_overrides,
+        &profile.environment_allowlist,
+        cwd,
+    )?;
+    let job_name = format!("hbar.node.job.{}", uuid::Uuid::new_v4().simple());
+    let wide_job_name = wide(&job_name);
+    let job = OwnedJob(CreateJobObjectW(null(), wide_job_name.as_ptr()));
+    if job.0.is_null() {
+        return Err(io::Error::last_os_error());
     }
-    for path in &profile.writable_roots {
-        roots.insert(path.clone(), true);
+    let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if SetInformationJobObject(
+        job.0,
+        JobObjectExtendedLimitInformation,
+        (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+        size_of_val(&limits) as u32,
+    ) == 0
+    {
+        let error = io::Error::last_os_error();
+        return Err(error);
     }
-    for (path, writable) in roots {
-        let rights = FILE_GENERIC_READ
-            | FILE_GENERIC_EXECUTE
-            | if writable { FILE_GENERIC_WRITE } else { 0 };
-        leases.push(
-            RootAclLease::grant(&path, app_sid, rights).map_err(|error| {
-                io::Error::new(error.kind(), format!("lease root ACL {path}: {error}"))
-            })?,
-        );
-    }
+    let profile_name =
+        String::from_utf16_lossy(&app_container.name[..app_container.name.len() - 1]);
+    let leases = FilesystemLease::acquire(profile, &journal_root, profile_name, job_name, app_sid)?;
     let (stdout_read, stdout_write) = make_pipe()?;
     let (stderr_read, stderr_write) = match make_pipe() {
         Ok(pipe) => pipe,
@@ -687,28 +548,8 @@ unsafe fn spawn_inner(
             "create AppContainer process failed with Win32 error {creation_error}"
         )));
     }
-    let job = CreateJobObjectW(null(), null());
-    if job.is_null() {
-        windows_sys::Win32::System::Threading::TerminateProcess(process_info.hProcess, 1);
-        CloseHandle(process_info.hThread);
-        CloseHandle(process_info.hProcess);
-        for handle in [stdout_read, stderr_read] {
-            CloseHandle(handle);
-        }
-        return Err(io::Error::last_os_error());
-    }
-    let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
-    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if SetInformationJobObject(
-        job,
-        JobObjectExtendedLimitInformation,
-        (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
-        size_of_val(&limits) as u32,
-    ) == 0
-        || AssignProcessToJobObject(job, process_info.hProcess) == 0
-    {
-        TerminateJobObject(job, 1);
-        CloseHandle(job);
+    if AssignProcessToJobObject(job.0, process_info.hProcess) == 0 {
+        TerminateJobObject(job.0, 1);
         CloseHandle(process_info.hThread);
         CloseHandle(process_info.hProcess);
         for handle in [stdout_read, stderr_read] {
@@ -717,8 +558,7 @@ unsafe fn spawn_inner(
         return Err(io::Error::last_os_error());
     }
     if ResumeThread(process_info.hThread) == u32::MAX {
-        TerminateJobObject(job, 1);
-        CloseHandle(job);
+        TerminateJobObject(job.0, 1);
         CloseHandle(process_info.hThread);
         CloseHandle(process_info.hProcess);
         for handle in [stdout_read, stderr_read] {
@@ -728,6 +568,7 @@ unsafe fn spawn_inner(
     }
     let handle_id = uuid::Uuid::new_v4().to_string();
     let pid = process_info.dwProcessId;
+    let job = job.into_raw();
     children()
         .lock()
         .map_err(|_| io::Error::other("process registry is poisoned"))?
@@ -752,8 +593,12 @@ pub async fn spawn_sandboxed_impl(
     profile: HbarPermissionProfile,
     argv: Vec<String>,
     cwd: String,
+    journal_directory: Option<String>,
 ) -> napi::Result<SandboxedProcessHandle> {
-    unsafe { spawn_inner(&profile, &argv, &cwd) }
+    let Some(journal_directory) = journal_directory else {
+        return Err(napi::Error::from_reason("trusted host journal directory is required; sandbox spawn fails closed without durable lease recovery"));
+    };
+    unsafe { spawn_inner(&profile, &argv, &cwd, Path::new(&journal_directory)) }
         .map_err(|error| napi::Error::from_reason(error.to_string()))
 }
 
@@ -875,17 +720,18 @@ pub fn terminate_sandboxed(handle_id: String) -> napi::Result<()> {
     Ok(())
 }
 
-fn ps_quote(path: &Path) -> String {
+pub(super) fn ps_quote(path: &Path) -> String {
     format!("'{}'", path.to_string_lossy().replace("'", "''"))
 }
 
-fn run_probe(
+pub(super) fn run_probe(
     profile: &HbarPermissionProfile,
     argv: Vec<String>,
     cwd: &str,
     timeout: Duration,
+    journal_root: &Path,
 ) -> io::Result<(i32, String, String)> {
-    let child = unsafe { spawn_inner(profile, &argv, cwd) }?;
+    let child = unsafe { spawn_inner(profile, &argv, cwd, journal_root) }?;
     let deadline = Instant::now() + timeout;
     let (mut stdout, mut stderr) = (String::new(), String::new());
     loop {
@@ -957,20 +803,28 @@ fn probe_uncached() -> SandboxProbeCapabilities {
         uuid::Uuid::new_v4().simple()
     ));
     let mut created_root = false;
-    let setup = (|| -> io::Result<(PathBuf, PathBuf, PathBuf, PathBuf)> {
+    let setup = (|| -> io::Result<(PathBuf, PathBuf, PathBuf, PathBuf, PathBuf)> {
         std::fs::create_dir(&data_root)?;
         created_root = true;
         let fs_root = data_root.join("filesystem");
         let network_root = data_root.join("network");
         let network_enabled_root = data_root.join("network-enabled");
+        let journal_root = data_root.join("journal");
         std::fs::create_dir(&fs_root)?;
         std::fs::create_dir(&network_root)?;
         std::fs::create_dir(&network_enabled_root)?;
+        std::fs::create_dir(&journal_root)?;
         let sentinel = data_root.join("protected-sentinel.txt");
         std::fs::write(&sentinel, "hbar-protected-sentinel")?;
-        Ok((fs_root, network_root, network_enabled_root, sentinel))
+        Ok((
+            fs_root,
+            network_root,
+            network_enabled_root,
+            sentinel,
+            journal_root,
+        ))
     })();
-    let Ok((fs_root, network_root, network_enabled_root, sentinel)) = setup else {
+    let Ok((fs_root, network_root, network_enabled_root, sentinel, journal_root)) = setup else {
         result.reason = Some("Could not create private Windows sandbox probe paths".to_owned());
         if created_root && std::fs::remove_dir_all(&data_root).is_err() {
             result.reason = Some("Probe setup failed and its private Windows sandbox directory could not be cleaned up".to_owned());
@@ -987,8 +841,12 @@ fn probe_uncached() -> SandboxProbeCapabilities {
         workspace_root: root.to_string_lossy().into_owned(),
         writable_roots: vec![root.to_string_lossy().into_owned()],
         readable_roots: vec![root.to_string_lossy().into_owned()],
+        protected_paths: None,
+        read_only_paths: None,
         network_enabled,
         env_overrides: HashMap::new(),
+        environment: std::env::vars().collect(),
+        environment_allowlist: std::env::vars().map(|(name, _)| name).collect(),
         level: crate::SandboxLevel::Unelevated,
     };
     let writable = fs_root.join("write-check.txt");
@@ -1008,6 +866,7 @@ fn probe_uncached() -> SandboxProbeCapabilities {
         ],
         &fs_root.to_string_lossy(),
         Duration::from_secs(8),
+        &journal_root,
     );
     if let Ok((code, stdout, _)) = fs_test {
         result.filesystem = code == 0
@@ -1036,6 +895,7 @@ fn probe_uncached() -> SandboxProbeCapabilities {
             vec![powershell.to_string_lossy().into_owned(), "-NoLogo".into(), "-NoProfile".into(), "-NonInteractive".into(), "-Command".into(), script],
             &network_root.to_string_lossy(),
             Duration::from_secs(5),
+            &journal_root,
         )?;
         Ok((outcome, listener))
     });
@@ -1107,6 +967,7 @@ fn probe_uncached() -> SandboxProbeCapabilities {
             vec![powershell.to_string_lossy().into_owned(), "-NoLogo".into(), "-NoProfile".into(), "-NonInteractive".into(), "-Command".into(), script],
             &network_enabled_root.to_string_lossy(),
             Duration::from_secs(5),
+            &journal_root,
         );
         let handshake_received = accept.join().unwrap_or(false);
         Ok((process, handshake_received))
@@ -1170,10 +1031,22 @@ fn filesystem_has_job_support() -> bool {
         workspace_root: data_root.to_string_lossy().into_owned(),
         writable_roots: vec![data_root.to_string_lossy().into_owned()],
         readable_roots: vec![data_root.to_string_lossy().into_owned()],
+        protected_paths: None,
+        read_only_paths: None,
         network_enabled: false,
         env_overrides: HashMap::new(),
+        environment: std::env::vars().collect(),
+        environment_allowlist: std::env::vars().map(|(name, _)| name).collect(),
         level: crate::SandboxLevel::Unelevated,
     };
+    let journal_root = data_root.with_file_name(format!(
+        "hbar-appcontainer-job-journal-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    if std::fs::create_dir(&journal_root).is_err() {
+        let _ = std::fs::remove_dir_all(&data_root);
+        return false;
+    }
     let spawned = unsafe {
         spawn_inner(
             &profile,
@@ -1186,6 +1059,7 @@ fn filesystem_has_job_support() -> bool {
                 "Start-Sleep -Seconds 30".into(),
             ],
             &data_root.to_string_lossy(),
+            &journal_root,
         )
     };
     let success = if let Ok(child) = spawned {
@@ -1221,7 +1095,9 @@ fn filesystem_has_job_support() -> bool {
     } else {
         false
     };
-    success && std::fs::remove_dir_all(&data_root).is_ok()
+    success
+        && std::fs::remove_dir_all(&data_root).is_ok()
+        && std::fs::remove_dir_all(&journal_root).is_ok()
 }
 
 static PROBE_RESULT: OnceLock<SandboxProbeCapabilities> = OnceLock::new();
