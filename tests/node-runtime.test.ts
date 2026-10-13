@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import { runNode, runNodeCommand } from '@hbar/node'
-import { nodeConsoleConnectionSchema } from '@hbar/contracts/node-console'
+import { nodeConsoleConnectionSchema, nodeConsoleMethods } from '@hbar/contracts/node-console'
 import { nodeProcessEnvironment, createManagedNodeBackend } from '@hbar/node/backend'
 import { NodeStateStorage } from '@hbar/storage/node-state'
 
@@ -59,10 +59,12 @@ test('node operator CLI persists an independent floor and uses the authenticated
     await runNodeCommand(['status', '--home', home], (value) => {
       status = value
     })
-    expect(status).toMatchObject({
-      capabilities: { roots: [{ rootId: 'engine' }], sandbox: { filesystem: 'none' } },
+    const parsedStatus = nodeConsoleMethods['node.status'].output.parse(status)
+    expect(parsedStatus).toMatchObject({
+      capabilities: { roots: [{ rootId: 'engine' }] },
       linked: false,
     })
+    expect(parsedStatus.capabilities.sandbox).toEqual(runtime.node.capabilities().sandbox)
     await runNodeCommand(['pause', '--home', home], () => {})
     expect(runtime.node.isPaused).toBe(true)
     await runNodeCommand(['resume', '--home', home], () => {})
@@ -103,6 +105,7 @@ test.skipIf(process.platform === 'win32')(
     await mkdir(workspace)
     let backend: Awaited<ReturnType<typeof createManagedNodeBackend>> | undefined
     let leaf = 0
+    const streamed: string[] = []
     try {
       const script = join(workspace, 'spawn.ts'),
         pidFile = join(workspace, 'pid')
@@ -117,9 +120,11 @@ test.skipIf(process.platform === 'win32')(
         environmentAllowlist: [],
         protectedPaths: [],
         confinement: null,
+        onOutput: (text) => streamed.push(text),
       })
       expect(result.isError).toBe(false)
       expect(result.text).toContain('node-command-ok')
+      expect(streamed.join('')).toContain('node-command-ok')
       leaf = Number(await readFile(pidFile, 'utf8'))
       expect(alive(leaf)).toBe(false)
     } finally {

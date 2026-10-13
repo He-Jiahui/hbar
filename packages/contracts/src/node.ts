@@ -1,11 +1,21 @@
 import { z } from 'zod'
-import { nodeOperationIdSchema } from './node-operation'
-export { nodeOperationIdSchema } from './node-operation'
 import { resolvedSandboxProfileSchema, sandboxSnapshotRefSchema } from './sandbox'
 import { nodeIdSchema, nodeRelativePathSchema, nodeRootIdSchema } from './node-address'
 import { nodeAdmissionSchema, nodeCallAuthoritySchema } from './node-authority'
 import { nodeBackendSchema } from './node-backend'
+import { nodeTerminalMethods } from './node-terminal'
+import { nodeGitMethods } from './node-git'
+import { nodeGitQueryMethods } from './node-git-query'
+import { nodeWorktreeMethods } from './node-worktree'
+import { nodeExecOutputChunkSchema, nodeExecOutputMethods } from './node-execution-output'
+import { nodeOperationIdSchema } from './node-operation'
+import {
+  nodeLocalConfirmationCancelResultSchema,
+  nodeLocalConfirmationLookupSchema,
+  nodeLocalConfirmationStatusSchema,
+} from './node-confirmations'
 export { nodeBackendSchema } from './node-backend'
+export { nodeOperationIdSchema } from './node-operation'
 import {
   workspaceFindInputSchema,
   workspaceFindResultSchema,
@@ -35,7 +45,6 @@ export const NODE_LIMITS = Object.freeze({
 })
 const entityId = z.string().min(1).max(160)
 const digest = z.string().regex(/^[a-f0-9]{64}$/)
-
 const operationId = nodeOperationIdSchema
 const timestamp = z.number().int().nonnegative().safe()
 const empty = z.strictObject({})
@@ -106,7 +115,21 @@ export const nodeCapabilitiesSchema = z.strictObject({
   nodeId: nodeIdSchema,
   platform: z.enum(['linux', 'darwin', 'win32']),
   evaluator: digest,
-  roots: z.array(nodeRootSchema.omit({ path: true }).extend({ nodePath: z.string().min(1).max(4_000) })).max(64),
+  roots: z
+    .array(
+      nodeRootSchema.omit({ path: true }).extend({
+        nodePath: z.string().min(1).max(4_000),
+        managed: z
+          .strictObject({
+            kind: z.literal('worktree'),
+            worktreeId: z.string().regex(/^[a-f0-9]{32}$/),
+            sessionId: entityId,
+            parentRootId: nodeRootIdSchema,
+          })
+          .optional(),
+      }),
+    )
+    .max(64),
   sandbox: z.strictObject({
     backends: z.array(nodeBackendSchema).max(8),
     filesystem: z.enum(['enforced', 'none']),
@@ -132,6 +155,8 @@ export const nodeExecStartSchema = scoped.extend({
 export function nodeRequestTimeoutMs(method: string, input: unknown): number {
   if (method === 'exec.start') return nodeExecStartSchema.parse(input).timeoutMs + 5_000
   if (method === 'exec.cancel') return 120_000
+  if (method === 'worktree.create' || method === 'worktree.remove') return 150_000
+  if (method.startsWith('git.query.')) return 125_000
   return 30_000
 }
 export const nodeExecResultSchema = z.strictObject({
@@ -216,20 +241,49 @@ export const nodeRestoreReceiptSchema = z.discriminatedUnion('state', [
 ])
 const page = z.strictObject({ limit: z.number().int().min(1).max(100).default(50), cursor: entityId.optional() })
 const sessionInput = z.strictObject({ sessionId: entityId })
-export const nodeAuditEntrySchema = z.strictObject({
+const nodeAuditEntryBaseSchema = z.strictObject({
   seq: timestamp,
   time: timestamp,
   operationId,
-  sessionId: entityId,
-  runId: entityId,
-  callId: entityId,
   tool: z.string().min(1).max(160),
   argumentsDigest: digest,
   decision: z.enum(['allow', 'deny', 'ask']),
-  admission: nodeAdmissionSchema,
   backend: nodeBackendSchema,
   code: z.union([z.string().max(128), z.number().int(), z.null()]),
 })
+export const nodeRunAuditEntrySchema = nodeAuditEntryBaseSchema.extend({
+  source: z.literal('run').default('run'),
+  sessionId: entityId,
+  runId: entityId,
+  callId: entityId,
+  admission: nodeAdmissionSchema,
+})
+export const nodeManualGitAuditEntrySchema = nodeAuditEntryBaseSchema.extend({
+  source: z.literal('manual-query'),
+  deviceId: entityId,
+  workspaceId: entityId,
+  sessionId: entityId.nullable(),
+  rootId: nodeRootIdSchema,
+  expectedRoot: z.string().min(1).max(4_000),
+})
+export const nodeLaunchTargetAuditEntrySchema = nodeAuditEntryBaseSchema.extend({
+  source: z.literal('launch-target'),
+  sessionId: entityId,
+  runId: entityId,
+  workspaceId: entityId,
+  nodeId: entityId,
+  targetRevision: z.number().int().nonnegative().safe(),
+  acceptedTargetDigest: digest,
+  workspaceFolderRevision: z.number().int().nonnegative().safe(),
+  workspaceFolderDigest: digest,
+  rootId: nodeRootIdSchema,
+  rootPath: z.string().min(1).max(4_000),
+})
+export const nodeAuditEntrySchema = z.union([
+  nodeRunAuditEntrySchema,
+  nodeManualGitAuditEntrySchema,
+  nodeLaunchTargetAuditEntrySchema,
+])
 
 /** Provider metadata and credentials are deliberately absent from the node's observation DTO. */
 export const nodeObservedContentSchema = z.discriminatedUnion('type', [
@@ -361,7 +415,9 @@ export const nodeWorkspaceMethods = {
     output: nodeWriteReceiptSchema,
   },
   'fs.receipt.chunk': {
-    input: scoped.extend({
+    input: z.strictObject({
+      rootId: nodeRootIdSchema,
+      expectedRoot: z.string().min(1).max(4_000),
       operationId,
       version: z.enum(['before', 'after']),
       offset: bytes.default(0),
@@ -410,10 +466,23 @@ export const nodeWorkspaceMethods = {
     }),
     output: workspaceReadResultSchema,
   },
-  'query.invalidate': { input: file, output: acknowledgement },
+  'query.invalidate': { input: admittedFile, output: acknowledgement },
   'exec.start': { input: nodeExecStartSchema, output: nodeReceiptSchema },
   'exec.cancel': { input: z.strictObject({ operationId }), output: nodeReceiptSchema },
   'exec.receipt': { input: z.strictObject({ operationId }), output: nodeReceiptSchema },
+  'node.confirmation.status': {
+    input: nodeLocalConfirmationLookupSchema,
+    output: nodeLocalConfirmationStatusSchema,
+  },
+  'node.confirmation.cancel': {
+    input: nodeLocalConfirmationLookupSchema,
+    output: nodeLocalConfirmationCancelResultSchema,
+  },
+  ...nodeExecOutputMethods,
+  ...nodeTerminalMethods,
+  ...nodeGitMethods,
+  ...nodeGitQueryMethods,
+  ...nodeWorktreeMethods,
 } as const
 export const nodeObservationMethods = {
   'observe.sessions.list': {
@@ -434,7 +503,7 @@ export const nodeObservationMethods = {
   },
 } as const
 export const nodeNotificationSchemas = {
-  'exec.output': z.strictObject({ operationId, seq: z.number().int().positive(), text: z.string().max(16_384) }),
+  'exec.output': nodeExecOutputChunkSchema,
   'exec.exit': z.strictObject({ operationId, receipt: nodeReceiptSchema }),
   'node.rootsChanged': z.strictObject({ revision: timestamp }),
   'node.floorChanged': z.strictObject({ revision: timestamp }),

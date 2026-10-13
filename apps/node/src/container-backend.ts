@@ -426,7 +426,7 @@ export async function createContainerNodeBackend(config: ContainerConfinementCon
       treeAttach = processTree.attach(child.pid, signal)
       tree = await treeAttach
       if (signal.aborted) abort()
-      const output = await runCapture(child, options.timeoutMs + 8_000)
+      const output = await runCapture(child, options.timeoutMs + 8_000, options.onOutput)
       if (timedOut) result = { ...output, exitCode: 124, timedOut: true }
       else {
         cliLifecycleConfirmed = output.exitCode !== 125
@@ -508,16 +508,29 @@ export async function createContainerNodeBackend(config: ContainerConfinementCon
   }
 }
 
-async function runCapture(child: Bun.Subprocess<'ignore', 'pipe', 'pipe'>, timeoutMs: number): Promise<NodeArgvResult> {
+async function runCapture(
+  child: Bun.Subprocess<'ignore', 'pipe', 'pipe'>,
+  timeoutMs: number,
+  onOutput?: (text: string) => void,
+): Promise<NodeArgvResult> {
   let stdout = Buffer.alloc(0)
   let stderr = Buffer.alloc(0)
   let truncated = false
   const collect = async (stream: ReadableStream<Uint8Array>, target: 'stdout' | 'stderr') => {
     const reader = stream.getReader()
+    const decoder = new TextDecoder()
     try {
       for (;;) {
         const chunk = await reader.read()
         if (chunk.done) break
+        const text = decoder.decode(chunk.value, { stream: true })
+        if (text) {
+          try {
+            onOutput?.(text)
+          } catch {
+            /* Keep draining after an output observer failure. */
+          }
+        }
         const bytes = target === 'stdout' ? stdout : stderr
         const next = Buffer.concat([bytes, chunk.value])
         if (next.byteLength > 32_000) truncated = true
@@ -526,6 +539,14 @@ async function runCapture(child: Bun.Subprocess<'ignore', 'pipe', 'pipe'>, timeo
         else stderr = kept
       }
     } finally {
+      const remainder = decoder.decode()
+      if (remainder) {
+        try {
+          onOutput?.(remainder)
+        } catch {
+          /* The final result is independent of transient output. */
+        }
+      }
       reader.releaseLock()
     }
   }

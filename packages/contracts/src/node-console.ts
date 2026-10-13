@@ -12,6 +12,11 @@ import {
   nodePublicKeySchema,
   nodeSignatureSchema,
 } from './node'
+import {
+  nodeLocalConfirmationPageSchema,
+  nodeLocalConfirmationResolveSchema,
+  nodeLocalConfirmationSchema,
+} from './node-confirmations'
 
 const empty = z.strictObject({})
 const done = z.strictObject({ accepted: z.literal(true) })
@@ -79,6 +84,11 @@ export const nodeConsoleMethods = {
     input: z.strictObject({ floor: nodeFloorSchema, expectedRevision: nodePolicySnapshotSchema.shape.revision }),
     output: nodePolicySnapshotSchema,
   },
+  'node.localConfirmation.list': { input: empty, output: nodeLocalConfirmationPageSchema },
+  'node.localConfirmation.resolve': {
+    input: nodeLocalConfirmationResolveSchema,
+    output: nodeLocalConfirmationSchema,
+  },
   'node.pause': { input: z.strictObject({ paused: z.boolean() }), output: done },
   'node.kill': {
     input: z
@@ -127,6 +137,8 @@ const names: [NodeConsoleMethod, ...NodeConsoleMethod[]] = [
   'node.policy.set',
   'node.policy.snapshot',
   'node.policy.update',
+  'node.localConfirmation.list',
+  'node.localConfirmation.resolve',
   'node.pause',
   'node.kill',
   'node.audit',

@@ -565,13 +565,13 @@ test('the current schema migrates a version 28 SQLite database and keeps local r
     const database = new Database(path)
     try {
       database.exec(
-        'DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=28',
+        'DROP INDEX node_run_workspace_mounts_session; DROP TABLE node_run_workspace_mounts; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=28',
       )
       expect(database.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version).toBe(28)
       expect(
         database
           .query<{ name: string }, []>(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('node_execution_intents','node_run_worktrees')",
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('node_execution_intents','node_run_worktrees','node_run_workspace_mounts')",
           )
           .all(),
       ).toEqual([])

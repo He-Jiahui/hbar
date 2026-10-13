@@ -63,7 +63,7 @@ async function fixture(
   try {
     await run(service, protocol, workspace, state, execution)
   } finally {
-    protocol.dispose()
+    await protocol.dispose()
     await service.dispose()
     await state.close()
     await rm(root, { recursive: true, force: true })
@@ -137,18 +137,26 @@ test('file versions remain scoped to the original root and the current floor', a
     const before = nodeWorkspaceMethods['fs.receipt.chunk'].output.parse(
       await protocol.invoke(
         'fs.receipt.chunk',
-        { rootId: 'engine', operationId: 'run:version', version: 'before' },
+        { rootId: 'engine', expectedRoot: workspace, operationId: 'run:version', version: 'before' },
         signal(),
       ),
     )
     expect(Buffer.from(before.data, 'base64').toString()).toBe('before')
     const foreign = await protocol
-      .invoke('fs.receipt.chunk', { rootId: 'other', operationId: 'run:version', version: 'before' }, signal())
+      .invoke(
+        'fs.receipt.chunk',
+        { rootId: 'other', expectedRoot: workspace, operationId: 'run:version', version: 'before' },
+        signal(),
+      )
       .catch((error: unknown) => error)
     expect(foreign).toMatchObject({ code: 'NODE_RECEIPT_SCOPE' })
     await node.setPolicy({ ...node.policy, protectedPaths: [join(workspace, 'file.txt')] })
     const protectedVersion = await protocol
-      .invoke('fs.receipt.chunk', { rootId: 'engine', operationId: 'run:version', version: 'before' }, signal())
+      .invoke(
+        'fs.receipt.chunk',
+        { rootId: 'engine', expectedRoot: workspace, operationId: 'run:version', version: 'before' },
+        signal(),
+      )
       .catch((error: unknown) => error)
     expect(protectedVersion).toMatchObject({ code: 'NODE_DENIED' })
   })
@@ -188,6 +196,14 @@ test('a reused root ID refuses the previous workspace binding and its durable fi
       )
       .catch((error: unknown) => error)
     expect(versions).toMatchObject({ code: 'NODE_RECEIPT_SCOPE' })
+    const wrongVersionRoot = await protocol
+      .invoke(
+        'fs.receipt.chunk',
+        { rootId: 'engine', expectedRoot: workspace, operationId: 'run:bound', version: 'before' },
+        signal(),
+      )
+      .catch((error: unknown) => error)
+    expect(wrongVersionRoot).toMatchObject({ code: 'NODE_RECEIPT_SCOPE' })
     expect(await readFile(join(replacement, 'file.txt'), 'utf8')).toBe('replacement')
     expect(await node.receipt('run:misrouted')).toEqual({ state: 'absent' })
   })
@@ -531,7 +547,7 @@ test('node state migration 2 preserves old receipts but refuses unscoped legacy 
     })
     const legacy = await WorkspaceNodeService.open('legacy', root, state, new LocalExecution([root]), backend)
     try {
-      const versions = await legacy.fileVersion('engine', 'run:old', 'before').catch((error: unknown) => error)
+      const versions = await legacy.fileVersion('engine', root, 'run:old', 'before').catch((error: unknown) => error)
       expect(versions).toMatchObject({ code: 'NODE_RECEIPT_SCOPE' })
     } finally {
       await legacy.dispose()

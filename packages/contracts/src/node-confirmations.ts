@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { nodeRootIdSchema } from './node-address'
 import { nodeCallAuthoritySchema } from './node-authority'
 import { nodeOperationIdSchema } from './node-operation'
+import { sessionLaunchSelectionSchema } from './session-launch-selection'
 
 const operationId = nodeOperationIdSchema
 
@@ -15,14 +16,23 @@ export const nodeLocalConfirmationStateSchema = z.enum([
   'expired',
   'consumed',
 ])
-export const nodeLocalConfirmationIdentitySchema = z
+const confirmationIdentityFields = {
+  operationId,
+  rootId: nodeRootIdSchema,
+  rootPath: z.string().min(1).max(4_000),
+  floorRevision: z.number().int().nonnegative().safe(),
+  argumentsDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  tool: z.string().min(1).max(80),
+  summary: z.string().max(4_000),
+}
+const runConfirmationIdentitySchema = z
   .strictObject({
-    operationId,
-    source: z.enum(['run', 'manual']),
-    sessionId: z.string().min(1).max(160).nullable(),
-    runId: z.string().min(1).max(160).nullable(),
-    callId: z.string().min(1).max(160).nullable(),
-    ownerDeviceId: z.string().min(1).max(160).nullable(),
+    ...confirmationIdentityFields,
+    source: z.literal('run'),
+    sessionId: z.string().min(1).max(160),
+    runId: z.string().min(1).max(160),
+    callId: z.string().min(1).max(160),
+    ownerDeviceId: z.null(),
     workspaceId: z.string().min(1).max(160).nullable().optional(),
     nodeId: z.string().min(1).max(160).optional(),
     managedWorktree: z
@@ -35,24 +45,76 @@ export const nodeLocalConfirmationIdentitySchema = z
       .string()
       .regex(/^[a-f0-9]{64}$/)
       .optional(),
-    rootId: nodeRootIdSchema,
-    rootPath: z.string().min(1).max(4_000),
-    floorRevision: z.number().int().nonnegative().safe(),
     admissionDigest: z.string().regex(/^[a-f0-9]{64}$/),
-    argumentsDigest: z.string().regex(/^[a-f0-9]{64}$/),
-    tool: z.string().min(1).max(80),
-    summary: z.string().max(4_000),
+  })
+  .refine((identity) => identity.operationId === `${identity.runId}:${identity.callId}`, {
+    message: 'Run confirmation operation id must match its Run and call',
+  })
+const manualConfirmationIdentitySchema = z
+  .strictObject({
+    ...confirmationIdentityFields,
+    source: z.enum(['manual', 'manual-query']),
+    sessionId: z.string().min(1).max(160).nullable(),
+    runId: z.null(),
+    callId: z.null(),
+    ownerDeviceId: z.string().min(1).max(160),
+    workspaceId: z.string().min(1).max(160).nullable().optional(),
+    nodeId: z.string().min(1).max(160).optional(),
+    admissionDigest: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .refine(
     (identity) =>
-      identity.source === 'run'
-        ? identity.runId !== null &&
-          identity.callId !== null &&
-          identity.sessionId !== null &&
-          identity.operationId === `${identity.runId}:${identity.callId}`
-        : identity.runId === null && identity.callId === null && identity.ownerDeviceId !== null,
-    { message: 'The confirmation source identifiers are incomplete or inconsistent' },
+      identity.source !== 'manual-query' ||
+      (identity.sessionId !== undefined && identity.workspaceId !== undefined && identity.nodeId !== undefined),
+    { message: 'Manual Git query confirmation requires workspace, session and node identity' },
   )
+
+export const nodeLaunchTargetConfirmationIdentitySchema = z
+  .strictObject({
+    ...confirmationIdentityFields,
+    source: z.literal('launch-target'),
+    sessionId: z.string().min(1).max(160),
+    runId: z.string().min(1).max(160),
+    callId: z.null(),
+    ownerDeviceId: z.null(),
+    workspaceId: z.string().min(1).max(160),
+    nodeId: z.string().min(1).max(160),
+    targetRevision: z.number().int().nonnegative().safe(),
+    selection: sessionLaunchSelectionSchema,
+    acceptedTargetDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    workspaceFolderRevision: z.number().int().nonnegative().safe(),
+    workspaceFolderDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    worktreeId: z
+      .string()
+      .regex(/^[a-f0-9]{32}$/)
+      .optional(),
+    tool: z.enum(['worktree.create', 'worktree.get', 'worktree.remove']),
+  })
+  .superRefine((identity, context) => {
+    const operationSuffix = {
+      'worktree.create': 'worktree-create',
+      'worktree.get': 'worktree-get',
+      'worktree.remove': 'worktree-remove',
+    }[identity.tool]
+    if (identity.operationId !== `${identity.runId}:${operationSuffix}`)
+      context.addIssue({
+        code: 'custom',
+        path: ['operationId'],
+        message: 'Launch-target operation id must match its Run and operation',
+      })
+    if (identity.tool === 'worktree.remove' && !identity.worktreeId)
+      context.addIssue({
+        code: 'custom',
+        path: ['worktreeId'],
+        message: 'Worktree removal confirmation requires its exact worktree ID',
+      })
+  })
+export type NodeLaunchTargetConfirmationIdentity = z.output<typeof nodeLaunchTargetConfirmationIdentitySchema>
+export const nodeLocalConfirmationIdentitySchema = z.union([
+  runConfirmationIdentitySchema,
+  manualConfirmationIdentitySchema,
+  nodeLaunchTargetConfirmationIdentitySchema,
+])
 export type NodeLocalConfirmationIdentity = z.output<typeof nodeLocalConfirmationIdentitySchema>
 export const nodeLocalConfirmationSchema = z.strictObject({
   id: nodeLocalConfirmationIdSchema,
@@ -97,6 +159,38 @@ export const nodeLocalConfirmationRunLookupSchema = z.strictObject({
   argumentsDigest: z.string().regex(/^[a-f0-9]{64}$/),
 })
 export type NodeLocalConfirmationRunLookup = z.infer<typeof nodeLocalConfirmationRunLookupSchema>
+export const nodeLocalConfirmationLaunchTargetLookupSchema = z.strictObject({
+  kind: z.literal('launch-target'),
+  identity: nodeLaunchTargetConfirmationIdentitySchema,
+})
+export const nodeLocalConfirmationManualQueryLookupSchema = z.strictObject({
+  kind: z.literal('manual-query'),
+  operationId,
+  deviceId: z.string().min(1).max(160),
+  workspaceId: z.string().min(1).max(160),
+  sessionId: z.string().min(1).max(160).nullable(),
+  nodeId: z.string().min(1).max(160),
+  rootId: nodeRootIdSchema,
+  expectedRoot: z.string().min(1).max(4_000),
+  method: z.enum([
+    'git.query.info',
+    'git.query.status',
+    'git.query.diff',
+    'git.query.log',
+    'git.query.branchList',
+    'git.query.stats',
+    'git.query.diffToRemote',
+    'git.query.launchBranchSnapshot',
+  ]),
+  argumentsDigest: z.string().regex(/^[a-f0-9]{64}$/),
+})
+export const nodeLocalConfirmationLookupSchema = z.union([
+  nodeLocalConfirmationRunLookupSchema,
+  nodeLocalConfirmationManualQueryLookupSchema,
+  nodeLocalConfirmationLaunchTargetLookupSchema,
+])
+export type NodeLocalConfirmationLookup = z.infer<typeof nodeLocalConfirmationLookupSchema>
+export type NodeManualGitQueryConfirmation = z.infer<typeof nodeLocalConfirmationManualQueryLookupSchema>
 export type NodeManualLocalOperationConfirmation = {
   readonly operationId: string
   readonly sessionId: string | null
@@ -108,7 +202,9 @@ export type NodeManualLocalOperationConfirmation = {
   readonly snapshotDigest: string
   readonly argumentsDigest: string
   readonly summary: string
-  readonly source?: 'manual'
+  readonly source?: 'manual' | 'manual-query'
+  readonly workspaceId?: string
+  readonly nodeId?: string
 }
 
 const storedEntry = nodeLocalConfirmationSchema

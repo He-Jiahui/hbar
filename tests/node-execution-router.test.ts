@@ -84,7 +84,10 @@ test('router reads, queries, writes, reconciles versions and restores large file
     const s = fixture(f)
     try {
       expect(await s.router.read(s.workspace, join(f.workspace, 'main.txt'))).toBe('B file')
-      expect(await s.router.list(s.workspace, '.')).toMatchObject([{ path: 'main.txt', directory: false }])
+      expect(await s.router.list(s.workspace, '.')).toMatchObject([
+        { path: '.git', directory: true },
+        { path: 'main.txt', directory: false },
+      ])
       expect((await s.router.canonicalize(s.workspace, ['.', 'main.txt'], AbortSignal.timeout(5_000))).root).toBe(
         f.workspace,
       )

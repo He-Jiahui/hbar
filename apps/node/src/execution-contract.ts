@@ -91,9 +91,28 @@ export const nodeArgvOutputSchema = z.strictObject({
   truncated: z.boolean(),
   timedOut: z.boolean().optional(),
 })
+export const nodeProcessOutputReadInputSchema = z.strictObject({ afterSeq: z.number().int().nonnegative().safe() })
+export const nodeProcessOutputReadResultSchema = z.strictObject({
+  items: z
+    .array(
+      z.strictObject({
+        seq: z.number().int().positive().safe(),
+        text: z
+          .string()
+          .min(1)
+          .max(8 * 1024),
+      }),
+    )
+    .max(32),
+  cursor: z.number().int().nonnegative().safe(),
+  reset: z.boolean(),
+  active: z.boolean(),
+})
 export const NODE_PROCESS_FINGERPRINT = createHash('sha256')
-  .update('hbar.node.execution.v3')
+  .update('hbar.node.execution.v4')
   .update(JSON.stringify(z.toJSONSchema(nodeProcessInputSchema)))
   .update(JSON.stringify(z.toJSONSchema(nodeProcessOutputSchema)))
   .update(JSON.stringify(z.toJSONSchema(nodeArgvOutputSchema)))
+  .update(JSON.stringify(z.toJSONSchema(nodeProcessOutputReadInputSchema)))
+  .update(JSON.stringify(z.toJSONSchema(nodeProcessOutputReadResultSchema)))
   .digest('hex')

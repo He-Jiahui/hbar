@@ -44,6 +44,12 @@ export interface NodeConsoleObservationPort {
   ): Promise<z.output<(typeof nodeObservationMethods)['observe.sessions.follow']['output']>>
 }
 
+export interface NodeConsoleTerminalPort {
+  running(): readonly string[]
+  cancel(operationId: string): Promise<boolean>
+  pause(): Promise<void>
+}
+
 type StoredConsoleDevice = z.infer<typeof nodeConsoleDeviceSchema>
 interface ObserverCursor {
   readonly deviceId: string
@@ -96,6 +102,7 @@ export class NodeConsoleService {
     private readonly node?: WorkspaceNodeService,
     private readonly link?: { readonly linked: boolean; readonly connection: NodeLinkStatus; unlink(): Promise<void> },
     private readonly observation?: NodeConsoleObservationPort,
+    private readonly terminal?: NodeConsoleTerminalPort,
   ) {}
 
   info(): NodeInfo {
@@ -265,7 +272,7 @@ export class NodeConsoleService {
           capabilities: this.node.capabilities(),
           fingerprint: nodeFingerprint(this.identity.publicKey),
           paused: this.node.isPaused,
-          running: this.node.running,
+          running: [...new Set([...this.node.running, ...(this.terminal?.running() ?? [])])].slice(0, 64),
           linked: this.link?.linked ?? !!(await this.state.call('config.get', { key: 'link' })),
           connection: this.link?.connection ?? { phase: 'unlinked', reasonCode: null, nextAttemptAt: null },
         }
@@ -290,6 +297,23 @@ export class NodeConsoleService {
         }
         break
       }
+      case 'node.localConfirmation.list': {
+        requireOperator(principal)
+        result = {
+          entries: await this.state.call('local-confirmation.list', { includeResolved: true }),
+        }
+        break
+      }
+      case 'node.localConfirmation.resolve': {
+        requireOperator(principal)
+        if (!this.node) throw new HbarError('NODE_OFFLINE', 'Local confirmation service is unavailable')
+        const request = nodeConsoleMethods[method].input.parse(value)
+        result = await this.node.resolveLocalConfirmation(
+          { deviceId: principal.deviceId ?? 'bootstrap-local', role: 'operator' },
+          request,
+        )
+        break
+      }
       case 'node.policy.set': {
         requireOperator(principal)
         const floor = nodeConsoleMethods['node.policy.set'].input.parse(value)
@@ -301,6 +325,7 @@ export class NodeConsoleService {
       case 'node.pause': {
         requireOperator(principal)
         const { paused } = nodeConsoleMethods['node.pause'].input.parse(value)
+        if (paused) await this.terminal?.pause()
         if (this.node) await this.node.pause(paused)
         else await this.state.call('config.set', { key: 'paused', value: paused })
         result = { accepted: true }
@@ -310,8 +335,16 @@ export class NodeConsoleService {
         requireOperator(principal)
         if (!this.node) throw new HbarError('NODE_OFFLINE', 'No live node process to cancel')
         const request = nodeConsoleMethods['node.kill'].input.parse(value)
-        const keys = request.all ? this.node.running : [request.operationId ?? '']
-        result = await Promise.all(keys.map((operationId) => this.node?.cancel(operationId)))
+        const keys = request.all
+          ? [...new Set([...this.node.running, ...(this.terminal?.running() ?? [])])]
+          : [request.operationId ?? '']
+        result = await Promise.all(
+          keys.map(async (operationId) => {
+            const execution = this.node?.running.includes(operationId) ? await this.node.cancel(operationId) : undefined
+            const terminal = await this.terminal?.cancel(operationId)
+            return execution ?? terminal ?? false
+          }),
+        )
         break
       }
       case 'node.audit':
@@ -339,6 +372,7 @@ export class NodeConsoleService {
           deviceId: request.deviceId,
           revokedAt: Date.now(),
         })
+        if (revoked && this.node) await this.node.cancelLocalConfirmationsForDevice(revoked.deviceId)
         result = revoked ? deviceView(revoked) : null
         break
       }

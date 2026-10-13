@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { HbarError } from '@hbar/contracts'
 import {
+  nodeLaunchTargetConfirmationIdentitySchema,
+  nodeLocalConfirmationManualQueryLookupSchema,
   nodeLocalConfirmationRunLookupSchema,
   nodeLocalConfirmationSchema,
   type NodeLocalConfirmationIdentity,
@@ -75,6 +77,82 @@ async function expectCode(action: () => Promise<unknown>, code: string) {
 }
 
 describe('B-local confirmation gate', () => {
+  test('launch-target confirmation identity is typed separately from tool authority', () => {
+    const identity = {
+      source: 'launch-target' as const,
+      operationId: 'run-1:worktree-create',
+      sessionId: 'session-1',
+      runId: 'run-1',
+      callId: null,
+      ownerDeviceId: null,
+      workspaceId: 'workspace-1',
+      nodeId: 'node-1',
+      targetRevision: 2,
+      selection: { mode: 'isolated-worktree' as const, branch: { kind: 'new' as const, name: 'feature/test' } },
+      acceptedTargetDigest: 'a'.repeat(64),
+      workspaceFolderRevision: 3,
+      workspaceFolderDigest: 'b'.repeat(64),
+      rootId: 'root-1',
+      rootPath: '/workspace',
+      floorRevision: 4,
+      argumentsDigest: 'c'.repeat(64),
+      tool: 'worktree.create' as const,
+      summary: 'Create launch target worktree',
+    }
+    expect(nodeLaunchTargetConfirmationIdentitySchema.parse(identity)).toEqual(identity)
+    expect(() => nodeLaunchTargetConfirmationIdentitySchema.parse({ ...identity, callId: 'tool-call' })).toThrow()
+    expect(
+      nodeLaunchTargetConfirmationIdentitySchema.parse({
+        ...identity,
+        operationId: 'run-1:worktree-get',
+        tool: 'worktree.get',
+      }).worktreeId,
+    ).toBeUndefined()
+    expect(() =>
+      nodeLaunchTargetConfirmationIdentitySchema.parse({
+        ...identity,
+        operationId: 'run-1:worktree-remove',
+        tool: 'worktree.remove',
+      }),
+    ).toThrow()
+  })
+
+  test('launch-target polling requires the original exact identity', async () => {
+    const store = new MemoryConfirmations()
+    const service = new NodeLocalConfirmationService(
+      store,
+      () => 1_500,
+      () => 'd'.repeat(32),
+    )
+    const launchIdentity = nodeLaunchTargetConfirmationIdentitySchema.parse({
+      source: 'launch-target',
+      operationId: 'run-1:worktree-create',
+      sessionId: 'session-1',
+      runId: 'run-1',
+      callId: null,
+      ownerDeviceId: null,
+      workspaceId: 'workspace-1',
+      nodeId: 'node-1',
+      targetRevision: 2,
+      selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'feature/test' } },
+      acceptedTargetDigest: 'a'.repeat(64),
+      workspaceFolderRevision: 3,
+      workspaceFolderDigest: 'b'.repeat(64),
+      rootId: 'root-1',
+      rootPath: '/workspace',
+      floorRevision: 4,
+      argumentsDigest: 'c'.repeat(64),
+      tool: 'worktree.create',
+      summary: 'Create launch target worktree',
+    })
+    await expectCode(() => service.require(launchIdentity, unchanged), 'NODE_LOCAL_CONFIRMATION_PENDING')
+    expect(await service.lookup({ kind: 'launch-target', identity: launchIdentity })).toEqual(launchIdentity)
+    await expectCode(
+      () => service.lookup({ kind: 'launch-target', identity: { ...launchIdentity, argumentsDigest: 'e'.repeat(64) } }),
+      'WORKSPACE_SCOPE',
+    )
+  })
+
   test('operator approval is one-shot and never starts the original operation', async () => {
     const store = new MemoryConfirmations()
     const service = new NodeLocalConfirmationService(
@@ -129,10 +207,66 @@ describe('B-local confirmation gate', () => {
       tool: 'manual-terminal',
     }
     await expectCode(() => service.require(manual, unchanged), 'NODE_LOCAL_CONFIRMATION_PENDING')
+    expect(() =>
+      nodeLocalConfirmationManualQueryLookupSchema.parse({
+        kind: 'manual-query',
+        operationId: 'manual-query:stable-operation',
+        deviceId: 'device-known-only-to-A',
+        workspaceId: 'workspace-on-A',
+        sessionId: null,
+        nodeId: 'node-b',
+        rootId: 'workspace',
+        expectedRoot: 'C:/workspace',
+        method: 'git.commit',
+        argumentsDigest: 'd'.repeat(64),
+      }),
+    ).toThrow()
     expect(store.entries.get('a'.repeat(32))?.identity.ownerDeviceId).toBe('device-known-only-to-A')
     await service.resolve(operator, { confirmationId: 'a'.repeat(32), decision: 'approve' }, unchanged)
     await service.require(manual, unchanged)
     expect(store.entries.get('a'.repeat(32))?.state).toBe('consumed')
+  })
+
+  test('manual Git query status and cancel are bound to device, workspace, root, method and digest', async () => {
+    const store = new MemoryConfirmations()
+    const service = new NodeLocalConfirmationService(
+      store,
+      () => 2_600,
+      () => 'c'.repeat(32),
+    )
+    const lookup = {
+      kind: 'manual-query' as const,
+      operationId: 'manual-query:stable-operation',
+      deviceId: 'device-on-A',
+      workspaceId: 'workspace-on-A',
+      sessionId: null,
+      nodeId: 'node-b',
+      rootId: 'workspace',
+      expectedRoot: 'C:/workspace',
+      method: 'git.query.status',
+      argumentsDigest: 'd'.repeat(64),
+    }
+    const manual = {
+      ...identity,
+      source: 'manual-query' as const,
+      sessionId: null,
+      runId: null,
+      callId: null,
+      ownerDeviceId: lookup.deviceId,
+      workspaceId: lookup.workspaceId,
+      nodeId: lookup.nodeId,
+      operationId: lookup.operationId,
+      rootId: lookup.rootId,
+      rootPath: lookup.expectedRoot,
+      tool: lookup.method,
+      argumentsDigest: lookup.argumentsDigest,
+    }
+    await expectCode(() => service.require(manual, unchanged), 'NODE_LOCAL_CONFIRMATION_PENDING')
+    expect(await service.lookup(lookup)).toEqual(manual)
+    expect(await service.status(manual, unchanged)).toBe('waiting')
+    await expectCode(() => service.lookup({ ...lookup, workspaceId: 'other-workspace' }), 'WORKSPACE_SCOPE')
+    expect(await service.cancelRun(lookup)).toBe('cancelled')
+    expect(await service.status(manual, unchanged)).toBe('cancelled')
   })
 
   test('run confirmation lookup binds the managed checkout and accepted mount-manifest digest', async () => {

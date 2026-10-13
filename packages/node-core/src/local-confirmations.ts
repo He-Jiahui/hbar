@@ -4,6 +4,7 @@ import {
   nodeLocalConfirmationSchema,
   nodeLocalConfirmationIdSchema,
   nodeLocalConfirmationIdentitySchema,
+  nodeLocalConfirmationLookupSchema,
   nodeLocalConfirmationRunLookupSchema,
   type NodeLocalConfirmationPort,
 } from '@hbar/contracts/node-confirmations'
@@ -179,7 +180,40 @@ export class NodeLocalConfirmationService {
 
   async lookup(inputValue: unknown) {
     await this.ready()
-    const input = nodeLocalConfirmationRunLookupSchema.parse(inputValue)
+    const lookup = nodeLocalConfirmationLookupSchema.parse(inputValue)
+    if ('kind' in lookup) {
+      if (lookup.kind === 'launch-target') {
+        const identity = lookup.identity
+        const raw = await this.store.latest({ operationId: identity.operationId })
+        if (!raw) return null
+        const entry = nodeLocalConfirmationSchema.parse(raw)
+        if (!same(entry.identity, identity))
+          throw new HbarError(
+            'WORKSPACE_SCOPE',
+            'Confirmation query does not match the original launch-target operation',
+          )
+        return entry.identity
+      }
+      const raw = await this.store.latest({ operationId: lookup.operationId })
+      if (!raw) return null
+      const entry = nodeLocalConfirmationSchema.parse(raw)
+      const identity = entry.identity
+      if (
+        identity.source !== 'manual-query' ||
+        identity.operationId !== lookup.operationId ||
+        identity.ownerDeviceId !== lookup.deviceId ||
+        identity.workspaceId !== lookup.workspaceId ||
+        identity.sessionId !== lookup.sessionId ||
+        identity.nodeId !== lookup.nodeId ||
+        identity.rootId !== lookup.rootId ||
+        identity.rootPath !== lookup.expectedRoot ||
+        identity.tool !== lookup.method ||
+        identity.argumentsDigest !== lookup.argumentsDigest
+      )
+        throw new HbarError('WORKSPACE_SCOPE', 'Confirmation query does not match the original manual Git query')
+      return identity
+    }
+    const input = nodeLocalConfirmationRunLookupSchema.parse(lookup)
     const raw = await this.store.latest({ operationId: input.operationId })
     if (!raw) return null
     const entry = nodeLocalConfirmationSchema.parse(raw)

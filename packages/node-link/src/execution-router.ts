@@ -99,12 +99,14 @@ export class ExecutionRouter implements ExecutionProvider {
       invalidate: async (workspace, path) => {
         const capture = this.capture(workspace)
         if (!capture) return this.localQuery().invalidate(workspace, path)
-        const target = await this.metadata(capture)
+        const target = await this.admitted(workspace)
+        if (!target) throw new HbarError('WORKSPACE_SCOPE', 'Remote workspace admission is unavailable')
         await this.rpc(
           target.location.nodeId,
           'query.invalidate',
           {
             ...nodeTargetBinding(target),
+            authority: target.authority,
             path: nodeExecutionRelativePath(target, path),
           },
           target.signal,

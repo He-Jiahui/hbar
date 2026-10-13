@@ -1,10 +1,11 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { nodeFloorSchema, type NodeCallAuthority, type NodeExecStart, type NodeReceipt } from '@hbar/contracts/node'
 import { NodeStateStorage } from '@hbar/storage/node-state'
+import { NodeLocalConfirmationStorage } from '@hbar/storage/node-local-confirmations'
 import type { NodeStatePort } from '@hbar/contracts/node-state'
 import { LocalExecution } from '@hbar/local-tools'
 import {
@@ -21,7 +22,7 @@ import {
   type NodeExecutionBackendOptions,
   WorkspaceNodeProtocol,
 } from '@hbar/node-core'
-import { resolveSandboxProfile, sandboxSnapshotContent } from '@hbar/sandbox'
+import { canonicalSandboxJSON, resolveSandboxProfile, sandboxSnapshotContent } from '@hbar/sandbox'
 
 const cleanup: Array<() => Promise<void>> = []
 afterEach(async () => {
@@ -48,6 +49,7 @@ async function fixture(
     data = join(root, 'data')
   await mkdir(workspace)
   await mkdir(join(workspace, '.git/hooks'), { recursive: true })
+  await mkdir(join(workspace, '.hbar-worktrees'), { recursive: true })
   await mkdir(data)
   await writeFile(join(workspace, 'file.txt'), 'old')
   const state = new NodeStateStorage(join(data, 'node.sqlite'))
@@ -105,6 +107,7 @@ async function fixture(
     execution,
     backend,
   )
+  node.installLocalConfirmations(new NodeLocalConfirmationStorage(state))
   cleanup.push(async () => {
     await node.dispose()
     await state.close()
@@ -113,6 +116,7 @@ async function fixture(
   const request = (key = 'run:call'): NodeExecStart => ({
     ...authority,
     rootId: 'engine',
+    expectedRoot: workspace,
     cwd: '.',
     operationId: key,
     command: 'echo safe',
@@ -139,6 +143,97 @@ async function failure(promise: Promise<unknown>): Promise<unknown> {
   }
   throw new Error('Expected refusal')
 }
+
+test('B local process confirmation waits on the exact operation and retries only after operator approval', async () => {
+  const f = await fixture({ floor: { localConfirm: 'process' } })
+  const request = f.request()
+  const first = await f.node.start(request)
+  expect(first.state).toBe('accepted')
+  expect(f.calls).toEqual([])
+  const pending = (await f.node.listLocalConfirmations()).entries[0]
+  expect(pending).toMatchObject({ state: 'waiting', identity: { operationId: request.operationId, rootId: 'engine' } })
+  const lookup = {
+    operationId: request.operationId,
+    rootId: request.rootId,
+    expectedRoot: f.workspace,
+    authority,
+    admissionDigest: createHash('sha256')
+      .update(canonicalSandboxJSON({ sandbox: authority.sandbox, admission: authority.admission }))
+      .digest('hex'),
+    argumentsDigest: createHash('sha256').update(canonicalSandboxJSON(request)).digest('hex'),
+  }
+  expect(
+    await f.node
+      .localConfirmationRunStatus({ ...lookup, argumentsDigest: 'f'.repeat(64) })
+      .catch((error: unknown) => error),
+  ).toMatchObject({
+    code: 'WORKSPACE_SCOPE',
+  })
+  expect(await f.node.localConfirmationRunStatus(lookup)).toBe('waiting')
+  await f.node.resolveLocalConfirmation(
+    { deviceId: 'bootstrap-local', role: 'operator' },
+    { confirmationId: pending?.id, decision: 'approve' },
+  )
+  expect(await f.node.localConfirmationRunStatus(lookup)).toBe('approved')
+  expect((await f.node.start(request)).state).toBe('started')
+  expect((await settlement(f.node, request.operationId)).state).toBe('settled')
+  expect(f.calls).toEqual([request.command])
+  expect((await f.node.listLocalConfirmations(true)).entries[0]?.state).toBe('consumed')
+})
+
+test('a rejected B-local confirmation settles without starting a process', async () => {
+  const f = await fixture({ floor: { localConfirm: 'process' } })
+  const request = f.request()
+  expect((await f.node.start(request)).state).toBe('accepted')
+  const pending = (await f.node.listLocalConfirmations()).entries[0]
+  if (!pending) throw new Error('Expected a local confirmation entry')
+  await f.node.resolveLocalConfirmation(
+    { deviceId: 'bootstrap-local', role: 'operator' },
+    { confirmationId: pending.id, decision: 'reject' },
+  )
+  expect(
+    await f.node.localConfirmationRunStatus({
+      operationId: request.operationId,
+      rootId: request.rootId,
+      expectedRoot: f.workspace,
+      authority,
+      admissionDigest: createHash('sha256')
+        .update(canonicalSandboxJSON({ sandbox: authority.sandbox, admission: authority.admission }))
+        .digest('hex'),
+      argumentsDigest: createHash('sha256').update(canonicalSandboxJSON(request)).digest('hex'),
+    }),
+  ).toBe('rejected')
+  const receipt = await f.node.start(request)
+  expect(receipt).toMatchObject({
+    state: 'settled',
+    result: { isError: true, details: { code: 'NODE_LOCAL_CONFIRMATION_REJECTED', executionStarted: false } },
+  })
+  expect(f.calls).toEqual([])
+})
+
+test('B local write confirmation leaves the file unchanged until the exact write is retried', async () => {
+  const f = await fixture({ floor: { localConfirm: 'write' } })
+  const writeAuthority = { ...authority, callId: 'write-call' }
+  const operationId = `${writeAuthority.runId}:${writeAuthority.callId}`
+  const write = () => f.node.write('engine', 'file.txt', 'new contents', operationId, writeAuthority)
+  let pending: unknown
+  try {
+    await write()
+  } catch (error) {
+    pending = error
+  }
+  expect(pending).toMatchObject({ code: 'NODE_LOCAL_CONFIRMATION_PENDING' })
+  expect(await readFile(join(f.workspace, 'file.txt'), 'utf8')).toBe('old')
+  const entry = (await f.node.listLocalConfirmations()).entries[0]
+  if (!entry) throw new Error('Expected a B-local write confirmation')
+  await f.node.resolveLocalConfirmation(
+    { deviceId: 'bootstrap-local', role: 'operator' },
+    { confirmationId: entry.id, decision: 'approve' },
+  )
+  const receipt = await write()
+  expect(receipt.after).toBe('new contents')
+  expect(await readFile(join(f.workspace, 'file.txt'), 'utf8')).toBe('new contents')
+})
 
 test('node floor wins over admitted commands, and audit records the refusal without effects', async () => {
   const f = await fixture({ floor: { process: false } })
@@ -340,7 +435,7 @@ test('a disconnected pre-accept exec.start cannot start after a reconnect observ
     result: { details: { executionStarted: true } },
   })
   expect(f.calls).toEqual(['echo safe'])
-  protocol.dispose()
+  await protocol.dispose()
 })
 
 test('cancel waits for a durable start reservation before confirming process settlement', async () => {

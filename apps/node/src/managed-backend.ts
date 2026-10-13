@@ -8,7 +8,7 @@ import { ManagedProcess, RuntimeArtifactStore, type RuntimeArtifactPackage } fro
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import type { ZodType } from 'zod'
 import { nodeRuntimeBuildUnit } from './runtime-build'
-import { nodeProcessOutputSchema, nodeArgvOutputSchema } from './execution-contract'
+import { nodeProcessOutputSchema, nodeArgvOutputSchema, nodeProcessOutputReadResultSchema } from './execution-contract'
 import { probeUnixConfinement, type UnixConfinementBackend, type UnixConfinementCapabilities } from './unix-confinement'
 import { createContainerNodeBackend, type ContainerCapabilities } from './container-backend'
 import { createWindowsExecutionBackend } from './windows-backend'
@@ -375,24 +375,54 @@ export async function createManagedNodeBackend(options: {
       signal.throwIfAborted()
       await owner.activate()
       const environment = nodeProcessEnvironment(input.environmentAllowlist, input.environment)
-      return await owner.call(
-        method,
-        {
-          workspace,
-          operation: resolvedOperation,
-          timeoutMs: input.timeoutMs,
-          environment,
-          confinement: input.confinement
-            ? { ...input.confinement, ...(probe.selected === 'none' ? {} : { backend: probe.selected }) }
-            : null,
-          protectedPaths: input.protectedPaths,
-          readOnlyPaths: input.readOnlyPaths ?? [],
-          workspaceMounts: input.workspaceMounts ?? [],
-          internalMounts: input.internalMounts ?? [],
-        },
-        outputSchema,
-        { signal, timeoutMs: input.timeoutMs + 5_000 },
-      )
+      const request = {
+        workspace,
+        operation: resolvedOperation,
+        timeoutMs: input.timeoutMs,
+        environment,
+        confinement: input.confinement
+          ? { ...input.confinement, ...(probe.selected === 'none' ? {} : { backend: probe.selected }) }
+          : null,
+        protectedPaths: input.protectedPaths,
+        readOnlyPaths: input.readOnlyPaths ?? [],
+        workspaceMounts: input.workspaceMounts ?? [],
+        internalMounts: input.internalMounts ?? [],
+      }
+      if (!input.onOutput && !input.onOutputReset)
+        return await owner.call(method, request, outputSchema, { signal, timeoutMs: input.timeoutMs + 5_000 })
+      let settled = false
+      const result = owner
+        .call(method, request, outputSchema, { signal, timeoutMs: input.timeoutMs + 5_000 })
+        .finally(() => {
+          settled = true
+        })
+      const readOutput = async () => {
+        let afterSeq = 0
+        for (;;) {
+          signal.throwIfAborted()
+          const page = await owner.call('node.execOutput.read', { afterSeq }, nodeProcessOutputReadResultSchema, {
+            signal,
+            timeoutMs: 5_000,
+          })
+          if (page.reset) input.onOutputReset?.()
+          for (const frame of page.items) {
+            input.onOutput?.(frame.text)
+            afterSeq = frame.seq
+          }
+          // The process may have exited while the bounded IPC ring still has more pages.
+          // A settled/inactive response only marks the producer as done; drain until an empty page.
+          if (settled && !page.active && page.items.length === 0) return
+          if (page.items.length === 0) {
+            // Bun 1.4 exposes only the bounded duration overload; observe cancellation
+            // immediately before and after this short polling delay.
+            signal.throwIfAborted()
+            await Bun.sleep(25)
+            signal.throwIfAborted()
+          }
+        }
+      }
+      const [, value] = await Promise.all([readOutput(), result])
+      return value
     } catch (error) {
       if (signal.aborted) throw new HbarError('CANCELLED', 'Node execution cancelled')
       if (

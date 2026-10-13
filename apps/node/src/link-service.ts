@@ -8,7 +8,13 @@ import {
   type NodeLinkStatus,
 } from '@hbar/contracts/node-link-state'
 import type { NodeStatePort } from '@hbar/contracts/node-state'
-import { nodeFingerprint, WorkspaceNodeProtocol, type NodeIdentity, type WorkspaceNodeService } from '@hbar/node-core'
+import {
+  nodeFingerprint,
+  WorkspaceNodeProtocol,
+  type NodeIdentity,
+  type NodeTerminalService,
+  type WorkspaceNodeService,
+} from '@hbar/node-core'
 import { WorkspaceNodeClient, nodeWebSocketURL } from '@hbar/node-link'
 import { z } from 'zod'
 
@@ -22,6 +28,8 @@ export class WorkspaceNodeLink {
   private readonly protocol: WorkspaceNodeProtocol
   private readonly client: WorkspaceNodeClient
   private readonly unlisten: () => void
+  private readonly unlistenOutput: () => void
+  private readonly unlistenExit: () => void
   private saved: NodeSavedLink | null = null
   private initial: NodeInitialJoin | null = null
   private epoch = 0
@@ -36,8 +44,9 @@ export class WorkspaceNodeLink {
     identity: NodeIdentity,
     private readonly node: WorkspaceNodeService,
     private readonly retryDelayMs = 12_000,
+    terminal?: NodeTerminalService,
   ) {
-    this.protocol = new WorkspaceNodeProtocol(node)
+    this.protocol = new WorkspaceNodeProtocol(node, terminal)
     this.client = new WorkspaceNodeClient({
       identity,
       handle: (method, input, signal) => this.protocol.invoke(method, input, signal),
@@ -64,6 +73,7 @@ export class WorkspaceNodeLink {
       onDisconnected: (error) => {
         this.protocol.resetTransfers()
         this.node.linkLost()
+        this.protocol.linkLost()
         if (this.closed || (!this.initial && !this.saved)) return
         this.fail(error)
         if (!this.work) this.schedule()
@@ -76,6 +86,22 @@ export class WorkspaceNodeLink {
         this.client.notify('node.rootsChanged', { revision: Date.now() })
       } catch {
         /* Reconnection reads the current capabilities. */
+      }
+    })
+    this.unlistenOutput = node.onExecutionOutput((chunk) => {
+      if (!this.client.isOnline) return
+      try {
+        this.client.notify('exec.output', chunk)
+      } catch {
+        // The bounded B-side read window repairs notification loss while the link is online.
+      }
+    })
+    this.unlistenExit = node.onExecutionExit((event) => {
+      if (!this.client.isOnline) return
+      try {
+        this.client.notify('exec.exit', event)
+      } catch {
+        // The settled durable receipt remains authoritative.
       }
     })
   }
@@ -142,6 +168,7 @@ export class WorkspaceNodeLink {
       this.attempts = 0
       this.status = { phase: 'online', reasonCode: null, nextAttemptAt: null }
       this.node.linkRestored()
+      this.protocol.linkRestored()
     } catch (error) {
       if (this.closed || epoch !== this.epoch) return
       this.fail(error instanceof HbarError ? error : new HbarError('NODE_OFFLINE', 'Node dial failed'))
@@ -169,6 +196,7 @@ export class WorkspaceNodeLink {
     clearTimeout(this.timer)
     this.timer = undefined
     this.client.close()
+    this.protocol.linkLost()
     this.protocol.resetTransfers()
     this.status = { phase: 'unlinked', reasonCode: null, nextAttemptAt: null }
     await this.write(async () => {
@@ -182,8 +210,10 @@ export class WorkspaceNodeLink {
     this.initial = null
     clearTimeout(this.timer)
     this.unlisten()
+    this.unlistenOutput()
+    this.unlistenExit()
     this.client.close()
-    this.protocol.dispose()
+    await this.protocol.dispose()
     await this.work
     await this.writes
   }

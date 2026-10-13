@@ -8,7 +8,10 @@ import {
   nodeArgvOutputSchema,
   nodeProcessInputSchema,
   nodeProcessOutputSchema,
+  nodeProcessOutputReadInputSchema,
+  nodeProcessOutputReadResultSchema,
 } from './execution-contract'
+import { ProcessOutputRing } from './process-output-ring'
 
 const processTree = createRuntimeProcessTreePort()
 type Input = typeof nodeProcessInputSchema._output
@@ -23,10 +26,15 @@ export function releaseExecutionAbortListener(
   if (timeout) clearTimeout(timeout)
 }
 
-async function capture(stream: ReadableStream<Uint8Array>, exited: Promise<number>): Promise<Captured> {
+async function capture(
+  stream: ReadableStream<Uint8Array>,
+  exited: Promise<number>,
+  onOutput?: (text: string) => void,
+): Promise<Captured> {
   const reader = stream.getReader()
   let retained = Buffer.alloc(0)
   let truncated = false
+  const decoder = new TextDecoder()
   const cutoff = exited.then(() =>
     setTimeout(() => {
       void reader.cancel().catch(() => undefined)
@@ -36,6 +44,14 @@ async function capture(stream: ReadableStream<Uint8Array>, exited: Promise<numbe
     for (;;) {
       const next = await reader.read()
       if (next.done) break
+      const text = decoder.decode(next.value, { stream: true })
+      if (text) {
+        try {
+          onOutput?.(text)
+        } catch {
+          // A broken observer must not stop draining the child pipes.
+        }
+      }
       retained = Buffer.concat([retained, next.value])
       if (retained.byteLength > NODE_LIMITS.outputBytes) {
         retained = retained.subarray(-NODE_LIMITS.outputBytes)
@@ -43,6 +59,14 @@ async function capture(stream: ReadableStream<Uint8Array>, exited: Promise<numbe
       }
     }
   } finally {
+    const finalText = decoder.decode()
+    if (finalText) {
+      try {
+        onOutput?.(finalText)
+      } catch {
+        // The durable result is independent from transient output observers.
+      }
+    }
     clearTimeout(await cutoff)
     reader.releaseLock()
   }
@@ -54,6 +78,7 @@ async function capture(stream: ReadableStream<Uint8Array>, exited: Promise<numbe
 async function execute(
   input: Input,
   signal: AbortSignal,
+  onOutput?: (text: string) => void,
 ): Promise<{
   stdout: string
   stderr: string
@@ -148,8 +173,8 @@ async function execute(
       abort?.()
     }, input.timeoutMs)
     const [stdout, stderr, exitCode] = await Promise.all([
-      capture(child.stdout, child.exited),
-      capture(child.stderr, child.exited),
+      capture(child.stdout, child.exited, onOutput),
+      capture(child.stderr, child.exited, onOutput),
       child.exited,
     ])
     await terminateAndJoin()
@@ -175,6 +200,8 @@ async function execute(
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   let active = false
   let used = false
+  let running = false
+  const output = new ProcessOutputRing()
   const controller = new AbortController()
   context.peer.register(
     'node.exec',
@@ -183,7 +210,13 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         throw new HbarError('NODE_EXECUTION_REVOKED', 'This execution owner cannot start another process')
       used = true
       const signal = AbortSignal.any([call.signal, controller.signal])
-      const result = await execute(input, signal)
+      running = true
+      let result: Awaited<ReturnType<typeof execute>>
+      try {
+        result = await execute(input, signal, (text) => output.append(text))
+      } finally {
+        running = false
+      }
       const text = `${result.stdout}${result.stderr}`
       const encoded = Buffer.from(text)
       const start = Math.max(0, encoded.length - NODE_LIMITS.outputBytes)
@@ -210,7 +243,13 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       if (input.operation.kind !== 'argv')
         throw new HbarError('INVALID_INPUT', 'An argv execution requires argv parameters')
       used = true
-      const result = await execute(input, AbortSignal.any([call.signal, controller.signal]))
+      running = true
+      let result: Awaited<ReturnType<typeof execute>>
+      try {
+        result = await execute(input, AbortSignal.any([call.signal, controller.signal]), (text) => output.append(text))
+      } finally {
+        running = false
+      }
       return {
         stdout: result.stdout,
         stderr: result.stderr,
@@ -219,6 +258,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         ...(result.timedOut === true ? { timedOut: true } : {}),
       }
     }),
+  )
+  context.peer.register(
+    'node.execOutput.read',
+    procedure(nodeProcessOutputReadInputSchema, nodeProcessOutputReadResultSchema, async ({ afterSeq }) =>
+      nodeProcessOutputReadResultSchema.parse({ ...output.read(afterSeq, running) }),
+    ),
   )
   return {
     async prepare() {

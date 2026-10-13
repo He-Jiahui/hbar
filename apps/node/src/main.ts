@@ -9,12 +9,18 @@ import {
   nodeFingerprint,
   nodeProtectedPaths,
   WorkspaceNodeService,
+  NodeTerminalService,
+  createNodeGitRunner,
   type NodeExecutionBackend,
 } from '@hbar/node-core'
 import { LocalExecution } from '@hbar/local-tools'
 import { NodeStateStorage } from '@hbar/storage/node-state'
+import { NodeLocalConfirmationStorage } from '@hbar/storage/node-local-confirmations'
 import { acquireProcessLease, type RuntimeArtifactPackage } from '@hbar/runtime'
 import { createManagedNodeBackend } from './managed-backend'
+import { createNodeTerminalBackend } from './terminal-backend'
+import { createWorkspaceNodeGitRuntime } from './git-runtime'
+import { installManagedNodeWorktrees } from './managed-worktrees'
 import { NodeConsoleService } from './console-service'
 import { startNodeControlServer } from './control-server'
 import { WorkspaceNodeLink } from './link-service'
@@ -66,11 +72,13 @@ export async function runNode(
   const release = await acquireProcessLease(join(dataRoot, 'node.lock'))
   const state = new NodeStateStorage(join(dataRoot, 'node.sqlite'))
   let node: WorkspaceNodeService | undefined
+  let terminal: NodeTerminalService | undefined
   let backend: NodeExecutionBackend | undefined
   let execution: LocalExecution | undefined
   let control: Awaited<ReturnType<typeof startNodeControlServer>> | undefined
   let publicControl: Awaited<ReturnType<typeof startNodeControlServer>> | undefined
   let link: WorkspaceNodeLink | undefined
+  let removeTerminalPolicyListener: (() => void) | undefined
   let closeTask: Promise<void> | undefined
   const stop = () => {
     void close().catch((error: unknown) => {
@@ -82,6 +90,8 @@ export async function runNode(
     (closeTask ??= (async () => {
       process.removeListener('SIGINT', stop)
       process.removeListener('SIGTERM', stop)
+      removeTerminalPolicyListener?.()
+      removeTerminalPolicyListener = undefined
       try {
         const linkOutcomes = await Promise.allSettled([link?.close()])
         const outcomes = [
@@ -95,6 +105,7 @@ export async function runNode(
                   await backend?.dispose?.()
                   execution?.dispose()
                 }),
+            terminal?.dispose(),
           ])),
         ]
         const failed = outcomes.filter((outcome) => outcome.status === 'rejected')
@@ -118,11 +129,44 @@ export async function runNode(
     if (!(await state.call('floor.get', {}))) await state.call('floor.set', floor)
     backend = await createManagedNodeBackend({ dataRoot, ...options, backend: floor.backend })
     execution = new LocalExecution([dataRoot], undefined, undefined, {
-      get: () => nodeProtectedPaths(node?.policy ?? floor, dataRoot),
+      get: (workspace) => nodeProtectedPaths(node?.policy ?? floor, dataRoot, workspace),
     })
-    node = await WorkspaceNodeService.open(nodeIdFromPublicKey(identity.publicKey), dataRoot, state, execution, backend)
-    link = new WorkspaceNodeLink(state, identity, node)
-    const service = new NodeConsoleService(state, identity, dataRoot, node, link, link)
+    const openedNode = await WorkspaceNodeService.open(
+      nodeIdFromPublicKey(identity.publicKey),
+      dataRoot,
+      state,
+      execution,
+      backend,
+    )
+    node = openedNode
+    openedNode.installLocalConfirmations(new NodeLocalConfirmationStorage(state))
+    openedNode.installGit((root) => createWorkspaceNodeGitRuntime(root, createNodeGitRunner()))
+    openedNode.installGitQueries((root, runner) => createWorkspaceNodeGitRuntime(root, runner))
+    await installManagedNodeWorktrees(openedNode)
+    const terminalBackend = await createNodeTerminalBackend(openedNode.policy)
+    terminal = new NodeTerminalService(
+      openedNode.id,
+      dataRoot,
+      () => openedNode.policy,
+      terminalBackend,
+      () => openedNode.isPaused,
+      (input) =>
+        openedNode.confirmManualLocalOperation({
+          ...input,
+          tool: 'manual-terminal',
+          effect: 'process',
+        }),
+      openedNode,
+    )
+    removeTerminalPolicyListener = openedNode.onPolicyChanged(() => {
+      if (!openedNode.policy.terminal || !openedNode.policy.process)
+        void terminal?.pause().catch((error: unknown) => {
+          console.error('[hbar] terminal floor shutdown failed', error)
+          void close().catch((closeError: unknown) => console.error('[hbar] node shutdown failed', closeError))
+        })
+    })
+    link = new WorkspaceNodeLink(state, identity, openedNode, undefined, terminal)
+    const service = new NodeConsoleService(state, identity, dataRoot, openedNode, link, link, terminal)
     const staticRoot = resolve(
       values['web-root'] ??
         options.staticRoot ??

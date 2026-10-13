@@ -5,11 +5,15 @@ import {
   nodeReceiptSchema,
   nodeCallAuthoritySchema,
   nodeAuditEntrySchema,
+  nodeManualGitAuditEntrySchema,
+  nodeRunAuditEntrySchema,
+  nodeLaunchTargetAuditEntrySchema,
   nodeExecResultSchema,
   NODE_LIMITS,
-  nodeOperationIdSchema,
   nodePublicKeySchema,
 } from './node'
+import { nodeOperationIdSchema } from './node-operation'
+import { nodeWorktreeProvisioningAuthoritySchema } from './node-worktree-provisioning'
 import { nodeLocalConfirmationStorageMethods } from './node-confirmations'
 
 const empty = z.strictObject({})
@@ -41,10 +45,10 @@ export const nodeConsoleInviteSchema = z.strictObject({
   consumedAt: timestamp.nullable(),
   deviceId: z.string().min(1).max(160).nullable(),
 })
-export const nodeStoredOperationSchema = z.strictObject({
+const nodeStoredOperationFieldsSchema = z.strictObject({
   operationId,
   argumentsDigest: digest,
-  kind: z.enum(['exec', 'write', 'restore']),
+  kind: z.enum(['exec', 'write', 'restore', 'git', 'worktree']),
   target: z
     .strictObject({
       rootId: nodeRootIdSchema,
@@ -53,7 +57,7 @@ export const nodeStoredOperationSchema = z.strictObject({
     })
     .nullable()
     .default(null),
-  authority: nodeCallAuthoritySchema,
+  authority: z.union([nodeCallAuthoritySchema, nodeWorktreeProvisioningAuthoritySchema]),
   receipt: nodeReceiptSchema,
   versions: z
     .strictObject({
@@ -65,6 +69,25 @@ export const nodeStoredOperationSchema = z.strictObject({
     })
     .nullable(),
 })
+function validateStoredOperationAuthority(
+  operation: { readonly kind: 'exec' | 'write' | 'restore' | 'git' | 'worktree'; readonly authority: unknown },
+  context: z.RefinementCtx,
+) {
+  const provisioning = nodeWorktreeProvisioningAuthoritySchema.safeParse(operation.authority).success
+  if (
+    (operation.kind === 'worktree' && !provisioning) ||
+    (provisioning && !['git', 'worktree'].includes(operation.kind))
+  )
+    context.addIssue({
+      code: 'custom',
+      path: ['authority'],
+      message: 'Launch-target authority is reserved for Git worktree receipts',
+    })
+}
+export const nodeStoredOperationSchema = nodeStoredOperationFieldsSchema.superRefine(validateStoredOperationAuthority)
+const nodeStoredOperationAcceptSchema = nodeStoredOperationFieldsSchema
+  .omit({ receipt: true, versions: true })
+  .superRefine(validateStoredOperationAuthority)
 export const nodeStateMethods = {
   ready: { input: empty, output: z.strictObject({ version: z.literal(4) }) },
   'floor.get': { input: empty, output: nodeFloorSchema.nullable() },
@@ -83,7 +106,7 @@ export const nodeStateMethods = {
     output: z.strictObject({ saved: z.literal(true) }),
   },
   'operation.accept': {
-    input: nodeStoredOperationSchema.omit({ receipt: true, versions: true }),
+    input: nodeStoredOperationAcceptSchema,
     output: z.strictObject({ accepted: z.boolean(), operation: nodeStoredOperationSchema }),
   },
   'operation.get': { input: z.strictObject({ operationId }), output: nodeStoredOperationSchema.nullable() },
@@ -101,7 +124,18 @@ export const nodeStateMethods = {
     output: nodeStoredOperationSchema,
   },
   'operation.list': { input: empty, output: z.array(nodeStoredOperationSchema).max(64) },
-  'audit.append': { input: nodeAuditEntrySchema.omit({ seq: true, time: true }), output: nodeAuditEntrySchema },
+  'audit.append': {
+    input: z.union([
+      nodeRunAuditEntrySchema.omit({ seq: true, time: true }),
+      nodeManualGitAuditEntrySchema.omit({ seq: true, time: true }),
+      nodeLaunchTargetAuditEntrySchema.omit({ seq: true, time: true }),
+    ]),
+    output: nodeAuditEntrySchema,
+  },
+  'git-query.audit.append': {
+    input: nodeManualGitAuditEntrySchema.omit({ seq: true, time: true }),
+    output: nodeManualGitAuditEntrySchema,
+  },
   'audit.list': {
     input: z.strictObject({ after: timestamp.default(0), limit: z.number().int().min(1).max(500).default(100) }),
     output: z.array(nodeAuditEntrySchema).max(500),

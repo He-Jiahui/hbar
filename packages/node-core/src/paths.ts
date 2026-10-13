@@ -49,13 +49,32 @@ function inside(root: string, path: string, protectedPath = false): boolean {
 export function expandProtectedPath(path: string): string {
   return resolve(path.startsWith('~/') || path.startsWith('~\\') ? join(homedir(), path.slice(2)) : path)
 }
-export function nodeProtectedPaths(floor: NodeFloor, dataRoot: string): string[] {
+export function nodeProtectedPaths(
+  floor: NodeFloor,
+  dataRoot: string,
+  executionRoot?: string,
+  allowManagedWorktreeWrite = false,
+): string[] {
+  const managedDirectories = floor.roots
+    .map((root) => join(root.path, '.hbar-worktrees'))
+    .filter((path) => {
+      if (allowManagedWorktreeWrite && executionRoot && resolve(path) === resolve(executionRoot, '.hbar-worktrees'))
+        return false
+      return (
+        !executionRoot ||
+        !isPathWithin(path, executionRoot, {
+          separator: localNodePaths.separator,
+          caseInsensitive: localNodePaths.caseInsensitive,
+        })
+      )
+    })
   return [
     dataRoot,
     join(homedir(), '.ssh'),
     join(homedir(), '.aws'),
     join(homedir(), '.config/gh'),
     ...floor.roots.map((root) => join(root.path, '.git/hooks')),
+    ...managedDirectories,
     ...floor.protectedPaths.map(expandProtectedPath),
   ]
 }
@@ -77,7 +96,7 @@ export async function nodeOwnedPath(
   const lexical = resolve(root.path, requested)
   const path = await canonicalNodePath(lexical)
   if (!inside(canonicalRoot, path)) throw new HbarError('NODE_DENIED', 'The path leaves the shared root')
-  const protectedPaths = nodeProtectedPaths(floor, dataRoot)
+  const protectedPaths = nodeProtectedPaths(floor, dataRoot, canonicalRoot)
   for (const blocked of protectedPaths) {
     const protectedPath = await canonicalNodePath(blocked)
     if (inside(protectedPath, path, true) || inside(resolve(blocked), lexical, true))

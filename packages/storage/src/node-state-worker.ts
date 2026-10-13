@@ -332,6 +332,14 @@ function dispatch(method: NodeStateMethod, value: unknown): unknown {
       db.query('DELETE FROM audit WHERE seq<=?').run(result.seq - 100_000)
       return result
     }
+    case 'git-query.audit.append': {
+      const input = nodeStateMethods[method].input.parse(value)
+      const time = Date.now()
+      const inserted = db.query('INSERT INTO audit(data) VALUES(?)').run(JSON.stringify({ ...input, time }))
+      const result = nodeAuditEntrySchema.parse({ ...input, time, seq: Number(inserted.lastInsertRowid) })
+      db.query('DELETE FROM audit WHERE seq<=?').run(result.seq - 100_000)
+      return result
+    }
     case 'audit.list': {
       const input = nodeStateMethods[method].input.parse(value)
       return db

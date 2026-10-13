@@ -17,6 +17,7 @@
     "@hbar/runtime": "workspace:*",
     "@hbar/runtime-native": "workspace:*",
     "@hbar/storage": "workspace:*",
-    "zod": "4.5.4"
+    "zod": "4.5.4",
+    "@hbar/git": "workspace:*"
   }
 }

@@ -6,7 +6,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./local-confirmations": "./src/local-confirmations.ts"
+    "./local-confirmations": "./src/local-confirmations.ts",
+    "./workspace-mount-plan": "./src/workspace-mount-plan.ts"
   },
   "dependencies": {
     "@hbar/contracts": "workspace:*",

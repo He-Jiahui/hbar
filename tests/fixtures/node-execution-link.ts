@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { Storage } from '@hbar/storage'
 import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
 import { NodeStateStorage } from '@hbar/storage/node-state'
+import { NodeLocalConfirmationStorage } from '@hbar/storage/node-local-confirmations'
 import { LocalExecution } from '@hbar/local-tools'
 import { NODE_LIMITS, nodeFloorSchema } from '@hbar/contracts/node'
 import {
@@ -50,6 +51,8 @@ export async function withNodeExecutionLink(
     dataPath = join(homeB, 'data')
   await mkdir(localWorkspace)
   await mkdir(workspacePath)
+  await mkdir(join(workspacePath, '.git', 'hooks'), { recursive: true })
+  await mkdir(join(workspacePath, '.hbar-worktrees'), { recursive: true })
   await mkdir(dataPath)
   const workspace = await realpath(workspacePath),
     data = await realpath(dataPath)
@@ -83,6 +86,7 @@ export async function withNodeExecutionLink(
     backend,
   )
   current = node
+  node.installLocalConfirmations(new NodeLocalConfirmationStorage(state))
   const protocol = new WorkspaceNodeProtocol(node)
   const connections = new ConversationNodeConnections(registry, {
     observe: async () => ({ items: [], nextCursor: null }),
@@ -148,7 +152,7 @@ export async function withNodeExecutionLink(
     unlisten()
     client.close()
     connections.dispose()
-    protocol.dispose()
+    await protocol.dispose()
     await server.stop(true)
     await node.dispose()
     registry.dispose()

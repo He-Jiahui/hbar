@@ -105,7 +105,12 @@
     "./context-history": "./src/context-history.ts",
     "./commands/context-history": "./src/commands/context-history.ts",
     "./workflow": "./src/workflow.ts",
-    "./node-worktree": "./src/node-worktree.ts"
+    "./node-worktree": "./src/node-worktree.ts",
+    "./node-git": "./src/node-git.ts",
+    "./node-git-query": "./src/node-git-query.ts",
+    "./node-worktree-provisioning": "./src/node-worktree-provisioning.ts",
+    "./node-terminal": "./src/node-terminal.ts",
+    "./node-execution-output": "./src/node-execution-output.ts"
   },
   "dependencies": {
     "@hbar/commands": "workspace:*",

@@ -181,8 +181,8 @@ describe('Windows sandbox backend', () => {
   })
 
   test('reports the real native probe without promoting unavailable capabilities', async () => {
-    if (process.platform !== 'win32' || !process.env.HBAR_SANDBOX_TEST_MODULE) return
-    const native = loadSandboxNative(process.env.HBAR_SANDBOX_TEST_MODULE)
+    if (process.platform !== 'win32') return
+    const native = loadSandboxNative()
     const result = probeWindowsBackend(native)
     expect(result.filesystem).toBe(true)
     expect(result.processTree).toBe(true)

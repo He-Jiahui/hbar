@@ -342,6 +342,37 @@ test('B console pairs Ed25519 devices independently and enforces observer root r
       { floor: { roots: [], process: false }, expectedRevision: 0 },
     )
     expect(deniedPolicyUpdate.response.status).toBe(403)
+    const deniedConfirmationList = await authenticatedRequest(
+      fixture.url('/rpc'),
+      joined.key,
+      deviceId,
+      'node.localConfirmation.list',
+      {},
+    )
+    expect(deniedConfirmationList.response.status).toBe(403)
+    const deniedConfirmationResolve = await authenticatedRequest(
+      fixture.url('/rpc'),
+      joined.key,
+      deviceId,
+      'node.localConfirmation.resolve',
+      { confirmationId: 'a'.repeat(32), decision: 'approve' },
+    )
+    expect(deniedConfirmationResolve.response.status).toBe(403)
+
+    const operatorInvite = await createInvite(fixture.service, 'operator', [])
+    const operatorDevice = await pair(fixture.url('/challenge'), operatorInvite.code, 'operator')
+    const operatorDeviceId = z
+      .object({ result: z.object({ device: z.object({ deviceId: z.string() }) }) })
+      .parse(operatorDevice.payload).result.device.deviceId
+    const confirmationList = await authenticatedRequest(
+      fixture.url('/rpc'),
+      operatorDevice.key,
+      operatorDeviceId,
+      'node.localConfirmation.list',
+      {},
+    )
+    expect(confirmationList.response.ok).toBe(true)
+    expect(confirmationList.payload).toMatchObject({ result: { entries: [] } })
 
     const replay = await post(fixture.url('/rpc'), { ...snapshot.base, signature: snapshot.signature })
     expect(replay.status).toBe(401)
