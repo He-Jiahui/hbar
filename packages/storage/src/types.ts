@@ -91,6 +91,7 @@ import type {
   NodeExecutionIntentSettlementReceipt,
 } from './node-execution-intents'
 import type { NodeRunWorktreeAdmission, NodeRunWorktreeBindInput, NodeRunWorktreeBinding } from './node-run-worktrees'
+import type { NodeRunWorkspaceMount, NodeRunWorkspaceMountBindInput } from './node-run-workspace-mounts'
 import type {
   SessionActivityGlobalListInput,
   SessionActivityGlobalPage,
@@ -576,6 +577,8 @@ export interface StorageMethods {
   nodeRunWorktreeBind(input: NodeRunWorktreeBindInput): NodeRunWorktreeBinding
   nodeRunWorktree(runId: string): NodeRunWorktreeBinding | null
   nodeRunWorktreeAdmission(runId: string): NodeRunWorktreeAdmission | null
+  nodeRunWorkspaceMountBind(input: NodeRunWorkspaceMountBindInput): NodeRunWorkspaceMount
+  nodeRunWorkspaceMount(runId: string): NodeRunWorkspaceMount | null
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
   recover(scope?: RuntimeRecoveryScope): number
   runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null

@@ -8,6 +8,7 @@ import {
   nodeExecutionIntentSettlementResultSchema,
 } from './node-execution-intents'
 import { NODE_RUN_WORKTREES_SQL, createNodeRunWorktreeStorage } from './node-run-worktrees'
+import { NODE_RUN_WORKSPACE_MOUNTS_SQL, createNodeRunWorkspaceMountStorage } from './node-run-workspace-mounts'
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { readContextCompactionMarkers } from './context-compaction-markers'
@@ -299,7 +300,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 31
+const LATEST_SCHEMA_VERSION = 32
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
@@ -534,6 +535,7 @@ for (const [version, sql] of [
   [29, NODE_EXECUTION_INTENTS_SQL],
   [30, 'ALTER TABLE approvals ADD COLUMN executionTarget TEXT;'],
   [31, NODE_RUN_WORKTREES_SQL],
+  [32, NODE_RUN_WORKSPACE_MOUNTS_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -595,6 +597,7 @@ const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
 const chatDatabaseDeletion = createChatDatabaseDeletionStorage(db, sessionsRoot, undefined, settingsRoot)
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
 const nodeRunWorktreeStorage = createNodeRunWorktreeStorage(db, appendEvent)
+const nodeRunWorkspaceMountStorage = createNodeRunWorkspaceMountStorage(db, appendEvent)
 const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => sessionLaunchTarget.read(sessionId).revision)
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
@@ -2535,6 +2538,7 @@ const methods: StorageMethods = {
                   rootId: workspace.location.rootId,
                   nodePath: workspace.location.nodePath,
                 },
+                workspaceFoldersSnapshot: workspaceFolders.read(owner.workspaceId),
               }
             : {}),
           ...(command ? { command } : {}),
@@ -2804,6 +2808,8 @@ const methods: StorageMethods = {
   nodeRunWorktreeBind: (input) => nodeRunWorktreeStorage.bind(input),
   nodeRunWorktree: (runId) => nodeRunWorktreeStorage.read(runId),
   nodeRunWorktreeAdmission: (runId) => nodeRunWorktreeStorage.admission(runId),
+  nodeRunWorkspaceMountBind: (input) => nodeRunWorkspaceMountStorage.bind(input),
+  nodeRunWorkspaceMount: (runId) => nodeRunWorkspaceMountStorage.read(runId),
   nodeExecutionIntentSettle: (raw) =>
     db.transaction(() => {
       const input = z
@@ -3425,6 +3431,8 @@ function restoreProjection(event: SessionEvent) {
     }
   } else if (event.type === 'run.worktreeBound') {
     nodeRunWorktreeStorage.restore(data, event)
+  } else if (event.type === 'run.workspaceMountsBound') {
+    nodeRunWorkspaceMountStorage.restore(data, event)
   } else if (event.type === 'run.inputEdited') {
     const edited = z
       .strictObject({

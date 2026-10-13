@@ -3,7 +3,10 @@ import { Database } from 'bun:sqlite'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { nodeCapabilitiesSchema, nodeFloorSchema } from '@hbar/contracts/node'
+import { nodeWorkspaceLocator } from '@hbar/contracts/node-address'
+import { workspaceFoldersSchema } from '@hbar/contracts/commands/workspace-folders'
 import { Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
 import { NodeRegistryService } from '@hbar/node-link'
@@ -27,12 +30,6 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
       environmentAllowlist: _allowlist,
       ...floor
     } = nodeFloorSchema.parse({ roots: [] })
-    const workspaceCapability = {
-      rootId: 'engine',
-      name: 'Engine',
-      nodePath: '/srv/engine',
-      access: 'write' as const,
-    }
     await registry.touch(
       node.nodeId,
       nodeCapabilitiesSchema.parse({
@@ -40,12 +37,110 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
         nodeId: node.nodeId,
         platform: 'linux',
         evaluator: SANDBOX_EVALUATOR_FINGERPRINT,
-        roots: [workspaceCapability],
+        roots: [
+          { rootId: 'engine', name: 'Engine', nodePath: '/srv/engine', access: 'write' },
+          { rootId: 'docs', name: 'Docs', nodePath: '/srv/docs', access: 'read' },
+          { rootId: 'nested', name: 'Nested', nodePath: '/srv/engine/nested', access: 'write' },
+        ],
         sandbox: { backends: ['none'], filesystem: 'none', network: 'none' },
         floor,
       }),
     )
     const workspace = await storage.call('createNodeWorkspace', { nodeId: node.nodeId, rootId: 'engine' })
+    const rejectedFolders = async (folders: readonly { id: string; alias: string; path: string }[]) =>
+      storage.call('applyWorkspaceFolders', {
+        actorId: 'fixture',
+        idempotencyKey: `rejected-${crypto.randomUUID()}`,
+        request: {
+          operation: 'save',
+          input: { workspaceId: workspace.id, expectedRevision: 0, folders: [...folders] },
+        },
+        folders: workspaceFoldersSchema.parse(folders),
+      })
+    const localPath = await rejectedFolders([
+      { id: 'engine', alias: 'Engine', path: workspace.path },
+      { id: 'local', alias: 'Local', path: '/etc' },
+    ]).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(localPath).toMatchObject({ code: 'WORKSPACE_NODE_MISMATCH' })
+    const crossNode = await rejectedFolders([
+      { id: 'engine', alias: 'Engine', path: workspace.path },
+      { id: 'foreign', alias: 'Foreign', path: nodeWorkspaceLocator('another-node', 'docs') },
+    ]).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(crossNode).toMatchObject({ code: 'WORKSPACE_NODE_MISMATCH' })
+    const unregistered = await rejectedFolders([
+      { id: 'engine', alias: 'Engine', path: workspace.path },
+      { id: 'missing', alias: 'Missing', path: nodeWorkspaceLocator(node.nodeId, 'missing') },
+    ]).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(unregistered).toMatchObject({ code: 'NODE_ROOT_NOT_FOUND' })
+    const overlapping = await rejectedFolders([
+      { id: 'engine', alias: 'Engine', path: workspace.path },
+      { id: 'nested', alias: 'Nested', path: nodeWorkspaceLocator(node.nodeId, 'nested') },
+    ]).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(overlapping).toMatchObject({ code: 'WORKSPACE_NODE_MISMATCH' })
+    const untrustedResolvedRoots = await storage
+      .call('applyWorkspaceFolders', {
+        actorId: 'fixture',
+        idempotencyKey: 'untrusted-resolver',
+        request: {
+          operation: 'save',
+          input: {
+            workspaceId: workspace.id,
+            expectedRevision: 0,
+            folders: [
+              { id: 'engine-folder', alias: 'Engine', path: workspace.path },
+              { id: 'docs-folder', alias: 'Docs', path: nodeWorkspaceLocator(node.nodeId, 'docs') },
+            ],
+          },
+        },
+        folders: [
+          { id: 'engine-folder', alias: 'Engine', path: workspace.path },
+          { id: 'nested-folder', alias: 'Nested', path: nodeWorkspaceLocator(node.nodeId, 'nested') },
+        ],
+      })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+    expect(untrustedResolvedRoots).toMatchObject({ code: 'INVALID_INPUT' })
+    const duplicateAliases = await rejectedFolders([
+      { id: 'engine', alias: 'Engine', path: workspace.path },
+      { id: 'docs', alias: 'engine', path: nodeWorkspaceLocator(node.nodeId, 'docs') },
+    ]).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(duplicateAliases).not.toBeNull()
+    const folderSnapshot = await storage.call('applyWorkspaceFolders', {
+      actorId: 'fixture',
+      idempotencyKey: 'remote-folders',
+      request: {
+        operation: 'save',
+        input: {
+          workspaceId: workspace.id,
+          expectedRevision: 0,
+          folders: [
+            { id: 'engine-folder', alias: 'Engine', path: workspace.path },
+            { id: 'docs-folder', alias: 'Docs', path: nodeWorkspaceLocator(node.nodeId, 'docs') },
+          ],
+        },
+      },
+      folders: [
+        { id: 'engine-folder', alias: 'Engine', path: workspace.path },
+        { id: 'docs-folder', alias: 'Docs', path: nodeWorkspaceLocator(node.nodeId, 'docs') },
+      ],
+    })
     const session = await storage.call('createSession', workspace.id, 'Managed worktree run')
     const selection = {
       mode: 'isolated-worktree' as const,
@@ -75,6 +170,25 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
       },
     )
     await storage.call('claim', session.id)
+    const foldersBusy = await storage
+      .call('applyWorkspaceFolders', {
+        actorId: 'fixture',
+        idempotencyKey: 'folder-change-during-run',
+        request: {
+          operation: 'save',
+          input: {
+            workspaceId: workspace.id,
+            expectedRevision: folderSnapshot.snapshot.revision,
+            folders: folderSnapshot.snapshot.folders,
+          },
+        },
+        folders: folderSnapshot.snapshot.folders,
+      })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+    expect(foldersBusy).toMatchObject({ code: 'BUSY' })
     const admission = await storage.call('nodeRunWorktreeAdmission', accepted.id)
     if (!admission) throw new Error('Expected the accepted remote Run to retain its worktree admission snapshot')
     expect(admission).toMatchObject({
@@ -83,6 +197,7 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
       workspaceId: workspace.id,
       launchTarget: { expectedRevision: 1, selection },
       originalWorkspaceLocation: { nodeId: node.nodeId, rootId: 'engine', nodePath: '/srv/engine' },
+      workspaceFoldersSnapshot: folderSnapshot.snapshot,
     })
 
     const worktreeId = 'a'.repeat(32)
@@ -160,6 +275,63 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
       (await storage.call('events', session.id, 0, 100)).filter((event) => event.type === 'run.worktreeBound'),
     ).toHaveLength(1)
     expect(await storage.call('nodeRunWorktree', accepted.id)).toEqual(binding)
+    const unsignedManifest = {
+      schemaVersion: 1 as const,
+      workspaceId: workspace.id,
+      revision: folderSnapshot.snapshot.revision,
+      nodeId: node.nodeId,
+      primaryRootId: 'engine',
+      roots: [
+        { rootId: 'engine', expectedRoot: '/srv/engine', alias: 'Engine' },
+        { rootId: 'docs', expectedRoot: '/srv/docs', alias: 'Docs' },
+      ],
+    }
+    const manifest = {
+      ...unsignedManifest,
+      digest: createHash('sha256').update(JSON.stringify(unsignedManifest)).digest('hex'),
+    }
+    const forgedUnsigned = {
+      ...unsignedManifest,
+      roots: [unsignedManifest.roots[0]!, { ...unsignedManifest.roots[1]!, expectedRoot: '/srv/other-docs' }],
+    }
+    const forgedManifest = {
+      ...forgedUnsigned,
+      digest: createHash('sha256').update(JSON.stringify(forgedUnsigned)).digest('hex'),
+    }
+    const forgedManifestError = await storage
+      .call('nodeRunWorkspaceMountBind', { runId: accepted.id, manifest: forgedManifest })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+    expect(forgedManifestError).toMatchObject({ code: 'NODE_MOUNT_MANIFEST_INVALID' })
+    const changedFolderSnapshot = {
+      ...folderSnapshot.snapshot,
+      revision: folderSnapshot.snapshot.revision + 1,
+      folders: folderSnapshot.snapshot.folders.map((folder) =>
+        folder.id === 'docs-folder' ? { ...folder, alias: 'Documentation' } : folder,
+      ),
+    }
+    const updateFolderSnapshot = (snapshot: typeof folderSnapshot.snapshot) => {
+      const database = new Database(path)
+      try {
+        database
+          .query('UPDATE workspace_folders SET snapshotJson=? WHERE workspaceId=?')
+          .run(JSON.stringify(snapshot), workspace.id)
+      } finally {
+        database.close()
+      }
+    }
+    updateFolderSnapshot(changedFolderSnapshot)
+    const staleFolders = await storage.call('nodeRunWorkspaceMountBind', { runId: accepted.id, manifest }).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(staleFolders).toMatchObject({ code: 'STALE_TARGET' })
+    updateFolderSnapshot(folderSnapshot.snapshot)
+    expect(await storage.call('nodeRunWorkspaceMountBind', { runId: accepted.id, manifest })).toEqual(manifest)
+    expect(await storage.call('nodeRunWorkspaceMount', accepted.id)).toEqual(manifest)
+    expect(await storage.call('nodeRunWorkspaceMountBind', { runId: accepted.id, manifest })).toEqual(manifest)
 
     const nextRun = await storage.call(
       'enqueue',
@@ -174,6 +346,7 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
       worktree,
     })
     expect(nextBinding).toMatchObject({ runId: nextRun.id, worktreeId, worktreeCreatedByRunId: accepted.id })
+    expect(await storage.call('nodeRunWorkspaceMountBind', { runId: nextRun.id, manifest })).toEqual(manifest)
     expect(
       (await storage.call('events', session.id, 0, 100)).filter((event) => event.type === 'run.worktreeBound'),
     ).toHaveLength(2)
@@ -216,15 +389,32 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
         database.transaction(() => {
           database
             .query(
-              "DELETE FROM session_event_index WHERE eventId IN (SELECT eventId FROM events WHERE runId IN (?,?) AND type IN ('run.worktreeBound','tool.started'))",
+              "DELETE FROM session_event_index WHERE eventId IN (SELECT eventId FROM events WHERE runId IN (?,?) AND type IN ('run.worktreeBound','run.workspaceMountsBound','tool.started'))",
             )
             .run(accepted.id, nextRun.id)
           database
-            .query("DELETE FROM events WHERE runId IN (?,?) AND type IN ('run.worktreeBound','tool.started')")
+            .query(
+              "DELETE FROM events WHERE runId IN (?,?) AND type IN ('run.worktreeBound','run.workspaceMountsBound','tool.started')",
+            )
             .run(accepted.id, nextRun.id)
           database.query('DELETE FROM node_run_worktrees WHERE worktreeId=?').run(worktreeId)
+          database.query('DELETE FROM node_run_workspace_mounts WHERE runId IN (?,?)').run(accepted.id, nextRun.id)
           database.query('DELETE FROM node_execution_intents WHERE runId=?').run(accepted.id)
           database.query('DELETE FROM tool_intents WHERE runId=?').run(accepted.id)
+          const currentFolders = JSON.parse(
+            String(
+              database
+                .query<{ snapshotJson: string }, [string]>(
+                  'SELECT snapshotJson FROM workspace_folders WHERE workspaceId=?',
+                )
+                .get(workspace.id)?.snapshotJson,
+            ),
+          ) as { revision: number; folders: Array<{ alias: string }> }
+          currentFolders.revision += 1
+          currentFolders.folders[1]!.alias = 'Documents'
+          database
+            .query('UPDATE workspace_folders SET snapshotJson=? WHERE workspaceId=?')
+            .run(JSON.stringify(currentFolders), workspace.id)
         })()
       } finally {
         database.close()
@@ -237,6 +427,8 @@ test('managed Node worktree binding survives Worker reopen and JSONL projection 
     expect(await storage.call('nodeRunWorktreeAdmission', accepted.id)).toEqual(admission)
     expect(await storage.call('nodeRunWorktree', accepted.id)).toEqual(binding)
     expect(await storage.call('nodeRunWorktree', nextRun.id)).toEqual(nextBinding)
+    expect(await storage.call('nodeRunWorkspaceMount', accepted.id)).toEqual(manifest)
+    expect((await storage.call('workspaceFolders', workspace.id)).revision).toBe(folderSnapshot.snapshot.revision + 1)
     const pending = await storage.call('pendingNodeExecutionIntents', { runIds: [accepted.id], limit: 10 })
     expect(pending.items).toMatchObject([{ rootId: worktreeRootId, nodePath: worktreePath, callId }])
     expect(await storage.call('recover')).toBe(1)
@@ -428,6 +620,18 @@ test('shared-current Run cannot bind a managed child worktree', async () => {
       )
     expect(error).toMatchObject({ code: 'COMMAND_CONFLICT' })
     expect(await storage.call('nodeRunWorktree', run.id)).toBeNull()
+    const snapshot = admission.workspaceFoldersSnapshot
+    if (!snapshot) throw new Error('Expected the queued Run to capture its folder snapshot')
+    const unsigned = {
+      schemaVersion: 1 as const,
+      workspaceId: workspace.id,
+      revision: snapshot.revision,
+      nodeId: node.nodeId,
+      primaryRootId: 'engine',
+      roots: [{ rootId: 'engine', expectedRoot: '/srv/engine', alias: snapshot.folders[0]!.alias }],
+    }
+    const manifest = { ...unsigned, digest: createHash('sha256').update(JSON.stringify(unsigned)).digest('hex') }
+    expect(await storage.call('nodeRunWorkspaceMountBind', { runId: run.id, manifest })).toEqual(manifest)
   } finally {
     registry?.dispose()
     await storage.close()

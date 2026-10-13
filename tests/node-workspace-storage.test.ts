@@ -78,7 +78,7 @@ test('node workspaces persist a verified owner and all directory projections pre
           request: { operation: 'save', input: { workspaceId: workspace.id, expectedRevision: 0, folders } },
         }),
       ),
-    ).toBe('WORKSPACE_REMOTE')
+    ).toBe('WORKSPACE_NODE_MISMATCH')
     const parent = await storage.call('createSession', workspace.id, 'Parent')
     const child = await storage.call('createSession', workspace.id, 'Child', parent.id)
     await storage.call('append', child.id, 'agent.created', { parentSessionId: parent.id })
@@ -156,7 +156,7 @@ test('migration 28 preserves pre-node local workspace rows without adding remote
     const database = new Database(path)
     try {
       database.exec(
-        'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; PRAGMA user_version=27',
+        'DROP INDEX node_run_workspace_mounts_session; DROP TABLE node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; PRAGMA user_version=27',
       )
     } finally {
       database.close()

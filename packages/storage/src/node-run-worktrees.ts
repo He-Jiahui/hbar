@@ -11,6 +11,7 @@ import { nodeCapabilitiesSchema } from '@hbar/contracts/node'
 import { z } from 'zod'
 import { sessionLaunchTargetBindingSchema } from './session-launch-target.ts'
 import { sessionLaunchSelectionSchema } from '@hbar/contracts/commands/session-launch-target'
+import { workspaceFolderSnapshotSchema } from '@hbar/contracts/commands/workspace-folders'
 
 export const NODE_RUN_WORKTREES_SQL = `
 CREATE TABLE node_run_worktrees(
@@ -79,6 +80,7 @@ export const nodeRunWorktreeAdmissionSchema = z.strictObject({
   sessionId: idSchema,
   workspaceId: idSchema,
   launchTarget: sessionLaunchTargetBindingSchema,
+  workspaceFoldersSnapshot: workspaceFolderSnapshotSchema.optional(),
   originalWorkspaceLocation: z.strictObject({
     nodeId: nodeIdSchema,
     rootId: nodeRootIdSchema,
@@ -137,6 +139,7 @@ export function createNodeRunWorktreeStorage(db: Database, appendEvent: AppendEv
         nodeWorkspaceLocation: z
           .strictObject({ nodeId: nodeIdSchema, rootId: nodeRootIdSchema, nodePath: z.string().min(1).max(4_000) })
           .optional(),
+        workspaceFoldersSnapshot: workspaceFolderSnapshotSchema.optional(),
       })
       .parse(JSON.parse(accepted.data) as unknown)
     if (event.run.id !== runId || event.run.sessionId !== accepted.sessionId)
@@ -185,6 +188,7 @@ export function createNodeRunWorktreeStorage(db: Database, appendEvent: AppendEv
       workspaceId: accepted.workspaceId,
       launchTarget: accepted.launchTarget,
       originalWorkspaceLocation: accepted.nodeWorkspaceLocation,
+      ...(accepted.workspaceFoldersSnapshot ? { workspaceFoldersSnapshot: accepted.workspaceFoldersSnapshot } : {}),
     })
   }
 

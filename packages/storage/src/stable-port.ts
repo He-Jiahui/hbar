@@ -33,6 +33,7 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'pendingNodeExecutionIntents',
   'nodeRunWorktree',
   'nodeRunWorktreeAdmission',
+  'nodeRunWorkspaceMount',
   'queuedSessions',
   'recentSessions',
   'nextQueuedRun',

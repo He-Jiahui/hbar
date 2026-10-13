@@ -19,6 +19,7 @@ export type {
   NodeExecutionIntentSettlementResult,
 } from './node-execution-intents'
 export type { NodeRunWorktreeAdmission, NodeRunWorktreeBindInput, NodeRunWorktreeBinding } from './node-run-worktrees'
+export type { NodeRunWorkspaceMount, NodeRunWorkspaceMountBindInput } from './node-run-workspace-mounts'
 export { runtimeRecoveryRecordSchema, runtimeManualRecoverySchema } from './runtime-state'
 export { StableStoragePort } from './stable-port'
 export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'
