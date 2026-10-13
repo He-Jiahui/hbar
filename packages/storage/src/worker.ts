@@ -1602,7 +1602,7 @@ const methods: StorageMethods = {
       return { session: methods.session(id), event }
     })()
   },
-  append: (...args) => db.transaction(() => appendEvent(...args))(),
+  append: (...args) => db.transaction(() => appendEvent(...args)).immediate(),
   events(sessionId, after, limit = 2000) {
     return (
       db
@@ -1899,7 +1899,7 @@ const methods: StorageMethods = {
       )
       sessionSearch.queueMessage(message.id, sessionId, role, event.seq, content)
       return { message, event }
-    })(),
+    }).immediate(),
   snapshot(sessionId, before, limit = 60) {
     const session = workerDiagnostics.readPhase('session', () => methods.session(sessionId))
     const { messages, hasOlder } = workerDiagnostics.readPhase('messages', () => {
