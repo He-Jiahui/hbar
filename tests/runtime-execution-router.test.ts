@@ -66,7 +66,8 @@ test('the managed workspace tools owner uses its admitted router scope for node 
   let application: RuntimeValuePort | undefined
   let readState: (() => Promise<RuntimePluginState>) | undefined
   const calls: string[] = []
-  const settlementCalls: unknown[][] = []
+  const settlementCalls: Array<{ invocationId: string; input: unknown }> = []
+  const confirmationCancellationCalls: Array<{ invocationId: string; input: unknown }> = []
   let expectedInvocationId: string | undefined
   let remoteProcessRunning = false
   let remoteProcessSettled = false
@@ -141,32 +142,37 @@ test('the managed workspace tools owner uses its admitted router scope for node 
       application.register('host.read', async ([method, raw]) => {
         if (method !== 'execution.nodeSettlement') throw new Error(`Unexpected stable callback: ${String(method)}`)
         const parameters = z.array(z.unknown()).parse(raw)
-        settlementCalls.push(parameters)
-        const invocationId = expectedInvocationId
-        if (!invocationId) throw new Error('The expected original invocation ID was not captured')
-        expect(z.string().uuid().parse(parameters[0])).toBe(invocationId)
-        expect(parameters[1]).toBe(nodeId)
-        expect(parameters[2]).toBe('exec.cancel')
-        expect(parameters[3]).toEqual({ operationId: 'run:cancel-call' })
+        const invocationId = z.string().uuid().parse(parameters[0])
+        if (invocationId !== expectedInvocationId)
+          throw new Error('Settlement did not retain its original invocation ID')
+        if (parameters[1] !== nodeId) throw new Error('Settlement targeted an unexpected node')
+        const settlementMethod = z.enum(['exec.cancel', 'node.confirmation.cancel']).parse(parameters[2])
         const signal = parameters[4]
-        if (!(signal instanceof AbortSignal)) throw new Error('Settlement did not use its bounded signal')
-        expect(signal.aborted).toBe(false)
-        expect(parameters[5]).toBe(120_000)
-        await Bun.sleep(5_100)
-        expect(remoteProcessRunning).toBe(true)
-        remoteProcessRunning = false
-        remoteProcessSettled = true
-        return {
-          state: 'settled',
-          acceptedAt: 1,
-          startedAt: 2,
-          settledAt: 3,
-          result: {
-            text: 'Remote process stopped after cancellation.',
-            isError: true,
-            details: { code: 'CANCELLED', exitCode: null, truncated: false, executionStarted: true, backend: 'none' },
-          },
+        if (!(signal instanceof AbortSignal) || signal.aborted)
+          throw new Error('Settlement did not use a live bounded signal')
+        if (settlementMethod === 'exec.cancel') {
+          const input = nodeWorkspaceMethods['exec.cancel'].input.parse(parameters[3])
+          settlementCalls.push({ invocationId, input })
+          if (parameters[5] !== 120_000) throw new Error('Execution cancellation used an unexpected node budget')
+          await Bun.sleep(5_100)
+          if (!remoteProcessRunning) throw new Error('Remote process was not running during cancellation')
+          remoteProcessRunning = false
+          remoteProcessSettled = true
+          return nodeWorkspaceMethods['exec.cancel'].output.parse({
+            state: 'settled',
+            acceptedAt: 1,
+            startedAt: 2,
+            settledAt: 3,
+            result: {
+              text: 'Remote process stopped after cancellation.',
+              isError: true,
+              details: { code: 'CANCELLED', exitCode: null, truncated: false, executionStarted: true, backend: 'none' },
+            },
+          })
         }
+        const input = nodeWorkspaceMethods['node.confirmation.cancel'].input.parse(parameters[3])
+        confirmationCancellationCalls.push({ invocationId, input })
+        return nodeWorkspaceMethods['node.confirmation.cancel'].output.parse({ state: 'absent' })
       })
     },
   })
@@ -358,6 +364,16 @@ test('the managed workspace tools owner uses its admitted router scope for node 
     await waitForSettlement()
     expect(remoteProcessRunning).toBe(false)
     expect(settlementCalls).toHaveLength(1)
+    expect(settlementCalls[0]?.invocationId).toBe(expectedInvocationId)
+    expect(settlementCalls[0]?.input).toEqual({ operationId: 'run:cancel-call' })
+    expect(confirmationCancellationCalls).toHaveLength(1)
+    expect(confirmationCancellationCalls[0]?.invocationId).toBe(expectedInvocationId)
+    expect(confirmationCancellationCalls[0]?.input).toMatchObject({
+      operationId: 'run:cancel-call',
+      rootId,
+      expectedRoot: nodePath,
+      authority: cancelAuthority,
+    })
   } finally {
     await processOwner.dispose()
     application?.dispose()
