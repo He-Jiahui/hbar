@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { approvalModeSchema, inputSchema, runSchema, runModeSchema, userInputRequestSchema, terminalContributionSchema,
   toolWindowContributionSchema, settingsContributionSchema, themeContributionSchema } from '@hbar/contracts'
-import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
+import {
+  RUNTIME_NOTIFICATION_BATCH_MAX_BYTES,
+  RUNTIME_NOTIFICATION_BATCH_MAX_EVENTS,
+  runtimeWireNotificationBatchSchema,
+  runtimeWireNotificationSchema,
+} from '@hbar/contracts/runtime-notifications'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
@@ -39,6 +44,18 @@ export const runtimeKernelStateSchema = z.strictObject({
   userInputs: z.array(userInputRequestSchema).max(4_096),
   protection: z.array(z.strictObject({ sessionId: id, reason: z.enum(['active', 'userInput', 'queued']) })).max(4_096),
   modes: z.array(z.strictObject({ runId: id, mode: runModeSchema })).max(4_096),
+  notificationDelivery: z.strictObject({
+    queued: z.number().int().nonnegative(), bufferedBytes: z.number().int().nonnegative(),
+    queuedPeak: z.number().int().nonnegative(), bytesPeak: z.number().int().nonnegative(),
+    invalidEvents: z.number().int().nonnegative(), acceptedEvents: z.number().int().nonnegative(),
+    deliveredEvents: z.number().int().nonnegative(), overflowCount: z.number().int().nonnegative(),
+    batchTransfers: z.number().int().nonnegative(), singleTransfers: z.number().int().nonnegative(),
+    failure: z.string().max(128).nullable(),
+    queuedByClass: z.strictObject({
+      'session-event': z.number().int().nonnegative(), 'stream-update': z.number().int().nonnegative(),
+      other: z.number().int().nonnegative(),
+    }),
+  }).optional(),
 })
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
 export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 'kernel.cancel', 'kernel.recover', 'kernel.recovery.resume', 'kernel.session.refresh', 'kernel.wake', 'kernel.application.control', 'kernel.application.callback'] as const
@@ -48,5 +65,8 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.strin
   RUNTIME_KERNEL_CONTROL_METHODS,
   z.toJSONSchema(runtimeKernelCancelSchema),
   z.toJSONSchema(runtimeWireNotificationSchema),
+  z.toJSONSchema(runtimeWireNotificationBatchSchema, { unrepresentable: 'any' }),
+  RUNTIME_NOTIFICATION_BATCH_MAX_EVENTS,
+  RUNTIME_NOTIFICATION_BATCH_MAX_BYTES,
   z.toJSONSchema(runtimeKernelStateSchema), z.toJSONSchema(runSchema), z.toJSONSchema(runtimeKernelRecoverySchema),
 ])).digest('hex')

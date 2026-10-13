@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarError, providerSchema, runSchema, type WireNotification } from '@hbar/contracts'
-import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
+import { runtimeWireNotificationBatchSchema, runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
 import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeValuePort, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, procedure, type IpcPeer } from '@hbar/runtime'
 import { Storage, createPathLayout, ensurePathLayout, storageRpcCallSchema } from '@hbar/storage'
 import { KERNEL_RUNTIME_FINGERPRINT, RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
@@ -78,7 +78,9 @@ async function fixture() {
       controlMethods: [...RUNTIME_COORDINATION_CONTROL_METHODS, ...RUNTIME_KERNEL_CONTROL_METHODS],
       onPeer: (peer, owner) => {
         currentPeer = peer
-        peer.onEvent('kernel.notification', runtimeWireNotificationSchema, event => { notifications.push({ owner, event }); facade?.receive(owner, event) })
+        const receiveNotification = (event: WireNotification) => { notifications.push({ owner, event }); facade?.receive(owner, event) }
+        peer.onEvent('kernel.notification', runtimeWireNotificationSchema, receiveNotification)
+        peer.onEvent('kernel.notifications.batch', runtimeWireNotificationBatchSchema, events => { events.forEach(receiveNotification) })
         coordinator.register(owner, { unitId: owner.unitId, generation, artifactId: artifact.id }, descriptor)
         registerRuntimeCoordinatorPort(peer, coordinator, { owner,
           bindings: caller => ({ kernel: { unitId: caller.unitId, generation: caller.generation, artifactId: artifact.id }, driver: driverEndpoint.version, plugins: [], hooks: [] }),
@@ -148,6 +150,14 @@ test('the real Kernel candidate has no storage or recovery effects, and activate
   const sequences = f.notifications.flatMap(({ event }) => event.method === 'session.event' && event.params.sessionId === f.session.id ? [event.params.seq] : [])
   expect(sequences).toEqual([...sequences].sort((left, right) => left - right))
   expect(f.notifications.filter(({ event }) => event.method === 'session.event' && event.params.runId === run.id).every(({ owner }) => owner.incarnation === kernel.owner().incarnation)).toBe(true)
+  await until(async () => {
+    const delivery = (await kernel.call('kernel.state', undefined, runtimeKernelStateSchema)).notificationDelivery
+    return delivery?.queued === 0 && delivery.deliveredEvents > 0
+  })
+  const notificationDelivery = (await kernel.call('kernel.state', undefined, runtimeKernelStateSchema)).notificationDelivery
+  expect(notificationDelivery).toMatchObject({ queued: 0, failure: null, overflowCount: 0 })
+  expect(notificationDelivery?.acceptedEvents).toBe(notificationDelivery?.deliveredEvents)
+  expect((notificationDelivery?.batchTransfers ?? 0) + (notificationDelivery?.singleTransfers ?? 0)).toBeGreaterThan(0)
   expect(f.relay.snapshot().invocations).toBe(0)
   expect(kernel.snapshot().pid).not.toBe(f.driver.snapshot().pid)
 })
