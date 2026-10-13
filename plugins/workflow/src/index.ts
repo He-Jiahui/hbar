@@ -5,11 +5,11 @@ import {
   HbarError,
   contentBlockSchema,
   MAX_WORKFLOW_EVIDENCE,
+  workflowFocusPlanItemSchema,
   MAX_WORKFLOW_TARGET_DISPATCHES,
   MAX_WORKFLOW_TARGET_SESSIONS,
   WORKFLOW_SCHEMA_VERSION,
   workflowPlanItemsSchema,
-  workflowPlanItemSchema,
   workflowPlanSchema,
   workflowScopeSchema,
   workflowSnapshotSchema,
@@ -208,7 +208,7 @@ function peerPayloadHash(input: {
 
 function workItemsOf(items: WorkflowPlanItem[], now: number): WorkflowWorkItem[] {
   return items.map((item, index) => {
-    const { targetSessionIds: _targetSessionIds, ...workItem } = item
+    const { targetSessionIds: _targetSessionIds, dependsOnItemIds: _dependsOnItemIds, ...workItem } = item
     return {
       ...workItem,
       status: index === 0 ? 'in_progress' : 'pending',
@@ -479,6 +479,7 @@ export class WorkflowRuntime implements WorkflowService {
     const migrated = workflowStateSchema.parse({
       ...workflow,
       executionModel: 'focus_v2',
+      canonicalPlanRevision: this.plans.get(sessionId)?.revision,
       planRevision: agentPlan.revision,
       activeStepIndex: compatible ? stepIndex : null,
       activeStepTextHash: compatible ? hashValue(agentPlan.plan[stepIndex]!.step) : null,
@@ -493,14 +494,53 @@ export class WorkflowRuntime implements WorkflowService {
     const workflow = this.workflows.get(sessionId)
     const intent = workflow?.transitionIntent
     if (!workflow || !intent) return
+    const canonicalPlan = this.plans.get(sessionId)
+    const projectedCompleted = new Set(
+      workflow.workItems.filter((item) => item.status === 'completed').map((item) => item.id),
+    )
+    projectedCompleted.add(intent.itemId)
+    const projectedWorkItems = workflow.workItems.map((item) =>
+      item.id === intent.itemId
+        ? { ...item, status: 'completed' as const, completedAt: item.completedAt ?? Date.now() }
+        : item,
+    )
+    const canonicalRevisionMatches =
+      canonicalPlan?.revision === workflow.canonicalPlanRevision ||
+      (workflow.canonicalPlanRevision === undefined &&
+        canonicalPlan?.items.every((item) => !item.dependsOnItemIds?.length))
+    const intentItem = canonicalPlan?.items.find((item) => item.id === intent.itemId)
+    const canonicalIntentMatches =
+      intentItem?.id === intent.itemId && hashValue(intentItem.title) === intent.stepTextHash
+    const canonicalReadyForRecovery = Boolean(
+      canonicalPlan &&
+      canonicalPlan.phase === 'active' &&
+      canonicalPlan.planId === workflow.planId &&
+      canonicalRevisionMatches &&
+      canonicalIntentMatches,
+    )
+    const followingItem =
+      canonicalReadyForRecovery && canonicalPlan
+        ? this.firstReadyPending(canonicalPlan, { ...workflow, workItems: projectedWorkItems }, projectedCompleted)
+        : undefined
     let agentPlan = await this.agentPlans.get(sessionId)
+    const legacyFollowingIndex =
+      canonicalReadyForRecovery &&
+      canonicalPlan?.items.length === 1 &&
+      canonicalPlan.items[0]?.id === intent.itemId &&
+      !canonicalPlan.items[0]?.dependsOnItemIds?.length &&
+      agentPlan?.revision === intent.planRevision &&
+      hashValue(agentPlan.plan[intent.stepIndex]?.step ?? '') === intent.stepTextHash
+        ? agentPlan.plan.findIndex((step, index) => index > intent.stepIndex && step.status === 'pending')
+        : -1
+    const followingIndex =
+      followingItem && canonicalPlan
+        ? canonicalPlan.items.findIndex((item) => item.id === followingItem.id)
+        : legacyFollowingIndex
     if (
+      canonicalReadyForRecovery &&
       agentPlan?.revision === intent.planRevision &&
       hashValue(agentPlan.plan[intent.stepIndex]?.step ?? '') === intent.stepTextHash
     ) {
-      const followingIndex = agentPlan.plan.findIndex(
-        (step, index) => index > intent.stepIndex && step.status === 'pending',
-      )
       agentPlan = await this.agentPlans.update(
         sessionId,
         agentPlan.plan.map((step, index) => ({
@@ -518,15 +558,20 @@ export class WorkflowRuntime implements WorkflowService {
       )
     }
     const transitionApplied =
+      canonicalReadyForRecovery &&
       agentPlan?.revision === intent.planRevision + 1 &&
       agentPlan.plan[intent.stepIndex]?.status === 'completed' &&
       hashValue(agentPlan.plan[intent.stepIndex]?.step ?? '') === intent.stepTextHash
     if (agentPlan) this.agentPlanSnapshots.set(sessionId, agentPlan)
     const now = Date.now()
+    const projection = this.plans.get(sessionId)
+    const nextCanonicalPlanRevision =
+      transitionApplied && projection ? projection.revision + 1 : workflow.canonicalPlanRevision
     const recovered = workflowStateSchema.parse({
       ...workflow,
       revision: workflow.revision + 1,
       planRevision: transitionApplied ? agentPlan!.revision : workflow.planRevision,
+      canonicalPlanRevision: nextCanonicalPlanRevision,
       status: transitionApplied
         ? agentPlan!.plan.every((step) => step.status === 'completed')
           ? 'completed'
@@ -550,13 +595,12 @@ export class WorkflowRuntime implements WorkflowService {
       transition: { operationId: intent.operationId, status: transitionApplied ? 'recovered' : 'stale' },
     })
     this.workflows.set(sessionId, recovered)
-    const projection = this.plans.get(sessionId)
     if (projection && transitionApplied)
       this.plans.set(
         sessionId,
         workflowPlanSchema.parse({
           ...projection,
-          revision: agentPlan!.revision,
+          revision: nextCanonicalPlanRevision!,
           phase: recovered.status === 'completed' ? 'archived' : 'active',
           updatedAt: agentPlan!.updatedAt,
         }),
@@ -636,6 +680,7 @@ export class WorkflowRuntime implements WorkflowService {
         targetDispatches: _targetDispatches,
         startCommand: _startCommand,
         planId: _planId,
+        canonicalPlanRevision: _canonicalPlanRevision,
         completionPolicy: _completionPolicy,
         ...state
       } = internal
@@ -662,6 +707,7 @@ export class WorkflowRuntime implements WorkflowService {
       }
       void _startCommand
       void _planId
+      void _canonicalPlanRevision
       void _completionPolicy
       void _targetDispatches
     }
@@ -704,7 +750,7 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   private normalizeFocusItem(value: WorkflowPlanItemInput) {
-    const normalized = workflowPlanItemSchema.parse({
+    const normalized = workflowFocusPlanItemSchema.parse({
       ...value,
       scope: {
         readPaths: unique((value.scope.readPaths ?? []).map(normalizedScopePath)),
@@ -743,6 +789,34 @@ export class WorkflowRuntime implements WorkflowService {
       else if (check.verifier.kind === 'tool' && !this.api.tools.get(check.verifier.toolName))
         throw new HbarError('WORKFLOW_TOOL_UNKNOWN', `Verifier tool ${check.verifier.toolName} is not registered`)
     return normalized
+  }
+
+  private itemReady(
+    plan: WorkflowPlan,
+    workflow: WorkflowState,
+    itemId: string,
+    additionallyCompleted: ReadonlySet<string> = new Set(),
+  ) {
+    if (plan.phase !== 'active' || workflow.planId !== plan.planId)
+      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Readiness belongs to a stale Workflow Plan revision')
+    const planItem = plan.items.find((item) => item.id === itemId)
+    if (!planItem) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', `Workflow item ${itemId} does not exist`)
+    if (
+      workflow.canonicalPlanRevision !== plan.revision &&
+      (workflow.canonicalPlanRevision !== undefined || (planItem.dependsOnItemIds?.length ?? 0) > 0)
+    )
+      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Readiness belongs to a stale canonical Plan revision')
+    return (planItem.dependsOnItemIds ?? []).every((dependencyId) => {
+      if (additionallyCompleted.has(dependencyId)) return true
+      const dependency = workflow.workItems.find((item) => item.id === dependencyId)
+      return dependency?.status === 'completed' && dependency.completedAt !== null
+    })
+  }
+
+  private firstReadyPending(plan: WorkflowPlan, workflow: WorkflowState, completed = new Set<string>()) {
+    return workflow.workItems.find(
+      (item) => item.status === 'pending' && this.itemReady(plan, workflow, item.id, completed),
+    )
   }
 
   private async validateTargetSessions(sessionId: string, items: readonly WorkflowPlanItemInput[]) {
@@ -802,53 +876,133 @@ export class WorkflowRuntime implements WorkflowService {
       if (!step) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The Agent Plan step does not exist')
       if (step.status === 'completed')
         throw new HbarError('WORKFLOW_ITEM_COMPLETE', 'A completed Agent Plan step cannot become the active focus')
-      const item = this.normalizeFocusItem({ ...itemValue, title: step.step })
+      const current = this.workflows.get(sessionId)
+      if (current) this.assertNoMutations(current)
+      const canonicalPlan = this.plans.get(sessionId)
+      const goal = await this.goals.get(sessionId)
+      const continuingCanonicalPlan = Boolean(
+        current &&
+        canonicalPlan &&
+        canonicalPlan.phase === 'active' &&
+        current.planId === canonicalPlan.planId &&
+        current.canonicalPlanRevision === canonicalPlan.revision &&
+        current.planRevision === agentPlan.revision &&
+        current.status === 'active' &&
+        (current.activeItemId === null
+          ? current.activeStepIndex === null &&
+            current.activeStepTextHash === null &&
+            canonicalPlan.items[stepIndex]?.id === itemValue.id
+          : current.activeItemId === canonicalPlan.items[stepIndex]?.id &&
+            current.activeStepIndex === stepIndex &&
+            current.activeStepTextHash === hashValue(step.step)),
+      )
+      let item = this.normalizeFocusItem({ ...itemValue, title: step.step })
+      let plan: WorkflowPlan
+      if (continuingCanonicalPlan && current && canonicalPlan) {
+        const nextIndex = agentPlan.plan.findIndex((candidate) => candidate.status === 'in_progress')
+        if (stepIndex !== nextIndex)
+          throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Focus must select the current Agent Plan successor')
+        const canonicalItem = canonicalPlan.items[stepIndex]
+        if (
+          !canonicalItem ||
+          canonicalItem.id !== item.id ||
+          canonicalItem.title !== step.step ||
+          !this.itemReady(canonicalPlan, current, canonicalItem.id)
+        )
+          throw new HbarError('WORKFLOW_DEPENDENCY_PENDING', 'The selected canonical Plan item is not ready to focus')
+        const { dependsOnItemIds: _dependsOnItemIds, ...canonicalFocusDefinition } = canonicalItem
+        const canonicalFocusItem = this.normalizeFocusItem({ ...canonicalFocusDefinition, title: step.step })
+        if (
+          hashValue({ scope: canonicalFocusItem.scope, acceptanceChecks: canonicalFocusItem.acceptanceChecks }) !==
+            hashValue({ scope: item.scope, acceptanceChecks: item.acceptanceChecks }) ||
+          hashValue(canonicalFocusItem.targetSessionIds ?? []) !== hashValue(item.targetSessionIds ?? [])
+        )
+          throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Focus scope and checks must match the canonical Plan item')
+        item = workflowFocusPlanItemSchema.parse({ ...canonicalFocusDefinition, title: step.step })
+        plan = canonicalPlan
+      } else {
+        if (
+          canonicalPlan?.phase === 'active' &&
+          current?.planId === canonicalPlan.planId &&
+          (canonicalPlan.items.length > 1 ||
+            canonicalPlan.items.some((candidate) => (candidate.dependsOnItemIds?.length ?? 0) > 0))
+        )
+          throw new HbarError(
+            'WORKFLOW_REVISION_CONFLICT',
+            'A dependency Plan can only focus its current ready successor without replacing the canonical Plan',
+          )
+        plan = workflowPlanSchema.parse({
+          schemaVersion: WORKFLOW_SCHEMA_VERSION,
+          planId: `agent-plan-${sessionId}`,
+          sessionId,
+          revision: agentPlan.revision,
+          phase: 'active',
+          objective: goal.goal?.objective ?? agentPlan.explanation ?? step.step,
+          items: [item],
+          createdAt: current?.createdAt ?? Date.now(),
+          updatedAt: agentPlan.updatedAt,
+        })
+      }
       await this.validateTargetSessions(sessionId, [item])
-      if (completionPolicy !== 'user' && item.acceptanceChecks.some((check) => check.verifier.kind === 'user'))
+      if (
+        !continuingCanonicalPlan &&
+        completionPolicy !== 'user' &&
+        item.acceptanceChecks.some((check) => check.verifier.kind === 'user')
+      )
         throw new HbarError(
           'WORKFLOW_CHECK_INVALID',
           'User acceptance checks require the explicitly selected user completion policy',
         )
       const now = Date.now()
-      const goal = await this.goals.get(sessionId)
-      const current = this.workflows.get(sessionId)
-      if (current) this.assertNoMutations(current)
-      const plan = workflowPlanSchema.parse({
-        schemaVersion: WORKFLOW_SCHEMA_VERSION,
-        planId: `agent-plan-${sessionId}`,
-        sessionId,
-        revision: agentPlan.revision,
-        phase: 'active',
-        objective: goal.goal?.objective ?? agentPlan.explanation ?? step.step,
-        items: [item],
-        createdAt: current?.createdAt ?? now,
-        updatedAt: agentPlan.updatedAt,
-      })
-      const workflow = workflowStateSchema.parse({
-        schemaVersion: WORKFLOW_SCHEMA_VERSION,
-        executionModel: 'focus_v2',
-        workflowId: current?.workflowId ?? crypto.randomUUID(),
-        focusRevision: (current?.revision ?? 0) + 1,
-        sessionId,
-        goalId: goal.goal ? (goal.goal.goalId ?? goal.goal.threadId) : null,
-        planId: plan.planId,
-        planRevision: agentPlan.revision,
-        activeStepIndex: stepIndex,
-        activeStepTextHash: hashValue(step.step),
-        revision: (current?.revision ?? 0) + 1,
-        status: 'active',
-        activeItemId: item.id,
-        explorationCount: 0,
-        workItems: workItemsOf([item], now),
-        scopeExpansions: current?.scopeExpansions ?? [],
-        delegations: current?.delegations ?? [],
-        evidence: [],
-        completionPolicy,
-        rejection: null,
-        startCommand: null,
-        createdAt: current?.createdAt ?? now,
-        updatedAt: now,
-      })
+      const workflow =
+        continuingCanonicalPlan && current
+          ? workflowStateSchema.parse({
+              ...current,
+              executionModel: 'focus_v2',
+              focusRevision: current.revision + 1,
+              canonicalPlanRevision: plan.revision,
+              planRevision: agentPlan.revision,
+              activeStepIndex: stepIndex,
+              activeStepTextHash: hashValue(step.step),
+              revision: current.revision + 1,
+              status: 'active',
+              activeItemId: item.id,
+              workItems: current.workItems.map((candidate) =>
+                candidate.id === item.id
+                  ? { ...candidate, status: 'in_progress' as const, startedAt: candidate.startedAt ?? now }
+                  : candidate,
+              ),
+              review: null,
+              rejection: null,
+              transitionIntent: null,
+              updatedAt: now,
+            })
+          : workflowStateSchema.parse({
+              schemaVersion: WORKFLOW_SCHEMA_VERSION,
+              executionModel: 'focus_v2',
+              workflowId: current?.workflowId ?? crypto.randomUUID(),
+              focusRevision: (current?.revision ?? 0) + 1,
+              sessionId,
+              goalId: goal.goal ? (goal.goal.goalId ?? goal.goal.threadId) : null,
+              planId: plan.planId,
+              canonicalPlanRevision: plan.revision,
+              planRevision: agentPlan.revision,
+              activeStepIndex: stepIndex,
+              activeStepTextHash: hashValue(step.step),
+              revision: (current?.revision ?? 0) + 1,
+              status: 'active',
+              activeItemId: item.id,
+              explorationCount: 0,
+              workItems: workItemsOf([item], now),
+              scopeExpansions: current?.scopeExpansions ?? [],
+              delegations: current?.delegations ?? [],
+              evidence: [],
+              completionPolicy,
+              rejection: null,
+              startCommand: null,
+              createdAt: current?.createdAt ?? now,
+              updatedAt: now,
+            })
       await this.api.sessions.append(sessionId, 'workflow.focus.set', { plan, workflow })
       this.plans.set(sessionId, plan)
       this.workflows.set(sessionId, workflow)
@@ -952,6 +1106,7 @@ export class WorkflowRuntime implements WorkflowService {
       sessionId,
       goalId,
       planId: plan.planId,
+      canonicalPlanRevision: plan.revision,
       planRevision: plan.revision,
       revision: 1,
       status: 'active',
@@ -1018,7 +1173,6 @@ export class WorkflowRuntime implements WorkflowService {
           ? 'user'
           : 'agent',
       })
-      plan.revision = agentPlan.revision
       return this.persistStarted(plan, workflow, run?.id)
     })
   }
@@ -1053,7 +1207,6 @@ export class WorkflowRuntime implements WorkflowService {
           ? 'user'
           : 'agent',
       })
-      plan.revision = agentPlan.revision
       return this.persistStarted(plan, workflow, run?.id)
     })
   }
@@ -1280,6 +1433,15 @@ export class WorkflowRuntime implements WorkflowService {
         throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The checkpoint does not target the current focus')
       const item = current.workItems.find((candidate) => candidate.id === itemId)
       if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The workflow item does not exist')
+      const plan = this.plans.get(sessionId)
+      if (
+        !plan ||
+        plan.planId !== current.planId ||
+        (current.canonicalPlanRevision !== undefined && plan.revision !== current.canonicalPlanRevision)
+      )
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The checkpoint belongs to a stale Workflow Plan revision')
+      if (outcome === 'complete' && !this.itemReady(plan, current, itemId))
+        throw new HbarError('WORKFLOW_DEPENDENCY_PENDING', `Workflow item ${itemId} has unfinished dependencies`)
       if (outcome === 'complete') this.assertTargetItemsSucceeded(sessionId, current, itemId)
       const pendingRequired = item.acceptanceChecks.filter(
         (check) => check.required && !['passed', 'accepted'].includes(check.status),
@@ -1341,13 +1503,25 @@ export class WorkflowRuntime implements WorkflowService {
       const remaining = current.workItems.filter(
         (candidate) => candidate.id !== itemId && candidate.status !== 'completed',
       )
+      const completedAfterCheckpoint = new Set(
+        current.workItems.filter((candidate) => candidate.status === 'completed').map((candidate) => candidate.id),
+      )
+      if (outcome === 'complete') completedAfterCheckpoint.add(itemId)
       const requestedNext = nextItemId
-        ? remaining.find((candidate) => candidate.id === nextItemId)
+        ? remaining.find(
+            (candidate) =>
+              candidate.id === nextItemId &&
+              candidate.status === 'pending' &&
+              this.itemReady(plan, current, candidate.id, completedAfterCheckpoint),
+          )
         : outcome === 'complete'
-          ? remaining.find((candidate) => candidate.status === 'pending')
+          ? this.firstReadyPending(plan, { ...current, workItems: remaining }, completedAfterCheckpoint)
           : undefined
       if (nextItemId && !requestedNext)
-        throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', 'The next workflow item is unavailable')
+        throw new HbarError(
+          'WORKFLOW_DEPENDENCY_PENDING',
+          'The requested next item is unavailable or has unfinished dependencies',
+        )
       const workItems = current.workItems.map((candidate) => {
         if (candidate.id === itemId)
           return {
@@ -1361,8 +1535,6 @@ export class WorkflowRuntime implements WorkflowService {
             startedAt: candidate.startedAt ?? now,
             completedAt: outcome === 'complete' ? now : null,
           }
-        if (requestedNext?.id === candidate.id)
-          return { ...candidate, status: 'in_progress' as const, startedAt: candidate.startedAt ?? now }
         return candidate
       })
       const delegations = current.delegations.map((delegation) => {
@@ -1377,6 +1549,7 @@ export class WorkflowRuntime implements WorkflowService {
       })
       let nextPlan = agentPlan
       let transitionBase = current
+      let nextCanonicalPlanRevision = current.canonicalPlanRevision
       if (outcome === 'complete') {
         const operationId = crypto.randomUUID()
         transitionBase = workflowStateSchema.parse({
@@ -1414,10 +1587,19 @@ export class WorkflowRuntime implements WorkflowService {
         await this.persistWorkflow(transitionBase, undefined, {
           transition: { operationId, status: 'intent_recorded' },
         })
-        const followingIndex = agentPlan.plan.findIndex(
-          (step, index) => index > current.activeStepIndex! && step.status === 'pending',
-        )
-        const plan = agentPlan.plan.map((step, index) => ({
+        const legacyFollowingIndex =
+          !requestedNext &&
+          outcome === 'complete' &&
+          plan.items.length === 1 &&
+          plan.items[0]?.id === itemId &&
+          !plan.items[0]?.dependsOnItemIds?.length &&
+          hashValue(agentPlan.plan[current.activeStepIndex!]?.step ?? '') === current.activeStepTextHash
+            ? agentPlan.plan.findIndex((step, index) => index > current.activeStepIndex! && step.status === 'pending')
+            : -1
+        const followingIndex = requestedNext
+          ? plan.items.findIndex((candidate) => candidate.id === requestedNext.id)
+          : legacyFollowingIndex
+        const agentPlanSteps = agentPlan.plan.map((step, index) => ({
           ...step,
           status:
             index === current.activeStepIndex
@@ -1426,25 +1608,34 @@ export class WorkflowRuntime implements WorkflowService {
                 ? ('in_progress' as const)
                 : step.status,
         }))
-        nextPlan = await this.agentPlans.update(sessionId, plan, summary, agentPlan.turnId, agentPlan.revision)
+        nextPlan = await this.agentPlans.update(
+          sessionId,
+          agentPlanSteps,
+          summary,
+          agentPlan.turnId,
+          agentPlan.revision,
+        )
         this.agentPlanSnapshots.set(sessionId, nextPlan)
         const projection = this.plans.get(sessionId)
-        if (projection)
+        if (projection) {
+          nextCanonicalPlanRevision = projection.revision + 1
           this.plans.set(
             sessionId,
             workflowPlanSchema.parse({
               ...projection,
-              revision: nextPlan.revision,
-              phase: plan.every((step) => step.status === 'completed') ? 'archived' : 'active',
+              revision: nextCanonicalPlanRevision,
+              phase: agentPlanSteps.every((step) => step.status === 'completed') ? 'archived' : 'active',
               updatedAt: nextPlan.updatedAt,
             }),
           )
+        }
       }
       const planCompleted = nextPlan.plan.every((step) => step.status === 'completed')
       const workflow = workflowStateSchema.parse({
         ...transitionBase,
         revision: transitionBase.revision + 1,
         planRevision: nextPlan.revision,
+        canonicalPlanRevision: outcome === 'complete' ? nextCanonicalPlanRevision : current.canonicalPlanRevision,
         status:
           outcome === 'blocked' ? 'needs_revision' : outcome === 'complete' && planCompleted ? 'completed' : 'active',
         activeItemId: outcome === 'blocked' ? itemId : outcome === 'complete' ? null : (requestedNext?.id ?? itemId),
@@ -1488,6 +1679,9 @@ export class WorkflowRuntime implements WorkflowService {
       let agentId: string | null = null
       let status: 'running' | 'failed' = 'running'
       try {
+        const plan = this.plans.get(workflow.sessionId)
+        if (!plan || !this.itemReady(plan, workflow, item.id))
+          throw new HbarError('WORKFLOW_DEPENDENCY_PENDING', 'Queued item is no longer ready for delegation')
         const agent = await this.agents.create(
           {
             parentSessionId: workflow.sessionId,
@@ -1559,11 +1753,20 @@ export class WorkflowRuntime implements WorkflowService {
   ) {
     return this.serial(sessionId, async () => {
       const current = this.current(sessionId, expectedRevision)
+      const plan = this.plans.get(sessionId)
+      if (
+        !plan ||
+        plan.planId !== current.planId ||
+        (current.canonicalPlanRevision !== undefined && plan.revision !== current.canonicalPlanRevision)
+      )
+        throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Delegation belongs to a stale Workflow Plan revision')
       if (new Set(itemIds).size !== itemIds.length)
         throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', 'Delegated item ids must be unique')
       const items = itemIds.map((itemId) => {
         const item = current.workItems.find((candidate) => candidate.id === itemId)
         if (!item) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', `Workflow item ${itemId} does not exist`)
+        if (!this.itemReady(plan, current, itemId))
+          throw new HbarError('WORKFLOW_DEPENDENCY_PENDING', `Workflow item ${itemId} has unfinished dependencies`)
         if (!['pending', 'in_progress'].includes(item.status))
           throw new HbarError('WORKFLOW_DELEGATION_CONFLICT', `Workflow item ${itemId} is not available to delegate`)
         if (!item.scope.writePaths.length)
@@ -1616,9 +1819,19 @@ export class WorkflowRuntime implements WorkflowService {
             }
           : candidate,
       )
-      let next = workItems.find((candidate) => candidate.owner.kind === 'main' && candidate.status === 'in_progress')
+      let next = workItems.find(
+        (candidate) =>
+          candidate.owner.kind === 'main' &&
+          candidate.status === 'in_progress' &&
+          this.itemReady(plan, { ...current, workItems }, candidate.id),
+      )
       if (!next) {
-        next = workItems.find((candidate) => candidate.owner.kind === 'main' && candidate.status === 'pending')
+        next = workItems.find(
+          (candidate) =>
+            candidate.owner.kind === 'main' &&
+            candidate.status === 'pending' &&
+            this.itemReady(plan, { ...current, workItems }, candidate.id),
+        )
         if (next)
           workItems = workItems.map((candidate) =>
             candidate.id === next!.id
@@ -2134,6 +2347,21 @@ export class WorkflowRuntime implements WorkflowService {
       const item = current.workItems.find((candidate) => candidate.id === current.activeItemId)
       if (!item || current.activeStepIndex === null)
         throw new HbarError('WORKFLOW_REVIEW_STALE', 'The reviewed focus is no longer active')
+      const canonicalPlan = this.plans.get(sessionId)
+      const canonicalItem = canonicalPlan?.items[current.activeStepIndex]
+      if (
+        !canonicalPlan ||
+        canonicalPlan.planId !== current.planId ||
+        (current.canonicalPlanRevision !== undefined && canonicalPlan.revision !== current.canonicalPlanRevision) ||
+        !canonicalItem ||
+        canonicalItem.id !== item.id ||
+        canonicalItem.title !== plan.plan[current.activeStepIndex]?.step ||
+        !this.itemReady(canonicalPlan, current, item.id)
+      )
+        throw new HbarError(
+          'WORKFLOW_REVISION_CONFLICT',
+          'The reviewed item no longer matches the current canonical Plan',
+        )
       const reviewerEvidence = {
         evidenceId: crypto.randomUUID(),
         itemId: item.id,
@@ -2184,9 +2412,31 @@ export class WorkflowRuntime implements WorkflowService {
       await this.persistWorkflow(transition, undefined, {
         transition: { operationId, status: 'review_approved' },
       })
-      const followingIndex = plan.plan.findIndex(
-        (step, index) => index > current.activeStepIndex! && step.status === 'pending',
+      const completedIds = new Set(
+        current.workItems.filter((candidate) => candidate.status === 'completed').map((candidate) => candidate.id),
       )
+      completedIds.add(item.id)
+      const projectedWorkItems = current.workItems.map((candidate) =>
+        candidate.id === item.id
+          ? { ...candidate, status: 'completed' as const, completedAt: candidate.completedAt ?? now }
+          : candidate,
+      )
+      const followingItem = this.firstReadyPending(
+        canonicalPlan,
+        { ...current, workItems: projectedWorkItems },
+        completedIds,
+      )
+      const legacyFollowingIndex =
+        !followingItem &&
+        canonicalPlan.items.length === 1 &&
+        canonicalPlan.items[0]?.id === item.id &&
+        !canonicalPlan.items[0]?.dependsOnItemIds?.length &&
+        hashValue(plan.plan[current.activeStepIndex]?.step ?? '') === current.activeStepTextHash
+          ? plan.plan.findIndex((step, index) => index > current.activeStepIndex! && step.status === 'pending')
+          : -1
+      const followingIndex = followingItem
+        ? canonicalPlan.items.findIndex((candidate) => candidate.id === followingItem.id)
+        : legacyFollowingIndex
       const updatedPlan = await this.agentPlans.update(
         sessionId,
         plan.plan.map((step, index) => ({
@@ -2205,12 +2455,13 @@ export class WorkflowRuntime implements WorkflowService {
       this.agentPlanSnapshots.set(sessionId, updatedPlan)
       const completed = updatedPlan.plan.every((step) => step.status === 'completed')
       const projection = this.plans.get(sessionId)
+      const nextCanonicalPlanRevision = projection ? projection.revision + 1 : current.canonicalPlanRevision
       if (projection)
         this.plans.set(
           sessionId,
           workflowPlanSchema.parse({
             ...projection,
-            revision: updatedPlan.revision,
+            revision: nextCanonicalPlanRevision!,
             phase: completed ? 'archived' : 'active',
             updatedAt: updatedPlan.updatedAt,
           }),
@@ -2221,6 +2472,7 @@ export class WorkflowRuntime implements WorkflowService {
           ...transition,
           revision: transition.revision + 1,
           planRevision: updatedPlan.revision,
+          canonicalPlanRevision: nextCanonicalPlanRevision,
           status: completed ? 'completed' : 'active',
           activeItemId: null,
           activeStepIndex: null,
@@ -2284,7 +2536,11 @@ export class WorkflowRuntime implements WorkflowService {
 
   private assertTargetItemsSucceeded(sessionId: string, workflow: WorkflowState, itemId?: string) {
     const plan = this.plans.get(sessionId)
-    if (!plan || plan.planId !== workflow.planId || plan.revision !== workflow.planRevision)
+    if (
+      !plan ||
+      plan.planId !== workflow.planId ||
+      plan.revision !== (workflow.canonicalPlanRevision ?? workflow.planRevision)
+    )
       throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Target results belong to a different Plan revision')
     const completedItemIds = itemId
       ? [itemId]
@@ -2473,6 +2729,12 @@ export class WorkflowRuntime implements WorkflowService {
         if (prior.some((dispatch) => dispatch.commandHash !== command.inputHash))
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'Workflow dispatch key was used with different input')
         return { dispatches: prior, createdDispatchIds: [] }
+      }
+      for (const itemId of itemIds) {
+        const workItem = workflow.workItems.find((item) => item.id === itemId)
+        if (!workItem) throw new HbarError('WORKFLOW_ITEM_NOT_FOUND', `Workflow item ${itemId} does not exist`)
+        if (!this.itemReady(plan, workflow, itemId))
+          throw new HbarError('WORKFLOW_DEPENDENCY_PENDING', `Workflow item ${itemId} has unfinished dependencies`)
       }
       const now = Date.now()
       const created: WorkflowTargetDispatch[] = []

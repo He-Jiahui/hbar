@@ -3,7 +3,7 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, MAX_GOAL_OBJECTIVE_LENGTH } from '../index'
 import {
   workflowCompletionPolicySchema,
-  workflowPlanItemSchema,
+  workflowFocusPlanItemSchema,
   workflowPlanItemsSchema,
   workflowScopeSchema,
   workflowSnapshotSchema,
@@ -43,7 +43,7 @@ export const workflowStartInputSchema = z.strictObject({
 export const workflowFocusInputSchema = z.strictObject({
   sessionId: idSchema,
   stepIndex: z.number().int().nonnegative().max(99),
-  item: workflowPlanItemSchema,
+  item: workflowFocusPlanItemSchema,
   completionPolicy: workflowCompletionPolicySchema.default('agent'),
   expectedPlanRevision: expectedRevisionSchema,
 })

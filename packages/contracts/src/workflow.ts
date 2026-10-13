@@ -3,6 +3,8 @@ import { planStateSchema } from './plan'
 
 export const WORKFLOW_SCHEMA_VERSION = 2
 export const MAX_WORKFLOW_ITEMS = 100
+export const MAX_WORKFLOW_DEPENDENCIES_PER_ITEM = 99
+export const MAX_WORKFLOW_DEPENDENCY_EDGES = 1_024
 export const MAX_WORKFLOW_ACCEPTANCE_CHECKS = 32
 export const MAX_WORKFLOW_SCOPE_ENTRIES = 128
 export const MAX_WORKFLOW_EVIDENCE = 1_000
@@ -152,6 +154,7 @@ export const workflowPlanItemSchema = z.strictObject({
       if (targetSessionIds && new Set(targetSessionIds).size !== targetSessionIds.length)
         context.addIssue({ code: 'custom', message: 'Target session IDs must be unique', path: [] })
     }),
+  dependsOnItemIds: z.array(idSchema).max(MAX_WORKFLOW_DEPENDENCIES_PER_ITEM).optional(),
 })
 export type WorkflowPlanItemInput = z.input<typeof workflowPlanItemSchema>
 export type WorkflowPlanItem = z.output<typeof workflowPlanItemSchema>
@@ -160,7 +163,65 @@ export const workflowPlanItemsSchema = z
   .array(workflowPlanItemSchema)
   .min(1)
   .max(MAX_WORKFLOW_ITEMS)
-  .superRefine((items, context) => requireUniqueIds(items, 'id', context))
+  .superRefine((items, context) => {
+    requireUniqueIds(items, 'id', context)
+    const indexes = new Map(items.map((item, index) => [item.id, index]))
+    let edgeCount = 0
+    const visiting = new Set<string>()
+    const visited = new Set<string>()
+    let hasCycle = false
+    const visit = (itemId: string) => {
+      if (visiting.has(itemId)) {
+        hasCycle = true
+        return
+      }
+      if (visited.has(itemId)) return
+      visiting.add(itemId)
+      const item = items[indexes.get(itemId)!]
+      for (const dependencyId of item?.dependsOnItemIds ?? []) if (indexes.has(dependencyId)) visit(dependencyId)
+      visiting.delete(itemId)
+      visited.add(itemId)
+    }
+    for (const item of items) visit(item.id)
+    items.forEach((item, index) => {
+      const dependencies = item.dependsOnItemIds ?? []
+      edgeCount += dependencies.length
+      requireUniqueIds(
+        dependencies.map((id) => ({ id })),
+        'id',
+        context,
+      )
+      dependencies.forEach((dependencyId) => {
+        const dependencyIndex = indexes.get(dependencyId)
+        if (dependencyId === item.id)
+          context.addIssue({
+            code: 'custom',
+            path: [index, 'dependsOnItemIds'],
+            message: 'An item cannot depend on itself',
+          })
+        else if (dependencyIndex === undefined)
+          context.addIssue({
+            code: 'custom',
+            path: [index, 'dependsOnItemIds'],
+            message: `Dependency ${dependencyId} does not exist in this Plan`,
+          })
+        else if (dependencyIndex >= index)
+          context.addIssue({
+            code: 'custom',
+            path: [index, 'dependsOnItemIds'],
+            message: `Dependency ${dependencyId} must appear earlier in topological order`,
+          })
+      })
+    })
+    if (edgeCount > MAX_WORKFLOW_DEPENDENCY_EDGES)
+      context.addIssue({
+        code: 'custom',
+        message: `A Plan may contain at most ${MAX_WORKFLOW_DEPENDENCY_EDGES} dependency edges`,
+      })
+    if (hasCycle) context.addIssue({ code: 'custom', message: 'Workflow Plan dependencies must not contain cycles' })
+  })
+
+export const workflowFocusPlanItemSchema = workflowPlanItemSchema.omit({ dependsOnItemIds: true })
 
 export const workflowPlanSchema = z
   .strictObject({
@@ -430,6 +491,8 @@ export const workflowStateSchema = z.strictObject({
   sessionId: idSchema,
   goalId: idSchema.nullable(),
   planId: idSchema,
+  /** Revision of the canonical Workflow Plan; distinct from Agent Plan `planRevision`. */
+  canonicalPlanRevision: z.number().int().positive().optional(),
   planRevision: z.number().int().positive(),
   activeStepIndex: z
     .number()
@@ -521,6 +584,7 @@ export const workflowPublicStateSchema = workflowStateSchema
     workItems: true,
     startCommand: true,
     planId: true,
+    canonicalPlanRevision: true,
     completionPolicy: true,
     targetDispatches: true,
   })

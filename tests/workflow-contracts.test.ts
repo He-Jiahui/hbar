@@ -2,11 +2,14 @@ import { expect, test } from 'bun:test'
 import { describeCommand } from '@hbar/commands'
 import {
   MAX_WORKFLOW_DELEGATIONS,
+  MAX_WORKFLOW_DEPENDENCIES_PER_ITEM,
+  MAX_WORKFLOW_DEPENDENCY_EDGES,
   MAX_WORKFLOW_EVIDENCE,
   MAX_WORKFLOW_ITEMS,
   WORKFLOW_SCHEMA_VERSION,
   agentPatchSchema,
   workflowPlanSchema,
+  workflowWorkItemSchema,
   workflowSnapshotSchema,
   workflowStateSchema,
 } from '@hbar/contracts/workflow'
@@ -117,6 +120,93 @@ test('workflow plan targets are optional for legacy items, unique per item, and 
         id: `item-${index}`,
         targetSessionIds: Array.from({ length: 8 }, (_, targetIndex) => `target-${index}-${targetIndex}`),
       })),
+    }).success,
+  ).toBe(false)
+})
+
+test('workflow Plan dependencies are optional, bounded, unique, same-Plan, and topological', () => {
+  const base = {
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
+    planId: 'plan-dependencies',
+    sessionId: 'session-dependencies',
+    revision: 1,
+    phase: 'draft' as const,
+    objective: 'Validate item ordering',
+    createdAt: 1,
+    updatedAt: 1,
+  }
+  const parseItems = (items: unknown[]) => workflowPlanSchema.safeParse({ ...base, items })
+  const dependencyPlan = parseItems([
+    { ...item, id: 'a' },
+    { ...item, id: 'b', dependsOnItemIds: ['a'] },
+  ])
+  expect(dependencyPlan.success).toBe(true)
+  if (dependencyPlan.success) expect(dependencyPlan.data.items[0]?.dependsOnItemIds).toBeUndefined()
+  expect(
+    parseItems([
+      { ...item, id: 'a' },
+      { ...item, id: 'b' },
+    ]).success,
+  ).toBe(true)
+  expect(parseItems([{ ...item, id: 'a', dependsOnItemIds: ['a'] }]).success).toBe(false)
+  expect(parseItems([{ ...item, id: 'a', dependsOnItemIds: ['missing'] }]).success).toBe(false)
+  expect(
+    parseItems([
+      { ...item, id: 'a', dependsOnItemIds: ['b'] },
+      { ...item, id: 'b', dependsOnItemIds: ['a'] },
+    ]).success,
+  ).toBe(false)
+  expect(
+    parseItems([
+      { ...item, id: 'a' },
+      { ...item, id: 'b', dependsOnItemIds: ['a', 'a'] },
+    ]).success,
+  ).toBe(false)
+  expect(
+    parseItems([
+      { ...item, id: 'a' },
+      { ...item, id: 'b', dependsOnItemIds: ['a'] },
+      { ...item, id: 'c', dependsOnItemIds: ['a', 'b'] },
+    ]).success,
+  ).toBe(true)
+  expect(MAX_WORKFLOW_DEPENDENCIES_PER_ITEM).toBe(99)
+  const maximumPerItem = Array.from({ length: 100 }, (_, index) => ({
+    ...item,
+    id: `dep-${index}`,
+    ...(index === 99
+      ? { dependsOnItemIds: Array.from({ length: 99 }, (_, dependencyIndex) => `dep-${dependencyIndex}`) }
+      : {}),
+  }))
+  expect(parseItems(maximumPerItem).success).toBe(true)
+  const excessiveTotal = Array.from({ length: 47 }, (_, index) => ({
+    ...item,
+    id: `edge-${index}`,
+    dependsOnItemIds: Array.from({ length: index }, (_, dependencyIndex) => `edge-${dependencyIndex}`),
+  }))
+  expect(excessiveTotal.reduce((total, entry) => total + (entry.dependsOnItemIds?.length ?? 0), 0)).toBeGreaterThan(
+    MAX_WORKFLOW_DEPENDENCY_EDGES,
+  )
+  expect(parseItems(excessiveTotal).success).toBe(false)
+})
+
+test('dependency metadata is rejected by legacy focus and strict WorkItem contracts', () => {
+  expect(
+    workflowCommands['workflow.focus.set'].input.safeParse({
+      sessionId: 'session-1',
+      stepIndex: 0,
+      item: { ...item, dependsOnItemIds: ['another-item'] },
+      expectedPlanRevision: 1,
+    }).success,
+  ).toBe(false)
+  expect(
+    workflowWorkItemSchema.safeParse({
+      ...item,
+      dependsOnItemIds: ['another-item'],
+      status: 'pending',
+      owner: { kind: 'main' },
+      startedAt: null,
+      completedAt: null,
+      acceptanceChecks: [],
     }).success,
   ).toBe(false)
 })
