@@ -5,6 +5,7 @@ import { useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import type { RunBoardItem } from '@hbar/contracts/commands/run-board'
 import type { ShellLocale } from './shell-copy'
 import { runBoardCopy, type RunBoardPageLabels } from './run-board-copy'
+import './run-board-page.css'
 
 export interface RunBoardPageProps {
   readonly runtime: HbarRuntimeView
@@ -217,7 +218,6 @@ export function RunBoardPage({ runtime, locale, variant = 1, instanceId }: RunBo
   return (
     <LumenFrame className="hbar-web-run-board" aria-busy={board.status === 'loading'}>
       <LumenFrame as="header">
-        <LumenContentText context="section.title">{labels.title}</LumenContentText>
         <LumenContentText context="section.description">{labels.description}</LumenContentText>
         <LumenButton onClick={refresh}>{labels.refresh}</LumenButton>
       </LumenFrame>
