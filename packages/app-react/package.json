@@ -25,7 +25,8 @@
     "./usage-features": "./src/usage-features.tsx",
     "./diagnostics": "./src/system-diagnostics.tsx",
     "./providers": "./src/provider-settings.tsx",
-    "./session-decision-history": "./src/session-decision-history.tsx"
+    "./session-decision-history": "./src/session-decision-history.tsx",
+    "./node-console": "./src/node-console.tsx"
   },
   "sideEffects": [
     "**/*.css"

@@ -17,7 +17,9 @@ export async function nodeConsoleStaticResponse(request: Request, staticRoot: st
   }
   if (path.includes('\\') || path.includes('\0') || path.split('/').includes('..'))
     return new Response(null, { status: 404 })
-  const entry = path === '/' || path === '/node-console' || path === '/node-console/'
+  if (path === '/')
+    return new Response(null, { status: 302, headers: { location: '/node-console', 'cache-control': 'no-store' } })
+  const entry = path === '/node-console' || path === '/node-console/'
   const root = resolve(staticRoot)
   const target = resolve(root, entry ? 'index.html' : `.${path}`)
   if (!within(root, target)) return new Response(null, { status: 404 })

@@ -215,6 +215,19 @@ export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './lumen-agent
 export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'
 export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
+export {
+  HbarNodeConsole,
+  HbarNodeConsoleEntry,
+  type HbarNodeConsoleLabels,
+  type HbarNodeConsoleProps,
+  type HbarNodeConsoleEntryProps,
+} from './node-console'
+export type {
+  NodeConsoleEntryModel,
+  NodeConsoleEntryState,
+  NodeConsoleModel,
+  NodeConsoleState,
+} from './node-console-contract'
 export { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'

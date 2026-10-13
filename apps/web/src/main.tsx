@@ -17,6 +17,7 @@ import './react-bits/semantic.css'
 import './react-bits/production.css'
 import './workbench-design.css'
 import ReferenceFixtureRoute, { referenceFixtureRouteFromLocation } from './react-bits/reference/ReferenceFixtureRoute'
+import { NodeConsoleApp } from './NodeConsoleApp'
 
 const language = createWebLanguageController(resolveShellLocale(navigator.languages), {
   getItem: (key) => window.localStorage.getItem(key),
@@ -63,17 +64,22 @@ const zoom = createWebZoomController(
 await zoom.initialize()
 
 const fixtureRoute = referenceFixtureRouteFromLocation()
+const nodeConsoleRoute = window.location.pathname.replace(/\/$/, '') === '/node-console'
 createRoot(root).render(
-  <StrictMode>
-    {fixtureRoute ? (
-      <ReferenceFixtureRoute {...fixtureRoute} />
-    ) : (
-      <LanguageApp
-        language={language}
-        zoom={zoom}
-        nativeConnection={nativeConnection ?? undefined}
-        nativeWindow={nativeWindow ?? undefined}
-      />
-    )}
-  </StrictMode>,
+  nodeConsoleRoute ? (
+    <NodeConsoleApp locale={language.store.getState().locale} />
+  ) : (
+    <StrictMode>
+      {fixtureRoute ? (
+        <ReferenceFixtureRoute {...fixtureRoute} />
+      ) : (
+        <LanguageApp
+          language={language}
+          zoom={zoom}
+          nativeConnection={nativeConnection ?? undefined}
+          nativeWindow={nativeWindow ?? undefined}
+        />
+      )}
+    </StrictMode>
+  ),
 )
