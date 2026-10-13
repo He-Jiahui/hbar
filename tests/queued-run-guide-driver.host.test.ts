@@ -193,11 +193,17 @@ for (const withSkills of [false, true])
         'user',
         'assistant',
         'user',
-        ...(withSkills ? ['system'] : []),
+        'system',
       ])
+      const finalSystem = requests[1]?.messages.at(-1)?.content
+      expect(finalSystem).toContain('<current_goal status="none">')
+      expect(finalSystem).toContain('<workflow_guidance>')
       if (withSkills) {
-        expect(requests[1]?.messages.at(-1)?.content).toContain('"name":"guided-review"')
-        expect(requests[1]?.messages.at(-1)?.content).not.toContain('Read the current diff before reviewing.')
+        expect(finalSystem).toContain('"name":"guided-review"')
+        expect(finalSystem).not.toContain('Read the current diff before reviewing.')
+      } else {
+        expect(finalSystem).not.toContain('guided-review')
+        expect(finalSystem).not.toContain('Available skills (JSON metadata')
       }
       expect(snapshot.runs.find((run) => run.id === active.id)).toMatchObject({
         requestId: 'original-task',
