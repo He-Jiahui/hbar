@@ -201,6 +201,7 @@ async function withHostAndNode<T>(initializeGit: boolean, run: (fixture: Fixture
   }
 }
 
+// Independent A/B startup and the admitted local/remote turns need their own integration budget.
 test('the owned Host Kernel routes shared-current file reads and writes to B without touching A files', async () => {
   await withHostAndNode(false, async ({ root, hostWorkspace, nodeWorkspace, runtime, workspace }) => {
     expect(runtime.kernel.options.noLocalExec).toBe(true)
@@ -256,7 +257,7 @@ test('the owned Host Kernel routes shared-current file reads and writes to B wit
     await expect(readFile(join(hostWorkspace, 'remote-output.txt'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
     expect(await Bun.file(join(root, 'a-workspace', 'remote-input.txt')).exists()).toBe(false)
   })
-})
+}, 60_000)
 
 test('Linux performs isolated Git worktree execution; Windows fails closed when its confinement backend is unavailable', async () => {
   if (process.platform === 'win32') {
