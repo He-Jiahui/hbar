@@ -116,14 +116,6 @@
   flex: 0 1 18rem;
 }
 
-.hbar-node-management-confirm-target {
-  position: absolute;
-  inline-size: 0.0625rem;
-  block-size: 0.0625rem;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
 @media (max-width: 40rem) {
   .hbar-node-management-row-actions {
     justify-content: flex-start;

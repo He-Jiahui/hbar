@@ -1,6 +1,13 @@
 import { useEffect, useId } from 'react'
 import { ChevronDown, ChevronUp, FileDiff, Undo2 } from 'lucide-react'
-import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenContentText,
+  LumenFrame,
+  LumenIcon,
+} from '@lumen/app-ui'
 import type { RunFileChangesSummary, RunFileChangeDiff } from '@hbar/contracts/run-file-changes'
 import { runFileChangeReviewKey, EMPTY_FILE_CHANGE_REVIEW, type RunFileChangeReview } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -91,8 +98,12 @@ export function HbarRunFileChanges({
             className="hbar-run-file-change-counts"
             aria-label={labels.delta(receipt.addedLines, receipt.removedLines)}
           >
-            <span data-delta="added">{labels.added(receipt.addedLines)}</span>
-            <span data-delta="removed">{labels.removed(receipt.removedLines)}</span>
+            <LumenFrame as="span" data-delta="added">
+              {labels.added(receipt.addedLines)}
+            </LumenFrame>
+            <LumenFrame as="span" data-delta="removed">
+              {labels.removed(receipt.removedLines)}
+            </LumenFrame>
           </LumenFrame>
         </LumenFrame>
         <LumenFrame className="hbar-run-file-change-actions">
@@ -128,11 +139,11 @@ export function HbarRunFileChanges({
           </LumenButton>
         </LumenFrame>
       </LumenFrame>
-      <ul id={listId} className="hbar-run-file-change-list">
+      <LumenCollection id={listId} className="hbar-run-file-change-list">
         {files.map((file) => {
           const index = file.path.lastIndexOf('/')
           return (
-            <li key={file.path} className="hbar-run-file-change-row">
+            <LumenCollectionItem key={file.path} className="hbar-run-file-change-row">
               <LumenButton
                 type="button"
                 variant="text"
@@ -144,23 +155,30 @@ export function HbarRunFileChanges({
                 aria-pressed={review.selectedPath === file.path}
                 onClick={() => onDiff(file.path)}
               >
-                <span className="hbar-run-file-change-path-text">
-                  <span className="hbar-run-file-change-prefix">{file.path.slice(0, index + 1)}</span>
+                <LumenFrame as="span" className="hbar-run-file-change-path-text">
+                  <LumenFrame as="span" className="hbar-run-file-change-prefix">
+                    {file.path.slice(0, index + 1)}
+                  </LumenFrame>
                   {file.path.slice(index + 1)}
-                </span>
+                </LumenFrame>
               </LumenButton>
-              <span
+              <LumenFrame
+                as="span"
                 className="hbar-run-file-change-counts"
                 title={labels.fileKind(file.kind)}
                 aria-label={labels.delta(file.addedLines, file.removedLines)}
               >
-                <span data-delta="added">{labels.added(file.addedLines)}</span>
-                <span data-delta="removed">{labels.removed(file.removedLines)}</span>
-              </span>
-            </li>
+                <LumenFrame as="span" data-delta="added">
+                  {labels.added(file.addedLines)}
+                </LumenFrame>
+                <LumenFrame as="span" data-delta="removed">
+                  {labels.removed(file.removedLines)}
+                </LumenFrame>
+              </LumenFrame>
+            </LumenCollectionItem>
           )
         })}
-      </ul>
+      </LumenCollection>
       {summary.totalFiles > summary.preview.length && (
         <LumenFrame className="hbar-run-file-change-footer">
           <LumenButton
@@ -256,16 +274,16 @@ export function HbarRunFileChanges({
                     className="hbar-run-file-change-diff-line"
                     data-kind={line.kind}
                   >
-                    <span className="hbar-run-file-change-line-number" aria-hidden="true">
+                    <LumenFrame as="span" className="hbar-run-file-change-line-number" aria-hidden="true">
                       {labels.lineNumber(line.beforeLine)}
-                    </span>
-                    <span className="hbar-run-file-change-line-number" aria-hidden="true">
+                    </LumenFrame>
+                    <LumenFrame as="span" className="hbar-run-file-change-line-number" aria-hidden="true">
                       {labels.lineNumber(line.afterLine)}
-                    </span>
-                    <code>
+                    </LumenFrame>
+                    <LumenContentText context="code.inline" style={{ fontFamily: 'inherit' }}>
                       {labels.linePrefix(line.kind)}
                       {line.text}
-                    </code>
+                    </LumenContentText>
                   </LumenFrame>
                 ))}
               />

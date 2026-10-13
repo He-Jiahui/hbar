@@ -575,8 +575,8 @@ export function WorkspaceFoldersDialog({
                           className="hbar-workspace-folder-root-summary"
                           title={folder.path}
                         >
-                          <span>{root?.name ?? labels.nodeRootUnavailable}</span>
-                          {root ? <span>{labels.nodeRootAccess(root.access)}</span> : null}
+                          <LumenFrame as="span">{root?.name ?? labels.nodeRootUnavailable}</LumenFrame>
+                          {root ? <LumenFrame as="span">{labels.nodeRootAccess(root.access)}</LumenFrame> : null}
                         </LumenContentText>
                       ) : (
                         <LumenFormField controlId={`${id}-${folder.id}-path`} label={labels.path}>

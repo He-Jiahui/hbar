@@ -12,7 +12,19 @@ import {
   TerminalSquare,
 } from 'lucide-react'
 import type { NodeConsoleEntryModel, NodeConsoleModel, NodeConsoleState } from './node-console-contract'
-import { LumenButton, LumenContentText, LumenFrame, LumenIcon, LumenInput, LumenSelect } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCheckBoxControl,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenContentText,
+  LumenFrame,
+  LumenIcon,
+  LumenInput,
+  LumenOption,
+  LumenSelect,
+  LumenText,
+} from '@lumen/app-ui'
 import './node-console.css'
 
 export type {
@@ -164,7 +176,9 @@ export function HbarNodeConsoleEntry({ entry, labels }: HbarNodeConsoleEntryProp
             void entry.pair()
           }}
         >
-          <label htmlFor={`${id}-name`}>{labels.deviceName}</label>
+          <LumenFrame as="label" htmlFor={`${id}-name`}>
+            <LumenContentText context="form.label">{labels.deviceName}</LumenContentText>
+          </LumenFrame>
           <LumenInput
             id={`${id}-name`}
             autoComplete="nickname"
@@ -173,7 +187,9 @@ export function HbarNodeConsoleEntry({ entry, labels }: HbarNodeConsoleEntryProp
             disabled={state.phase !== 'unpaired'}
             onChange={(event) => entry.setDeviceName(event.currentTarget.value)}
           />
-          <label htmlFor={`${id}-code`}>{labels.pairingCode}</label>
+          <LumenFrame as="label" htmlFor={`${id}-code`}>
+            <LumenContentText context="form.label">{labels.pairingCode}</LumenContentText>
+          </LumenFrame>
           <LumenInput
             id={`${id}-code`}
             inputMode="numeric"
@@ -330,28 +346,28 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
             </LumenContentText>
             {state.status ? (
               <>
-                <dl className="hbar-node-console-facts">
-                  <div>
-                    <dt>{labels.linked}</dt>
-                    <dd data-state={state.status.linked ? 'success' : 'warning'}>
+                <LumenCollection as="dl" className="hbar-node-console-facts">
+                  <LumenCollectionItem as="div">
+                    <LumenContentText context="metric.label">{labels.linked}</LumenContentText>
+                    <LumenContentText context="metric.value" data-state={state.status.linked ? 'success' : 'warning'}>
                       {state.status.linked ? labels.linked : labels.unlinked}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{labels.node}</dt>
-                    <dd>{state.status.capabilities.nodeId}</dd>
-                  </div>
-                  <div>
-                    <dt>{labels.platform}</dt>
-                    <dd>{state.status.capabilities.platform}</dd>
-                  </div>
-                  <div>
-                    <dt>{labels.fingerprint}</dt>
-                    <dd>
-                      <code>{state.status.fingerprint}</code>
-                    </dd>
-                  </div>
-                </dl>
+                    </LumenContentText>
+                  </LumenCollectionItem>
+                  <LumenCollectionItem as="div">
+                    <LumenContentText context="metric.label">{labels.node}</LumenContentText>
+                    <LumenContentText context="metric.value">{state.status.capabilities.nodeId}</LumenContentText>
+                  </LumenCollectionItem>
+                  <LumenCollectionItem as="div">
+                    <LumenContentText context="metric.label">{labels.platform}</LumenContentText>
+                    <LumenContentText context="metric.value">{state.status.capabilities.platform}</LumenContentText>
+                  </LumenCollectionItem>
+                  <LumenCollectionItem as="div">
+                    <LumenContentText context="metric.label">{labels.fingerprint}</LumenContentText>
+                    <LumenContentText context="metric.value">
+                      <LumenContentText context="code.inline">{state.status.fingerprint}</LumenContentText>
+                    </LumenContentText>
+                  </LumenCollectionItem>
+                </LumenCollection>
                 <LumenContentText context="form.help">
                   {state.status.connection.phase === 'online'
                     ? labels.linked
@@ -373,15 +389,15 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
               {labels.roots}
             </LumenContentText>
             {state.status?.capabilities.roots.length ? (
-              <ul className="hbar-node-console-list">
+              <LumenCollection className="hbar-node-console-list">
                 {state.status.capabilities.roots.map((root) => (
-                  <li key={root.rootId} className="hbar-node-console-row">
-                    <strong>{root.name}</strong>
-                    <code>{root.nodePath}</code>
-                    <span>{labels.rootAccess(root.access)}</span>
-                  </li>
+                  <LumenCollectionItem as="li" key={root.rootId} className="hbar-node-console-row">
+                    <LumenContentText context="record.title">{root.name}</LumenContentText>
+                    <LumenContentText context="code.inline">{root.nodePath}</LumenContentText>
+                    <LumenContentText context="record.description">{labels.rootAccess(root.access)}</LumenContentText>
+                  </LumenCollectionItem>
                 ))}
-              </ul>
+              </LumenCollection>
             ) : (
               <LumenContentText context="feedback.message">
                 {state.status ? labels.noRoots : labels.snapshotUnavailable}
@@ -406,35 +422,34 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
               )}
             </LumenFrame>
             {policy ? (
-              <div className="hbar-node-console-policy">
-                <label>
-                  <input
-                    type="checkbox"
+              <LumenFrame className="hbar-node-console-policy">
+                <LumenFrame as="label">
+                  <LumenCheckBoxControl
                     checked={policy.process}
                     disabled={!editable}
                     onChange={(event) => model.setPolicyDraft({ ...policy, process: event.currentTarget.checked })}
                   />
-                  {labels.process}
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
+                  <LumenContentText context="form.label">{labels.process}</LumenContentText>
+                </LumenFrame>
+                <LumenFrame as="label">
+                  <LumenCheckBoxControl
                     checked={policy.network}
                     disabled={!editable}
                     onChange={(event) => model.setPolicyDraft({ ...policy, network: event.currentTarget.checked })}
                   />
-                  {labels.network}
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
+                  <LumenContentText context="form.label">{labels.network}</LumenContentText>
+                </LumenFrame>
+                <LumenFrame as="label">
+                  <LumenCheckBoxControl
                     checked={policy.terminal}
                     disabled={!editable}
                     onChange={(event) => model.setPolicyDraft({ ...policy, terminal: event.currentTarget.checked })}
                   />
-                  {labels.terminal}
-                </label>
-                <label htmlFor={`${id}-confinement`}>{labels.confinement}</label>
+                  <LumenContentText context="form.label">{labels.terminal}</LumenContentText>
+                </LumenFrame>
+                <LumenFrame as="label" htmlFor={`${id}-confinement`}>
+                  <LumenContentText context="form.label">{labels.confinement}</LumenContentText>
+                </LumenFrame>
                 <LumenSelect
                   id={`${id}-confinement`}
                   value={policy.osConfinement}
@@ -446,12 +461,14 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                   }}
                 >
                   {(['required', 'preferred', 'off'] as const).map((mode) => (
-                    <option value={mode} key={mode}>
+                    <LumenOption value={mode} key={mode}>
                       {labels.confinementMode(mode)}
-                    </option>
+                    </LumenOption>
                   ))}
                 </LumenSelect>
-                <label htmlFor={`${id}-concurrent`}>{labels.maxConcurrent}</label>
+                <LumenFrame as="label" htmlFor={`${id}-concurrent`}>
+                  <LumenContentText context="form.label">{labels.maxConcurrent}</LumenContentText>
+                </LumenFrame>
                 <LumenInput
                   id={`${id}-concurrent`}
                   type="number"
@@ -463,7 +480,9 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                     model.setPolicyDraft({ ...policy, maxConcurrentProcesses: Number(event.currentTarget.value) })
                   }
                 />
-                <label htmlFor={`${id}-timeout`}>{labels.maxTimeout}</label>
+                <LumenFrame as="label" htmlFor={`${id}-timeout`}>
+                  <LumenContentText context="form.label">{labels.maxTimeout}</LumenContentText>
+                </LumenFrame>
                 <LumenInput
                   id={`${id}-timeout`}
                   type="number"
@@ -480,9 +499,9 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                   {labels.protectedPathsValue(policy.protectedPaths)}
                 </LumenContentText>
                 {policy.roots.map((root) => (
-                  <label className="hbar-node-console-root-edit" key={root.rootId}>
-                    {root.name}
-                    <code>{root.path}</code>
+                  <LumenFrame as="label" className="hbar-node-console-root-edit" key={root.rootId}>
+                    <LumenContentText context="record.title">{root.name}</LumenContentText>
+                    <LumenContentText context="code.inline">{root.path}</LumenContentText>
                     <LumenSelect
                       aria-label={root.name}
                       value={root.access}
@@ -493,12 +512,12 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                           model.setPolicyDraft(updateRootAccess(policy, root.rootId, access))
                       }}
                     >
-                      <option value="read">{labels.rootAccess('read')}</option>
-                      <option value="write">{labels.rootAccess('write')}</option>
+                      <LumenOption value="read">{labels.rootAccess('read')}</LumenOption>
+                      <LumenOption value="write">{labels.rootAccess('write')}</LumenOption>
                     </LumenSelect>
-                  </label>
+                  </LumenFrame>
                 ))}
-              </div>
+              </LumenFrame>
             ) : (
               <LumenContentText context="feedback.message">
                 {state.policyError ? labels.policyFailure(state.policyError) : labels.snapshotUnavailable}
@@ -532,10 +551,10 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
               )}
             </LumenFrame>
             {state.status?.running.length ? (
-              <ul className="hbar-node-console-list">
+              <LumenCollection className="hbar-node-console-list">
                 {state.status.running.map((operationId) => (
-                  <li className="hbar-node-console-row" key={operationId}>
-                    <code>{operationId}</code>
+                  <LumenCollectionItem as="li" className="hbar-node-console-row" key={operationId}>
+                    <LumenContentText context="code.inline">{operationId}</LumenContentText>
                     <LumenButton
                       tone="danger"
                       disabled={!operator || state.pendingOperationId !== null}
@@ -545,9 +564,9 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                       <LumenIcon icon={Square} tier="sm" />
                       {labels.terminate}
                     </LumenButton>
-                  </li>
+                  </LumenCollectionItem>
                 ))}
-              </ul>
+              </LumenCollection>
             ) : (
               <LumenContentText context="feedback.message">
                 {state.status ? labels.noRunning : labels.snapshotUnavailable}
@@ -585,16 +604,24 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
               {labels.loading}
             </LumenContentText>
           ) : state.audit.length ? (
-            <ol className="hbar-node-console-list" aria-label={labels.audit}>
+            <LumenCollection as="ol" className="hbar-node-console-list" aria-label={labels.audit}>
               {state.audit.map((entry) => (
-                <li className="hbar-node-console-audit-row" key={`${entry.seq}:${entry.operationId}`}>
-                  <time dateTime={new Date(entry.time).toISOString()}>{labels.auditTime(entry.time)}</time>
-                  <code>{entry.operationId}</code>
-                  <span>{labels.auditTool(entry.tool, entry.decision, entry.backend, entry.code)}</span>
-                  <small>{labels.auditIdentity(entry)}</small>
-                </li>
+                <LumenCollectionItem
+                  as="li"
+                  className="hbar-node-console-audit-row"
+                  key={`${entry.seq}:${entry.operationId}`}
+                >
+                  <LumenText as="time" dateTime={new Date(entry.time).toISOString()}>
+                    {labels.auditTime(entry.time)}
+                  </LumenText>
+                  <LumenContentText context="code.inline">{entry.operationId}</LumenContentText>
+                  <LumenContentText context="record.description">
+                    {labels.auditTool(entry.tool, entry.decision, entry.backend, entry.code)}
+                  </LumenContentText>
+                  <LumenContentText context="form.help">{labels.auditIdentity(entry)}</LumenContentText>
+                </LumenCollectionItem>
               ))}
-            </ol>
+            </LumenCollection>
           ) : (
             <LumenContentText context="feedback.message">{labels.noAudit}</LumenContentText>
           )}
@@ -634,29 +661,40 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
               {labels.loading}
             </LumenContentText>
           ) : state.confirmations.length ? (
-            <ul className="hbar-node-console-list" aria-label={labels.confirmations}>
+            <LumenCollection className="hbar-node-console-list" aria-label={labels.confirmations}>
               {state.confirmations.map((item) => {
                 const stale = item.identity.floorRevision !== state.policyRevision
                 const actionable = item.state === 'waiting' && item.expiresAt > Date.now() && !stale
                 return (
-                  <li className="hbar-node-console-confirmation-row" key={item.id} data-confirmation-id={item.id}>
-                    <div className="hbar-node-console-confirmation-copy">
-                      <strong>{labels.confirmationState(item.state)}</strong>
-                      <span>
+                  <LumenCollectionItem
+                    as="li"
+                    className="hbar-node-console-confirmation-row"
+                    key={item.id}
+                    data-confirmation-id={item.id}
+                  >
+                    <LumenFrame className="hbar-node-console-confirmation-copy">
+                      <LumenContentText context="record.title">{labels.confirmationState(item.state)}</LumenContentText>
+                      <LumenContentText context="record.description">
                         {labels.confirmationSummary(
                           item.identity.source,
                           item.identity.tool,
                           item.identity.rootPath,
                           item.expiresAt,
                         )}
-                      </span>
-                      <span>{labels.confirmationIdentity(item.identity)}</span>
-                      <p>{item.identity.summary}</p>
-                      <code>{item.identity.operationId}</code>
-                      {stale && item.state === 'waiting' && <span role="status">{labels.staleConfirmation}</span>}
-                    </div>
+                      </LumenContentText>
+                      <LumenContentText context="record.description">
+                        {labels.confirmationIdentity(item.identity)}
+                      </LumenContentText>
+                      <LumenContentText context="message.body">{item.identity.summary}</LumenContentText>
+                      <LumenContentText context="code.inline">{item.identity.operationId}</LumenContentText>
+                      {stale && item.state === 'waiting' && (
+                        <LumenContentText context="control.status" role="status">
+                          {labels.staleConfirmation}
+                        </LumenContentText>
+                      )}
+                    </LumenFrame>
                     {actionable && (
-                      <div className="hbar-node-console-confirmation-actions">
+                      <LumenFrame className="hbar-node-console-confirmation-actions">
                         <LumenButton
                           tone="primary"
                           disabled={state.resolvingConfirmationId !== null}
@@ -672,12 +710,12 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                         >
                           {labels.reject}
                         </LumenButton>
-                      </div>
+                      </LumenFrame>
                     )}
-                  </li>
+                  </LumenCollectionItem>
                 )
               })}
-            </ul>
+            </LumenCollection>
           ) : (
             <LumenContentText context="feedback.message">{labels.noConfirmations}</LumenContentText>
           )}
@@ -708,20 +746,19 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                 {labels.loading}
               </LumenContentText>
             ) : state.sessions.length ? (
-              <ul className="hbar-node-console-list">
+              <LumenCollection className="hbar-node-console-list">
                 {state.sessions.map((session) => (
-                  <li className="hbar-node-console-session-row" key={session.id}>
-                    <button
-                      type="button"
+                  <LumenCollectionItem as="li" className="hbar-node-console-session-row" key={session.id}>
+                    <LumenButton
                       aria-pressed={state.selectedSessionId === session.id}
                       onClick={() => void model.selectSession(session.id)}
                     >
-                      <strong>{session.title}</strong>
-                      <span>{session.rootId}</span>
-                    </button>
-                  </li>
+                      <LumenContentText context="record.title">{session.title}</LumenContentText>
+                      <LumenContentText context="record.description">{session.rootId}</LumenContentText>
+                    </LumenButton>
+                  </LumenCollectionItem>
                 ))}
-              </ul>
+              </LumenCollection>
             ) : (
               <LumenContentText context="feedback.message">{labels.noSessions}</LumenContentText>
             )}
@@ -751,21 +788,21 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
               <>
                 {state.snapshot.hasOlder && <LumenContentText context="form.help">{labels.truncated}</LumenContentText>}
                 {state.snapshot.messages.length ? (
-                  <ol className="hbar-node-console-messages">
+                  <LumenCollection as="ol" className="hbar-node-console-messages">
                     {state.snapshot.messages.map((message) => (
-                      <li key={message.id}>
+                      <LumenCollectionItem as="li" key={message.id}>
                         <LumenFrame className="hbar-node-console-message-heading">
-                          <strong>{labels.messageRole(message.role)}</strong>
-                          <time dateTime={new Date(message.createdAt).toISOString()}>
+                          <LumenContentText context="record.title">{labels.messageRole(message.role)}</LumenContentText>
+                          <LumenText as="time" dateTime={new Date(message.createdAt).toISOString()}>
                             {labels.messageTime(message.createdAt)}
-                          </time>
+                          </LumenText>
                         </LumenFrame>
                         {message.truncated && (
                           <LumenContentText context="form.help">{labels.truncated}</LumenContentText>
                         )}
-                        <div className="hbar-node-console-message-body">
+                        <LumenFrame className="hbar-node-console-message-body">
                           {message.content.map((content, index) => (
-                            <p key={`${message.id}:${index}`}>
+                            <LumenContentText context="message.body" key={`${message.id}:${index}`}>
                               {content.type === 'text' || content.type === 'thinking'
                                 ? content.text
                                 : content.type === 'tool_call'
@@ -773,12 +810,12 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                                   : content.type === 'tool_result'
                                     ? content.text
                                     : content.artifact.id}
-                            </p>
+                            </LumenContentText>
                           ))}
-                        </div>
-                      </li>
+                        </LumenFrame>
+                      </LumenCollectionItem>
                     ))}
-                  </ol>
+                  </LumenCollection>
                 ) : (
                   <LumenContentText context="feedback.message">{labels.noMessages}</LumenContentText>
                 )}

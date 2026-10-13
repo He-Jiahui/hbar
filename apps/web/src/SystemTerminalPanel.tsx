@@ -147,7 +147,7 @@ export function SystemTerminalPanel({
 
   return (
     <LumenFrame className="hbar-system-terminal-panel">
-      <header className="hbar-system-terminal-toolbar">
+      <LumenFrame as="header" className="hbar-system-terminal-toolbar">
         <LumenContentText context="section.title">{labels.title}</LumenContentText>
         {state.terminal ? (
           <LumenButton size="s" variant="text" indicator="none" onClick={() => void close()}>
@@ -162,7 +162,7 @@ export function SystemTerminalPanel({
             </LumenContentText>
           </LumenButton>
         )}
-      </header>
+      </LumenFrame>
       {copy ? (
         <LumenContentText className="hbar-system-terminal-message" context="feedback.message" role="status">
           {copy}
@@ -173,7 +173,7 @@ export function SystemTerminalPanel({
           {labels.outputReset}
         </LumenContentText>
       ) : null}
-      <div ref={hostRef} className="hbar-system-terminal-viewport" aria-label={labels.title} />
+      <LumenFrame ref={hostRef} className="hbar-system-terminal-viewport" aria-label={labels.title} />
     </LumenFrame>
   )
 }

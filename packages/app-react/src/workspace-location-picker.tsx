@@ -4,6 +4,8 @@ import type { Workspace } from '@hbar/contracts/directory'
 import type { NodeListPage } from '@hbar/contracts/node-management'
 import {
   LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
   LumenContentText,
   LumenDialog,
   LumenFormField,
@@ -83,10 +85,10 @@ export function HbarWorkspaceNodeBadge({
   readonly nodeName: string
 }) {
   return (
-    <span className="hbar-workspace-node-badge">
+    <LumenFrame as="span" className="hbar-workspace-node-badge">
       <LumenIcon icon={Computer} tier="xs" />
-      <span>{labels.remoteWorkspace(nodeName)}</span>
-    </span>
+      <LumenFrame as="span">{labels.remoteWorkspace(nodeName)}</LumenFrame>
+    </LumenFrame>
   )
 }
 
@@ -236,13 +238,13 @@ export function HbarWorkspaceLocationPicker(props: WorkspaceLocationPickerProps)
               <LumenContentText context="feedback.message">{props.labels.emptyNodes}</LumenContentText>
             ) : null}
             {props.page?.items.length ? (
-              <ul className="hbar-workspace-location-nodes" aria-label={props.labels.nodes}>
+              <LumenCollection as="ul" className="hbar-workspace-location-nodes" aria-label={props.labels.nodes}>
                 {props.page.items.map((node) => {
                   const selectable = props.connected && props.writable && node.online && node.revokedAt === null
                   const isSelected = node.nodeId === props.nodeId
                   const nodeRoots = node.online && node.revokedAt === null ? (node.capabilities?.roots ?? []) : []
                   return (
-                    <li className="hbar-workspace-location-node" key={node.nodeId}>
+                    <LumenCollectionItem as="li" className="hbar-workspace-location-node" key={node.nodeId}>
                       <LumenButton
                         type="button"
                         variant={isSelected ? 'outlined' : 'text'}
@@ -297,10 +299,10 @@ export function HbarWorkspaceLocationPicker(props: WorkspaceLocationPickerProps)
                           <LumenContentText context="feedback.message">{props.labels.noRoots}</LumenContentText>
                         )
                       ) : null}
-                    </li>
+                    </LumenCollectionItem>
                   )
                 })}
-              </ul>
+              </LumenCollection>
             ) : null}
             {props.page?.nextCursor ? (
               <LumenButton

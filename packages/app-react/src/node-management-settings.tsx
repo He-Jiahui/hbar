@@ -4,7 +4,15 @@ import { nodeInviteSchema } from '@hbar/contracts/node-registry'
 import type { NodeListPage } from '@hbar/contracts/node-management'
 import type { NodeCapabilities } from '@hbar/contracts/node'
 import type { z } from 'zod'
-import { LumenButton, LumenContentText, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenContentText,
+  LumenFrame,
+  LumenIcon,
+  LumenInput,
+} from '@lumen/app-ui'
 import './node-management-settings.css'
 
 type NodeInvite = z.infer<typeof nodeInviteSchema>
@@ -124,7 +132,9 @@ export function NodeManagementSettings(props: NodeManagementSettingsProps) {
           props.onInvite()
         }}
       >
-        <label htmlFor={inputId}>{labels.inviteName}</label>
+        <LumenFrame as="label" htmlFor={inputId}>
+          {labels.inviteName}
+        </LumenFrame>
         <LumenInput
           id={inputId}
           value={props.inviteName}
@@ -152,7 +162,7 @@ export function NodeManagementSettings(props: NodeManagementSettingsProps) {
         <LumenFrame className="hbar-node-management-invitation" role="status">
           <LumenContentText context="section.title">{labels.inviteCreated}</LumenContentText>
           <LumenFrame className="hbar-node-management-invite-value">
-            <code>{invite.code}</code>
+            <LumenContentText context="code.inline">{invite.code}</LumenContentText>
             <LumenButton disabled={props.readOnly} onClick={() => props.onCopy(invite.code, 'code')}>
               <LumenIcon icon={Copy} tier="sm" />
               {props.copied === 'code' ? labels.copied : labels.copyCode}
@@ -162,7 +172,7 @@ export function NodeManagementSettings(props: NodeManagementSettingsProps) {
             {labels.inviteExpires(labels.formatDate(invite.expiresAt))}
           </LumenContentText>
           <LumenFrame className="hbar-node-management-invite-value">
-            <code>{invite.fingerprint}</code>
+            <LumenContentText context="code.inline">{invite.fingerprint}</LumenContentText>
             <LumenButton disabled={props.readOnly} onClick={() => props.onCopy(invite.fingerprint, 'fingerprint')}>
               <LumenIcon icon={Copy} tier="sm" />
               {props.copied === 'fingerprint' ? labels.copied : labels.copyFingerprint}
@@ -197,12 +207,12 @@ export function NodeManagementSettings(props: NodeManagementSettingsProps) {
           {page.items.length === 0 ? (
             <LumenContentText context="feedback.message">{labels.empty}</LumenContentText>
           ) : (
-            <ul className="hbar-node-management-list" aria-label={labels.title}>
+            <LumenCollection as="ul" className="hbar-node-management-list" aria-label={labels.title}>
               {page.items.map((node) => {
                 const capabilities = node.capabilities
                 const activeConfirm = props.confirmingNodeId === node.nodeId
                 return (
-                  <li className="hbar-node-management-row" key={node.nodeId}>
+                  <LumenCollectionItem as="li" className="hbar-node-management-row" key={node.nodeId}>
                     <LumenFrame className="hbar-node-management-row-main">
                       <LumenFrame className="hbar-node-management-row-heading">
                         <LumenContentText context="record.title">{node.name}</LumenContentText>
@@ -264,10 +274,10 @@ export function NodeManagementSettings(props: NodeManagementSettingsProps) {
                         </LumenContentText>
                       )}
                     </LumenFrame>
-                  </li>
+                  </LumenCollectionItem>
                 )
               })}
-            </ul>
+            </LumenCollection>
           )}
           {page.nextCursor && (
             <LumenButton
