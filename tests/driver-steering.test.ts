@@ -120,6 +120,64 @@ function fixture() {
   }
 }
 
+function responseEvent(type: string, data: Record<string, unknown>): string {
+  return `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`
+}
+
+function completedResponse(index: number): Response {
+  const text = `Slice ${index} completed.`
+  const content = { type: 'output_text', text, annotations: [] }
+  const item = { id: `msg_${index}`, type: 'message', role: 'assistant', status: 'completed', content: [content] }
+  return new Response(
+    responseEvent('response.created', { response: { id: `resp_${index}`, status: 'in_progress' } }) +
+      responseEvent('response.output_item.added', { output_index: 0, item: { ...item, content: [] } }) +
+      responseEvent('response.content_part.added', {
+        output_index: 0,
+        content_index: 0,
+        part: { ...content, text: '' },
+      }) +
+      responseEvent('response.output_text.delta', { output_index: 0, content_index: 0, delta: text }) +
+      responseEvent('response.output_item.done', { output_index: 0, item }) +
+      responseEvent('response.completed', {
+        response: {
+          id: `resp_${index}`,
+          status: 'completed',
+          output: [item],
+          usage: { input_tokens: 2, output_tokens: 3, total_tokens: 5 },
+        },
+      }),
+    { headers: { 'Content-Type': 'text/event-stream' } },
+  )
+}
+
+function upstreamFailureResponse(): Response {
+  return new Response(
+    responseEvent('response.created', { response: { id: 'resp_failed', status: 'in_progress' } }) +
+      responseEvent('response.failed', {
+        response: {
+          id: 'resp_failed',
+          status: 'failed',
+          error: { code: 'server_error', message: 'fixture upstream failure' },
+        },
+      }),
+    { headers: { 'Content-Type': 'text/event-stream' } },
+  )
+}
+
+function useResponsesProvider(f: ReturnType<typeof fixture>, baseUrl: string): void {
+  f.input.request = {
+    ...f.input.request,
+    model: providerSchema.parse({
+      id: 'retry-fixture',
+      name: 'Retry fixture',
+      protocol: 'openai-responses',
+      model: 'retry-fixture-model',
+      baseUrl,
+      reasoning: false,
+    }),
+  }
+}
+
 test('canonical steering continues the same Run after its assistant turn without another user commit', async () => {
   const f = fixture()
   let delivered: Message | undefined
@@ -170,6 +228,108 @@ test('PiDriver stops at the typed 64-step boundary before admitting a 65th provi
   } satisfies Partial<HbarError>)
   expect(f.requests).toHaveLength(64)
   expect(f.events.filter((event) => event.type === 'step.started')).toHaveLength(64)
+})
+
+test('a Goal stop observed on an upstream-failed step prevents same-Run continuation', async () => {
+  const f = fixture()
+  let requests = 0
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      requests++
+      await request.json()
+      return upstreamFailureResponse()
+    },
+  })
+  try {
+    const port = server.port
+    if (port === undefined) throw new Error('Retry fixture provider did not bind')
+    useResponsesProvider(f, `http://127.0.0.1:${port}/v1`)
+    f.input.stepEnded = () => Promise.resolve({ stop: 'goal_complete' })
+    await expect(new PiDriver().run(f.input)).rejects.toThrow('server_error: fixture upstream failure')
+    expect(requests).toBe(1)
+    expect(f.events.filter((event) => event.type === 'step.started')).toHaveLength(1)
+    expect(f.events.filter((event) => event.type === 'diagnostic.note')).toHaveLength(0)
+  } finally {
+    await server.stop(true)
+  }
+})
+
+test('cancelling during same-Run retry backoff prevents the retry provider request', async () => {
+  const f = fixture()
+  let requests = 0
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      requests++
+      await request.json()
+      return upstreamFailureResponse()
+    },
+  })
+  let abortTimer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const port = server.port
+    if (port === undefined) throw new Error('Retry fixture provider did not bind')
+    useResponsesProvider(f, `http://127.0.0.1:${port}/v1`)
+    const emit = f.input.emit
+    f.input.emit = (type, data, stepId) => {
+      if (type === 'assistant.attempt')
+        abortTimer = setTimeout(() => {
+          f.controller.abort(new DOMException('Cancelled during retry backoff', 'AbortError'))
+        }, 25)
+      return emit(type, data, stepId)
+    }
+    await expect(new PiDriver().run(f.input)).rejects.toThrow()
+    expect(requests).toBe(1)
+    expect(f.events.filter((event) => event.type === 'step.started')).toHaveLength(1)
+    const retryNotes = f.events.filter((event) => event.type === 'diagnostic.note').map((event) => event.data)
+    expect(retryNotes.map((data) => (data && typeof data === 'object' && 'code' in data ? data.code : null))).toEqual([
+      'MODEL_RETRY_SCHEDULED',
+    ])
+  } finally {
+    if (abortTimer) clearTimeout(abortTimer)
+    await server.stop(true)
+  }
+})
+
+test('a retry after the last allowed step does not reset the 64-step budget', async () => {
+  const f = fixture()
+  let providerRequests = 0
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      providerRequests++
+      await request.json()
+      return providerRequests === 64 ? upstreamFailureResponse() : completedResponse(providerRequests)
+    },
+  })
+  try {
+    const port = server.port
+    if (port === undefined) throw new Error('Retry fixture provider did not bind')
+    useResponsesProvider(f, `http://127.0.0.1:${port}/v1`)
+    f.input.getSteeringMessages = () => {
+      if (f.requests.length === 0 || f.requests.length >= 64) return Promise.resolve([])
+      const message = f.commit(
+        'user',
+        [{ type: 'text', text: `Continue after response ${f.requests.length}` }],
+        `budget-${f.requests.length}`,
+      )
+      return Promise.resolve([message])
+    }
+    await expect(new PiDriver().run(f.input)).rejects.toMatchObject({ code: RUN_STEP_LIMIT_CODE })
+    expect(providerRequests).toBe(64)
+    expect(f.requests).toHaveLength(64)
+    expect(f.events.filter((event) => event.type === 'step.started')).toHaveLength(64)
+    const retryNotes = f.events.filter((event) => event.type === 'diagnostic.note').map((event) => event.data)
+    expect(retryNotes.map((data) => (data && typeof data === 'object' && 'code' in data ? data.code : null))).toEqual([
+      'MODEL_RETRY_SCHEDULED',
+    ])
+  } finally {
+    await server.stop(true)
+  }
 })
 
 test('explicit Goal termination seals admission before the driver returns, without consuming another guide', async () => {
