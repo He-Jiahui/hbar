@@ -111,6 +111,12 @@ export const agentPatchTaskSchema = z.strictObject({
   itemId: idSchema,
   planRevision: z.number().int().positive(),
   scope: workflowScopeSchema,
+  /**
+   * Explicitly permits process-effect tools listed in scope.tools for this
+   * isolated task. Process side effects are not confined by file path scope;
+   * Host policy and the child Run's approval mode still apply.
+   */
+  allowProcessTools: z.boolean().optional(),
   acceptanceChecks: z.array(workflowAcceptanceDefinitionSchema).max(32),
 })
 export const agentReviewTaskSchema = z.strictObject({

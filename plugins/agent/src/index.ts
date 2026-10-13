@@ -623,6 +623,19 @@ export class AgentRuntime implements AgentService {
     }
   }
 
+  async advertiseTaskGuidance(event: HookEvents['tools.advertise']): Promise<HookEvents['tools.advertise']> {
+    const seed = await this.created(event.sessionId)
+    if (!seed?.patchTask) return event
+    const processGuidance =
+      seed.patchTask.allowProcessTools === true
+        ? 'This isolated patch task explicitly permits process-effect tools only when their names are listed in the delegated tool scope. Process side effects are not constrained by the read/write file paths. Host policy and this child Run approval mode still apply; this does not grant administrator privileges or OS-level confinement.'
+        : 'Process-effect tools are disabled for this isolated patch task. File path scope does not constrain process side effects. Do not attempt shell or other process tools.'
+    return {
+      ...event,
+      instructions: [event.instructions, processGuidance].filter(Boolean).join('\n\n'),
+    }
+  }
+
   async beforeTool(name: string, args: Record<string, unknown>, context: ToolContext, tool: ToolDefinition) {
     const seed = await this.created(context.session.id)
     if (seed?.profileId && !profileAllowsTool(seed.profileId, tool))
@@ -642,10 +655,10 @@ export class AgentRuntime implements AgentService {
     if (!seed?.patchTask || !seed.isolation) return
     if (!seed.patchTask.scope.tools.includes(name))
       throw new HbarError('AGENT_PATCH_SCOPE', `Tool ${name} is outside the delegated scope`)
-    if (tool.effect === 'process')
+    if (tool.effect === 'process' && seed.patchTask.allowProcessTools !== true)
       throw new HbarError(
         'AGENT_PATCH_SCOPE',
-        `Process tool ${name} cannot be confined to the delegated file scope; run external verification in the parent workflow`,
+        `Process tool ${name} is disabled for this isolated patch task; explicit process access must be enabled and remains outside the delegated file path boundary`,
       )
     const allowed =
       tool.effect === 'read'
@@ -821,6 +834,7 @@ export const agentPlugin = definePlugin({
     api.hooks.on('tools.advertise', (event) => advertiseAgentTool(event))
     api.hooks.on('tools.select', (event) => runtime.selectProfileTools(event))
     api.hooks.on('tools.advertise', (event) => runtime.advertiseProfile(event))
+    api.hooks.on('tools.advertise', (event) => runtime.advertiseTaskGuidance(event))
     api.hooks.on('tool.before', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)
       return event
