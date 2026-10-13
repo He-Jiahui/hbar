@@ -18,6 +18,7 @@ const toolPanelIds = new Set([
   'monitoring',
   'agents',
   'goals',
+  'system-terminal',
 ])
 const modalPanelIds = new Set(['commands', 'chat-search', 'settings-editor'])
 

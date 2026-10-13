@@ -7,6 +7,7 @@ import {
   ListTodo,
   Search,
   Settings,
+  TerminalSquare,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -227,6 +228,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly agents: string
     readonly goals: string
     readonly settings: string
+    readonly systemTerminal: string
     readonly error: (code: string) => string
   }
   readonly runs: HbarSessionRunLabels
@@ -258,6 +260,7 @@ export interface HbarSessionWorkspaceProps {
   readonly renderLaunchControls?: (() => ReactNode) | undefined
   readonly images?: HbarSessionImagesOptions | undefined
   readonly modelMenuPresentation?: 'native' | 'web' | undefined
+  readonly onOpenSystemTerminal?: (() => void) | undefined
   readonly fileChangeRenderer?: HbarRunFileChangeRenderer | undefined
 }
 
@@ -309,6 +312,7 @@ function SessionWorkspaceContent({
   renderLaunchControls,
   images,
   modelMenuPresentation,
+  onOpenSystemTerminal,
   fileChangeRenderer,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
@@ -2832,6 +2836,14 @@ function SessionWorkspaceContent({
                 onClick={() => toggleTool('files')}
               />
             )}
+            {onOpenSystemTerminal ? (
+              <SessionToolButton
+                icon={TerminalSquare}
+                label={labels.tools.systemTerminal}
+                disabled={!sessionId}
+                onClick={onOpenSystemTerminal}
+              />
+            ) : null}
             <SessionToolButton
               icon={ListChecks}
               label={labels.tools.activity}

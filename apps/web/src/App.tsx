@@ -88,6 +88,8 @@ import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import { HbarStorageLocationSettings } from '@hbar/app-react/storage-locations'
+import { SystemTerminalPanel } from './SystemTerminalPanel'
+import { systemTerminalCopy } from './system-terminal-copy'
 import { createStorageLocationController, type StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { storageLocationCopy } from './storage-location-copy'
 import { chatDatabaseCopy } from './chat-database-copy'
@@ -1020,6 +1022,21 @@ function WorkspaceBodyContent({
         prepareAttachment={prepareAttachment}
         images={images}
         files={files}
+        onOpenSystemTerminal={
+          client.connectionHost()?.deviceAccess?.role === 'operator'
+            ? () => {
+                if (!connected) return
+                void runtime.commands
+                  .execute('app.openPanel', {
+                    panelId: 'system-terminal',
+                    workspaceId: conversation.workspaceId,
+                    sessionId: conversation.id,
+                    binding: 'pinned',
+                  })
+                  .catch(() => undefined)
+              }
+            : undefined
+        }
         modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
         navigationAccessory={
           activeTab?.kind === 'session' && activeTab.agentSource ? (
@@ -1078,15 +1095,18 @@ function WorkspaceBodyContent({
 }
 
 function WorkspaceTool({
+  client,
   locale,
   connected,
   canExpand,
 }: {
+  readonly client: HbarClient
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly canExpand: boolean
 }) {
   const copy = getShellCopy(locale)
+  const terminalCopy = useMemo(() => systemTerminalCopy(locale), [locale])
   const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
   const runtime = useHbarRuntime()
   const directory = useHbarRuntimeState(runtime.state.directory)
@@ -1185,6 +1205,18 @@ function WorkspaceTool({
               }
             : undefined
         }
+      />
+    )
+  if (panel.panelId === 'system-terminal')
+    return (
+      <SystemTerminalPanel
+        client={client}
+        workspaceId={panel.workspaceId}
+        sessionId={panel.sessionId}
+        connected={connected}
+        canOpen={client.connectionHost()?.deviceAccess?.role === 'operator'}
+        labels={terminalCopy}
+        onClose={() => void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)}
       />
     )
   if (panel.panelId === 'monitoring')
@@ -2149,6 +2181,7 @@ export default function App({
                 <ToolPaneLayoutFeedback controller={toolLayoutController} labels={copy.toolLayout} />
                 <LazySurfaceBoundary labels={lazySurfaceCopy(locale)}>
                   <WorkspaceTool
+                    client={client}
                     locale={locale}
                     connected={connection === 'connected'}
                     canExpand={workspaceLayout.config.tabs.visible}

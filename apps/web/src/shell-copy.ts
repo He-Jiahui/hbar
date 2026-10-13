@@ -2064,6 +2064,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       agents: choose('子 Agent', 'Child agents'),
       goals: choose('目标与计划', 'Goals and plans'),
       settings: choose('会话设置', 'Session settings'),
+      systemTerminal: choose('打开系统终端', 'Open system terminal'),
       error: (code) =>
         code === 'BUSY'
           ? choose(
