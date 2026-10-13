@@ -1,7 +1,7 @@
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
-import { HbarError, providerSchema, diagnosticEventSchema, type DiagnosticSink } from '@hbar/contracts'
-import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
+import { HbarError, providerSchema, diagnosticEventSchema, type DiagnosticSink, type WireNotification } from '@hbar/contracts'
+import { runtimeWireNotificationBatchSchema, runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
 import type {
   ExecutionOwnership,
   RuntimeOwner,
@@ -91,6 +91,7 @@ interface Generation {
   controller: RuntimeControllerAdapter | null
   application: RuntimeValuePort | null
   state: RuntimeKernelState | null
+  stateSampledAt: number | null
   pluginState: RuntimePluginState | null
   refresh: Promise<void> | null
   cleanup: Array<() => void>
@@ -582,11 +583,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   snapshot(): RuntimeSnapshot {
     return this.statusFeed.snapshot()
   }
-  /** Local diagnostic sampler; no executable peer or production authority leaves the stable owner. */
+  /** Local diagnostic sampler; Kernel delivery counters are read-only snapshots from the last state refresh. */
   transportDiagnostics() {
     return [...this.generations.values()].flatMap(record => record.peer ? [{
       unitId: record.artifact.unitId, generation: record.process.snapshot().generation,
       pid: record.process.snapshot().pid, ...record.peer.snapshot(),
+      ...(record.artifact.unitId === 'kernel' ? {
+        notificationDelivery: record.state?.notificationDelivery ?? null,
+        notificationDeliverySampledAt: record.stateSampledAt,
+      } : {}),
     }] : [])
   }
   subscribe(listener: Parameters<RuntimeStatusFeed['subscribe']>[0]) {
@@ -1189,8 +1194,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       onActivated: async (owner, _role, signal) => {
         if (!record.peer || record.owner?.incarnation !== owner.incarnation)
           throw new HbarError('RUNTIME_OWNER_REVOKED', 'Description readiness belongs to an expired owner')
-        if (artifact.unitId === 'kernel') record.state = await record.peer.call('kernel.state', undefined, runtimeKernelStateSchema, { signal, timeoutMs: 120_000 })
-        if (artifact.descriptor.kind === 'plugin') record.pluginState = await record.peer.call('plugin.state', undefined, runtimePluginStateSchema, { signal, timeoutMs: 120_000 })
+        if (artifact.unitId === 'kernel') {
+          record.state = await record.peer.call('kernel.state', undefined, runtimeKernelStateSchema, { signal, timeoutMs: 120_000 })
+          record.stateSampledAt = Date.now()
+        }
+        if (artifact.descriptor.kind === 'plugin')
+          record.pluginState = await record.peer.call('plugin.state', undefined, runtimePluginStateSchema, { signal, timeoutMs: 120_000 })
         if (artifact.unitId === 'controller') await record.controller?.refreshCatalog()
         signal.throwIfAborted()
       },
@@ -1263,6 +1272,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       controller: null,
       application: null,
       state: null,
+      stateSampledAt: null,
       pluginState: null,
       refresh: null,
       cleanup: [],
@@ -1330,6 +1340,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       ),
     )
     const id = z.string().min(1).max(160)
+    const receiveNotification = (event: WireNotification) => {
+      this.facade.receive(owner, event)
+      this.scheduleRefresh(record)
+    }
+    const receiveNotificationBatch = (events: readonly WireNotification[]) => {
+      for (const event of events) this.facade.receive(owner, event)
+      this.scheduleRefresh(record)
+    }
     record.cleanup.push(
       peer.register(
         'kernel.secret.get',
@@ -1352,10 +1370,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           return this.secrets.delete(input.id)
         }),
       ),
-      peer.onEvent('kernel.notification', runtimeWireNotificationSchema, (event) => {
-        this.facade.receive(owner, event)
-        this.scheduleRefresh(record)
-      }),
+      peer.onEvent('kernel.notification', runtimeWireNotificationSchema, receiveNotification),
+      peer.onEvent('kernel.notifications.batch', runtimeWireNotificationBatchSchema, receiveNotificationBatch),
     )
   }
   private transition(operation: () => Promise<void>): void {
@@ -1387,7 +1403,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     record.refresh = record.process
       .call('kernel.state', undefined, runtimeKernelStateSchema)
       .then((state) => {
-        if (record.owner?.incarnation === owner?.incarnation) record.state = state
+        if (record.owner?.incarnation === owner?.incarnation) {
+          record.state = state
+          record.stateSampledAt = Date.now()
+        }
       })
       .finally(() => {
         record.refresh = null

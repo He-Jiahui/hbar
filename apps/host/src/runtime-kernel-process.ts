@@ -59,11 +59,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   let unsubscribe: (() => void) | undefined
   const notifications = new RuntimeNotificationDelivery({
     send: (event) => context.peer.notify('kernel.notification', event),
+    sendBatch: (events) => context.peer.notify('kernel.notifications.batch', events),
     diagnostic: (code) => {
       console.error(`[hbar kernel] invalid observer event (${code})`)
     },
-    failed: (code) => {
-      console.error(`[hbar kernel] event delivery failed (${code})`)
+    failed: (code, snapshot) => {
+      console.error(`[hbar kernel] event delivery failed (${code}) ${JSON.stringify(snapshot)}`)
       process.exit(76)
     },
   })
@@ -251,6 +252,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         active: [...value.active.values()].map((active) => ({ sessionId: active.run.sessionId, runId: active.run.id })),
         tools: value.tools.list().map((tool) => tool.name),
         plugins: plugins.projectInfo(value.plugins.list()),
+        notificationDelivery: notifications.snapshot(),
       }
     }),
   )
