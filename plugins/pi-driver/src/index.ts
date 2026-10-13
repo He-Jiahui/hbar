@@ -1,5 +1,5 @@
-import { runAgentLoop } from '@earendil-works/pi-agent-core'
-import type { AgentEvent, AgentTool, StreamFn } from '@earendil-works/pi-agent-core'
+import { runAgentLoop, runAgentLoopContinue } from '@earendil-works/pi-agent-core'
+import type { AgentEvent, AgentMessage, AgentTool, StreamFn } from '@earendil-works/pi-agent-core'
 import { normalizeContext, Type } from '@earendil-works/pi-ai'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
 import type {
@@ -451,6 +451,31 @@ function diagnosticProviderId(selectionId: string): string {
   const value = selectionId.split('/', 1)[0] ?? selectionId
   return value.slice(0, 160)
 }
+type ProviderRoute = Pick<ProviderConfig, 'id' | 'model' | 'protocol' | 'baseUrl'>
+function sameProviderRoute(left: ProviderRoute, right: ProviderRoute): boolean {
+  return (
+    left.id === right.id &&
+    left.model === right.model &&
+    left.protocol === right.protocol &&
+    left.baseUrl === right.baseUrl
+  )
+}
+
+function abortableDelay(delayMs: number, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted()
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, delayMs)
+    const onAbort = () => {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', onAbort)
+      reject(signal.reason)
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
 
 async function toPiMessages(
   messages: Message[],
@@ -576,12 +601,16 @@ export class PiDriver implements HarnessDriver {
     let modelTerminalEmitted = false
     const completedTools = new Set<string>()
     let goalStopped = false
+    let toolExecutedInStep = false
     let requestFailure: unknown
     let latestResponse: ProviderResponse | undefined
     let latestTransportKind: TransportFailureKind | undefined
     let latestTransportCode: TransportFailureCode | undefined
     let latestTransportPhase: 'fetch' | 'stream' | undefined
     let streamState = new ProviderStreamObservation()
+    let recoveryModelRoute: ProviderRoute | undefined
+    let pendingRetry:
+      { readonly previousModelRequestId: string; readonly retryAttempt: number; readonly delayMs: number } | undefined
     const readSteering = createDriverSteeringReader(input)
     const pollSteering = async (closeWhenEmpty?: true) => {
       if (input.signal.aborted || goalStopped || requestFailure !== undefined) return []
@@ -608,6 +637,7 @@ export class PiDriver implements HarnessDriver {
       parameters: Type.Unsafe(tool.inputJsonSchema ?? z.toJSONSchema(tool.inputSchema, { io: 'input' })),
       executionMode: 'sequential',
       execute: async (callId, args) => {
+        toolExecutedInStep = true
         const result = await input.execute(tool.name, args as Record<string, unknown>, callId)
         if (result.hostControl) goalStopped = true
         completedTools.add(callId)
@@ -619,6 +649,7 @@ export class PiDriver implements HarnessDriver {
     const emit = async (event: AgentEvent) => {
       if (event.type === 'turn_start') {
         stepId = crypto.randomUUID()
+        toolExecutedInStep = false
         firstThinking = false
         firstText = false
         stepCount++
@@ -704,7 +735,10 @@ export class PiDriver implements HarnessDriver {
               { content: contentOf(message), reason: message.stopReason, error: failure },
               stepId,
             )
-          } else await input.commit('assistant', contentOf(message), streamId, message)
+          } else {
+            recoveryModelRoute = undefined
+            await input.commit('assistant', contentOf(message), streamId, message)
+          }
         } else if (event.message.role === 'toolResult' && !completedTools.has(event.message.toolCallId)) {
           await input.commit('tool', [
             {
@@ -727,6 +761,23 @@ export class PiDriver implements HarnessDriver {
         if (requestFailure !== undefined) throw requestFailure
         input.signal.throwIfAborted()
         const request = await input.beforeRequest(input.request, stepId)
+        if (recoveryModelRoute && !sameProviderRoute(recoveryModelRoute, request.model))
+          throw new HbarError('INVALID_MODEL_OVERRIDE', 'Provider route changed during same-Run stream recovery')
+        if (pendingRetry) {
+          await input.emit(
+            'diagnostic.note',
+            {
+              code: 'MODEL_RETRY_STARTED',
+              previousModelRequestId: pendingRetry.previousModelRequestId,
+              modelRequestId: stepId,
+              retryAttempt: pendingRetry.retryAttempt,
+              maxRetries: 2,
+              delayMs: pendingRetry.delayMs,
+            },
+            stepId,
+          )
+          pendingRetry = undefined
+        }
         attemptModel = request.model
         const toolNames = request.toolNames
         const context =
@@ -814,40 +865,104 @@ export class PiDriver implements HarnessDriver {
     }
     try {
       const thinking = normalizeThinkingLevel(input.request.model, input.run.input.thinking)
-      await runAgentLoop(
-        [],
-        {
-          messages: normalizeContext({
-            systemPrompt: input.request.system,
-            messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
-          }).messages,
-          tools,
+      const context = {
+        messages: normalizeContext({
+          systemPrompt: input.request.system,
+          messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
+        }).messages,
+        tools,
+      }
+      const config = {
+        model: modelOf(input.request.model),
+        ...(thinking !== 'off' ? { reasoning: thinking } : {}),
+        convertToLlm: (messages: AgentMessage[]) => messages as PiMessage[],
+        toolExecution: 'sequential' as const,
+        finishTurn: async () => {
+          // Pi decides whether to continue before turn_end. Settle the Host
+          // step here so its stop signal is observed before any queue drain.
+          await input.emit('step.ended', {}, stepId)
+          goalStopped = Boolean((await input.stepEnded(stepId))?.stop) || goalStopped
+          return input.signal.aborted || goalStopped ? { action: 'end' as const } : undefined
         },
-        {
-          model: modelOf(input.request.model),
-          ...(thinking !== 'off' ? { reasoning: thinking } : {}),
-          convertToLlm: (messages) => messages as PiMessage[],
-          toolExecution: 'sequential',
-          finishTurn: async () => {
-            // Pi decides whether to continue before turn_end. Settle the Host
-            // step here so its stop signal is observed before any queue drain.
-            await input.emit('step.ended', {}, stepId)
-            goalStopped = Boolean((await input.stepEnded(stepId))?.stop) || goalStopped
-            return input.signal.aborted || goalStopped ? { action: 'end' } : undefined
+        ...(input.getSteeringMessages
+          ? {
+              getSteeringMessages: () => pollSteering(),
+              // Only the outer-loop natural-stop probe seals an empty source.
+              // Ordinary empty polls must not close admission during tool work.
+              getFollowUpMessages: () => pollSteering(true),
+            }
+          : {}),
+      }
+      const maxUpstreamRetries = 2
+      let upstreamRetries = 0
+      context.messages.push(...(await runAgentLoop([], context, config, emit, input.signal, streamFn)))
+      while (
+        upstreamRetries < maxUpstreamRetries &&
+        !input.signal.aborted &&
+        !goalStopped &&
+        requestFailure === undefined &&
+        failure !== undefined &&
+        !toolExecutedInStep &&
+        streamState.facts('unknown').streamSubtype === 'provider_error' &&
+        streamState.facts('unknown').streamErrorClass === 'upstream' &&
+        latestResponse !== undefined &&
+        latestResponse.status < 400
+      ) {
+        const failedMessage = context.messages.at(-1)
+        if (failedMessage?.role !== 'assistant' || failedMessage.stopReason !== 'error') break
+
+        // Pi has already recorded the failed partial assistant in the mutable
+        // context, but it has not executed its tool calls. Drop that attempt
+        // before continuing so neither partial text nor calls are replayed.
+        context.messages.pop()
+        failure = undefined
+        upstreamRetries++
+        const delayMs = upstreamRetries * 250
+        const previousModelRequestId = modelRequestId
+        await input.emit(
+          'diagnostic.note',
+          {
+            code: 'MODEL_RETRY_SCHEDULED',
+            previousModelRequestId,
+            retryAttempt: upstreamRetries,
+            maxRetries: maxUpstreamRetries,
+            delayMs,
           },
-          ...(input.getSteeringMessages
-            ? {
-                getSteeringMessages: () => pollSteering(),
-                // Only the outer-loop natural-stop probe seals an empty source.
-                // Ordinary empty polls must not close admission during tool work.
-                getFollowUpMessages: () => pollSteering(true),
-              }
-            : {}),
-        },
-        emit,
-        input.signal,
-        streamFn,
+          stepId,
+        )
+        pendingRetry = { previousModelRequestId, retryAttempt: upstreamRetries, delayMs }
+        await abortableDelay(delayMs, input.signal)
+        input.signal.throwIfAborted()
+        recoveryModelRoute = {
+          id: attemptModel.id,
+          model: attemptModel.model,
+          protocol: attemptModel.protocol,
+          baseUrl: attemptModel.baseUrl,
+        }
+        await runAgentLoopContinue(context, config, emit, input.signal, streamFn)
+      }
+      if (
+        upstreamRetries === maxUpstreamRetries &&
+        !input.signal.aborted &&
+        !goalStopped &&
+        requestFailure === undefined &&
+        failure !== undefined &&
+        !toolExecutedInStep &&
+        streamState.facts('unknown').streamSubtype === 'provider_error' &&
+        streamState.facts('unknown').streamErrorClass === 'upstream' &&
+        latestResponse !== undefined &&
+        latestResponse.status < 400
       )
+        await input.emit(
+          'diagnostic.note',
+          {
+            code: 'MODEL_RETRY_EXHAUSTED',
+            previousModelRequestId: modelRequestId,
+            retryAttempts: upstreamRetries,
+            maxRetries: maxUpstreamRetries,
+          },
+          stepId,
+        )
       input.signal.throwIfAborted()
       if (requestFailure !== undefined) throw requestFailure
       if (failure) throw attemptModel.protocol === 'mock' ? new Error(failure) : providerFailure(failure)

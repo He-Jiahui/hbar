@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { HbarError, providerSchema } from '@hbar/contracts'
+import type { DiagnosticEvent, DiagnosticSink } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { PiDriver } from '@hbar/pi-driver'
 import type { GoalService, ModelRegistry } from '@hbar/plugin-sdk'
@@ -53,7 +54,34 @@ function interruptedResponse(malformed: boolean) {
   )
 }
 
-async function fixture(response: (index: number) => Response) {
+function upstreamFailedResponse(code = 'server_error') {
+  return new Response(
+    event('response.created', { response: { id: 'resp_upstream', status: 'in_progress' } }) +
+      event('response.output_text.delta', { output_index: 0, content_index: 0, delta: 'uncommitted partial text' }) +
+      event('response.output_item.added', {
+        output_index: 1,
+        item: { id: 'fc_unfinished', type: 'function_call', name: 'write_file', arguments: '', call_id: 'unfinished' },
+      }) +
+      event('response.function_call_arguments.delta', {
+        output_index: 1,
+        delta: JSON.stringify({ path: 'unfinished.txt', text: 'Must not execute' }),
+      }) +
+      event('response.failed', {
+        response: {
+          id: 'resp_upstream',
+          status: 'failed',
+          error: { code, message: 'fixture provider failure' },
+          usage: { input_tokens: 13, output_tokens: 7, total_tokens: 20 },
+        },
+      }),
+    { headers: { 'Content-Type': 'text/event-stream' } },
+  )
+}
+
+async function fixture(
+  response: (index: number) => Response,
+  options: { readonly goalRetry?: boolean; readonly diagnosticEvents?: DiagnosticEvent[] } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-stream-recovery-'))
   cleanups.push(() => rm(root, { recursive: true, force: true }))
   const requests: z.infer<typeof requestSchema>[] = []
@@ -73,9 +101,20 @@ async function fixture(response: (index: number) => Response) {
   cleanups.push(async () => {
     await server.stop(true)
   })
-  const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
+  const diagnostics: DiagnosticSink | undefined = options.diagnosticEvents
+    ? { emit: (event) => options.diagnosticEvents?.push(event) }
+    : undefined
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    secrets: new MemorySecrets(),
+    ...(diagnostics ? { diagnostics } : {}),
+  })
   cleanups.push(() => kernel.close())
-  await kernel.changePlugin('goal.codex', true, { retryDelayMs: 20 })
+  await kernel.changePlugin('goal.codex', true, {
+    autoContinue: options.goalRetry !== false,
+    retryDelayMs: 20,
+  })
   await kernel.saveProvider(
     providerSchema.parse({
       id: 'responses-recovery',
@@ -110,6 +149,142 @@ async function fixture(response: (index: number) => Response) {
     },
   }
 }
+
+test('temporary upstream stream errors retry only the failed Pi attempt in the same Run', async () => {
+  const diagnostics: DiagnosticEvent[] = []
+  const f = await fixture(
+    (index) =>
+      index === 1
+        ? toolResponse('write_file', { path: 'proof.txt', text: 'Saved once' }, 'proof')
+        : index === 2
+          ? upstreamFailedResponse()
+          : toolResponse('update_goal', { status: 'complete' }, 'complete'),
+    { diagnosticEvents: diagnostics },
+  )
+  const writes: string[] = []
+  f.kernel.hooks.on('tool.settled', (value) => {
+    if (value.name === 'write_file') writes.push(value.context.callId)
+  })
+  const snapshot = await f.run()
+  expect(snapshot.runs.map((run) => run.status)).toEqual(['completed'])
+  expect(f.requests).toHaveLength(3)
+  expect(writes).toHaveLength(1)
+  expect(await readFile(join(f.root, 'proof.txt'), 'utf8')).toBe('Saved once')
+  expect(await Bun.file(join(f.root, 'unfinished.txt')).exists()).toBe(false)
+  const retriedRequest = JSON.stringify(f.requests[2])
+  expect(retriedRequest).toContain('function_call_output')
+  expect(retriedRequest).not.toContain('uncommitted partial text')
+  expect(retriedRequest).not.toContain('unfinished')
+  expect((await f.goals.get(f.session.id)).goal?.status).toBe('complete')
+  const runId = snapshot.runs[0]?.id
+  if (!runId) throw new Error('Recovered Run is missing')
+  const usage = await f.kernel.storage.call('usageEvents', {
+    scope: { kind: 'run', runId },
+    from: 0,
+    to: Date.now() + 1,
+    limit: 100,
+  })
+  const modelAttempts = usage.items
+    .filter((item) => item.event.type === 'usage.recorded' && item.event.runId === runId)
+    .map((item) => item.event.data)
+    .filter((data) => data && typeof data === 'object' && 'source' in data && data.source === 'model')
+  expect(modelAttempts).toHaveLength(3)
+
+  const failedIndex = diagnostics.findIndex(
+    (event) => event.event === 'model.failed' && event.streamErrorClass === 'upstream',
+  )
+  const failed = diagnostics[failedIndex]
+  const retryStarted = diagnostics
+    .slice(failedIndex + 1)
+    .find((event) => event.event === 'provider.request_started' && event.modelRequestId !== failed?.modelRequestId)
+  expect(failed).toBeDefined()
+  expect(retryStarted).toBeDefined()
+  expect(retryStarted?.runId).toBe(failed?.runId)
+  expect(retryStarted?.requestId).toBe(failed?.requestId)
+  expect(retryStarted?.modelRequestId).not.toBe(failed?.modelRequestId)
+  expect(retryStarted?.stepId).not.toBe(failed?.stepId)
+  const retryNotes = (await f.kernel.storage.call('events', f.session.id, 0, 1_000))
+    .filter((event) => event.runId === runId && event.type === 'diagnostic.note')
+    .map((event) => event.data)
+  const scheduled = retryNotes.find(
+    (data) => data && typeof data === 'object' && 'code' in data && data.code === 'MODEL_RETRY_SCHEDULED',
+  )
+  const started = retryNotes.find(
+    (data) => data && typeof data === 'object' && 'code' in data && data.code === 'MODEL_RETRY_STARTED',
+  )
+  expect(scheduled).toMatchObject({
+    previousModelRequestId: failed?.modelRequestId,
+    retryAttempt: 1,
+    maxRetries: 2,
+    delayMs: 250,
+  })
+  expect(started).toMatchObject({
+    previousModelRequestId: failed?.modelRequestId,
+    modelRequestId: retryStarted?.modelRequestId,
+    retryAttempt: 1,
+    maxRetries: 2,
+    delayMs: 250,
+  })
+})
+
+test('upstream retry exhaustion fails the original Run without replaying a failed partial tool call', async () => {
+  const f = await fixture(() => upstreamFailedResponse(), { goalRetry: false })
+  const snapshot = await f.run()
+  expect(f.requests).toHaveLength(3)
+  expect(snapshot.runs).toHaveLength(1)
+  expect(snapshot.runs[0]?.status).toBe('failed')
+  expect(snapshot.runs[0]?.failure?.code).toBe('RUN_FAILED')
+  expect(await Bun.file(join(f.root, 'unfinished.txt')).exists()).toBe(false)
+  const retryNotes = (await f.kernel.storage.call('events', f.session.id, 0, 1_000))
+    .filter((event) => event.runId === snapshot.runs[0]?.id && event.type === 'diagnostic.note')
+    .map((event) => event.data)
+  expect(retryNotes.map((data) => (data && typeof data === 'object' && 'code' in data ? data.code : null))).toEqual([
+    'MODEL_RETRY_SCHEDULED',
+    'MODEL_RETRY_STARTED',
+    'MODEL_RETRY_SCHEDULED',
+    'MODEL_RETRY_STARTED',
+    'MODEL_RETRY_EXHAUSTED',
+  ])
+  expect(retryNotes.at(-1)).toMatchObject({ retryAttempts: 2, maxRetries: 2 })
+})
+
+for (const code of ['invalid_api_key', 'rate_limit_exceeded', 'context_length_exceeded', 'invalid_request_error'])
+  test(`provider ${code} errors do not enter the upstream retry path`, async () => {
+    const f = await fixture(() => upstreamFailedResponse(code), { goalRetry: false })
+    const snapshot = await f.run()
+    expect(f.requests).toHaveLength(1)
+    expect(snapshot.runs).toHaveLength(1)
+    expect(snapshot.runs[0]?.status).toBe('failed')
+    expect(await Bun.file(join(f.root, 'unfinished.txt')).exists()).toBe(false)
+  })
+
+test('cancellation during an upstream request aborts without scheduling another attempt', async () => {
+  let cancelled = false
+  const f = await fixture(
+    () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          cancel() {
+            cancelled = true
+          },
+        }),
+        { headers: { 'Content-Type': 'text/event-stream' } },
+      ),
+    { goalRetry: false },
+  )
+  const running = f.run()
+  for (let attempt = 0; attempt < 100 && f.requests.length === 0; attempt++) await Bun.sleep(20)
+  expect(f.requests).toHaveLength(1)
+  const active = (await f.kernel.snapshot(f.session.id)).runs.find((run) => run.status === 'running')
+  if (!active) throw new Error('Fixture Run did not become active before cancellation')
+  await f.kernel.cancel(active.id)
+  await f.kernel.waitForIdle()
+  const snapshot = await running
+  expect(snapshot.runs).toHaveLength(1)
+  expect(snapshot.runs[0]?.status).toBe('cancelled')
+  expect(f.requests).toHaveLength(1)
+  expect(cancelled).toBe(true)
+})
 
 for (const malformed of [true, false])
   test(`${malformed ? 'malformed JSON' : 'missing terminal event'} resumes from settled writes and never executes partial tools`, async () => {
