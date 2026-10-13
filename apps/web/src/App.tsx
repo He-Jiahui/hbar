@@ -82,6 +82,7 @@ import {
   createPromptTemplateCommandClient,
   createSandboxCommandClient,
   createScheduleCommandClient,
+  createNodeCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
@@ -157,6 +158,7 @@ import { notificationNavigationCopy } from './notification-copy'
 import { NotificationPageNavigation } from './NotificationPageButton'
 import { navigateNotification } from './notification-navigation'
 import { createDevelopmentDiagnostics } from './development-diagnostics'
+import { WebNodeManagementSettings } from './node-management-settings'
 const SchedulesPage = lazySurface<ComponentProps<typeof import('./schedules-page').SchedulesPage>>(() =>
   import('./schedules-page').then((module) => ({ default: module.SchedulesPage })),
 )
@@ -562,6 +564,7 @@ function createAppearancePortForRuntime(runtime: ReturnType<typeof createAppRunt
 }
 
 type WorkspaceBodyProps = {
+  readonly client: HbarClient
   readonly storageLocations: StorageLocationController
   readonly appRuntime: ReturnType<typeof createAppRuntime>
   readonly appearanceEditor: AppearanceEditor
@@ -668,6 +671,7 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
 }
 
 function WorkspaceBodyContent({
+  client,
   storageLocations,
   appRuntime,
   appearanceEditor,
@@ -682,6 +686,10 @@ function WorkspaceBodyContent({
   files,
   systemPrefersDark,
 }: WorkspaceBodyProps) {
+  const nodeCommands = useMemo(() => createNodeCommandClient(client), [client])
+  const nodeAccess = client.connectionHost()?.deviceAccess
+  const nodesWritable = connected && nodeAccess?.role === 'operator'
+  const nodesAccessKnown = connected && nodeAccess !== undefined
   const copy = getShellCopy(locale)
   const selectedSendBehavior = useStore(sendBehavior.store, (state) => state.behavior)
   const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
@@ -835,6 +843,7 @@ function WorkspaceBodyContent({
           { id: 'skills', label: copy.settings.resolve('i18n:settings.groups.skills'), order: 39 },
           { id: 'usage', label: copy.settingsUsage.title, order: 85 },
           { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
+          { id: 'nodes', label: copy.nodes.title, order: 60 },
         ]}
         renderGroup={(groupId, context) => {
           if (groupId === 'chatDatabase' && context.scope && context.instanceId)
@@ -881,6 +890,17 @@ function WorkspaceBodyContent({
               />
             )
           if (groupId === 'providers') return <ProviderSettings labels={copy.providers.list} connected={connected} />
+          if (groupId === 'nodes')
+            return (
+              <WebNodeManagementSettings
+                commands={nodeCommands}
+                hostId={appRuntime.view.hostId}
+                connected={connected}
+                writable={nodesWritable}
+                accessKnown={nodesAccessKnown}
+                labels={copy.nodes}
+              />
+            )
           if (groupId === 'sandbox') return <SandboxProfileSettings labels={copy.sandbox} connected={connected} />
           if ((groupId === 'extensions' || groupId === 'skills') && presentation.page.kind === 'settings')
             return (
@@ -2152,6 +2172,7 @@ export default function App({
                 leadingNavigation={leadingNavigation}
               >
                 <WorkspaceBody
+                  client={client}
                   storageLocations={storageLocations}
                   appRuntime={runtime}
                   appearanceEditor={appearanceEditor}
@@ -2170,6 +2191,7 @@ export default function App({
             )
           ) : (
             <WorkspaceBody
+              client={client}
               storageLocations={storageLocations}
               appRuntime={runtime}
               appearanceEditor={appearanceEditor}

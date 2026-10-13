@@ -216,6 +216,11 @@ export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-
 export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
 export {
+  NodeManagementSettings,
+  type NodeManagementSettingsLabels,
+  type NodeManagementSettingsProps,
+} from './node-management-settings'
+export {
   HbarNodeConsole,
   HbarNodeConsoleEntry,
   type HbarNodeConsoleLabels,

@@ -295,6 +295,8 @@ export async function startWebSessionHost(
     home?: string
     port?: number
     sessionCount?: number
+    /** Test-only persisted node registry rows for the Nodes Settings surface. */
+    nodeManagementSeedCount?: number
     historyCount?: number
     /** Test-only authored message content; never sent to a real Provider. */
     historyText?: string
@@ -328,6 +330,8 @@ export async function startWebSessionHost(
         HBAR_E2E_HOME: options.home ?? '',
         HBAR_E2E_HOST_PORT: String(port),
         HBAR_E2E_SESSION_COUNT: String(options.sessionCount ?? 1),
+        HBAR_E2E_NODE_MANAGEMENT_SEED_COUNT:
+          options.nodeManagementSeedCount === undefined ? '' : String(options.nodeManagementSeedCount),
         HBAR_E2E_HISTORY_COUNT: String(options.historyCount ?? 0),
         HBAR_E2E_HISTORY_TEXT: options.historyText ?? '',
         HBAR_E2E_GOAL_AUTO_CONTINUE: options.goalAutoContinue === false ? '0' : '1',
@@ -342,7 +346,10 @@ export async function startWebSessionHost(
   const diagnostics = createWebSessionHostLifecycleDiagnostics(child)
   let ready: WebSessionHostReady
   try {
-    ready = await waitForWebSessionHostReady(child, options.fixture === 'runtime-status' ? 120_000 : 20_000)
+    ready = await waitForWebSessionHostReady(
+      child,
+      options.fixture === 'runtime-status' ? 120_000 : options.nodeManagementSeedCount !== undefined ? 30_000 : 20_000,
+    )
     diagnostics.mark('ready')
   } catch (error) {
     diagnostics.mark('startup_failed')

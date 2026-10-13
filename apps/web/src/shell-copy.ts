@@ -11,6 +11,7 @@ import { toolFeedbackLabels } from './session-tool-feedback-copy'
 import { contextHistoryCopy } from './context-history-copy'
 import { runFileChangesCopy } from './run-file-changes-copy'
 import { sessionObservabilityCopy } from './session-observability-copy'
+import { nodeManagementSettingsCopy } from './node-management-settings-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarMessageActivityPart,
@@ -31,6 +32,7 @@ import type {
   HbarSystemDiagnosticsLabels,
   HbarWorkspaceShellLabels,
   SessionArchiveBatchLabels,
+  NodeManagementSettingsLabels,
 } from '@hbar/app-react'
 import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import type { PlanProposalRequestText } from '@hbar/app-runtime'
@@ -118,6 +120,7 @@ interface ShellCopy {
   readonly diagnostics: HbarSystemDiagnosticsLabels
   readonly settingsUsage: HbarSettingsUsageLabels
   readonly sandbox: HbarSandboxProfileSettingsLabels
+  readonly nodes: NodeManagementSettingsLabels
 }
 
 function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabels {
@@ -3912,6 +3915,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     diagnostics: createSystemDiagnosticsLabels('zh-CN'),
     sandbox: createSandboxLabels('zh-CN'),
     settingsUsage: settingsUsageCopy('zh-CN'),
+    nodes: nodeManagementSettingsCopy('zh-CN'),
   },
   'en-US': {
     toolLayout: toolPaneLayoutCopy('en-US'),
@@ -4068,6 +4072,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     diagnostics: createSystemDiagnosticsLabels('en-US'),
     sandbox: createSandboxLabels('en-US'),
     settingsUsage: settingsUsageCopy('en-US'),
+    nodes: nodeManagementSettingsCopy('en-US'),
   },
 }
 
