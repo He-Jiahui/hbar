@@ -1,7 +1,7 @@
 import { HbarError } from '@hbar/contracts'
 import { RUNTIME_LIMITS, type ExecutionOwnership, type RuntimeOwner } from '@hbar/contracts/runtime'
 import type { StorageMethods } from './types'
-import type { StoragePort } from './index'
+import type { StorageFatalEvent, StorageFatalListener, StoragePort } from './index'
 import { storageRpcCallSchema, type StorageRpcCall } from './rpc'
 
 // Only methods whose implementation is a read belong here; every undeclared method is conservatively a write.
@@ -78,6 +78,8 @@ export class StableStoragePort implements StoragePort {
   private bytes = 0
   private queue: WaitingCall[] = []
   private readonly idle = new Set<() => void>()
+  private readonly fatalListeners = new Set<StorageFatalListener>()
+  private fatalNotified = false
   private transition: Promise<void> | undefined
   private closing: Promise<void> | undefined
   private maintenance: { operationId: string; owner: RuntimeOwner } | undefined
@@ -96,6 +98,28 @@ export class StableStoragePort implements StoragePort {
       reasonCode: this.reasonCode,
     }
   }
+  onFatal(listener: StorageFatalListener): () => void {
+    this.fatalListeners.add(listener)
+    return () => this.fatalListeners.delete(listener)
+  }
+  private notifyOutcomeUnknown(method: string): void {
+    if (this.fatalNotified) return
+    this.fatalNotified = true
+    const event: StorageFatalEvent = {
+      kind: 'outcome-unknown',
+      code: 'STORAGE_RESULT_UNKNOWN',
+      message: 'Storage write outcome requires reconciliation',
+      method,
+      occurredAt: Date.now(),
+    }
+    for (const listener of this.fatalListeners) {
+      try {
+        listener(event)
+      } catch {
+        // Fatal observers must not reopen or pump a fenced writer.
+      }
+    }
+  }
   get writeCallsInFlight(): number {
     return this.activeWrites
   }
@@ -108,6 +132,7 @@ export class StableStoragePort implements StoragePort {
     this.writer = writer
     this.phase = 'serving'
     this.reasonCode = null
+    this.fatalNotified = false
     this.pump()
   }
   call<K extends keyof StorageMethods>(
@@ -171,6 +196,10 @@ export class StableStoragePort implements StoragePort {
           try {
             resolve(await writer.call(method, captured, lease, diagnostic))
           } catch (error) {
+            if (error instanceof HbarError && error.code === 'STORAGE_RESULT_UNKNOWN') {
+              this.fence('STORAGE_RESULT_UNKNOWN')
+              this.notifyOutcomeUnknown(String(method))
+            }
             reject(error instanceof Error ? error : new HbarError('STORAGE_CALL_FAILED', 'Storage owner failed'))
           }
         },

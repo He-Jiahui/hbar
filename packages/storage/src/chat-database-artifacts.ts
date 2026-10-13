@@ -152,17 +152,25 @@ export function createChatDatabaseArtifactStorage(
     try {
       journal.append(record)
     } catch (reason) {
-      journal.reset()
-      db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0 WHERE id=1')
-      throw reason
+      throwAfterDraftInvalidation(reason)
     }
+  }
+  function throwAfterDraftInvalidation(primary: unknown): never {
+    try {
+      invalidateDraftJournal()
+    } catch (cleanup: unknown) {
+      throw new AggregateError([primary, cleanup], 'Draft journal failure could not be fully invalidated', {
+        cause: cleanup,
+      })
+    }
+    throw primary
   }
   function durableWrite<Output>(action: () => Output): Output {
     const before = journalWriteVersion
     try {
       return action()
     } catch (reason) {
-      if (journalWriteVersion !== before) invalidateDraftJournal()
+      if (journalWriteVersion !== before) throwAfterDraftInvalidation(reason)
       throw reason
     }
   }
@@ -223,13 +231,24 @@ export function createChatDatabaseArtifactStorage(
     )
   }
   function invalidateDraftJournal(): void {
-    journal.reset()
+    const failures: unknown[] = []
+    try {
+      journal.reset()
+    } catch (error: unknown) {
+      failures.push(error)
+    }
     journalFinished = false
     metadataCursor = null
     metadataFinished = false
     ownerCursor = null
     ownersFinished = false
-    db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0 WHERE id=1')
+    try {
+      db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0 WHERE id=1')
+    } catch (error: unknown) {
+      failures.push(error)
+    }
+    if (failures.length)
+      throw new AggregateError(failures, 'Draft journal invalidation was incomplete', { cause: failures[0] })
   }
   function writeVersion(): number {
     return journalWriteVersion
