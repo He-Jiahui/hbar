@@ -369,11 +369,11 @@ export async function prepareContainerConfinement(
         info = await stat(actual)
       } catch (error) {
         if (error instanceof Error && 'code' in error && String(error.code) === 'ENOENT') {
-          if (paths.writableRoots.some((root) => within(root, path))) {
-            const source = join(maskRoot, crypto.randomUUID())
-            await mkdir(source, { mode: 0o700 })
-            masks[path] = { path: source, kind: 'directory' }
-          }
+          if (paths.writableRoots.some((root) => within(root, path)))
+            throw new HbarError(
+              'SANDBOX_BACKEND_UNAVAILABLE',
+              'Refusing to create a missing protected path under a writable root',
+            )
           continue
         }
         throw error
