@@ -40,3 +40,11 @@ export const runtimeWireNotificationSchema: z.ZodType<WireNotification> = z.disc
   event('terminal.exit', z.strictObject({ terminalId: idSchema, code: z.number().int().nullable(), signal: z.string().max(160).nullable() })),
   event('surface.invoke', z.strictObject({ relayId: idSchema, invocationId: idSchema, commandId: idSchema, input: z.unknown(), generation: z.number().int().positive() })),
 ])
+/** Internal IPC envelope for ordered notification delivery. Limits are part of the Kernel/Host contract. */
+export const RUNTIME_NOTIFICATION_BATCH_MAX_EVENTS = 32
+export const RUNTIME_NOTIFICATION_BATCH_MAX_BYTES = 256 * 1024
+export const runtimeWireNotificationBatchSchema = z.array(runtimeWireNotificationSchema).min(1).max(RUNTIME_NOTIFICATION_BATCH_MAX_EVENTS)
+  .superRefine((events, context) => {
+    if (new TextEncoder().encode(JSON.stringify(events)).byteLength > RUNTIME_NOTIFICATION_BATCH_MAX_BYTES)
+      context.addIssue({ code: 'custom', message: 'Notification batch exceeds its byte bound' })
+  })

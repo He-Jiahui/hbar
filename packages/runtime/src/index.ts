@@ -20,7 +20,13 @@ export { RUNTIME_BUNDLE_EXTERNALS } from './bundle-externals'
 export { buildRuntimeArtifact } from './builder'
 export { runtimeSourceRoots, isRuntimeSourceChange, createRuntimeSourceReload, watchRuntimeSources } from './source-reload'
 export { RuntimeValuePort, type RuntimeValuePortOptions } from './value-port'
-export { RuntimeNotificationDelivery, type RuntimeNotificationDeliveryOptions } from './notification-delivery'
+export {
+  RuntimeNotificationDelivery,
+  type RuntimeNotificationClass,
+  type RuntimeNotificationDeliveryOptions,
+  type RuntimeNotificationDeliverySnapshot,
+  type RuntimeNotificationFailureSnapshot,
+} from './notification-delivery'
 export { RuntimeCoordinatorClient, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, type RuntimeCoordinatorPortOptions } from './coordinator-port'
 export {
   type RuntimeProcessContext,
