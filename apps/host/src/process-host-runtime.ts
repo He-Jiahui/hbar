@@ -4,6 +4,7 @@ import { z } from 'zod'
 import {
   HbarError,
   providerSchema,
+  diagnosticEvent,
   diagnosticEventSchema,
   type DiagnosticSink,
   type WireNotification,
@@ -1403,8 +1404,38 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             this.schedule()
           })
       },
-      onFault: (owner, reason) => this.fault(owner, reason),
-      onExit: async (owner) => {
+      onFault: (owner, reason, childPid) => {
+        this.emitProcessLifecycleDiagnostic({
+          component: 'host',
+          level: 'error',
+          event: 'host.runtime_process_fault',
+          phase: `generation.${owner.generation}`,
+          contextId: owner.unitId,
+          requestId: owner.incarnation,
+          instanceId: this.instanceId,
+          processId: process.pid,
+          childPid,
+          errorCode: reason,
+          outcome: 'failure',
+        })
+        return this.fault(owner, reason)
+      },
+      onExit: async (owner, exit) => {
+        this.emitProcessLifecycleDiagnostic({
+          component: 'host',
+          level: exit.deliberate ? 'info' : 'error',
+          event: 'host.runtime_process_exit',
+          phase: `generation.${owner.generation}`,
+          contextId: owner.unitId,
+          requestId: owner.incarnation,
+          instanceId: this.instanceId,
+          processId: process.pid,
+          childPid: exit.childPid,
+          exitCode: exit.exitCode,
+          ...(exit.reasonCode ? { errorCode: exit.reasonCode } : {}),
+          restartExpected: exit.restartExpected,
+          outcome: exit.deliberate ? 'success' : 'failure',
+        })
         if (artifact.unitId === 'node-link') this.nodeLink.exited(owner)
         if (artifact.unitId === 'kernel') {
           this.relay.kernelExited(owner)
@@ -1750,6 +1781,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       peer.onEvent('kernel.notifications.batch', runtimeWireNotificationBatchSchema, receiveNotificationBatch),
     )
   }
+  private emitProcessLifecycleDiagnostic(input: Parameters<typeof diagnosticEvent>[0]): void {
+    try {
+      this.options.diagnostics?.emit(diagnosticEvent(input))
+    } catch {
+      // Lifecycle diagnostics are observational and never own process retirement.
+    }
+  }
+
   private transition(operation: () => Promise<void>): void {
     this.transitions = this.transitions.then(operation).catch((error) => {
       this.reasonCode = runtimeDomainError(error)?.code ?? 'RUNTIME_RECONCILIATION_FAILED'
