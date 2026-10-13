@@ -15,6 +15,12 @@ export const nodeCallAuthoritySchema = z.strictObject({
   callId: entityId,
   sandbox: sandboxSnapshotRefSchema.nullable(),
   admission: nodeAdmissionSchema,
+  managedWorktree: z
+    .strictObject({
+      worktreeId: z.string().regex(/^[a-f0-9]{32}$/),
+      targetRevision: z.number().int().nonnegative().safe(),
+    })
+    .optional(),
 })
 
 export type NodeCallAuthority = z.output<typeof nodeCallAuthoritySchema>

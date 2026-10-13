@@ -100,7 +100,8 @@
     "./commands/session-observability": "./src/commands/session-observability.ts",
     "./context-history": "./src/context-history.ts",
     "./commands/context-history": "./src/commands/context-history.ts",
-    "./workflow": "./src/workflow.ts"
+    "./workflow": "./src/workflow.ts",
+    "./node-worktree": "./src/node-worktree.ts"
   },
   "dependencies": {
     "@hbar/commands": "workspace:*",
