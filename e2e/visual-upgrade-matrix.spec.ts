@@ -14,7 +14,12 @@ import { measureVisibleLumenContrast } from './support/text-contrast'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const phase = process.env.HBAR_VISUAL_PHASE === 'before' ? 'before' : 'after'
-const output = `artifacts/visual-upgrade/screenshots/${phase}`
+const output = process.env.HBAR_VISUAL_EVIDENCE_ROOT ?? `artifacts/visual-upgrade/screenshots/${phase}`
+if (!/^artifacts\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(output))
+  throw new Error('Visual evidence must stay under artifacts/')
+const area = process.env.HBAR_VISUAL_AREA ?? 'all'
+if (!['all', 'settings', 'global', 'tools', 'conversation'].includes(area)) throw new Error('Invalid visual area')
+const includesArea = (value: 'settings' | 'global' | 'tools' | 'conversation') => area === 'all' || area === value
 const settings = [
   'general',
   'appearance',
@@ -27,7 +32,7 @@ const settings = [
   'skills',
   'extensions',
   'usage',
-  'diagnostics',
+  phase === 'before' ? 'diagnostics' : 'nodes',
 ] as const
 
 async function capture(page: Page, path: string) {
@@ -83,7 +88,7 @@ async function capture(page: Page, path: string) {
 
 for (const locale of ['zh-CN', 'en-US'] as const)
   for (const theme of ['dark', 'light'] as const) {
-    test(`all production page families: ${phase} ${locale} ${theme}`, async ({ browser }) => {
+    test(`production page families: ${phase} ${locale} ${theme} ${area}`, async ({ browser }) => {
       test.setTimeout(180_000)
       const prefix = 'hbar-visual-upgrade-'
       const root = await mkdtemp(join(tmpdir(), prefix))
@@ -123,13 +128,15 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         })
         const copy = getShellCopy(locale)
         const globals = globalFeatureCopy(locale)
+        const sessionTitle = host.ready.sessionTitle
         const showSidebar = async () => {
           if (phase === 'after')
             await expect(page.locator('[data-hbar-layout-state]')).toHaveAttribute('data-hbar-layout-state', 'ready')
-          if (
-            (await page.locator('[data-hbar-sidebar-expanded]').getAttribute('data-hbar-sidebar-expanded')) !== 'true'
-          )
-            await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+          const sessionEntry = page.getByRole('treeitem', { name: sessionTitle, exact: true })
+          const showControl = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+          await expect.poll(async () => (await sessionEntry.isVisible()) || (await showControl.isVisible())).toBe(true)
+          if (!(await sessionEntry.isVisible())) await showControl.click()
+          await expect(sessionEntry).toBeVisible()
           await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
             'data-hbar-sidebar-expanded',
             'true',
@@ -159,7 +166,15 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           await catalog.getByRole('button', { name: copy.commandPalette.execute, exact: true }).click()
           if (await catalog.isVisible())
             await catalog.getByRole('button', { name: copy.commandPalette.close, exact: true }).click()
-          await expect(page.locator(`[data-global-page="${id}"]`)).toBeVisible()
+          if (phase === 'after' && id === 'run-board') {
+            await expect(page.locator('.hbar-app-react-status-workspace')).toBeVisible()
+            await expect(
+              page
+                .getByRole('navigation', { name: copy.status.tabs, exact: true })
+                .getByRole('button', { name: copy.status.sections.runs, exact: true }),
+            ).toHaveAttribute('aria-current', 'page')
+            await expect(page.locator('.hbar-web-run-board')).toBeVisible()
+          } else await expect(page.locator(`[data-global-page="${id}"]`)).toBeVisible()
         }
         for (const width of [1440, 320]) {
           // The baseline collapses its narrow sidebar on localized callback changes.
@@ -168,84 +183,131 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           await page.goto(origin)
           await showSidebar()
           await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
-          await expect(
-            page.getByRole('heading', { level: 1, name: host.ready.sessionTitle, exact: true }),
-          ).toBeVisible()
+          if (phase === 'before')
+            await expect(
+              page.getByRole('heading', { level: 1, name: host.ready.sessionTitle, exact: true }),
+            ).toBeVisible()
+          else {
+            await expect(
+              page.getByRole('tab', { name: host.ready.sessionTitle, exact: true, includeHidden: true }),
+            ).toHaveAttribute('aria-selected', 'true')
+            await expect(
+              page
+                .locator('.hbar-prompt-composer')
+                .getByRole('textbox', { name: copy.session.prompt.input, exact: true }),
+            ).toBeVisible()
+          }
           const directory = `${output}/${locale}-${theme}-${width}`
           await capture(page, `${directory}/conversation`)
-          await showSidebar()
-          await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
-          await expect(page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
-          const navigation = page.getByRole('navigation', { name: copy.settings.groups, exact: true })
-          for (const group of settings) {
-            const label =
-              group === 'storage'
-                ? storageLocationCopy(locale).title
-                : group === 'chat-database'
-                  ? chatDatabaseCopy(locale).title
-                  : group === 'general'
-                    ? copy.general.group
-                    : group === 'appearance'
-                      ? copy.appearance.group
-                      : group === 'usage'
-                        ? copy.settingsUsage.title
-                        : group === 'diagnostics'
-                          ? copy.diagnostics.title
-                          : copy.settings.resolve(`i18n:settings.groups.${group}`)
-            if (await navigation.isVisible()) await navigation.getByRole('button', { name: label, exact: true }).click()
-            else
-              await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), {
-                label,
-              })
-            await expect(page.locator('.hbar-app-react-settings-content')).toBeVisible()
-            await expect(page.locator('.hbar-app-react-settings-state')).toHaveCount(0)
-            await capture(page, `${directory}/settings-${group}`)
-          }
-          await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-          for (const id of ['run-board', 'schedules', 'prompt-templates', 'onboarding', 'notifications'] as const) {
-            await openGlobal(id)
-            await capture(page, `${directory}/${id}`)
-            await page
-              .locator(`[data-global-page="${id}"]`)
-              .getByRole('button', { name: globals.back, exact: true })
-              .click()
-          }
-          await showSidebar()
-          await page.getByRole('button', { name: copy.shell.status, exact: true }).click()
-          await expect(page.locator('.hbar-app-react-status-workspace')).toBeVisible()
-          await capture(page, `${directory}/status-center`)
-          await page.getByRole('button', { name: copy.status.close, exact: true }).click()
-          await page.keyboard.press('Control+K')
-          await expect(page.getByRole('dialog')).toBeVisible()
-          await capture(page, `${directory}/chat-search`)
-          await page.keyboard.press('Escape')
-          for (const tool of ['files', 'activity', 'monitoring', 'agents', 'goals', 'settings'] as const) {
-            await openSessionTool(page, copy.session.tools, tool)
-            const toolSelector = {
-              files: '.hbar-app-react-file-workspace',
-              activity: '.hbar-session-activity-workspace',
-              monitoring: '.hbar-app-react-session-monitoring',
-              agents: '.hbar-app-react-agent-workspace',
-              goals: '.hbar-app-react-goal-plan-workspace',
-              settings: '.hbar-app-react-settings-workspace',
-            }[tool]
-            await expect(page.locator(toolSelector)).toBeVisible()
-            await capture(page, `${directory}/session-${tool}`)
-            // Reloading restores the saved panel ID and width, then returns to a predictable reading entry.
-            await page.goto(origin)
-            await page.keyboard.press('Escape')
+          if (includesArea('settings')) {
             await showSidebar()
-            await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+            await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
+            await expect(page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
+            const navigation = page.getByRole('navigation', { name: copy.settings.groups, exact: true })
+            for (const group of settings) {
+              const label =
+                group === 'storage'
+                  ? storageLocationCopy(locale).title
+                  : group === 'chat-database'
+                    ? chatDatabaseCopy(locale).title
+                    : group === 'general'
+                      ? copy.general.group
+                      : group === 'appearance'
+                        ? copy.appearance.group
+                        : group === 'usage'
+                          ? copy.settingsUsage.title
+                          : group === 'diagnostics'
+                            ? copy.diagnostics.title
+                            : group === 'nodes'
+                              ? copy.nodes.title
+                              : copy.settings.resolve(`i18n:settings.groups.${group}`)
+              if (await navigation.isVisible())
+                await navigation.getByRole('button', { name: label, exact: true }).click()
+              else
+                await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), {
+                  label,
+                })
+              await expect(page.locator('.hbar-app-react-settings-content')).toBeVisible()
+              await expect(page.locator('.hbar-app-react-settings-state')).toHaveCount(0)
+              await capture(page, `${directory}/settings-${group}`)
+            }
+            await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
+          }
+          if (includesArea('global')) {
+            for (const id of ['run-board', 'schedules', 'prompt-templates', 'onboarding', 'notifications'] as const) {
+              await openGlobal(id)
+              await capture(page, `${directory}/${id}`)
+              if (phase === 'after' && id === 'run-board')
+                await page
+                  .locator('.hbar-app-react-status-workspace')
+                  .getByRole('button', { name: copy.status.close, exact: true })
+                  .click()
+              else
+                await page
+                  .locator(`[data-global-page="${id}"]`)
+                  .getByRole('button', { name: globals.back, exact: true })
+                  .click()
+            }
+            await showSidebar()
+            const statusAction = page.getByRole('button', { name: copy.shell.status, exact: true })
+            if (await statusAction.isVisible()) await statusAction.click()
+            else {
+              await page.getByRole('button', { name: globals.navigation, exact: true }).click()
+              await page
+                .getByRole('menu', { name: globals.navigation, exact: true })
+                .getByRole('menuitem', { name: copy.shell.status, exact: true })
+                .click()
+            }
+            await expect(page.locator('.hbar-app-react-status-workspace')).toBeVisible()
+            await capture(page, `${directory}/status-center`)
+            const diagnosticTab = page
+              .getByRole('navigation', { name: copy.status.tabs, exact: true })
+              .getByRole('button', { name: copy.status.sections.diagnostics, exact: true })
+            await diagnosticTab.click()
+            await expect(diagnosticTab).toHaveAttribute('aria-current', 'page')
+            await capture(page, `${directory}/status-diagnostics`)
+            await page.getByRole('button', { name: copy.status.close, exact: true }).click()
+            await page.keyboard.press('Control+K')
+            await expect(page.getByRole('dialog')).toBeVisible()
+            await capture(page, `${directory}/chat-search`)
+            await page.keyboard.press('Escape')
+          }
+          if (includesArea('tools')) {
+            for (const tool of ['files', 'activity', 'monitoring', 'agents', 'goals', 'settings'] as const) {
+              await openSessionTool(page, copy.session.tools, tool)
+              const toolSelector = {
+                files: '.hbar-app-react-file-workspace',
+                activity: '.hbar-session-activity-workspace',
+                monitoring: '.hbar-app-react-session-monitoring',
+                agents: '.hbar-app-react-agent-workspace',
+                goals: '.hbar-app-react-goal-plan-workspace',
+                settings: '.hbar-app-react-settings-workspace',
+              }[tool]
+              await expect(page.locator(toolSelector)).toBeVisible()
+              await capture(page, `${directory}/session-${tool}`)
+              const closeLabel = {
+                files: copy.files.close,
+                activity: copy.activity.close,
+                monitoring: copy.monitoring.close,
+                agents: copy.agents.close,
+                goals: copy.goals.close,
+                settings: copy.settings.back,
+              }[tool]
+              await page.locator(toolSelector).getByRole('button', { name: closeLabel, exact: true }).click()
+              await expect(page.locator(toolSelector)).toBeHidden()
+            }
           }
         }
-        for (const width of [768, 1088, 1920]) {
-          await page.setViewportSize({ width, height: width === 768 ? 480 : 960 })
-          await page.goto(origin)
-          if (phase === 'after') {
-            await showSidebar()
-            await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+        if (includesArea('conversation')) {
+          for (const width of [768, 1088, 1920]) {
+            await page.setViewportSize({ width, height: width === 768 ? 480 : 960 })
+            await page.goto(origin)
+            if (phase === 'after') {
+              await showSidebar()
+              await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+            }
+            await capture(page, `${output}/${locale}-${theme}-${width}/conversation`)
           }
-          await capture(page, `${output}/${locale}-${theme}-${width}/conversation`)
         }
         expect(errors).toEqual([])
       } finally {

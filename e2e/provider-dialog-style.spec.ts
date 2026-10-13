@@ -17,7 +17,10 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
   }, info) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-provider-modal-style-'))
-    const evidence = join(process.cwd(), 'artifacts', 'popup-style')
+    const evidenceRoot = process.env.HBAR_POPUP_STYLE_EVIDENCE ?? 'artifacts/popup-style'
+    if (!/^artifacts\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(evidenceRoot))
+      throw new Error('Provider modal evidence must stay under artifacts/')
+    const evidence = join(process.cwd(), evidenceRoot)
     await mkdir(evidence, { recursive: true })
     const context = await browser.newContext({ locale, colorScheme: 'dark', viewport: { width: 2048, height: 1228 } })
     let host: WebSessionHost | undefined
