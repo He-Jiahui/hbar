@@ -817,10 +817,11 @@ function sessionSummary(id: string): SessionSummary {
 function runRow(row: Row | null): Run {
   const value = required(row, 'Run')
   const { failure, recovery, ...fields } = value
+  const fileChanges = readRunFileChangesSummary(db, z.string().parse(value.id))
   return runSchema.parse({
     ...fields,
     input: parseJson(z.string().parse(value.input)),
-    fileChanges: readRunFileChangesSummary(db, z.string().parse(value.id)),
+    ...(fileChanges === undefined ? {} : { fileChanges }),
     ...(typeof failure === 'string' ? { failure: runFailureSchema.parse(parseJson(failure)) } : {}),
     ...(typeof recovery === 'string' ? { recovery: parseJson(recovery) } : {}),
   })
