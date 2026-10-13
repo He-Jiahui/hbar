@@ -163,6 +163,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     close: async () => {},
   }
   const construct = async (lifecycle: 'candidate' | 'managed', profile?: KernelProfile): Promise<Kernel> => {
+    const profileReplacements = profile?.replacements ?? {}
+    const managedPlugins = configuration.isolatedPlugins
+      ? await plugins.load(Object.keys(profileReplacements))
+      : []
     return Kernel.create({
       layout,
       demo: configuration.demo,
@@ -240,10 +244,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       },
       profile: {
         ...profile,
+        managedPlugins: [...(profile?.managedPlugins ?? []), ...managedPlugins],
         createStorage: async () => storage,
         replacements: {
-          ...(configuration.isolatedPlugins ? await plugins.load() : {}),
-          ...profile?.replacements,
+          ...profileReplacements,
           'driver.pi':
             profile?.replacements?.['driver.pi'] ??
             definePlugin({

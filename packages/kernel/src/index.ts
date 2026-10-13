@@ -444,6 +444,8 @@ interface ResolvedKernelOptions extends KernelOptions {
 export interface KernelProfile {
   replacements?: Record<string, HbarPlugin>
   plugins?: HbarPlugin[]
+  /** Plugins discovered in isolated managed owners; registered built-ins are replaced, other IDs are added. */
+  managedPlugins?: HbarPlugin[]
   createStorage?(home: string): Promise<StoragePort>
 }
 
@@ -931,8 +933,27 @@ export class Kernel {
       if (automatic) kernel.recovered = await kernel.storage.call('recover')
       await kernel.restoreAutomation()
       kernel.registerDefaults()
+      const defaultPluginIds = new Set(kernel.plugins.list().map((plugin) => plugin.id))
+      const profilePlugins = options.profile?.plugins ?? []
+      const managedPlugins = options.profile?.managedPlugins ?? []
+      const seenProfilePluginIds = new Set<string>()
+      for (const plugin of [...profilePlugins, ...managedPlugins]) {
+        const id = plugin.manifest.id
+        if (seenProfilePluginIds.has(id))
+          throw new HbarError('PLUGIN_CONFLICT', `Duplicate profile plugin ID: ${id}`)
+        seenProfilePluginIds.add(id)
+      }
+      const replacementIds = new Set(Object.keys(options.profile?.replacements ?? {}))
+      for (const id of seenProfilePluginIds) {
+        if (replacementIds.has(id))
+          throw new HbarError('PLUGIN_CONFLICT', `Profile plugin ID conflicts with replacement: ${id}`)
+      }
       for (const [id, plugin] of Object.entries(options.profile?.replacements ?? {})) kernel.plugins.replace(id, plugin)
-      for (const plugin of options.profile?.plugins ?? []) kernel.plugins.add(plugin)
+      for (const plugin of profilePlugins) kernel.plugins.add(plugin)
+      for (const plugin of managedPlugins) {
+        if (defaultPluginIds.has(plugin.manifest.id)) kernel.plugins.replace(plugin.manifest.id, plugin)
+        else kernel.plugins.add(plugin)
+      }
       await kernel.plugins.start({ rejectLocal: options.lifecycle === 'candidate' })
       if (automatic && options.workspace) await kernel.createWorkspace(options.workspace)
       if (automatic && options.demo)

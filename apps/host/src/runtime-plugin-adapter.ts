@@ -34,6 +34,7 @@ type Invocation = z.infer<typeof runtimePluginInvocationSchema>
 export class RuntimePluginAdapter {
   private readonly values: RuntimeValuePort
   private catalog: Catalog = []
+  private excludedPluginIds = new Set<string>()
   private readonly tools = new Map<string, Array<() => void>>()
   private readonly registeredHooks = new Map<string, Set<keyof HookEvents>>()
   constructor(
@@ -45,43 +46,41 @@ export class RuntimePluginAdapter {
       callbackTimeoutMs: RUNTIME_PLUGIN_CALLBACK_TIMEOUT_MS,
     })
   }
-  async load(): Promise<Record<string, HbarPlugin>> {
-    this.catalog = runtimePluginCatalogSchema.parse(await this.values.call('catalog', []))
-    return Object.fromEntries(
-      this.catalog.flatMap(({ unitId, state }) =>
-        state.manifests.map((manifest, index) => [
-          manifest.id,
-          definePlugin({
-            manifest,
-            configSchema: z.record(z.string(), z.unknown()),
-            apply: (ctx) => {
-              const api = ctx.hbar.api
-              for (const [name, methods] of Object.entries(state.capabilities)) {
-                if (!manifest.provides?.[name] && name !== 'workspaceQuery') continue
-                if (name === 'workspaceQuery') continue
-                const capability: Record<string, unknown> = Object.fromEntries(
-                  methods.map((method) => [
+  async load(excludedPluginIds: readonly string[] = []): Promise<HbarPlugin[]> {
+    this.excludedPluginIds = new Set(excludedPluginIds)
+    this.catalog = await this.readCatalog()
+    return this.catalog.flatMap(({ unitId, state }) =>
+      state.manifests.map((manifest, index) =>
+        definePlugin({
+          manifest,
+          configSchema: z.record(z.string(), z.unknown()),
+          apply: (ctx) => {
+            const api = ctx.hbar.api
+            for (const [name, methods] of Object.entries(state.capabilities)) {
+              if (!manifest.provides?.[name] && name !== 'workspaceQuery') continue
+              if (name === 'workspaceQuery') continue
+              const capability: Record<string, unknown> = Object.fromEntries(
+                methods.map((method) => [
+                  method,
+                  (...args: unknown[]) => this.invoke(unitId, { operation: 'capability', name, method }, args, api),
+                ]),
+              )
+              if (name === 'execution' && state.capabilities.workspaceQuery)
+                capability.workspaceQuery = Object.fromEntries(
+                  state.capabilities.workspaceQuery.map((method) => [
                     method,
-                    (...args: unknown[]) => this.invoke(unitId, { operation: 'capability', name, method }, args, api),
+                    (...args: unknown[]) =>
+                      this.invoke(unitId, { operation: 'capability', name: 'workspaceQuery', method }, args, api),
                   ]),
                 )
-                if (name === 'execution' && state.capabilities.workspaceQuery)
-                  capability.workspaceQuery = Object.fromEntries(
-                    state.capabilities.workspaceQuery.map((method) => [
-                      method,
-                      (...args: unknown[]) =>
-                        this.invoke(unitId, { operation: 'capability', name: 'workspaceQuery', method }, args, api),
-                    ]),
-                  )
-                provide(ctx, name, capability)
-              }
-              if (index !== state.manifests.length - 1) return
-              this.registerTools(unitId, state, api)
-              for (const panel of state.panels) api.panels.register(panel)
-              this.registerHooks(unitId, state, api)
-            },
-          }),
-        ]),
+              provide(ctx, name, capability)
+            }
+            if (index !== state.manifests.length - 1) return
+            this.registerTools(unitId, state, api)
+            for (const panel of state.panels) api.panels.register(panel)
+            this.registerHooks(unitId, state, api)
+          },
+        }),
       ),
     )
   }
@@ -162,7 +161,7 @@ export class RuntimePluginAdapter {
     )
   }
   async refresh(): Promise<void> {
-    const next = runtimePluginCatalogSchema.parse(await this.values.call('catalog', []))
+    const next = await this.readCatalog()
     const api = this.kernel().plugins.runtimeAPI()
     for (const entry of next) {
       const prior = this.catalog.find((value) => value.unitId === entry.unitId)
@@ -172,6 +171,25 @@ export class RuntimePluginAdapter {
     }
     this.catalog = next
     this.publishMetadata()
+  }
+  private async readCatalog(): Promise<Catalog> {
+    const catalog = runtimePluginCatalogSchema.parse(await this.values.call('catalog', []))
+    const ids = new Set<string>()
+    for (const { state } of catalog) {
+      for (const manifest of state.manifests) {
+        if (ids.has(manifest.id)) throw new HbarError('PLUGIN_CONFLICT', `Duplicate runtime plugin ID: ${manifest.id}`)
+        ids.add(manifest.id)
+      }
+    }
+    return catalog
+      .map((entry) => ({
+        ...entry,
+        state: {
+          ...entry.state,
+          manifests: entry.state.manifests.filter((manifest) => !this.excludedPluginIds.has(manifest.id)),
+        },
+      }))
+      .filter((entry) => entry.state.manifests.length > 0)
   }
   private async invoke<Result>(
     unitId: string,
