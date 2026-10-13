@@ -208,7 +208,7 @@ test.skipIf(process.platform !== 'linux')(
         z.strictObject({ workspaceId: z.string(), sessionId: z.string() }),
         { nodeId },
       )
-      const program = `const fs=require("node:fs");fs.appendFileSync(${JSON.stringify(counter)},"x"+String.fromCharCode(10));fs.writeFileSync(${JSON.stringify(childPid)},String(process.pid));setInterval(()=>fs.writeFileSync(${JSON.stringify(heartbeat)},String(Date.now())),100);setTimeout(()=>fs.writeFileSync(${JSON.stringify(finished)},"done"),30000)`
+      const program = `const fs=require("node:fs");fs.appendFileSync("started-count","x"+String.fromCharCode(10));fs.writeFileSync("command-pid",String(process.pid));setInterval(()=>fs.writeFileSync("heartbeat",String(Date.now())),100);setTimeout(()=>fs.writeFileSync("finished","done"),30000)`
       const command = `/usr/bin/node -e ${JSON.stringify(program)}`
       const run = await host.call('submit', runSchema, { sessionId: session.sessionId, command })
       await until(async () => {
