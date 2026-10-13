@@ -125,12 +125,14 @@ async function fixture() {
     })
     return { facade, endpoint }
   }
-  return { root, storage, session, coordinator, relay, driver, artifact, make, activate, expose, notifications, storageCalls: () => storageCalls, toolPeak: () => physicalToolPeak }
+  return { root, storage, session, coordinator, relay, driver, driverArtifact, artifact, make, activate, expose, notifications, storageCalls: () => storageCalls, toolPeak: () => physicalToolPeak }
 }
 
 test('the real Kernel candidate has no storage or recovery effects, and activated execution commits through owned IPC and a separate Pi process', async () => {
   const f = await fixture()
   const { kernel, peer } = await f.make()
+  expect(f.driverArtifact.inputs).toContain('plugins/pi-driver/src/index.ts')
+  expect(f.driverArtifact.inputs).toContain('plugins/pi-driver/src/provider-stream-diagnostics.ts')
   expect(f.artifact.inputs).toContain('packages/kernel/src/index.ts')
   expect(f.artifact.inputs.filter(input => input.startsWith('plugins/pi-driver/'))).toEqual([])
   expect(f.artifact.files.some(file => file.name.endsWith('.node'))).toBe(true)
