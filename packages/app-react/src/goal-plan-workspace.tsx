@@ -1,3 +1,4 @@
+import './theme-bridge'
 import { useCallback, useEffect } from 'react'
 import { ListTodo, RefreshCw } from 'lucide-react'
 import {

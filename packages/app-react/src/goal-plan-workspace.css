@@ -24,7 +24,7 @@
   gap: var(--lumen-space-4);
 }
 
-.hbar-app-react-goal-plan-workspace [data-lumen-part~="tool-pane.body"] > main {
+.hbar-app-react-goal-plan-workspace [data-lumen-part~='tool-pane.body'] > main {
   display: flex;
   min-inline-size: 0;
   flex: 0 0 auto;
@@ -55,7 +55,7 @@
   border: 0;
 }
 
-.hbar-app-react-plan-editor-view > [data-lumen-part~="plan-editor"] {
+.hbar-app-react-plan-editor-view > [data-lumen-part~='plan-editor'] {
   flex: 0 0 auto;
 }
 
@@ -125,16 +125,16 @@
   text-align: center;
 }
 
-.hbar-app-react-plan-summary strong {
+.hbar-app-react-plan-summary li > [data-text-context='record.title'] {
   min-inline-size: 0;
   flex: 1 1 auto;
   overflow-wrap: anywhere;
   font-size: var(--hbar-session-pane-body-size);
-  font-weight: 550;
+  font-weight: 450;
   line-height: 1.5;
 }
 
-.hbar-app-react-goal-objective {
+.hbar-app-react-goal-plan-workspace .hbar-app-react-goal-objective[data-text-context='section.description'] {
   font-size: var(--hbar-session-pane-body-size);
   font-weight: 450;
   line-height: 1.5;
