@@ -152,6 +152,6 @@ test('maintained Bun test entries retain native and quality gates with the hbar 
   )
   expect(manifest.scripts['test:lumen']).toBe('vitest run --config vitest.lumen.config.ts')
   expect(manifest.scripts.check).toBe(
-    'bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen',
+    'bun run lint && bun run typecheck && bun run check:sandbox-evaluator && bun run check:theme-tokens && bun run test && bun run test:lumen',
   )
 })
