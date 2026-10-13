@@ -137,8 +137,12 @@ test('disabled local execution preserves workspace files and rejects terminal an
     const mounts = new WorkspaceSandboxService(storage, mountCache, LOCAL_EXECUTION_DISABLED)
     const terminals = new SystemTerminalManager(LOCAL_EXECUTION_DISABLED)
     try {
-      await expect(mounts.prepare('workspace', root, signal)).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
-      await expect(launch.branchTargetGit(root, ['status'], signal)).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+      await expect(mounts.prepare('workspace', root, signal)).rejects.toMatchObject({
+        code: 'LOCAL_EXECUTION_DISABLED',
+      })
+      await expect(launch.branchTargetGit(root, ['status'], signal)).rejects.toMatchObject({
+        code: 'LOCAL_EXECUTION_DISABLED',
+      })
       let terminalFailure: unknown
       try {
         terminals.open('operator', 'workspace', root, 80, 24, { onOutput: () => {}, onExit: () => {} })
@@ -177,6 +181,8 @@ test('workspace Skills and local Agent patch operations refuse remote roots, inc
 
 test('persisted node ownership prevents A mounts, local folder changes and worktree preparation before any local intent', async () => {
   await fixture(async (root) => {
+    const sentinel = join(root, 'remote-guard-sentinel.txt')
+    await writeFile(sentinel, 'unchanged')
     const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
     await ensurePathLayout(layout)
     const storage = new Storage(layout.database, layout)
@@ -207,13 +213,31 @@ test('persisted node ownership prevents A mounts, local folder changes and workt
       )
       const workspace = await storage.call('createNodeWorkspace', { nodeId: node.nodeId, rootId: 'engine' })
       const session = await storage.call('createSession', workspace.id, 'Remote')
-      await denied(() => mounts.prepare(workspace.id, workspace.path, signal))
+      // Preparing the persisted, exact Node-owned locator is a metadata pass-through;
+      // it must not create an A-side mount or inspect the remote filesystem.
+      expect(await mounts.prepare(workspace.id, workspace.path, signal)).toBe(workspace.path)
+      let wrongRootError: unknown
+      try {
+        await mounts.prepare(workspace.id, nodeWorkspaceLocator(node.nodeId, 'another-root'), signal)
+      } catch (error) {
+        wrongRootError = error
+      }
+      expect(wrongRootError).toMatchObject({ code: 'WORKSPACE_NODE_MISMATCH' })
       await denied(() => mounts.prepare(workspace.id, root, signal))
-      await denied(() => mounts.grantPaths(workspace.path, '.'))
+      await expect(Promise.resolve().then(() => mounts.grantPaths(workspace.path, '.'))).rejects.toMatchObject({
+        code: 'WORKSPACE_CANONICALIZATION_UNAVAILABLE',
+      })
       const folders = new WorkspaceFolderService(storage, [])
       await denied(() => folders.browse({ path: workspace.path }, signal))
-      await denied(() =>
-        folders.apply(
+      await expect(
+        folders.canonicalFolders(
+          [{ id: 'other', alias: 'other', path: nodeWorkspaceLocator(node.nodeId, 'engine') }],
+          signal,
+        ),
+      ).rejects.toMatchObject({ code: 'NODE_LINK_UNAVAILABLE' })
+      let localFolderError: unknown
+      try {
+        await folders.apply(
           'actor',
           'remote-mount',
           {
@@ -225,8 +249,11 @@ test('persisted node ownership prevents A mounts, local folder changes and workt
             },
           },
           signal,
-        ),
-      )
+        )
+      } catch (error) {
+        localFolderError = error
+      }
+      expect(localFolderError).toMatchObject({ code: 'WORKSPACE_NODE_MISMATCH' })
       const directory = await folders.browse({ path: root }, signal)
       expect(directory.roots.some((item) => item.path === workspace.path)).toBe(false)
       await denied(() => launch.checkoutRootForWorkspace(workspace.path, signal))
@@ -243,6 +270,7 @@ test('persisted node ownership prevents A mounts, local folder changes and workt
       expect((await storage.call('sessionLaunchTargetRuntime', session.id)).resolution).toBeNull()
       expect((await storage.call('workspaceFolders', workspace.id)).revision).toBe(0)
       expect(await Bun.file(join(root, 'mounts')).exists()).toBe(false)
+      expect(await readFile(sentinel, 'utf8')).toBe('unchanged')
       const kernel = await Kernel.create({
         layout: createPathLayout(
           join(root, 'kernel-data'),
