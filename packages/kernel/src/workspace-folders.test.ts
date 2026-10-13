@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Storage } from '@hbar/storage'
+import { Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { inputSchema } from '@hbar/contracts'
 import { workspaceFoldersSchema, type WorkspaceFolderMutation } from '@hbar/contracts/commands/workspace-folders'
 import { WorkspaceFolderService } from './workspace-folders'
@@ -99,7 +99,7 @@ test('multiple roots persist, retain aliases/order, use CAS and receipts, and re
     await storage.close()
     const reopened = new Storage(join(base, 'state.sqlite'))
     try {
-      expect((await reopened.call('ready')).version).toBe(20)
+      expect((await reopened.call('ready')).version).toBe(STORAGE_SCHEMA_VERSION)
       expect((await reopened.call('workspaceFolders', result.workspace.id)).revision).toBe(3)
     } finally {
       await reopened.close()
@@ -108,6 +108,30 @@ test('multiple roots persist, retain aliases/order, use CAS and receipts, and re
     await storage.close()
     await rm(base, { recursive: true, force: true })
   }
+})
+
+test('remote folder declarations require exact same-node locators and bypass A filesystem canonicalization', async () => {
+  let verifiedNode = ''
+  const service = new WorkspaceFolderService({} as Storage, [], undefined, async (nodeId, folders) => {
+    verifiedNode = nodeId
+    return folders
+  })
+  const signal = new AbortController().signal
+  const roots = [
+    { id: 'primary', alias: 'src', path: 'hbar-node://builder/engine' },
+    { id: 'docs', alias: 'docs', path: 'hbar-node://builder/docs' },
+  ]
+  expect(await service.canonicalFolders(roots, signal)).toEqual(roots)
+  expect(verifiedNode).toBe('builder')
+  await expect(
+    service.canonicalFolders([roots[0]!, { id: 'other', alias: 'other', path: 'hbar-node://different/docs' }], signal),
+  ).rejects.toMatchObject({ code: 'WORKSPACE_NODE_MISMATCH' })
+  await expect(
+    service.canonicalFolders(
+      [roots[0]!, { id: 'suffix', alias: 'suffix', path: 'hbar-node://builder/docs/sub' }],
+      signal,
+    ),
+  ).rejects.toMatchObject({ code: 'INVALID_WORKSPACE' })
 })
 
 test('directory browser is paginated and read-only; unavailable, duplicate, private and cancelled inputs fail explicitly', async () => {

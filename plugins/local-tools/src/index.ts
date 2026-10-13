@@ -1,11 +1,14 @@
 import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'node:fs/promises'
-import { resolve, relative, dirname, isAbsolute, join, basename, posix } from 'node:path'
+import { resolve, relative, dirname, join, basename, posix } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { definePlugin, provide, resolveToolTimeoutMs } from '@hbar/plugin-sdk'
 import type { ExecOptions, ExecutionProvider, ToolResult, WorkspaceQueryProvider } from '@hbar/plugin-sdk'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
-import { HbarError } from '@hbar/contracts'
+import { assertLocalExecutionAllowed, HbarError, LOCAL_EXECUTION_ENABLED } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import { isPathWithin } from '@hbar/contracts/path-containment'
 import {
   workspaceFindInputSchema,
   workspaceFindToolInputSchema,
@@ -29,6 +32,13 @@ export { mountedPath } from './workspace-mounts'
 // ---------------------------------------------------------------------------
 interface SandboxAddon {
   isAvailable(): boolean
+  probeConfinement(): {
+    available: boolean
+    filesystem: boolean
+    network: boolean
+    processTree: boolean
+    reason?: string
+  }
   spawnSandboxed(profile: Record<string, unknown>, argv: string[], cwd: string): Promise<SandboxedProcess>
 }
 interface SandboxedProcess {
@@ -42,12 +52,13 @@ function loadSandboxAddon(): SandboxAddon | null {
       mod !== null &&
       typeof mod === 'object' &&
       typeof (mod as Record<string, unknown>).isAvailable === 'function' &&
+      typeof (mod as Record<string, unknown>).probeConfinement === 'function' &&
       typeof (mod as Record<string, unknown>).spawnSandboxed === 'function'
     ) {
       return mod as SandboxAddon
     }
   } catch {
-    // Not available; fall back to plain Bun.spawn.
+    // Confined requests fail closed below when the native capability API is unavailable.
   }
   return null
 }
@@ -62,12 +73,11 @@ export interface VerifiedManagedWorkspaceAccess {
   verify: (canonicalWorkspace: string) => boolean | Promise<boolean>
 }
 
-function inside(root: string, candidate: string): boolean {
-  const rel = relative(root, candidate)
-  return (
-    rel === '' ||
-    (rel !== '..' && !rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !isAbsolute(rel))
-  )
+function inside(root: string, candidate: string, protectedPath = false): boolean {
+  return isPathWithin(resolve(root), resolve(candidate), {
+    separator: process.platform === 'win32' ? '\\' : '/',
+    caseInsensitive: protectedPath,
+  })
 }
 
 async function effectiveBlockedPaths(
@@ -166,6 +176,7 @@ export async function workspacePath(
   writing = false,
   blocked: string[] = [],
 ): Promise<string> {
+  assertLocalWorkspace(workspace)
   const root = await realpath(workspace)
   const path = resolve(root, requested)
   if (!inside(root, path)) throw new HbarError('PATH_DENIED', 'Path is outside the workspace')
@@ -187,9 +198,7 @@ export async function workspacePath(
   }
   if (!inside(root, actual!)) throw new HbarError('PATH_DENIED', 'Symlink resolves outside the workspace')
   for (const protectedPath of blocked) {
-    const relation = relative(protectedPath, actual!)
-    if (!relation || (!relation.startsWith('..') && !isAbsolute(relation)))
-      throw new HbarError('PATH_DENIED', 'Host runtime data is protected')
+    if (inside(protectedPath, actual!, true)) throw new HbarError('PATH_DENIED', 'Host runtime data is protected')
   }
   return path
 }
@@ -202,22 +211,55 @@ export class LocalExecution implements ExecutionProvider {
     private blocked: string[] = [],
     private readonly managedWorkspace?: VerifiedManagedWorkspaceAccess,
     private readonly mounts?: WorkspaceMountAccess,
+    private readonly additionalBlocked?: { get(workspace: string): readonly string[] },
+    private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
   ) {
-    const query = new WorkspaceQueryRuntime(
+    const queryRuntime = new WorkspaceQueryRuntime(
       blocked,
       (workspace, path) => this.workspacePath(workspace, path, false),
       {},
       (workspace) => this.blockedForWorkspace(workspace),
       (workspace, path) => this.workspacePath(workspace, path, true),
     )
-    this.workspaceQuery = mounts ? mountedWorkspaceQuery(query, mounts) : query
+    const query = mounts ? mountedWorkspaceQuery(queryRuntime, mounts) : queryRuntime
+    const executionPolicy = this.localExecutionPolicy
+    const guardedQuery: WorkspaceQueryProvider = {
+      async search(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace search')
+        return query.search(...args)
+      },
+      async find(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace file search')
+        return query.find(...args)
+      },
+      async readRange(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace range read')
+        return query.readRange(...args)
+      },
+      async invalidate(...args) {
+        assertLocalExecutionAllowed(executionPolicy, 'Local workspace query invalidation')
+        return query.invalidate(...args)
+      },
+      dispose: () => query.dispose(),
+    }
+    this.workspaceQuery = guardedQuery
+  }
+
+  private assertLocalExecution(operation: string): void {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, operation)
   }
 
   private async blockedForWorkspace(workspace: string) {
-    return effectiveBlockedPaths(workspace, this.blocked, this.managedWorkspace)
+    assertLocalWorkspace(workspace)
+    return effectiveBlockedPaths(
+      workspace,
+      [...this.blocked, ...(this.additionalBlocked?.get(workspace) ?? [])],
+      this.managedWorkspace,
+    )
   }
 
   private async workspacePath(workspace: string, requested: string, writing = false) {
+    assertLocalWorkspace(workspace)
     const mount = this.mounts?.get(workspace)
     if (mount) {
       await this.mounts?.verify(mount)
@@ -228,6 +270,8 @@ export class LocalExecution implements ExecutionProvider {
   }
 
   async list(workspace: string, requested: string): Promise<Awaited<ReturnType<ExecutionProvider['list']>>> {
+    this.assertLocalExecution('Local workspace directory listing')
+    assertLocalWorkspace(workspace)
     const mount = this.mounts?.get(workspace)
     if (mount) {
       await this.mounts?.verify(mount)
@@ -248,6 +292,7 @@ export class LocalExecution implements ExecutionProvider {
       .sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name))
   }
   async resolveDirectory(workspace: string, requested: string) {
+    this.assertLocalExecution('Local workspace directory resolution')
     const path = await this.workspacePath(workspace, requested)
     if (!(await stat(path)).isDirectory()) throw new HbarError('INVALID_WORKSPACE', 'Working directory is unavailable')
     return path
@@ -256,6 +301,7 @@ export class LocalExecution implements ExecutionProvider {
     return decodeUtf8(await this.readBytes(workspace, requested))
   }
   async readBytes(workspace: string, requested: string) {
+    this.assertLocalExecution('Local workspace file read')
     const path = await this.workspacePath(workspace, requested)
     const info = await stat(path)
     if (!info.isFile() || info.size > 2 * 1024 * 1024)
@@ -263,6 +309,7 @@ export class LocalExecution implements ExecutionProvider {
     return readFile(path)
   }
   async write(workspace: string, requested: string, text: string, options?: { expectedRevision?: string }) {
+    this.assertLocalExecution('Local workspace file write')
     const path = await this.workspacePath(workspace, requested, true)
     return this.fileMutations.run([path], () => this.writeUnlocked(workspace, requested, text, options))
   }
@@ -305,6 +352,8 @@ export class LocalExecution implements ExecutionProvider {
     return { before, after: text, path: recordedPath, revision: revision(text), created }
   }
   async restoreFiles(workspace: string, changes: readonly ToolFileChange[], signal: AbortSignal): Promise<void> {
+    this.assertLocalExecution('Local workspace file restore')
+    assertLocalWorkspace(workspace)
     const paths = await Promise.all(changes.map((file) => this.workspacePath(workspace, file.path, true)))
     await this.fileMutations.run(paths, () =>
       restoreFileVersions(
@@ -332,7 +381,15 @@ export class LocalExecution implements ExecutionProvider {
     )
   }
   async exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
+    this.assertLocalExecution('Local workspace process execution')
     signal.throwIfAborted()
+    assertLocalWorkspace(workspace)
+    if (options?.osConfinement && process.platform !== 'win32')
+      return {
+        text: '[hbar] No OS-level sandbox backend is available on this platform; the command was not run.',
+        isError: true,
+        details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
+      }
     const timeoutMs = resolveToolTimeoutMs({ timeoutMs: options?.timeoutMs ?? 120_000 })
     const workingDirectory = await this.workspacePath(workspace, '.')
     const env: Record<string, string> = {}
@@ -379,7 +436,8 @@ export class LocalExecution implements ExecutionProvider {
           ]
         : ['/bin/sh', '-c', command]
 
-    // Route through the OS-level sandbox addon when confinement is requested.
+    // Keep the legacy adapter fail-closed until it consumes process output,
+    // cancellation, and protected paths through the full native lifecycle.
     if (options?.osConfinement && process.platform === 'win32') {
       if (!sandboxAddon) {
         // Addon missing (not built yet or build skipped). Fail loudly so the user
@@ -387,31 +445,40 @@ export class LocalExecution implements ExecutionProvider {
         return {
           text: '[hbar] OS-level sandbox addon (hbar_sandbox_win.node) is not available; the command was not run.',
           isError: true,
-          details: { code: null, truncated: false },
+          details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
         }
       }
-      const { osConfinement } = options
-      const profile = {
-        workspaceRoot: workingDirectory,
-        writableRoots: osConfinement.writableRoots,
-        readableRoots: osConfinement.readableRoots,
-        networkEnabled: osConfinement.networkEnabled,
-        envOverrides: { ...osConfinement.envOverrides },
-        level: osConfinement.level === 'elevated' ? 'Elevated' : 'Unelevated',
-      }
       try {
-        // spawnSandboxed currently returns a stub error (not yet implemented).
-        // When the vendor unelevated path lands, this will return stdout/stderr via
-        // channels managed by the Rust-side Tokio runtime.
-        await sandboxAddon.spawnSandboxed(profile, argv, workingDirectory)
-        // Unreachable until the vendor implementation lands.
-        return { text: '', isError: false, details: { code: 0, truncated: false } }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const capabilities = sandboxAddon.probeConfinement()
+        const backendReady =
+          sandboxAddon.isAvailable() &&
+          capabilities.available &&
+          capabilities.filesystem &&
+          capabilities.network &&
+          capabilities.processTree
+        const reason = backendReady
+          ? 'The native confinement probe passed, but the LocalExecution lifecycle adapter is not implemented; the command was not run.'
+          : `The native Windows confinement capability probe failed${capabilities.reason ? `: ${capabilities.reason}` : '.'} The command was not run.`
         return {
-          text: `[hbar] Sandboxed execution failed: ${message}`,
+          text: `[hbar] ${reason}`,
           isError: true,
-          details: { code: null, truncated: false },
+          details: {
+            code: 'SANDBOX_BACKEND_UNAVAILABLE',
+            executionStarted: false,
+            truncated: false,
+            capabilities: {
+              filesystem: capabilities.filesystem,
+              network: capabilities.network,
+              processTree: capabilities.processTree,
+            },
+          },
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        return {
+          text: `[hbar] Native Windows confinement capability check failed: ${reason}; the command was not run.`,
+          isError: true,
+          details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
         }
       }
     }
@@ -532,6 +599,7 @@ export function localExecutionPlugin(
   blocked: string[] = [],
   managedWorkspace?: VerifiedManagedWorkspaceAccess,
   mounts?: WorkspaceMountAccess,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
 ) {
   return definePlugin({
     manifest: {
@@ -546,7 +614,7 @@ export function localExecutionPlugin(
       permissions: ['fs', 'process'],
     },
     apply(ctx) {
-      const execution = new LocalExecution(blocked, managedWorkspace, mounts)
+      const execution = new LocalExecution(blocked, managedWorkspace, mounts, undefined, localExecutionPolicy)
       ctx.effect(() => () => execution.dispose())
       provide(ctx, 'execution', execution)
       provide<WorkspaceDirectoryService>(ctx, 'workspace-directories', {
@@ -781,6 +849,8 @@ export default definePlugin({
         execution.exec(c.workspace.path, args.command as string, c.signal, {
           environment: c.environment,
           timeoutMs: c.timeoutMs ?? 120_000,
+          osConfinement: c.osConfinement,
+          nodeAuthority: c.nodeAuthority,
         }),
     })
   },

@@ -1,12 +1,16 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
-import { HbarError } from '@hbar/contracts'
+import { createLocalExecutionPolicy, HbarError } from '@hbar/contracts'
 import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import type { WorkspaceSessionCommandKernelPort } from './controller-port'
 import { registerWorkspaceOrganizationCommands } from './workspace-organization-commands'
 import { registerWorkspaceDisplayNamesCommands } from './workspace-display-names-commands'
 import { registerWorkspaceFolderCommands } from './workspace-folders'
 
-export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKernelPort) {
+type WorkspaceSessionCommandKernelWithPolicy = Omit<WorkspaceSessionCommandKernelPort, 'options'> & {
+  readonly options: WorkspaceSessionCommandKernelPort['options'] & { readonly noLocalExec?: boolean | undefined }
+}
+
+export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKernelWithPolicy) {
   const registry = new CommandRegistry({ execution: 'host' })
   registerWorkspaceFolderCommands(
     registry,
@@ -16,6 +20,8 @@ export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKe
       kernel.changed('workspace-folders')
       kernel.changed('workspaces')
     },
+    createLocalExecutionPolicy(kernel.options.noLocalExec),
+    kernel.options.nodeWorkspaceInspection?.verifyWorkspaceFolders,
   )
   registerWorkspaceOrganizationCommands(registry, kernel.storage, () => kernel.changed('workspace-organization'))
   registerWorkspaceDisplayNamesCommands(registry, kernel.storage, () => kernel.changed('workspace-display-names'))
@@ -29,7 +35,15 @@ export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKe
   }
   registry.register(
     workspaceSessionCommands['workspace.create'],
-    ({ path }) => translate(() => kernel.createWorkspace(path)),
+    (input) => {
+      const path = input.path
+      if (typeof path !== 'string')
+        throw new CommandError(
+          'NODE_LINK_UNAVAILABLE',
+          'Remote workspace creation must be handled by Host node management',
+        )
+      return translate(() => kernel.createWorkspace(path))
+    },
     { durable: true },
   )
   registry.register(

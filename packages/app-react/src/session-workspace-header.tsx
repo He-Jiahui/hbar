@@ -1,8 +1,9 @@
-import { FolderOpen, ListChecks, Search, Settings, type LucideIcon } from 'lucide-react'
+import { FolderOpen, ListChecks, Search, Settings, TerminalSquare, type LucideIcon } from 'lucide-react'
 import { LumenContentText, LumenFrame, LumenButton, LumenIcon, LumenPageHeader } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeSelector, useHbarRuntimeState } from './runtime'
 import { currentSessionRun } from './session-run-activity'
 import { HbarSessionExecutionStatus } from './session-execution-status'
+import { HbarWorkspaceNodeBadge } from './workspace-location-picker'
 
 import './lumen-session-workspace.css'
 import { useHbarMobileHeaderMenuSection, type HbarMobileHeaderMenuItem } from './mobile-header-menu'
@@ -41,8 +42,10 @@ import { useSessionHeaderMessages } from './session-workspace-messages'
 export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
   sessionTitle,
   workspaceName,
+  workspaceNodeBadge,
   connected,
   showFilesInHeader = true,
+  onOpenSystemTerminal,
   find,
   toolActions,
 }: SessionWorkspaceHeaderProps) {
@@ -120,6 +123,18 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
       disabled: !sessionId,
       onActivate: openSettings,
     },
+    ...(onOpenSystemTerminal
+      ? [
+          {
+            id: 'system-terminal',
+            order: 7,
+            label: t('tools').systemTerminal,
+            icon: TerminalSquare,
+            disabled: !connected,
+            onActivate: onOpenSystemTerminal,
+          } satisfies HbarMobileHeaderMenuItem,
+        ]
+      : []),
   ]
   useHbarMobileHeaderMenuSection(
     sessionId ? { id: 'session-tools', order: 2, label: t('tools').label, items: mobileSessionToolItems } : null,
@@ -176,9 +191,25 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
               disabled={!sessionId}
               onClick={openSettings}
             />
+            {onOpenSystemTerminal ? (
+              <SessionToolButton
+                icon={TerminalSquare}
+                label={t('tools').systemTerminal}
+                disabled={!connected}
+                onClick={onOpenSystemTerminal}
+              />
+            ) : null}
           </>
         }
       />
+      {workspaceNodeBadge ? (
+        <LumenFrame
+          className="hbar-app-react-session-workspace-node"
+          aria-label={workspaceNodeBadge.labels.remoteWorkspace(workspaceNodeBadge.nodeName)}
+        >
+          <HbarWorkspaceNodeBadge labels={workspaceNodeBadge.labels} nodeName={workspaceNodeBadge.nodeName} />
+        </LumenFrame>
+      ) : null}
       {connected &&
         toolFailure?.sessionId === sessionId &&
         toolFailure.workspaceId === navigation.workspaceId &&

@@ -5,6 +5,8 @@ import { join, resolve } from 'node:path'
 import { buildStandaloneCli } from '../scripts/build-cli'
 import { runtimeSnapshotSchema } from '@hbar/contracts/runtime'
 import { z } from 'zod'
+import { nodeInviteSchema } from '@hbar/contracts/node-registry'
+import { nodeListPageSchema } from '@hbar/contracts/node-management'
 
 interface JsonLine {
   type?: string
@@ -313,8 +315,15 @@ test.skipIf(process.platform !== 'win32')(
       const runtime = runtimeSnapshotSchema.parse(JSON.parse(runtimeResult.stdout))
       const managedPids = runtime.units.flatMap(unit => unit.generations.map(generation => generation.pid)).filter(pid => pid !== null)
       expect(runtime.ready).toBe(true)
-      expect(managedPids).toHaveLength(14)
+      expect(managedPids).toHaveLength(runtime.units.length)
+      expect(runtime.units.find(unit => unit.descriptor.id === 'node-link')?.generations.some(generation => generation.phase === 'serving')).toBe(true)
       expect(runtime.units.some(unit => unit.descriptor.id === 'maintenance')).toBe(true)
+      const nodeInvitation = await runCommand([...common, 'exec', 'node.invite', '--name', 'compiled-box'], workspace)
+      expect(nodeInvitation.code, nodeInvitation.stderr).toBe(0)
+      expect(nodeInviteSchema.parse(JSON.parse(nodeInvitation.stdout)).name).toBe('compiled-box')
+      const nodeList = await runCommand([...common, 'exec', 'node.list', '--limit', '1'], workspace)
+      expect(nodeList.code, nodeList.stderr).toBe(0)
+      expect(nodeListPageSchema.parse(JSON.parse(nodeList.stdout)).items).toEqual([])
       const connection = JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as {
         pid: number
       }

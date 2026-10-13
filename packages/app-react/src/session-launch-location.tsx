@@ -495,6 +495,9 @@ function SessionLaunchLocationContent(props: HbarSessionLaunchLocationProps) {
         branchCreation={currentBranchCreation}
         branchCreationAvailable={props.connected && launchDrafts.available}
         workspaceChangeAvailable={props.connected && workspaceMoves.available && !disabled && !moveCommandPending}
+        sharedBranchAvailable={
+          !workspaceChoices.find((workspace) => workspace.id === props.workspaceId)?.detail.startsWith('hbar-node:')
+        }
         loading={opening || branches.status === 'loading' || directoryLoading}
         error={branches.workspaceId === props.workspaceId && branches.search === branchSearch ? branches.error : null}
         disabled={disabled || moveCommandPending}

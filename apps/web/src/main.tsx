@@ -13,6 +13,7 @@ import { resolveShellLocale } from './shell-copy'
 import { applyWebTheme, readThemeBootstrap, resolveWebTheme } from './theme'
 import './document.css'
 import './workbench-design.css'
+import { NodeConsoleApp } from './NodeConsoleApp'
 
 const language = createWebLanguageController(resolveShellLocale(navigator.languages), {
   getItem: (key) => window.localStorage.getItem(key),
@@ -64,17 +65,22 @@ const fixtureModule =
     : null
 const fixtureRoute = fixtureModule?.referenceFixtureRouteFromLocation()
 const ReferenceFixtureRoute = fixtureModule?.default
+const nodeConsoleRoute = window.location.pathname.replace(/\/$/, '') === '/node-console'
 createRoot(root).render(
-  <StrictMode>
-    {fixtureRoute && ReferenceFixtureRoute ? (
-      <ReferenceFixtureRoute {...fixtureRoute} />
-    ) : (
-      <LanguageApp
-        language={language}
-        zoom={zoom}
-        nativeConnection={nativeConnection ?? undefined}
-        nativeWindow={nativeWindow ?? undefined}
-      />
-    )}
-  </StrictMode>,
+  nodeConsoleRoute ? (
+    <NodeConsoleApp locale={language.store.getState().locale} />
+  ) : (
+    <StrictMode>
+      {fixtureRoute && ReferenceFixtureRoute ? (
+        <ReferenceFixtureRoute {...fixtureRoute} />
+      ) : (
+        <LanguageApp
+          language={language}
+          zoom={zoom}
+          nativeConnection={nativeConnection ?? undefined}
+          nativeWindow={nativeWindow ?? undefined}
+        />
+      )}
+    </StrictMode>
+  ),
 )

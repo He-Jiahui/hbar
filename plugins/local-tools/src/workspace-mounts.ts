@@ -1,5 +1,6 @@
 import { isAbsolute } from 'node:path'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type { WorkspaceQueryProvider } from '@hbar/plugin-sdk'
 import type {
   ParsedWorkspaceFindInput,
@@ -18,6 +19,8 @@ export interface WorkspaceMountAccess {
   verify(mount: WorkspaceMount, signal?: AbortSignal): Promise<void>
 }
 export function mountedPath(mount: WorkspaceMount, requested: string) {
+  assertLocalWorkspace(mount.root)
+  for (const folder of mount.folders) assertLocalWorkspace(folder.path)
   const clean = requested.replaceAll('\\', '/')
   if (isAbsolute(requested) || /^[a-z]:/i.test(clean) || clean.startsWith('/') || clean.split('/').includes('..'))
     throw new HbarError('PATH_DENIED', 'Virtual workspace paths must remain inside their mounted folder')
@@ -51,6 +54,7 @@ export function mountedWorkspaceQuery(
   }
   return {
     async find(workspace, input, signal) {
+      assertLocalWorkspace(workspace)
       const mount = access.get(workspace)
       if (!mount) return inner.find(workspace, input, signal)
       await access.verify(mount, signal)
@@ -79,6 +83,7 @@ export function mountedWorkspaceQuery(
       return { paths, filesChecked, truncated }
     },
     async search(workspace, input, signal) {
+      assertLocalWorkspace(workspace)
       const mount = access.get(workspace)
       if (!mount) return inner.search(workspace, input, signal)
       await access.verify(mount, signal)
@@ -180,6 +185,7 @@ export function mountedWorkspaceQuery(
       return combined
     },
     async readRange(workspace, path, startLine, lineCount, signal) {
+      assertLocalWorkspace(workspace)
       const mount = access.get(workspace)
       if (!mount) return inner.readRange(workspace, path, startLine, lineCount, signal)
       await access.verify(mount, signal)
@@ -187,6 +193,7 @@ export function mountedWorkspaceQuery(
       return inner.readRange(target.folder.path, target.path, startLine, lineCount, signal)
     },
     async invalidate(workspace, path) {
+      assertLocalWorkspace(workspace)
       const mount = access.get(workspace)
       if (!mount) return inner.invalidate(workspace, path)
       const target = mountedPath(mount, path)

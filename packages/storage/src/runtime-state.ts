@@ -45,10 +45,12 @@ export const runtimeRecoveryRecordSchema = z.strictObject({
 })
 export type RuntimeRecoveryRecord = z.infer<typeof runtimeRecoveryRecordSchema>
 export interface RuntimeRecoveryScope {
-  readonly runIds: readonly string[]
+  readonly runIds?: readonly string[]
   readonly preserveQueued?: boolean
   readonly preserveApprovals?: boolean
   readonly reconcileInterrupted?: boolean
+  /** Keep precisely bound process executions pending for a Node receipt reconciler. Defaults to false. */
+  readonly deferNodeExecutions?: boolean
 }
 export interface RuntimeStatePort {
   run(id: string): Run

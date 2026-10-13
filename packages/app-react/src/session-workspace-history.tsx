@@ -283,6 +283,7 @@ export function SessionWorkspaceHistory(props: SessionWorkspaceHistoryProps) {
         copyOwner={runtime}
         key={`${decision.kind}:${decision.id}`}
         decision={decision}
+        executionTarget={decision.kind === 'approval' ? decision.approval.executionTarget : undefined}
         action={sessionDecisionAction(decision, interactions)}
         answers={
           decision.kind === 'questionnaire' && decision.requestId
@@ -442,10 +443,16 @@ export function SessionWorkspaceHistory(props: SessionWorkspaceHistoryProps) {
               },
             }
           : undefined
+      const toolOutputs = Object.fromEntries(
+        Object.values(timeline.toolOutputs)
+          .filter((output) => output.runId === message.runId)
+          .map((output) => [output.callId, output]),
+      )
       const body =
         proposal?.target.messageId === message.id && proposal.target.sessionId === message.sessionId ? (
           <HbarProposedPlanMessage
             toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
+            toolOutputs={toolOutputs}
             fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
@@ -483,6 +490,7 @@ export function SessionWorkspaceHistory(props: SessionWorkspaceHistoryProps) {
           <HbarHistoricalPlanMessage
             activityDisplay={groupedMessageIds.has(message.id) ? 'rows' : 'auto'}
             toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
+            toolOutputs={toolOutputs}
             fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
@@ -500,6 +508,7 @@ export function SessionWorkspaceHistory(props: SessionWorkspaceHistoryProps) {
           <HbarMessageBlocks
             activityDisplay={groupedMessageIds.has(message.id) ? 'rows' : 'auto'}
             toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
+            toolOutputs={toolOutputs}
             fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}

@@ -11,6 +11,7 @@ import { toolFeedbackLabels } from './session-tool-feedback-copy'
 import { contextHistoryCopy } from './context-history-copy'
 import { runFileChangesCopy } from './run-file-changes-copy'
 import { sessionObservabilityCopy } from './session-observability-copy'
+import { nodeManagementSettingsCopy } from './node-management-settings-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarMessageActivityPart,
@@ -31,6 +32,7 @@ import type {
   HbarSystemDiagnosticsLabels,
   HbarWorkspaceShellLabels,
   SessionArchiveBatchLabels,
+  NodeManagementSettingsLabels,
 } from '@hbar/app-react'
 import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import type { PlanProposalRequestText } from '@hbar/app-runtime'
@@ -119,6 +121,7 @@ interface ShellCopy {
   readonly diagnostics: HbarSystemDiagnosticsLabels
   readonly settingsUsage: HbarSettingsUsageLabels
   readonly sandbox: HbarSandboxProfileSettingsLabels
+  readonly nodes: NodeManagementSettingsLabels
 }
 
 function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabels {
@@ -1362,6 +1365,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         retry: choose('重试复制', 'Retry copy'),
       },
       emptyOutput: choose('无输出', 'No output'),
+      liveOutputReset: (reason) =>
+        choose(
+          reason === 'limited'
+            ? '实时输出已达到上限，最终工具结果将提供完整结果。'
+            : '实时输出已重置，最终工具结果仍可恢复。',
+          reason === 'limited'
+            ? 'Live output reached its limit; the settled tool result contains the final output.'
+            : 'Live output restarted; the settled tool result remains available.',
+        ),
       unavailableInput: choose('参数不可显示', 'Input unavailable'),
       showFullContent: choose('展开完整内容', 'Show full content'),
       showLessContent: choose('收起内容', 'Show less'),
@@ -2085,6 +2097,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
                 `${number.format(count)} other session ${count === 1 ? 'notice' : 'notices'}. View details`,
               ),
       },
+      systemTerminal: choose('打开系统终端', 'Open system terminal'),
       error: (code) =>
         code === 'BUSY'
           ? choose(
@@ -3945,6 +3958,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     status: createStatusWorkspaceLabels('zh-CN'),
     diagnostics: createSystemDiagnosticsLabels('zh-CN'),
     sandbox: createSandboxLabels('zh-CN'),
+    nodes: nodeManagementSettingsCopy('zh-CN'),
     settingsUsage: settingsUsageCopy('zh-CN'),
   },
   'en-US': {
@@ -4102,6 +4116,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     status: createStatusWorkspaceLabels('en-US'),
     diagnostics: createSystemDiagnosticsLabels('en-US'),
     sandbox: createSandboxLabels('en-US'),
+    nodes: nodeManagementSettingsCopy('en-US'),
     settingsUsage: settingsUsageCopy('en-US'),
   },
 }

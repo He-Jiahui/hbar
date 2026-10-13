@@ -1,7 +1,26 @@
 import { join, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { HbarError, providerSchema, diagnosticEventSchema, type DiagnosticSink, type WireNotification } from '@hbar/contracts'
-import { runtimeWireNotificationBatchSchema, runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
+import {
+  HbarError,
+  providerSchema,
+  diagnosticEventSchema,
+  type DiagnosticSink,
+  type WireNotification,
+} from '@hbar/contracts'
+import {
+  runtimeWireNotificationBatchSchema,
+  runtimeWireNotificationSchema,
+} from '@hbar/contracts/runtime-notifications'
+import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
+import { nodeWorkspaceMountManifestSchema } from '@hbar/contracts/node-workspace-mount-plan'
+import { workspaceFoldersSchema } from '@hbar/contracts/commands/workspace-folders'
+import {
+  acceptedNodeWorktreeTargetDigest,
+  acceptedWorkspaceFolderDigest,
+  nodeWorktreeProvisioningAuthoritySchema,
+} from '@hbar/contracts/node-worktree-provisioning'
+import { nodeWorktreeMethods } from '@hbar/contracts/node-worktree'
 import type {
   ExecutionOwnership,
   RuntimeOwner,
@@ -14,8 +33,15 @@ import type { KernelControllerPort } from '@hbar/kernel/controller'
 import { createNativeSecrets, type SecretStore } from '@hbar/kernel/secrets'
 import {
   RUNTIME_KERNEL_CONTROL_METHODS,
+  RUNTIME_KERNEL_HOST_METHODS,
   runtimeKernelStateSchema,
   runtimeKernelRecoverySchema,
+  runtimeKernelNodeIntentRecoverySchema,
+  runtimeKernelNodeWorkspaceInspectionSchema,
+  runtimeKernelNodeWorkspaceMountManifestSchema,
+  runtimeKernelVerifyWorkspaceFoldersSchema,
+  runtimeKernelNodeWorktreeSchema,
+  runtimeKernelRunSchema,
 } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import {
@@ -64,6 +90,11 @@ import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import { hostRuntimeProcessCommand } from './runtime-package'
 import { recoverRuntimeStartup } from './runtime-startup'
 import { recordRuntimeStartupFailure, RuntimeStartupDiagnostics } from './runtime-startup-diagnostics'
+import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
+import { RuntimeNodeLinkRelay } from './runtime-node-link-relay'
+import { RUNTIME_NODE_LINK_CONTROLS } from './runtime-node-link-contract'
+import { createRuntimeNodeIntentRecovery } from './runtime-node-intent-recovery'
+import { createRuntimeNodeWorkspaceInspection } from './runtime-node-workspace-inspection'
 
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
@@ -71,6 +102,8 @@ export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
   readonly demo?: boolean
   readonly workspace?: string
+  /** Conversation-only hosts reject all calls into the local execution provider. */
+  readonly noLocalExec?: boolean
   readonly secrets?: SecretStore
   readonly sourceRoot?: string
   readonly processCommand?: readonly [string, ...string[]]
@@ -114,6 +147,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly facade: RuntimeKernelFacade
   readonly maintenance: RuntimeMaintenanceRelay
   readonly controller: RuntimeControllerPort
+  readonly nodeLink: RuntimeNodeLinkRelay
+  private readonly nodeIntentRecovery: ReturnType<typeof createRuntimeNodeIntentRecovery>
+  private readonly nodeWorkspaceInspection: ReturnType<typeof createRuntimeNodeWorkspaceInspection>
   private controllerStarted = false
   private readonly statusFeed: RuntimeStatusFeed
   private readonly disposeStatus: () => void
@@ -235,11 +271,21 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       coordinator: this.coordinator,
       current: () => this.pluginEndpoints(),
       resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId),
+      nodeLink: () => this.nodeLink,
     })
     this.facade = new RuntimeKernelFacade({
       instanceId,
       layout: options.layout,
       demo: options.demo ?? false,
+      noLocalExec: options.noLocalExec ?? false,
+      nodeWorkspaceInspection: {
+        verifyWorkspaceFolders: (nodeId, folders, signal) => {
+          const verify = this.nodeWorkspaceInspection.verifyWorkspaceFolders
+          if (!verify)
+            throw new HbarError('NODE_LINK_UNAVAILABLE', 'Remote folder verification is unavailable in this Host')
+          return verify(nodeId, folders, signal)
+        },
+      },
       storage: this.storage,
       coordinator: this.coordinator,
       current: () => this.currentKernel(),
@@ -249,6 +295,53 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       cancel: (runId) => this.cancelRun(runId),
       configurePlugin: (...args) => this.configurePlugin(...args),
       resourceSessions: () => this.resources.sessions(),
+    })
+    this.nodeLink = new RuntimeNodeLinkRelay({
+      current: () => {
+        const record = this.currentGeneration('node-link')
+        if (!record.peer || !record.owner || record.process.snapshot().phase !== 'serving')
+          throw new HbarError('NODE_LINK_UNAVAILABLE', 'Node link owner is preparing or recovering')
+        return { owner: record.owner, peer: record.peer }
+      },
+      authorized: (owner) => !this.closing && this.coordinator.role(owner) === 'default',
+      state: new StorageNodeRegistryPort(this.storage),
+      observations: {
+        node: (nodeId) => this.storage.call('node', nodeId),
+        list: (nodeId, after, limit) =>
+          this.storage.call('nodeSessionsPage', { nodeId, limit, ...(after ? { after } : {}) }),
+        session: (id) => this.storage.call('findSession', id),
+        workspace: (id) => this.storage.call('findWorkspace', id),
+        snapshot: (id, before, limit) => this.kernel.snapshot(id, before, limit),
+        events: (id, after, limit) => this.storage.call('events', id, after, limit),
+      },
+    })
+    this.nodeIntentRecovery = createRuntimeNodeIntentRecovery({
+      storage: this.storage,
+      node: this.nodeLink,
+      settle: async (identity, result) => {
+        await this.storage.call('nodeExecutionIntentSettle', { identity, result })
+      },
+    })
+    this.nodeWorkspaceInspection = createRuntimeNodeWorkspaceInspection({
+      storage: {
+        findSession: (id) => this.storage.call('findSession', id),
+        run: (id) => this.storage.call('run', id),
+        findWorkspace: (id) => this.storage.call('findWorkspace', id),
+        node: (id) => this.storage.call('node', id),
+        nodeRunWorktree: (runId) => this.storage.call('nodeRunWorktree', runId),
+        nodeRunWorktreeAdmission: (runId) => this.storage.call('nodeRunWorktreeAdmission', runId),
+        workspaceFolders: (workspaceId) => this.storage.call('workspaceFolders', workspaceId),
+      },
+      nodeCapabilities: {
+        read: (id, signal) => this.nodeLink.call(id, 'node.capabilities', {}, signal),
+        canonicalize: async (id, rootId, expectedRoot, signal) => {
+          const result = await this.nodeLink.call(id, 'fs.canonicalize', { rootId, expectedRoot, paths: ['.'] }, signal)
+          if (result.root !== expectedRoot || result.paths[0] !== expectedRoot)
+            throw new HbarError('NODE_ROOT_CHANGED', 'Workspace node root changed its canonical path')
+          return expectedRoot
+        },
+        readWorktree: (id, target, signal) => this.nodeLink.call(id, 'worktree.get', target, signal),
+      },
     })
     this.maintenance = new RuntimeMaintenanceRelay({
       layout: options.layout,
@@ -478,6 +571,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         this.completeStartupPhase()
       }
       for (const id of ['storage', 'driver.pi', 'controller']) await this.initializeUnit(prepared, id)
+      if (this.buildUnits.some((unit) => unit.descriptor.id === 'node-link'))
+        await this.initializeUnit(prepared, 'node-link')
       if (!this.configurationLoaded) {
         this.setStartupPhase('configuration.load')
         const stored = await this.storage.call('plugins')
@@ -585,14 +680,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   /** Local diagnostic sampler; Kernel delivery counters are read-only snapshots from the last state refresh. */
   transportDiagnostics() {
-    return [...this.generations.values()].flatMap(record => record.peer ? [{
-      unitId: record.artifact.unitId, generation: record.process.snapshot().generation,
-      pid: record.process.snapshot().pid, ...record.peer.snapshot(),
-      ...(record.artifact.unitId === 'kernel' ? {
-        notificationDelivery: record.state?.notificationDelivery ?? null,
-        notificationDeliverySampledAt: record.stateSampledAt,
-      } : {}),
-    }] : [])
+    return [...this.generations.values()].flatMap((record) =>
+      record.peer
+        ? [
+            {
+              unitId: record.artifact.unitId,
+              generation: record.process.snapshot().generation,
+              pid: record.process.snapshot().pid,
+              ...record.peer.snapshot(),
+              ...(record.artifact.unitId === 'kernel'
+                ? {
+                    notificationDelivery: record.state?.notificationDelivery ?? null,
+                    notificationDeliverySampledAt: record.stateSampledAt,
+                  }
+                : {}),
+            },
+          ]
+        : [],
+    )
   }
   subscribe(listener: Parameters<RuntimeStatusFeed['subscribe']>[0]) {
     return this.statusFeed.subscribe(listener)
@@ -675,14 +780,31 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async configurePlugin(id: string, enabled: boolean, config?: Record<string, unknown>, projectId?: string) {
     z.string().min(1).max(160).parse(id)
     z.boolean().parse(enabled)
-    if (projectId) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Project plugin configuration requires a compatible owned lifecycle')
+    if (projectId)
+      throw new HbarError(
+        'RUNTIME_RESTART_REQUIRED',
+        'Project plugin configuration requires a compatible owned lifecycle',
+      )
     return this.maintain(async () => {
-      const endpoint = this.pluginEndpoints().find(value => value.state.manifests.some(manifest => manifest.id === id))
-      if (!endpoint) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Custom plugin configuration requires an owned compatible lifecycle')
-      const manifest = endpoint.state.manifests.find(value => value.id === id)!
+      const endpoint = this.pluginEndpoints().find((value) =>
+        value.state.manifests.some((manifest) => manifest.id === id),
+      )
+      if (!endpoint)
+        throw new HbarError(
+          'RUNTIME_RESTART_REQUIRED',
+          'Custom plugin configuration requires an owned compatible lifecycle',
+        )
+      const manifest = endpoint.state.manifests.find((value) => value.id === id)!
       if (endpoint.state.manifests.at(-1)?.id !== id)
-        throw new HbarError('RUNTIME_RESTART_REQUIRED', 'This shared plugin group has no independent configuration lifecycle')
-      if (!enabled) throw new HbarError(manifest.required ? 'REQUIRED_PLUGIN' : 'RUNTIME_RESTART_REQUIRED', 'Removing a plugin capability requires an explicit restart')
+        throw new HbarError(
+          'RUNTIME_RESTART_REQUIRED',
+          'This shared plugin group has no independent configuration lifecycle',
+        )
+      if (!enabled)
+        throw new HbarError(
+          manifest.required ? 'REQUIRED_PLUGIN' : 'RUNTIME_RESTART_REQUIRED',
+          'Removing a plugin capability requires an explicit restart',
+        )
       if (!config) return this.kernel.plugins.list()
       const original = this.currentGeneration(endpoint.owner.unitId).artifact
       const artifact = await this.artifacts.configurePlugin(original.id, config)
@@ -693,12 +815,16 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       const result = this.getReload(operation.operationId)
       if (!['completed', 'draining'].includes(result.phase)) {
         if (result.cancellable) this.cancelReload(operation.operationId)
-        throw new HbarError(result.units.find(unit => unit.reasonCode)?.reasonCode ?? 'RUNTIME_CONFIGURATION_FAILED', 'The plugin configuration did not become a serving version')
+        throw new HbarError(
+          result.units.find((unit) => unit.reasonCode)?.reasonCode ?? 'RUNTIME_CONFIGURATION_FAILED',
+          'The plugin configuration did not become a serving version',
+        )
       }
       const current = this.pluginEndpoint(endpoint.owner.unitId)
       this.pluginConfigs.set(endpoint.owner.unitId, current.state.config)
       await this.storage.call('setPlugin', id, true, current.state.config)
-      for (const kernel of this.endpoints()) await kernel.process.call('kernel.plugins.refresh', undefined, z.undefined())
+      for (const kernel of this.endpoints())
+        await kernel.process.call('kernel.plugins.refresh', undefined, z.undefined())
       await this.refreshKernels()
       this.facade.api.changed('plugins')
       return this.currentKernel().state.plugins
@@ -816,8 +942,16 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   async applySourceChanges(paths: readonly string[]): Promise<void> {
     const references = this.manager.artifactReferences()
     this.artifacts.compactMetadata({
-      artifactIds: [...references.artifactIds, ...(this.initialArtifacts?.artifacts.map(artifact => artifact.id) ?? []), ...(this.sourceBaseline ? [this.sourceBaseline.id] : [])],
-      setIds: [...references.setIds, ...(this.initialArtifacts ? [this.initialArtifacts.id] : []), ...(this.sourceState?.artifactSetId ? [this.sourceState.artifactSetId] : [])],
+      artifactIds: [
+        ...references.artifactIds,
+        ...(this.initialArtifacts?.artifacts.map((artifact) => artifact.id) ?? []),
+        ...(this.sourceBaseline ? [this.sourceBaseline.id] : []),
+      ],
+      setIds: [
+        ...references.setIds,
+        ...(this.initialArtifacts ? [this.initialArtifacts.id] : []),
+        ...(this.sourceState?.artifactSetId ? [this.sourceState.artifactSetId] : []),
+      ],
     })
     const snapshot = this.manager.snapshot()
     const artifacts = this.buildUnits.map((unit) => {
@@ -939,7 +1073,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const record = this.generations.get(key(this.manager.defaultOwner(unitId)))
     if (!record) throw new HbarError('RUNTIME_RECOVERING', 'The requested runtime default is unavailable')
     if (record.process.snapshot().phase === 'ready') {
-      const previous = [...this.generations.values()].find(value => value.artifact.unitId === unitId && value !== record && value.process.snapshot().phase === 'serving')
+      const previous = [...this.generations.values()].find(
+        (value) => value.artifact.unitId === unitId && value !== record && value.process.snapshot().phase === 'serving',
+      )
       if (previous) return previous
     }
     return record
@@ -1069,16 +1205,28 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
     const configuration =
       artifact.unitId === 'storage'
-        ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js'), diagnosticsEnabled: Boolean(this.options.diagnostics), diagnosticsFullCoverage: this.options.diagnosticFullCoverage ?? false }
+        ? {
+            ...paths,
+            database: layout.database,
+            workerPath: join(this.artifacts.root, artifact.id, 'worker.js'),
+            diagnosticsEnabled: Boolean(this.options.diagnostics),
+            diagnosticsFullCoverage: this.options.diagnosticFullCoverage ?? false,
+          }
         : artifact.unitId === 'maintenance'
           ? { ...paths, workerPath: join(this.artifacts.root, artifact.id, 'maintenance-worker.js') }
           : artifact.unitId === 'controller'
-            ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false }
+            ? {
+                ...paths,
+                instanceId: this.instanceId,
+                demo: this.options.demo ?? false,
+                noLocalExec: this.options.noLocalExec ?? false,
+              }
             : artifact.unitId === 'kernel'
               ? {
                   ...paths,
                   instanceId: this.instanceId,
                   demo: this.options.demo ?? false,
+                  noLocalExec: this.options.noLocalExec ?? false,
                   isolatedPlugins: this.buildUnits.some((unit) => unit.descriptor.kind === 'plugin'),
                   diagnosticsEnabled: Boolean(this.options.diagnostics),
                   diagnosticsFullCoverage: this.options.diagnosticFullCoverage ?? false,
@@ -1090,6 +1238,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                 ? {
                     dataRoot: layout.dataRoot,
                     cacheRoot: layout.cacheRoot,
+                    noLocalExec: this.options.noLocalExec ?? false,
                     config: artifact.pluginConfiguration ?? this.pluginConfigs.get(artifact.unitId) ?? {},
                   }
                 : {}
@@ -1115,9 +1264,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
       controlMethods: [
         ...RUNTIME_KERNEL_CONTROL_METHODS,
+        ...RUNTIME_KERNEL_HOST_METHODS,
         ...RUNTIME_COORDINATION_CONTROL_METHODS,
         ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
+        ...RUNTIME_NODE_LINK_CONTROLS,
         'kernel.plugins.callback',
         'kernel.plugins.control',
         'controller.control',
@@ -1134,10 +1285,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       onPeer: (peer, owner) => {
         record.owner = owner
         record.peer = peer
-        record.cleanup.push(peer.onEvent('runtime.diagnostic', diagnosticEventSchema, event => {
-          try { this.options.diagnostics?.emit({ ...event, instanceId: this.instanceId }) }
-          catch { /* A journal observer never owns runtime recovery. */ }
-        }))
+        record.cleanup.push(
+          peer.onEvent('runtime.diagnostic', diagnosticEventSchema, (event) => {
+            try {
+              this.options.diagnostics?.emit({ ...event, instanceId: this.instanceId })
+            } catch {
+              /* A journal observer never owns runtime recovery. */
+            }
+          }),
+        )
         this.coordinator.register(
           owner,
           { unitId: artifact.unitId, generation, artifactId: artifact.id },
@@ -1145,10 +1301,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         )
         this.owners.add(owner.incarnation)
         if (artifact.unitId === 'driver.pi') record.cleanup.push(this.relay.attachDriver(peer))
+        if (artifact.unitId === 'node-link') record.cleanup.push(this.nodeLink.attach(peer, owner))
         if (artifact.unitId === 'controller')
           record.controller = new RuntimeControllerAdapter(peer, {
             kernel: this.kernel,
             maintenance: this.maintenance,
+            nodeLink: this.nodeLink,
             projection: () => this.controllerProjection(),
             background: () => this.coordinator.role(owner) === 'default',
             admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
@@ -1174,7 +1332,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
       onActivating: async (owner, role, signal) => {
         if (artifact.unitId === 'storage' && this.storageFailure?.unknown)
-          throw new HbarError('STORAGE_RESULT_UNKNOWN', 'Unconfirmed writes require reconciliation before opening a replacement writer')
+          throw new HbarError(
+            'STORAGE_RESULT_UNKNOWN',
+            'Unconfirmed writes require reconciliation before opening a replacement writer',
+          )
         if (artifact.unitId === 'storage' && this.maintenance.isWriting())
           throw new HbarError(
             'STORAGE_MAINTENANCE_ACTIVE',
@@ -1195,11 +1356,17 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (!record.peer || record.owner?.incarnation !== owner.incarnation)
           throw new HbarError('RUNTIME_OWNER_REVOKED', 'Description readiness belongs to an expired owner')
         if (artifact.unitId === 'kernel') {
-          record.state = await record.peer.call('kernel.state', undefined, runtimeKernelStateSchema, { signal, timeoutMs: 120_000 })
+          record.state = await record.peer.call('kernel.state', undefined, runtimeKernelStateSchema, {
+            signal,
+            timeoutMs: 120_000,
+          })
           record.stateSampledAt = Date.now()
         }
         if (artifact.descriptor.kind === 'plugin')
-          record.pluginState = await record.peer.call('plugin.state', undefined, runtimePluginStateSchema, { signal, timeoutMs: 120_000 })
+          record.pluginState = await record.peer.call('plugin.state', undefined, runtimePluginStateSchema, {
+            signal,
+            timeoutMs: 120_000,
+          })
         if (artifact.unitId === 'controller') await record.controller?.refreshCatalog()
         signal.throwIfAborted()
       },
@@ -1238,6 +1405,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
       onFault: (owner, reason) => this.fault(owner, reason),
       onExit: async (owner) => {
+        if (artifact.unitId === 'node-link') this.nodeLink.exited(owner)
         if (artifact.unitId === 'kernel') {
           this.relay.kernelExited(owner)
           for (const lease of this.leases.values())
@@ -1338,6 +1506,23 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           return this.storage.executeRpc(input)
         }),
       ),
+      peer.register(
+        'kernel.nodeIntentRecovery.reconcileRun',
+        procedure(runtimeKernelRunSchema, runtimeKernelNodeIntentRecoverySchema, async (input, call) => {
+          const assertHostAuthority = () => {
+            const current = this.manager.defaultOwner('kernel')
+            if (this.closing || current.incarnation !== owner.incarnation || this.coordinator.role(owner) !== 'default')
+              throw new HbarError('RUNTIME_OWNER_REVOKED', 'Node recovery requires the current default Kernel owner')
+            this.coordinator.assertCanWrite(owner)
+          }
+          assertHostAuthority()
+          return this.nodeIntentRecovery.reconcileRun(
+            input.runId,
+            AbortSignal.any([call.signal, AbortSignal.timeout(60_000)]),
+            assertHostAuthority,
+          )
+        }),
+      ),
     )
     const id = z.string().min(1).max(160)
     const receiveNotification = (event: WireNotification) => {
@@ -1349,6 +1534,197 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       this.scheduleRefresh(record)
     }
     record.cleanup.push(
+      peer.register(
+        'kernel.nodeWorkspaceInspection.captureExecutionTarget',
+        procedure(runtimeKernelNodeWorkspaceInspectionSchema, nodeExecutionTargetSchema, async (input, call) => {
+          const assertCurrentOwner = () => {
+            if (
+              this.closing ||
+              this.manager.defaultOwner('kernel').incarnation !== owner.incarnation ||
+              this.coordinator.role(owner) !== 'default'
+            )
+              throw new HbarError('RUNTIME_OWNER_REVOKED', 'Node inspection requires the current default Kernel owner')
+            this.coordinator.assertCanWrite(owner)
+          }
+          assertCurrentOwner()
+          const target = await this.nodeWorkspaceInspection.captureExecutionTarget(
+            input,
+            AbortSignal.any([call.signal, AbortSignal.timeout(15_000)]),
+          )
+          assertCurrentOwner()
+          return target
+        }),
+      ),
+      peer.register(
+        'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
+        procedure(
+          runtimeKernelNodeWorkspaceMountManifestSchema,
+          nodeWorkspaceMountManifestSchema,
+          async (input, call) => {
+            const assertCurrentOwner = () => {
+              if (
+                this.closing ||
+                this.manager.defaultOwner('kernel').incarnation !== owner.incarnation ||
+                this.coordinator.role(owner) !== 'default'
+              )
+                throw new HbarError(
+                  'RUNTIME_OWNER_REVOKED',
+                  'Node inspection requires the current default Kernel owner',
+                )
+              this.coordinator.assertCanWrite(owner)
+            }
+            assertCurrentOwner()
+            const inspection = this.nodeWorkspaceInspection
+            if (!inspection.resolveWorkspaceMountManifest)
+              throw new HbarError(
+                'NODE_WORKSPACE_INSPECTION_UNAVAILABLE',
+                'Workspace mount verification is unavailable for this runtime',
+              )
+            const manifest = await inspection.resolveWorkspaceMountManifest(
+              input.request,
+              input.folders,
+              input.primary,
+              AbortSignal.any([call.signal, AbortSignal.timeout(60_000)]),
+            )
+            assertCurrentOwner()
+            return manifest
+          },
+        ),
+      ),
+      peer.register(
+        'kernel.nodeWorkspaceInspection.verifyWorkspaceFolders',
+        procedure(runtimeKernelVerifyWorkspaceFoldersSchema, workspaceFoldersSchema, async (input, call) => {
+          const assertCurrentOwner = () => {
+            if (
+              this.closing ||
+              this.manager.defaultOwner('kernel').incarnation !== owner.incarnation ||
+              this.coordinator.role(owner) !== 'default'
+            )
+              throw new HbarError('RUNTIME_OWNER_REVOKED', 'Node inspection requires the current default Kernel owner')
+            this.coordinator.assertCanWrite(owner)
+          }
+          assertCurrentOwner()
+          const inspection = this.nodeWorkspaceInspection
+          if (!inspection.verifyWorkspaceFolders)
+            throw new HbarError(
+              'NODE_WORKSPACE_INSPECTION_UNAVAILABLE',
+              'Workspace folder verification is unavailable for this runtime',
+            )
+          const folders = await inspection.verifyWorkspaceFolders(
+            input.nodeId,
+            input.folders,
+            AbortSignal.any([call.signal, AbortSignal.timeout(60_000)]),
+          )
+          assertCurrentOwner()
+          return folders
+        }),
+      ),
+      peer.register(
+        'kernel.nodeWorktree.call',
+        procedure(runtimeKernelNodeWorktreeSchema, z.unknown(), async (input, call) => {
+          const assertCurrentOwner = () => {
+            if (
+              this.closing ||
+              this.manager.defaultOwner('kernel').incarnation !== owner.incarnation ||
+              this.coordinator.role(owner) !== 'default'
+            )
+              throw new HbarError(
+                'RUNTIME_OWNER_REVOKED',
+                'Node worktree allocation requires the current default Kernel owner',
+              )
+            this.coordinator.assertCanWrite(owner)
+          }
+          assertCurrentOwner()
+          const node = await this.storage.call('node', input.nodeId)
+          if (!node || node.nodeId !== input.nodeId || node.revokedAt !== null)
+            throw new HbarError('NODE_REVOKED', 'The worktree node is no longer trusted by this Host')
+          const request = nodeWorktreeMethods[input.method].input.parse(input.input) as {
+            provisioning: unknown
+            rootId: string
+            expectedRoot: string
+            branch: string
+            startPoint?: string
+            createBranch?: boolean
+            operationId?: string
+          }
+          const provisioning = nodeWorktreeProvisioningAuthoritySchema.parse(request.provisioning)
+          const admission = await this.storage.call('nodeRunWorktreeAdmission', provisioning.runId)
+          if (
+            !admission ||
+            admission.runId !== provisioning.runId ||
+            admission.sessionId !== provisioning.sessionId ||
+            admission.workspaceId !== provisioning.workspaceId ||
+            admission.originalWorkspaceLocation.nodeId !== provisioning.nodeId ||
+            admission.originalWorkspaceLocation.nodeId !== input.nodeId ||
+            admission.originalWorkspaceLocation.rootId !== request.rootId ||
+            admission.originalWorkspaceLocation.nodePath !== request.expectedRoot ||
+            admission.launchTarget.expectedRevision !== provisioning.targetRevision ||
+            JSON.stringify(admission.launchTarget.selection) !== JSON.stringify(provisioning.selection) ||
+            !admission.workspaceFoldersSnapshot ||
+            admission.workspaceFoldersSnapshot.revision !== provisioning.workspaceFolderRevision ||
+            acceptedWorkspaceFolderDigest(admission.workspaceFoldersSnapshot) !== provisioning.workspaceFolderDigest ||
+            acceptedNodeWorktreeTargetDigest({
+              workspaceId: admission.workspaceId,
+              sessionId: admission.sessionId,
+              targetRevision: admission.launchTarget.expectedRevision,
+              selection: admission.launchTarget.selection,
+              workspaceFolderRevision: admission.workspaceFoldersSnapshot.revision,
+              workspaceFolderDigest: provisioning.workspaceFolderDigest,
+            }) !== provisioning.acceptedTargetDigest
+          )
+            throw new HbarError('WORKSPACE_SCOPE', 'Worktree provisioning differs from the accepted Run target')
+          if (input.method === 'worktree.create' && request.operationId !== `${provisioning.runId}:worktree-create`)
+            throw new HbarError('WORKSPACE_SCOPE', 'Worktree create operation ID differs from the accepted Run')
+          if (input.method === 'worktree.get' && request.operationId !== `${provisioning.runId}:worktree-get`)
+            throw new HbarError('WORKSPACE_SCOPE', 'Worktree get operation ID differs from the accepted Run')
+          if (input.method === 'worktree.remove')
+            throw new HbarError(
+              'NODE_WORKTREE_REMOVE_UNAVAILABLE',
+              'Managed worktree removal requires the explicit launch-target lifecycle command',
+            )
+          const selection = admission.launchTarget.selection
+          const expectedBranch =
+            selection.mode === 'shared-current'
+              ? null
+              : selection.mode === 'shared-branch'
+                ? selection.branch.ref.slice('refs/heads/'.length)
+                : selection.branch.kind === 'derived'
+                  ? `hbar/session-launch/${createHash('sha256').update(`${provisioning.sessionId}\0${provisioning.targetRevision}`).digest('hex')}`
+                  : selection.branch.name
+          const expectedStartPoint =
+            selection.mode === 'isolated-worktree'
+              ? selection.branch.kind === 'new'
+                ? selection.branch.startPoint
+                : selection.branch.kind === 'derived'
+                  ? selection.branch.baseRef.slice('refs/heads/'.length)
+                  : undefined
+              : undefined
+          const expectedCreateBranch =
+            selection.mode === 'isolated-worktree' &&
+            (selection.branch.kind === 'new' || selection.branch.kind === 'derived')
+          if (
+            selection.mode === 'shared-current' ||
+            expectedBranch !== request.branch ||
+            request.startPoint !== expectedStartPoint ||
+            request.createBranch !== expectedCreateBranch
+          )
+            throw new HbarError('WORKSPACE_SCOPE', 'Worktree branch differs from the accepted launch selection')
+          const signal = AbortSignal.any([
+            call.signal,
+            AbortSignal.timeout(input.method === 'worktree.create' ? 150_000 : 20_000),
+          ])
+          let result: unknown
+          if (input.method === 'worktree.create') {
+            const create = nodeWorktreeMethods['worktree.create'].input.parse(input.input)
+            result = await this.nodeLink.call(input.nodeId, 'worktree.create', create, signal)
+          } else {
+            const get = nodeWorktreeMethods['worktree.get'].input.parse(input.input)
+            result = await this.nodeLink.call(input.nodeId, 'worktree.get', get, signal)
+          }
+          assertCurrentOwner()
+          return result
+        }),
+      ),
       peer.register(
         'kernel.secret.get',
         procedure(z.strictObject({ id }), z.string().nullable(), (input) => {
@@ -1448,7 +1824,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       resume: (operationId) => record.process.call('storage.resume', { operationId }, z.undefined()),
       call: (method, args, authority, diagnostic) =>
         callStorageRpc(
-          { execute: (input) => record.process.call('storage.call', { ...input, ...(diagnostic ? { diagnostic } : {}) }, z.unknown()) },
+          {
+            execute: (input) =>
+              record.process.call('storage.call', { ...input, ...(diagnostic ? { diagnostic } : {}) }, z.unknown()),
+          },
           method,
           args,
           authority,
@@ -1456,6 +1835,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     })
   }
   private async fault(owner: RuntimeOwner, reason: string): Promise<void> {
+    if (owner.unitId === 'node-link') this.nodeLink.exited(owner)
     if (this.closing || this.coordinator.role(owner) === 'candidate') return
     if (owner.unitId !== 'controller') this.resumed.clear()
     const affected = [...this.leases.values()].filter(

@@ -18,12 +18,13 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
 })
 
-async function fixture(slow = false) {
+async function fixture(slow = false, noLocalExec = false) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-agent-commands-'))
   const kernel = await Kernel.create({
     home: join(root, 'data'),
     workspace: root,
     demo: true,
+    noLocalExec,
     secrets: new MemorySecrets(),
     ...(slow
       ? {
@@ -171,6 +172,21 @@ test('agent commands create one budgeted child session per actor key and recover
     items: [{ agentId: first.agentId, status: 'completed' }],
   })
   expect((await reopened.storage.call('workspace', workspace.id)).id).toBe(workspace.id)
+})
+
+test('no-local-exec rejects Agent patch application at the authenticated Host command boundary', async () => {
+  const resource = await fixture(false, true)
+  try {
+    await expect(
+      resource.commands.execute(
+        'agent.patch.apply',
+        { parentSessionId: resource.parent.id, agentId: 'agent-child', planRevision: 1 },
+        { idempotencyKey: 'local-disabled-patch', requestId: 'local-disabled-patch' },
+      ),
+    ).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+  } finally {
+    await resource.close()
+  }
 })
 
 test('completed child Agent vetoes budget-only continuation Runs', async () => {

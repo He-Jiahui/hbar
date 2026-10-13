@@ -3,6 +3,7 @@ import { lstat, mkdir, readdir, readFile, rm, unlink, writeFile } from 'node:fs/
 import { isAbsolute, relative, resolve } from 'node:path'
 import { HbarError, MAX_AGENT_PATCH_FILES } from '@hbar/contracts'
 import type { AgentPatchFile, WorkflowScope } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 
 const MAX_SCANNED_FILES = 4_096
 const MAX_FILE_BYTES = 16 * 1024 * 1024
@@ -19,6 +20,7 @@ function sha256(bytes: Uint8Array) {
 }
 
 function safePath(root: string, path: string) {
+  assertLocalWorkspace(root)
   const target = resolve(root, path)
   const relation = relative(root, target)
   if (
@@ -55,6 +57,7 @@ export async function collectScopeFiles(
   entries: readonly string[],
   limit = MAX_SCANNED_FILES,
 ): Promise<Map<string, FileSnapshot>> {
+  assertLocalWorkspace(root)
   const files = new Map<string, FileSnapshot>()
   let bytes = 0
   const visit = async (absolute: string): Promise<void> => {
@@ -82,6 +85,8 @@ export async function collectScopeFiles(
 }
 
 export async function synchronizeScope(sourceRoot: string, targetRoot: string, entries: readonly string[]) {
+  assertLocalWorkspace(sourceRoot)
+  assertLocalWorkspace(targetRoot)
   const source = await collectScopeFiles(sourceRoot, entries)
   const target = await collectScopeFiles(targetRoot, entries)
   for (const path of target.keys()) if (!source.has(path)) await unlink(safePath(targetRoot, path))
@@ -131,6 +136,8 @@ export async function fileHash(root: string, path: string): Promise<string | nul
 }
 
 export async function applyFiles(parentRoot: string, isolatedRoot: string, files: readonly AgentPatchFile[]) {
+  assertLocalWorkspace(parentRoot)
+  assertLocalWorkspace(isolatedRoot)
   const backups = new Map<string, Uint8Array | null>()
   for (const file of files) {
     const current = await fileHash(parentRoot, file.path)
@@ -174,6 +181,7 @@ export function pathAllowed(path: string, allowed: readonly string[]) {
 }
 
 function relativeToolPath(workspace: string, value: string) {
+  assertLocalWorkspace(workspace)
   const absolute = resolve(workspace, value)
   const path = relative(workspace, absolute).replaceAll('\\', '/') || '.'
   if (path === '..' || path.startsWith('../') || isAbsolute(path))

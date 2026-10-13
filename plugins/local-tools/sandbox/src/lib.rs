@@ -1,12 +1,9 @@
-//! hbar-sandbox-win: OS-level process sandbox for Windows.
+//! hbar-sandbox-win: Windows AppContainer child process confinement.
 //!
-//! This crate vendors and adapts logic from codex-rs/windows-sandbox-rs
-//! (OpenAI, Apache-2.0, commit e01f38c3) to provide two sandbox levels:
-//!
-//! - `unelevated`: CreateRestrictedToken (DISABLE_MAX_PRIVILEGE | LUA_TOKEN |
-//!   WRITE_RESTRICTED) with capability SIDs and filesystem ACLs. No UAC needed.
-//! - `elevated`: Dedicated local sandbox user accounts, Windows Firewall rules,
-//!   and WFP filters for real network isolation. Requires a one-time UAC prompt.
+//! Each launch gets a unique AppContainer SID, explicit filesystem ACL leases,
+//! durable lease journal, and kill-on-close Job Object. Network capability is
+//! reported only after a live external listener handshake. This crate does not
+//! configure Windows Firewall, loopback exemptions, or global security settings.
 //!
 //! The vendored files live in `src/vendor/`. Type replacements:
 //! - `codex_protocol::models::PermissionProfile` → `HbarPermissionProfile` (this crate)
@@ -24,35 +21,51 @@ mod types;
 
 pub use types::*;
 
-// Vendored Codex source (unelevated path, Apache-2.0 — see NOTICE at repo root).
-// These modules are stubs until the vendor sub-feature lands.
+// Adapted Codex source (Apache-2.0 — see NOTICE at repo root).
 #[cfg(windows)]
 mod vendor;
 
-/// Returns `true` when the OS-level sandbox is available on this platform.
-/// Always `true` on Windows; `false` elsewhere.
+/// Performs and caches a real AppContainer confinement probe.
 #[napi]
 pub fn is_available() -> bool {
-    cfg!(windows)
+    #[cfg(windows)]
+    {
+        vendor::spawn::probe_confinement().available
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+/// Returns which AppContainer restrictions have passed live process tests.
+#[cfg(windows)]
+#[napi]
+pub fn probe_confinement() -> vendor::spawn::SandboxProbeCapabilities {
+    vendor::spawn::probe_confinement()
 }
 
 /// Spawn a command inside an OS-level sandbox.
 ///
 /// On non-Windows platforms this always returns an error; callers should check
 /// `is_available()` first. The TypeScript wrapper in local-tools does this.
+/// `journal_directory` is an optional, separately typed host-private root. It must come
+/// from B's internal data directory, never from the requested permission profile; omission
+/// is accepted at the ABI boundary for compatibility and fails closed at runtime.
 #[napi]
 pub async fn spawn_sandboxed(
     profile: HbarPermissionProfile,
     argv: Vec<String>,
     cwd: String,
+    journal_directory: Option<String>,
 ) -> napi::Result<SandboxedProcessHandle> {
     #[cfg(windows)]
     {
-        vendor::spawn::spawn_sandboxed_impl(profile, argv, cwd).await
+        vendor::spawn::spawn_sandboxed_impl(profile, argv, cwd, journal_directory).await
     }
     #[cfg(not(windows))]
     {
-        let _ = (profile, argv, cwd);
+        let _ = (profile, argv, cwd, journal_directory);
         Err(napi::Error::from_reason(
             "OS-level sandbox is only available on Windows",
         ))

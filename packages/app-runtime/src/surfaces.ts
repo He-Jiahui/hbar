@@ -12,7 +12,7 @@ import type {
   WindowSurface,
 } from './types'
 
-const toolPanelIds = new Set(['files', 'activity', 'monitoring', 'agents', 'goals'])
+const toolPanelIds = new Set(['files', 'activity', 'monitoring', 'agents', 'goals', 'system-terminal'])
 const modalPanelIds = new Set(['commands', 'chat-search', 'settings-editor'])
 
 function summary(panel: PanelSurface, focused: boolean) {

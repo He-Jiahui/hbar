@@ -259,11 +259,7 @@ function HbarWorkspaceShellContent({ props }: { readonly props: HbarWorkspaceShe
   const shellSlots = props.slots
   const headerRegion = shellSlots?.header ?? (
     <LumenFrame className="hbar-app-react-shell-header" data-hbar-app-ui-component="app-shell-09-header">
-      <HbarActionIconButton
-        ref={sidebarShowFocusRef}
-        label={t('showSidebar')}
-        onClick={() => setSidebarVisible(true)}
-      >
+      <HbarActionIconButton ref={sidebarShowFocusRef} label={t('showSidebar')} onClick={() => setSidebarVisible(true)}>
         <WorkspaceShellIcon name="menu" />
       </HbarActionIconButton>
       <LumenContentText context="record.title" title={t('brand')}>

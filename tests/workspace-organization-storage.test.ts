@@ -3,7 +3,7 @@ import { Database } from 'bun:sqlite'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Storage, type WorkspaceOrganizationMutationInput } from '@hbar/storage'
+import { Storage, STORAGE_SCHEMA_VERSION, type WorkspaceOrganizationMutationInput } from '@hbar/storage'
 import {
   WORKSPACE_ORGANIZATION_MAX_BYTES,
   workspaceOrganizationSnapshotSchema,
@@ -35,7 +35,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 24 })
+  expect(await store.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
   const workspace = await store.call('createWorkspace', root, 'same display name')
   return { root, path, store, workspace }
 }
@@ -205,12 +205,15 @@ test('two Workers migrate an existing v6 database safely and serialize CAS witho
   await close(f.store)
   inspect(f.path, (db) =>
     db.exec(
-      'DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
+      'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
     ),
   )
   const a = open(f.path)
   const b = open(f.path)
-  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 24 }, { version: 24 }])
+  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([
+    { version: STORAGE_SCHEMA_VERSION },
+    { version: STORAGE_SCHEMA_VERSION },
+  ])
   const requests = [input(f.workspace.id), input(other.id)]
   const results = await Promise.allSettled(
     requests.map((request, index) => (index === 0 ? a : b).call('applyWorkspaceOrganization', request)),
@@ -430,7 +433,7 @@ test('Worker startup waits for a held database lock before configuring WAL and m
   await close(f.store)
   const blocker = new Database(f.path, { strict: true })
   blocker.exec(
-    'DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6; PRAGMA journal_mode=DELETE; BEGIN EXCLUSIVE;',
+    'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6; PRAGMA journal_mode=DELETE; BEGIN EXCLUSIVE;',
   )
   const contender = open(f.path)
   let settled = false
@@ -455,7 +458,7 @@ test('Worker startup waits for a held database lock before configuring WAL and m
   }
   const result = await ready
   expect(settledWhileLocked).toBe(false)
-  expect(result).toEqual({ ok: true, result: { version: 24 } })
+  expect(result).toEqual({ ok: true, result: { version: STORAGE_SCHEMA_VERSION } })
   expect(await contender.call('workspaceOrganization')).toEqual({
     schemaVersion: 1,
     revision: 0,
@@ -469,13 +472,16 @@ test('twenty bounded two-Worker v6 startup rounds preserve migration and one-win
   for (let round = 0; round < 20; round++) {
     inspect(f.path, (db) =>
       db.exec(
-        'DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
+        'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
       ),
     )
     const a = open(f.path)
     const b = open(f.path)
     try {
-      expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 24 }, { version: 24 }])
+      expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([
+        { version: STORAGE_SCHEMA_VERSION },
+        { version: STORAGE_SCHEMA_VERSION },
+      ])
       const results = await Promise.allSettled([
         a.call('applyWorkspaceOrganization', input(f.workspace.id)),
         b.call('applyWorkspaceOrganization', input(f.workspace.id)),

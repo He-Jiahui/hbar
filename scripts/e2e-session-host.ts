@@ -2,6 +2,14 @@ import { HbarClient, createBudgetCommandClient, createModelCommandClient } from 
 import { writeFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { NodeRegistryService } from '@hbar/node-link'
+import { createNodeIdentity } from '@hbar/node-core'
+import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
+import { nodeListInputSchema, nodeListPageSchema } from '@hbar/contracts/node-management'
+import { nodeCapabilitiesSchema, nodeFloorSchema } from '@hbar/contracts/node'
+import { SANDBOX_EVALUATOR_FINGERPRINT } from '@hbar/sandbox'
+import type { NodeWorkspaceMethod } from '@hbar/contracts/node'
+import type { RuntimeNodeLinkPort } from '../apps/host/src/runtime-node-link-contract'
 import { startServer } from '../apps/host/src/server.ts'
 import { delayedCompactionDriver } from './e2e-compaction-driver'
 
@@ -10,6 +18,10 @@ const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
 const sessionCount = Math.max(1, Math.min(101, Number(process.env.HBAR_E2E_SESSION_COUNT ?? '1')))
 const historyCount = Math.max(0, Math.min(1_000, Number(process.env.HBAR_E2E_HISTORY_COUNT ?? '0')))
 const historyText = process.env.HBAR_E2E_HISTORY_TEXT ?? ''
+const nodeManagementSeedCount = Math.max(
+  0,
+  Math.min(101, Number(process.env.HBAR_E2E_NODE_MANAGEMENT_SEED_COUNT ?? '0')),
+)
 if (historyText.length > 4_000) throw new Error('History fixture content exceeds its test-only bound')
 const webOrigin = process.env.HBAR_E2E_WEB_ORIGIN
 if (!root || !Number.isInteger(port)) throw new Error('E2E Host root and port are required')
@@ -41,6 +53,70 @@ const kernel = await Kernel.create({
       }
     : {}),
 })
+const nodeRegistry =
+  process.env.HBAR_E2E_NODE_MANAGEMENT_SEED_COUNT === undefined ||
+  process.env.HBAR_E2E_NODE_MANAGEMENT_SEED_COUNT === ''
+    ? undefined
+    : await NodeRegistryService.open(new StorageNodeRegistryPort(kernel.storage))
+if (nodeRegistry)
+  for (let index = 1; index <= nodeManagementSeedCount; index += 1) {
+    const name = `Fixture node ${String(index).padStart(3, '0')}`
+    const identity = createNodeIdentity()
+    const invite = await nodeRegistry.invite(name)
+    const registered = await nodeRegistry.join(identity.publicKey, invite.code, `fixture-${index}`)
+    const {
+      roots: _roots,
+      protectedPaths: _protectedPaths,
+      environmentAllowlist: _environmentAllowlist,
+      ...floor
+    } = nodeFloorSchema.parse({ roots: [] })
+    await nodeRegistry.touch(
+      registered.nodeId,
+      nodeCapabilitiesSchema.parse({
+        protocol: 1,
+        nodeId: registered.nodeId,
+        platform: 'linux',
+        evaluator: SANDBOX_EVALUATOR_FINGERPRINT,
+        roots: [
+          {
+            rootId: 'fixture-root',
+            name: 'Fixture root',
+            nodePath: `/srv/fixture-${String(index).padStart(3, '0')}`,
+            access: 'write',
+          },
+        ],
+        sandbox: { backends: ['none'], filesystem: 'none', network: 'none' },
+        floor,
+      }),
+    )
+  }
+const nodeLink: RuntimeNodeLinkPort | undefined = nodeRegistry
+  ? {
+      open: async () => {
+        throw new Error('Node socket transport is unavailable in this RPC-only fixture')
+      },
+      receive: async () => {
+        throw new Error('Node socket transport is unavailable in this RPC-only fixture')
+      },
+      closeConnection: () => undefined,
+      invite: (name) => nodeRegistry.invite(name),
+      async list(input = {}) {
+        const { after, limit } = nodeListInputSchema.parse(input)
+        const nodes = (await nodeRegistry.list())
+          .sort((left, right) => (left.nodeId < right.nodeId ? -1 : left.nodeId > right.nodeId ? 1 : 0))
+          .filter((node) => !after || node.nodeId > after)
+        const items = nodes.slice(0, limit).map((node) => ({ ...node, online: false }))
+        return nodeListPageSchema.parse({
+          items,
+          nextCursor: nodes.length > limit ? (items.at(-1)?.nodeId ?? null) : null,
+        })
+      },
+      revoke: (selector) => nodeRegistry.revoke(selector),
+      async call<_Method extends NodeWorkspaceMethod>(): Promise<never> {
+        throw new Error('Node observation is unavailable in this RPC-only fixture')
+      },
+    }
+  : undefined
 if (process.env.HBAR_E2E_GOAL_AUTO_CONTINUE === '0')
   await kernel.changePlugin('goal.codex', true, { autoContinue: false })
 if (process.env.HBAR_E2E_BUDGET_AUTO_CONTINUE === '0')
@@ -58,7 +134,11 @@ for (let index = 1; index <= historyCount; index += 1)
     [{ type: 'text', text: historyText || `History message ${index}` }],
     `history-${index}`,
   )
-const host = await startServer(kernel, { port, ...(webOrigin ? { origins: [webOrigin] } : {}) })
+const host = await startServer(kernel, {
+  port,
+  ...(webOrigin ? { origins: [webOrigin] } : {}),
+  ...(nodeLink ? { nodeLink } : {}),
+})
 const response = await fetch(`http://127.0.0.1:${port}/auth/pair`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -96,6 +176,7 @@ const close = async () => {
   if (closing) return
   closing = true
   await host.close()
+  nodeRegistry?.dispose()
   await kernel.close()
   process.exit(0)
 }

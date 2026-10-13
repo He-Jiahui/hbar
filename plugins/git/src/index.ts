@@ -1,6 +1,7 @@
 import { lstat, mkdir, readdir, realpath } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import {
   HbarError,
@@ -124,6 +125,7 @@ async function collect(stream: ReadableStream<Uint8Array>, limit: number, state:
 export class ProcessGitRunner implements GitRunner {
   async run(cwd: string, args: string[], signal: AbortSignal, limits: { timeoutMs: number; maxOutputBytes: number }) {
     signal.throwIfAborted()
+    assertLocalWorkspace(cwd)
     const child = Bun.spawn(['git', ...args], {
       cwd,
       env: environment(),
@@ -547,6 +549,8 @@ export class GitRuntime implements GitService {
     private readonly onChanged?: (cwd: string) => void | Promise<void>,
     private readonly statsIndexes = new Map<string, GitStatsIndex>(),
   ) {
+    assertLocalWorkspace(root)
+    if (config.worktreeRoot) assertLocalWorkspace(config.worktreeRoot)
     this.rootPromise = realpath(root)
     this.worktreeRootPromise = config.worktreeRoot
       ? this.resolveWithinRoot(config.worktreeRoot)
@@ -569,6 +573,7 @@ export class GitRuntime implements GitService {
   }
 
   private async resolveWithinRoot(requested?: string) {
+    if (requested !== undefined) assertLocalWorkspace(requested)
     const root = await this.rootPromise
     const candidate = resolve(root, requested ?? '.')
     if (!inside(root, candidate)) {
@@ -1054,12 +1059,16 @@ export class GitRuntime implements GitService {
           throw new HbarError('GIT_WORKTREE_PATH', 'Worktree target cannot be inspected')
       }
       const branch = operation.branch ? branchName(operation.branch) : undefined
+      const startPoint = operation.startPoint ? branchName(operation.startPoint) : undefined
       const args = ['worktree', 'add']
       if (operation.createBranch) {
         if (!branch) throw new HbarError('GIT_WORKTREE_BRANCH', 'A branch is required when createBranch is true')
         args.push('-b', branch)
       }
-      args.push(target, ...(branch && !operation.createBranch ? [branch] : []))
+      args.push(
+        target,
+        ...(operation.createBranch ? (startPoint ? [startPoint] : []) : branch ? [branch] : []),
+      )
       await this.run(path, args, signal)
       await this.notifyChanged(path)
       const entries = (await this.worktree(path, {}, signal)) as GitWorktreeInfo[]
@@ -1217,19 +1226,20 @@ function scopedTool(runtime: GitRuntime, context: { workspace: { path: string } 
 }
 
 export function gitTools(runtime: GitRuntime): ToolDefinition[] {
-  return [
-    { name: 'git_info', description: 'Read the current Git commit, branch, and sanitized origin metadata.', inputSchema: cwdSchema, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).info(parsed.cwd, context.signal)) } },
-    { name: 'git_status', description: 'Inspect the current Git repository status, branch, upstream, and sanitized origin URL.', inputSchema: cwdSchema, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).status(parsed.cwd, context.signal)) } },
-    { name: 'git_diff', description: 'Read a bounded Git diff for the workspace. Paths are relative to the workspace.', inputSchema: diffArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = diffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diff(parsed.cwd, parsed, context.signal)) } },
-    { name: 'git_log', description: 'Read recent Git commits from the workspace.', inputSchema: logArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = logArgs.parse(args); return toolResult(await scopedTool(runtime, context).log(parsed.cwd, parsed.limit, context.signal)) } },
-    { name: 'git_stats', description: 'Read bounded first-parent Git commit, file, and line statistics grouped by explicit source.', inputSchema: statsArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = statsArgs.parse(args); return toolResult(await scopedTool(runtime, context).stats(parsed.cwd, parsed, context.signal)) } },
-    { name: 'git_diff_to_remote', description: 'Read the diff from the current HEAD to its configured upstream branch.', inputSchema: remoteDiffArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = remoteDiffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diffToRemote(parsed.cwd, context.signal, parsed.paths)) } },
-    { name: 'git_commit', description: 'Create a Git commit. This is a write operation and requires approval.', inputSchema: commitArgs, effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = commitArgs.parse(args); return toolResult(await scopedTool(runtime, context).commit(parsed.cwd, { ...parsed, provenance: { source: 'auto', sessionId: context.session.id, runId: context.run.id, operationId: context.callId } }, context.signal)) } },
-    { name: 'git_stage', description: 'Stage bounded workspace paths for the next Git commit. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).stage(parsed.cwd, parsed.paths, context.signal)) } },
-    { name: 'git_unstage', description: 'Remove bounded workspace paths from the Git index. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).unstage(parsed.cwd, parsed.paths, context.signal)) } },
-    { name: 'git_branch', description: 'List or mutate Git branches. Mutations require approval.', inputSchema: branchArgs, effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = branchArgs.parse(args); if (parsed.operation !== 'list' && !parsed.name) throw new HbarError('GIT_INVALID_BRANCH', 'name is required for branch mutations'); return toolResult(await scopedTool(runtime, context).branch(parsed.cwd, parsed.operation === 'list' ? {} : { operation: parsed.operation, name: parsed.name!, force: parsed.force }, context.signal)) } },
-    { name: 'git_worktree', description: 'List, create, or remove bounded Git worktrees. Mutations require approval.', inputSchema: worktreeArgs, effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = worktreeArgs.parse(args); if (parsed.operation !== 'list' && !parsed.path) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations'); const operation = parsed.operation === 'list' ? {} : parsed.operation === 'add' ? { operation: 'add' as const, path: parsed.path!, branch: parsed.branch, createBranch: parsed.createBranch } : { operation: 'remove' as const, path: parsed.path!, force: parsed.force }; return toolResult(await scopedTool(runtime, context).worktree(parsed.cwd, operation, context.signal)) } },
+  const tools: ToolDefinition[] = [
+    { name: 'git_info', description: 'Read the current Git commit, branch, and sanitized origin metadata.', inputSchema: cwdSchema, effect: 'read', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).info(parsed.cwd, context.signal)) } },
+    { name: 'git_status', description: 'Inspect the current Git repository status, branch, upstream, and sanitized origin URL.', inputSchema: cwdSchema, effect: 'read', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).status(parsed.cwd, context.signal)) } },
+    { name: 'git_diff', description: 'Read a bounded Git diff for the workspace. Paths are relative to the workspace.', inputSchema: diffArgs, effect: 'read', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = diffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diff(parsed.cwd, parsed, context.signal)) } },
+    { name: 'git_log', description: 'Read recent Git commits from the workspace.', inputSchema: logArgs, effect: 'read', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = logArgs.parse(args); return toolResult(await scopedTool(runtime, context).log(parsed.cwd, parsed.limit, context.signal)) } },
+    { name: 'git_stats', description: 'Read bounded first-parent Git commit, file, and line statistics grouped by explicit source.', inputSchema: statsArgs, effect: 'read', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = statsArgs.parse(args); return toolResult(await scopedTool(runtime, context).stats(parsed.cwd, parsed, context.signal)) } },
+    { name: 'git_diff_to_remote', description: 'Read the diff from the current HEAD to its configured upstream branch.', inputSchema: remoteDiffArgs, effect: 'read', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = remoteDiffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diffToRemote(parsed.cwd, context.signal, parsed.paths)) } },
+    { name: 'git_commit', description: 'Create a Git commit. This is a write operation and requires approval.', inputSchema: commitArgs, effect: 'write', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = commitArgs.parse(args); return toolResult(await scopedTool(runtime, context).commit(parsed.cwd, { ...parsed, provenance: { source: 'auto', sessionId: context.session.id, runId: context.run.id, operationId: context.callId } }, context.signal)) } },
+    { name: 'git_stage', description: 'Stage bounded workspace paths for the next Git commit. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).stage(parsed.cwd, parsed.paths, context.signal)) } },
+    { name: 'git_unstage', description: 'Remove bounded workspace paths from the Git index. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).unstage(parsed.cwd, parsed.paths, context.signal)) } },
+    { name: 'git_branch', description: 'List or mutate Git branches. Mutations require approval.', inputSchema: branchArgs, effect: 'write', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = branchArgs.parse(args); if (parsed.operation !== 'list' && !parsed.name) throw new HbarError('GIT_INVALID_BRANCH', 'name is required for branch mutations'); return toolResult(await scopedTool(runtime, context).branch(parsed.cwd, parsed.operation === 'list' ? {} : { operation: parsed.operation, name: parsed.name!, force: parsed.force }, context.signal)) } },
+    { name: 'git_worktree', description: 'List, create, or remove bounded Git worktrees. Mutations require approval.', inputSchema: worktreeArgs, effect: 'write', requiresProcess: true, workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = worktreeArgs.parse(args); if (parsed.operation !== 'list' && !parsed.path) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations'); const operation = parsed.operation === 'list' ? {} : parsed.operation === 'add' ? { operation: 'add' as const, path: parsed.path!, branch: parsed.branch, createBranch: parsed.createBranch } : { operation: 'remove' as const, path: parsed.path!, force: parsed.force }; return toolResult(await scopedTool(runtime, context).worktree(parsed.cwd, operation, context.signal)) } },
   ]
+  return tools
 }
 
 export const gitPlugin = definePlugin({

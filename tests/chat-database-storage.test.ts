@@ -159,6 +159,9 @@ test('migrates genuine version-22 history in small batches and restores identica
         .all(kind)
       for (const entry of entries) db.exec(`DROP ${kind} "${entry.name.replaceAll('"', '""')}"`)
     }
+    db.exec(
+      'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget;',
+    )
     db.exec('PRAGMA user_version=22')
   } finally {
     db.close()

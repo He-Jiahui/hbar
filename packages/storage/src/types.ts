@@ -86,6 +86,15 @@ import type {
   WorkspaceDisplayNamesSnapshot,
 } from '@hbar/contracts/commands/workspace-display-names'
 import type {
+  NodeExecutionIntentIdentity,
+  NodeExecutionIntentPage,
+  NodeExecutionIntentPageInput,
+  NodeExecutionIntentSettlementInput,
+  NodeExecutionIntentSettlementReceipt,
+} from './node-execution-intents'
+import type { NodeRunWorktreeAdmission, NodeRunWorktreeBindInput, NodeRunWorktreeBinding } from './node-run-worktrees'
+import type { NodeRunWorkspaceMount, NodeRunWorkspaceMountBindInput } from './node-run-workspace-mounts'
+import type {
   SessionActivityGlobalListInput,
   SessionActivityGlobalPage,
   WorkspaceSidebarListInput,
@@ -372,6 +381,8 @@ export interface StorageMethods {
   recentSessions(input: SessionRecentInput): SessionRecentPage
   searchSessions(input: SessionSearchInput): SessionSearchPage
   createWorkspace(path: string, name: string): Workspace
+  createNodeWorkspace(input: import('@hbar/contracts/node-workspaces').NodeWorkspaceCreate): Workspace
+  nodeSessionsPage(input: import('@hbar/contracts/node-workspaces').NodeSessionList): SessionPage
   workspaceFolders: ReturnType<typeof createWorkspaceFolderStorage>['read']
   workspaceFolderReceipt: ReturnType<typeof createWorkspaceFolderStorage>['receipt']
   applyWorkspaceFolders(
@@ -562,7 +573,15 @@ export interface StorageMethods {
     name: string,
     args: unknown,
     presentation?: import('@hbar/contracts').ToolCallPresentation,
+    nodeExecution?: Omit<NodeExecutionIntentIdentity, 'sessionId' | 'runId' | 'callId' | 'name' | 'args'>,
   ): SessionEvent
+  pendingNodeExecutionIntents(input: NodeExecutionIntentPageInput): NodeExecutionIntentPage
+  nodeExecutionIntentSettle(input: NodeExecutionIntentSettlementInput): NodeExecutionIntentSettlementReceipt
+  nodeRunWorktreeBind(input: NodeRunWorktreeBindInput): NodeRunWorktreeBinding
+  nodeRunWorktree(runId: string): NodeRunWorktreeBinding | null
+  nodeRunWorktreeAdmission(runId: string): NodeRunWorktreeAdmission | null
+  nodeRunWorkspaceMountBind(input: NodeRunWorkspaceMountBindInput): NodeRunWorkspaceMount
+  nodeRunWorkspaceMount(runId: string): NodeRunWorkspaceMount | null
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
   recover(scope?: RuntimeRecoveryScope): number
   runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null
@@ -594,6 +613,12 @@ export interface StorageMethods {
   deviceByHash(hash: string): Device | null
   devices(): Device[]
   revokeDevice(id: string): void
+  nodeIdentityEnsure(identity: import('@hbar/contracts/node-registry').NodeRegistryInput<'identity.ensure'>): import('@hbar/contracts/node-registry').NodeRegistryOutput<'identity.ensure'>
+  nodes(): import('@hbar/contracts/node-registry').RegisteredNode[]
+  node(nodeId: string): import('@hbar/contracts/node-registry').RegisteredNode | null
+  nodeRegister(node: import('@hbar/contracts/node-registry').NodeRegistryInput<'node.register'>): import('@hbar/contracts/node-registry').RegisteredNode
+  nodeTouch(nodeId: string, time: number, capabilities: import('@hbar/contracts/node').NodeCapabilities): import('@hbar/contracts/node-registry').RegisteredNode | null
+  nodeRevoke(nodeId: string, time: number): import('@hbar/contracts/node-registry').RegisteredNode | null
   setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string, projectId?: string): void
   setPlugins(
     plugins: {

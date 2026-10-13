@@ -13,6 +13,7 @@
     { "id": "skills", "icon": "skills", "scope": "host", "order": 39 },
     { "id": "extensions", "icon": "extensions", "scope": "host", "order": 40 },
     { "id": "usage", "icon": "usage", "scope": "host", "order": 45 },
-    { "id": "diagnostics", "icon": "diagnostics", "scope": "host", "order": 50 }
+    { "id": "diagnostics", "icon": "diagnostics", "scope": "host", "order": 50 },
+    { "id": "nodes", "icon": "nodes", "scope": "host", "order": 60 }
   ]
 }

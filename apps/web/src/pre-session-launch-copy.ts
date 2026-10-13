@@ -25,6 +25,10 @@ export function preSessionLaunchCopy(locale: ShellLocale): {
         '直接在当前工作树中工作；所选分支会在首次发送时生效。',
         'Work in the current worktree; a selected branch takes effect on first send.',
       ),
+      sharedBranchUnsupported: choose(
+        '远程节点暂不支持切换共享分支；可使用当前工作树或隔离工作树。',
+        'Remote nodes cannot switch the shared checkout to another branch. Use the current worktree or an isolated worktree.',
+      ),
       isolated: choose('隔离工作树', 'Isolated worktree'),
       isolatedHint: choose(
         '首次发送时从所选分支创建独立工作树，不改动原项目。',

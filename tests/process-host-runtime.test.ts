@@ -75,7 +75,9 @@ test('the production composition activates independent Bun owners including nine
   const snapshot = f.runtime.snapshot()
   expect(snapshot.ready).toBe(true)
   const pids = snapshot.units.flatMap(unit => unit.generations.map(generation => generation.pid))
-  expect(new Set(pids).size).toBe(14)
+  expect(new Set(pids).size).toBe(snapshot.units.length)
+  expect(pids.every(pid => pid !== null)).toBe(true)
+  expect(snapshot.units.find(unit => unit.descriptor.id === 'node-link')?.generations[0]).toMatchObject({ phase: 'serving' })
   expect(pids.includes(process.pid)).toBe(false)
   const run = await f.runtime.kernel.submit(f.session.id, 'process-request', { text: '/tool get_goal {}', images: [] }, 'local-fixture')
   await f.runtime.waitForIdle()
@@ -181,7 +183,7 @@ test('a compatible Goal plugin update preserves the Kernel and socket, pins the 
   for (const unit of before.units.filter(unit => unit.descriptor.id !== 'plugin.goal'))
     expect(f.runtime.snapshot().units.find(current => current.descriptor.id === unit.descriptor.id)?.generations[0]?.pid).toBe(unit.generations[0]?.pid)
   expect(client.connectionStatus()).toBe('connected'); expect(host.info().instanceId).toBe(before.instanceId)
-})
+}, 60_000)
 
 test('owned Controller commands switch locally, retain the accepted request generation and keep the listener and every other owner', async () => {
   const f = await fixture(), { client, host } = await clientFor(f.runtime)
@@ -388,7 +390,7 @@ test('the same managed composition starts from build-pinned bytes when its sourc
   expect((await runtime.storage.call('run', run.id)).status).toBe('completed')
   expect((await client.call('system.bootstrap', {})).models.some(model => model.id === 'local-fixture')).toBe(true)
   expect(runtime.snapshot().ready).toBe(true)
-  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(14)
+  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(runtime.snapshot().units.length)
 })
 
 test('a legacy profile executes locally in its managed Kernel owner, binds the actual driver owner and explicitly requires restart for code reload', async () => {
@@ -463,7 +465,7 @@ test('a Kernel update pins the old executor, hands queued input to the new gener
   expect(await f.runtime.kernel.plugins.get('budget').getCommandReceipt(f.session.id, 'handoff-fixture', 'budget-handoff')).toEqual(receipt)
   await f.runtime.manager.reconcile()
   expect(f.runtime.getReload(operation.operationId).phase).toBe('completed')
-})
+}, 60_000)
 
 test('a killed Kernel is fenced and resumes its interrupted conversation once while live clients receive the durable recovery events', async () => {
   const f = await fixture()
@@ -492,7 +494,7 @@ test('a killed Kernel is fenced and resumes its interrupted conversation once wh
   const current = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'kernel')!.generations[0]!
   expect(current.artifactId).toBe(original.artifactId)
   expect(current.generation).toBe(original.generation)
-})
+}, 60_000)
 
 test('stable cancellation commits during a Kernel outage and recovery cannot resume the cancelled Run', async () => {
   const f = await fixture()

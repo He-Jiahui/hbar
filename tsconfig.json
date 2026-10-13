@@ -92,7 +92,7 @@
     "e2e/**/*.ts",
     "e2e/**/*.tsx",
     "examples/**/*.ts",
-    "playwright.config.ts",
+    "playwright*.config.ts",
     "vitest.lumen.config.ts",
     "vitest.app-react.config.ts"
   ],

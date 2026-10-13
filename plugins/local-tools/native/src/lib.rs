@@ -602,15 +602,60 @@ fn canonical_root(workspace: &str, requested: &str) -> ComputeResult<(PathBuf, P
     Ok((workspace, scope))
 }
 
-fn blocked_paths(values: &[String]) -> Vec<PathBuf> {
-    values
-        .iter()
-        .filter_map(|value| Path::new(value).canonicalize().ok())
-        .collect()
+fn protected_path_key(path: &Path) -> String {
+    let value = path.to_string_lossy();
+    let value = if cfg!(windows) {
+        let normalized = value.replace('\\', "/").to_lowercase();
+        if let Some(unc) = normalized.strip_prefix("//?/unc/") {
+            format!("//{unc}")
+        } else {
+            normalized
+                .strip_prefix("//?/")
+                .unwrap_or(&normalized)
+                .to_owned()
+        }
+    } else {
+        value.to_lowercase()
+    };
+    if value.len() > 1 {
+        value.trim_end_matches('/').to_owned()
+    } else {
+        value
+    }
 }
 
-fn is_blocked(path: &Path, blocked: &[PathBuf]) -> bool {
-    blocked.iter().any(|root| path.starts_with(root))
+fn blocked_paths(values: &[String]) -> Vec<String> {
+    let mut blocked = Vec::with_capacity(values.len());
+    for value in values {
+        let path = Path::new(value);
+        // Keep nonexistent restrictions: the protected directory can appear after this check.
+        let lexical = protected_path_key(path);
+        if !lexical.is_empty() && !blocked.contains(&lexical) {
+            blocked.push(lexical);
+        }
+        if let Ok(canonical) = path.canonicalize() {
+            let key = protected_path_key(&canonical);
+            if !blocked.contains(&key) {
+                blocked.push(key);
+            }
+        }
+    }
+    blocked
+}
+
+fn is_blocked(path: &Path, blocked: &[String]) -> bool {
+    // Case modes can differ within one tree. A protected alias always stays protected.
+    let candidate = protected_path_key(path);
+    blocked.iter().any(|root| {
+        candidate == *root
+            || if root.ends_with('/') {
+                candidate.starts_with(root)
+            } else {
+                candidate
+                    .strip_prefix(root)
+                    .is_some_and(|tail| tail.starts_with('/'))
+            }
+    })
 }
 
 fn glob_set(patterns: &[String]) -> ComputeResult<Option<GlobSet>> {
@@ -1154,6 +1199,45 @@ fn read(state: &EngineState, request: ReadRequest, cancel: &AtomicBool) -> Compu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn protected_paths_cover_case_aliases_without_covering_siblings() {
+        let root = if cfg!(windows) {
+            r"C:\repo\.git\hooks"
+        } else {
+            "/repo/.git/hooks"
+        };
+        let alias = if cfg!(windows) {
+            r"C:\repo\.GIT\HOOKS\secret"
+        } else {
+            "/repo/.GIT/HOOKS/secret"
+        };
+        let sibling = if cfg!(windows) {
+            r"C:\repo\.git\hooks-extra\file"
+        } else {
+            "/repo/.git/hooks-extra/file"
+        };
+        let protected = blocked_paths(&[root.to_owned()]);
+        assert!(is_blocked(Path::new(alias), &protected));
+        assert!(!is_blocked(Path::new(sibling), &protected));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn protected_dos_and_unc_paths_cover_verbatim_canonical_names() {
+        let protected = blocked_paths(&[
+            r"C:\repo\.git\hooks".to_owned(),
+            r"\\server\share\private".to_owned(),
+        ]);
+        assert!(is_blocked(
+            Path::new(r"\\?\C:\repo\.GIT\HOOKS\file"),
+            &protected
+        ));
+        assert!(is_blocked(
+            Path::new(r"\\?\UNC\server\share\PRIVATE\file"),
+            &protected
+        ));
+    }
 
     #[test]
     fn compiles_literal_and_regex_matchers() {

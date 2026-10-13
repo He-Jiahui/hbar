@@ -1,8 +1,9 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRuntimeSkillCatalog, rankSkills, SKILL_LIMITS } from '@hbar/kernel/skills'
+import { LOCAL_EXECUTION_DISABLED } from '@hbar/contracts/local-execution-policy'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -46,6 +47,24 @@ test('discovers workspace and relocated global skills, with nearest native overr
   expect(first.skills.find((entry) => entry.name === 'global-only')?.scope).toBe('global')
   expect(first.warnings).toEqual([])
   expect((await catalog.snapshot(workspace)).revision).toBe(first.revision)
+  catalog.dispose()
+})
+
+test('disabled local execution skips node-owned workspace skills but keeps Host global skills available', async () => {
+  const { workspace, global } = await fixture()
+  const sentinel = join(workspace, 'sentinel.txt')
+  await writeFile(sentinel, 'unchanged')
+  await skill(workspace, 'workspace-only', 'Workspace-owned source')
+  await skill(global, 'host-global', 'Host-owned source')
+  const catalog = createRuntimeSkillCatalog(global, LOCAL_EXECUTION_DISABLED)
+  const unavailableWorkspace = join(workspace, 'remote-node-root-not-mounted-locally')
+  const snapshot = await catalog.snapshot(unavailableWorkspace)
+  expect(snapshot.skills.map((item) => item.name)).toEqual(['host-global'])
+  expect((await catalog.search(unavailableWorkspace, {})).items.map((item) => item.name)).toEqual(['host-global'])
+  expect(await catalog.read(unavailableWorkspace, { name: 'host-global', path: 'SKILL.md' })).toMatchObject({
+    skill: { name: 'host-global', scope: 'global' },
+  })
+  expect(await readFile(sentinel, 'utf8')).toBe('unchanged')
   catalog.dispose()
 })
 

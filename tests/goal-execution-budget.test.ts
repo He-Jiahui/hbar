@@ -145,5 +145,13 @@ test('creating a Goal against an already exhausted session returns the persisted
       limitingSource: 'session',
     },
   })
-  expect((await goals.get(session.id)).goal).toEqual(created.goal)
+  const readBack = (await goals.get(session.id)).goal
+  if (!created.goal || !readBack) throw new Error('Expected the exhausted Goal to remain available')
+  const { timing: createdTiming, ...createdPersistedState } = created.goal
+  const { timing: readBackTiming, ...readBackPersistedState } = readBack
+  if (!createdTiming || !readBackTiming) throw new Error('Expected runtime Goal timing samples')
+  expect(readBackPersistedState).toEqual(createdPersistedState)
+  expect(createdTiming).toMatchObject({ elapsedMilliseconds: 0, running: false })
+  expect(readBackTiming).toMatchObject({ elapsedMilliseconds: 0, running: false })
+  expect(readBackTiming.observedAt).toBeGreaterThanOrEqual(createdTiming.observedAt)
 })

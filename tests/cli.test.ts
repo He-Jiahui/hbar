@@ -477,6 +477,7 @@ test('exec workflow commands drive evidence-gated state through the real CLI', a
   expect(JSON.parse(queried.stdout)).toMatchObject({ workflow: { workflowId, status: 'completed' } })
 })
 
+// Host startup plus two Agent runs, each with a bounded 10s patch wait, exceeds the default test budget.
 test('exec agent patch commands isolate, query, apply, and report conflicts through the real CLI', async () => {
   const isolated = await mkdtemp(join(tmpdir(), 'hbar-cli-agent-patch-'))
   const isolatedProject = join(isolated, 'project')
@@ -568,7 +569,7 @@ test('exec agent patch commands isolate, query, apply, and report conflicts thro
     await stopOwnedHost(isolatedData)
     await rm(isolated, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }
-})
+}, 45_000)
 
 test('exec browser commands navigate, inspect, and close the selected session page', async () => {
   const page = Bun.serve({

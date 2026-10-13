@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createGitCommandClient, type ClientTransport } from '@hbar/client'
 import { HbarError } from '@hbar/contracts'
+import { LOCAL_EXECUTION_DISABLED } from '@hbar/contracts/local-execution-policy'
 import { createGitCommands } from '@hbar/kernel'
 import type { GitService } from '@hbar/plugin-sdk'
 import { GitRuntime, gitConfigSchema } from '../plugins/git/src/index.ts'
@@ -245,4 +246,39 @@ test('git command client treats lost mutation responses as unknown without maski
   const client = createGitCommandClient(disconnected)
   await expect(client.execute('git.commit', { message: 'lost' })).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
   await expect(client.execute('git.status', {})).rejects.toMatchObject({ code: 'DISCONNECTED' })
+})
+
+test('disabled local execution blocks Git reads before the injected service can inspect a local repository', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-git-disabled-'))
+  roots.push(root)
+  let calls = 0
+  const commands = createGitCommands(
+    service({
+      async status() {
+        calls++
+        return {
+          cwd: root,
+          root,
+          branch: null,
+          head: null,
+          upstream: null,
+          ahead: 0,
+          behind: 0,
+          dirty: false,
+          entries: [],
+          originUrl: null,
+        }
+      },
+    }),
+    undefined,
+    LOCAL_EXECUTION_DISABLED,
+  )
+  try {
+    await expect(commands.execute('git.status', { cwd: root })).rejects.toMatchObject({
+      code: 'LOCAL_EXECUTION_DISABLED',
+    })
+    expect(calls).toBe(0)
+  } finally {
+    commands.dispose()
+  }
 })

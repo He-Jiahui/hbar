@@ -85,7 +85,7 @@ test('an unrelated HTTP listener cannot satisfy desktop Vite readiness or be ter
   }
 }, 160_000)
 
-test('source Host startup failure reports its log and leaves an unrelated listener running', async () => {
+test('source Host port conflict reports its log without disturbing the existing listener', async () => {
   const f = await fixture()
   const occupied = Bun.serve({
     hostname: '127.0.0.1',
@@ -95,7 +95,7 @@ test('source Host startup failure reports its log and leaves an unrelated listen
   try {
     const result = await f.run()
     expect(result.code).not.toBe(0)
-    expect(result.error).toContain('Source Host: Development process exited before readiness')
+    expect(result.error).toContain(`Source Host: Port 127.0.0.1:${f.hostPort} is already in use`)
     expect(result.error).toContain(resolve(f.home, 'diagnostics/host-dev.log'))
     expect(result.output).not.toContain('Desktop development:')
     expect(await Bun.file(resolve(f.home, 'settings/host.lock')).exists()).toBe(false)

@@ -112,7 +112,7 @@ test('a second activated process cannot write while the existing Worker owner st
   f.install(first)
   expect(await outcome(candidate.activate())).toMatchObject({ code: 'STORAGE_WRITER_ACTIVE' })
   await candidate.dispose()
-  expect(await f.port.call('ready')).toEqual({ version: 25 })
+  expect(await f.port.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
 })
 
 test('the public storage RPC catalog contains every declared method exactly once', async () => {
@@ -127,14 +127,14 @@ test('the public storage RPC catalog contains every declared method exactly once
   expect(new Set(STORAGE_RPC_METHODS).size).toBe(STORAGE_RPC_METHODS.length)
 })
 
-test('the current RPC candidate reads event pages on schema 25 and rejects the pre-page fingerprint without displacing its writer', async () => {
+test('the current RPC candidate reads event pages on the current schema and rejects the pre-page fingerprint without displacing its writer', async () => {
   const f = await fixture()
   const serving = await f.make(1)
   await serving.activate()
   f.install(serving)
   const userVersion = new Database(f.layout.database, { readonly: true, strict: true })
   try {
-    expect(userVersion.query('PRAGMA user_version').get()).toEqual({ user_version: 25 })
+    expect(userVersion.query('PRAGMA user_version').get()).toEqual({ user_version: STORAGE_SCHEMA_VERSION })
   } finally {
     userVersion.close()
   }

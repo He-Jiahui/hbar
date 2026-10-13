@@ -1,7 +1,11 @@
 import { CommandError, createCommandClient, COMMAND_PROTOCOL_VERSION } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { directoryCommands } from '@hbar/contracts/commands'
-import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
+import {
+  workspaceSessionCommands,
+  workspaceCreateInputSchema,
+  type WorkspaceCreateInput,
+} from '@hbar/contracts/commands/workspaces'
 import {
   workspaceOrganizationApplyInputSchema,
   workspaceOrganizationReceiptInputSchema,
@@ -92,6 +96,14 @@ export function createWorkspaceSessionCommandClient(client: ClientTransport) {
       }
     },
   })
+}
+
+/** Create a local workspace by path or a remote workspace by node selector and shared root ID. */
+export function createWorkspace(client: ClientTransport, input: WorkspaceCreateInput) {
+  return createWorkspaceSessionCommandClient(client).execute(
+    'workspace.create',
+    workspaceCreateInputSchema.parse(input),
+  )
 }
 
 export async function exportSessionEvents(client: ClientTransport, sessionId: string): Promise<SessionEvent[]> {

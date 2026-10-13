@@ -7,7 +7,7 @@ import {
   sessionLaunchBranchHeadSchema,
   sessionLaunchBranchesPageSchema,
 } from '@hbar/contracts/commands/session-launch-branches'
-import type { GitService } from '@hbar/plugin-sdk'
+import type { GitLaunchBranchSnapshot, GitService } from '@hbar/plugin-sdk'
 import type { StoragePort } from '@hbar/storage'
 import { z } from 'zod'
 
@@ -162,6 +162,17 @@ function projectPage(
 export function createSessionLaunchBranchesCommands(
   storage: StoragePort,
   git: Pick<GitService, 'launchBranchSnapshot'> & Partial<Pick<GitService, 'createLaunchBranch'>>,
+  options: {
+    readonly manualQuery?: (
+      input: {
+        readonly workspaceId: string
+        readonly actorId: string
+        readonly requestId: string
+        readonly cwd: string
+      },
+      signal: AbortSignal,
+    ) => Promise<GitLaunchBranchSnapshot | null>
+  } = {},
 ) {
   const registry = new CommandRegistry({ execution: 'host' })
   const read = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
@@ -185,7 +196,17 @@ export function createSessionLaunchBranchesCommands(
 
       const workspace = await storage.call('workspace', input.workspaceId)
       context.signal.throwIfAborted()
-      const rawSnapshot: unknown = await git.launchBranchSnapshot(workspace.path, context.signal)
+      const rawSnapshot: unknown = options.manualQuery
+        ? ((await options.manualQuery(
+            {
+              workspaceId: input.workspaceId,
+              actorId: context.actorId,
+              requestId: context.requestId,
+              cwd: workspace.path,
+            },
+            context.signal,
+          )) ?? (await git.launchBranchSnapshot(workspace.path, context.signal)))
+        : await git.launchBranchSnapshot(workspace.path, context.signal)
       context.signal.throwIfAborted()
       const snapshot = validateSnapshot(rawSnapshot)
       const fingerprint = snapshotFingerprint(snapshot)
@@ -272,7 +293,8 @@ export function createSessionLaunchBranchesCommands(
       return registry.dispatch(value, { actorId })
     },
     describe: (id: string) => registry.describe(id),
-    list: () => registry.list({ limit: 500 }),
+    list: (filter?: { readonly includeInternal?: boolean }) =>
+      registry.list({ limit: 500, ...(filter?.includeInternal ? { includeInternal: true } : {}) }),
     dispose: () => registry.dispose(),
   }
 }

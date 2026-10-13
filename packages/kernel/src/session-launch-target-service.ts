@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto'
 import { lstat, mkdir, realpath } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { PathLayout, StoragePort } from '@hbar/storage'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, LOCAL_EXECUTION_ENABLED, assertLocalExecutionAllowed } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import { sessionLaunchDerivedBranchNameSchema } from '@hbar/contracts/commands/session-launch-target'
 import type { SessionLaunchSelection, SessionLaunchTarget } from '@hbar/contracts/commands/session-launch-target'
 import type {
@@ -190,6 +192,7 @@ function gitEnvironment(): NodeJS.ProcessEnv {
 
 function runGit(cwd: string, args: string[], signal: AbortSignal): Promise<GitResult> {
   signal.throwIfAborted()
+  assertLocalWorkspace(cwd)
   return new Promise((resolveResult, reject) => {
     const child = execFile(
       'git',
@@ -273,6 +276,7 @@ export class SessionLaunchTargetService {
     private readonly layout: PathLayout,
     private readonly executeGit = runGit,
     private readonly guardSharedBranchCheckout?: SharedBranchCheckoutGuard,
+    private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
   ) {}
 
   async get(sessionId: string): Promise<SessionLaunchTarget> {
@@ -295,6 +299,7 @@ export class SessionLaunchTargetService {
 
   checkoutRootForWorkspace(workspacePath: string, signal?: AbortSignal): Promise<string> {
     return this.trackOperation(async () => {
+      assertLocalWorkspace(workspacePath)
       const canonicalWorkspace = await realpath(workspacePath)
       try {
         const result = await this.resolveCheckoutRoot(canonicalWorkspace, signal ?? new AbortController().signal)
@@ -311,6 +316,11 @@ export class SessionLaunchTargetService {
   }
 
   private trackOperation<Value>(action: () => Promise<Value>): Promise<Value> {
+    try {
+      assertLocalExecutionAllowed(this.localExecutionPolicy, 'Local worktree operation')
+    } catch (error) {
+      return Promise.reject(error)
+    }
     if (this.closing) return Promise.reject(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
     const operation = action()
     this.trackedOperations.add(operation)
@@ -322,6 +332,7 @@ export class SessionLaunchTargetService {
   }
 
   private async git(cwd: string, args: string[], signal: AbortSignal): Promise<GitResult> {
+    assertLocalWorkspace(cwd)
     const gitSignal = AbortSignal.any([signal, this.closingController.signal])
     const release = await this.gitLimiter.acquire(gitSignal)
     try {
@@ -338,6 +349,7 @@ export class SessionLaunchTargetService {
   }
 
   private async resolveCheckoutRoot(workspacePath: string, signal: AbortSignal): Promise<CheckoutRootResult> {
+    assertLocalWorkspace(workspacePath)
     const canonicalWorkspace = await realpath(workspacePath)
     const result = await this.git(canonicalWorkspace, ['rev-parse', '--show-toplevel'], signal)
     if (result.code !== 0) {
@@ -404,6 +416,7 @@ export class SessionLaunchTargetService {
   }
 
   async prepare(sessionId: string, expectedRevision: number, signal?: AbortSignal): Promise<SessionLaunchTarget> {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Local worktree preparation')
     if (this.closing) throw new HbarError('BUSY', 'Host is shutting down')
     const externalSignal = signal
     if (externalSignal?.aborted) throw abortError()
@@ -664,6 +677,7 @@ export class SessionLaunchTargetService {
     verificationSignal.throwIfAborted()
     const session = await this.storage.call('session', sessionId)
     const workspace = await this.storage.call('workspace', session.workspaceId)
+    assertLocalWorkspace(workspace)
     if (initial.selection.mode === 'shared-current') {
       let sharedPath: string
       try {
@@ -718,7 +732,10 @@ export class SessionLaunchTargetService {
   }
 
   workspaceForRun(sessionId: string, workspacePath: string, signal?: AbortSignal): Promise<string> {
-    return this.trackOperation(() => this.workspaceForRunInternal(sessionId, workspacePath, signal))
+    return this.trackOperation(async () => {
+      assertLocalWorkspace(workspacePath)
+      return this.workspaceForRunInternal(sessionId, workspacePath, signal)
+    })
   }
 
   private async workspaceForRunInternal(
@@ -743,6 +760,7 @@ export class SessionLaunchTargetService {
   }
 
   private async isBoundWorktreeExecutionRootInternal(workspacePath: string): Promise<boolean> {
+    assertLocalWorkspace(workspacePath)
     let canonicalPath: string
     try {
       canonicalPath = await realpath(workspacePath)
@@ -804,6 +822,7 @@ export class SessionLaunchTargetService {
       throw new HbarError('SESSION_LAUNCH_TARGET_LOCKED', 'The launch target is already locked')
     const session = await this.storage.call('session', sessionId)
     const workspace = await this.storage.call('workspace', session.workspaceId)
+    assertLocalWorkspace(workspace)
     if (runtime.target.selection.mode === 'shared-current') {
       const targetPath = await realpath(workspace.path)
       const intent = await this.storage.call('beginSessionLaunchTargetPreparation', {
@@ -1026,6 +1045,7 @@ export class SessionLaunchTargetService {
   ): Promise<SessionLaunchTarget> {
     const branch = selection.branch.ref.slice('refs/heads/'.length)
     const requestedHead = selection.branch.tipOid.toLowerCase()
+    assertLocalWorkspace(workspacePath)
     const targetPath = await realpath(workspacePath)
     let checkout: CheckoutRootResult
     try {
@@ -1297,6 +1317,7 @@ export class SessionLaunchTargetService {
     intent: SessionLaunchTargetResolutionRecord,
     signal: AbortSignal,
   ): Promise<void> {
+    assertLocalWorkspace(workspacePath)
     const selection = intent.selection
     if (selection.mode !== 'shared-branch' || !intent.branch || !intent.resolvedHead)
       throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Prepared shared branch is incomplete')
@@ -1327,6 +1348,7 @@ export class SessionLaunchTargetService {
   }
 
   private async managedPaths(sessionId: string, revision: number, workspacePath: string, signal: AbortSignal) {
+    assertLocalWorkspace(workspacePath)
     const root = await realpath(this.layout.worktrees)
     const dataRoot = await realpath(this.layout.dataRoot)
     if (!inside(dataRoot, root) || samePath(dataRoot, root))
@@ -1806,6 +1828,7 @@ export class SessionLaunchTargetService {
   private async verifyBoundTarget(runtime: SessionLaunchTargetRuntimeSnapshot, signal?: AbortSignal): Promise<void> {
     const binding = runtime.binding
     if (!binding) return
+    assertLocalWorkspace(binding.targetPath)
     if (runtime.branchTargetPending)
       throw new HbarError('RESULT_UNKNOWN', 'Reconcile the branch operation before using the session target')
     if (runtime.branchTarget?.revision === binding.expectedRevision) {
@@ -1818,6 +1841,7 @@ export class SessionLaunchTargetService {
     // After acceptance, shared sessions follow this checkout just like shared-current.
     if (binding.selection.mode === 'shared-current' || binding.selection.mode === 'shared-branch') {
       const workspace = await this.storage.call('workspace', runtime.target.workspaceId)
+      assertLocalWorkspace(workspace)
       if (!samePath(await realpath(workspace.path), binding.targetPath))
         throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The frozen shared workspace path changed')
       return

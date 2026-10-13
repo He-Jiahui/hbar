@@ -2,6 +2,7 @@ import { constants } from 'node:fs'
 import { lstat, open, opendir, realpath } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 
 export const SKILL_LIMITS = Object.freeze({
   entries: 4_096,
@@ -45,6 +46,8 @@ export function skillFileSegments(path: string): string[] {
   return segments
 }
 export async function canonicalSkillRoot(path: string, boundary?: string): Promise<string | null> {
+  assertLocalWorkspace(path)
+  if (boundary !== undefined) assertLocalWorkspace(boundary)
   try {
     const info = await lstat(path)
     if (info.isSymbolicLink() || !info.isDirectory()) return null
@@ -68,6 +71,7 @@ export async function readSkillText(
   prefixBytes?: number,
 ): Promise<string> {
   checkSkillSignal(signal)
+  assertLocalWorkspace(directory)
   const segments = skillFileSegments(path)
   let target = directory
   for (const part of segments) {
@@ -127,6 +131,7 @@ export async function readSkillText(
 }
 
 export async function skillDirectoryEntries(path: string, remaining: number, signal?: AbortSignal) {
+  assertLocalWorkspace(path)
   const entries = []
   const directory = await opendir(path)
   try {
@@ -142,6 +147,7 @@ export async function skillDirectoryEntries(path: string, remaining: number, sig
 }
 
 export async function skillResourceFiles(directory: string, signal?: AbortSignal) {
+  assertLocalWorkspace(directory)
   const files: string[] = []
   let scanned = 0
   let pathCharacters = 0

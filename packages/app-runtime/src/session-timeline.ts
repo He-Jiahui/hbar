@@ -68,6 +68,7 @@ function emptyState(sessionId: string | null, status: SessionTimelineState['stat
     plan: null,
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
     streams: {},
+    toolOutputs: {},
     events: [],
     cursor: 0,
     hasOlder: false,
@@ -128,6 +129,7 @@ function fromSnapshot(
     contextHistoryStatus: 'idle',
     contextHistoryError: null,
     streams: Object.fromEntries(snapshot.streams.map((stream) => [stream.id, { ...stream }])),
+    toolOutputs: {},
     events: [],
     cursor: snapshot.cursor,
     toolEvents: (snapshot.toolEvents ?? []).filter((event) => event.sessionId === snapshot.session.id).slice(-1000),
@@ -236,6 +238,7 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
   let usage = current.usage
   let streams = current.streams
   let toolEvents = current.toolEvents
+  let toolOutputs = current.toolOutputs
   let toolClock = current.toolClock
   let contextHistory = current.contextHistory
   let activeCompaction = current.activeCompaction
@@ -272,6 +275,10 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
       toolEvents = [...(toolEvents ?? []).filter((item) => item !== existing), event].slice(-1000)
       toolClock = { hostTime: event.time, receivedAt: Date.now() }
     }
+  }
+  if ((event.type === 'tool.settled' || event.type === 'tool.unknown') && event.runId && typeof data?.callId === 'string') {
+    const key = `${event.runId}:${data.callId}`
+    toolOutputs = Object.fromEntries(Object.entries(toolOutputs).filter(([operation]) => operation !== key))
   }
 
   if (event.type === 'message.committed' && data && event.runId) {
@@ -375,6 +382,7 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     activeCompaction: activeCompaction ?? null,
     contextCompactions,
     ...(toolEvents ? { toolEvents } : {}),
+    toolOutputs,
     ...(toolClock ? { toolClock } : {}),
     events: [...current.events, event].slice(-MAX_EVENTS),
     cursor: Math.max(current.cursor, event.seq),
@@ -399,6 +407,66 @@ function projectStream(current: SessionTimelineState, stream: StreamDelta): Sess
     version: stream.version,
   }
   return { ...current, streams: { ...current.streams, [stream.id]: next } }
+}
+
+export function projectToolOutput(
+  current: Pick<SessionTimelineState, 'sessionId' | 'toolOutputs'>,
+  output: import('@hbar/contracts').ToolOutputNotification,
+): Pick<SessionTimelineState, 'sessionId' | 'toolOutputs'> {
+  if (output.sessionId !== current.sessionId) return current
+  const key = `${output.runId}:${output.callId}`
+  const previous = current.toolOutputs[key]
+  if (previous?.runId === output.runId && previous.streamId === output.streamId && output.seq <= previous.seq)
+    return current
+  if (output.reset) {
+    const reset = { ...output, text: truncateUtf8(output.text, 64 * 1024) }
+    return { ...current, toolOutputs: boundedToolOutputs(current.toolOutputs, key, reset) }
+  }
+  const gap = Boolean(previous && (previous.runId !== output.runId || previous.streamId !== output.streamId || output.seq !== previous.seq + 1))
+    || (!previous && output.seq !== 1)
+  const prefix = gap ? '' : previous?.text ?? ''
+  const combined = `${prefix}${output.text}`
+  const text = truncateUtf8(combined, 64 * 1024)
+  const limited = text.length !== combined.length || previous?.reason === 'limited'
+  const next = {
+    ...output,
+    ...(gap ? { seq: Math.max(0, output.seq - 1), text: '', reset: true, reason: 'gap' as const } : {}),
+  }
+  const withReset = gap ? boundedToolOutputs(current.toolOutputs, key, next) : current.toolOutputs
+  const reason = gap ? 'gap' as const : limited ? 'limited' as const : previous?.reason
+  const appended = {
+    ...next,
+    seq: output.seq,
+    text,
+    ...(gap ? { reset: true } : {}),
+    ...(reason ? { reason } : {}),
+  }
+  return { ...current, toolOutputs: boundedToolOutputs(withReset, key, appended) }
+}
+
+function boundedToolOutputs(
+  entries: SessionTimelineState['toolOutputs'],
+  callId: string,
+  output: import('@hbar/contracts').ToolOutputNotification,
+): SessionTimelineState['toolOutputs'] {
+  const next = { ...entries, [callId]: output }
+  const keys = Object.keys(next)
+  if (keys.length > 64) delete next[keys[0] ?? callId]
+  return next
+}
+
+const outputTextEncoder = new TextEncoder()
+
+function truncateUtf8(value: string, limit: number): string {
+  const points: string[] = []
+  let bytes = 0
+  for (const point of Array.from(value).reverse()) {
+    const size = outputTextEncoder.encode(point).byteLength
+    if (bytes + size > limit) break
+    points.push(point)
+    bytes += size
+  }
+  return points.reverse().join('')
 }
 
 export function createSessionTimeline(
@@ -625,6 +693,10 @@ export function createSessionTimeline(
             void load(sessionId)
             return
           }
+        }
+        if (update.kind === 'tool.output') {
+          remember({ ...current, ...projectToolOutput(current, update.output) })
+          return
         }
         remember(update.kind === 'event' ? projectEvent(current, update.event) : projectStream(current, update.stream))
         if (

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createDirectoryQueries } from '../packages/kernel/src/directory-queries.ts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import { Storage } from '@hbar/storage'
+import { Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { HbarClient, createDirectoryQueryAdapter } from '@hbar/client'
 import { sessionSidebarPageSchema } from '@hbar/contracts/sidebar-directory'
 import { startServer } from '../apps/host/src/server'
@@ -572,7 +572,7 @@ test('schema 14 upgrade restores parent activity from persisted public facts wit
   const database = new Database(databasePath)
   try {
     database.exec(
-      'DROP TRIGGER directory_activity_session_parent_update; DROP INDEX events_session_type; PRAGMA user_version=14;',
+      'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TRIGGER directory_activity_session_parent_update; DROP INDEX events_session_type; PRAGMA user_version=14;',
     )
   } finally {
     database.close()
@@ -587,7 +587,7 @@ test('schema 14 upgrade restores parent activity from persisted public facts wit
   })
   const upgraded = new Database(databasePath, { readonly: true })
   try {
-    expect(upgraded.query('PRAGMA user_version').get()).toEqual({ user_version: 24 })
+    expect(upgraded.query('PRAGMA user_version').get()).toEqual({ user_version: STORAGE_SCHEMA_VERSION })
     expect(
       upgraded
         .query(

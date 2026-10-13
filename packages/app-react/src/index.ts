@@ -238,6 +238,24 @@ export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './lumen-agent
 export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'
 export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
+export {
+  NodeManagementSettings,
+  type NodeManagementSettingsLabels,
+  type NodeManagementSettingsProps,
+} from './node-management-settings'
+export {
+  HbarNodeConsole,
+  HbarNodeConsoleEntry,
+  type HbarNodeConsoleLabels,
+  type HbarNodeConsoleProps,
+  type HbarNodeConsoleEntryProps,
+} from './node-console'
+export type {
+  NodeConsoleEntryModel,
+  NodeConsoleEntryState,
+  NodeConsoleModel,
+  NodeConsoleState,
+} from './node-console-contract'
 export { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'
@@ -281,4 +299,17 @@ export { HbarSessionBranchTargetControl, type HbarSessionBranchTargetLabels } fr
 export { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent-branch'
 export { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
 export { projectGoalLifecycleRows, type GoalLifecycleAction, type GoalLifecycleRow } from './goal-lifecycle-model'
-export { HbarWorkspaceFoldersDialog, WorkspaceFoldersDialog, type WorkspaceFoldersLabels } from './workspace-folders'
+export {
+  HbarWorkspaceFoldersDialog,
+  WorkspaceFoldersDialog,
+  type WorkspaceFoldersLabels,
+  type WorkspaceNodeFolderRegistry,
+} from './workspace-folders'
+export {
+  HbarWorkspaceLocationPicker,
+  HbarWorkspaceNodeBadge,
+  workspaceLocationBadgeLabel,
+  type WorkspaceLocationPickerLabels,
+  type WorkspaceLocationPickerProps,
+} from './workspace-location-picker'
+export { HbarApprovalExecutionTarget, type ApprovalExecutionTargetLabels } from './approval-execution-target'

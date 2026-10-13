@@ -26,6 +26,7 @@ export const settingsWorkspacePresentationSchema = z
             'database',
             'usage',
             'settings',
+            'nodes',
           ]),
           scope: z.enum(['layered', 'host', 'client', 'mixed']),
           order: z.number().int().nonnegative(),

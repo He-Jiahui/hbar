@@ -117,9 +117,13 @@ test('public entry resolution keeps strict checking enabled without narrowing re
   ] as const)
     expect(options[flag]).toBe(true)
   const aliases = options.paths ?? {}
-  const legacyAliases = Object.entries(aliases).filter(([name]) => name === 'hbar-app-ui' || name.startsWith('hbar-app-ui/'))
+  const legacyAliases = Object.entries(aliases).filter(
+    ([name]) => name === 'hbar-app-ui' || name.startsWith('hbar-app-ui/'),
+  )
   const nonLegacyNames = Object.keys(aliases).filter((name) => !legacyAliases.some(([alias]) => alias === name))
-  expect(nonLegacyNames.sort()).toEqual([...publicEntries.map((entry) => entry.name), '@mui/internal-test-utils'].sort())
+  expect(nonLegacyNames.sort()).toEqual(
+    [...publicEntries.map((entry) => entry.name), '@mui/internal-test-utils'].sort(),
+  )
   for (const entry of publicEntries) expect(options.paths?.[entry.name]).toHaveLength(1)
   const renderer = ts.resolveModuleName(
     '@mui/internal-test-utils',
@@ -169,11 +173,7 @@ test('public entry resolution keeps strict checking enabled without narrowing re
         const argument = node.arguments[0]
         if (argument && ts.isStringLiteral(argument)) specifier = argument.text
       }
-      if (
-        ts.isImportTypeNode(node) &&
-        ts.isLiteralTypeNode(node.argument) &&
-        ts.isStringLiteral(node.argument.literal)
-      )
+      if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteral(node.argument.literal))
         specifier = node.argument.literal.text
       if (specifier && legacyAliases.some(([alias]) => specifier === alias || specifier.startsWith(`${alias}/`)))
         legacyImports.push(specifier)
@@ -210,6 +210,7 @@ test('maintained Bun test entries retain native and quality gates with the hbar 
   const requiredSequence = [
     'bun run lint',
     'bun run typecheck',
+    'bun run check:sandbox-evaluator',
     'bun run check:theme-tokens',
     'bun run check:styles',
     'bun run check:responsive',

@@ -554,6 +554,9 @@ export async function runWorkspaceSessionCommand(
   add('workspaceId', runtime.project.id)
   add('sessionId', runtime.session.id)
   add('title', args.title)
+  add('name', args.name)
+  add('node', args.node)
+  add('rootId', args.root)
   add('after', args.after)
   add('limit', args.limit)
   add('atSeq', args.atSeq)
@@ -574,6 +577,30 @@ export async function runWorkspaceSessionCommand(
     return
   }
   output(await commands.execute(action, input.data as never))
+}
+
+/** Global workspace creation does not require selecting a project or session first. */
+export async function runWorkspaceCreateCommand(
+  args: CliArgs,
+  client: HbarClient,
+  output: CommandOutput = writeStdout,
+): Promise<void> {
+  const definition = allWorkspaceSessionCommands['workspace.create']
+  const argv = [...args.commandArgs.slice(1)]
+  for (const [field, value] of [
+    ['path', args.path],
+    ['node', args.node],
+    ['rootId', args.root],
+    ['name', args.name],
+  ] as const) {
+    if (value === undefined) continue
+    const argument = definition.metadata.cli.arguments.find((item) => item.field === field)
+    if (!argument || (argument.position !== undefined && argv[argument.position] !== undefined)) continue
+    if (argument.flag) argv.push(`--${argument.flag}`, value)
+  }
+  const parsed = definition.input.safeParse(parseArguments(definition.metadata, argv))
+  if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+  output(await createWorkspaceSessionCommandClient(client).execute('workspace.create', parsed.data))
 }
 
 export async function runGitCommand(

@@ -23,6 +23,7 @@ export async function runHost(
     args,
     options: {
       home: { type: 'string' },
+      role: { type: 'string' },
       'data-root': { type: 'string' },
       'cache-root': { type: 'string' },
       host: { type: 'string' },
@@ -35,10 +36,15 @@ export async function runHost(
       key: { type: 'string' },
       'web-root': { type: 'string' },
       profile: { type: 'string' },
+      'no-local-exec': { type: 'boolean' },
       supervisor: { type: 'boolean' },
       supervised: { type: 'boolean' },
     },
   })
+  if (values.role !== undefined && values.role !== 'conversation') throw new Error('Host role must be conversation')
+  if (Boolean(values.cert) !== Boolean(values.key)) throw new Error('Configure both TLS certificate and key')
+  if (values.port !== undefined && (!/^\d+$/.test(values.port) || Number(values.port) > 65535))
+    throw new Error('Invalid --port: use an integer from 0 to 65535')
   const layout = await resolvePathLayout({
     preferPointer: values.desktop === true,
     home: values.home ?? process.env.HBAR_HOME,
@@ -106,6 +112,7 @@ export async function runHost(
       ...(values.demo !== undefined ? { demo: values.demo } : {}),
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(values.profile ? { profileModule: resolve(values.profile) } : {}),
+      ...(values['no-local-exec'] === true ? { noLocalExec: true } : {}),
       ...(['1', 'prepare'].includes(process.env.HBAR_RUNTIME_WATCH ?? '') ? {
         watchSource: true, autoApplySource: process.env.HBAR_RUNTIME_WATCH !== 'prepare',
       } : {}),
@@ -113,6 +120,7 @@ export async function runHost(
     const host = await startServer(runtime.kernel, {
       runtime,
       controller: runtime.controller,
+      nodeLink: runtime.nodeLink,
       diagnosticSink: diagnostics.sink,
       diagnosticScope: diagnostics.scope,
       diagnosticFull: diagnostics.snapshot().fullCoverage,

@@ -559,6 +559,11 @@ export function WebPreSessionLanding({
       draftRevision={draft?.revision ?? null}
       branchCreation={launchBranchCreation.entries[draftId] ?? null}
       branchCreationAvailable={connected}
+      sharedBranchAvailable={
+        !workspaceChoices
+          .find((workspace) => workspace.id === (draft?.workspaceId ?? null))
+          ?.detail.startsWith('hbar-node:')
+      }
       error={launchBranches.workspaceId === draft?.workspaceId ? launchBranches.error : null}
       disabled={!connected || busy || draft?.phase === 'unknown'}
       loading={

@@ -1,6 +1,7 @@
 import { lstat, realpath } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type { SessionBranchExecutionRoot } from '@hbar/storage'
 
 export interface BranchGitResult {
@@ -41,6 +42,7 @@ async function hasBranchMetadata(path: string, signal: AbortSignal): Promise<boo
 
 /** A missing repository is a capability fact; existing invalid metadata remains an error. */
 export async function inspectBranchRepository(git: BranchGit, path: string, signal: AbortSignal) {
+  assertLocalWorkspace(path)
   const canonical = await realpath(path)
   const probe = await git(canonical, ['rev-parse', '--show-toplevel'], signal)
   signal.throwIfAborted()

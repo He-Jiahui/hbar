@@ -5,16 +5,12 @@
 
 use napi_derive::napi;
 
-/// OS-level sandbox mode.
+/// Supported AppContainer launch mode. Other historical sandbox modes are not implemented.
 #[napi(string_enum)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum SandboxLevel {
-    /// CreateRestrictedToken (DISABLE_MAX_PRIVILEGE | LUA_TOKEN | WRITE_RESTRICTED).
-    /// No UAC required; network blocking is env-var only.
+    /// Launch in a unique AppContainer with explicit filesystem leases and a Job Object.
     Unelevated,
-    /// Dedicated local sandbox user accounts with Windows Firewall and WFP filters.
-    /// Requires a one-time UAC prompt during setup.
-    Elevated,
 }
 
 /// Fully-resolved permission profile passed from TypeScript when spawning a sandboxed command.
@@ -26,23 +22,33 @@ pub struct HbarPermissionProfile {
     pub workspace_root: String,
     /// Absolute paths the sandboxed process may write to.
     pub writable_roots: Vec<String>,
-    /// Absolute paths the sandboxed process may read from (elevated only; unelevated reads all).
+    /// Absolute paths the sandboxed process may read from.
     pub readable_roots: Vec<String>,
-    /// When `true`, network-blocking env vars are NOT applied.
+    /// Existing paths whose subtree must be denied to the AppContainer (both read and write).
+    /// Missing paths fail closed; paths must be contained by an authorized root.
+    pub protected_paths: Option<Vec<String>>,
+    /// Existing paths whose subtree may be read but not written by the AppContainer.
+    /// Missing paths fail closed; paths must be contained by an authorized root.
+    pub read_only_paths: Option<Vec<String>>,
+    /// Request AppContainer network capabilities. Launch is rejected unless the live network probe passes.
     pub network_enabled: bool,
     /// Additional env vars to set inside the sandbox (from the resolved profile's `environment.set`).
     pub env_overrides: std::collections::HashMap<String, String>,
-    /// Which sandbox level to use.
+    /// B-curated base environment. The native launcher never inherits its own process environment.
+    pub environment: std::collections::HashMap<String, String>,
+    /// B-owned allowlist used to intersect the base environment and snapshot overrides.
+    pub environment_allowlist: Vec<String>,
+    /// Supported AppContainer launch mode.
     pub level: SandboxLevel,
 }
 
-/// Handle returned to TypeScript after a sandboxed process is spawned.
-/// Streams are managed by Rust-side Tokio tasks; TypeScript polls via callbacks or awaits exit.
+/// Handle returned after spawn. Output is fetched in bounded poll chunks; the
+/// handle remains registered until the Job Object is empty and both pipes drain.
 #[napi(object)]
 #[derive(Debug)]
 pub struct SandboxedProcessHandle {
     /// OS process id.
     pub pid: u32,
-    /// Monotonic token used by `write_stdin` / `close_stdin` / `terminate`.
+    /// Opaque registry key used by `pollSandboxed` and `terminateSandboxed`.
     pub handle_id: String,
 }

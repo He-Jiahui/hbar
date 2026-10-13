@@ -122,7 +122,16 @@ test('first-start Kernel failure keeps liveness, authenticated status and the so
     const pids = before.units.flatMap((unit) =>
       unit.generations.filter((g) => g.role === 'default').map((g) => [unit.descriptor.id, g.pid] as const),
     )
-    expect(pids).toHaveLength(12)
+    expect(pids).toHaveLength(13)
+    const nodeLinkDefaults = before.units
+      .find((unit) => unit.descriptor.id === 'node-link')
+      ?.generations.filter((generation) => generation.role === 'default')
+    expect(nodeLinkDefaults).toHaveLength(1)
+    const nodeLink = nodeLinkDefaults?.[0]
+    if (!nodeLink || nodeLink.pid === null) throw new Error('The default node-link owner has no live PID')
+    expect(nodeLink.phase).toBe('serving')
+    expect(nodeLink.pid).toBeGreaterThan(0)
+    expect(pids).toContainEqual(['node-link', nodeLink.pid])
     const device = await host.auth.createDevice('degraded startup status')
     client = new HbarClient(url, device.token)
     await client.connect()

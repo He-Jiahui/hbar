@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { CommandError } from '@hbar/commands'
 import { createRunCommandClient } from '@hbar/client'
@@ -17,6 +16,7 @@ import {
   runModelListCommand,
   runApplicationCommand,
   runWorkspaceOpenCommand,
+  runWorkspaceCreateCommand,
   runCatalogCommand,
   runCliCommand,
   runFileCommand,
@@ -31,6 +31,9 @@ import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, wai
 import { runTui } from './tui.ts'
 import { runRepl } from './repl.ts'
 import { hostProcessCommand } from './host-process.ts'
+import { isNodeManagementCommand, runNodeManagementCommand } from './node-management'
+import { conversationHostArguments } from './service-entry'
+import { tryAttachNodeConsole } from './node-console-attach'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
@@ -61,14 +64,7 @@ function completion(shell: string | undefined) {
 }
 
 async function serve(args: CliArgs) {
-  const command = hostProcessCommand([
-    '--supervisor',
-    '--desktop',
-    ...(args.dataRoot ? ['--data-root', args.dataRoot] : []),
-    ...(args.cacheRoot ? ['--cache-root', args.cacheRoot] : []),
-    ...(args.project ? ['--workspace', resolve(args.project)] : []),
-    ...(args.demo ? ['--demo'] : []),
-  ])
+  const command = hostProcessCommand(conversationHostArguments(args))
   const child = spawn(command[0]!, command.slice(1), { stdio: 'inherit', windowsHide: false })
   return new Promise<number>((resolveExit, reject) => {
     child.once('error', reject)
@@ -79,6 +75,7 @@ async function serve(args: CliArgs) {
 async function attached(args: CliArgs) {
   const url = args.commandArgs[0]
   if (!url) throw new Error('Usage: hbar attach <url>')
+  if (await tryAttachNodeConsole(url, args)) return
   let runtime
   try {
     runtime = await openAttachedRuntime(url, process.env.HBAR_TOKEN, args)
@@ -183,6 +180,24 @@ try {
         projectId = (await selectProject(client, bootstrap, args.workspace ?? args.project, !args.connectOnly)).id
       }
       await runExtensionCommand({ ...args, commandArgs }, client, projectId)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isNodeManagementCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runNodeManagementCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && args.commandArgs[0] === 'workspace.create') {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runWorkspaceCreateCommand(args, client)
     } finally {
       client.disconnect()
     }

@@ -1,0 +1,41 @@
+.hbar-system-terminal-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--lumen-space-12);
+  min-block-size: 0;
+  padding: var(--lumen-space-12);
+}
+
+.hbar-system-terminal-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lumen-space-12);
+  min-inline-size: 0;
+}
+
+.hbar-system-terminal-message {
+  flex: 0 0 auto;
+  overflow-wrap: anywhere;
+}
+
+.hbar-system-terminal-viewport {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-surface);
+  padding: var(--lumen-space-8);
+  background: var(--lumen-contrast);
+  font-family: var(--dsh-font-family-code, ui-monospace, monospace);
+  font-size: var(--hbar-font-size-code, var(--lumen-font-size));
+}
+
+.hbar-system-terminal-viewport > .xterm {
+  block-size: 100%;
+  font-family: var(--dsh-font-family-code, ui-monospace, monospace);
+  font-size: var(--hbar-font-size-code, var(--lumen-font-size));
+  line-height: 1.2;
+}

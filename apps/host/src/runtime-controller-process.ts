@@ -47,6 +47,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         }),
         configuration.data.demo,
         configuration.data.instanceId,
+        configuration.data.noLocalExec,
       )
     : null
   const maintenance = new CommandRegistry({ execution: 'host' })
@@ -63,6 +64,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           list: () => maintenance.list({ limit: 500 }),
           dispose() {},
         },
+        manualGitQuery: (input, signal) => kernel.call('git.manualQuery', [input], { signal, timeoutMs: 130_000 }),
         publishFresh: (event) => {
           void context.peer.notify('controller.notification', event).catch(() => {
             console.error('[hbar controller] notification delivery failed')
@@ -105,7 +107,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
             {
               service: 'commands',
               revision: application.commandServices.reduce((total, value) => total + value.service.list().revision, 0),
-              items: application.commandServices.flatMap((value) => value.service.list().items),
+              // The stable listener needs hidden descriptors to authorize direct internal workspace commands.
+              items: application.commandServices.flatMap(
+                (value) => value.service.list({ includeInternal: true }).items,
+              ),
             },
           ]
         : [],

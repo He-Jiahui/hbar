@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util'
+import { CLI_OPTIONS } from './cli-options'
 import { approvalModeSchema, type ApprovalMode, type ThinkingLevel } from '@hbar/contracts'
 
 export interface CliArgs {
@@ -10,6 +11,12 @@ export interface CliArgs {
   connectOnly?: boolean | undefined
   dataRoot?: string | undefined
   cacheRoot?: string | undefined
+  home?: string | undefined
+  host?: string | undefined
+  port?: string | undefined
+  cert?: string | undefined
+  key?: string | undefined
+  publicHost?: string | undefined
   project?: string | undefined
   workspace?: string | undefined
   session?: string | undefined
@@ -71,6 +78,16 @@ export interface CliArgs {
   approval: ApprovalMode
   outputFormat: 'text' | 'jsonl'
   demo: boolean
+  role?: string | undefined
+  name?: string | undefined
+  node?: string | undefined
+  root?: string | undefined
+  join?: string | undefined
+  code?: string | undefined
+  fingerprint?: string | undefined
+  listen?: string | undefined
+  stdio?: boolean | undefined
+  noLocalExec?: boolean | undefined
 }
 
 export const HELP = `hbar - Pi harness + Cordis workbench
@@ -81,6 +98,11 @@ Usage:
   hbar --headless --message <text> Run one request without a UI
   hbar --connect-only ...           Use a healthy existing Host; do not create anything implicitly
   hbar serve                        Start a background Host
+  hbar serve --role conversation --host <address> --port <port> --cert <pem> --key <pem>
+  hbar serve --role conversation --no-local-exec
+  hbar serve --role workspace --home <node-data> --join <A-url> --code <8-digits> --fingerprint <A-fingerprint>
+  hbar serve --role workspace --listen <address> --cert <pem> --key <pem> --public-host <hostname>
+  hbar node status|share|unshare|policy|pause|resume|kill|audit|unlink [--home <node-data>]
   hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
   hbar exec session.getBudget --session <id|name>
   hbar exec session.clearBudget --session <id|name>
@@ -161,74 +183,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     args: argv,
     allowPositionals: true,
     strict: false,
-    options: {
-      help: { type: 'boolean', short: 'h' },
-      headless: { type: 'boolean' },
-      'connect-only': { type: 'boolean' },
-      message: { type: 'string' },
-      model: { type: 'string' },
-      profile: { type: 'string' },
-      thinking: { type: 'string' },
-      approval: { type: 'string' },
-      project: { type: 'string' },
-      workspace: { type: 'string' },
-      session: { type: 'string' },
-      context: { type: 'string' },
-      'context-revision': { type: 'string' },
-      'idempotency-key': { type: 'string' },
-      'request-id': { type: 'string' },
-      'expected-revision': { type: 'string' },
-      'plan-revision': { type: 'string' },
-      'input-json': { type: 'string' },
-      'input-file': { type: 'string' },
-      text: { type: 'string' },
-      'expected-sha256': { type: 'string' },
-      client: { type: 'string' },
-      'invocation-id': { type: 'string' },
-      timeout: { type: 'string' },
-      instance: { type: 'string' },
-      binding: { type: 'string' },
-      scope: { type: 'string' },
-      target: { type: 'string' },
-      section: { type: 'string' },
-      path: { type: 'string' },
-      page: { type: 'string' },
-      'browser-context': { type: 'string' },
-      app: { type: 'string' },
-      'delta-x': { type: 'string' },
-      cwd: { type: 'string' },
-      'paths-json': { type: 'string' },
-      branch: { type: 'string' },
-      cached: { type: 'boolean' },
-      stage: { type: 'boolean' },
-      force: { type: 'boolean' },
-      'create-branch': { type: 'boolean' },
-      archived: { type: 'boolean' },
-      'at-seq': { type: 'string' },
-      selector: { type: 'string' },
-      'full-page': { type: 'boolean' },
-      'include-descendants': { type: 'boolean' },
-      from: { type: 'string' },
-      to: { type: 'string' },
-      'bucket-ms': { type: 'string' },
-      'max-buckets': { type: 'string' },
-      'max-samples': { type: 'string' },
-      'max-points': { type: 'string' },
-      provider: { type: 'string' },
-      source: { type: 'string' },
-      'value-json': { type: 'string' },
-      'baseline-json': { type: 'string' },
-      'schema-version': { type: 'string' },
-      'token-budget': { type: 'string' },
-      title: { type: 'string' },
-      category: { type: 'string' },
-      after: { type: 'string' },
-      limit: { type: 'string' },
-      'output-format': { type: 'string' },
-      'data-root': { type: 'string' },
-      'cache-root': { type: 'string' },
-      demo: { type: 'boolean' },
-    },
+    options: CLI_OPTIONS,
   })
   const values = parsed.values as Record<string, string | boolean | undefined>
   const positionals = parsed.positionals
@@ -236,6 +191,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     'diagnose',
     'version',
     'serve',
+    'node',
     'attach',
     'session',
     'model',
@@ -263,12 +219,28 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
   return {
     command,
     commandArgs,
+    role: values.role as string | undefined,
+    name: values.name as string | undefined,
+    node: values.node as string | undefined,
+    root: values.root as string | undefined,
+    join: values.join as string | undefined,
+    code: values.code as string | undefined,
+    fingerprint: values.fingerprint as string | undefined,
+    listen: values.listen as string | undefined,
+    stdio: Boolean(values.stdio),
+    noLocalExec: Boolean(values['no-local-exec']),
     message: (values.message as string | undefined) ?? freeMessage,
     headless: Boolean(values.headless),
     help: Boolean(values.help),
     connectOnly: Boolean(values['connect-only']),
     dataRoot: values['data-root'] as string | undefined,
     cacheRoot: values['cache-root'] as string | undefined,
+    home: values.home as string | undefined,
+    host: values.host as string | undefined,
+    port: values.port as string | undefined,
+    cert: values.cert as string | undefined,
+    key: values.key as string | undefined,
+    publicHost: values['public-host'] as string | undefined,
     project: values.project as string | undefined,
     workspace: values.workspace as string | undefined,
     session: values.session as string | undefined,

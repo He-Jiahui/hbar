@@ -61,6 +61,7 @@ function timeline(): SessionTimelineState {
     plan: null,
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
     streams: {},
+    toolOutputs: {},
     events: [],
     cursor: 1,
     hasOlder: false,

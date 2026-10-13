@@ -30,6 +30,29 @@ export { createSchemaCallbackClient } from './schema-content'
 export { createSettingsCommandClient } from './settings'
 export { createChatDatabaseCommandClient } from './chat-database'
 export { createSystemCommandClient } from './system'
+export { createNodeCommandClient } from './nodes'
+export {
+  createSystemTerminalClient,
+  createSystemTerminalOutputConsumer,
+  type SystemTerminalDisplay,
+  type SystemTerminalOutput,
+  type SystemTerminalTransport,
+} from './system-terminal'
+export {
+  createNodeConsoleClient,
+  createNodeConsoleDeviceKey,
+  createNodeConsoleSigner,
+  pairNodeConsoleDevice,
+  pairNodeConsoleDeviceWithSigner,
+  type NodeConsoleCallOptions,
+  type NodeConsoleClientOptions,
+  type NodeConsoleFetch,
+  type NodeConsoleDeviceCredentials,
+  type NodeConsolePairingResult,
+  type NodeConsolePairingMaterial,
+  type NodeConsoleSigner,
+  type NodeConsoleTransport,
+} from './node-console'
 export { createUsageCommandClient } from './usage'
 export { createInteractionCommandClient, createInteractionRecoveryClient } from './interaction'
 export { createGoalPlanCommandClient } from './goals'
@@ -63,7 +86,8 @@ export type {
   SessionLaunchTargetWriteOptions,
 } from '@hbar/contracts/commands/session-launch-target'
 export { createExtensionCommandClient } from './extensions'
-export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
+export { allWorkspaceSessionCommands, createWorkspace, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
+export type { WorkspaceCreateInput } from '@hbar/contracts/commands/workspaces'
 export {
   createAttachmentCommandClient,
   createAttachmentSourceDescriptor,

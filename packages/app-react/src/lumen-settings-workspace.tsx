@@ -172,6 +172,7 @@ export type HbarSettingsGroupIcon =
   | 'usage'
   | 'settings'
   | 'database'
+  | 'nodes'
 
 export interface HbarSettingsGroupPresentation {
   readonly id: string
@@ -194,6 +195,7 @@ const groupIcons = {
   sandbox: ShieldHalf,
   settings: Settings,
   database: Database,
+  nodes: Server,
 } satisfies Readonly<Record<HbarSettingsGroupIcon, LucideIcon>>
 
 function reasonCode(reason: unknown): string {

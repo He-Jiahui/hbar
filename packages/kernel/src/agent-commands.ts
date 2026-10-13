@@ -1,9 +1,13 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
-import { HbarError } from '@hbar/contracts'
+import { assertLocalExecutionAllowed, HbarError, LOCAL_EXECUTION_ENABLED } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { agentCommands, agentProfileIdSchema } from '@hbar/contracts/commands/agents'
 import type { AgentService } from '@hbar/plugin-sdk'
 
-export function createAgentCommands(service: AgentService) {
+export function createAgentCommands(
+  service: AgentService,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
+) {
   const registry = new CommandRegistry({ execution: 'host' })
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
@@ -48,6 +52,7 @@ export function createAgentCommands(service: AgentService) {
     agentCommands['agent.patch.apply'],
     ({ parentSessionId, agentId, planRevision }, context) =>
       translate(() => {
+        assertLocalExecutionAllowed(localExecutionPolicy, 'Local Agent patch application')
         if (!context.actorId || !context.idempotencyKey)
           throw new HbarError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
         return service.applyPatch(parentSessionId, agentId, planRevision, {

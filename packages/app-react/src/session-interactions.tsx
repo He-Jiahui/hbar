@@ -26,9 +26,12 @@ import './session-interactions.css'
 import { HbarPlanExitDecision, type HbarPlanExitDecisionLabels, type HbarPlanExitTarget } from './plan-exit-decision'
 import type { MessageClipboardPort } from './message-copy'
 import { useDecisionResultFocus } from './decision-result-focus'
+import { HbarApprovalExecutionTarget, type ApprovalExecutionTargetLabels } from './approval-execution-target'
+import type { NodeExecutionTarget } from '@hbar/contracts/node-execution-target'
 
 export interface HbarSessionDecisionLabels {
   readonly planExit: HbarPlanExitDecisionLabels
+  readonly executionTarget?: ApprovalExecutionTargetLabels | undefined
   readonly approval: string
   readonly questionnaire: string
   readonly pending: string
@@ -62,6 +65,8 @@ export interface HbarSessionDecisionProps {
   readonly copyOwner?: object | undefined
   readonly clipboard?: MessageClipboardPort | null | undefined
   readonly decision: SessionDecision
+  /** Host supplies the captured A-verified execution target for this exact approval. */
+  readonly executionTarget?: NodeExecutionTarget | undefined
   readonly action?: InteractionActionState | undefined
   readonly answers?: QuestionnaireDraftState['answers'] | undefined
   readonly labels: HbarSessionDecisionLabels
@@ -121,13 +126,16 @@ function useSessionDecisionLabels(): HbarSessionDecisionLabels {
     submit: t('submit'),
     secretAnswer: t('secretAnswer'),
     error: t('error'),
+    executionTarget: t('executionTarget'),
   }
 }
 
 function ApprovalPreview({
   decision,
+  executionTarget,
 }: {
   readonly decision: Extract<SessionDecision, { kind: 'approval' }>
+  readonly executionTarget?: NodeExecutionTarget | undefined
 }) {
   const labels = useSessionDecisionLabels()
   const [expanded, setExpanded] = useState(false)
@@ -140,6 +148,9 @@ function ApprovalPreview({
   const content = decision.tool === 'write_file' && typeof args.text === 'string' ? args.text : null
   return (
     <LumenFrame className="hbar-decision-preview">
+      {executionTarget && labels.executionTarget ? (
+        <HbarApprovalExecutionTarget target={executionTarget} labels={labels.executionTarget} />
+      ) : null}
       {path ? (
         <LumenContentText className="hbar-decision-path" context="section.description">
           <LumenIcon icon={FileText} tier="sm" />
@@ -198,6 +209,7 @@ function DecisionContent({
   decision,
   action,
   answers = {},
+  executionTarget,
   connected,
   onDecision,
   onAnswer,
@@ -288,7 +300,7 @@ function DecisionContent({
         </LumenContentText>
       </LumenFrame>
       {decision.kind === 'approval' ? (
-        <ApprovalPreview decision={decision} />
+        <ApprovalPreview decision={decision} executionTarget={executionTarget} />
       ) : (
         <LumenFrame className="hbar-decision-questions">
           {questions.length > 1 ? (

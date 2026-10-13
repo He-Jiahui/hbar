@@ -120,29 +120,33 @@ test('real Kernel manual summary failure retains bounded provider stream facts a
       failure = error
     }
     expect(failure).toBeInstanceOf(Error)
-    expect(requests).toBe(1)
+    expect(requests).toBe(3)
     const own = events.filter((event) => event.sessionId === session.id)
-    const start = own.find((event) => event.event === 'provider.request_started')
+    const starts = own.filter((event) => event.event === 'provider.request_started')
     const terminal = own.filter((event) => event.event === 'provider.request_settled')
-    expect(terminal).toHaveLength(1)
-    expect(start?.attemptId).toBeTruthy()
-    expect(terminal[0]).toMatchObject({
-      httpStatus: 200,
-      method: 'context.compaction',
-      outcome: 'failure',
-      modelRequestId: start?.modelRequestId,
-      attemptId: start?.attemptId,
-      streamSubtype: 'provider_error',
-      streamErrorClass: 'upstream',
-      streamTextChars: 0,
-      streamThinkingChars: 0,
-    })
-    expect(terminal[0]?.streamEventCount).toBeGreaterThan(0)
-    expect(terminal[0]?.streamFirstEventMs).toBeGreaterThanOrEqual(0)
-    expect(terminal[0]?.streamLastEventMs).toBeGreaterThanOrEqual(
-      terminal[0]?.streamFirstEventMs ?? Number.POSITIVE_INFINITY,
-    )
-    expect(diagnosticEventSchema.safeParse(terminal[0]).success).toBe(true)
+    expect(starts).toHaveLength(3)
+    expect(terminal).toHaveLength(3)
+    const chunkAttemptId = starts[0]?.attemptId
+    expect(chunkAttemptId).toBeTruthy()
+    expect(starts.every((event) => event.attemptId === chunkAttemptId)).toBe(true)
+    expect(new Set(starts.map((event) => event.modelRequestId)).size).toBe(3)
+    for (const [index, settled] of terminal.entries()) {
+      expect(settled).toMatchObject({
+        httpStatus: 200,
+        method: 'context.compaction',
+        outcome: 'failure',
+        modelRequestId: starts[index]?.modelRequestId,
+        attemptId: chunkAttemptId,
+        streamSubtype: 'provider_error',
+        streamErrorClass: 'upstream',
+        streamTextChars: 0,
+        streamThinkingChars: 0,
+      })
+      expect(settled.streamEventCount).toBeGreaterThan(0)
+      expect(settled.streamFirstEventMs).toBeGreaterThanOrEqual(0)
+      expect(settled.streamLastEventMs).toBeGreaterThanOrEqual(settled.streamFirstEventMs ?? Number.POSITIVE_INFINITY)
+      expect(diagnosticEventSchema.safeParse(settled).success).toBe(true)
+    }
     expect(await kernel.storage.call('context', session.id)).toEqual(before)
     const snapshot = await kernel.snapshot(session.id)
     expect(snapshot.messages).toEqual(beforeMessages)

@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { createLocalExecutionPolicy, HbarError } from '@hbar/contracts'
 import {
   SettingsService,
   createAgentCommands,
@@ -78,7 +78,7 @@ export interface ControllerCommandService {
   readonly service: {
     dispatch(value: unknown, actorId: string): Promise<unknown>
     describe(id: string): CommandDescriptor
-    list(): { revision: number; items: readonly CommandDescriptor[] }
+    list(filter?: { readonly includeInternal?: boolean }): { revision: number; items: readonly CommandDescriptor[] }
   }
 }
 
@@ -137,9 +137,19 @@ export function createControllerApplication(
     readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
     readonly publishFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void
     readonly background?: boolean
+    readonly manualGitQuery?: (
+      input: {
+        readonly workspaceId: string
+        readonly actorId: string
+        readonly requestId: string
+        readonly cwd: string
+      },
+      signal: AbortSignal,
+    ) => Promise<import('@hbar/plugin-sdk').GitLaunchBranchSnapshot | null>
   },
 ) {
-  const agentCommands = createAgentCommands(kernel.plugins.get('agent'))
+  const localExecutionPolicy = createLocalExecutionPolicy(kernel.options.noLocalExec)
+  const agentCommands = createAgentCommands(kernel.plugins.get('agent'), localExecutionPolicy)
   const browserCommands = createBrowserCommands(kernel.plugins.get('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get('computer'))
   const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
@@ -170,12 +180,16 @@ export function createControllerApplication(
     storage: kernel.storage,
     resolveSessionPath: (sessionId, workspacePath, signal) =>
       kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  })
+  }, localExecutionPolicy)
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),
   )
-  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(kernel.storage, kernel.plugins.get('git'))
+  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
+    kernel.storage,
+    kernel.plugins.get('git'),
+    options.manualGitQuery ? { manualQuery: options.manualGitQuery } : {},
+  )
   const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get('budget'))
   const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {

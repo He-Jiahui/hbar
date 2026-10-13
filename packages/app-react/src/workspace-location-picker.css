@@ -1,0 +1,122 @@
+.hbar-workspace-location-body,
+.hbar-workspace-location-body > *,
+.hbar-workspace-location-modes,
+.hbar-workspace-location-remote,
+.hbar-workspace-location-heading,
+.hbar-workspace-location-path-row,
+.hbar-workspace-location-actions,
+.hbar-workspace-location-nodes,
+.hbar-workspace-location-node,
+.hbar-workspace-location-node > button,
+.hbar-workspace-location-roots,
+.hbar-workspace-location-roots > button {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--lumen-space-12);
+}
+
+.hbar-workspace-location-body,
+.hbar-workspace-location-remote,
+.hbar-workspace-location-nodes,
+.hbar-workspace-location-node,
+.hbar-workspace-location-roots {
+  flex-direction: column;
+}
+
+.hbar-workspace-location-body {
+  overflow-wrap: anywhere;
+}
+
+.hbar-workspace-location-body > :is(p, h3),
+.hbar-workspace-location-node p,
+.hbar-workspace-location-roots p {
+  margin: 0;
+}
+
+.hbar-workspace-location-modes,
+.hbar-workspace-location-path-row,
+.hbar-workspace-location-actions,
+.hbar-workspace-location-heading {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hbar-workspace-location-modes > button {
+  flex: 1 1 12rem;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-workspace-location-modes > button > :last-child,
+.hbar-workspace-location-node > button > :last-child,
+.hbar-workspace-location-roots > button > :last-child {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.hbar-workspace-location-path-row > input {
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+}
+
+.hbar-workspace-location-heading {
+  justify-content: space-between;
+}
+
+.hbar-workspace-location-heading > h3 {
+  margin: 0;
+}
+
+.hbar-workspace-location-nodes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-workspace-location-node {
+  border-block-end: 0.0625rem solid var(--lumen-line);
+  padding-block-end: var(--lumen-space-8);
+}
+
+.hbar-workspace-location-node > button,
+.hbar-workspace-location-roots > button {
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-workspace-location-roots {
+  padding-inline-start: var(--lumen-space-24);
+}
+
+.hbar-workspace-location-actions {
+  justify-content: flex-end;
+}
+
+.hbar-workspace-node-badge {
+  display: inline-flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: var(--lumen-space-4);
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+
+@media (width < 40rem) {
+  .hbar-workspace-location-path-row > button,
+  .hbar-workspace-location-path-row > input {
+    flex-basis: 100%;
+  }
+  .hbar-workspace-location-roots {
+    padding-inline-start: var(--lumen-space-8);
+  }
+}

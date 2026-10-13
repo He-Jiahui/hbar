@@ -17,6 +17,8 @@ import { type SidebarTimeGroupId } from './sidebar-time-groups'
 import { type WorkspaceDisplayNamesLabels } from './workspace-display-names'
 
 import { type WorkspaceFoldersLabels } from './workspace-folders'
+import type { WorkspaceNodeFolderRegistry } from './workspace-folders'
+import type { WorkspaceLocationPickerLabels } from './workspace-location-picker'
 import { type SessionRenameLabels } from './session-navigation-row'
 import { type SessionAgentTreeLabels } from './session-agent-branch'
 import { type SessionArchiveBatchLabels, type SessionArchiveLabels } from './session-archive'
@@ -155,6 +157,18 @@ export interface HbarWorkspaceShellProps {
   readonly tool?: ReactNode
   readonly toolLabel?: string
   readonly overlay?: ReactNode
+  /** Host-owned creator for local or node-pinned workspaces. */
+  readonly renderWorkspaceCreator?: (callbacks: {
+    readonly open: boolean
+    readonly onBrowseLocal: () => void
+    readonly onCreated: (workspaceId: string) => void
+    readonly onCancel: () => void
+  }) => ReactNode
+  readonly workspaceNodeBadgeLabels?: Pick<WorkspaceLocationPickerLabels, 'remoteWorkspace'>
+  readonly workspaceNodeNames?: Readonly<Record<string, string>>
+  readonly workspaceNodeFolderRegistry?: WorkspaceNodeFolderRegistry
+  readonly workspaceNodeFolderMutationAllowed?: boolean
+  readonly refreshWorkspaceNodeFolderRegistry?: (() => Promise<void>) | undefined
   /** Host-owned projections for the production shell. Existing runtime UI remains the default. */
   readonly slots?: HbarWorkspaceShellSlots
   /** Optional host projection for desktop layout descriptors. */

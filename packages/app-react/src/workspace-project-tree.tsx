@@ -9,6 +9,7 @@ import './sidebar-entry-layout.css'
 import './workspace-session-entry.css'
 import './sidebar-navigation.css'
 import { WorkspaceProjectMenu } from './workspace-organization'
+import { HbarWorkspaceNodeBadge } from './workspace-location-picker'
 import { SidebarTimeView, type SidebarTimeProject } from './sidebar-time-view'
 import { SessionAgentBranch } from './session-agent-branch'
 import { ArchivedSessions } from './session-archive'
@@ -22,7 +23,10 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
   props,
   model,
 }: {
-  readonly props: Pick<WorkspaceSidebarProps, 'connection' | 'bridge'>
+  readonly props: Pick<
+    WorkspaceSidebarProps,
+    'connection' | 'bridge' | 'workspaceNodeNames' | 'workspaceNodeBadgeLabels'
+  >
   readonly model: Pick<
     ReturnType<typeof useWorkspaceSidebar>,
     | 'directory'
@@ -277,6 +281,12 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                   <LumenFrame className="hbar-app-react-workspace-row" title={workspace.path}>
                     <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
                     <SidebarCaption text={displayName} />
+                    {workspace.location?.kind === 'node' && props.workspaceNodeBadgeLabels ? (
+                      <HbarWorkspaceNodeBadge
+                        labels={props.workspaceNodeBadgeLabels}
+                        nodeName={props.workspaceNodeNames?.[workspace.location.nodeId] ?? workspace.location.nodeId}
+                      />
+                    ) : null}
                     {isPinned && (
                       <LumenContentText
                         context="message.inline"

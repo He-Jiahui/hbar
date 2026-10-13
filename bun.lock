@@ -67,6 +67,10 @@
         "@hbar/commands": "workspace:*",
         "@hbar/decision-laya": "workspace:*",
         "@hbar/image-generation": "workspace:*",
+        "@hbar/node": "workspace:*",
+        "@hbar/node-core": "workspace:*",
+        "@hbar/node-link": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
         "@mui/material": "9.4.0",
         "@playwright/test": "1.63.0",
         "@tauri-apps/cli": "2.11.4",
@@ -110,6 +114,8 @@
         "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",
         "@hbar/host": "workspace:*",
+        "@hbar/node": "workspace:*",
+        "@hbar/runtime": "workspace:*",
         "@hbar/runtime-native": "workspace:*",
         "@hbar/storage": "workspace:*",
         "@hbar/terminal": "workspace:*",
@@ -127,7 +133,25 @@
         "@hbar/agent": "workspace:*",
         "@hbar/commands": "workspace:*",
         "@hbar/image-generation": "workspace:*",
+        "@hbar/node-link": "workspace:*",
         "@hbar/runtime-native": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
+      },
+    },
+    "apps/node": {
+      "name": "@hbar/node",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/git": "workspace:*",
+        "@hbar/local-tools": "workspace:*",
+        "@hbar/node-core": "workspace:*",
+        "@hbar/node-link": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "@hbar/runtime": "workspace:*",
+        "@hbar/runtime-native": "workspace:*",
+        "@hbar/storage": "workspace:*",
+        "zod": "4.5.4",
       },
     },
     "apps/web": {
@@ -233,6 +257,7 @@
         "@hbar/contracts": "workspace:*",
         "@hbar/image-generation": "workspace:*",
         "@hbar/provider-catalog": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
         "@hbar/usage": "workspace:*",
@@ -278,6 +303,27 @@
         "@hbar/contracts": "workspace:*",
       },
     },
+    "packages/node-core": {
+      "name": "@hbar/node-core",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
+        "zod": "4.5.4",
+      },
+    },
+    "packages/node-link": {
+      "name": "@hbar/node-link",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/node-core": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "@hbar/sandbox": "workspace:*",
+        "zod": "4.5.4",
+      },
+    },
     "packages/plugin-sdk": {
       "name": "@hbar/plugin-sdk",
       "version": "0.1.0",
@@ -305,6 +351,13 @@
       "dependencies": {
         "@hbar/contracts": "workspace:*",
         "zod": "4.5.4",
+      },
+    },
+    "packages/sandbox": {
+      "name": "@hbar/sandbox",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
       },
     },
     "packages/schema-core": {
@@ -711,6 +764,12 @@
 
     "@hbar/metrics": ["@hbar/metrics@workspace:packages/metrics"],
 
+    "@hbar/node": ["@hbar/node@workspace:apps/node"],
+
+    "@hbar/node-core": ["@hbar/node-core@workspace:packages/node-core"],
+
+    "@hbar/node-link": ["@hbar/node-link@workspace:packages/node-link"],
+
     "@hbar/pi-driver": ["@hbar/pi-driver@workspace:plugins/pi-driver"],
 
     "@hbar/plan": ["@hbar/plan@workspace:plugins/plan"],
@@ -722,6 +781,8 @@
     "@hbar/runtime": ["@hbar/runtime@workspace:packages/runtime"],
 
     "@hbar/runtime-native": ["@hbar/runtime-native@workspace:packages/runtime-native"],
+
+    "@hbar/sandbox": ["@hbar/sandbox@workspace:packages/sandbox"],
 
     "@hbar/schema-core": ["@hbar/schema-core@workspace:packages/schema-core"],
 

@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { ContentBlock } from '@hbar/contracts'
+import { LOCAL_EXECUTION_DISABLED } from '@hbar/contracts/local-execution-policy'
+import { workspaceFindInputSchema, workspaceSearchInputSchema } from '@hbar/contracts/workspace-query'
 import { LocalExecution } from '@hbar/local-tools'
 
 const resources: { root: string; kernel: Kernel }[] = []
@@ -222,6 +224,58 @@ test('shell preserves Windows PowerShell UTF-8 stdout and stderr', async () => {
     expect(result.isError).toBe(process.platform === 'win32')
   } finally {
     execution.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('disabled LocalExecution rejects every local provider entry before filesystem or process effects', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-local-disabled-provider-'))
+  const execution = new LocalExecution([], undefined, undefined, undefined, LOCAL_EXECUTION_DISABLED)
+  let mountChecks = 0
+  const mountedExecution = new LocalExecution(
+    [],
+    undefined,
+    {
+      get: () => {
+        mountChecks++
+        return undefined
+      },
+      verify: async () => {
+        mountChecks++
+      },
+    },
+    undefined,
+    LOCAL_EXECUTION_DISABLED,
+  )
+  const signal = new AbortController().signal
+  const sentinel = join(root, 'sentinel.txt')
+  const spawnedOutput = join(root, 'spawned.txt')
+  await writeFile(sentinel, 'unchanged')
+  try {
+    const operations: Array<() => Promise<unknown>> = [
+      () => execution.list(root, '.'),
+      () => execution.resolveDirectory(root, '.'),
+      () => execution.read(root, 'sentinel.txt'),
+      () => execution.readBytes(root, 'sentinel.txt'),
+      () => execution.write(root, 'sentinel.txt', 'changed'),
+      () => execution.restoreFiles(root, [], signal),
+      () => execution.exec(root, `echo started > "${spawnedOutput}"`, signal),
+      () => execution.workspaceQuery.search(root, workspaceSearchInputSchema.parse({ pattern: 'unchanged' }), signal),
+      () => execution.workspaceQuery.find(root, workspaceFindInputSchema.parse({}), signal),
+      () => execution.workspaceQuery.readRange(root, 'sentinel.txt', 1, 1, signal),
+      () => execution.workspaceQuery.invalidate(root, 'sentinel.txt'),
+    ]
+    for (const operation of operations)
+      await expect(operation()).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+    await expect(
+      mountedExecution.workspaceQuery.find(root, workspaceFindInputSchema.parse({}), signal),
+    ).rejects.toMatchObject({ code: 'LOCAL_EXECUTION_DISABLED' })
+    expect(mountChecks).toBe(0)
+    expect(await Bun.file(sentinel).text()).toBe('unchanged')
+    expect(await Bun.file(spawnedOutput).exists()).toBe(false)
+  } finally {
+    execution.dispose()
+    mountedExecution.dispose()
     await rm(root, { recursive: true, force: true })
   }
 })

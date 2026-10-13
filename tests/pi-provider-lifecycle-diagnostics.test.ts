@@ -752,17 +752,24 @@ test('HTTP 200 provider error events emit bounded stream facts without event tex
       await expect(
         new PiDriver().run(runInput(fixture.baseUrl, AbortSignal.timeout(5_000), events, protocol)),
       ).rejects.toThrow()
+      const starts = events.filter((event) => event.phase === 'started')
       const streamEvents = events.filter((event) => event.streamSubtype === 'provider_error')
-      expect(streamEvents).toHaveLength(1)
-      expect(streamEvents[0]).toMatchObject({
-        phase: 'failed',
-        purpose: 'model',
-        streamSubtype: 'provider_error',
-        streamEventCount: 1,
-        streamErrorClass: 'upstream',
-        errorCode: 'PROVIDER_STREAM_INTERRUPTED',
-      })
-      expect(streamEvents[0]?.modelRequestId).toBe(events.find((event) => event.phase === 'started')?.modelRequestId)
+      expect(starts).toHaveLength(3)
+      expect(streamEvents).toHaveLength(3)
+      expect(new Set(starts.map((event) => event.modelRequestId)).size).toBe(3)
+      for (const [index, failed] of streamEvents.entries()) {
+        expect(failed).toMatchObject({
+          phase: 'failed',
+          purpose: 'model',
+          streamSubtype: 'provider_error',
+          streamEventCount: 1,
+          streamTextChars: 0,
+          streamThinkingChars: 0,
+          streamErrorClass: 'upstream',
+          errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+          modelRequestId: starts[index]?.modelRequestId,
+        })
+      }
       expect(JSON.stringify(events)).not.toContain('private-stream-body')
       expect(JSON.stringify(events)).not.toContain('server_error')
     } finally {

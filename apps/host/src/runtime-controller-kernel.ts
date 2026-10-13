@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { CommandRegistry } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { HbarError, type LiveStream, type SessionEvent } from '@hbar/contracts'
+import { workspaceFoldersSchema } from '@hbar/contracts/commands/workspace-folders'
 import type { KernelControllerPort, KernelControllerCapabilities } from '@hbar/kernel/controller'
 import { RUNTIME_APPLICATION_METHODS, type RuntimeApplicationTargets } from '@hbar/kernel/runtime-application'
 import { callStorageRpc, type PathLayout, type StoragePort } from '@hbar/storage'
@@ -23,10 +24,11 @@ export class RuntimeControllerKernel {
   readonly api: KernelControllerPort
   private readonly scope = new AsyncLocalStorage<RuntimeControllerScope>()
   constructor(
-    private readonly values: RuntimeValuePort,
+    private readonly values: Pick<RuntimeValuePort, 'call'>,
     layout: PathLayout,
     demo: boolean,
     instanceId: string,
+    noLocalExec = false,
   ) {
     const directory = new CommandRegistry({ execution: 'host' })
     for (const definition of Object.values(directoryCommands))
@@ -62,10 +64,24 @@ export class RuntimeControllerKernel {
     const self = this
     this.api = {
       ...this.methods('kernel'),
+      createNodeWorkspace: (input) => this.call('kernel.createNodeWorkspace', [input]),
       instanceId,
-      options: { layout, demo },
+      options: {
+        layout,
+        demo,
+        noLocalExec,
+        nodeWorkspaceInspection: {
+          verifyWorkspaceFolders: async (nodeId, folders, signal) =>
+            workspaceFoldersSchema.parse(
+              await this.call('workspace.verifyFolders', [nodeId, folders], { signal, timeoutMs: 45_000 }),
+            ),
+        },
+      },
       storage,
-      storageHealth: () => { this.current(); return { ready: true } },
+      storageHealth: () => {
+        this.current()
+        return { ready: true }
+      },
       get recovered() {
         return self.current().kernel.recovered
       },
@@ -131,9 +147,16 @@ export class RuntimeControllerKernel {
       throw new HbarError('CONTROLLER_INVOCATION_EXPIRED', 'Controller use cases require an admitted request scope')
     return scope
   }
-  async call<Result>(method: string, args: readonly unknown[]): Promise<Result> {
+  async call<Result>(
+    method: string,
+    args: readonly unknown[],
+    options: import('@hbar/runtime').IpcCallOptions = {},
+  ): Promise<Result> {
     try {
-      return await this.values.call<Result>(method, [this.current().invocationId, ...args], { timeoutMs: 120_000 })
+      return await this.values.call<Result>(method, [this.current().invocationId, ...args], {
+        timeoutMs: 130_000,
+        ...options,
+      })
     } catch (error) {
       const domain = runtimeDomainError(error)
       if (domain) throw new HbarError(domain.code, domain.message)

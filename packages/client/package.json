@@ -8,7 +8,8 @@
     "./notifications": "./src/notifications.ts",
     "./prompt-templates": "./src/prompt-templates.ts",
     "./run-board": "./src/run-board.ts",
-    "./schedules": "./src/schedules.ts"
+    "./schedules": "./src/schedules.ts",
+    "./node-console": "./src/node-console.ts"
   },
   "dependencies": {
     "@hbar/commands": "workspace:*",

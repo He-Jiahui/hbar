@@ -58,6 +58,7 @@ test('Web surface manifest assigns every production surface to one outlet', () =
     monitoring: 'tool',
     agents: 'tool',
     goals: 'tool',
+    'system-terminal': 'tool',
     commands: 'modal',
     'chat-search': 'modal',
     'settings-editor': 'modal',

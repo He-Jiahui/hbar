@@ -3,35 +3,77 @@ import { z } from 'zod'
 import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks'
 import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
 
-function fixture() {
+function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number | (() => number) } = {}) {
   const transport = new AsyncResource('isolated-runtime-transport')
   let child!: IpcPeer
-  const parent = new IpcPeer({ owner: { unitId: 'base', generation: 1, incarnation: 'value-base' }, remote: { unitId: 'kernel', generation: 1, incarnation: 'value-kernel' },
-    transport: { send: frame => transport.runInAsyncScope(() => child.receive(JSON.parse(JSON.stringify(frame)))) }, controlMethods: ['application.callback'] })
-  child = new IpcPeer({ owner: parent.remote, remote: parent.owner,
-    transport: { send: frame => transport.runInAsyncScope(() => parent.receive(JSON.parse(JSON.stringify(frame)))) }, controlMethods: ['application.callback'] })
+  const peerOptions = options.peerTimeoutMs === undefined ? {} : { timeoutMs: options.peerTimeoutMs }
+  const parent = new IpcPeer({
+    ...peerOptions,
+    owner: { unitId: 'base', generation: 1, incarnation: 'value-base' },
+    remote: { unitId: 'kernel', generation: 1, incarnation: 'value-kernel' },
+    transport: { send: (frame) => transport.runInAsyncScope(() => child.receive(JSON.parse(JSON.stringify(frame)))) },
+    controlMethods: ['application.callback'],
+  })
+  child = new IpcPeer({
+    ...peerOptions,
+    owner: parent.remote,
+    remote: parent.owner,
+    transport: { send: (frame) => transport.runInAsyncScope(() => parent.receive(JSON.parse(JSON.stringify(frame)))) },
+    controlMethods: ['application.callback'],
+  })
   let entered = 0
-  const local = new RuntimeValuePort(parent, { prefix: 'application', controlMethods: ['approval.resolve'], callbackScope: action => { entered++; return action() } })
-  const remote = new RuntimeValuePort(child, { prefix: 'application', controlMethods: ['approval.resolve'] })
-  return { local, remote, entered: () => entered, close() { local.dispose(); remote.dispose(); parent.close(); child.close(); transport.emitDestroy() } }
+  const local = new RuntimeValuePort(parent, {
+    prefix: 'application',
+    controlMethods: ['approval.resolve'],
+    ...(options.callbackTimeoutMs === undefined ? {} : { callbackTimeoutMs: options.callbackTimeoutMs }),
+    callbackScope: (action) => {
+      entered++
+      return action()
+    },
+  })
+  const remote = new RuntimeValuePort(child, {
+    prefix: 'application',
+    controlMethods: ['approval.resolve'],
+    ...(options.callbackTimeoutMs === undefined ? {} : { callbackTimeoutMs: options.callbackTimeoutMs }),
+  })
+  return {
+    local,
+    remote,
+    entered: () => entered,
+    close() {
+      local.dispose()
+      remote.dispose()
+      parent.close()
+      child.close()
+      transport.emitDestroy()
+    },
+  }
 }
 
 test('plain descriptions preserve optional arguments and bytes while named callbacks stay in their owner scope', async () => {
   const f = fixture()
   try {
-    f.remote.register('transaction.commit', async args => {
+    f.remote.register('transaction.commit', async (args) => {
       const [value, commit, bytes] = args
       const input = z.strictObject({ optional: z.undefined(), text: z.string() }).parse(value)
-      if (typeof commit !== 'function' || !(bytes instanceof Uint8Array)) throw new Error('Expected local port adapters')
+      if (typeof commit !== 'function' || !(bytes instanceof Uint8Array))
+        throw new Error('Expected local port adapters')
       const result: unknown = await Reflect.apply(commit, undefined, [input.text, bytes])
       return { result, optional: undefined, bytes }
     })
-    expect(await f.local.call<{ result: string; optional: undefined; bytes: Uint8Array }>('transaction.commit', [{ text: '中😀', optional: undefined },
-      (text: string, bytes: Uint8Array) => `${text}:${bytes.length}`, new Uint8Array([0, 255, 32])])).toEqual({ result: '中😀:3', optional: undefined, bytes: new Uint8Array([0, 255, 32]) })
+    expect(
+      await f.local.call<{ result: string; optional: undefined; bytes: Uint8Array }>('transaction.commit', [
+        { text: '中😀', optional: undefined },
+        (text: string, bytes: Uint8Array) => `${text}:${bytes.length}`,
+        new Uint8Array([0, 255, 32]),
+      ]),
+    ).toEqual({ result: '中😀:3', optional: undefined, bytes: new Uint8Array([0, 255, 32]) })
     expect(f.entered()).toBe(1)
     expect(f.local.snapshot().callbacks).toBe(0)
     await expect(f.local.call('undeclared.private', [])).rejects.toMatchObject({ code: 'RUNTIME_METHOD_UNAVAILABLE' })
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
 })
 
 test('cancellation is translated into the owner-local signal and closed callback references cannot perform later commits', async () => {
@@ -42,11 +84,27 @@ test('cancellation is translated into the owner-local signal and closed callback
     f.remote.register('wait', async ([signal, callback]) => {
       if (!(signal instanceof AbortSignal) || typeof callback !== 'function') throw new Error('Expected local ports')
       late = () => Reflect.apply(callback, undefined, []) as Promise<unknown>
-      await new Promise<void>(resolve => signal.addEventListener('abort', () => { cancelled = true; resolve() }, { once: true }))
+      await new Promise<void>((resolve) =>
+        signal.addEventListener(
+          'abort',
+          () => {
+            cancelled = true
+            resolve()
+          },
+          { once: true },
+        ),
+      )
     })
     const controller = new AbortController()
     let committed = 0
-    const call = f.local.call('wait', [controller.signal, () => { committed++ }]).catch((error: unknown) => error)
+    const call = f.local
+      .call('wait', [
+        controller.signal,
+        () => {
+          committed++
+        },
+      ])
+      .catch((error: unknown) => error)
     while (!late) await Bun.sleep(1)
     controller.abort()
     expect(await call).toBeInstanceOf(Error)
@@ -54,24 +112,35 @@ test('cancellation is translated into the owner-local signal and closed callback
     expect(committed).toBe(0)
     expect(f.local.snapshot().callbacks).toBe(0)
     await expect(late!()).rejects.toBeInstanceOf(Error)
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
 })
 
 test('class instances, schema objects, cycles, reserved fields and over-capacity callbacks fail before invocation', async () => {
   const f = fixture()
   let invoked = 0
-  f.remote.register('probe', () => { invoked++ })
+  f.remote.register('probe', () => {
+    invoked++
+  })
   try {
-    const cycle: Record<string, unknown> = {}; cycle.self = cycle
+    const cycle: Record<string, unknown> = {}
+    cycle.self = cycle
     for (const value of [new Date(), z.object({}), cycle, { constructor: 'injected' }])
       await expect(f.local.call('probe', [value])).rejects.toMatchObject({ code: 'IPC_SERIALIZATION' })
-    await expect(f.local.call('probe', [Array.from({ length: 257 }, () => () => {})])).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_CAPACITY' })
+    await expect(f.local.call('probe', [Array.from({ length: 257 }, () => () => {})])).rejects.toMatchObject({
+      code: 'RUNTIME_CALLBACK_CAPACITY',
+    })
     expect(f.local.snapshot().callbacks).toBe(0)
     expect(invoked).toBe(0)
     const duplicates = { value: 1 }
-    f.remote.register('echo', args => args)
-    expect(await f.local.call<{ value: number }[][]>('echo', [[duplicates, duplicates]])).toEqual([[duplicates, duplicates]])
-  } finally { f.close() }
+    f.remote.register('echo', (args) => args)
+    expect(await f.local.call<{ value: number }[][]>('echo', [[duplicates, duplicates]])).toEqual([
+      [duplicates, duplicates],
+    ])
+  } finally {
+    f.close()
+  }
 })
 
 test('only declared application controls use the control port and an invalid returned class fails its request locally', async () => {
@@ -83,7 +152,9 @@ test('only declared application controls use the control port and an invalid ret
     await expect(f.local.call('invalid.response', [])).rejects.toMatchObject({ code: 'IPC_SERIALIZATION' })
     expect(await f.local.call<string>('approval.resolve', ['next-approval'])).toBe('next-approval')
     expect(f.local.snapshot().callbacks).toBe(0)
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
 })
 
 test('a callback returning across an independent IPC dispatch context retains its original local execution authority', async () => {
@@ -95,31 +166,138 @@ test('a callback returning across an independent IPC dispatch context retains it
       if (typeof callback !== 'function') throw new Error('Expected a named callback')
       return Reflect.apply(callback, undefined, [])
     })
-    expect(await scope.run({ owner: 'original-kernel', fence: 42 }, () =>
-      f.local.call<{ owner: string; fence: number }>('commit', [() => scope.getStore()]))).toEqual({ owner: 'original-kernel', fence: 42 })
+    expect(
+      await scope.run({ owner: 'original-kernel', fence: 42 }, () =>
+        f.local.call<{ owner: string; fence: number }>('commit', [() => scope.getStore()]),
+      ),
+    ).toEqual({ owner: 'original-kernel', fence: 42 })
     expect(scope.getStore()).toBeUndefined()
     expect(f.local.snapshot().callbacks).toBe(0)
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
 })
 
 test('nested named callbacks and local cancellation preserve each owner scope and release every reference', async () => {
-  const f = fixture(), scope = new AsyncLocalStorage<string>()
+  const f = fixture(),
+    scope = new AsyncLocalStorage<string>()
   let late: (() => Promise<unknown>) | undefined
   try {
     f.remote.register('guarded.commit', async ([host]) => {
       if (typeof host !== 'function') throw new Error('Expected the declared host callback')
       return scope.run('plugin-owner', () => {
-        const result: unknown = Reflect.apply(host, undefined, [async () => scope.getStore(), new AbortController().signal])
+        const result: unknown = Reflect.apply(host, undefined, [
+          async () => scope.getStore(),
+          new AbortController().signal,
+        ])
         return result
       })
     })
-    const result = await scope.run('kernel-owner', () => f.local.call('guarded.commit', [async (commit: () => Promise<string>, signal: AbortSignal) => {
-      expect(scope.getStore()).toBe('kernel-owner'); expect(signal).toBeInstanceOf(AbortSignal)
-      late = commit
-      return { caller: scope.getStore(), committedBy: await commit() }
-    }]))
+    const result = await scope.run('kernel-owner', () =>
+      f.local.call('guarded.commit', [
+        async (commit: () => Promise<string>, signal: AbortSignal) => {
+          expect(scope.getStore()).toBe('kernel-owner')
+          expect(signal).toBeInstanceOf(AbortSignal)
+          late = commit
+          return { caller: scope.getStore(), committedBy: await commit() }
+        },
+      ]),
+    )
     expect(result).toEqual({ caller: 'kernel-owner', committedBy: 'plugin-owner' })
-    expect(f.local.snapshot().callbacks).toBe(0); expect(f.remote.snapshot().callbacks).toBe(0)
+    expect(f.local.snapshot().callbacks).toBe(0)
+    expect(f.remote.snapshot().callbacks).toBe(0)
     await expect(late!()).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_EXPIRED' })
-  } finally { f.close() }
+  } finally {
+    f.close()
+  }
+})
+
+test('a trusted callback budget overrides a shorter peer default across asynchronous IPC and releases callback references', async () => {
+  const f = fixture({ peerTimeoutMs: 20, callbackTimeoutMs: 250 })
+  try {
+    f.remote.register('wait-for-callback', async ([callback]) => {
+      if (typeof callback !== 'function') throw new Error('Expected a named callback')
+      return Reflect.apply(callback, undefined, [])
+    })
+    expect(
+      await f.local.call<string>(
+        'wait-for-callback',
+        [
+          async () => {
+            await Bun.sleep(80)
+            return 'callback completed'
+          },
+        ],
+        { timeoutMs: 500 },
+      ),
+    ).toBe('callback completed')
+    expect(f.local.snapshot().callbacks).toBe(0)
+    expect(f.remote.snapshot().callbacks).toBe(0)
+  } finally {
+    f.close()
+  }
+})
+
+test('a dynamically selected callback deadline is captured with the original request before its handler runs', async () => {
+  let configuredBudget = 200
+  const f = fixture({ peerTimeoutMs: 500, callbackTimeoutMs: () => configuredBudget })
+  try {
+    f.remote.register('capture-callback-budget', async ([callback]) => {
+      if (typeof callback !== 'function') throw new Error('Expected a named callback')
+      configuredBudget = 1
+      return Reflect.apply(callback, undefined, [])
+    })
+    expect(
+      await f.local.call<string>(
+        'capture-callback-budget',
+        [
+          async () => {
+            await Bun.sleep(60)
+            return 'captured budget'
+          },
+        ],
+        { timeoutMs: 500 },
+      ),
+    ).toBe('captured budget')
+    expect(f.remote.snapshot().callbacks).toBe(0)
+  } finally {
+    f.close()
+  }
+})
+
+test('callback budget expiry bounds nested IPC work and dynamically resolved budgets are validated', async () => {
+  let callbackTimeoutMs = 30
+  const f = fixture({ peerTimeoutMs: 500, callbackTimeoutMs: () => callbackTimeoutMs })
+  try {
+    f.remote.register('slow-callback', async ([callback]) => {
+      if (typeof callback !== 'function') throw new Error('Expected a named callback')
+      return Reflect.apply(callback, undefined, [])
+    })
+    await expect(
+      f.local.call(
+        'slow-callback',
+        [
+          async () => {
+            await Bun.sleep(100)
+            return 'too late'
+          },
+        ],
+        { timeoutMs: 500 },
+      ),
+    ).rejects.toMatchObject({ code: 'IPC_TIMEOUT' })
+    expect(f.local.snapshot().callbacks).toBe(0)
+    expect(f.remote.snapshot().callbacks).toBe(0)
+    f.remote.register('invalid-timeout', async ([callback]) => {
+      if (typeof callback !== 'function') throw new Error('Expected a named callback')
+      return Reflect.apply(callback, undefined, [])
+    })
+    callbackTimeoutMs = Number.POSITIVE_INFINITY
+    await expect(
+      f.local.call('invalid-timeout', [async () => 'unreachable'], { timeoutMs: 500 }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(f.local.snapshot().callbacks).toBe(0)
+    expect(f.remote.snapshot().callbacks).toBe(0)
+  } finally {
+    f.close()
+  }
 })

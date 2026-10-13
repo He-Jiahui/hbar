@@ -151,13 +151,18 @@ test('automatic compaction and subsequent inference retain Run max instead of th
     expect(snapshot.runs.find((item) => item.id === run.id)?.status).toBe('completed')
     expect(snapshot.runs.find((item) => item.id === run.id)?.input.thinking).toBe('max')
     expect(fixture.requests.length).toBeGreaterThanOrEqual(2)
-    for (const request of fixture.requests.slice(0, -1))
+    const summaryRequests = fixture.requests.slice(0, -1)
+    for (const request of summaryRequests) {
       expect(JSON.stringify(request)).toContain('Summarize the conversation')
-    expect(fixture.requests.every((request) => request.reasoning?.effort === 'max')).toBe(true)
+      expect(request.reasoning?.effort).toBe('low')
+    }
+    const inference = fixture.requests.at(-1)
+    expect(inference).toBeDefined()
+    expect(inference?.reasoning?.effort).toBe('max')
     const events = await kernel.storage.call('events', session.id, 0)
     const compaction = events.find((event) => event.type === 'compaction.request' && event.runId === run.id)
     expect(
-      z.object({ request: z.object({ context: z.object({ thinking: z.literal('max') }) }) }).parse(compaction?.data),
+      z.object({ request: z.object({ context: z.object({ thinking: z.literal('low') }) }) }).parse(compaction?.data),
     ).toBeDefined()
     expect((await kernel.storage.call('context', session.id)).summary).toBe('History summarized.')
   } finally {

@@ -1,5 +1,7 @@
 import type { Database } from 'bun:sqlite'
 import { HbarError, idSchema } from '@hbar/contracts'
+import { createHash } from 'node:crypto'
+import { isNodeWorkspacePath, parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { z } from 'zod'
 import {
   sessionLaunchSelectionSchema,
@@ -111,6 +113,26 @@ function selectedBranchMatches(selection: SessionLaunchSelection, branch: string
   return branch === selection.branch.name
 }
 
+function launchBindingMatchesTarget(input: {
+  selection: SessionLaunchSelection
+  targetPath: string
+  branch: string | null
+  head: string | null
+}): boolean {
+  if (!selectedBranchMatches(input.selection, input.branch)) return false
+  if (input.selection.mode === 'shared-current') return input.head === null
+  if (isNodeWorkspacePath(input.targetPath) && input.selection.mode === 'isolated-worktree') return input.head === null
+  return input.head !== null
+}
+
+function remoteLaunchBranch(selection: SessionLaunchSelection, sessionId: string, revision: number): string | null {
+  if (selection.mode === 'shared-current') return null
+  if (selection.mode === 'shared-branch') return selection.branch.ref.slice('refs/heads/'.length)
+  if (selection.branch.kind !== 'derived') return selection.branch.name
+  const hash = createHash('sha256').update(`${sessionId}\0${revision}`).digest('hex')
+  return sessionLaunchDerivedBranchNameSchema.parse(`hbar/session-launch/${hash}`)
+}
+
 const preparationInputSchema = z
   .strictObject({
     sessionId: idSchema,
@@ -145,12 +167,7 @@ const bindingFieldsSchema = {
 }
 const bindingInputSchema = z
   .strictObject(bindingFieldsSchema)
-  .refine(
-    (input) =>
-      selectedBranchMatches(input.selection, input.branch) &&
-      (input.selection.mode === 'shared-current' ? input.head === null : input.head !== null),
-    'Binding branch and head must match the selected target',
-  )
+  .refine(launchBindingMatchesTarget, 'Binding branch and head must match the selected target')
 export const sessionLaunchTargetBindingSchema = z
   .strictObject({
     ...bindingFieldsSchema,
@@ -564,13 +581,14 @@ export function createSessionLaunchTargetStorage(db: Database) {
     if (selected.binding.sessionId !== sessionId)
       throw new HbarError('INVALID_INPUT', 'Invalid session launch target binding')
     const binding = selected.binding
+    const remoteWorkspace = isNodeWorkspacePath(workspacePath)
     if (
       current.locked ||
       current.revision !== binding.expectedRevision ||
       !sameSelection(current.selection, binding.selection)
     )
       throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed before Run acceptance')
-    if (selected.requirePreparedTarget || binding.selection.mode === 'shared-branch') {
+    if (!remoteWorkspace && (selected.requirePreparedTarget || binding.selection.mode === 'shared-branch')) {
       const row = resolutionRow(sessionId, binding.expectedRevision)
       const resolution = row ? parseResolution(row) : null
       if (
@@ -583,7 +601,28 @@ export function createSessionLaunchTargetStorage(db: Database) {
       )
         throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
     }
-    if (binding.selection.mode === 'shared-current') {
+    if (remoteWorkspace) {
+      const locator = parseNodeWorkspaceLocator(workspacePath)
+      const owner = db
+        .query<{ nodeId: string; rootId: string }, [string, string]>(
+          `SELECT l.nodeId,l.rootId FROM sessions s JOIN workspaces w ON w.id=s.workspaceId
+           JOIN node_workspace_locations l ON l.workspaceId=w.id WHERE s.id=? AND w.path=?`,
+        )
+        .get(sessionId, workspacePath)
+      if (!locator || !owner || locator.nodeId !== owner.nodeId || locator.rootId !== owner.rootId)
+        throw new HbarError('WORKSPACE_SCOPE', 'Remote launch target does not match its pinned workspace root')
+      if (selected.requirePreparedTarget || binding.targetPath !== workspacePath)
+        throw new HbarError('INVALID_INPUT', 'Remote launch target must remain on its pinned node workspace locator')
+      const expectedBranch = remoteLaunchBranch(binding.selection, sessionId, binding.expectedRevision)
+      if (binding.branch !== expectedBranch)
+        throw new HbarError('INVALID_INPUT', 'Remote launch branch does not match the accepted selection')
+      if (binding.selection.mode === 'shared-branch') {
+        if (binding.head !== binding.selection.branch.tipOid)
+          throw new HbarError('INVALID_INPUT', 'Remote shared branch must retain its captured tip')
+      } else if (binding.head !== null) {
+        throw new HbarError('INVALID_INPUT', 'Remote managed worktrees do not accept an unverified Host head')
+      }
+    } else if (binding.selection.mode === 'shared-current') {
       if (binding.targetPath !== workspacePath || binding.branch !== null)
         throw new HbarError('INVALID_INPUT', 'Shared launch target must resolve to the current workspace')
     } else if (binding.selection.mode === 'shared-branch') {

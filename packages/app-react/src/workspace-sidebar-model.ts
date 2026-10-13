@@ -107,6 +107,7 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
   })
   const [actionWorkspaceId, setActionWorkspaceId] = useState<string | null>(null)
   const [projectPicker, setProjectPicker] = useState<'create-session' | 'open-workspace' | null>(null)
+  const [workspaceCreatorOpen, setWorkspaceCreatorOpen] = useState(false)
   const [workspacePath, setWorkspacePath] = useState('')
   const [sessionTimeNow, setSessionTimeNow] = useState(Date.now)
   const [batchSelecting, setBatchSelecting] = useState(false)
@@ -229,7 +230,10 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
           : execute('app.openPanel', { panelId: shortcut })
       )
         .then(() => {
-          if (choiceRevision === sidebarChoiceRevision.current && window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches)
+          if (
+            choiceRevision === sidebarChoiceRevision.current &&
+            window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches
+          )
             return execute('app.setSidebarVisible', { visible: false })
           return undefined
         })
@@ -459,7 +463,8 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
     setBatchLimitReached(false)
   }
   const closeNarrowSidebar = useCallback(async () => {
-    if (window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches) await execute('app.setSidebarVisible', { visible: false })
+    if (window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches)
+      await execute('app.setSidebarVisible', { visible: false })
   }, [execute])
   const closeAfterNavigation = () => {
     const revision = sidebarChoiceRevision.current
@@ -562,12 +567,24 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
   }, [newSession, presentation.modalInstanceId, projectPicker])
   const addWorkspace = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!workspacePath.trim() && props.renderWorkspaceCreator) {
+      setProjectPicker(null)
+      requestAnimationFrame(() => setWorkspaceCreatorOpen(true))
+      return
+    }
     if (!workspacePath.trim()) return
     runNavigationAction({
       kind: 'open-workspace',
       path: workspacePath,
       createSession: projectPicker === 'create-session',
     })
+  }
+  const workspaceCreated = (workspaceId: string) => {
+    setWorkspaceCreatorOpen(false)
+    setProjectPicker(null)
+    void execute('workspaceActivity.refresh', {})
+      .catch(recordError)
+      .then(() => runNavigationAction({ kind: 'select-workspace', workspaceId }, workspaceId))
   }
   const openFolders = (workspaceId?: string, path?: string, browse = false) => {
     const createSession = projectPicker === 'create-session'
@@ -628,6 +645,8 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
     setActionWorkspaceId,
     projectPicker,
     setProjectPicker,
+    workspaceCreatorOpen,
+    setWorkspaceCreatorOpen,
     workspacePath,
     setWorkspacePath,
     sessionTimeNow,
@@ -686,6 +705,7 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
     closeProjectPicker,
     newSession,
     addWorkspace,
+    workspaceCreated,
     openFolders,
     openSession,
     serverValue,

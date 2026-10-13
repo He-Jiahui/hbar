@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
+import { sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { Storage, type StoragePort } from '@hbar/storage'
 
@@ -33,11 +34,28 @@ test('Kernel restoration reads past two thousand canonical events and retains th
       goalEnabled: false,
     })
     expect(last.seq).toBeGreaterThan(2_000)
-    const batches: number[] = []
+    const eventPages: {
+      afterSeq: number
+      types: string[]
+      throughSeq: number
+      totalEventCount: number
+      matchingEventCount: number
+    }[] = []
     const port: StoragePort = {
       async call(method, ...args) {
-        if (method === 'events') batches.push(typeof args[1] === 'number' ? args[1] : -1)
-        return storage.call(method, ...args)
+        const result = await storage.call(method, ...args)
+        if (method === 'readEventPage') {
+          const input = sessionEventPageInputSchema.parse(args[0])
+          const page = sessionEventPageSchema.parse(result)
+          eventPages.push({
+            afterSeq: input.afterSeq,
+            types: input.types,
+            throughSeq: page.throughSeq,
+            totalEventCount: page.totalEventCount,
+            matchingEventCount: page.matchingEventCount,
+          })
+        }
+        return result
       },
       close: async () => {},
     }
@@ -49,7 +67,13 @@ test('Kernel restoration reads past two thousand canonical events and retains th
       profile: { createStorage: async () => port },
     })
     expect(await kernel.automationGet(session.id)).toMatchObject({ unattended: true, goalEnabled: false })
-    expect(batches.some((cursor) => cursor > 0)).toBe(true)
+    expect(eventPages).toContainEqual({
+      afterSeq: 0,
+      types: ['automation.changed'],
+      throughSeq: last.seq,
+      totalEventCount: last.seq,
+      matchingEventCount: 2,
+    })
     expect(kernel.active.size).toBe(0)
     expect(await storage.call('events', session.id, last.seq, 128)).toHaveLength(0)
   } finally {

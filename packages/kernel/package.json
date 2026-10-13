@@ -11,6 +11,9 @@
     "./secrets": "./src/secrets.ts",
     "./runtime-port": "./src/runtime-port.ts",
     "./runtime-application": "./src/runtime-application.ts",
+    "./node-workspace-inspection": "./src/node-workspace-inspection.ts",
+    "./node-workspace-mounts": "./src/node-workspace-mounts.ts",
+    "./node-worktree-port": "./src/node-worktree-port.ts",
     "./diagnostics": "./src/diagnostic-journal.ts",
     "./diagnostic-scope": "./src/diagnostic-scope.ts",
     "./session-search-commands": "./src/session-search-commands.ts",
@@ -18,6 +21,7 @@
     "./skills": "./src/skills/index.ts"
   },
   "dependencies": {
+    "@hbar/sandbox": "workspace:*",
     "@hbar/agent": "workspace:*",
     "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",

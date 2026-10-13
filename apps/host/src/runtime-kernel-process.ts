@@ -2,7 +2,12 @@ import { z } from 'zod'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
-import { Kernel, type KernelProfile } from '@hbar/kernel'
+import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
+import { nodeWorkspaceMountManifestSchema } from '@hbar/contracts/node-workspace-mount-plan'
+import { workspaceFoldersSchema } from '@hbar/contracts/commands/workspace-folders'
+import { nodeManagedWorktreeSchema, nodeWorktreeRemoveSchema } from '@hbar/contracts/node-worktree'
+import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
+import { Kernel, type KernelProfile, type NodeIntentRecoveryPort, type NodeWorktreePort } from '@hbar/kernel'
 import { createDiagnosticScope, protectDiagnosticSink } from '@hbar/kernel/diagnostic-scope'
 import {
   KERNEL_RUNTIME_FINGERPRINT,
@@ -13,6 +18,11 @@ import {
   runtimeKernelSessionSchema,
   runtimeKernelStateSchema,
   runtimeKernelRecoverySchema,
+  runtimeKernelNodeIntentRecoverySchema,
+  runtimeKernelNodeWorkspaceInspectionSchema,
+  runtimeKernelNodeWorkspaceMountManifestSchema,
+  runtimeKernelVerifyWorkspaceFoldersSchema,
+  runtimeKernelNodeWorktreeSchema,
   runtimeKernelCancelSchema,
 } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
@@ -156,8 +166,67 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     return Kernel.create({
       layout,
       demo: configuration.demo,
+      noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
+      nodeIntentRecovery: {
+        reconcileRun: (runId, signal) => context.peer.call(
+          'kernel.nodeIntentRecovery.reconcileRun',
+          { runId },
+          runtimeKernelNodeIntentRecoverySchema,
+          { signal, timeoutMs: 65_000 },
+        ),
+      } satisfies NodeIntentRecoveryPort,
+      nodeWorkspaceInspection: {
+        captureExecutionTarget: (request, signal) => context.peer.call(
+          'kernel.nodeWorkspaceInspection.captureExecutionTarget',
+          runtimeKernelNodeWorkspaceInspectionSchema.parse(request),
+          nodeExecutionTargetSchema,
+          { signal, timeoutMs: 20_000 },
+        ),
+        resolveWorkspaceMountManifest: async (request, folders, primary, signal) =>
+          nodeWorkspaceMountManifestSchema.parse(await context.peer.call(
+            'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
+            runtimeKernelNodeWorkspaceMountManifestSchema.parse({ request, folders, primary }),
+            z.unknown(),
+            { signal, timeoutMs: 45_000 },
+          )),
+        verifyWorkspaceFolders: async (nodeId, folders, signal) =>
+          workspaceFoldersSchema.parse(await context.peer.call(
+            'kernel.nodeWorkspaceInspection.verifyWorkspaceFolders',
+            runtimeKernelVerifyWorkspaceFoldersSchema.parse({ nodeId, folders }),
+            z.unknown(),
+            { signal, timeoutMs: 45_000 },
+          )),
+      } satisfies NodeWorkspaceInspectionPort,
+      nodeWorktrees: {
+        create: async (nodeId, request, signal) => nodeManagedWorktreeSchema.parse(await context.peer.call(
+          'kernel.nodeWorktree.call',
+          runtimeKernelNodeWorktreeSchema.parse({ nodeId, method: 'worktree.create', input: request }),
+          z.unknown(),
+          { signal, timeoutMs: 160_000 },
+        )),
+        get: async (nodeId, request, signal) => {
+          const result = await context.peer.call(
+            'kernel.nodeWorktree.call',
+            runtimeKernelNodeWorktreeSchema.parse({ nodeId, method: 'worktree.get', input: request }),
+            z.unknown(),
+            { signal, timeoutMs: 20_000 },
+          )
+          return result === null ? null : nodeManagedWorktreeSchema.parse(result)
+        },
+        remove: async (nodeId, request, signal) => {
+          const result = await context.peer.call(
+            'kernel.nodeWorktree.call',
+            runtimeKernelNodeWorktreeSchema.parse({ nodeId, method: 'worktree.remove', input: request }),
+            z.unknown(),
+            { signal, timeoutMs: 160_000 },
+          )
+          nodeWorktreeRemoveSchema.parse(request)
+          if (!z.object({ accepted: z.literal(true) }).safeParse(result).success)
+            throw new HbarError('NODE_WORKTREE_INVALID', 'Node did not confirm managed worktree removal')
+        },
+      } satisfies NodeWorktreePort,
       onFatal: () => process.exit(76),
       ...(configuration.diagnosticsEnabled ? {
         diagnostics: protectDiagnosticSink({ emit: event => { void context.peer.notify('runtime.diagnostic', event).catch(() => {}) } }, diagnosticScope),

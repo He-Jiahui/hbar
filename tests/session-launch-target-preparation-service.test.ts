@@ -8,7 +8,7 @@ import type {
   SessionLaunchTarget,
   SessionLaunchTargetPreparationOperationInput,
 } from '@hbar/contracts/commands/session-launch-target'
-import { createPathLayout, ensurePathLayout, Storage } from '@hbar/storage'
+import { createPathLayout, ensurePathLayout, Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 
 interface GitResult {
   code: number
@@ -91,7 +91,7 @@ async function fixture(execute?: GitExecutor) {
   const layout = createPathLayout(join(root, 'host-data'), join(root, 'host-cache'), join(root, 'paths.json'))
   await ensurePathLayout(layout)
   const store = new Storage(layout.database, layout)
-  expect(await store.call('ready')).toEqual({ version: 24 })
+  expect(await store.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
   const workspace = await store.call('createWorkspace', repository, 'fixture')
   const session = await store.call('createSession', workspace.id, 'launch target')
   const targets = new SessionLaunchTargetService(store, layout, execute)

@@ -27,6 +27,7 @@ export interface HbarPreSessionLocationLabels {
   readonly noDirectories: string
   readonly shared: string
   readonly sharedHint: string
+  readonly sharedBranchUnsupported: string
   readonly isolated: string
   readonly isolatedHint: string
   readonly isolatedUnavailable: string
@@ -74,6 +75,8 @@ export interface HbarPreSessionLocationPickerProps {
   readonly branchCreationAvailable: boolean
   /** Existing Sessions keep their registered workspace; hide project/path replacement in that mode. */
   readonly workspaceChangeAvailable?: boolean
+  /** Remote nodes cannot switch the shared checkout to another branch. */
+  readonly sharedBranchAvailable?: boolean
   readonly loading: boolean
   readonly error: string | null
   readonly disabled: boolean
@@ -113,6 +116,7 @@ function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPick
   const { t } = PreSessionLocationMessages.useMessages()
   const { page, selection, loading, disabled } = props
   const workspaceChangeAvailable = props.workspaceChangeAvailable ?? true
+  const sharedBranchAvailable = props.sharedBranchAvailable ?? true
   const id = useId()
   const titleId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
@@ -418,7 +422,7 @@ function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPick
                     }
                     const ref = selectedBaseRef
                     const sharedBase = ref ? (page?.branches.find((branch) => branch.ref === ref) ?? null) : null
-                    if (sharedBase?.availability.sharedCurrent.state === 'available')
+                    if (sharedBranchAvailable && sharedBase?.availability.sharedCurrent.state === 'available')
                       run(
                         () =>
                           props.onSelection({
@@ -434,6 +438,9 @@ function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPick
                   <LumenFrame>
                     <LumenContentText context="choice.title">{t('shared')}</LumenContentText>
                     <LumenContentText context="choice.description">{t('sharedHint')}</LumenContentText>
+                    {!sharedBranchAvailable && (
+                      <LumenContentText context="choice.description">{t('sharedBranchUnsupported')}</LumenContentText>
+                    )}
                   </LumenFrame>
                 </LumenButton>
                 <LumenButton
@@ -660,7 +667,8 @@ function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPick
                     {page?.branches.map((branch) => {
                       const available = isolated
                         ? branch.availability.isolatedBase.state === 'available'
-                        : branch.availability.sharedCurrent.state === 'available'
+                        : branch.current ||
+                          (sharedBranchAvailable && branch.availability.sharedCurrent.state === 'available')
                       const selected = isolated
                         ? branch.ref === selectedBaseRef
                         : selection.mode === 'shared-current'
@@ -670,11 +678,13 @@ function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPick
                         ? !available
                           ? t('isolatedUnavailable')
                           : undefined
-                        : branch.availability.sharedCurrent.state === 'disabled'
-                          ? t('sharedBranchUnavailable')(branch.availability.sharedCurrent.reason)
-                          : branch.availability.sharedCurrent.state === 'unknown'
+                        : !sharedBranchAvailable && !branch.current
+                          ? t('sharedBranchUnsupported')
+                          : branch.availability.sharedCurrent.state === 'disabled'
                             ? t('sharedBranchUnavailable')(branch.availability.sharedCurrent.reason)
-                            : undefined
+                            : branch.availability.sharedCurrent.state === 'unknown'
+                              ? t('sharedBranchUnavailable')(branch.availability.sharedCurrent.reason)
+                              : undefined
                       return (
                         <LumenButton
                           key={branch.ref}
@@ -693,10 +703,11 @@ function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPick
                                       mode: 'isolated-worktree',
                                       branch: { kind: 'derived', baseRef: branch.ref },
                                     })
-                                  : props.onSelection({
-                                      mode: 'shared-branch',
-                                      branch: { ref: branch.ref, tipOid: branch.tipOid },
-                                    }),
+                                  : props.onSelection(
+                                      branch.current || !sharedBranchAvailable
+                                        ? { mode: 'shared-current' }
+                                        : { mode: 'shared-branch', branch: { ref: branch.ref, tipOid: branch.tipOid } },
+                                    ),
                               () => {
                                 restoreBranchFocus.current = true
                                 setView('root')
@@ -710,11 +721,7 @@ function HbarPreSessionLocationPickerView(props: Omit<HbarPreSessionLocationPick
                             <LumenContentText context="choice.title">{branch.name}</LumenContentText>
                             <LumenContentText context="choice.description">
                               {disabledReason ??
-                                (branch.current
-                                  ? t('currentBranch')
-                                  : isolated
-                                    ? t('baseBranch')
-                                    : t('sharedBranch'))}
+                                (branch.current ? t('currentBranch') : isolated ? t('baseBranch') : t('sharedBranch'))}
                             </LumenContentText>
                           </LumenFrame>
                           {selected && <LumenIcon icon={Check} tier="sm" />}

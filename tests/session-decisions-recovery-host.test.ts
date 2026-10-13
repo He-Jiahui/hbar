@@ -21,6 +21,7 @@ function timeline(snapshot: SessionSnapshot): SessionTimelineState {
     olderStatus: 'idle',
     olderError: null,
     streams: {},
+    toolOutputs: {},
     events: [],
     plan: null,
     error: null,

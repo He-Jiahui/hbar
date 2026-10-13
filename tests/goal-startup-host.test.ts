@@ -9,6 +9,8 @@ import {
   createRunCommandClient,
   createSystemCommandClient,
 } from '@hbar/client'
+import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
+import { createHostSupervisor } from '../apps/host/src/supervisor'
 
 const connectionSchema = z.object({
   url: z.string().url(),
@@ -34,12 +36,12 @@ test('a real supervised Host restart resumes active Goals without a user message
   const dataRoot = join(root, 'data')
   const workspace = join(root, 'workspace')
   await mkdir(workspace, { recursive: true })
-  const connectionFile = join(dataRoot, 'settings', 'connection.json')
-  const supervisor = Bun.spawn(
-    [
-      process.execPath,
-      resolve(process.env.HBAR_GOAL_STARTUP_HOST_ENTRYPOINT ?? 'apps/host/src/main.ts'),
-      '--supervisor',
+  const layout = await resolvePathLayout({ preferPointer: true, dataRoot, cacheRoot: join(root, 'cache') })
+  const connectionFile = join((await getStorageLocations(layout)).saved.settingsRoot, 'connection.json')
+  const exits: string[] = []
+  const supervisor = createHostSupervisor({
+    command: [process.execPath, resolve(process.env.HBAR_GOAL_STARTUP_HOST_ENTRYPOINT ?? 'apps/host/src/main.ts')],
+    hostArgs: [
       '--desktop',
       '--port',
       '0',
@@ -53,20 +55,19 @@ test('a real supervised Host restart resumes active Goals without a user message
       resolve('tests/fixtures/goal-startup-profile.ts'),
       '--demo',
     ],
-    { stdin: 'ignore', stdout: 'ignore', stderr: 'pipe', windowsHide: true },
-  )
-  const diagnostics = new Response(supervisor.stderr).text()
+    connectionFile,
+    stdio: 'ignore',
+    onExit: (event) => exits.push(JSON.stringify(event)),
+  })
+  const supervision = supervisor.run()
   const clients: HbarClient[] = []
-  let latestPid: number | undefined
   let failure: { error: unknown } | undefined
-  let output: string
   try {
     const first = await until(async () => {
       const connection = connectionSchema.parse(JSON.parse(await readFile(connectionFile, 'utf8')))
       if (!(await fetch(`${connection.url}/healthz`)).ok) throw new Error('Host is not ready')
       return connection
     })
-    latestPid = first.pid
     const firstClient = new HbarClient(first.url, first.token)
     clients.push(firstClient)
     await firstClient.connect()
@@ -101,7 +102,6 @@ test('a real supervised Host restart resumes active Goals without a user message
 
     const second = await until(async () => {
       const connection = connectionSchema.parse(JSON.parse(await readFile(connectionFile, 'utf8')))
-      latestPid = connection.pid
       if (connection.instanceId === first.instanceId) throw new Error('Host has not restarted')
       if (!(await fetch(`${connection.url}/healthz`)).ok) throw new Error('Restarted Host is not ready')
       return connection
@@ -139,7 +139,6 @@ test('a real supervised Host restart resumes active Goals without a user message
     secondClient.disconnect()
     const third = await until(async () => {
       const connection = connectionSchema.parse(JSON.parse(await readFile(connectionFile, 'utf8')))
-      latestPid = connection.pid
       if (connection.instanceId === second.instanceId) throw new Error('Host has not restarted again')
       if (!(await fetch(`${connection.url}/healthz`)).ok) throw new Error('Host is not ready')
       return connection
@@ -155,21 +154,9 @@ test('a real supervised Host restart resumes active Goals without a user message
     failure = { error }
   } finally {
     for (const client of clients) client.disconnect()
-    supervisor.kill()
-    await Promise.race([supervisor.exited, Bun.sleep(6_000)])
-    if (latestPid) {
-      try {
-        process.kill(latestPid)
-      } catch {
-        // The supervisor normally terminates its own child before this fallback.
-      }
-    }
-    output = await diagnostics
-    if (latestPid) await until(async () => {
-      try { process.kill(latestPid!, 0) } catch { return }
-      throw new Error('Owned Goal Host has not exited')
-    }, 5_000)
-    await rm(root, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 })
+    await supervisor.stop()
+    await supervision
+    await rm(root, { recursive: true, force: true })
   }
-  if (failure) throw new Error(`Goal Host restart failed: ${output}`, { cause: failure.error })
+  if (failure) throw new Error(`Goal Host restart failed: ${exits.join('\n')}`, { cause: failure.error })
 }, 420_000)

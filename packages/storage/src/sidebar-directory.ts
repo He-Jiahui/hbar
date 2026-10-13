@@ -2,7 +2,6 @@ import type { Database } from 'bun:sqlite'
 import { HbarError } from '@hbar/contracts'
 import {
   sessionSchema,
-  workspaceSchema,
   sessionActivityGlobalListInputSchema,
   sessionActivityGlobalPageSchema,
   workspaceSidebarListInputSchema,
@@ -23,6 +22,7 @@ import type { WorkspaceDisplayNamesSnapshot } from '@hbar/contracts/commands/wor
 import type { WorkspaceOrganizationSnapshot } from '@hbar/contracts/commands/workspace-organization'
 import { z } from 'zod'
 import { agentChildCountSql, agentMembershipSql } from './session-agent-directory'
+import { readWorkspaceRow } from './node-workspaces'
 
 type DirectorySidebarRevisions = {
   readonly revision: number
@@ -130,11 +130,12 @@ function staleCursor(): never {
 }
 
 function workspaceItem(
+  db: Database,
   value: unknown,
   names: ReadonlyMap<string, string>,
 ): ReturnType<typeof workspaceSidebarPageSchema.parse>['items'][number] {
   const row = z.record(z.string(), z.unknown()).parse(value)
-  const workspace = workspaceSchema.parse({
+  const workspace = readWorkspaceRow(db, {
     id: row.id,
     path: row.path,
     name: row.name,
@@ -239,7 +240,7 @@ export function createSidebarDirectoryStorage(
           )
           .iterate(hiddenJson) as Iterable<Record<string, unknown>>
         for (const row of candidates) {
-          const item = workspaceItem(row, names)
+          const item = workspaceItem(db, row, names)
           if (
             cursor &&
             compare(
@@ -291,7 +292,7 @@ export function createSidebarDirectoryStorage(
             cursor?.workspaceId ?? null,
             limit + 1,
           )
-          .map((row) => workspaceItem(row, names))
+          .map((row) => workspaceItem(db, row, names))
       }
 
       const pageItems = rows.slice(0, limit)
@@ -308,7 +309,7 @@ export function createSidebarDirectoryStorage(
                  ORDER BY w.id COLLATE BINARY ASC`,
               )
               .all(...requestedIds, hiddenJson)
-              .map((row) => workspaceItem(row, names))
+              .map((row) => workspaceItem(db, row, names))
       const lastItem = pageItems.at(-1)
       const hasMore = rows.length > limit
       const nextCursor =
@@ -399,7 +400,7 @@ export function createSidebarDirectoryStorage(
           updatedAt: row.updatedAt,
           seq: row.seq,
         })
-        const workspace = workspaceSchema.parse({
+        const workspace = readWorkspaceRow(db, {
           id: row.workspace_id,
           path: row.workspace_path,
           name: row.workspace_name,

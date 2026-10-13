@@ -50,6 +50,7 @@ export interface HbarToolDetailsLabels {
   readonly showRawOutput: string
   readonly showReadingOutput: string
   readonly emptyReadingOutput: string
+  readonly liveOutputReset: (reason: 'gap' | 'retention' | 'limited') => string
 }
 
 const { Provider: ToolDetailsMessagesProvider, useMessages: useToolDetailsMessages } =
@@ -109,6 +110,7 @@ function CommandDetails({
   messageId,
   clipboard,
   copyOwner,
+  liveOutput,
 }: {
   readonly row: SessionToolRow
   readonly command: string
@@ -116,6 +118,7 @@ function CommandDetails({
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
   readonly copyOwner?: object | undefined
+  readonly liveOutput?: import('@hbar/contracts').ToolOutputNotification | undefined
 }) {
   const { t } = useToolDetailsMessages()
   const [expanded, setExpanded] = useState(false)
@@ -126,7 +129,7 @@ function CommandDetails({
   // An unknown/interrupted/denied result is not a successful stdout log. Keep
   // all its diagnostic content readable without another preview disclosure.
   const success = outcome === 'succeeded' || outcome === 'legacy-result'
-  const output = row.result?.text ?? ''
+  const output = row.result ? row.result.text : (liveOutput?.text ?? '')
   const reading = useMemo(() => projectCommandReading(output), [output])
   const visible = rawView ? output : reading.text
   const window = commandOutputWindow(visible)
@@ -139,16 +142,16 @@ function CommandDetails({
         </LumenContentText>
         <DetailText text={command} language="shellscript" owner={copyOwner} />
       </LumenFrame>
-      {row.result && (
+      {row.result || liveOutput?.text || liveOutput?.reset ? (
         <LumenFrame
           className="hbar-session-tool-section hbar-session-command-output"
-          data-tool-call-id={row.result.callId}
-          data-tool-name={row.result.name}
+          data-tool-call-id={row.result?.callId ?? row.call?.callId}
+          data-tool-name={row.result?.name ?? row.call?.name}
           data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
             <LumenContentText context="message.inline" className="hbar-session-tool-heading">
-              {failed ? t('errorOutput') : t('output')}
+              {row.result && failed ? t('errorOutput') : t('output')}
             </LumenContentText>
             <LumenFrame className="hbar-session-command-output-actions">
               {reading.changed && (
@@ -165,15 +168,17 @@ function CommandDetails({
                   {rawView ? t('showReadingOutput') : t('showRawOutput')}
                 </LumenButton>
               )}
-              <ToolResultCopyAction
-                sessionId={sessionId}
-                messageId={messageId}
-                callId={row.result.callId}
-                toolName={row.result.name}
-                text={output}
-                labels={t('toolResultCopy')}
-                clipboard={clipboard}
-              />
+              {row.result ? (
+                <ToolResultCopyAction
+                  sessionId={sessionId}
+                  messageId={messageId}
+                  callId={row.result.callId}
+                  toolName={row.result.name}
+                  text={output}
+                  labels={t('toolResultCopy')}
+                  clipboard={clipboard}
+                />
+              ) : null}
             </LumenFrame>
           </LumenFrame>
           <LumenText
@@ -199,7 +204,12 @@ function CommandDetails({
               t('emptyOutput')
             )}
           </LumenText>
-          <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
+          {!row.result && liveOutput?.reason ? (
+            <LumenContentText context="control.status" className="hbar-session-tool-output-status">
+              {t('liveOutputReset')(liveOutput.reason)}
+            </LumenContentText>
+          ) : null}
+          {row.result ? <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} /> : null}
           <ToolOutputImageLinks text={output} />
           {success && window.collapsible && (
             <LumenButton
@@ -220,7 +230,7 @@ function CommandDetails({
             </LumenButton>
           )}
         </LumenFrame>
-      )}
+      ) : null}
       {row.call && (
         <HbarLumenDisclosure label={t('originalInput')} className="hbar-session-command-original">
           <DetailText text={toolInputText(row.call.args, t('unavailableInput'))} language="json" owner={copyOwner} />
@@ -238,6 +248,7 @@ function SessionToolDetailsView({
   messageId,
   clipboard,
   copyOwner,
+  liveOutput,
 }: {
   readonly row: SessionToolRow
   readonly presentation?: HbarMessageToolPresentation | undefined
@@ -245,6 +256,7 @@ function SessionToolDetailsView({
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
   readonly copyOwner?: object | undefined
+  readonly liveOutput?: import('@hbar/contracts').ToolOutputNotification | undefined
 }) {
   const { t } = useToolDetailsMessages()
   if (row.call && presentation?.command !== undefined)
@@ -256,6 +268,7 @@ function SessionToolDetailsView({
         messageId={messageId}
         clipboard={clipboard}
         copyOwner={copyOwner}
+        liveOutput={liveOutput}
       />
     )
   return (
@@ -273,34 +286,41 @@ function SessionToolDetailsView({
           />
         </LumenFrame>
       ) : null}
-      {row.result ? (
+      {row.result || liveOutput?.text || liveOutput?.reset ? (
         <LumenFrame
           className="hbar-session-tool-section"
-          data-tool-call-id={row.result.callId}
-          data-tool-name={row.result.name}
+          data-tool-call-id={row.result?.callId ?? row.call?.callId}
+          data-tool-name={row.result?.name ?? row.call?.name}
           data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
             <LumenContentText context="message.inline" className="hbar-session-tool-heading">
               {t('output')}
             </LumenContentText>
-            <ToolResultCopyAction
-              sessionId={sessionId}
-              messageId={messageId}
-              callId={row.result.callId}
-              toolName={row.result.name}
-              text={row.result.text}
-              labels={t('toolResultCopy')}
-              clipboard={clipboard}
-            />
+            {row.result ? (
+              <ToolResultCopyAction
+                sessionId={sessionId}
+                messageId={messageId}
+                callId={row.result.callId}
+                toolName={row.result.name}
+                text={row.result.text}
+                labels={t('toolResultCopy')}
+                clipboard={clipboard}
+              />
+            ) : null}
           </LumenFrame>
           <DetailText
-            text={row.result.text || t('emptyOutput')}
+            text={row.result ? row.result.text || t('emptyOutput') : liveOutput?.text || t('emptyOutput')}
             command={presentation?.input?.format === 'command'}
             owner={copyOwner}
           />
-          <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
-          <ToolOutputImageLinks text={row.result.text} />
+          {!row.result && liveOutput?.reason ? (
+            <LumenContentText context="control.status" className="hbar-session-tool-output-status">
+              {t('liveOutputReset')(liveOutput.reason)}
+            </LumenContentText>
+          ) : null}
+          {row.result ? <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} /> : null}
+          <ToolOutputImageLinks text={row.result?.text ?? liveOutput?.text ?? ''} />
         </LumenFrame>
       ) : null}
     </>
@@ -316,6 +336,7 @@ export function SessionToolDetails(props: {
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
   readonly copyOwner?: object | undefined
+  readonly liveOutput?: import('@hbar/contracts').ToolOutputNotification | undefined
 }) {
   const { labels, ...details } = props
   return (

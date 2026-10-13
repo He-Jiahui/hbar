@@ -1,0 +1,17 @@
+.hbar-node-management :is(button, input) {
+  font: inherit;
+}
+
+.hbar-node-management-invite > label {
+  color: var(--lumen-ink);
+}
+
+.hbar-node-management :focus-visible {
+  outline-color: var(--lumen-info);
+}
+
+@media (width < 40rem) {
+  .hbar-node-management-invite > input {
+    flex-basis: 100%;
+  }
+}

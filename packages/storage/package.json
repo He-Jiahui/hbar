@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node-local-confirmations": "./src/node-local-confirmations.ts",
+    "./node-state": "./src/node-state.ts",
+    "./node-registry": "./src/node-registry-port.ts"
+  },
   "dependencies": {
     "diff": "9.0.0",
     "@hbar/contracts": "workspace:*",

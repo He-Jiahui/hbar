@@ -113,5 +113,18 @@ export function workspaceFoldersCopy(locale: ShellLocale): WorkspaceFoldersLabel
           invalid: 'Check names and paths: names must be valid and unique, and paths cannot be empty.',
           capacity: 'A workspace supports at most 32 root folders.',
         },
+    nodeRoots: zh ? '此节点共享的根目录' : 'Roots shared by this node',
+    nodeRootsHint: zh
+      ? '仅能选择此工作区固定节点已注册的根目录；保存后将在会话运行时按别名访问。'
+      : 'Choose roots registered on this workspace’s pinned node. Runs access them through the aliases below.',
+    nodeRootAccess: (access) => (access === 'read' ? (zh ? '只读' : 'Read only') : zh ? '可写' : 'Writable'),
+    nodeRootUnavailable: zh
+      ? '此节点离线、已撤销或能力快照不可用。刷新节点连接后重试。'
+      : 'This node is offline, revoked, or has no verified capability snapshot. Refresh the node connection and retry.',
+    nodeRootLoading: zh ? '正在读取此节点的共享根目录…' : 'Reading shared roots from this node…',
+    nodeRootObserver: zh ? '观察者无法修改远程工作区目录。' : 'Observers cannot change remote workspace folders.',
+    nodeRootMounted: zh ? '已挂载' : 'Mounted',
+    nodeRootOverlap: zh ? '与已挂载目录重叠' : 'Overlaps a mounted root',
+    nodeRootName: (name) => (zh ? `添加节点根目录 ${name}` : `Add node root ${name}`),
   }
 }

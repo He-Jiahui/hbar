@@ -1,4 +1,5 @@
 import { z } from 'zod'
+export { HbarError } from './errors'
 import { runRecoverySchema, runtimeWatchInputSchema } from './runtime'
 import { toolActivitySchema } from './tool-activity'
 import { toolFileChangesSchema, runFileChangesSummarySchema } from './run-file-changes'
@@ -60,6 +61,16 @@ import type { Workspace, WorkspacePage, SessionPage } from './state/directory'
 import { MAX_PLAN_STEPS, planStepSchema } from './plan'
 import type { PlanState } from './plan'
 export * from './state/directory'
+export * from './node-address'
+export { deviceSchema, deviceAccessSchema, deviceRoleSchema, type Device, type DeviceRole, type DeviceAccess } from './device'
+export {
+  assertLocalExecutionAllowed,
+  createLocalExecutionPolicy,
+  LOCAL_EXECUTION_DISABLED,
+  LOCAL_EXECUTION_ENABLED,
+  type LocalExecutionPolicy,
+} from './local-execution-policy'
+import type { Device, DeviceAccess } from './device'
 export * from './plan'
 export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './commands/goal-history'
 
@@ -744,6 +755,8 @@ export interface Approval {
   /** Present only after a Plan-exit decision; never part of the model-supplied tool input. */
   feedback?: string
   decidedBy?: string
+  /** Captured remote execution target and capability observation shown for this approval. */
+  executionTarget?: import('./node-execution-target').NodeExecutionTarget
 }
 export interface LiveStream {
   id: string
@@ -1140,12 +1153,6 @@ export interface ModelInfo extends ProviderConfig {
   description?: string
   modelVisible: boolean
 }
-export interface Device {
-  id: string
-  name: string
-  createdAt: number
-  lastSeenAt: number
-}
 export type PluginStatus = 'active' | 'disabled' | 'failed'
 export interface PluginInfo {
   id: string
@@ -1240,6 +1247,10 @@ export const terminalSnapshotSchema = z.object({
 export type TerminalSnapshot = z.infer<typeof terminalSnapshotSchema>
 export const terminalOpenSchema = z.object({
   workspaceId: idSchema,
+  /** Reused by a terminal opener when B-local confirmation asks for a retry. */
+  operationId: idSchema.optional(),
+  /** Remote terminals are bound to the exact owning session; local legacy terminals may omit it. */
+  sessionId: idSchema.optional(),
   cols: z.number().int().min(20).max(400).default(120),
   rows: z.number().int().min(4).max(200).default(32),
 })
@@ -1274,6 +1285,8 @@ export interface HostInfo {
   addresses: string[]
   activeRuns: number
   demo: boolean
+  /** Access of this authenticated connection; older Hosts may omit the projection. */
+  deviceAccess?: DeviceAccess
 }
 export interface Bootstrap {
   host: HostInfo
@@ -1289,6 +1302,7 @@ export type WireNotification =
   | { method: 'session.event'; params: SessionEvent }
   | { method: 'session.summary'; params: SessionSummary }
   | { method: 'stream.update'; params: StreamDelta }
+  | { method: 'tool.output'; params: import('./tool-execution').ToolOutputNotification }
   | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
   | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number | undefined } }
@@ -1317,7 +1331,10 @@ export type WireNotification =
       params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse | undefined }
     }
   | { method: 'auth.revoked'; params: { reason: string } }
-  | { method: 'terminal.output'; params: { terminalId: string; data: string } }
+  | {
+      method: 'terminal.output'
+      params: { terminalId: string; data: string; seq?: number | undefined; reset?: boolean | undefined }
+    }
   | { method: 'terminal.exit'; params: { terminalId: string; code: number | null; signal: string | null } }
   | {
       method: 'surface.invoke'
@@ -1820,15 +1837,7 @@ export const rpcRequestSchema = z.object({
   method: z.string().max(100),
   params: z.unknown().default({}),
 })
-export class HbarError extends Error {
-  constructor(
-    public code: string,
-    message: string,
-    options?: ErrorOptions,
-  ) {
-    super(message, options)
-    this.name = 'HbarError'
-  }
-}
-
 export * from './workflow'
+
+export * from './node-operation'
+export * from './node-confirmations'

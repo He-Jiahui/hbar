@@ -53,20 +53,24 @@ async function startFixture(fetch: (request: Request) => Response | Promise<Resp
   return { server, baseUrl: `http://127.0.0.1:${server.port}/v1` }
 }
 
-function assertOneFailure(events: readonly ModelDiagnosticEvent[], streamErrorClass: string) {
+function assertFailedAttempts(events: readonly ModelDiagnosticEvent[], streamErrorClass: string) {
+  const expectedAttempts = streamErrorClass === 'upstream' ? 3 : 1
   const started = events.filter((item) => item.phase === 'started')
   const terminal = events.filter((item) => ['settled', 'failed', 'cancelled'].includes(item.phase))
-  expect(started).toHaveLength(1)
-  expect(terminal).toHaveLength(1)
-  expect(terminal[0]?.phase).toBe('failed')
-  expect(terminal[0]?.modelRequestId).toBe(started[0]?.modelRequestId)
-  expect(terminal[0]).toMatchObject({
-    purpose: 'compaction',
-    httpStatus: 200,
-    upstreamRequestIdSha256: upstreamRequestIdHash,
-    streamSubtype: 'provider_error',
-    streamErrorClass,
-  })
+  expect(started).toHaveLength(expectedAttempts)
+  expect(terminal).toHaveLength(expectedAttempts)
+  expect(new Set(started.map((item) => item.modelRequestId)).size).toBe(expectedAttempts)
+  for (const [index, failed] of terminal.entries()) {
+    expect(failed.phase).toBe('failed')
+    expect(failed.modelRequestId).toBe(started[index]?.modelRequestId)
+    expect(failed).toMatchObject({
+      purpose: 'compaction',
+      httpStatus: 200,
+      upstreamRequestIdSha256: upstreamRequestIdHash,
+      streamSubtype: 'provider_error',
+      streamErrorClass,
+    })
+  }
   expect(JSON.stringify(events)).not.toContain(apiKey)
   expect(JSON.stringify(events)).not.toContain(bodyCanary)
 }
@@ -113,7 +117,7 @@ for (const item of providerErrorCases) {
           diagnostics.push(diagnostic),
         ),
       ).rejects.toThrow()
-      assertOneFailure(diagnostics, item.errorClass)
+      assertFailedAttempts(diagnostics, item.errorClass)
     } finally {
       await fixture.server.stop(true)
     }
@@ -411,17 +415,20 @@ test('a kept-open provider error remains the terminal cause when SDK cleanup abo
       new PiDriver().summarize(request(fixture.baseUrl), apiKey, controller.signal, (item) => diagnostics.push(item)),
     ).rejects.toThrow()
     expect(controller.signal.aborted).toBe(false)
-    assertOneFailure(diagnostics, 'upstream')
-    const terminal = diagnostics.find((item) => item.phase === 'failed')
-    expect(terminal).toMatchObject({
-      failureKind: 'stream',
-      failurePhase: 'stream',
-      errorCode: 'PROVIDER_STREAM_INTERRUPTED',
-      stopReason: 'error',
-      streamSubtype: 'provider_error',
-      streamErrorClass: 'upstream',
-    })
-    expect(terminal?.errorCode).not.toBe('PROVIDER_ABORTED')
+    assertFailedAttempts(diagnostics, 'upstream')
+    const terminals = diagnostics.filter((item) => item.phase === 'failed')
+    expect(terminals).toHaveLength(3)
+    for (const terminal of terminals) {
+      expect(terminal).toMatchObject({
+        failureKind: 'stream',
+        failurePhase: 'stream',
+        errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+        stopReason: 'error',
+        streamSubtype: 'provider_error',
+        streamErrorClass: 'upstream',
+      })
+      expect(terminal.errorCode).not.toBe('PROVIDER_ABORTED')
+    }
   } finally {
     clearTimeout(timeout)
     controller.abort()

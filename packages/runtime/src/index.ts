@@ -15,6 +15,7 @@ export {
   type RuntimeResourceLease,
 } from './coordinator'
 export { ManagedProcess, type ManagedProcessOptions } from './process'
+export { acquireProcessLease, processIsAlive } from './process-lease'
 export { runtimeDomainError } from './errors'
 export { RUNTIME_BUNDLE_EXTERNALS } from './bundle-externals'
 export { buildRuntimeArtifact } from './builder'

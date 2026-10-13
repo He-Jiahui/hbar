@@ -151,6 +151,45 @@ test('branch discovery is a strict read-only workspace query with explicit targe
   ).toBeFalse()
 })
 
+test('internal branch commands are available to the private Controller catalog only', async () => {
+  const f = await fixture()
+  expect(f.commands.list().items.map(({ metadata }) => metadata.id)).not.toContain('sessionLaunchBranches.list')
+  expect(f.commands.list({ includeInternal: true }).items.map(({ metadata }) => metadata.id)).toContain(
+    'sessionLaunchBranches.list',
+  )
+})
+
+test('branch discovery forwards authenticated command identity to the Host manual-query bridge', async () => {
+  const f = await fixture()
+  const calls: Array<{ workspaceId: string; actorId: string; requestId: string; cwd: string; signal: AbortSignal }> = []
+  const commands = createSessionLaunchBranchesCommands(f.storage, f.service, {
+    async manualQuery(input, signal) {
+      calls.push({ ...input, signal })
+      return await f.service.launchBranchSnapshot(input.cwd)
+    },
+  })
+  cleanups.push(async () => commands.dispose())
+  await commands.execute(
+    'sessionLaunchBranches.list',
+    { workspaceId: f.repositoryWorkspace.id },
+    { actorId: 'authenticated-device', requestId: 'host-command-invocation-42' },
+  )
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toMatchObject({
+    workspaceId: f.repositoryWorkspace.id,
+    actorId: 'authenticated-device',
+    requestId: 'host-command-invocation-42',
+    cwd: f.repository,
+  })
+  expect(calls[0]?.signal).toBeInstanceOf(AbortSignal)
+
+  await expectCode(
+    commands.execute('sessionLaunchBranches.list', { workspaceId: f.repositoryWorkspace.id }),
+    'INVALID_INPUT',
+  )
+  expect(calls).toHaveLength(1)
+})
+
 test('workspace branch creation adds the captured ref without checking out or exposing its path', async () => {
   const f = await fixture()
   const originalBranch = await git(f.repository, ['branch', '--show-current'])

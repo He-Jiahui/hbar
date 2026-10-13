@@ -7,7 +7,7 @@ import {
   sessionLaunchSelectionSchema,
   type SessionLaunchSelection,
 } from '@hbar/contracts/commands/session-launch-target'
-import { Storage } from '@hbar/storage'
+import { Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 
 const roots: string[] = []
 const stores = new Set<Storage>()
@@ -39,7 +39,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 24 })
+  expect(await store.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
   const workspace = await store.call('createWorkspace', root, 'project')
   const first = await store.call('createSession', workspace.id, 'first')
   const second = await store.call('createSession', workspace.id, 'second')
@@ -325,11 +325,30 @@ test('v9 databases migrate concurrently to v11 before serializing two stale laun
   const f = await fixture()
   await close(f.store)
   inspect(f.path, (db) => {
-    db.exec('DROP TABLE session_launch_target_receipts; DROP TABLE session_launch_targets; PRAGMA user_version=9;')
+    db.exec(
+      'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TABLE session_launch_target_receipts; DROP TABLE session_launch_targets; PRAGMA user_version=9;',
+    )
+    expect(db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version).toBe(9)
+    expect(
+      db
+        .query<{ name: string }, []>(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('node_execution_intents','node_run_worktrees','node_run_workspace_mounts','session_launch_targets','session_launch_target_receipts')",
+        )
+        .all(),
+    ).toEqual([])
+    expect(
+      db
+        .query<{ name: string }, []>('PRAGMA table_info(approvals)')
+        .all()
+        .some((column) => column.name === 'executionTarget'),
+    ).toBe(false)
   })
   const a = open(f.path)
   const b = open(f.path)
-  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 24 }, { version: 24 }])
+  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([
+    { version: STORAGE_SCHEMA_VERSION },
+    { version: STORAGE_SCHEMA_VERSION },
+  ])
 
   const writes = await Promise.allSettled([
     a.call('setSessionLaunchTarget', {

@@ -1,0 +1,14 @@
+{
+  "name": "@hbar/node-link",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@hbar/contracts": "workspace:*",
+    "@hbar/node-core": "workspace:*",
+    "@hbar/plugin-sdk": "workspace:*",
+    "@hbar/sandbox": "workspace:*",
+    "zod": "4.5.4"
+  }
+}

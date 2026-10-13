@@ -214,6 +214,37 @@ test('sandboxed commands receive the profile environment; other modes do not', a
   expect(allowed?.text).not.toContain('sandbox-env')
 })
 
+test('OS confinement reaches shell execution and an unavailable backend does not run the command', async () => {
+  const f = await fixture()
+  await f.kernel.sandboxProfiles.save(
+    strict({ escalation: 'ask', osConfinement: { enabled: true, mode: 'elevated' } }),
+    {
+      actorId: 'device-a',
+      idempotencyKey: 'strict-os',
+    },
+  )
+  f.onApproval(() => 'allowed')
+  await select(f.kernel, f.session.id, 'strict')
+  await f.kernel.submit(
+    f.session.id,
+    'confined-shell',
+    {
+      text: shell('echo confined > confinement-marker.txt'),
+      images: [],
+      approval: 'sandbox',
+    },
+    'local-fixture',
+  )
+  await f.kernel.waitForIdle()
+  const [result] = await results(f.kernel, f.session.id)
+  expect(result).toMatchObject({
+    name: 'shell',
+    isError: true,
+    details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false },
+  })
+  expect(await Bun.file(join(f.workspacePath, 'confinement-marker.txt')).exists()).toBe(false)
+})
+
 test('a Run keeps the rules it was admitted with across profile edits and restarts', async () => {
   const f = await fixture()
   const saved = await f.kernel.sandboxProfiles.save(strict(), { actorId: 'device-a', idempotencyKey: 'strict-1' })

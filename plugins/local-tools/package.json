@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./native-query": "./src/native-query.ts",
-    "./workspace-mounts": "./src/workspace-mounts.ts"
+    "./workspace-mounts": "./src/workspace-mounts.ts",
+    "./sandbox-native": "./src/sandbox-native.ts"
   },
   "dependencies": {
     "@codemirror/merge": "6.8.0"

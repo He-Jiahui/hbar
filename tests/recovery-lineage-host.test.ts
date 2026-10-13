@@ -136,6 +136,8 @@ test('the managed Controller admits a manual continuation through the retained c
     expect(
       (await runtime.storage.call('snapshot', session.id)).messages.filter((message) => message.role === 'user'),
     ).toHaveLength(1)
+    // Durable settlement precedes execution lease release; let the Host finish that handoff before teardown.
+    await runtime.waitForIdle(30_000)
     expect(
       runtime
         .snapshot()

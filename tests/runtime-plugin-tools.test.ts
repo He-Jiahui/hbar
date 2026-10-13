@@ -10,11 +10,13 @@ import { tmpdir } from 'node:os'
 
 test('plugin descriptions contain JSON alone and owner validation retains schema defaults', async () => {
   const owned: ToolDefinition = { name: 'owned_probe', description: 'Owned argument checks', effect: 'write', timeoutMs: 1_000,
-    inputSchema: z.object({ count: z.number().int().positive().default(7) }), execute: async () => ({ text: 'owned' }) }
+    requiresProcess: true, inputSchema: z.object({ count: z.number().int().positive().default(7) }), execute: async () => ({ text: 'owned' }) }
   const description = describeRuntimeTool(owned)
+  expect(description.requiresProcess).toBe(true)
   expect(JSON.parse(JSON.stringify(description))).toEqual(description)
   expect(Object.values(description).some(value => typeof value === 'function' || value instanceof z.ZodType)).toBe(false)
   const adapter = runtimeToolAdapter(description, { validate: async (_name, args) => owned.inputSchema.parse(args), execute: async () => ({ text: 'owned' }) })
+  expect(adapter.requiresProcess).toBe(true)
   expect(await adapter.validate?.({})).toEqual({ count: 7 })
   await expect(adapter.validate?.({ count: 0 })!).rejects.toMatchObject({ code: 'INVALID_TOOL_INPUT' })
 })

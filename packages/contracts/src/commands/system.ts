@@ -4,6 +4,7 @@ import { idSchema, PAIRING_CODE_LENGTH } from '../index'
 import { pluginInfoSchema } from './extensions'
 import { storageLocationApplySchema, storageLocationSnapshotSchema } from './storage-locations'
 import { runtimeSnapshotSchema, runtimeReloadSchema, runtimeUnitIdSchema } from '../runtime'
+import { deviceSchema, deviceAccessSchema } from '../device'
 
 export const hostInfoSchema = z.strictObject({
   version: z.string().min(1).max(64),
@@ -14,6 +15,7 @@ export const hostInfoSchema = z.strictObject({
   platform: z.string().min(1).max(64),
   addresses: z.array(z.string().min(1).max(4_000)).max(256),
   activeRuns: z.number().int().nonnegative(),
+  deviceAccess: deviceAccessSchema.optional(),
   demo: z.boolean(),
 })
 export const systemPathsSchema = z.strictObject({
@@ -35,12 +37,6 @@ const rootsSchema = z.strictObject({
   cacheRoot: z.string().min(1).max(4_000),
 })
 const validatedRootsSchema = rootsSchema.extend({ valid: z.literal(true) })
-const deviceSchema = z.strictObject({
-  id: idSchema,
-  name: z.string().min(1).max(160),
-  createdAt: z.number().int().nonnegative(),
-  lastSeenAt: z.number().int().nonnegative(),
-})
 const diagnoseSchema = z.strictObject({
   host: hostInfoSchema,
   database: z.record(z.string(), z.number()),
@@ -140,8 +136,10 @@ export const systemCommands = {
     z.strictObject({ revoked: z.boolean() }),
   ),
   'pairing.create': defineCommand(
-    metadata('pairing.create', 'command', 'persistent'),
-    z.strictObject({}),
+    { ...metadata('pairing.create', 'command', 'persistent'), cli: { arguments: [
+      { field: 'role', type: 'string', flag: 'role' }, { field: 'workspaceIds', type: 'json', flag: 'workspaces' },
+    ] } },
+    deviceAccessSchema,
     z.strictObject({
       code: z.string().length(PAIRING_CODE_LENGTH).regex(/^\d+$/),
       expiresAt: z.number().int().positive(),

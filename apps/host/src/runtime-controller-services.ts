@@ -56,17 +56,22 @@ export function createRuntimeControllerServices(
   }
   // Every exposed member comes from the typed service catalog; transport arguments/results use bounded named descriptions.
   const remote = services as RemoteServices
+  const allDescriptors = () => options.catalog().items
+  const publicCatalog = () => {
+    const catalog = options.catalog()
+    return { ...catalog, items: catalog.items.filter((value) => value.metadata.visibility !== 'internal') }
+  }
   const service = {
     dispatch: (value: unknown, actorId: string) => options.call('commands', 'dispatch', [value, actorId]),
     describe(id: string) {
-      const descriptor = options.catalog().items.find((value) => value.metadata.id === id)
+      const descriptor = allDescriptors().find((value) => value.metadata.id === id)
       if (!descriptor)
         throw new HbarError('COMMAND_NOT_FOUND', 'Command is absent from the activated Controller catalog')
       return descriptor
     },
-    list: () => options.catalog(),
+    list: publicCatalog,
   }
-  const commandIds = options.catalog().items.map((value) => value.metadata.id)
+  const commandIds = allDescriptors().map((value) => value.metadata.id)
   const commandDispatchers = new Map(commandIds.map((id) => [id, service.dispatch]))
   const commandDescribers = new Map(commandIds.map((id) => [id, () => service.describe(id)]))
   return {
@@ -74,7 +79,7 @@ export function createRuntimeControllerServices(
     commandServices: [{ commandIds, service }],
     commandDispatchers,
     commandDescribers,
-    resolveCommand: (id) => (options.catalog().items.some((value) => value.metadata.id === id) ? service : null),
+    resolveCommand: (id) => (allDescriptors().some((value) => value.metadata.id === id) ? service : null),
     scheduleController: { start: options.start, close: options.stop },
     dispose: options.stop,
   }

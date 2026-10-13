@@ -16,6 +16,7 @@ import type { HbarRunFileChangeRenderer } from './run-file-change-renderer'
 
 import { type HbarConversationSelectionLabels } from './conversation-selection'
 import { type HbarSessionDecisionLabels } from './session-interactions'
+import type { WorkspaceLocationPickerLabels } from './workspace-location-picker'
 import type { HbarSessionDecisionHistoryLabels } from './session-decision-history'
 
 import { type HbarComposerModelLabels } from './composer-model-picker'
@@ -131,6 +132,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly agents: string
     readonly goals: string
     readonly settings: string
+    readonly systemTerminal: string
     readonly error: (code: string) => string
     readonly noticeDetails: HbarComposerFeedbackDetailsLabels
   }
@@ -147,6 +149,8 @@ export interface HbarSessionWorkspaceProps {
   readonly sessionTitle: string
   readonly workspaceName: string
   readonly workspacePath?: string | undefined
+  readonly workspaceNodeBadge?:
+    { readonly nodeName: string; readonly labels: Pick<WorkspaceLocationPickerLabels, 'remoteWorkspace'> } | undefined
   readonly sessionWorkspaceId: string
   readonly labels: HbarSessionWorkspaceLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool']
@@ -163,6 +167,7 @@ export interface HbarSessionWorkspaceProps {
   readonly renderLaunchControls?: (() => ReactNode) | undefined
   readonly images?: HbarSessionImagesOptions | undefined
   readonly modelMenuPresentation?: 'native' | 'web' | undefined
+  readonly onOpenSystemTerminal?: (() => void) | undefined
   readonly fileChangeRenderer?: HbarRunFileChangeRenderer | undefined
 }
 export type SessionToolToggle = (
@@ -176,7 +181,7 @@ export interface SessionComposerProps extends Omit<HbarSessionWorkspaceProps, 'l
 
 export interface SessionWorkspaceHeaderProps extends Pick<
   HbarSessionWorkspaceProps,
-  'sessionTitle' | 'workspaceName' | 'connected' | 'showFilesInHeader'
+  'sessionTitle' | 'workspaceName' | 'workspaceNodeBadge' | 'connected' | 'showFilesInHeader' | 'onOpenSystemTerminal'
 > {
   readonly find: Pick<
     ReturnType<typeof import('./session-find').useSessionFind>,

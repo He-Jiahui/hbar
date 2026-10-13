@@ -6,6 +6,9 @@ export { SKILL_TOOL_NAMES } from './skills'
 export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
+import type { OsConfinementOptions } from './execution-options'
+import type { NodeCallAuthority, nodeWorkspaceMethods } from '@hbar/contracts/node'
+export { osConfinementOptionsSchema, type OsConfinementOptions } from './execution-options'
 import type { z } from 'zod'
 import type { ToolPresentationDeclaration } from '@hbar/contracts'
 export type { ToolPresentationDeclaration } from '@hbar/contracts'
@@ -126,8 +129,23 @@ export interface ToolContext {
   executeSequence?: (calls: readonly ToolSequenceCall[]) => Promise<readonly ToolSequenceResult[]>
   /** Report actual completed/total work. Host validates, coalesces, and closes this port on settlement. */
   reportProgress?: (progress: ToolProgress) => Promise<void>
+  /** Report bounded transient process output; the final ToolResult remains the recovery source. */
+  reportOutput?: (chunk: import('@hbar/contracts').ToolOutputChunk) => Promise<void>
   /** Host-owned variables for processes this call starts, from the Run's sandbox profile. */
   environment?: Readonly<Record<string, string>>
+  /** Host-owned OS isolation requirement; unsupported execution backends must refuse it. */
+  osConfinement?: OsConfinementOptions
+  /** Host-owned identities, pinned sandbox and completed admission for workspace routing. */
+  nodeAuthority?: NodeCallAuthority
+}
+/** Host-owned workspace identity and cancellation scope for resolving execution-owner paths. */
+export interface WorkspaceExecutionScope {
+  readonly workspace: Pick<Workspace, 'path' | 'location'>
+  /** Absent only before the Host completes tool admission; execution effects require it. */
+  readonly authority?: NodeCallAuthority
+  readonly signal: AbortSignal
+  /** Active-call sink for bounded remote process output; settled ToolResult is authoritative after recovery. */
+  readonly reportOutput?: ((chunk: import('@hbar/contracts').ToolOutputChunk) => Promise<void>) | undefined
 }
 export interface ToolSequenceCall {
   name: string
@@ -161,6 +179,8 @@ export interface ToolDefinition extends ToolTimeoutPolicy {
   /** Declared managed owner; admission retains capacity until this process confirms physical completion. */
   runtimeOwner?: string
   effect: 'read' | 'write' | 'process' | 'network'
+  /** Declares a workspace operation whose implementation launches a process (for example Git). */
+  requiresProcess?: boolean | undefined
   /** Requested-input display only; the Host captures this declaration, never localized text or execution proof. */
   presentation?: ToolPresentationDeclaration
   /** A dedicated user decision is required even when the Run permits ordinary tool calls. */
@@ -184,18 +204,6 @@ export interface ModelRegistry {
   get(id: string): Promise<ProviderConfig>
   secret(id: string): Promise<string | null>
 }
-export interface OsConfinementOptions {
-  readonly level: 'unelevated' | 'elevated'
-  /** Absolute paths the sandboxed process may write to. */
-  readonly writableRoots: readonly string[]
-  /** Absolute paths the sandboxed process may read from (elevated only). */
-  readonly readableRoots: readonly string[]
-  /** Whether network-blocking env vars should NOT be applied (true = allow network). */
-  readonly networkEnabled: boolean
-  /** Additional env vars to set inside the sandbox. */
-  readonly envOverrides: Readonly<Record<string, string>>
-}
-
 export interface ExecOptions {
   /** Process execution deadline in milliseconds. Defaults to 120 seconds. */
   readonly timeoutMs?: number | undefined
@@ -203,11 +211,21 @@ export interface ExecOptions {
   readonly environment?: Readonly<Record<string, string>> | undefined
   /**
    * When present, the command is launched inside an OS-level sandbox instead of the
-   * current user's process context. Windows only; ignored on other platforms.
+   * current user's process context. An unavailable backend refuses execution.
    */
   readonly osConfinement?: OsConfinementOptions | undefined
+  /** Forward the Host's admitted call unchanged when execution is routed to a workspace node. */
+  readonly nodeAuthority?: NodeCallAuthority | undefined
+  /** Receives bounded process output from a remote execution owner. */
+  readonly onOutput?: ((text: string, reset?: boolean) => Promise<void> | void) | undefined
 }
 export interface ExecutionProvider {
+  /** Resolve paths using their execution owner before sandbox admission. This performs no tool effect. */
+  canonicalize?(
+    workspace: string,
+    paths: readonly string[],
+    signal: AbortSignal,
+  ): Promise<z.output<(typeof nodeWorkspaceMethods)['fs.canonicalize']['output']>>
   list(workspace: string, path: string): Promise<FileEntry[]>
   read(workspace: string, path: string): Promise<string>
   readBytes(workspace: string, path: string): Promise<Uint8Array>
@@ -688,7 +706,13 @@ export type GitBranchOperation =
   | { operation: 'create' | 'switch' | 'delete'; name: string; force?: boolean | undefined }
 export type GitWorktreeOperation =
   | { operation?: 'list' | undefined }
-  | { operation: 'add'; path: string; branch?: string | undefined; createBranch?: boolean | undefined }
+  | {
+      operation: 'add'
+      path: string
+      branch?: string | undefined
+      createBranch?: boolean | undefined
+      startPoint?: string | undefined
+    }
   | { operation: 'remove'; path: string; force?: boolean | undefined }
 
 export type GitLaunchBranchHead =

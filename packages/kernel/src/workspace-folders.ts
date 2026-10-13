@@ -2,7 +2,10 @@ import { opendir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { CommandError, type CommandRegistry } from '@hbar/commands'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, LOCAL_EXECUTION_ENABLED, assertLocalExecutionAllowed } from '@hbar/contracts'
+import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import { isNodeWorkspacePath, parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import {
   WORKSPACE_DIRECTORY_PAGE_SIZE,
   workspaceDirectoryPageSchema,
@@ -12,6 +15,7 @@ import {
   type WorkspaceFolderMutation,
 } from '@hbar/contracts/commands/workspace-folders'
 import type { StoragePort } from '@hbar/storage'
+import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 
 const SCAN_LIMIT = 5000
 const within = (root: string, path: string) => {
@@ -26,9 +30,35 @@ export class WorkspaceFolderService {
   constructor(
     private readonly storage: StoragePort,
     private readonly protectedPaths: readonly string[],
+    private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
+    private readonly verifyRemoteFolders?: NodeWorkspaceInspectionPort['verifyWorkspaceFolders'],
   ) {}
 
   async canonicalFolders(folders: readonly WorkspaceFolder[], signal: AbortSignal) {
+    const remote = folders.some((folder) => isNodeWorkspacePath(folder.path))
+    if (remote) {
+      if (folders.some((folder) => !isNodeWorkspacePath(folder.path)))
+        throw new HbarError('WORKSPACE_NODE_MISMATCH', 'Local and node-owned folders cannot be mixed')
+      let nodeId: string
+      try {
+        const address = parseNodeWorkspaceLocator(folders[0]?.path ?? '')
+        if (!address) throw new Error('not a node locator')
+        nodeId = address.nodeId
+        for (const folder of folders) {
+          const next = parseNodeWorkspaceLocator(folder.path)
+          if (!next || next.nodeId !== nodeId)
+            throw new HbarError('WORKSPACE_NODE_MISMATCH', 'Cross-node workspace folders are not supported')
+        }
+      } catch (error) {
+        if (error instanceof HbarError) throw error
+        throw new HbarError('INVALID_WORKSPACE', 'Remote folders must use exact registered-root locators')
+      }
+      if (!this.verifyRemoteFolders)
+        throw new HbarError('NODE_LINK_UNAVAILABLE', 'Remote folder roots cannot be verified by the Host')
+      return [...(await this.verifyRemoteFolders(nodeId, folders, signal))]
+    }
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace folder filesystem access')
+    for (const folder of folders) assertLocalWorkspace(folder.path)
     const protectedRoots = await Promise.all(
       this.protectedPaths.map((path) => realpath(path).catch(() => resolve(path))),
     )
@@ -59,7 +89,9 @@ export class WorkspaceFolderService {
     input: { readonly path?: string | undefined; readonly after?: string | undefined },
     signal: AbortSignal,
   ): Promise<WorkspaceDirectoryPage> {
+    assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace directory browsing')
     signal.throwIfAborted()
+    if (input.path !== undefined) assertLocalWorkspace(input.path)
     let path: string
     try {
       path = await realpath(input.path ?? homedir())
@@ -83,7 +115,12 @@ export class WorkspaceFolderService {
       }
     } else roots.push({ name: '/', path: '/' })
     for (const owner of (await this.storage.call('workspaces')).slice(0, 32))
-      if (!roots.some((root) => root.path === owner.path)) roots.push({ name: owner.name, path: owner.path })
+      if (
+        owner.location?.kind !== 'node' &&
+        !isNodeWorkspacePath(owner.path) &&
+        !roots.some((root) => root.path === owner.path)
+      )
+        roots.push({ name: owner.name, path: owner.path })
     const items: WorkspaceDirectoryPage['items'] = []
     let scanned = 0
     let scanTruncated = false
@@ -131,6 +168,16 @@ export class WorkspaceFolderService {
     signal.throwIfAborted()
     const previous = await this.storage.call('workspaceFolderReceipt', actorId, key, request)
     if (previous) return previous.result
+    if (request.operation === 'save') {
+      const workspace = await this.storage.call('workspace', request.input.workspaceId)
+      if (!isNodeWorkspacePath(workspace.path)) assertLocalWorkspace(workspace)
+      else {
+        const owner = parseNodeWorkspaceLocator(workspace.path)
+        const selected = parseNodeWorkspaceLocator(request.input.folders[0]?.path ?? '')
+        if (!owner || !selected || owner.nodeId !== selected.nodeId)
+          throw new HbarError('WORKSPACE_NODE_MISMATCH', 'Workspace folders must remain on the owner node')
+      }
+    }
     const folders = await this.canonicalFolders(request.input.folders, signal)
     signal.throwIfAborted()
     return this.storage.call('applyWorkspaceFolders', { actorId, idempotencyKey: key, request, folders })
@@ -142,8 +189,10 @@ export function registerWorkspaceFolderCommands(
   storage: StoragePort,
   protectedPaths: readonly string[],
   changed: () => void,
+  localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED,
+  verifyRemoteFolders?: NodeWorkspaceInspectionPort['verifyWorkspaceFolders'],
 ) {
-  const service = new WorkspaceFolderService(storage, protectedPaths)
+  const service = new WorkspaceFolderService(storage, protectedPaths, localExecutionPolicy, verifyRemoteFolders)
   const translate = async <Value>(operation: () => Promise<Value>) => {
     try {
       return await operation()

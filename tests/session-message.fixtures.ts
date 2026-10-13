@@ -58,6 +58,14 @@ export function messageLabels(locale: 'zh-CN' | 'en-US'): {
         retry: zh ? '重试复制' : 'Retry copy',
       },
       emptyOutput: zh ? '结果没有文本输出' : 'The result has no text output',
+      liveOutputReset: (reason) =>
+        reason === 'limited'
+          ? zh
+            ? '实时输出达到上限，最终结果仍可恢复。'
+            : 'Live output reached its limit; the final result remains available.'
+          : zh
+            ? '实时输出已重置，最终结果仍可恢复。'
+            : 'Live output reset; the final result remains available.',
       unavailableInput: zh ? '无法显示输入参数' : 'Input is unavailable',
       showFullContent: zh ? '显示完整内容' : 'Show full content',
       showLessContent: zh ? '收起长内容' : 'Show less',

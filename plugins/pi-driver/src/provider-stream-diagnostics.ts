@@ -14,8 +14,13 @@ export interface ProviderStreamFacts {
 }
 
 const MAX_COUNT = 1_000_000
-const MAX_CHARS = 2 ** 31 - 1
-const knownTerminalTypes = new Set(['response.completed', 'response.incomplete', 'response.failed', 'error'])
+const MAX_CHARS = 2_147_483_647
+const knownTerminalTypes = /* @__PURE__ */ new Set([
+  'response.completed',
+  'response.incomplete',
+  'response.failed',
+  'error',
+])
 
 function safeGet(value: unknown, key: string): unknown {
   if (!value || typeof value !== 'object') return undefined

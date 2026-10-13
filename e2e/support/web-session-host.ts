@@ -8,6 +8,7 @@ import { z } from 'zod'
 
 export type WebSessionHostReady = Readonly<{
   token: string
+  observerToken?: string | undefined
   workspaceId: string
   workspaceName: string
   sessionId: string
@@ -177,7 +178,8 @@ export function createWebSessionHostLifecycleDiagnostics(
 }
 
 const hostReadySchema = z.strictObject({
-  token: z.string().min(1),
+  token: z.string().min(1).max(512),
+  observerToken: z.string().min(1).max(512).optional(),
   workspaceId: z.string().min(1),
   workspaceName: z.string().min(1),
   sessionId: z.string().min(1),
@@ -298,13 +300,15 @@ export async function startWebSessionHost(
     historyCount?: number
     /** Test-only authored message content; never sent to a real Provider. */
     historyText?: string
-    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'runtime-status' | 'file-changes'
+    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'runtime-status' | 'file-changes' | 'workspace-node'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
     /** Bounded delay in the local summary fixture, only for observing compaction lifecycle. */
     compactionDelayMs?: number
     /** Archived source for paired historical UI evidence; ordinary scenarios use the current checkout. */
     sourceRoot?: string
+    /** Test-only persisted node registry rows; undefined leaves the node link surface disabled. */
+    nodeManagementSeedCount?: number
   }>,
 ): Promise<WebSessionHost> {
   const port = resolveWebSessionHostPort(options.port)
@@ -313,17 +317,22 @@ export async function startWebSessionHost(
     .int()
     .min(1_000)
     .max(120_000)
-    .parse(process.env.HBAR_E2E_HOST_STARTUP_TIMEOUT_MS ?? (options.fixture === 'runtime-status' ? 120_000 : 20_000))
+    .parse(
+      process.env.HBAR_E2E_HOST_STARTUP_TIMEOUT_MS ??
+        (options.fixture === 'runtime-status' || options.fixture === 'workspace-node' ? 120_000 : 20_000),
+    )
   const child = spawn(
     bunExecutable(),
     [
       options.fixture === 'runtime-status'
         ? 'scripts/e2e-runtime-status-host.ts'
-        : options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
-          ? 'scripts/e2e-chat-database-host.ts'
-          : options.fixture === 'file-changes'
-            ? 'scripts/e2e-run-file-changes-host.ts'
-            : 'scripts/e2e-session-host.ts',
+        : options.fixture === 'workspace-node'
+          ? 'e2e/fixtures/workspace-location-host.ts'
+          : options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
+            ? 'scripts/e2e-chat-database-host.ts'
+            : options.fixture === 'file-changes'
+              ? 'scripts/e2e-run-file-changes-host.ts'
+              : 'scripts/e2e-session-host.ts',
     ],
     {
       cwd: options.sourceRoot ?? process.cwd(),
@@ -336,12 +345,18 @@ export async function startWebSessionHost(
         HBAR_E2E_SESSION_COUNT: String(options.sessionCount ?? 1),
         HBAR_E2E_HISTORY_COUNT: String(options.historyCount ?? 0),
         HBAR_E2E_HISTORY_TEXT: options.historyText ?? '',
+        HBAR_E2E_NODE_MANAGEMENT_SEED_COUNT:
+          options.nodeManagementSeedCount === undefined ? '' : String(options.nodeManagementSeedCount),
         HBAR_E2E_GOAL_AUTO_CONTINUE: options.goalAutoContinue === false ? '0' : '1',
         HBAR_E2E_BUDGET_AUTO_CONTINUE: options.budgetAutoContinue === false ? '0' : '1',
         HBAR_E2E_COMPACTION_DELAY_MS: options.compactionDelayMs ? String(options.compactionDelayMs) : '',
         HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
       },
-      stdio: [options.fixture === 'runtime-status' ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+      stdio: [
+        options.fixture === 'runtime-status' || options.fixture === 'workspace-node' ? 'pipe' : 'ignore',
+        'pipe',
+        'pipe',
+      ],
       windowsHide: true,
     },
   )

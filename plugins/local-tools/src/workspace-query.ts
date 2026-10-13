@@ -1,5 +1,6 @@
 import { relative } from 'node:path'
 import { HbarError } from '@hbar/contracts'
+import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
 import type {
   ParsedWorkspaceFindInput,
   ParsedWorkspaceSearchInput,
@@ -271,6 +272,7 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
   }
 
   async invalidate(workspace: string, path: string): Promise<void> {
+    assertLocalWorkspace(workspace)
     this.#native.invalidate(await this.resolveInvalidationPath(workspace, path))
   }
 
@@ -287,6 +289,7 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
   }
 
   async #scope(workspace: string, requested: string): Promise<{ root: string; path: string }> {
+    assertLocalWorkspace(workspace)
     const [root, target] = await Promise.all([this.resolvePath(workspace, '.'), this.resolvePath(workspace, requested)])
     return { root, path: relative(root, target) || '.' }
   }

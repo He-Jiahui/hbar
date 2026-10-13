@@ -8,6 +8,7 @@ export const webSurfaceOutlets = Object.freeze({
   monitoring: 'tool',
   agents: 'tool',
   goals: 'tool',
+  'system-terminal': 'tool',
   commands: 'modal',
   'chat-search': 'modal',
   'settings-editor': 'modal',

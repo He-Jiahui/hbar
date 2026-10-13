@@ -34,10 +34,8 @@ import { memo } from 'react'
 import type { WorkspaceSidebarProps } from './workspace-shell-contract'
 import { useWorkspaceSidebar } from './workspace-sidebar-model'
 import { WorkspaceProjectTree } from './workspace-project-tree'
-import {
-  useWorkspaceSidebarMessages,
-  useWorkspaceSidebarNavigationMessages,
-} from './workspace-shell-messages'
+import { HbarWorkspaceNodeBadge } from './workspace-location-picker'
+import { useWorkspaceSidebarMessages, useWorkspaceSidebarNavigationMessages } from './workspace-shell-messages'
 export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceSidebarProps) {
   const { t: tSidebar } = useWorkspaceSidebarMessages()
   const { t: tNavigation } = useWorkspaceSidebarNavigationMessages()
@@ -68,6 +66,8 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
     navigationAction,
     actionWorkspaceId,
     projectPicker,
+    workspaceCreatorOpen,
+    setWorkspaceCreatorOpen,
     workspacePath,
     setWorkspacePath,
     batchSelecting,
@@ -106,6 +106,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
     closeProjectPicker,
     newSession,
     addWorkspace,
+    workspaceCreated,
     openFolders,
     serverValue,
     serverTone,
@@ -190,9 +191,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
       <LumenAppSidebar
         brand={tSidebar('brand')}
         title={timeView ? tSidebar('sort').time.title : tSidebar('projectsAndSessions')}
-        emptyLabel={
-          workspaceActivity.workspaces.status === 'loading' ? tSidebar('loading') : tSidebar('noWorkspaces')
-        }
+        emptyLabel={workspaceActivity.workspaces.status === 'loading' ? tSidebar('loading') : tSidebar('noWorkspaces')}
         status={{ label: tSidebar('server'), value: serverValue, tone: serverTone }}
         brandAction={
           <LumenFrame className="hbar-app-react-sidebar-brand-actions">
@@ -512,6 +511,12 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
                         {workspaceDisplayName(workspace, displayNames.snapshot)}
                       </LumenContentText>
                       <LumenContentText context="choice.description">{workspace.path}</LumenContentText>
+                      {workspace.location?.kind === 'node' && props.workspaceNodeBadgeLabels ? (
+                        <HbarWorkspaceNodeBadge
+                          labels={props.workspaceNodeBadgeLabels}
+                          nodeName={props.workspaceNodeNames?.[workspace.location.nodeId] ?? workspace.location.nodeId}
+                        />
+                      ) : null}
                     </LumenFrame>
                   </LumenButton>
                   <HbarActionIconButton
@@ -561,7 +566,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
                 </LumenButton>
               </LumenFrame>
             </LumenFormField>
-            <LumenButton type="submit" disabled={!connected || navigationBlocked || !workspacePath.trim()}>
+            <LumenButton
+              type="submit"
+              disabled={!connected || navigationBlocked || (!props.renderWorkspaceCreator && !workspacePath.trim())}
+            >
               {tSidebar('addWorkspace')}
             </LumenButton>
           </LumenFrame>
@@ -578,7 +586,22 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
           )}
         </LumenDialog>
       )}
-      <HbarWorkspaceFoldersDialog labels={tSidebar('workspaceFolders')} connected={connected} />
+      {props.renderWorkspaceCreator?.({
+        open: workspaceCreatorOpen,
+        onBrowseLocal: () => {
+          setWorkspaceCreatorOpen(false)
+          openFolders(undefined, workspacePath || undefined, true)
+        },
+        onCreated: workspaceCreated,
+        onCancel: () => setWorkspaceCreatorOpen(false),
+      })}
+      <HbarWorkspaceFoldersDialog
+        labels={tSidebar('workspaceFolders')}
+        connected={connected}
+        nodeRegistry={props.workspaceNodeFolderRegistry}
+        nodeMutationAllowed={props.workspaceNodeFolderMutationAllowed}
+        refreshNodeRegistry={props.refreshWorkspaceNodeFolderRegistry}
+      />
     </>
   )
   return (

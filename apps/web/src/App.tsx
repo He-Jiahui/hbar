@@ -21,6 +21,7 @@ import {
   HbarWorkspaceShell,
   HbarDesktopLayoutProjection,
   type HbarFlexLayoutGeometry,
+  type WorkspaceNodeFolderRegistry,
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
@@ -34,6 +35,7 @@ import {
 import type { GlobalSettingsStartup, PanelSurface } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
+import { workspaceLocationOf } from '@hbar/contracts/node-address'
 import { ArrowLeft } from 'lucide-react'
 import { GlobalFeatureNavigation } from './GlobalFeatureNavigation'
 import {
@@ -85,11 +87,18 @@ import {
   createPromptTemplateCommandClient,
   createSandboxCommandClient,
   createScheduleCommandClient,
+  createNodeCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import { HbarStorageLocationSettings } from '@hbar/app-react/storage-locations'
+import { WebWorkspaceLocationPicker } from './workspace-location-picker'
+import { workspaceLocationPickerCopy } from './workspace-location-picker-copy'
+import { approvalExecutionTargetCopy } from './approval-execution-target-copy'
+import { createWorkspaceNodeRegistryModel } from './workspace-location-picker-model'
+import { SystemTerminalPanel } from './SystemTerminalPanel'
+import { systemTerminalCopy } from './system-terminal-copy'
 import { createStorageLocationController, type StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { storageLocationCopy } from './storage-location-copy'
 import { chatDatabaseCopy } from './chat-database-copy'
@@ -160,6 +169,7 @@ import { notificationNavigationCopy } from './notification-copy'
 import { NotificationPageNavigation } from './NotificationPageButton'
 import { navigateNotification } from './notification-navigation'
 import { createDevelopmentDiagnostics } from './development-diagnostics'
+import { WebNodeManagementSettings } from './node-management-settings'
 const SchedulesPage = lazySurface<ComponentProps<typeof import('./schedules-page').SchedulesPage>>(() =>
   import('./schedules-page').then((module) => ({ default: module.SchedulesPage })),
 )
@@ -565,6 +575,7 @@ function createAppearancePortForRuntime(runtime: ReturnType<typeof createAppRunt
 }
 
 type WorkspaceBodyProps = {
+  readonly client: HbarClient
   readonly storageLocations: StorageLocationController
   readonly appRuntime: ReturnType<typeof createAppRuntime>
   readonly appearanceEditor: AppearanceEditor
@@ -578,7 +589,11 @@ type WorkspaceBodyProps = {
   readonly images: HbarSessionImagesOptions
   readonly files: ReturnType<typeof createFileCommandClient>
   readonly systemPrefersDark: boolean
+  readonly workspaceNodeNames: Readonly<Record<string, string>>
+  readonly workspaceLocationLabels: ReturnType<typeof workspaceLocationPickerCopy>
 }
+
+const emptyWorkspaceNodeFolderRegistry: WorkspaceNodeFolderRegistry = {}
 
 function errorCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -671,6 +686,7 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
 }
 
 function WorkspaceBodyContent({
+  client,
   storageLocations,
   appRuntime,
   appearanceEditor,
@@ -684,7 +700,13 @@ function WorkspaceBodyContent({
   images,
   files,
   systemPrefersDark,
+  workspaceNodeNames,
+  workspaceLocationLabels,
 }: WorkspaceBodyProps) {
+  const nodeCommands = useMemo(() => createNodeCommandClient(client), [client])
+  const nodeAccess = client.connectionHost()?.deviceAccess
+  const nodesWritable = connected && nodeAccess?.role === 'operator'
+  const nodesAccessKnown = connected && nodeAccess !== undefined
   const copy = getShellCopy(locale)
   const selectedSendBehavior = useStore(sendBehavior.store, (state) => state.behavior)
   const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
@@ -797,6 +819,7 @@ function WorkspaceBodyContent({
         }
       : undefined)
   const sessionWorkspace = conversation ? directory.workspaces[conversation.workspaceId] : undefined
+  const sessionWorkspaceLocation = sessionWorkspace ? workspaceLocationOf(sessionWorkspace) : undefined
   useEffect(() => {
     if (!session || !landingDraftId.current) return
     const draftId = landingDraftId.current
@@ -839,6 +862,7 @@ function WorkspaceBodyContent({
           { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
           { id: 'skills', label: copy.settings.resolve('i18n:settings.groups.skills'), order: 39 },
           { id: 'usage', label: copy.settingsUsage.title, order: 85 },
+          { id: 'nodes', label: copy.nodes.title, order: 60 },
         ]}
         renderGroup={(groupId, context) => {
           if (groupId === 'chatDatabase' && context.scope && context.instanceId)
@@ -885,6 +909,17 @@ function WorkspaceBodyContent({
               />
             )
           if (groupId === 'providers') return <ProviderSettings labels={copy.providers.list} connected={connected} />
+          if (groupId === 'nodes')
+            return (
+              <WebNodeManagementSettings
+                commands={nodeCommands}
+                hostId={appRuntime.view.hostId}
+                connected={connected}
+                writable={nodesWritable}
+                accessKnown={nodesAccessKnown}
+                labels={copy.nodes}
+              />
+            )
           if (groupId === 'sandbox') return <SandboxProfileSettings labels={copy.sandbox} connected={connected} />
           if ((groupId === 'extensions' || groupId === 'skills') && presentation.page.kind === 'settings')
             return (
@@ -976,6 +1011,14 @@ function WorkspaceBodyContent({
           sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : conversation.workspaceId
         }
         workspacePath={sessionWorkspace?.path}
+        workspaceNodeBadge={
+          sessionWorkspaceLocation?.kind === 'node'
+            ? {
+                nodeName: workspaceNodeNames[sessionWorkspaceLocation.nodeId] ?? sessionWorkspaceLocation.nodeId,
+                labels: workspaceLocationLabels,
+              }
+            : undefined
+        }
         sessionWorkspaceId={conversation.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
         firstSendLabels={preSessionLaunchCopy(locale).status}
@@ -997,13 +1040,34 @@ function WorkspaceBodyContent({
               )
             : undefined
         }
-        labels={copy.session}
+        labels={{
+          ...copy.session,
+          decisions: {
+            ...copy.session.decisions,
+            executionTarget: approvalExecutionTargetCopy(locale),
+          },
+        }}
         describeTool={createSessionToolPresenter(locale)}
         sendBehavior={selectedSendBehavior}
         connected={connected}
         prepareAttachment={prepareAttachment}
         images={images}
         files={files}
+        onOpenSystemTerminal={
+          client.connectionHost()?.deviceAccess?.role === 'operator'
+            ? () => {
+                if (!connected) return
+                void runtime.commands
+                  .execute('app.openPanel', {
+                    panelId: 'system-terminal',
+                    workspaceId: conversation.workspaceId,
+                    sessionId: conversation.id,
+                    binding: 'pinned',
+                  })
+                  .catch(() => undefined)
+              }
+            : undefined
+        }
         modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
         navigationAccessory={
           activeTab?.kind === 'session' && activeTab.agentSource ? (
@@ -1062,15 +1126,18 @@ function WorkspaceBodyContent({
 }
 
 function WorkspaceTool({
+  client,
   locale,
   connected,
   canExpand,
 }: {
+  readonly client: HbarClient
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly canExpand: boolean
 }) {
   const copy = getShellCopy(locale)
+  const terminalCopy = useMemo(() => systemTerminalCopy(locale), [locale])
   const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
   const runtime = useHbarRuntime()
   const directory = useHbarRuntimeState(runtime.state.directory)
@@ -1169,6 +1236,18 @@ function WorkspaceTool({
               }
             : undefined
         }
+      />
+    )
+  if (panel.panelId === 'system-terminal')
+    return (
+      <SystemTerminalPanel
+        client={client}
+        workspaceId={panel.workspaceId}
+        sessionId={panel.sessionId}
+        connected={connected}
+        canOpen={client.connectionHost()?.deviceAccess?.role === 'operator'}
+        labels={terminalCopy}
+        onClose={() => void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)}
       />
     )
   if (isSessionPanelSection(panel.panelId)) {
@@ -1720,6 +1799,37 @@ export default function App({
     [attachmentController, client, clientUrl, runtimeCopy, resourcePicker],
   )
   const { runtime, appearanceEditor, binding, connection } = useStore(startup.store)
+  const workspaceNodeRegistryModel = useMemo(() => {
+    const commands = createNodeCommandClient(client)
+    return createWorkspaceNodeRegistryModel({
+      listNodes: (input, options) =>
+        commands.execute('node.list', input, options?.signal ? { signal: options.signal } : undefined),
+    })
+  }, [client])
+  const workspaceNodeRegistryState = useStore(workspaceNodeRegistryModel.store)
+  const workspaceNodeRegistryPermission = client.connectionHost()?.deviceAccess?.role ?? 'unknown'
+  const workspaceNodeRegistryConnected = connection === 'connected'
+  const workspaceNodeRegistryMatches =
+    workspaceNodeRegistryState.hostId === binding.hostId &&
+    workspaceNodeRegistryState.connected === workspaceNodeRegistryConnected &&
+    workspaceNodeRegistryState.permission === workspaceNodeRegistryPermission
+  const workspaceNodeFolderRegistry: WorkspaceNodeFolderRegistry = workspaceNodeRegistryMatches
+    ? workspaceNodeRegistryState.registry
+    : emptyWorkspaceNodeFolderRegistry
+  const workspaceNodeNames = useMemo(
+    () => Object.fromEntries(Object.entries(workspaceNodeFolderRegistry).map(([nodeId, node]) => [nodeId, node.name])),
+    [workspaceNodeFolderRegistry],
+  )
+  const workspaceLocationLabels = useMemo(() => workspaceLocationPickerCopy(locale), [locale])
+  useEffect(() => {
+    workspaceNodeRegistryModel.setIdentity(binding.hostId, workspaceNodeRegistryConnected, workspaceNodeRegistryPermission)
+    if (workspaceNodeRegistryConnected) void workspaceNodeRegistryModel.refresh()
+  }, [binding.hostId, workspaceNodeRegistryConnected, workspaceNodeRegistryModel, workspaceNodeRegistryPermission])
+  useEffect(() => workspaceNodeRegistryModel.retain(), [workspaceNodeRegistryModel])
+  const refreshWorkspaceNodeFolderRegistry = useCallback(
+    () => workspaceNodeRegistryModel.refresh(),
+    [workspaceNodeRegistryModel],
+  )
   useEffect(() => {
     sendBehavior.bind(binding.hostId, connection === 'connected')
   }, [binding.hostId, connection, sendBehavior])
@@ -2114,6 +2224,28 @@ export default function App({
               : undefined
           }
           connection={connection}
+          workspaceNodeNames={workspaceNodeNames}
+          workspaceNodeFolderRegistry={workspaceNodeFolderRegistry}
+          workspaceNodeFolderMutationAllowed={
+            connection === 'connected' && client.connectionHost()?.deviceAccess?.role === 'operator'
+          }
+          refreshWorkspaceNodeFolderRegistry={refreshWorkspaceNodeFolderRegistry}
+          workspaceNodeBadgeLabels={workspaceLocationLabels}
+          renderWorkspaceCreator={({ open, onBrowseLocal, onCreated, onCancel }) => (
+            <WebWorkspaceLocationPicker
+              client={client}
+              open={open}
+              connected={connection === 'connected'}
+              writable={connection === 'connected' && client.connectionHost()?.deviceAccess?.role === 'operator'}
+              labels={workspaceLocationLabels}
+              onBrowseLocal={async () => {
+                onBrowseLocal()
+                return null
+              }}
+              onCreated={onCreated}
+              onCancel={onCancel}
+            />
+          )}
           onCloseTool={() => {
             if (presentation.toolInstanceId)
               void runtime.view.commands
@@ -2143,6 +2275,7 @@ export default function App({
                 <ToolPaneLayoutFeedback controller={toolLayoutController} labels={copy.toolLayout} />
                 <LazySurfaceBoundary labels={lazySurfaceCopy(locale)}>
                   <WorkspaceTool
+                    client={client}
                     locale={locale}
                     connected={connection === 'connected'}
                     canExpand={workspaceLayout.config.tabs.visible}
@@ -2166,6 +2299,7 @@ export default function App({
                 leadingNavigation={leadingNavigation}
               >
                 <WorkspaceBody
+                  client={client}
                   storageLocations={storageLocations}
                   appRuntime={runtime}
                   appearanceEditor={appearanceEditor}
@@ -2179,11 +2313,14 @@ export default function App({
                   images={images}
                   files={composerFiles}
                   systemPrefersDark={systemPrefersDark}
+                  workspaceNodeNames={workspaceNodeNames}
+                  workspaceLocationLabels={workspaceLocationLabels}
                 />
               </WorkspaceTabsController>
             )
           ) : (
             <WorkspaceBody
+              client={client}
               storageLocations={storageLocations}
               appRuntime={runtime}
               appearanceEditor={appearanceEditor}
@@ -2197,6 +2334,8 @@ export default function App({
               images={images}
               files={composerFiles}
               systemPrefersDark={systemPrefersDark}
+              workspaceNodeNames={workspaceNodeNames}
+              workspaceLocationLabels={workspaceLocationLabels}
             />
           )}
         </HbarWorkspaceShell>

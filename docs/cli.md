@@ -82,6 +82,47 @@ hbar serve
 hbar attach http://192.168.1.20:3210
 ```
 
+## 远程节点 CLI
+
+`hbar serve` 默认启动兼容本机执行的混合 Host。A 也可显式用 `hbar serve --role conversation --no-local-exec` 关闭 A 本机工具执行；这不会关闭对话、模型、审批或节点路由。B 作为工作区节点运行 `hbar serve --role workspace --home <B数据目录> --join <A地址> --code <8位码> --fingerprint <A指纹>` 完成首次固定身份握手；保存成功后，之后只需以相同 `--home` 启动 workspace role，B 会自动重连。
+
+```text
+# B 本机上分享目录，然后启动 B 服务
+hbar node share <本机目录> --id engine --access write --home <B数据目录>
+hbar serve --role workspace --home <B数据目录> --join https://a.example:4317 --code 12345678 --fingerprint SHA256:<A指纹>
+
+# B 本机单独生成 observer 邀请码；observer 必须限定一个或多个现有 root
+hbar node pair --name reviewer --role observer --root engine --home <B数据目录>
+
+# 第一次 attach 输入该码；之后使用已保存的 B 专属设备密钥
+hbar attach https://b.example:4318 --code 12345678
+hbar attach https://b.example:4318
+
+# A 上登记并创建远程工作区
+hbar exec node.list
+hbar exec workspace.create --node <节点名或ID> --root engine --name "Remote engine"
+```
+
+`hbar node pair` 通过 B 的 loopback `control.json` 引导端创建独立的 operator 或 observer 配对码，不经过 A。`hbar attach <B-url>` 先请求公开 `GET /node-info`：严格的 workspace 描述表示 B；404 表示旧式 A，继续使用 A 的 WebSocket Client 流程；其他状态或无效描述失败关闭。B 的描述只含角色、协议、node ID、指纹及固定路径。首次配对后，CLI 将 Ed25519 PKCS8 私钥存入当前 CLI 数据根的 `node-console/`，按 B origin 和 node ID 隔离，POSIX 文件权限为 0600；它不与 A 的设备 token 或 Host 凭据共用。B 指纹变化时 CLI 拒绝旧凭据。公网地址必须用 HTTPS；HTTP 仅允许 loopback。可用 `--code` 非交互配对，否则需要终端交互。
+
+B 控制台 CLI 命令为 `status`、`sessions [cursor]`、`snapshot <sessionId> [beforeSeq]`、`follow <sessionId> <afterSeq>`、`audit [after] [limit]`、`policy`、`pause`、`resume`、`kill <operationId|--all>`、`help` 和 `quit`。观察者只可执行 status 与会话观察命令；服务端也逐请求校验权限。operator 可用其他列出的本机控制操作。当前会话观察为有界分页/快照/持久事件查询；应根据返回的 cursor/seq 续读，过期游标需重新读取快照。Ctrl+C 取消当前 CLI 请求；退出控制台会释放提示符与当前调用。
+
+远程工作区以 `hbar-node://<nodeId>/<rootId>` 定位，不能交给 A 的本机文件 API。B 上的 managed worktree 与 Session、目标 revision 和 B 生成的 worktree ID 绑定；同名目录不构成身份。Remote launch-target 支持 `shared-current` 与隔离 worktree；`shared-branch` 在 A enqueue 前返回 `REMOTE_SHARED_BRANCH_UNSUPPORTED`，UI 将其禁用。A 上已有的审批仍由 A 处理，B 的本地执行确认是独立的额外门禁。节点终端默认关闭，只有 B 本地底线启用后才可用。B 的持久回执上限为 10,000 条并保留 7 天；结果未知返回 `EFFECT_UNKNOWN`，不得以新 operation ID 重放。输出和游标均有字节、序号、保留容量及信用窗口限制。
+
+当前 CLI 不提供 SSH stdio 或 Noise 中继；它们是未实现的可选方案。Linux 已通过真实 A/B 远程工作区读写和 B managed worktree 生产验证；A 已有远程 Git 查询验证。A 上 workspace mount 的保存、删除、重开/reload 与 Host folder get 已由真实 A/B E2E 验证；独立 observer 浏览器上下文中 alias、remove 和 save 控件禁用及原因展示也通过验证。A 自动释放 B 上 worktree reference 明确尚不支持；B 本机操作员可使用受保护 allocator remove。平台实测边界见[远程节点交付记录](remote-nodes.md#当前-cli-工作流与交付状态)。
+
+输出 UI commit `65479dd3` 的 Web build、13 个输出 UI 文件与 10 个 fixture 文件的类型感知 lint、36 项单元测试（405 assertions）和 86 个受影响 fixtures（1,021 assertions）通过。受控真实浏览器输出 fixture 覆盖英文/中文及 1440/390 视口，4/4 通过并经人工检查。
+
+A 节点设置 UI commit `633d20033623398515b57fba288e8f708c349440` 的严格 TSC（3,575 文件）、定向类型感知 lint（0 警告）、7 项测试/35 assertions、内容与 icon guards（3 个 icon 文件）、格式检查及生产构建均通过。3 项真实 Nodes Settings E2E 覆盖隔离 A/B 的分页、撤销、observer、剪贴板与重载恢复分组；1440px/390px 视口已人工检查。
+
+Terminal UI commit `b502af7383905f5510aeb34b4b2419a0e6781d13` 的严格 TSC 覆盖 3,648 个文件；11 个文件的类型感知 lint 无警告，12 项模型/Client/HostRPC/shell boundary 测试共 56 assertions 通过，content/icon/flow guards 与生产构建通过。operator local PTY E2E 1/1 通过（9.5 秒），覆盖结果行、焦点、关闭及无溢出；parent 人工检查了 1440/390 视口。浏览器验证使用 Host local PTY；B remote auth/routing 由独立 HostRPC public test 覆盖，不应视为 remote PTY browser proof。
+
+Workspace UI commit `720b7b2c10ebd0f8a7b21731a0b0129d155e9aba` 通过 strict TSC（3,658 文件）、25 个 TS/TSX typed lint 文件（0 warnings）、7 个 model/runtime/SSR suites（46 tests/270 assertions，含 `session-decisions-react`）、content/icon/flow guards 和 Web build；没有新增 Prettier 失败（3 个既有基线失败仍在 App、web-session-host、app-runtime/index）。真实 A/B workspace E2E 1/1（26.4 秒）验证只读 root、固定位置、同节点 folders 保存/删除/reopen 与 Host get、overlap disabled 和 observer 只读控件；49 字符英文 root 名称在 390px 下换行且无溢出。人工检查覆盖 picker/folders/observer 的 390px 与 created 的 1440px。没有声称中文 workspace 浏览器或 Windows process 正向验证。
+
+Root 首轮基础测试曾有 19 failures/1 error；修复后 fresh `bun run check` 在 HEAD `2d0658338e0ccf2bd2b0d980b3238aaae9ad149f` exit 0。最终生产图的 Linux live proof 也通过 26 项/138 assertions。完整门禁计数与平台跳过边界见[验证说明](testing.md#远程节点验证)。
+
+最终 CLI standalone build/help 均通过，SHA-256 为 `60E8EDF0548CAAFFA2B7E47029C8F0218A14669125E0DD1241FD954868B6A5A9`，build metadata HEAD 为 `70435b58`。全仓文档链接检查仍报告 761 个历史发布产物缺失链接：759 个来自截图、审计、`artifacts`、`test-results` 和 `playwright-report` 等忽略产物，另 2 个来自未改的 `docs/ui-layout-repair-delivery-2026-10-06.md` 中 dist/releases 安装包与 manifest；本轮修改的 3 个文档单独核对为 0 个问题，不能据此宣称全仓文档链接检查通过。
+
 默认 Host 数据目录为 Windows `%LOCALAPPDATA%\hbar\data`，缓存目录为 `%LOCALAPPDATA%\hbar\cache`。`--data-root` 和 `--cache-root` 只覆盖当前进程；设置页写入系统级 `%LOCALAPPDATA%\hbar\paths.json` 后，重启 Host 才切换目录。CLI 会先复用当前数据根的 `settings/connection.json`，没有可用 Host 时启动一个后台 Host；关闭 TUI 不会中断后台 Run。
 
 ## 无头模式

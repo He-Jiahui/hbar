@@ -10,6 +10,7 @@ import {
   messageActivitySummary,
   projectSessionMessages,
 } from '@hbar/app-react'
+import type { HbarMessageBlocksProps } from '@hbar/app-react'
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
 import { getShellCopy, resolveShellLocale, type ShellLocale } from '../../apps/web/src/shell-copy'
@@ -32,6 +33,7 @@ export interface ToolPresentationFixtureInput {
   readonly activity?: SessionActivityIndicatorContent
   readonly glow?: number
   readonly groupCompleted?: boolean
+  readonly toolOutputs?: HbarMessageBlocksProps['toolOutputs']
 }
 
 declare global {
@@ -81,6 +83,7 @@ function Fixture({ input }: { readonly input: ToolPresentationFixtureInput }) {
       messageId={projection.message.id}
       blocks={projection.blocks}
       results={projection.results}
+      {...(input.toolOutputs ? { toolOutputs: input.toolOutputs } : {})}
       activityDisplay={grouped ? 'rows' : 'auto'}
       streaming={
         !grouped &&
