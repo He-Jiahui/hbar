@@ -151,6 +151,13 @@ test('old version-8 projection backfills incrementally and never reports false e
     DROP TABLE session_search_indexed;
     DROP TABLE session_search_progress;
     DROP INDEX sessions_recent_search;
+    DROP INDEX IF EXISTS node_run_workspace_mounts_session;
+    DROP TABLE IF EXISTS node_run_workspace_mounts;
+    DROP INDEX node_run_worktrees_session;
+    DROP TABLE node_run_worktrees;
+    DROP INDEX node_execution_intents_run_call;
+    DROP TABLE node_execution_intents;
+    ALTER TABLE approvals DROP COLUMN executionTarget;
     PRAGMA user_version=8;
   `)
   db.close()

@@ -237,6 +237,9 @@ test('version-11 databases migrate the preparation tables without changing exist
   stores.delete(f.store)
   const db = new Database(f.path, { strict: true })
   try {
+    db.exec(
+      'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget;',
+    )
     db.exec('DROP TABLE session_launch_target_preparation_receipts;')
     db.exec('DROP TABLE session_launch_target_preparation_operations;')
     db.exec('PRAGMA user_version=11;')

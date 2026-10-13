@@ -205,7 +205,7 @@ test('two Workers migrate an existing v6 database safely and serialize CAS witho
   await close(f.store)
   inspect(f.path, (db) =>
     db.exec(
-      'DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
+      'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
     ),
   )
   const a = open(f.path)
@@ -433,7 +433,7 @@ test('Worker startup waits for a held database lock before configuring WAL and m
   await close(f.store)
   const blocker = new Database(f.path, { strict: true })
   blocker.exec(
-    'DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6; PRAGMA journal_mode=DELETE; BEGIN EXCLUSIVE;',
+    'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6; PRAGMA journal_mode=DELETE; BEGIN EXCLUSIVE;',
   )
   const contender = open(f.path)
   let settled = false
@@ -472,7 +472,7 @@ test('twenty bounded two-Worker v6 startup rounds preserve migration and one-win
   for (let round = 0; round < 20; round++) {
     inspect(f.path, (db) =>
       db.exec(
-        'DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
+        'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TABLE workspace_organization_state; DROP TABLE workspace_organization_receipts; PRAGMA user_version=6;',
       ),
     )
     const a = open(f.path)

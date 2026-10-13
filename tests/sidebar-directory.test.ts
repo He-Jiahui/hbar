@@ -572,7 +572,7 @@ test('schema 14 upgrade restores parent activity from persisted public facts wit
   const database = new Database(databasePath)
   try {
     database.exec(
-      'DROP TRIGGER directory_activity_session_parent_update; DROP INDEX events_session_type; PRAGMA user_version=14;',
+      'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; DROP TRIGGER directory_activity_session_parent_update; DROP INDEX events_session_type; PRAGMA user_version=14;',
     )
   } finally {
     database.close()

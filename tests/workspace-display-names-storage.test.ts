@@ -224,6 +224,9 @@ for (const version of [6, 7]) {
     const hiddenReceipt = await f.store.call('applyWorkspaceOrganization', hiddenRequest)
     await close(f.store)
     inspect(f.path, (db) => {
+      db.exec(
+        'DROP INDEX IF EXISTS node_run_workspace_mounts_session; DROP TABLE IF EXISTS node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget;',
+      )
       db.exec('DROP TABLE workspace_display_names_state; DROP TABLE workspace_display_names_receipts;')
       db.exec(version === 6 ? 'PRAGMA user_version=6;' : 'PRAGMA user_version=7;')
     })
