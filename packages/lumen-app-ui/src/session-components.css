@@ -269,6 +269,18 @@
   outline-offset: -0.125rem;
 }
 
+/* Reserve a bounded share for queued submission. Adaptive controls can move
+   to More while the complete Queue caption scrolls and Stop stays visible. */
+.lumen-composer-toolbar:has(.lumen-composer-queue-rail) > .lumen-toolbar-trailing {
+  flex: 0 1 auto;
+  min-inline-size: calc(2 * var(--lumen-control-size) + var(--lumen-space-4));
+  max-inline-size: min(100%, max(50%, calc(2 * var(--lumen-control-size) + var(--lumen-space-4))));
+}
+
+.lumen-composer-queue-rail {
+  min-inline-size: 0;
+}
+
 .lumen-composer-leading-controls,
 .lumen-composer-trailing-controls,
 .lumen-composer-primary-actions {

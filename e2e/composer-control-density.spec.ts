@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test'
 import { createRunCommandClient } from '@hbar/client'
+import { existsSync } from 'node:fs'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -15,7 +16,7 @@ async function removeOwnedRoot(root: string): Promise<void> {
 
 async function singleLineControls(toolbar: Locator) {
   await expect(toolbar).toBeVisible()
-  await expect.poll(() => toolbar.locator('button:visible').count()).toBeGreaterThanOrEqual(4)
+  await expect.poll(() => toolbar.locator('button:visible').count()).toBeGreaterThan(0)
   const controls = await toolbar.locator('button').evaluateAll((elements) =>
     elements
       .filter((element) => element.getClientRects().length > 0 && !element.closest('[popover], dialog'))
@@ -31,7 +32,8 @@ async function singleLineControls(toolbar: Locator) {
           lines.push(...Array.from(range.getClientRects(), (rect) => rect.top + rect.height / 2))
         }
         return {
-          label: element.getAttribute('aria-label') ?? element.textContent,
+          label: element.getAttribute('aria-label') ?? element.textContent ?? '',
+          textLines: lines.length,
           whiteSpace: style.whiteSpace,
           spread: lines.length ? Math.max(...lines) - Math.min(...lines) : 0,
           height: element.getBoundingClientRect().height,
@@ -40,14 +42,49 @@ async function singleLineControls(toolbar: Locator) {
         }
       }),
   )
-  expect(controls.length).toBeGreaterThanOrEqual(4)
+  expect(controls.length).toBeGreaterThan(0)
+  expect(controls.some((control) => control.textLines > 0)).toBe(true)
   for (const control of controls) {
-    expect(control.whiteSpace, String(control.label)).toBe('nowrap')
-    expect(control.spread, String(control.label)).toBeLessThanOrEqual(6)
-    expect(control.textOverflow, String(control.label)).not.toBe('ellipsis')
+    expect(control.label.trim().length).toBeGreaterThan(0)
+    expect(control.height, control.label).toBeGreaterThan(0)
+    if (control.textLines > 0) {
+      expect(control.whiteSpace, control.label).toBe('nowrap')
+      expect(control.spread, control.label).toBeLessThanOrEqual(6)
+      expect(control.textOverflow, control.label).not.toBe('ellipsis')
+    }
     expect(control.clipped, String(control.label)).toBe(false)
   }
   return controls
+}
+
+async function completeAdaptiveControls(toolbar: Locator, moreLabel: string): Promise<void> {
+  const ids = await toolbar.locator('[data-toolbar-item]').evaluateAll((elements) =>
+    elements.map((element) => {
+      const id = element.getAttribute('data-toolbar-item')
+      if (!id) throw new Error('Adaptive control has no declared identity')
+      return id
+    }),
+  )
+  expect(ids).toContain('model')
+  const hidden = []
+  for (const id of ids) {
+    const inline = toolbar.locator(`[data-toolbar-item=${JSON.stringify(id)}]`)
+    if (await inline.isVisible()) await expect(inline.locator(':scope > *')).toBeVisible()
+    else hidden.push(id)
+  }
+  if (hidden.length === 0) return
+  const more = toolbar.getByRole('button', { name: moreLabel, exact: true })
+  await expect(more).toBeInViewport()
+  await more.click()
+  const overflow = toolbar.page().getByRole('dialog', { name: moreLabel, exact: true })
+  await expect(overflow).toBeVisible()
+  for (const id of hidden) {
+    const item = overflow.locator(`[data-toolbar-overflow=${JSON.stringify(id)}]`)
+    await expect(item).toBeVisible()
+    await expect(item.locator(':scope > *')).toBeVisible()
+  }
+  await toolbar.page().keyboard.press('Escape')
+  await expect(overflow).toBeHidden()
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -100,6 +137,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 390, 320]) {
         await page.setViewportSize({ width, height: 960 })
         await singleLineControls(toolbar)
+        await completeAdaptiveControls(toolbar, copy.session.addMenu.menu)
         // A long translated label must stay complete inside a scrollable rail.
         // Send/stop retain a visible target outside that rail.
         const dimensions = await queue.evaluate(
@@ -121,6 +159,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             : 'Queue this original draft after the current task finishes '.repeat(3),
         )
         await singleLineControls(toolbar)
+        await completeAdaptiveControls(toolbar, copy.session.addMenu.menu)
         expect(dimensions.after).toEqual(dimensions.before)
         const rail = toolbar.locator('.lumen-composer-control-rail')
         expect(await rail.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
@@ -141,7 +180,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         })
         await expectComposerText(input, draft)
       }
-      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(1)
+      await toolbar.getByRole('button', { name: copy.session.prompt.stop, exact: true }).click()
+      await expect
+        .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
+        .toBe('cancelled')
+      const finalSnapshot = await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })
+      expect(finalSnapshot.runs).toHaveLength(1)
+      expect(finalSnapshot.runs[0]?.status).toBe('cancelled')
+      expect(existsSync(join(root, 'must-not-write.txt'))).toBe(false)
+      await expectComposerText(input, draft)
       expect(errors).toEqual([])
     } finally {
       await context.close()

@@ -132,6 +132,48 @@ describe('LumenPromptComposer running actions', () => {
     expect(onSubmit).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps adaptive Queue in a keyboard scroll group and Stop outside it without changing the draft', async () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    )
+    try {
+      const onSubmit = vi.fn()
+      const onStop = vi.fn()
+      const queueLabel = runningActions.queueLabel.repeat(20)
+      const { user } = render(
+        <LumenPromptComposer
+          {...defaults}
+          runningActions={{ ...runningActions, queueLabel }}
+          toolbar={{
+            moreLabel: '更多输入控件',
+            items: [{ id: 'model', label: '模型', priority: 100, content: <button type="button">模型</button> }],
+          }}
+          onSubmit={onSubmit}
+          onStop={onStop}
+        />,
+      )
+      const queue = screen.getByRole('button', { name: queueLabel })
+      const rail = screen.getByRole('group', { name: runningActions.queueTitle })
+      const stop = screen.getByRole('button', { name: labels.stop })
+      expect(queue.closest('.lumen-composer-control-rail')).to.equal(rail)
+      expect(rail.getAttribute('tabindex')).to.equal('0')
+      expect(stop.closest('.lumen-composer-control-rail')).to.equal(null)
+      expect(queue.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING).not.to.equal(0)
+      await user.click(queue)
+      expect(onSubmit).toHaveBeenCalledTimes(1)
+      await user.click(stop)
+      expect(onStop).toHaveBeenCalledTimes(1)
+      expect(screen.getByRole('textbox', { name: labels.input })).to.have.property('value', defaults.value)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('retains normal Send when no run is active and ignores Shift+Enter', async () => {
     const onSubmit = vi.fn()
     const { user } = render(

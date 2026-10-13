@@ -487,17 +487,25 @@ export function LumenPromptComposer(props: LumenPromptComposerProps) {
                 </span>
               ) : null}
               {runningActions?.submit === 'queue' ? (
-                <LumenButton
-                  type="submit"
-                  {...lumenPartProps("composer.queue-action")} className="lumen-composer-queue-action"
-                  title={runningActions.queueTitle}
-                  tone="primary"
-                  variant="text"
-                  loading={props.submitting}
-                  disabled={blocked}
+                <div
+                  className="lumen-composer-control-rail lumen-composer-queue-rail"
+                  role="group"
+                  aria-label={runningActions.queueTitle}
+                  tabIndex={0}
                 >
-                  {runningActions.queueLabel}
-                </LumenButton>
+                  <LumenButton
+                    type="submit"
+                    {...lumenPartProps('composer.queue-action')}
+                    className="lumen-composer-queue-action"
+                    title={runningActions.queueTitle}
+                    tone="primary"
+                    variant="text"
+                    loading={props.submitting}
+                    disabled={blocked}
+                  >
+                    {runningActions.queueLabel}
+                  </LumenButton>
+                </div>
               ) : null}
               {props.canStop ? (
                 <LumenIconButton
