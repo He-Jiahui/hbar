@@ -8,6 +8,7 @@ import type { ContextHistoryInput } from '@hbar/contracts/context-history'
 type SessionTimelineUpdate =
   | { readonly kind: 'event'; readonly event: SessionEvent }
   | { readonly kind: 'stream'; readonly stream: StreamDelta }
+  | { readonly kind: 'tool.output'; readonly output: import('@hbar/contracts').ToolOutputNotification }
   | { readonly kind: 'reset' }
 
 export interface SessionTimelineTransport extends ClientTransport {
@@ -53,6 +54,8 @@ export function createSessionTimelineClient(client: SessionTimelineTransport) {
           onUpdate({ kind: 'event', event: notification.params })
         else if (notification.method === 'stream.update' && notification.params.sessionId === sessionId)
           onUpdate({ kind: 'stream', stream: notification.params })
+        else if (notification.method === 'tool.output' && notification.params.sessionId === sessionId)
+          onUpdate({ kind: 'tool.output', output: notification.params })
         else if (notification.method === 'host.changed' && notification.params.kind === 'resync')
           onUpdate({ kind: 'reset' })
       })

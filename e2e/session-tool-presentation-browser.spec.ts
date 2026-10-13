@@ -1440,3 +1440,94 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       }
     })
   }
+
+type FixtureToolOutput = NonNullable<ToolPresentationFixtureInput['toolOutputs']>[string]
+
+for (const locale of ['en-US', 'zh-CN'] as const)
+  for (const width of [1440, 390])
+    test(`running output, localized gap and retention status, settlement and disclosure controls ${locale} ${width}`, async ({
+      browser,
+    }, info) => {
+      const f = await open(browser, locale, width)
+      const source = call('live-output', { version: 1, kind: 'file-read', pathField: 'target' }, { target: posix })
+      const transientText = 'Controlled live output tail — 雪 🐙'
+      const terminalText = 'Settled terminal output — 完整结果'
+      const output: FixtureToolOutput = {
+        sessionId: 'session-a',
+        runId: 'run-a',
+        callId: source.callId,
+        streamId: 'b3efc554-09d3-47f5-aa42-8974982577cf',
+        seq: 0,
+        text: transientText,
+        reset: true,
+        reason: 'gap',
+      }
+      try {
+        await render(f.page, {
+          locale,
+          streaming: true,
+          messages: [message([source])],
+          toolOutputs: { [source.callId]: output },
+        })
+        const tool = row(f.page, source.callId)
+        const outputSection = tool.locator('[data-content-kind="output"]')
+        const labels = getShellCopy(locale).session.messageBlocks
+        await expect(tool).toBeVisible()
+        await tool.evaluate((element) => element.setAttribute('data-original-dom', 'true'))
+        await expect(trigger(tool)).toHaveAttribute('aria-expanded', 'true')
+        await expect(outputSection).toBeVisible()
+        await expect(outputSection).toContainText(transientText)
+        await expect(tool.locator('.hbar-session-tool-output-status')).toHaveText(labels.liveOutputReset('gap'))
+        await noOverflow(f.page)
+
+        const retainedOutput: FixtureToolOutput = {
+          ...output,
+          text: 'Retained output tail — 已保留',
+          reason: 'retention',
+        }
+        await render(f.page, {
+          locale,
+          streaming: true,
+          messages: [message([source])],
+          toolOutputs: { [source.callId]: retainedOutput },
+        })
+        await expect(tool.locator('[data-content-kind="output"]')).toContainText(retainedOutput.text)
+        await expect(tool.locator('.hbar-session-tool-output-status')).toHaveText(labels.liveOutputReset('retention'))
+        await trigger(tool).focus()
+        await f.page.keyboard.press('Space')
+        await expect(trigger(tool)).toHaveAttribute('aria-expanded', 'false')
+        await expect(trigger(tool)).toBeFocused()
+        await f.page.keyboard.press('Enter')
+        await expect(trigger(tool)).toHaveAttribute('aria-expanded', 'true')
+        await expect(trigger(tool)).toBeFocused()
+
+        await f.page.locator('[data-fixture-outside]').focus()
+        await render(f.page, {
+          locale,
+          messages: [message([source, result(source, false, terminalText)])],
+          toolOutputs: { [source.callId]: retainedOutput },
+        })
+        await expect(tool).toHaveAttribute('data-original-dom', 'true')
+        await expect(tool.locator('[data-content-kind="output"]')).toHaveCount(1)
+        await expect(outputSection).toContainText(terminalText)
+        await expect(outputSection).not.toContainText(transientText)
+        await expect(tool.locator('.hbar-session-tool-output-status')).toHaveCount(0)
+        await expect(f.page.locator('[data-fixture-outside]')).toBeFocused()
+        await noOverflow(f.page)
+        await screenshot(f.page, info, `live-output-settled-${locale}-${width}`)
+        await render(f.page, {
+          locale,
+          messages: [message([source, result(source, false, '')])],
+          toolOutputs: { [source.callId]: retainedOutput },
+        })
+        await expect(outputSection).toContainText(labels.emptyOutput)
+        await expect(outputSection).not.toContainText(transientText)
+        await expect(outputSection).not.toContainText(retainedOutput.text)
+        await expect(tool.locator('.hbar-session-tool-output-status')).toHaveCount(0)
+        await noOverflow(f.page)
+        expect(f.errors).toEqual([])
+        expect(f.requests).toEqual([])
+      } finally {
+        await f.context.close()
+      }
+    })

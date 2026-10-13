@@ -1346,6 +1346,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         retry: choose('重试复制', 'Retry copy'),
       },
       emptyOutput: choose('无输出', 'No output'),
+      liveOutputReset: (reason) =>
+        choose(
+          reason === 'limited'
+            ? '实时输出已达到上限，最终工具结果将提供完整结果。'
+            : '实时输出已重置，最终工具结果仍可恢复。',
+          reason === 'limited'
+            ? 'Live output reached its limit; the settled tool result contains the final output.'
+            : 'Live output restarted; the settled tool result remains available.',
+        ),
       unavailableInput: choose('参数不可显示', 'Input unavailable'),
       showFullContent: choose('展开完整内容', 'Show full content'),
       showLessContent: choose('收起内容', 'Show less'),

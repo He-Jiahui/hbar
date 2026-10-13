@@ -1014,6 +1014,7 @@ export interface ComposerModelState {
 export type SessionTimelineUpdate =
   | { readonly kind: 'event'; readonly event: SessionEvent }
   | { readonly kind: 'stream'; readonly stream: StreamDelta }
+  | { readonly kind: 'tool.output'; readonly output: import('@hbar/contracts').ToolOutputNotification }
   | { readonly kind: 'reset' }
 
 export interface SessionTimelinePort {
@@ -1072,6 +1073,7 @@ export interface SessionTimelineState {
   readonly plan: Readonly<PlanState> | null
   readonly usage: Readonly<Usage>
   readonly streams: Readonly<Record<string, Readonly<LiveStream>>>
+  readonly toolOutputs: Readonly<Record<string, import('@hbar/contracts').ToolOutputNotification>>
   readonly events: readonly Readonly<SessionEvent>[]
   readonly toolEvents?: readonly Readonly<SessionEvent>[]
   /** Host/client clock pair prevents remote clock skew from becoming a fabricated elapsed time. */

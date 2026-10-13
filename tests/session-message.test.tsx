@@ -71,6 +71,36 @@ test('output copy belongs beside its result, not input, thinking, reply text, or
   }
 })
 
+test('live tool output uses the existing output slot and host-localized reset status until settlement', () => {
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const labels = messageLabels(locale).blocks
+    const html = renderToStaticMarkup(
+      <HbarMessageBlocks
+        sessionId="s"
+        messageId="m"
+        blocks={[{ type: 'tool_call', callId: 'live-call', name: 'Exec', args: { command: 'build' } }]}
+        labels={labels}
+        toolOutputs={{
+          'live-call': {
+            sessionId: 's',
+            runId: 'r',
+            callId: 'live-call',
+            streamId: 'b3efc554-09d3-47f5-aa42-8974982577cf',
+            seq: 4,
+            text: 'compiler output tail',
+            reset: true,
+            reason: 'retention',
+          },
+        }}
+      />,
+    )
+    expect(html).toContain('data-content-kind="output"')
+    expect(html).toContain('compiler output tail')
+    expect(html).toContain(labels.liveOutputReset('retention'))
+    expect(html).not.toContain('hbar-session-tool-result-copy-action')
+  }
+})
+
 test('copy capacity is separate from the 12k preview and never silently copies a truncated result', () => {
   const labels = messageLabels('zh-CN').blocks
   for (const length of [1, 12_000, 12_001, MAX_TOOL_RESULT_COPY_CHARACTERS, MAX_TOOL_RESULT_COPY_CHARACTERS + 1]) {

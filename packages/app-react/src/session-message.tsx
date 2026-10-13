@@ -110,6 +110,7 @@ export interface HbarMessageBlocksProps {
   /** The owning timeline supplies the disclosure when grouping across original messages. */
   readonly activityDisplay?: 'auto' | 'rows'
   readonly toolActivity?: SessionToolActivities | undefined
+  readonly toolOutputs?: Readonly<Record<string, import('@hbar/contracts').ToolOutputNotification>>
   readonly labels: HbarMessageBlocksLabels
   /** Local read-only output actions remain available in archived history. */
   readonly clipboard?: MessageClipboardPort | null | undefined
@@ -200,6 +201,7 @@ function Disclosure({
   preview,
   previewFormat,
   previewMarkdown = false,
+  defaultExpanded = false,
   live = false,
   title,
   status,
@@ -215,6 +217,7 @@ function Disclosure({
   readonly preview?: string | undefined
   readonly previewFormat?: 'code' | 'text' | undefined
   readonly previewMarkdown?: boolean
+  readonly defaultExpanded?: boolean
   readonly live?: boolean
   readonly title?: string | undefined
   readonly status?: ReactNode
@@ -231,7 +234,8 @@ function Disclosure({
   readonly action?: ReactNode
   readonly feedback?: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
+  const [openOverride, setOpenOverride] = useState<boolean | undefined>()
+  const open = openOverride ?? defaultExpanded
   const id = useId()
   const trigger = (
     <LumenButton
@@ -242,7 +246,7 @@ function Disclosure({
       aria-expanded={open}
       aria-controls={id}
       title={title}
-      onClick={() => setOpen(!open)}
+      onClick={() => setOpenOverride(!open)}
       onKeyDown={scrollInlineText}
     >
       {!tool ? <LumenIcon icon={icon} tier="sm" /> : null}
@@ -365,6 +369,7 @@ function ToolRow({
   copyOwner,
   renderToolAction,
   toolActivity,
+  liveOutput,
 }: {
   readonly row: SessionToolRow
   readonly running: boolean
@@ -376,6 +381,7 @@ function ToolRow({
   readonly copyOwner?: HbarMessageBlocksProps['copyOwner']
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
   readonly toolActivity?: SessionToolActivities | undefined
+  readonly liveOutput?: import('@hbar/contracts').ToolOutputNotification | undefined
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
   const icon = toolIcons[presentation?.icon ?? 'tool']
@@ -386,6 +392,7 @@ function ToolRow({
   const active = toolActivity ? Boolean(activity?.active) : running && outcome === 'pending'
   const disclosure = (
     <Disclosure
+      defaultExpanded={Boolean(liveOutput)}
       label={presentation?.label ?? labels.tool(row.name)}
       preview={presentation?.summary || errorPreview}
       previewFormat={presentation?.summary ? presentation.summaryFormat : 'text'}
@@ -431,6 +438,7 @@ function ToolRow({
         labels={labels}
         clipboard={clipboard}
         copyOwner={copyOwner}
+        liveOutput={liveOutput}
       />
     </Disclosure>
   )
@@ -482,6 +490,7 @@ function Activity({
   copyOwner,
   renderToolAction,
   toolActivity,
+  toolOutputs,
   activityDisplay,
 }: {
   readonly rows: readonly ActivityRow[]
@@ -494,6 +503,7 @@ function Activity({
   readonly copyOwner?: HbarMessageBlocksProps['copyOwner']
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
   readonly toolActivity?: SessionToolActivities | undefined
+  readonly toolOutputs?: HbarMessageBlocksProps['toolOutputs']
   readonly activityDisplay?: HbarMessageBlocksProps['activityDisplay']
 }) {
   const activity = labels.activity(messageActivitySummary(rows, labels, describeTool))
@@ -543,6 +553,7 @@ function Activity({
         copyOwner={copyOwner}
         renderToolAction={renderToolAction}
         toolActivity={toolActivity}
+        liveOutput={row.call ? toolOutputs?.[row.call.callId] : undefined}
       />
     ),
   )
@@ -584,6 +595,7 @@ function MessageBlocksContent({
   renderImages,
   renderToolAction,
   toolActivity,
+  toolOutputs,
   activityDisplay,
 }: HbarMessageBlocksProps) {
   const rows = buildMessageRows(blocks, results)
@@ -651,6 +663,7 @@ function MessageBlocksContent({
             copyOwner={copyOwner}
             renderToolAction={renderToolAction}
             toolActivity={toolActivity}
+            toolOutputs={toolOutputs}
             activityDisplay={activityDisplay}
           />
         ) : group.kind === 'images' ? (
@@ -670,6 +683,7 @@ function MessageBlocksContent({
               copyOwner={copyOwner}
               renderToolAction={renderToolAction}
               toolActivity={toolActivity}
+              liveOutput={group.call ? toolOutputs?.[group.call.callId] : undefined}
             />
             {toolDecisions?.get(group.id)}
           </LumenFrame>

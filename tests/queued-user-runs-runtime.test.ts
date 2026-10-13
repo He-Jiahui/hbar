@@ -35,6 +35,7 @@ function fixture(
       plan: null,
       usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
       streams: {},
+      toolOutputs: {},
       events: [],
       cursor: 0,
       hasOlder: false,

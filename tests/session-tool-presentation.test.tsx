@@ -257,6 +257,16 @@ test('both Plan message wrappers retain the exact declared tool identity and req
     sessionId: 's',
     messageId: 'm',
     blocks,
+    toolOutputs: {
+      'plan-call': {
+        sessionId: 's',
+        runId: 'run',
+        callId: 'plan-call',
+        streamId: 'b3efc554-09d3-47f5-aa42-8974982577cf',
+        seq: 1,
+        text: 'live plan output',
+      },
+    },
     labels: copy.messageBlocks,
     describeTool: createSessionToolPresenter('zh-CN'),
   }
@@ -284,6 +294,7 @@ test('both Plan message wrappers retain the exact declared tool identity and req
   ]) {
     expect(html).toContain('读取文件')
     expect(html).toContain('same-file.txt')
+    expect(html).toContain('live plan output')
     expect(html).toContain('data-tool-call-id="plan-call"')
     expect(html.indexOf('Review source.')).toBeLessThan(html.indexOf('data-tool-call-id="plan-call"'))
     expect(html.indexOf('data-tool-call-id="plan-call"')).toBeLessThan(html.indexOf('After.'))
@@ -291,6 +302,7 @@ test('both Plan message wrappers retain the exact declared tool identity and req
 })
 
 test('real session workspace forwards its host presenter to ordinary and historical assistant paths', async () => {
+  let publishOutput: ((output: import('@hbar/contracts').ToolOutputNotification) => void) | undefined
   const workspace = { id: 'w', path: 'D:/fixture-only', name: 'Fixture', createdAt: 1 }
   const session = {
     id: 's',
@@ -340,7 +352,8 @@ test('real session workspace forwards its host presenter to ordinary and histori
       async plan() {
         return null
       },
-      async watch() {
+      async watch(_sessionId, _cursor, onUpdate) {
+        publishOutput = (output) => onUpdate({ kind: 'tool.output', output })
         return () => {}
       },
     },
@@ -349,6 +362,22 @@ test('real session workspace forwards its host presenter to ordinary and histori
     await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
     for (let attempt = 0; runtime.view.state.timeline.getSnapshot().status !== 'ready'; attempt++) {
       if (attempt >= 100) throw new Error('Workspace fixture failed to settle')
+      await Bun.sleep(1)
+    }
+    if (!publishOutput) throw new Error('Workspace fixture did not create its timeline subscriber')
+    for (const callId of ['assistant', 'tool'])
+      publishOutput({
+        sessionId: session.id,
+        runId: 'r',
+        callId,
+        streamId: 'b3efc554-09d3-47f5-aa42-8974982577cf',
+        seq: 0,
+        text: `live output for ${callId}`,
+        reset: true,
+        reason: 'retention',
+      })
+    for (let attempt = 0; Object.keys(runtime.view.state.timeline.getSnapshot().toolOutputs).length < 2; attempt++) {
+      if (attempt >= 100) throw new Error('Workspace fixture did not project live output')
       await Bun.sleep(1)
     }
     const html = renderToStaticMarkup(
@@ -368,6 +397,9 @@ test('real session workspace forwards its host presenter to ordinary and histori
     expect(html).toContain('same-file.txt')
     expect(html).toContain('data-tool-call-id="assistant"')
     expect(html).toContain('data-tool-call-id="tool"')
+    expect(html).toContain('live output for assistant')
+    expect(html).toContain('live output for tool')
+    expect(html.match(/hbar-session-tool-output-status/g)).toHaveLength(2)
   } finally {
     runtime.dispose()
   }
