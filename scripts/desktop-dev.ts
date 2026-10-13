@@ -1,4 +1,5 @@
 import { closeSync, openSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { z } from 'zod'
@@ -100,6 +101,44 @@ async function requireUnusedHome(home: string): Promise<void> {
   throw new Error(`A Host already owns ${home}. Stop that development instance or choose another HBAR_HOME.`)
 }
 
+/** Fail fast on an existing Host port owner without connecting to or disturbing it. */
+async function requireAvailableHostPort(port: number, logPath: string): Promise<void> {
+  const probe = createServer()
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const error = await new Promise<Error | undefined>((resolve) => {
+      let settled = false
+      const finish = (value: Error | undefined) => {
+        if (settled) return
+        settled = true
+        if (timer) clearTimeout(timer)
+        resolve(value)
+      }
+      timer = setTimeout(
+        () => finish(new Error(`Source Host: Timed out checking port 127.0.0.1:${port}\nLog: ${logPath}`)),
+        1_000,
+      )
+      probe.once('error', finish)
+      probe.once('listening', () => finish(undefined))
+      probe.listen({ host: '127.0.0.1', port, exclusive: true, signal: controller.signal })
+    })
+    if (error && 'code' in error && error.code === 'EADDRINUSE')
+      throw new Error(`Source Host: Port 127.0.0.1:${port} is already in use\nLog: ${logPath}`)
+    if (error) throw error
+  } finally {
+    if (timer) clearTimeout(timer)
+    try {
+      if (probe.listening)
+        await new Promise<void>((resolve, reject) => {
+          probe.close((error) => (error ? reject(error) : resolve()))
+        })
+    } finally {
+      controller.abort()
+    }
+  }
+}
+
 /** Source Host + Vite + Tauri share one owned development lifecycle; no release bundles are generated. */
 export async function runDesktopDev(args: readonly string[] = []): Promise<number> {
   const project = resolve(import.meta.dir, '..')
@@ -148,6 +187,7 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
   process.on('SIGINT', requestStop)
   process.on('SIGTERM', requestStop)
   try {
+    await requireAvailableHostPort(hostPort, hostLogPath)
     const host = Bun.spawn(
       [
         process.execPath,
