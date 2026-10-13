@@ -30,7 +30,7 @@ test('B console pairing persists independent devices, one-use five-minute invite
   let state: NodeStateStorage | undefined
   try {
     state = new NodeStateStorage(path)
-    expect(await state.call('ready', {})).toEqual({ version: 3 })
+    expect(await state.call('ready', {})).toEqual({ version: 4 })
     const at = 1_800_000_000_000
     const invite = await state.call('console.pairing.create', {
       inviteId: 'invite-one',
@@ -313,7 +313,7 @@ test('node state migration adds B console tables without replacing v2 operation 
     `)
     db.close()
     state = new NodeStateStorage(path)
-    expect(await state.call('ready', {})).toEqual({ version: 3 })
+    expect(await state.call('ready', {})).toEqual({ version: 4 })
     expect(await state.call('console.devices.list', {})).toEqual([])
     expect(await state.call('floor.get', {})).toMatchObject({ roots: [], osConfinement: 'required' })
     expect(await state.call('operation.get', { operationId: 'run:already-settled' })).toMatchObject({

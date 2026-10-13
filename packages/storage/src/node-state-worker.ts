@@ -9,6 +9,7 @@ import {
   nodeConsoleInviteSchema,
   type NodeStateMethod,
 } from '@hbar/contracts/node-state'
+import { nodeLocalConfirmationSchema } from '@hbar/contracts/node-confirmations'
 import {
   NODE_LIMITS,
   nodeFloorSchema,
@@ -21,7 +22,7 @@ const configuration = z.strictObject({ path: z.string().min(1).max(4_000) }).par
 const db = new Database(configuration.path, { create: true, strict: true })
 db.exec('PRAGMA busy_timeout=1000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;')
 const current = z.object({ user_version: z.number().int() }).parse(db.query('PRAGMA user_version').get()).user_version
-if (current > 3) throw new Error('Unsupported workspace-node database version')
+if (current > 4) throw new Error('Unsupported workspace-node database version')
 if (current === 0)
   db.transaction(() => {
     db.exec(`
@@ -61,6 +62,22 @@ if (current < 3)
         attempts INTEGER NOT NULL CHECK(attempts>=0)
       ) STRICT;
       PRAGMA user_version=3;
+    `)
+  }).immediate()
+if (current < 4)
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE local_confirmations(
+        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT NOT NULL UNIQUE,
+        operationId TEXT NOT NULL,
+        state TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        data TEXT NOT NULL CHECK(json_valid(data))
+      ) STRICT;
+      CREATE INDEX local_confirmations_operation ON local_confirmations(operationId,seq);
+      CREATE INDEX local_confirmations_state_created ON local_confirmations(state,createdAt);
+      PRAGMA user_version=4;
     `)
   }).immediate()
 // A process lost across node restart has an unknown effect. Acceptance without start is safe to refuse/retry.
@@ -163,7 +180,7 @@ function updateConsoleDevice(device: ReturnType<typeof nodeConsoleDeviceSchema.p
 function dispatch(method: NodeStateMethod, value: unknown): unknown {
   switch (method) {
     case 'ready':
-      return { version: 3 }
+      return { version: 4 }
     case 'floor.get': {
       const value = config('floor')
       return value === null ? null : nodeFloorSchema.parse(value)
@@ -464,6 +481,86 @@ function dispatch(method: NodeStateMethod, value: unknown): unknown {
               'INSERT INTO console_pairing_attempts(sourceKey,windowStartedAt,attempts) VALUES(?,?,?) ON CONFLICT(sourceKey) DO UPDATE SET windowStartedAt=excluded.windowStartedAt,attempts=excluded.attempts',
             ).run(input.sourceKey, windowStartedAt, attempts + 1)
           return { allowed }
+        })
+        .immediate()
+    }
+    case 'local-confirmation.list': {
+      const input = nodeStateMethods[method].input.parse(value)
+      const rows = input.includeResolved
+        ? db.query<{ data: string }, []>('SELECT data FROM local_confirmations ORDER BY seq DESC LIMIT 64').all()
+        : db
+            .query<{ data: string }, []>(
+              "SELECT data FROM local_confirmations WHERE state IN ('waiting','approved') ORDER BY seq DESC LIMIT 64",
+            )
+            .all()
+      return rows.map((row) => nodeLocalConfirmationSchema.parse(JSON.parse(row.data)))
+    }
+    case 'local-confirmation.get': {
+      const input = nodeStateMethods[method].input.parse(value)
+      const row = db.query<{ data: string }, [string]>('SELECT data FROM local_confirmations WHERE id=?').get(input.id)
+      return row ? nodeLocalConfirmationSchema.parse(JSON.parse(row.data)) : null
+    }
+    case 'local-confirmation.latest': {
+      const input = nodeStateMethods[method].input.parse(value)
+      const row = db
+        .query<{ data: string }, [string]>(
+          'SELECT data FROM local_confirmations WHERE operationId=? ORDER BY seq DESC LIMIT 1',
+        )
+        .get(input.operationId)
+      return row ? nodeLocalConfirmationSchema.parse(JSON.parse(row.data)) : null
+    }
+    case 'local-confirmation.create': {
+      const input = nodeStateMethods[method].input.parse(value)
+      return db
+        .transaction(() => {
+          const count = z
+            .object({ count: z.number() })
+            .parse(
+              db.query("SELECT COUNT(*) AS count FROM local_confirmations WHERE state IN ('waiting','approved')").get(),
+            ).count
+          if (count >= 64) throw new HbarError('NODE_BUSY', 'Local confirmation queue is full')
+          const entry = nodeLocalConfirmationSchema.parse(input.entry)
+          db.query('INSERT INTO local_confirmations(id,operationId,state,createdAt,data) VALUES(?,?,?,?,?)').run(
+            entry.id,
+            entry.identity.operationId,
+            entry.state,
+            entry.createdAt,
+            JSON.stringify(entry),
+          )
+          db.exec(`
+            DELETE FROM local_confirmations WHERE state NOT IN ('waiting','approved')
+              AND seq NOT IN (
+                SELECT seq FROM local_confirmations
+                WHERE state NOT IN ('waiting','approved') ORDER BY seq DESC LIMIT 192
+              )
+          `)
+          return entry
+        })
+        .immediate()
+    }
+    case 'local-confirmation.resolve': {
+      const input = nodeStateMethods[method].input.parse(value)
+      return db
+        .transaction(() => {
+          const row = db
+            .query<{ data: string }, [string]>(
+              "SELECT data FROM local_confirmations WHERE id=? AND state IN ('waiting','approved')",
+            )
+            .get(input.id)
+          if (!row) return null
+          const entry = nodeLocalConfirmationSchema.parse(JSON.parse(row.data))
+          const updated = nodeLocalConfirmationSchema.parse({
+            ...entry,
+            state: input.state,
+            resolvedAt: input.now,
+            resolvedByDeviceId: input.deviceId,
+          })
+          db.query('UPDATE local_confirmations SET state=?,data=? WHERE id=?').run(
+            updated.state,
+            JSON.stringify(updated),
+            updated.id,
+          )
+          return updated
         })
         .immediate()
     }

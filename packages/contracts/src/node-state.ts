@@ -10,6 +10,7 @@ import {
   nodeOperationIdSchema,
   nodePublicKeySchema,
 } from './node'
+import { nodeLocalConfirmationStorageMethods } from './node-confirmations'
 
 const empty = z.strictObject({})
 const operationId = nodeOperationIdSchema
@@ -65,7 +66,7 @@ export const nodeStoredOperationSchema = z.strictObject({
     .nullable(),
 })
 export const nodeStateMethods = {
-  ready: { input: empty, output: z.strictObject({ version: z.literal(3) }) },
+  ready: { input: empty, output: z.strictObject({ version: z.literal(4) }) },
   'floor.get': { input: empty, output: nodeFloorSchema.nullable() },
   'floor.set': { input: nodeFloorSchema, output: nodeFloorSchema },
   'floor.snapshot': {
@@ -142,6 +143,11 @@ export const nodeStateMethods = {
     input: z.strictObject({ sourceKey: z.string().min(1).max(128), now: timestamp }),
     output: z.strictObject({ allowed: z.boolean() }),
   },
+  'local-confirmation.list': nodeLocalConfirmationStorageMethods.list,
+  'local-confirmation.get': nodeLocalConfirmationStorageMethods.get,
+  'local-confirmation.latest': nodeLocalConfirmationStorageMethods.latest,
+  'local-confirmation.create': nodeLocalConfirmationStorageMethods.create,
+  'local-confirmation.resolve': nodeLocalConfirmationStorageMethods.resolve,
   close: { input: empty, output: z.strictObject({ closed: z.literal(true) }) },
 } as const
 export type NodeStateMethod = keyof typeof nodeStateMethods

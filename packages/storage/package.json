@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./node-local-confirmations": "./src/node-local-confirmations.ts",
     "./node-state": "./src/node-state.ts",
     "./node-registry": "./src/node-registry-port.ts"
   },

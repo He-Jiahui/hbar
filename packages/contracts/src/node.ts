@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { nodeOperationIdSchema } from './node-operation'
+export { nodeOperationIdSchema } from './node-operation'
 import { resolvedSandboxProfileSchema, sandboxSnapshotRefSchema } from './sandbox'
 import { nodeIdSchema, nodeRelativePathSchema, nodeRootIdSchema } from './node-address'
 import { nodeAdmissionSchema, nodeCallAuthoritySchema } from './node-authority'
@@ -33,14 +35,7 @@ export const NODE_LIMITS = Object.freeze({
 })
 const entityId = z.string().min(1).max(160)
 const digest = z.string().regex(/^[a-f0-9]{64}$/)
-export const nodeOperationIdSchema = z
-  .string()
-  .min(1)
-  .max(330)
-  .refine(
-    (value) => !Array.from(value).some((character) => character.charCodeAt(0) < 32),
-    'Node operation keys cannot contain control characters',
-  )
+
 const operationId = nodeOperationIdSchema
 const timestamp = z.number().int().nonnegative().safe()
 const empty = z.strictObject({})

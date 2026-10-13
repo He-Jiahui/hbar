@@ -5,7 +5,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./local-confirmations": "./src/local-confirmations.ts"
   },
   "dependencies": {
     "@hbar/contracts": "workspace:*",

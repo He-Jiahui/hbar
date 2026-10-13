@@ -8,6 +8,8 @@
     "./image-preflight": "./src/image-preflight.ts",
     "./runtime": "./src/runtime.ts",
     "./node": "./src/node.ts",
+    "./node-operation": "./src/node-operation.ts",
+    "./node-confirmations": "./src/node-confirmations.ts",
     "./node-info": "./src/node-info.ts",
     "./node-authority": "./src/node-authority.ts",
     "./node-workspace-mounts": "./src/node-workspace-mounts.ts",

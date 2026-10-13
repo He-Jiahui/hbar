@@ -1739,3 +1739,6 @@ export const rpcRequestSchema = z.object({
   params: z.unknown().default({}),
 })
 export * from './workflow'
+
+export * from './node-operation'
+export * from './node-confirmations'
