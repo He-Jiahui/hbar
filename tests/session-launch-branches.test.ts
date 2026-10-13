@@ -151,6 +151,14 @@ test('branch discovery is a strict read-only workspace query with explicit targe
   ).toBeFalse()
 })
 
+test('internal branch commands are available to the private Controller catalog only', async () => {
+  const f = await fixture()
+  expect(f.commands.list().items.map(({ metadata }) => metadata.id)).not.toContain('sessionLaunchBranches.list')
+  expect(f.commands.list({ includeInternal: true }).items.map(({ metadata }) => metadata.id)).toContain(
+    'sessionLaunchBranches.list',
+  )
+})
+
 test('workspace branch creation adds the captured ref without checking out or exposing its path', async () => {
   const f = await fixture()
   const originalBranch = await git(f.repository, ['branch', '--show-current'])

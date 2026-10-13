@@ -272,7 +272,8 @@ export function createSessionLaunchBranchesCommands(
       return registry.dispatch(value, { actorId })
     },
     describe: (id: string) => registry.describe(id),
-    list: () => registry.list({ limit: 500 }),
+    list: (filter?: { readonly includeInternal?: boolean }) =>
+      registry.list({ limit: 500, ...(filter?.includeInternal ? { includeInternal: true } : {}) }),
     dispose: () => registry.dispose(),
   }
 }

@@ -78,7 +78,7 @@ export interface ControllerCommandService {
   readonly service: {
     dispatch(value: unknown, actorId: string): Promise<unknown>
     describe(id: string): CommandDescriptor
-    list(): { revision: number; items: readonly CommandDescriptor[] }
+    list(filter?: { readonly includeInternal?: boolean }): { revision: number; items: readonly CommandDescriptor[] }
   }
 }
 
