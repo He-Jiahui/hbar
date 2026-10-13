@@ -1,6 +1,7 @@
 import { cp, lstat, mkdir, mkdtemp, readFile, rename, rm } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { dirname, join, relative, resolve } from 'node:path'
+import { verifyWebBuildProvenance } from './web-build-provenance'
 
 async function plainDirectory(path: string, optional = false): Promise<boolean> {
   const entry = await lstat(path).catch((error: unknown) => {
@@ -14,7 +15,10 @@ async function plainDirectory(path: string, optional = false): Promise<boolean> 
 }
 
 /** Publish Web resources independently of Host/native rebuilds; never mix two bundles. */
-export async function syncDesktopWebResources(projectDirectory: string): Promise<string> {
+export async function syncDesktopWebResources(
+  projectDirectory: string,
+  copyDirectory: typeof cp = cp,
+): Promise<string> {
   const project = resolve(projectDirectory)
   const dist = join(project, 'dist')
   const source = join(dist, 'web')
@@ -24,6 +28,7 @@ export async function syncDesktopWebResources(projectDirectory: string): Promise
   await plainDirectory(source)
   await plainDirectory(output, true)
   await plainDirectory(target, true)
+  const initialProof = await verifyWebBuildProvenance(project, source)
   const entry = await readFile(join(source, 'index.html'))
   await mkdir(output, { recursive: true })
   const staging = await mkdtemp(join(output, '.web-sync-'))
@@ -33,12 +38,18 @@ export async function syncDesktopWebResources(projectDirectory: string): Promise
   const previous = join(staging, 'previous')
   let mayClean = true
   try {
-    await cp(source, next, { recursive: true, errorOnExist: true, force: false })
-    const [copied, current] = await Promise.all([
+    await copyDirectory(source, next, { recursive: true, errorOnExist: true, force: false })
+    const [copied, current, stagedProof] = await Promise.all([
       readFile(join(next, 'index.html')),
-      readFile(join(source, 'index.html')),
+      verifyWebBuildProvenance(project, source),
+      verifyWebBuildProvenance(project, next),
     ])
-    if (!entry.equals(copied) || !entry.equals(current))
+    if (
+      !entry.equals(copied) ||
+      !entry.equals(await readFile(join(source, 'index.html'))) ||
+      !Buffer.from(initialProof.bytes).equals(Buffer.from(stagedProof.bytes)) ||
+      !Buffer.from(initialProof.bytes).equals(Buffer.from(current.bytes))
+    )
       throw new Error('Web build changed during desktop resource synchronization; retry after the build finishes')
     const hadPrevious = await plainDirectory(target, true)
     if (hadPrevious) await rename(target, previous)
