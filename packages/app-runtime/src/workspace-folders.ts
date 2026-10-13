@@ -15,6 +15,7 @@ import {
   type WorkspaceFolderResult,
   type WorkspaceFolderSnapshot,
 } from '@hbar/contracts/commands/workspace-folders'
+import { nodeWorkspaceLocator, parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { createState } from './state'
 
 const metadata = (id: string) => ({
@@ -53,6 +54,15 @@ export const workspaceFoldersClientCommands = {
     output,
   ),
   'workspaceFolders.addPath': defineCommand(metadata('workspaceFolders.addPath'), target, output),
+  'workspaceFolders.addNodeRoot': defineCommand(
+    metadata('workspaceFolders.addNodeRoot'),
+    target.extend({
+      nodeId: z.string().min(1).max(63),
+      rootId: z.string().min(1).max(64),
+      name: z.string().min(1).max(160),
+    }),
+    output,
+  ),
   'workspaceFolders.edit': defineCommand(
     metadata('workspaceFolders.edit'),
     target.extend({
@@ -111,6 +121,7 @@ export interface WorkspaceFoldersState {
 interface Options {
   readonly host?: CommandExecutor | undefined
   readonly onSubscriberError: (error: unknown) => void
+  readonly workspaceNodeId?: ((workspaceId: string) => string | null) | undefined
   readonly onCreated: (
     result: WorkspaceFolderResult,
     entry: { draftId?: string; draftRevision?: number; createSession?: boolean },
@@ -158,6 +169,7 @@ const safe = new Set([
   'INVALID_OUTPUT',
   'CANCELLED',
   'EXECUTION_FAILED',
+  'WORKSPACE_NODE_MISMATCH',
 ])
 function errorCode(error: unknown): string {
   return error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' && safe.has(error.code)
@@ -408,6 +420,45 @@ export function createWorkspaceFolders(local: CommandRegistry, options: Options)
       else publish({ validation: 'required' })
       return summary()
     }),
+    local.register(
+      workspaceFoldersClientCommands['workspaceFolders.addNodeRoot'],
+      ({ token: captured, nodeId, rootId, name }) => {
+        check(captured)
+        const ownerId = current().workspaceId
+        const primaryPath = current().folders[0]?.path ?? current().snapshot?.folders[0]?.path
+        let primaryNodeId: string | null = null
+        if (primaryPath) {
+          try {
+            primaryNodeId = parseNodeWorkspaceLocator(primaryPath)?.nodeId ?? null
+          } catch {
+            primaryNodeId = null
+          }
+        }
+        const pinnedNodeId = ownerId ? (options.workspaceNodeId?.(ownerId) ?? primaryNodeId) : null
+        if (!pinnedNodeId || pinnedNodeId !== nodeId) {
+          publish({ status: 'error', error: 'WORKSPACE_NODE_MISMATCH' })
+          return summary()
+        }
+        const path = nodeWorkspaceLocator(nodeId, rootId)
+        if (current().folders.some((folder) => folder.path === path)) {
+          publish({ status: 'error', error: 'DUPLICATE_FOLDER' })
+          return summary()
+        }
+        if (current().folders.length >= WORKSPACE_FOLDER_LIMIT) {
+          publish({ validation: 'capacity' })
+          return summary()
+        }
+        const folders = [...current().folders]
+        const base = workspaceFolderAlias(name)
+        let alias = base
+        let suffix = 2
+        while (folders.some((folder) => folder.alias.toLocaleLowerCase() === alias.toLocaleLowerCase()))
+          alias = `${base.slice(0, 58)}-${suffix++}`
+        folders.push({ id: crypto.randomUUID(), alias, path })
+        publish({ folders, path: '', selected: [], validation: null, error: null, status: 'ready', phase: 'editing' })
+        return summary()
+      },
+    ),
     local.register(workspaceFoldersClientCommands['workspaceFolders.edit'], ({ token: captured, id, field, value }) => {
       check(captured)
       if (current().status === 'loading') throw new CommandError('BUSY', 'Folder snapshot is loading')

@@ -81,6 +81,7 @@ function fixture() {
   const local = new CommandRegistry()
   const owner = createWorkspaceFolders(local, {
     host,
+    workspaceNodeId: (workspaceId) => (workspaceId === 'W' ? 'node-one' : null),
     onSubscriberError: (error) => {
       throw error
     },
@@ -99,6 +100,21 @@ function fixture() {
     navigations,
     current: () => owner.reader.getSnapshot(),
     target: () => ({ token: owner.reader.getSnapshot().token }),
+    setRemote(count = 1) {
+      const workspace = {
+        id: 'W',
+        name: 'docs',
+        path: 'hbar-node://node-one/docs',
+        createdAt: 1,
+        location: { kind: 'node' as const, nodeId: 'node-one', rootId: 'docs', nodePath: '/b/docs' },
+      }
+      const folders = Array.from({ length: count }, (_, index) => ({
+        id: index === 0 ? 'primary' : `folder-${index}`,
+        alias: index === 0 ? 'docs' : `folder-${index}`,
+        path: index === 0 ? workspace.path : `hbar-node://node-one/root-${index}`,
+      }))
+      saved = { workspace, snapshot: { schemaVersion: 1, workspaceId: 'W', revision: 4, folders } }
+    },
   }
 }
 
@@ -120,6 +136,64 @@ test('multi-selection across directory pages becomes one ordered workspace with 
   expect(f.current().snapshot?.folders.map((folder) => folder.alias)).toEqual(['backend', 'frontend'])
   expect(f.navigations).toHaveLength(1)
   expect(f.calls.filter((call) => call.name === 'workspace.folders.create')).toHaveLength(1)
+})
+
+test('node root selection binds to the workspace node and saves through the original revisioned receipt flow', async () => {
+  const f = fixture()
+  f.setRemote()
+  await f.commands.execute('workspaceFolders.open', { workspaceId: 'W' })
+  await f.commands.execute('workspaceFolders.addNodeRoot', {
+    ...f.target(),
+    nodeId: 'node-one',
+    rootId: 'source',
+    name: 'Source packages',
+  })
+  expect(f.current().folders[0]).toEqual({ id: 'primary', alias: 'docs', path: 'hbar-node://node-one/docs' })
+  expect(f.current().folders[1]).toMatchObject({ alias: 'Source-packages', path: 'hbar-node://node-one/source' })
+  expect(f.current().folders[1]?.id.length).toBeGreaterThan(0)
+  await f.commands.execute('workspaceFolders.save', f.target())
+  const save = f.calls.find((call) => call.name === 'workspace.folders.save')
+  expect(save?.input).toMatchObject({ workspaceId: 'W', expectedRevision: 4 })
+  expect(f.current().snapshot?.revision).toBe(5)
+  expect(f.current().status).toBe('saved')
+})
+
+test('node root selection rejects another node and duplicate roots without changing the folder draft', async () => {
+  const f = fixture()
+  f.setRemote()
+  await f.commands.execute('workspaceFolders.open', { workspaceId: 'W' })
+  await f.commands.execute('workspaceFolders.addNodeRoot', {
+    ...f.target(),
+    nodeId: 'other-node',
+    rootId: 'source',
+    name: 'Source',
+  })
+  expect(f.current().error).toBe('WORKSPACE_NODE_MISMATCH')
+  expect(f.current().folders).toHaveLength(1)
+  await f.commands.execute('workspaceFolders.addNodeRoot', {
+    ...f.target(),
+    nodeId: 'node-one',
+    rootId: 'docs',
+    name: 'Docs',
+  })
+  expect(f.current().error).toBe('DUPLICATE_FOLDER')
+  expect(f.current().folders).toHaveLength(1)
+  expect(f.calls.some((call) => call.name === 'workspace.folders.save')).toBe(false)
+})
+
+test('node root selection stops at the shared workspace folder capacity', async () => {
+  const f = fixture()
+  f.setRemote(32)
+  await f.commands.execute('workspaceFolders.open', { workspaceId: 'W' })
+  await f.commands.execute('workspaceFolders.addNodeRoot', {
+    ...f.target(),
+    nodeId: 'node-one',
+    rootId: 'source',
+    name: 'Source',
+  })
+  expect(f.current().folders).toHaveLength(32)
+  expect(f.current().validation).toBe('capacity')
+  expect(f.current().folders.some((folder) => folder.path === 'hbar-node://node-one/source')).toBe(false)
 })
 
 test('zero roots cannot save; invalid or case-insensitive duplicate aliases cannot save', async () => {

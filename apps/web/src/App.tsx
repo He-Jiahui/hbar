@@ -18,6 +18,7 @@ import {
   HbarWorkspaceShell,
   HbarDesktopLayoutProjection,
   type HbarFlexLayoutGeometry,
+  type WorkspaceNodeFolderRegistry,
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
@@ -31,6 +32,7 @@ import {
 import type { GlobalSettingsStartup, PanelSurface } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
+import { workspaceLocationOf } from '@hbar/contracts/node-address'
 import { ArrowLeft } from 'lucide-react'
 import { GlobalFeatureNavigation } from './GlobalFeatureNavigation'
 import {
@@ -88,6 +90,10 @@ import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import { HbarStorageLocationSettings } from '@hbar/app-react/storage-locations'
+import { WebWorkspaceLocationPicker } from './workspace-location-picker'
+import { workspaceLocationPickerCopy } from './workspace-location-picker-copy'
+import { approvalExecutionTargetCopy } from './approval-execution-target-copy'
+import { createWorkspaceNodeRegistryModel } from './workspace-location-picker-model'
 import { SystemTerminalPanel } from './SystemTerminalPanel'
 import { systemTerminalCopy } from './system-terminal-copy'
 import { createStorageLocationController, type StorageLocationController } from '@hbar/app-runtime/storage-locations'
@@ -580,7 +586,11 @@ type WorkspaceBodyProps = {
   readonly images: HbarSessionImagesOptions
   readonly files: ReturnType<typeof createFileCommandClient>
   readonly systemPrefersDark: boolean
+  readonly workspaceNodeNames: Readonly<Record<string, string>>
+  readonly workspaceLocationLabels: ReturnType<typeof workspaceLocationPickerCopy>
 }
+
+const emptyWorkspaceNodeFolderRegistry: WorkspaceNodeFolderRegistry = {}
 
 function errorCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -687,6 +697,8 @@ function WorkspaceBodyContent({
   images,
   files,
   systemPrefersDark,
+  workspaceNodeNames,
+  workspaceLocationLabels,
 }: WorkspaceBodyProps) {
   const nodeCommands = useMemo(() => createNodeCommandClient(client), [client])
   const nodeAccess = client.connectionHost()?.deviceAccess
@@ -804,6 +816,7 @@ function WorkspaceBodyContent({
         }
       : undefined)
   const sessionWorkspace = conversation ? directory.workspaces[conversation.workspaceId] : undefined
+  const sessionWorkspaceLocation = sessionWorkspace ? workspaceLocationOf(sessionWorkspace) : undefined
   useEffect(() => {
     if (!session || !landingDraftId.current) return
     const draftId = landingDraftId.current
@@ -994,6 +1007,15 @@ function WorkspaceBodyContent({
           sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : conversation.workspaceId
         }
         workspacePath={sessionWorkspace?.path}
+        workspaceNodeBadge={
+          sessionWorkspaceLocation?.kind === 'node'
+            ? {
+                nodeName:
+                  workspaceNodeNames[sessionWorkspaceLocation.nodeId] ?? sessionWorkspaceLocation.nodeId,
+                labels: workspaceLocationLabels,
+              }
+            : undefined
+        }
         sessionWorkspaceId={conversation.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
         firstSendLabels={preSessionLaunchCopy(locale).status}
@@ -1015,7 +1037,13 @@ function WorkspaceBodyContent({
               )
             : undefined
         }
-        labels={copy.session}
+        labels={{
+          ...copy.session,
+          decisions: {
+            ...copy.session.decisions,
+            executionTarget: approvalExecutionTargetCopy(locale),
+          },
+        }}
         describeTool={createSessionToolPresenter(locale)}
         sendBehavior={selectedSendBehavior}
         connected={connected}
@@ -1762,6 +1790,46 @@ export default function App({
     [attachmentController, client, clientUrl, runtimeCopy, resourcePicker],
   )
   const { runtime, appearanceEditor, binding, connection } = useStore(startup.store)
+  const workspaceNodeRegistryModel = useMemo(() => {
+    const commands = createNodeCommandClient(client)
+    return createWorkspaceNodeRegistryModel({
+      listNodes: (input, options) =>
+        commands.execute('node.list', input, options?.signal ? { signal: options.signal } : undefined),
+    })
+  }, [client])
+  const workspaceNodeRegistryState = useStore(workspaceNodeRegistryModel.store)
+  const workspaceNodeRegistryPermission = client.connectionHost()?.deviceAccess?.role ?? 'unknown'
+  const workspaceNodeRegistryConnected = connection === 'connected'
+  const workspaceNodeRegistryMatches =
+    workspaceNodeRegistryState.hostId === binding.hostId &&
+    workspaceNodeRegistryState.connected === workspaceNodeRegistryConnected &&
+    workspaceNodeRegistryState.permission === workspaceNodeRegistryPermission
+  const workspaceNodeFolderRegistry: WorkspaceNodeFolderRegistry = workspaceNodeRegistryMatches
+    ? workspaceNodeRegistryState.registry
+    : emptyWorkspaceNodeFolderRegistry
+  const workspaceNodeNames = useMemo(
+    () => Object.fromEntries(Object.entries(workspaceNodeFolderRegistry).map(([nodeId, node]) => [nodeId, node.name])),
+    [workspaceNodeFolderRegistry],
+  )
+  const workspaceLocationLabels = useMemo(() => workspaceLocationPickerCopy(locale), [locale])
+  useEffect(() => {
+    workspaceNodeRegistryModel.setIdentity(
+      binding.hostId,
+      workspaceNodeRegistryConnected,
+      workspaceNodeRegistryPermission,
+    )
+    if (workspaceNodeRegistryConnected) void workspaceNodeRegistryModel.refresh()
+  }, [
+    binding.hostId,
+    workspaceNodeRegistryConnected,
+    workspaceNodeRegistryModel,
+    workspaceNodeRegistryPermission,
+  ])
+  useEffect(() => workspaceNodeRegistryModel.retain(), [workspaceNodeRegistryModel])
+  const refreshWorkspaceNodeFolderRegistry = useCallback(
+    () => workspaceNodeRegistryModel.refresh(),
+    [workspaceNodeRegistryModel],
+  )
   useEffect(() => {
     sendBehavior.bind(binding.hostId, connection === 'connected')
   }, [binding.hostId, connection, sendBehavior])
@@ -2152,6 +2220,30 @@ export default function App({
               : undefined
           }
           connection={connection}
+          workspaceNodeNames={workspaceNodeNames}
+          workspaceNodeFolderRegistry={workspaceNodeFolderRegistry}
+          workspaceNodeFolderMutationAllowed={
+            connection === 'connected' && client.connectionHost()?.deviceAccess?.role === 'operator'
+          }
+          refreshWorkspaceNodeFolderRegistry={refreshWorkspaceNodeFolderRegistry}
+          workspaceNodeBadgeLabels={workspaceLocationLabels}
+          renderWorkspaceCreator={({ open, onBrowseLocal, onCreated, onCancel }) => (
+            <WebWorkspaceLocationPicker
+              client={client}
+              open={open}
+              connected={connection === 'connected'}
+              writable={
+                connection === 'connected' && client.connectionHost()?.deviceAccess?.role === 'operator'
+              }
+              labels={workspaceLocationLabels}
+              onBrowseLocal={async () => {
+                onBrowseLocal()
+                return null
+              }}
+              onCreated={onCreated}
+              onCancel={onCancel}
+            />
+          )}
           onCloseTool={() => {
             if (presentation.toolInstanceId)
               void runtime.view.commands
@@ -2219,6 +2311,8 @@ export default function App({
                   images={images}
                   files={composerFiles}
                   systemPrefersDark={systemPrefersDark}
+                  workspaceNodeNames={workspaceNodeNames}
+                  workspaceLocationLabels={workspaceLocationLabels}
                 />
               </WorkspaceTabsController>
             )
@@ -2238,6 +2332,8 @@ export default function App({
               images={images}
               files={composerFiles}
               systemPrefersDark={systemPrefersDark}
+              workspaceNodeNames={workspaceNodeNames}
+              workspaceLocationLabels={workspaceLocationLabels}
             />
           )}
         </HbarWorkspaceShell>

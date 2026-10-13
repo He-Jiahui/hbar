@@ -276,4 +276,17 @@ export { HbarSessionBranchTargetControl, type HbarSessionBranchTargetLabels } fr
 export { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent-branch'
 export { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
 export { projectGoalLifecycleRows, type GoalLifecycleAction, type GoalLifecycleRow } from './goal-lifecycle-model'
-export { HbarWorkspaceFoldersDialog, WorkspaceFoldersDialog, type WorkspaceFoldersLabels } from './workspace-folders'
+export {
+  HbarWorkspaceFoldersDialog,
+  WorkspaceFoldersDialog,
+  type WorkspaceFoldersLabels,
+  type WorkspaceNodeFolderRegistry,
+} from './workspace-folders'
+export {
+  HbarWorkspaceLocationPicker,
+  HbarWorkspaceNodeBadge,
+  workspaceLocationBadgeLabel,
+  type WorkspaceLocationPickerLabels,
+  type WorkspaceLocationPickerProps,
+} from './workspace-location-picker'
+export { HbarApprovalExecutionTarget, type ApprovalExecutionTargetLabels } from './approval-execution-target'

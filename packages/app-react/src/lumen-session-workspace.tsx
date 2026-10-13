@@ -59,6 +59,7 @@ import {
   type HbarConversationSelectionLabels,
 } from './conversation-selection'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
+import { HbarWorkspaceNodeBadge, type WorkspaceLocationPickerLabels } from './workspace-location-picker'
 import type { HbarSessionDecisionHistoryLabels } from './session-decision-history'
 import { settledSessionDecision } from './session-monitoring-decisions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
@@ -244,6 +245,12 @@ export interface HbarSessionWorkspaceProps {
   readonly sessionTitle: string
   readonly workspaceName: string
   readonly workspacePath?: string | undefined
+  readonly workspaceNodeBadge?:
+    | {
+        readonly nodeName: string
+        readonly labels: Pick<WorkspaceLocationPickerLabels, 'remoteWorkspace'>
+      }
+    | undefined
   readonly sessionWorkspaceId: string
   readonly labels: HbarSessionWorkspaceLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool']
@@ -298,6 +305,7 @@ function SessionWorkspaceContent({
   sessionTitle,
   workspaceName,
   workspacePath,
+  workspaceNodeBadge,
   sessionWorkspaceId,
   labels,
   describeTool,
@@ -1463,6 +1471,7 @@ function SessionWorkspaceContent({
         copyOwner={runtime}
         key={`${decision.kind}:${decision.id}`}
         decision={decision}
+        executionTarget={decision.kind === 'approval' ? decision.approval.executionTarget : undefined}
         action={sessionDecisionAction(decision, interactions)}
         answers={
           decision.kind === 'questionnaire' && decision.requestId
@@ -2811,6 +2820,9 @@ function SessionWorkspaceContent({
         actionsLabel={labels.tools.label}
         actions={
           <>
+            {workspaceNodeBadge ? (
+              <HbarWorkspaceNodeBadge labels={workspaceNodeBadge.labels} nodeName={workspaceNodeBadge.nodeName} />
+            ) : null}
             {activeRun && (
               <LumenFrame role="status" aria-live="polite" aria-atomic="true">
                 <HbarSessionExecutionStatus

@@ -1,0 +1,28 @@
+.hbar-approval-execution-target,
+.hbar-approval-execution-target-details,
+.hbar-approval-execution-target-facts {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.375rem;
+}
+
+.hbar-approval-execution-target {
+  align-items: flex-start;
+  border-inline-start: 0.125rem solid var(--lumen-info);
+  padding-inline-start: 0.625rem;
+  color: var(--lumen-ink);
+}
+
+.hbar-approval-execution-target-details,
+.hbar-approval-execution-target-facts {
+  flex-direction: column;
+  overflow-wrap: anywhere;
+}
+
+.hbar-approval-execution-target-facts {
+  color: var(--lumen-muted);
+}
+
+.hbar-approval-execution-target p {
+  margin: 0;
+}

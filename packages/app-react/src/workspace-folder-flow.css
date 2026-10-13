@@ -23,6 +23,41 @@
   text-overflow: clip;
   scrollbar-width: thin;
 }
+.hbar-workspace-folders-dialog .hbar-workspace-folder-root-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
 .hbar-workspace-folders-dialog .hbar-workspace-folders-actions {
   flex-wrap: wrap;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folder-node-roots,
+.hbar-workspace-folders-dialog .hbar-workspace-folder-node-root-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folder-node-root-list > button {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  text-align: start;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folder-node-root-list > button > * {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folder-node-root-name {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  white-space: normal;
 }

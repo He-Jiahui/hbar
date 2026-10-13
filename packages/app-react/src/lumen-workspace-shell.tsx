@@ -37,10 +37,8 @@ import {
   LumenNavbar01,
   LumenButton,
   LumenDialog,
-  LumenFormField,
   LumenFrame,
   LumenIcon,
-  LumenInput,
   LumenSidebarAction,
   LumenTree,
   LumenTreeItem,
@@ -51,6 +49,7 @@ import {
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
+import { HbarWorkspaceNodeBadge, type WorkspaceLocationPickerLabels } from './workspace-location-picker'
 import { usePersistentPane } from './persistent-pane'
 import { WorkspaceSidebarRail } from './workspace-sidebar-rail'
 import { SidebarCaption } from './sidebar-caption'
@@ -94,7 +93,11 @@ import {
   type WorkspaceDisplayNamesLabels,
 } from './workspace-display-names'
 import { useWorkspaceDisplayNameFocus } from './workspace-display-name-focus'
-import { HbarWorkspaceFoldersDialog, type WorkspaceFoldersLabels } from './workspace-folders'
+import {
+  HbarWorkspaceFoldersDialog,
+  type WorkspaceFoldersLabels,
+  type WorkspaceNodeFolderRegistry,
+} from './workspace-folders'
 import { SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
 import { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent-branch'
 import {
@@ -247,6 +250,19 @@ export interface HbarWorkspaceShellProps {
   readonly tool?: ReactNode
   readonly toolLabel?: string
   readonly overlay?: ReactNode
+  /** Host-owned typed picker for creating a local or node-pinned workspace. */
+  readonly renderWorkspaceCreator?: (callbacks: {
+    readonly open: boolean
+    readonly onBrowseLocal: () => void
+    readonly onCreated: (workspaceId: string) => void
+    readonly onCancel: () => void
+  }) => ReactNode
+  readonly workspaceNodeBadgeLabels?: Pick<WorkspaceLocationPickerLabels, 'remoteWorkspace'>
+  /** Current A-registry display names, supplied by the Host UI owner. */
+  readonly workspaceNodeNames?: Readonly<Record<string, string>>
+  readonly workspaceNodeFolderRegistry?: WorkspaceNodeFolderRegistry
+  readonly workspaceNodeFolderMutationAllowed?: boolean
+  readonly refreshWorkspaceNodeFolderRegistry?: (() => Promise<void>) | undefined
   /** Host-owned projections for the production shell. Existing runtime UI remains the default. */
   readonly slots?: HbarWorkspaceShellSlots
   /** Optional host projection for desktop layout descriptors. */
@@ -629,7 +645,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   })
   const [actionWorkspaceId, setActionWorkspaceId] = useState<string | null>(null)
   const [projectPicker, setProjectPicker] = useState<'create-session' | 'open-workspace' | null>(null)
-  const [workspacePath, setWorkspacePath] = useState('')
+  const [workspaceCreatorOpen, setWorkspaceCreatorOpen] = useState(false)
   const [sessionTimeNow, setSessionTimeNow] = useState(Date.now)
   const [batchSelecting, setBatchSelecting] = useState(false)
   const [batchSelection, setBatchSelection] = useState<
@@ -1053,7 +1069,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     (selection: WorkspaceNavigationSelection | null) => {
       if (!selection) return
       setProjectPicker(null)
-      setWorkspacePath('')
       void execute('workspaceActivity.refresh', {}).catch(() => {
         // Include newly registered empty projects without changing the successful navigation result.
       })
@@ -1119,12 +1134,18 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [newSession, presentation.modalInstanceId, projectPicker])
   const addWorkspace = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!workspacePath.trim()) return
-    runNavigationAction({
-      kind: 'open-workspace',
-      path: workspacePath,
-      createSession: projectPicker === 'create-session',
-    })
+    if (navigationBusy || navigationBlocked || !connected) return
+    setProjectPicker(null)
+    requestAnimationFrame(() => setWorkspaceCreatorOpen(true))
+  }
+  const workspaceCreated = (workspaceId: string) => {
+    setWorkspaceCreatorOpen(false)
+    setProjectPicker(null)
+    void execute('workspaceActivity.refresh', {})
+      .then(() => {
+        runNavigationAction({ kind: 'select-workspace', workspaceId })
+      })
+      .catch(recordError)
   }
   const openFolders = (workspaceId?: string, path?: string, browse = false) => {
     const createSession = projectPicker === 'create-session'
@@ -1301,6 +1322,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               onRestoreHidden={restoreHiddenWorkspaces}
               onRefresh={refreshSidebar}
             />
+            <HbarActionIconButton
+              label={props.labels.addWorkspace}
+              disabled={!connected || navigationBlocked}
+              onClick={() => setWorkspaceCreatorOpen(true)}
+            >
+              <LumenIcon icon={Plus} tier="sm" />
+            </HbarActionIconButton>
             <HbarActionIconButton
               label={props.labels.openWorkspace}
               disabled={!connected || navigationBlocked}
@@ -1594,6 +1622,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         <LumenFrame className="hbar-app-react-workspace-row" title={workspace.path}>
                           <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
                           <SidebarCaption text={displayName} />
+                          {workspace.location?.kind === 'node' && (
+                            <HbarWorkspaceNodeBadge
+                              labels={props.workspaceNodeBadgeLabels ?? { remoteWorkspace: (name) => name }}
+                              nodeName={
+                                props.workspaceNodeNames?.[workspace.location.nodeId] ?? workspace.location.nodeId
+                              }
+                            />
+                          )}
                           {isPinned && (
                             <LumenContentText
                               context="message.inline"
@@ -2109,6 +2145,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         {workspaceDisplayName(workspace, displayNames.snapshot)}
                       </LumenContentText>
                       <LumenContentText context="choice.description">{workspace.path}</LumenContentText>
+                      {workspace.location?.kind === 'node' && (
+                        <HbarWorkspaceNodeBadge
+                          labels={props.workspaceNodeBadgeLabels ?? { remoteWorkspace: (name) => name }}
+                          nodeName={props.workspaceNodeNames?.[workspace.location.nodeId] ?? workspace.location.nodeId}
+                        />
+                      )}
                     </LumenFrame>
                   </LumenButton>
                   <HbarActionIconButton
@@ -2132,33 +2174,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             )}
           </LumenFrame>
           <LumenFrame as="form" className="hbar-app-react-workspace-picker-form" onSubmit={addWorkspace}>
-            <LumenFormField
-              controlId="hbar-workspace-path"
-              label={props.labels.workspacePath}
-              description={props.labels.workspacePathHint}
-            >
-              <LumenFrame className="hbar-workspace-folder-entry-row">
-                <LumenInput
-                  id="hbar-workspace-path"
-                  autoFocus={workspaces.length === 0}
-                  value={workspacePath}
-                  maxLength={4000}
-                  disabled={!connected || navigationBlocked}
-                  onChange={(event) => setWorkspacePath(event.currentTarget.value)}
-                />
-                <LumenButton
-                  type="button"
-                  variant="outlined"
-                  indicator="none"
-                  disabled={!connected || navigationBlocked}
-                  onClick={() => openFolders(undefined, workspacePath, true)}
-                >
-                  <LumenIcon icon={FolderOpen} tier="sm" />
-                  {props.labels.workspaceFolders.browse}
-                </LumenButton>
-              </LumenFrame>
-            </LumenFormField>
-            <LumenButton type="submit" disabled={!connected || navigationBlocked || !workspacePath.trim()}>
+            <LumenButton type="submit" disabled={!connected || navigationBlocked}>
               {props.labels.addWorkspace}
             </LumenButton>
           </LumenFrame>
@@ -2176,7 +2192,22 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           )}
         </LumenDialog>
       )}
-      <HbarWorkspaceFoldersDialog labels={props.labels.workspaceFolders} connected={connected} />
+      {props.renderWorkspaceCreator?.({
+        open: workspaceCreatorOpen,
+        onBrowseLocal: () => {
+          setWorkspaceCreatorOpen(false)
+          openFolders(undefined, undefined, true)
+        },
+        onCreated: workspaceCreated,
+        onCancel: () => setWorkspaceCreatorOpen(false),
+      })}
+      <HbarWorkspaceFoldersDialog
+        labels={props.labels.workspaceFolders}
+        connected={connected}
+        nodeRegistry={props.workspaceNodeFolderRegistry}
+        nodeMutationAllowed={props.workspaceNodeFolderMutationAllowed}
+        refreshNodeRegistry={props.refreshWorkspaceNodeFolderRegistry}
+      />
     </>
   )
   const contentRegion = (

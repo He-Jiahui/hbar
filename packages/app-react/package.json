@@ -27,7 +27,9 @@
     "./providers": "./src/provider-settings.tsx",
     "./session-decision-history": "./src/session-decision-history.tsx",
     "./node-management-settings": "./src/node-management-settings.tsx",
-    "./node-console": "./src/node-console.tsx"
+    "./node-console": "./src/node-console.tsx",
+    "./workspace-location-picker": "./src/workspace-location-picker.tsx",
+    "./approval-execution-target": "./src/approval-execution-target.tsx"
   },
   "sideEffects": [
     "**/*.css"

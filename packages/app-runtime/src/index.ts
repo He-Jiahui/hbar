@@ -251,6 +251,7 @@ export { workspaceOrganizationClientCommands } from './workspace-organization'
 export type { WorkspaceOrganizationState, WorkspaceOrganizationAction } from './workspace-organization'
 import { createWorkspaceDisplayNames, workspaceDisplayNamesClientCommands } from './workspace-display-names'
 import { createWorkspaceFolders, workspaceFoldersClientCommands } from './workspace-folders'
+import { parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 export { workspaceFoldersClientCommands, type WorkspaceFoldersState } from './workspace-folders'
 export { workspaceDisplayNamesClientCommands, workspaceDisplayName } from './workspace-display-names'
 export type {
@@ -1475,6 +1476,15 @@ export function createAppRuntime(options: RuntimeOptions) {
   const workspaceFolders = createWorkspaceFolders(local, {
     host: options.workspaces,
     onSubscriberError,
+    workspaceNodeId: (workspaceId) => {
+      const workspace = directory.reader.getSnapshot().workspaces[workspaceId]
+      if (workspace?.location?.kind === 'node') return workspace.location.nodeId
+      try {
+        return workspace ? parseNodeWorkspaceLocator(workspace.path)?.nodeId ?? null : null
+      } catch {
+        return null
+      }
+    },
     onCreated: async (result, entry) => {
       if (entry.draftId) {
         const draft = preSessionDrafts.reader.getSnapshot()[entry.draftId]

@@ -17,6 +17,8 @@ import {
 } from '@lumen/app-ui'
 import { workspaceFoldersClientCommands, type WorkspaceFoldersState } from '@hbar/app-runtime'
 import { WORKSPACE_FOLDER_LIMIT } from '@hbar/contracts/commands/workspace-folders'
+import type { NodeListPage } from '@hbar/contracts/node-management'
+import { parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { HbarActionIconButton } from './action-icon-button'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './workspace-folders.css'
@@ -65,20 +67,65 @@ export interface WorkspaceFoldersLabels {
   readonly error: (code: string) => string
   readonly status: Readonly<Record<'loading' | 'saving' | 'checking' | 'unknown' | 'saved', string>>
   readonly validation: Readonly<Record<'required' | 'invalid' | 'capacity', string>>
+  readonly nodeRoots: string
+  readonly nodeRootsHint: string
+  readonly nodeRootAccess: (access: 'read' | 'write') => string
+  readonly nodeRootUnavailable: string
+  readonly nodeRootLoading: string
+  readonly nodeRootObserver: string
+  readonly nodeRootMounted: string
+  readonly nodeRootOverlap: string
+  readonly nodeRootName: (name: string) => string
 }
+
+export type WorkspaceNodeFolderRegistry = Readonly<Record<string, NodeListPage['items'][number]>>
 
 /** The connected adapter sends intents only. Drafts, selection, pagination and receipts live in Runtime. */
 export function HbarWorkspaceFoldersDialog({
   labels,
   connected,
+  nodeRegistry,
+  nodeMutationAllowed,
+  refreshNodeRegistry,
 }: {
   readonly labels: WorkspaceFoldersLabels
   readonly connected: boolean
+  readonly nodeRegistry?: WorkspaceNodeFolderRegistry | undefined
+  readonly nodeMutationAllowed?: boolean | undefined
+  readonly refreshNodeRegistry?: (() => Promise<void>) | undefined
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.workspaceFolders)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const workspace = state.workspaceId ? directory.workspaces[state.workspaceId] : undefined
+  let primaryAddress: ReturnType<typeof parseNodeWorkspaceLocator> = null
+  const primaryFolderPath = workspace?.path ?? state.folders[0]?.path ?? state.snapshot?.folders[0]?.path
+  if (primaryFolderPath) {
+    try {
+      primaryAddress = parseNodeWorkspaceLocator(primaryFolderPath)
+    } catch {
+      primaryAddress = null
+    }
+  }
+  const ownerNodeId =
+    workspace?.location?.kind === 'node' ? workspace.location.nodeId : (primaryAddress?.nodeId ?? null)
   const [unexpectedFailure, setUnexpectedFailure] = useState(false)
+  const [nodeRegistryLoading, setNodeRegistryLoading] = useState(false)
   useEffect(() => setUnexpectedFailure(false), [state.open, state.token])
+  useEffect(() => {
+    if (!state.open || !ownerNodeId || !refreshNodeRegistry) {
+      setNodeRegistryLoading(false)
+      return
+    }
+    let current = true
+    setNodeRegistryLoading(true)
+    void refreshNodeRegistry().finally(() => {
+      if (current) setNodeRegistryLoading(false)
+    })
+    return () => {
+      current = false
+    }
+  }, [ownerNodeId, refreshNodeRegistry, state.open, state.token])
   const execute: WorkspaceFoldersDialogProps['execute'] = (name, input) => {
     setUnexpectedFailure(false)
     void runtime.commands.execute(name, workspaceFoldersClientCommands[name].input.parse(input)).catch(() => {
@@ -90,6 +137,10 @@ export function HbarWorkspaceFoldersDialog({
     <WorkspaceFoldersDialog
       state={state}
       connected={connected}
+      nodeRegistry={nodeRegistry}
+      nodeMutationAllowed={nodeMutationAllowed ?? false}
+      ownerNodeId={ownerNodeId}
+      nodeRegistryLoading={nodeRegistryLoading}
       labels={labels}
       execute={execute}
       unexpectedFailure={unexpectedFailure}
@@ -100,14 +151,21 @@ export interface WorkspaceFoldersDialogProps {
   readonly state: WorkspaceFoldersState
   readonly labels: WorkspaceFoldersLabels
   readonly connected: boolean
+  readonly nodeRegistry?: WorkspaceNodeFolderRegistry | undefined
+  readonly nodeMutationAllowed?: boolean
+  readonly ownerNodeId?: string | null
+  readonly nodeRegistryLoading?: boolean
   readonly unexpectedFailure?: boolean
   readonly execute: (
-    name: `workspaceFolders.${'close' | 'path' | 'addPath' | 'edit' | 'remove' | 'move' | 'browse' | 'toggle' | 'addSelected' | 'back' | 'refresh' | 'save' | 'reconcile' | 'retry'}`,
+    name: `workspaceFolders.${'close' | 'path' | 'addPath' | 'addNodeRoot' | 'edit' | 'remove' | 'move' | 'browse' | 'toggle' | 'addSelected' | 'back' | 'refresh' | 'save' | 'reconcile' | 'retry'}`,
     input: {
       token: number
       value?: string
       id?: string
       field?: 'alias' | 'path'
+      nodeId?: string
+      rootId?: string
+      name?: string
       direction?: 'up' | 'down'
       path?: string
       more?: boolean
@@ -119,12 +177,54 @@ export function WorkspaceFoldersDialog({
   state,
   labels,
   connected,
+  nodeRegistry,
+  nodeMutationAllowed = false,
+  ownerNodeId = null,
+  nodeRegistryLoading = false,
   execute,
   unexpectedFailure,
 }: WorkspaceFoldersDialogProps) {
   const id = useId()
+  const ownerNode = ownerNodeId ? nodeRegistry?.[ownerNodeId] : undefined
+  const remoteRoots =
+    ownerNode?.online && ownerNode.revokedAt === null && ownerNode.capabilities?.nodeId === ownerNodeId
+      ? ownerNode.capabilities.roots.filter((root) => !root.managed)
+      : []
+  const mountedRootIds = new Set(
+    state.folders.flatMap((folder) => {
+      try {
+        const address = parseNodeWorkspaceLocator(folder.path)
+        return address && address.nodeId === ownerNodeId ? [address.rootId] : []
+      } catch {
+        return []
+      }
+    }),
+  )
+  const remoteReadOnly = ownerNodeId !== null && !nodeMutationAllowed
   const locked = state.requestInFlight || ['saving', 'unknown', 'checking'].includes(state.status)
   const disabled = !connected || locked || state.status === 'loading'
+  const folderEditingDisabled = disabled || remoteReadOnly
+  const rootOverlapsMounted = (rootId: string) => {
+    const candidate = remoteRoots.find((root) => root.rootId === rootId)
+    if (!candidate || !ownerNode?.capabilities) return false
+    const normalize = (path: string) =>
+      ownerNode.capabilities?.platform === 'win32' ? path.replaceAll('\\', '/').toLocaleLowerCase() : path
+    const paths = remoteRoots.filter((root) => mountedRootIds.has(root.rootId)).map((root) => normalize(root.nodePath))
+    const next = normalize(candidate.nodePath)
+    return paths.some((path) => {
+      const within = (parent: string, value: string) =>
+        value === parent || value.startsWith(parent.endsWith('/') ? parent : `${parent}/`)
+      return within(path, next) || within(next, path)
+    })
+  }
+  const registeredRoot = (path: string) => {
+    try {
+      const address = parseNodeWorkspaceLocator(path)
+      return address?.nodeId === ownerNodeId ? remoteRoots.find((root) => root.rootId === address.rootId) : undefined
+    } catch {
+      return undefined
+    }
+  }
   const browse = (path?: string, more = false) =>
     execute('workspaceFolders.browse', {
       token: state.token,
@@ -169,7 +269,7 @@ export function WorkspaceFoldersDialog({
           ) : (
             state.status !== 'saved' && (
               <LumenButton
-                disabled={disabled || state.folders.length === 0 || Boolean(state.validation)}
+                disabled={disabled || state.folders.length === 0 || Boolean(state.validation) || remoteReadOnly}
                 onClick={() => intent('workspaceFolders.save')}
               >
                 {labels.save}
@@ -181,36 +281,102 @@ export function WorkspaceFoldersDialog({
     >
       <LumenFrame className="hbar-workspace-folders-body" data-testid="workspace-folders-editor">
         <LumenContentText context="dialog.body">{browsing ? labels.browserHint : labels.description}</LumenContentText>
-        <LumenFormField controlId={`${id}-path`} label={labels.path} description={labels.pathHint}>
-          <LumenFrame className="hbar-workspace-folder-path-row">
-            <LumenInput
-              id={`${id}-path`}
-              value={state.path}
-              maxLength={4000}
-              disabled={disabled}
-              onChange={(event) => intent('workspaceFolders.path', { value: event.currentTarget.value })}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                event.preventDefault()
-                if (browsing) browse()
-                else intent('workspaceFolders.addPath')
-              }}
-            />
-            <LumenButton type="button" variant="outlined" indicator="none" disabled={disabled} onClick={() => browse()}>
-              <LumenIcon icon={FolderOpen} tier="sm" />
-              {labels.browse}
-            </LumenButton>
-            {!browsing && (
-              <HbarActionIconButton
-                label={labels.addPath}
-                disabled={disabled || !state.path.trim()}
-                onClick={() => intent('workspaceFolders.addPath')}
+        {ownerNodeId ? (
+          !browsing && (
+            <LumenFrame className="hbar-workspace-folder-node-roots" aria-label={labels.nodeRoots}>
+              <LumenContentText context="popover.title">{labels.nodeRoots}</LumenContentText>
+              <LumenContentText context="form.help">{labels.nodeRootsHint}</LumenContentText>
+              {nodeRegistryLoading ? (
+                <LumenContentText context="feedback.message" role="status">
+                  {labels.nodeRootLoading}
+                </LumenContentText>
+              ) : !connected || !ownerNode?.online || ownerNode.revokedAt !== null || !ownerNode.capabilities ? (
+                <LumenContentText context="feedback.message" role="alert">
+                  {labels.nodeRootUnavailable}
+                </LumenContentText>
+              ) : remoteReadOnly ? (
+                <LumenContentText context="feedback.message" role="status">
+                  {labels.nodeRootObserver}
+                </LumenContentText>
+              ) : remoteRoots.length === 0 ? (
+                <LumenContentText context="feedback.message">{labels.nodeRootUnavailable}</LumenContentText>
+              ) : (
+                <LumenFrame className="hbar-workspace-folder-node-root-list" role="group" aria-label={labels.nodeRoots}>
+                  {remoteRoots.map((root) => {
+                    const alreadyMounted = mountedRootIds.has(root.rootId)
+                    const overlapsMounted = !alreadyMounted && rootOverlapsMounted(root.rootId)
+                    const atCapacity = state.folders.length >= WORKSPACE_FOLDER_LIMIT
+                    return (
+                      <LumenButton
+                        key={root.rootId}
+                        type="button"
+                        variant="outlined"
+                        indicator="none"
+                        disabled={disabled || alreadyMounted || overlapsMounted || atCapacity}
+                        aria-label={labels.nodeRootName(root.name)}
+                        onClick={() =>
+                          intent('workspaceFolders.addNodeRoot', {
+                            nodeId: ownerNodeId,
+                            rootId: root.rootId,
+                            name: root.name,
+                          })
+                        }
+                      >
+                        <LumenIcon icon={Folder} tier="sm" />
+                        <LumenContentText context="control.label" className="hbar-workspace-folder-node-root-name">
+                          {root.name}
+                        </LumenContentText>
+                        <LumenContentText context="metadata">{labels.nodeRootAccess(root.access)}</LumenContentText>
+                        {alreadyMounted ? (
+                          <LumenContentText context="metadata">{labels.nodeRootMounted}</LumenContentText>
+                        ) : overlapsMounted ? (
+                          <LumenContentText context="metadata">{labels.nodeRootOverlap}</LumenContentText>
+                        ) : null}
+                      </LumenButton>
+                    )
+                  })}
+                </LumenFrame>
+              )}
+            </LumenFrame>
+          )
+        ) : (
+          <LumenFormField controlId={`${id}-path`} label={labels.path} description={labels.pathHint}>
+            <LumenFrame className="hbar-workspace-folder-path-row">
+              <LumenInput
+                id={`${id}-path`}
+                value={state.path}
+                maxLength={4000}
+                disabled={disabled}
+                onChange={(event) => intent('workspaceFolders.path', { value: event.currentTarget.value })}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                  event.preventDefault()
+                  if (browsing) browse()
+                  else intent('workspaceFolders.addPath')
+                }}
+              />
+              <LumenButton
+                type="button"
+                variant="outlined"
+                indicator="none"
+                disabled={disabled}
+                onClick={() => browse()}
               >
-                <LumenIcon icon={Plus} tier="sm" />
-              </HbarActionIconButton>
-            )}
-          </LumenFrame>
-        </LumenFormField>
+                <LumenIcon icon={FolderOpen} tier="sm" />
+                {labels.browse}
+              </LumenButton>
+              {!browsing && (
+                <HbarActionIconButton
+                  label={labels.addPath}
+                  disabled={disabled || !state.path.trim()}
+                  onClick={() => intent('workspaceFolders.addPath')}
+                >
+                  <LumenIcon icon={Plus} tier="sm" />
+                </HbarActionIconButton>
+              )}
+            </LumenFrame>
+          </LumenFormField>
+        )}
         {browsing ? (
           <>
             {state.page && (
@@ -343,83 +509,97 @@ export function WorkspaceFoldersDialog({
             <LumenContentText context="dialog.body">{labels.aliasHint}</LumenContentText>
             {state.folders.length === 0 && <LumenContentText context="dialog.body">{labels.empty}</LumenContentText>}
             <LumenCollection as="ol" className="hbar-workspace-folder-list" aria-label={labels.folders}>
-              {state.folders.map((folder, index) => (
-                <LumenCollectionItem
-                  as="li"
-                  key={folder.id}
-                  className="hbar-workspace-folder"
-                  data-folder-id={folder.id}
-                >
-                  <LumenFrame className="hbar-workspace-folder-header">
-                    <LumenIcon icon={Folder} tier="sm" />
-                    <LumenContentText context="popover.title" title={folder.alias}>
-                      {labels.folderCaption(folder.alias || labels.alias)}
-                    </LumenContentText>
-                    {index === 0 && (
-                      <LumenContentText context="record.description" className="hbar-workspace-folder-primary">
-                        {labels.primary}
+              {state.folders.map((folder, index) => {
+                const root = ownerNodeId ? registeredRoot(folder.path) : undefined
+                return (
+                  <LumenCollectionItem
+                    as="li"
+                    key={folder.id}
+                    className="hbar-workspace-folder"
+                    data-folder-id={folder.id}
+                  >
+                    <LumenFrame className="hbar-workspace-folder-header">
+                      <LumenIcon icon={Folder} tier="sm" />
+                      <LumenContentText context="popover.title" title={folder.alias}>
+                        {labels.folderCaption(folder.alias || labels.alias)}
                       </LumenContentText>
-                    )}
-                    <LumenFrame className="hbar-workspace-folder-priority">
-                      <HbarActionIconButton
-                        label={labels.moveUp}
-                        disabled={disabled || index === 0}
-                        onClick={() => intent('workspaceFolders.move', { id: folder.id, direction: 'up' })}
-                      >
-                        <LumenIcon icon={ArrowUp} tier="sm" />
-                      </HbarActionIconButton>
-                      <HbarActionIconButton
-                        label={labels.moveDown}
-                        disabled={disabled || index === state.folders.length - 1}
-                        onClick={() => intent('workspaceFolders.move', { id: folder.id, direction: 'down' })}
-                      >
-                        <LumenIcon icon={ArrowDown} tier="sm" />
-                      </HbarActionIconButton>
-                      <HbarActionIconButton
-                        label={labels.remove}
-                        title={labels.removeHint}
-                        disabled={disabled}
-                        onClick={() => intent('workspaceFolders.remove', { id: folder.id })}
-                      >
-                        <LumenIcon icon={Trash2} tier="sm" />
-                      </HbarActionIconButton>
+                      {index === 0 && (
+                        <LumenContentText context="record.description" className="hbar-workspace-folder-primary">
+                          {labels.primary}
+                        </LumenContentText>
+                      )}
+                      <LumenFrame className="hbar-workspace-folder-priority">
+                        <HbarActionIconButton
+                          label={labels.moveUp}
+                          disabled={folderEditingDisabled || index === 0}
+                          onClick={() => intent('workspaceFolders.move', { id: folder.id, direction: 'up' })}
+                        >
+                          <LumenIcon icon={ArrowUp} tier="sm" />
+                        </HbarActionIconButton>
+                        <HbarActionIconButton
+                          label={labels.moveDown}
+                          disabled={folderEditingDisabled || index === state.folders.length - 1}
+                          onClick={() => intent('workspaceFolders.move', { id: folder.id, direction: 'down' })}
+                        >
+                          <LumenIcon icon={ArrowDown} tier="sm" />
+                        </HbarActionIconButton>
+                        <HbarActionIconButton
+                          label={labels.remove}
+                          title={labels.removeHint}
+                          disabled={folderEditingDisabled}
+                          onClick={() => intent('workspaceFolders.remove', { id: folder.id })}
+                        >
+                          <LumenIcon icon={Trash2} tier="sm" />
+                        </HbarActionIconButton>
+                      </LumenFrame>
                     </LumenFrame>
-                  </LumenFrame>
-                  <LumenFrame className="hbar-workspace-folder-fields">
-                    <LumenFormField controlId={`${id}-${folder.id}-alias`} label={labels.alias}>
-                      <LumenInput
-                        id={`${id}-${folder.id}-alias`}
-                        value={folder.alias}
-                        maxLength={64}
-                        disabled={disabled}
-                        onChange={(event) =>
-                          intent('workspaceFolders.edit', {
-                            id: folder.id,
-                            field: 'alias',
-                            value: event.currentTarget.value,
-                          })
-                        }
-                      />
-                    </LumenFormField>
-                    <LumenFormField controlId={`${id}-${folder.id}-path`} label={labels.path}>
-                      <LumenInput
-                        id={`${id}-${folder.id}-path`}
-                        value={folder.path}
-                        title={folder.path}
-                        maxLength={4000}
-                        disabled={disabled}
-                        onChange={(event) =>
-                          intent('workspaceFolders.edit', {
-                            id: folder.id,
-                            field: 'path',
-                            value: event.currentTarget.value,
-                          })
-                        }
-                      />
-                    </LumenFormField>
-                  </LumenFrame>
-                </LumenCollectionItem>
-              ))}
+                    <LumenFrame className="hbar-workspace-folder-fields">
+                      <LumenFormField controlId={`${id}-${folder.id}-alias`} label={labels.alias}>
+                        <LumenInput
+                          id={`${id}-${folder.id}-alias`}
+                          value={folder.alias}
+                          maxLength={64}
+                          disabled={folderEditingDisabled}
+                          onChange={(event) =>
+                            intent('workspaceFolders.edit', {
+                              id: folder.id,
+                              field: 'alias',
+                              value: event.currentTarget.value,
+                            })
+                          }
+                        />
+                      </LumenFormField>
+                      {ownerNodeId ? (
+                        <LumenContentText
+                          context="metadata"
+                          className="hbar-workspace-folder-root-summary"
+                          title={folder.path}
+                        >
+                          <span>{root?.name ?? labels.nodeRootUnavailable}</span>
+                          {root ? <span>{labels.nodeRootAccess(root.access)}</span> : null}
+                        </LumenContentText>
+                      ) : (
+                        <LumenFormField controlId={`${id}-${folder.id}-path`} label={labels.path}>
+                          <LumenInput
+                            id={`${id}-${folder.id}-path`}
+                            value={folder.path}
+                            title={folder.path}
+                            maxLength={4000}
+                            disabled={disabled}
+                            onChange={(event) =>
+                              intent('workspaceFolders.edit', {
+                                id: folder.id,
+                                field: 'path',
+                                value: event.currentTarget.value,
+                              })
+                            }
+                          />
+                        </LumenFormField>
+                      )}
+                    </LumenFrame>
+                  </LumenCollectionItem>
+                )
+              })}
             </LumenCollection>
             {state.workspaceId && !locked && (
               <LumenButton
