@@ -40,8 +40,8 @@ export interface ManagedProcessOptions {
   /** Publish owner-local descriptions after activation acknowledgement, before serving routes become visible. */
   readonly onActivated?: (owner: RuntimeOwner, role: 'default' | 'draining', signal: AbortSignal) => Promise<void>
   readonly onState?: (snapshot: RuntimeGeneration) => void
-  readonly onFault?: (owner: RuntimeOwner, reasonCode: string) => Promise<void>
-  readonly onExit?: (owner: RuntimeOwner) => Promise<void>
+  readonly onFault?: (owner: RuntimeOwner, reasonCode: string, childPid: number) => Promise<void>
+  readonly onExit?: (owner: RuntimeOwner, exit: RuntimeProcessExit) => Promise<void>
   readonly retryDelaysMs?: readonly [number, number, number]
   readonly retrySlowMs?: number
   readonly healthyResetMs?: number
@@ -49,8 +49,17 @@ export interface ManagedProcessOptions {
   readonly controlMethods?: readonly string[]
 }
 
+export interface RuntimeProcessExit {
+  readonly childPid: number
+  readonly exitCode: number
+  readonly reasonCode: string | null
+  readonly deliberate: boolean
+  readonly restartExpected: boolean
+}
+
 interface Retirement {
   readonly owner: RuntimeOwner
+  readonly exit: RuntimeProcessExit
   readonly tree: Promise<RuntimeProcessTree | undefined>
   readonly deliberate: boolean
   fence: Promise<void> | undefined
@@ -333,8 +342,8 @@ export class ManagedProcess {
       this.state.lastHeartbeatAt = Date.now()
     })
     void child.exited
-      .then(() => {
-        this.exitHandling = this.exited(child, peer, owner, attachment)
+      .then((exitCode) => {
+        this.exitHandling = this.exited(child, peer, owner, attachment, exitCode)
         return this.exitHandling
       })
       .catch(() => {
@@ -397,7 +406,7 @@ export class ManagedProcess {
     this.state.reasonCode = reason
     this.state.phase = this.activated ? 'recovering' : 'failed'
     try {
-      this.fencing = this.options.onFault?.(this.owner(), reason)
+      this.fencing = this.options.onFault?.(this.owner(), reason, this.child.pid)
     } catch (error) {
       this.fencing = Promise.reject(error)
     }
@@ -427,16 +436,17 @@ export class ManagedProcess {
     peer: IpcPeer,
     owner: RuntimeOwner,
     tree: Promise<RuntimeProcessTree | undefined>,
+    exitCode: number,
   ): Promise<void> {
     if (this.child !== child) return
     clearInterval(this.monitor)
     const deliberate = this.stopped
-    this.state.reasonCode ??= 'RUNTIME_PROCESS_EXITED'
+    if (!deliberate) this.state.reasonCode ??= 'RUNTIME_PROCESS_EXITED'
     this.state.phase = deliberate ? 'disposing' : this.activated ? 'recovering' : 'failed'
     const reason = this.state.reasonCode
     if (!deliberate && !this.fencing) {
       try {
-        this.fencing = this.options.onFault?.(owner, reason)
+        this.fencing = this.options.onFault?.(owner, reason ?? 'RUNTIME_PROCESS_EXITED', child.pid)
       } catch (error) {
         this.fencing = Promise.reject(error)
       }
@@ -448,7 +458,14 @@ export class ManagedProcess {
     this.state.pid = null
     peer.close()
     this.publish()
-    this.retirement = { owner, tree, deliberate, fence: this.fencing, release: undefined, joined: false }
+    const exit: RuntimeProcessExit = {
+      childPid: child.pid,
+      exitCode,
+      reasonCode: reason,
+      deliberate,
+      restartExpected: !deliberate && this.activated,
+    }
+    this.retirement = { owner, exit, tree, deliberate, fence: this.fencing, release: undefined, joined: false }
     try {
       await this.retire()
     } catch (error) {
@@ -502,7 +519,11 @@ export class ManagedProcess {
     }
     if (!retirement.deliberate) {
       retirement.fence ??= Promise.resolve().then(() =>
-        this.options.onFault?.(retirement.owner, this.state.reasonCode ?? 'RUNTIME_PROCESS_EXITED'),
+        this.options.onFault?.(
+          retirement.owner,
+          this.state.reasonCode ?? 'RUNTIME_PROCESS_EXITED',
+          retirement.exit.childPid,
+        ),
       )
       try {
         await this.bounded(retirement.fence, deadline)
@@ -514,7 +535,7 @@ export class ManagedProcess {
         throw error
       }
     }
-    retirement.release ??= Promise.resolve().then(() => this.options.onExit?.(retirement.owner))
+    retirement.release ??= Promise.resolve().then(() => this.options.onExit?.(retirement.owner, retirement.exit))
     try {
       await this.bounded(retirement.release, deadline)
     } catch (error) {

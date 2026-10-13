@@ -150,12 +150,25 @@ test('a rejected registered module never spawns or imports a candidate, and stuc
 test('a crashed serving generation recovers its same artifact with a new incarnation and keeps its generation', async () => {
   const faults: RuntimeOwner[] = []
   const exits: RuntimeOwner[] = []
+  const lifecycle: string[] = []
+  const exitDetails: Array<{
+    childPid: number
+    exitCode: number
+    reasonCode: string | null
+    deliberate: boolean
+    restartExpected: boolean
+  }> = []
   const runtime = fixture({
     async onFault(owner) {
       faults.push(owner)
+      lifecycle.push(`fault:${owner.incarnation}`)
+      await Bun.sleep(5)
+      lifecycle.push(`fenced:${owner.incarnation}`)
     },
-    async onExit(owner) {
+    async onExit(owner, exit) {
       exits.push(owner)
+      exitDetails.push(exit)
+      lifecycle.push(`exit:${owner.incarnation}`)
     },
   })
   await runtime.prepare()
@@ -169,9 +182,77 @@ test('a crashed serving generation recovers its same artifact with a new incarna
   expect(after.generation).toBe(before.generation)
   expect(after.artifactId).toBe(before.artifactId)
   expect(after.pid).not.toBe(before.pid)
-  expect(faults[0]?.incarnation).toBe(before.incarnation)
-  expect(exits[0]?.incarnation).toBe(before.incarnation)
+  expect(faults[0]).toMatchObject({ unitId: 'fixture', generation: before.generation, incarnation: before.incarnation })
+  expect(exits[0]).toMatchObject({ unitId: 'fixture', generation: before.generation, incarnation: before.incarnation })
+  expect(exitDetails[0]).toMatchObject({
+    childPid: before.pid,
+    exitCode: 23,
+    reasonCode: 'RUNTIME_PROCESS_EXITED',
+    deliberate: false,
+    restartExpected: true,
+  })
+  expect(lifecycle.slice(0, 3)).toEqual([
+    `fault:${before.incarnation}`,
+    `fenced:${before.incarnation}`,
+    `exit:${before.incarnation}`,
+  ])
   expect(await runtime.call('fixture.echo', 'recovered', z.string())).toBe('recovered')
+})
+
+test('an IPC deadline records its fixed fault reason and deliberate close reports its actual exit', async () => {
+  let timeoutExit:
+    | { childPid: number; exitCode: number; reasonCode: string | null; deliberate: boolean; restartExpected: boolean }
+    | undefined
+  let timeoutReason: string | undefined
+  const timed = fixture({
+    onFault: async (_owner, reason) => {
+      timeoutReason = reason
+    },
+    onExit: async (_owner, exit) => {
+      timeoutExit = exit
+    },
+  })
+  await timed.prepare()
+  await timed.activate()
+  const timedPid = timed.snapshot().pid
+  await expect(timed.call('fixture.freeze', undefined, z.undefined(), { timeoutMs: 40 })).rejects.toMatchObject({
+    code: 'IPC_TIMEOUT',
+  })
+  await until(() => timeoutExit !== undefined)
+  expect(timeoutReason).toBe('RUNTIME_CALL_TIMEOUT')
+  expect(timeoutExit).toMatchObject({
+    childPid: timedPid,
+    reasonCode: 'RUNTIME_CALL_TIMEOUT',
+    deliberate: false,
+    restartExpected: true,
+  })
+  expect(typeof timeoutExit?.exitCode).toBe('number')
+  await timed.dispose()
+
+  let deliberateExit:
+    | { childPid: number; exitCode: number; reasonCode: string | null; deliberate: boolean; restartExpected: boolean }
+    | undefined
+  let deliberateFaults = 0
+  const normal = fixture({
+    onFault: async () => {
+      deliberateFaults++
+    },
+    onExit: async (_owner, exit) => {
+      deliberateExit = exit
+    },
+  })
+  await normal.prepare()
+  await normal.activate()
+  const normalPid = normal.snapshot().pid
+  await normal.dispose()
+  expect(deliberateExit).toMatchObject({
+    childPid: normalPid,
+    reasonCode: null,
+    deliberate: true,
+    restartExpected: false,
+  })
+  expect(typeof deliberateExit?.exitCode).toBe('number')
+  expect(deliberateFaults).toBe(0)
 })
 
 test('recovery revalidates the selected artifact and keeps retrying that version without importing rejected bytes', async () => {
