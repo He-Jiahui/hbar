@@ -3,7 +3,7 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, MAX_GOAL_OBJECTIVE_LENGTH } from '../index'
 import {
   workflowCompletionPolicySchema,
-  workflowPlanItemSchema,
+  workflowFocusPlanItemSchema,
   workflowPlanItemsSchema,
   workflowScopeSchema,
   workflowSnapshotSchema,
@@ -11,6 +11,7 @@ import {
 
 const sessionArgument = { field: 'sessionId', type: 'string' as const, flag: 'session' }
 const expectedRevisionSchema = z.number().int().positive()
+const uniqueIds = (values: string[]) => new Set(values).size === values.length
 const metadata = (id: string, kind: 'command' | 'query') => ({
   id,
   version: 1,
@@ -42,7 +43,7 @@ export const workflowStartInputSchema = z.strictObject({
 export const workflowFocusInputSchema = z.strictObject({
   sessionId: idSchema,
   stepIndex: z.number().int().nonnegative().max(99),
-  item: workflowPlanItemSchema,
+  item: workflowFocusPlanItemSchema,
   completionPolicy: workflowCompletionPolicySchema.default('agent'),
   expectedPlanRevision: expectedRevisionSchema,
 })
@@ -80,6 +81,28 @@ export const workflowAcceptCheckInputSchema = z.strictObject({
   decision: z.enum(['accepted', 'rejected']),
   note: z.string().max(4_000).nullable().optional(),
   expectedRevision: expectedRevisionSchema,
+})
+
+export const workflowTargetDispatchInputSchema = z.strictObject({
+  sessionId: idSchema,
+  planId: idSchema,
+  planRevision: expectedRevisionSchema,
+  itemIds: z.array(idSchema).min(1).max(8).refine(uniqueIds, 'Item IDs must be unique'),
+  modelId: idSchema,
+})
+
+export const workflowTargetReconcileInputSchema = z.strictObject({
+  sessionId: idSchema,
+  planId: idSchema,
+  planRevision: expectedRevisionSchema,
+  dispatchIds: z.array(idSchema).min(1).max(64).refine(uniqueIds, 'Dispatch IDs must be unique'),
+})
+
+export const workflowTargetCancelInputSchema = z.strictObject({
+  sessionId: idSchema,
+  planId: idSchema,
+  planRevision: expectedRevisionSchema,
+  dispatchId: idSchema,
 })
 
 export const workflowCommands = {
@@ -132,6 +155,21 @@ export const workflowCommands = {
     workflowAcceptCheckInputSchema,
     workflowSnapshotSchema,
   ),
+  'workflow.targets.dispatch': defineCommand(
+    { ...metadata('workflow.targets.dispatch', 'command'), idempotency: 'required' },
+    workflowTargetDispatchInputSchema,
+    workflowSnapshotSchema,
+  ),
+  'workflow.targets.reconcile': defineCommand(
+    { ...metadata('workflow.targets.reconcile', 'command'), idempotency: 'required' },
+    workflowTargetReconcileInputSchema,
+    workflowSnapshotSchema,
+  ),
+  'workflow.targets.cancel': defineCommand(
+    { ...metadata('workflow.targets.cancel', 'command'), idempotency: 'required' },
+    workflowTargetCancelInputSchema,
+    workflowSnapshotSchema,
+  ),
   'workflow.complete': defineCommand(
     metadata('workflow.complete', 'command'),
     z.strictObject({ sessionId: idSchema, expectedRevision: expectedRevisionSchema }),
@@ -148,6 +186,9 @@ export const workflowCoreCommands = {
   'workflow.expandScope': workflowCommands['workflow.expandScope'],
   'workflow.checkpoint': workflowCommands['workflow.checkpoint'],
   'workflow.acceptCheck': workflowCommands['workflow.acceptCheck'],
+  'workflow.targets.dispatch': workflowCommands['workflow.targets.dispatch'],
+  'workflow.targets.reconcile': workflowCommands['workflow.targets.reconcile'],
+  'workflow.targets.cancel': workflowCommands['workflow.targets.cancel'],
   'workflow.complete': workflowCommands['workflow.complete'],
 }
 

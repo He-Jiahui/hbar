@@ -3,11 +3,16 @@ import { planStateSchema } from './plan'
 
 export const WORKFLOW_SCHEMA_VERSION = 2
 export const MAX_WORKFLOW_ITEMS = 100
+export const MAX_WORKFLOW_DEPENDENCIES_PER_ITEM = 99
+export const MAX_WORKFLOW_DEPENDENCY_EDGES = 1_024
 export const MAX_WORKFLOW_ACCEPTANCE_CHECKS = 32
 export const MAX_WORKFLOW_SCOPE_ENTRIES = 128
 export const MAX_WORKFLOW_EVIDENCE = 1_000
 export const MAX_WORKFLOW_DELEGATIONS = 128
 export const MAX_AGENT_PATCH_FILES = 512
+export const MAX_WORKFLOW_TARGET_SESSIONS = 16
+export const MAX_WORKFLOW_TARGETS_PER_ITEM = 8
+export const MAX_WORKFLOW_TARGET_DISPATCHES = 256
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/)
 const idSchema = z.string().min(1).max(160)
@@ -140,6 +145,16 @@ export const workflowPlanItemSchema = z.strictObject({
     .array(workflowAcceptanceDefinitionSchema)
     .max(MAX_WORKFLOW_ACCEPTANCE_CHECKS)
     .superRefine((checks, context) => requireUniqueIds(checks, 'id', context)),
+  /** Existing sessions that may execute this item; omitted remains a local, single-session item. */
+  targetSessionIds: z
+    .array(idSchema)
+    .max(MAX_WORKFLOW_TARGETS_PER_ITEM)
+    .optional()
+    .superRefine((targetSessionIds, context) => {
+      if (targetSessionIds && new Set(targetSessionIds).size !== targetSessionIds.length)
+        context.addIssue({ code: 'custom', message: 'Target session IDs must be unique', path: [] })
+    }),
+  dependsOnItemIds: z.array(idSchema).max(MAX_WORKFLOW_DEPENDENCIES_PER_ITEM).optional(),
 })
 export type WorkflowPlanItemInput = z.input<typeof workflowPlanItemSchema>
 export type WorkflowPlanItem = z.output<typeof workflowPlanItemSchema>
@@ -148,20 +163,148 @@ export const workflowPlanItemsSchema = z
   .array(workflowPlanItemSchema)
   .min(1)
   .max(MAX_WORKFLOW_ITEMS)
-  .superRefine((items, context) => requireUniqueIds(items, 'id', context))
+  .superRefine((items, context) => {
+    requireUniqueIds(items, 'id', context)
+    const indexes = new Map(items.map((item, index) => [item.id, index]))
+    let edgeCount = 0
+    const visiting = new Set<string>()
+    const visited = new Set<string>()
+    let hasCycle = false
+    const visit = (itemId: string) => {
+      if (visiting.has(itemId)) {
+        hasCycle = true
+        return
+      }
+      if (visited.has(itemId)) return
+      visiting.add(itemId)
+      const item = items[indexes.get(itemId)!]
+      for (const dependencyId of item?.dependsOnItemIds ?? []) if (indexes.has(dependencyId)) visit(dependencyId)
+      visiting.delete(itemId)
+      visited.add(itemId)
+    }
+    for (const item of items) visit(item.id)
+    items.forEach((item, index) => {
+      const dependencies = item.dependsOnItemIds ?? []
+      edgeCount += dependencies.length
+      requireUniqueIds(
+        dependencies.map((id) => ({ id })),
+        'id',
+        context,
+      )
+      dependencies.forEach((dependencyId) => {
+        const dependencyIndex = indexes.get(dependencyId)
+        if (dependencyId === item.id)
+          context.addIssue({
+            code: 'custom',
+            path: [index, 'dependsOnItemIds'],
+            message: 'An item cannot depend on itself',
+          })
+        else if (dependencyIndex === undefined)
+          context.addIssue({
+            code: 'custom',
+            path: [index, 'dependsOnItemIds'],
+            message: `Dependency ${dependencyId} does not exist in this Plan`,
+          })
+        else if (dependencyIndex >= index)
+          context.addIssue({
+            code: 'custom',
+            path: [index, 'dependsOnItemIds'],
+            message: `Dependency ${dependencyId} must appear earlier in topological order`,
+          })
+      })
+    })
+    if (edgeCount > MAX_WORKFLOW_DEPENDENCY_EDGES)
+      context.addIssue({
+        code: 'custom',
+        message: `A Plan may contain at most ${MAX_WORKFLOW_DEPENDENCY_EDGES} dependency edges`,
+      })
+    if (hasCycle) context.addIssue({ code: 'custom', message: 'Workflow Plan dependencies must not contain cycles' })
+  })
 
-export const workflowPlanSchema = z.strictObject({
-  schemaVersion: z.literal(WORKFLOW_SCHEMA_VERSION),
+export const workflowFocusPlanItemSchema = workflowPlanItemSchema.omit({ dependsOnItemIds: true })
+export type WorkflowFocusPlanItemInput = z.input<typeof workflowFocusPlanItemSchema>
+
+export const workflowPlanSchema = z
+  .strictObject({
+    schemaVersion: z.literal(WORKFLOW_SCHEMA_VERSION),
+    planId: idSchema,
+    sessionId: idSchema,
+    revision: z.number().int().positive(),
+    phase: z.enum(['draft', 'active', 'archived']),
+    objective: workflowTextSchema,
+    items: workflowPlanItemsSchema,
+    createdAt: z.number().int().nonnegative(),
+    updatedAt: z.number().int().nonnegative(),
+  })
+  .superRefine((plan, context) => {
+    const targetSessions = new Set(plan.items.flatMap((item) => item.targetSessionIds ?? []))
+    if (targetSessions.size > MAX_WORKFLOW_TARGET_SESSIONS)
+      context.addIssue({
+        code: 'custom',
+        message: `Workflow plans support at most ${MAX_WORKFLOW_TARGET_SESSIONS} target sessions`,
+        path: ['items'],
+      })
+  })
+export type WorkflowPlan = z.output<typeof workflowPlanSchema>
+
+export const workflowTargetDispatchStatusSchema = z.enum([
+  'prepared',
+  'dispatching',
+  'result_unknown',
+  'queued',
+  'running',
+  'waiting_approval',
+  'cancel_requested',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'stale',
+])
+export type WorkflowTargetDispatchStatus = z.output<typeof workflowTargetDispatchStatusSchema>
+
+export const workflowTargetDispatchSchema = z.strictObject({
+  dispatchId: idSchema,
+  workflowId: idSchema,
   planId: idSchema,
-  sessionId: idSchema,
-  revision: z.number().int().positive(),
-  phase: z.enum(['draft', 'active', 'archived']),
-  objective: workflowTextSchema,
-  items: workflowPlanItemsSchema,
+  planRevision: z.number().int().positive(),
+  workflowRevision: z.number().int().positive(),
+  itemId: idSchema,
+  targetSessionId: idSchema,
+  workspaceId: idSchema,
+  messageText: z.string().trim().min(1).max(20_000),
+  actorId: idSchema,
+  idempotencyKey: z.string().min(1).max(128),
+  peerIdempotencyKey: z.string().min(1).max(128),
+  commandHash: sha256Schema,
+  requestHash: sha256Schema,
+  modelId: idSchema,
+  scope: workflowScopeSchema,
+  status: workflowTargetDispatchStatusSchema,
+  delivery: z.enum(['new_run', 'queued']).nullable(),
+  operationId: idSchema.nullable(),
+  targetRunId: idSchema.nullable(),
+  targetRunStartSeq: z.number().int().nonnegative().nullable(),
+  terminalRunStatus: z.enum(['completed', 'failed', 'cancelled', 'interrupted']).nullable(),
+  resultSummary: z.string().max(2_000).nullable(),
+  resultHash: sha256Schema.nullable(),
+  errorCode: z.string().max(128).nullable(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
+  completedAt: z.number().int().nonnegative().nullable(),
 })
-export type WorkflowPlan = z.output<typeof workflowPlanSchema>
+export type WorkflowTargetDispatch = z.output<typeof workflowTargetDispatchSchema>
+
+export const workflowTargetDispatchPublicSchema = workflowTargetDispatchSchema.omit({
+  actorId: true,
+  messageText: true,
+  idempotencyKey: true,
+  peerIdempotencyKey: true,
+  commandHash: true,
+  requestHash: true,
+  modelId: true,
+  targetRunStartSeq: true,
+})
+export type WorkflowTargetDispatchPublic = z.output<typeof workflowTargetDispatchPublicSchema>
 
 export const workflowWorkItemStatusSchema = z.enum([
   'pending',
@@ -349,6 +492,8 @@ export const workflowStateSchema = z.strictObject({
   sessionId: idSchema,
   goalId: idSchema.nullable(),
   planId: idSchema,
+  /** Revision of the canonical Workflow Plan; distinct from Agent Plan `planRevision`. */
+  canonicalPlanRevision: z.number().int().positive().optional(),
   planRevision: z.number().int().positive(),
   activeStepIndex: z
     .number()
@@ -382,6 +527,11 @@ export const workflowStateSchema = z.strictObject({
     .array(workflowDelegationSchema)
     .max(MAX_WORKFLOW_DELEGATIONS)
     .superRefine((entries, context) => requireUniqueIds(entries, 'delegationId', context)),
+  targetDispatches: z
+    .array(workflowTargetDispatchSchema)
+    .max(MAX_WORKFLOW_TARGET_DISPATCHES)
+    .superRefine((entries, context) => requireUniqueIds(entries, 'dispatchId', context))
+    .default([]),
   evidence: z
     .array(workflowEvidenceSchema)
     .max(MAX_WORKFLOW_EVIDENCE)
@@ -435,13 +585,18 @@ export const workflowPublicStateSchema = workflowStateSchema
     workItems: true,
     startCommand: true,
     planId: true,
+    canonicalPlanRevision: true,
     completionPolicy: true,
+    targetDispatches: true,
   })
   .extend({ status: workflowPublicStatusSchema, focus: workflowFocusSchema.nullable() })
 export type WorkflowPublicState = z.output<typeof workflowPublicStateSchema>
 
 export const workflowSnapshotSchema = z.strictObject({
+  /** Canonical stable Workflow Plan definition. `plan` below is the legacy Agent Plan projection. */
+  workflowPlan: workflowPlanSchema.nullable().default(null),
   plan: planStateSchema.nullable(),
   workflow: workflowPublicStateSchema.nullable(),
+  targetDispatches: z.array(workflowTargetDispatchPublicSchema).max(MAX_WORKFLOW_TARGET_DISPATCHES).default([]),
 })
 export type WorkflowSnapshot = z.output<typeof workflowSnapshotSchema>

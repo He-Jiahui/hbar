@@ -2,14 +2,42 @@ import { expect, test } from 'bun:test'
 import { describeCommand } from '@hbar/commands'
 import {
   MAX_WORKFLOW_DELEGATIONS,
+  MAX_WORKFLOW_DEPENDENCIES_PER_ITEM,
+  MAX_WORKFLOW_DEPENDENCY_EDGES,
   MAX_WORKFLOW_EVIDENCE,
   MAX_WORKFLOW_ITEMS,
   WORKFLOW_SCHEMA_VERSION,
   agentPatchSchema,
   workflowPlanSchema,
+  type WorkflowPlanItemInput,
+  type WorkflowFocusPlanItemInput,
+  workflowWorkItemSchema,
+  workflowSnapshotSchema,
   workflowStateSchema,
 } from '@hbar/contracts/workflow'
 import { workflowCommands } from '@hbar/contracts/commands/workflows'
+import type { WorkflowService } from '@hbar/plugin-sdk'
+
+type HasDependencyKey<T> = 'dependsOnItemIds' extends keyof T ? true : false
+type AssertFalse<T extends false> = T
+type FocusServiceItemHasNoDependencies = AssertFalse<HasDependencyKey<Parameters<WorkflowService['focus']>[2]>>
+const focusServiceTypeBoundary: FocusServiceItemHasNoDependencies = false
+const canonicalPlanItemTypeBoundary: WorkflowPlanItemInput = {
+  id: 'dependent',
+  title: 'A canonical Plan item may depend on an earlier item',
+  scope: { readPaths: [], writePaths: [], tools: [] },
+  acceptanceChecks: [],
+  dependsOnItemIds: ['prerequisite'],
+}
+const focusPlanItemTypeBoundary: WorkflowFocusPlanItemInput = {
+  id: 'focused',
+  title: 'A focused item has no dependency field',
+  scope: { readPaths: [], writePaths: [], tools: [] },
+  acceptanceChecks: [],
+}
+void focusServiceTypeBoundary
+void canonicalPlanItemTypeBoundary
+void focusPlanItemTypeBoundary
 
 const item = {
   id: 'inspect',
@@ -80,6 +108,131 @@ test('workflow contracts describe versioned plans, focus state, and command meta
     kind: 'query',
     stateEffect: 'none',
   })
+})
+
+test('workflow plan targets are optional for legacy items, unique per item, and globally bounded', () => {
+  const base = {
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
+    planId: 'plan-targets',
+    sessionId: 'parent-session',
+    revision: 2,
+    phase: 'draft' as const,
+    objective: 'Run independent work items in existing sessions',
+    items: [{ ...item, targetSessionIds: ['target-a', 'target-b'] }],
+    createdAt: 1,
+    updatedAt: 2,
+  }
+  const plan = workflowPlanSchema.parse(base)
+  expect(plan.items[0]?.targetSessionIds).toEqual(['target-a', 'target-b'])
+  expect(workflowSnapshotSchema.parse({ plan: null, workflowPlan: plan, workflow: null })).toMatchObject({
+    workflowPlan: {
+      planId: plan.planId,
+      revision: plan.revision,
+      items: [{ targetSessionIds: ['target-a', 'target-b'] }],
+    },
+    targetDispatches: [],
+  })
+  expect(workflowPlanSchema.parse({ ...base, items: [item] }).items[0]?.targetSessionIds).toBeUndefined()
+  expect(
+    workflowPlanSchema.safeParse({ ...base, items: [{ ...item, targetSessionIds: ['target-a', 'target-a'] }] }).success,
+  ).toBe(false)
+  expect(
+    workflowPlanSchema.safeParse({
+      ...base,
+      items: Array.from({ length: 3 }, (_, index) => ({
+        ...item,
+        id: `item-${index}`,
+        targetSessionIds: Array.from({ length: 8 }, (_, targetIndex) => `target-${index}-${targetIndex}`),
+      })),
+    }).success,
+  ).toBe(false)
+})
+
+test('workflow Plan dependencies are optional, bounded, unique, same-Plan, and topological', () => {
+  const base = {
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
+    planId: 'plan-dependencies',
+    sessionId: 'session-dependencies',
+    revision: 1,
+    phase: 'draft' as const,
+    objective: 'Validate item ordering',
+    createdAt: 1,
+    updatedAt: 1,
+  }
+  const parseItems = (items: unknown[]) => workflowPlanSchema.safeParse({ ...base, items })
+  const dependencyPlan = parseItems([
+    { ...item, id: 'a' },
+    { ...item, id: 'b', dependsOnItemIds: ['a'] },
+  ])
+  expect(dependencyPlan.success).toBe(true)
+  if (dependencyPlan.success) expect(dependencyPlan.data.items[0]?.dependsOnItemIds).toBeUndefined()
+  expect(
+    parseItems([
+      { ...item, id: 'a' },
+      { ...item, id: 'b' },
+    ]).success,
+  ).toBe(true)
+  expect(parseItems([{ ...item, id: 'a', dependsOnItemIds: ['a'] }]).success).toBe(false)
+  expect(parseItems([{ ...item, id: 'a', dependsOnItemIds: ['missing'] }]).success).toBe(false)
+  expect(
+    parseItems([
+      { ...item, id: 'a', dependsOnItemIds: ['b'] },
+      { ...item, id: 'b', dependsOnItemIds: ['a'] },
+    ]).success,
+  ).toBe(false)
+  expect(
+    parseItems([
+      { ...item, id: 'a' },
+      { ...item, id: 'b', dependsOnItemIds: ['a', 'a'] },
+    ]).success,
+  ).toBe(false)
+  expect(
+    parseItems([
+      { ...item, id: 'a' },
+      { ...item, id: 'b', dependsOnItemIds: ['a'] },
+      { ...item, id: 'c', dependsOnItemIds: ['a', 'b'] },
+    ]).success,
+  ).toBe(true)
+  expect(MAX_WORKFLOW_DEPENDENCIES_PER_ITEM).toBe(99)
+  const maximumPerItem = Array.from({ length: 100 }, (_, index) => ({
+    ...item,
+    id: `dep-${index}`,
+    ...(index === 99
+      ? { dependsOnItemIds: Array.from({ length: 99 }, (_, dependencyIndex) => `dep-${dependencyIndex}`) }
+      : {}),
+  }))
+  expect(parseItems(maximumPerItem).success).toBe(true)
+  const excessiveTotal = Array.from({ length: 47 }, (_, index) => ({
+    ...item,
+    id: `edge-${index}`,
+    dependsOnItemIds: Array.from({ length: index }, (_, dependencyIndex) => `edge-${dependencyIndex}`),
+  }))
+  expect(excessiveTotal.reduce((total, entry) => total + (entry.dependsOnItemIds?.length ?? 0), 0)).toBeGreaterThan(
+    MAX_WORKFLOW_DEPENDENCY_EDGES,
+  )
+  expect(parseItems(excessiveTotal).success).toBe(false)
+})
+
+test('dependency metadata is rejected by legacy focus and strict WorkItem contracts', () => {
+  expect(
+    workflowCommands['workflow.focus.set'].input.safeParse({
+      sessionId: 'session-1',
+      stepIndex: 0,
+      item: { ...item, dependsOnItemIds: ['another-item'] },
+      expectedPlanRevision: 1,
+    }).success,
+  ).toBe(false)
+  expect(
+    workflowWorkItemSchema.safeParse({
+      ...item,
+      dependsOnItemIds: ['another-item'],
+      status: 'pending',
+      owner: { kind: 'main' },
+      startedAt: null,
+      completedAt: null,
+      acceptanceChecks: [],
+    }).success,
+  ).toBe(false)
 })
 
 test('workflow scopes reject paths outside the workspace', () => {

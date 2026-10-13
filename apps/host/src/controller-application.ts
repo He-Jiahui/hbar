@@ -244,7 +244,12 @@ export function createControllerApplication(
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
-  const workflowCommands = createWorkflowCommands(kernel.plugins.get('workflow'))
+  const workflowCommands = createWorkflowCommands(kernel.plugins.get('workflow'), {
+    lookup: (input, options) => runCommands.getPeerMessageReceipt(input, options.actorId, options.idempotencyKey),
+    send: (input, options) => runCommands.execute('session.message.send', input, options),
+    cancel: (operationId, options) => runCommands.execute('operation.cancel', { operationId }, options),
+    get: (operationId, options) => runCommands.execute('operation.get', { operationId }, options),
+  })
   const sessionSearchCommands = createSessionSearchCommands(kernel.storage, { start: options.background ?? true })
   const scheduleService = createScheduleService({
     list: (workspaceId, after, limit) => kernel.storage.call('schedulePage', workspaceId, after, limit),

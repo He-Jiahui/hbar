@@ -70,6 +70,8 @@ export const peerMessageSendInputSchema = z.strictObject({
   workspaceId: idSchema,
   modelId: idSchema,
   text: z.string().trim().min(1).max(20_000),
+  /** `guide` preserves the legacy live steering path; `queue` keeps this message as its own Run. */
+  deliveryPolicy: z.enum(['guide', 'queue']).optional(),
 })
 export const peerMessageReceiptSchema = z.strictObject({
   commandId: z.literal('session.message.send'),

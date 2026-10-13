@@ -2802,11 +2802,13 @@ const methods: StorageMethods = {
     if (row) {
       const run = runRow(row)
       const event = db
-        .query("SELECT data FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1")
-        .get(run.id) as { data: string } | null
+        .query<{ seq: number; data: string }, [string]>(
+          "SELECT seq, data FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1",
+        )
+        .get(run.id)
       if (!event) throw new HbarError('RUN_JOURNAL_MISSING', 'Run acceptance event is unavailable')
       const data = JSON.parse(event.data) as { command?: unknown }
-      return { run, command: data.command ? runCommandRecordSchema.parse(data.command) : null }
+      return { run, command: data.command ? runCommandRecordSchema.parse(data.command) : null, acceptedSeq: event.seq }
     }
     const manual = db
       .query<{ recordJson: string }, [string, string]>(
@@ -2817,7 +2819,15 @@ const methods: StorageMethods = {
     const record = z
       .object({ run: runSchema.nullable(), manual: runtimeManualRecoverySchema })
       .parse(JSON.parse(manual.recordJson))
-    return record.run ? { run: methods.run(record.run.id), command: record.manual.command } : null
+    if (!record.run) return null
+    const run = methods.run(record.run.id)
+    const event = db
+      .query<{ seq: number }, [string]>(
+        "SELECT seq FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1",
+      )
+      .get(run.id)
+    if (!event) throw new HbarError('RUN_JOURNAL_MISSING', 'Run acceptance event is unavailable')
+    return { run, command: record.manual.command, acceptedSeq: event.seq }
   },
   claim: (sessionId) =>
     db.transaction(() => {

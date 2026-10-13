@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarError, providerSchema } from '@hbar/contracts'
 import type { Run, Session } from '@hbar/contracts'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { GoalService } from '@hbar/plugin-sdk'
 import { createRunCommands } from '../packages/kernel/src/run-commands'
 import type { PeerMessageSendInput, QueuedRunGuideReceipt, RunCommandRecord } from '@hbar/contracts/commands/run'
@@ -88,6 +87,7 @@ function fixture(): PeerFixture {
     ],
   ])
   const runs = new Map<string, Run>()
+  const acceptedSeqs = new Map<string, number>()
   const commands = new Map<string, RunCommandRecord>()
   const guideReceipts = new Map<string, QueuedRunGuideReceipt>()
   const activeBySession = new Map<string, { operationId: string; status: 'running' | 'waiting_approval' }>()
@@ -110,7 +110,7 @@ function fixture(): PeerFixture {
         const [requestWorkspace, requestId] = args.map(String)
         for (const run of runs.values()) {
           if (run.requestId !== requestId || sessions.get(run.sessionId)?.workspaceId !== requestWorkspace) continue
-          return { run, command: commands.get(run.id) ?? null }
+          return { run, command: commands.get(run.id) ?? null, acceptedSeq: acceptedSeqs.get(run.id) ?? 0 }
         }
         return null
       }
@@ -173,6 +173,10 @@ function fixture(): PeerFixture {
       }
       runs.set(run.id, run)
       commands.set(run.id, command)
+      const target = sessions.get(sessionId)
+      const acceptedSeq = (target?.seq ?? 0) + 1
+      acceptedSeqs.set(run.id, acceptedSeq)
+      if (target) sessions.set(sessionId, { ...target, seq: acceptedSeq })
       submissions.push({ sessionId, input, command })
       if (finishActiveDuringSubmit) activeBySession.delete(sessionId)
       return run
@@ -287,6 +291,7 @@ test('peer send admits one ordinary user Run without requesting automatic Goal c
 })
 
 test('peer send creates only a user Run and leaves a paused Goal paused in the real Kernel', async () => {
+  const { Kernel, MemorySecrets } = await import('@hbar/kernel')
   const root = await mkdtemp(join(tmpdir(), 'hbar-peer-paused-goal-'))
   const kernel = await Kernel.create({
     home: join(root, 'data'),
@@ -316,17 +321,18 @@ test('peer send creates only a user Run and leaves a paused Goal paused in the r
     const pausedGoal = await goals.get(target.id)
     if (!pausedGoal.goal) throw new Error('Fixture Goal disappeared')
     const commands = createRunCommands(kernel)
-    const receipt = await commands.execute(
-      'session.message.send',
-      {
-        senderSessionId: sender.id,
-        targetSessionId: target.id,
-        workspaceId: workspace.id,
-        modelId: 'peer-fixture',
-        text: 'Please inspect the existing task',
-      },
-      { actorId: 'peer-goal-test', idempotencyKey: 'paused-goal-key' },
-    )
+    const peerInput: PeerMessageSendInput = {
+      senderSessionId: sender.id,
+      targetSessionId: target.id,
+      workspaceId: workspace.id,
+      modelId: 'peer-fixture',
+      text: 'Please inspect the existing task',
+      deliveryPolicy: 'queue',
+    }
+    const receipt = await commands.execute('session.message.send', peerInput, {
+      actorId: 'peer-goal-test',
+      idempotencyKey: 'paused-goal-key',
+    })
     await kernel.activate()
     await kernel.waitForIdle()
     if (!receipt.targetRunId) throw new Error('Peer message receipt did not identify its target Run')
@@ -345,6 +351,21 @@ test('peer send creates only a user Run and leaves a paused Goal paused in the r
     expect(context.messages.some((message) => message.runId === targetRun.id && message.role === 'assistant')).toBe(
       true,
     )
+    await kernel.updateSession(target.id, { title: 'peer target after completion' })
+    const acceptedEvent = (await kernel.storage.call('events', target.id, 0, 100)).find(
+      (event) => event.type === 'run.queued' && event.runId === targetRun.id,
+    )
+    if (!acceptedEvent) throw new Error('Canonical Run acceptance event is missing')
+    const recovered = await commands.getPeerMessageReceipt(peerInput, 'peer-goal-test', 'paused-goal-key')
+    const recoveredAgain = await commands.getPeerMessageReceipt(peerInput, 'peer-goal-test', 'paused-goal-key')
+    expect(recovered?.receipt).toMatchObject({
+      operationId: targetRun.id,
+      targetRunId: targetRun.id,
+      sessionSeq: acceptedEvent.seq,
+    })
+    expect(recovered?.runStartSeq).toBe(acceptedEvent.seq - 1)
+    expect(recoveredAgain).toMatchObject({ runStartSeq: acceptedEvent.seq - 1 })
+    expect(recovered?.runInputMatches).toBe(true)
     expect((await goals.get(target.id)).goal).toMatchObject({ goalId: pausedGoal.goal.goalId, status: 'paused' })
   } finally {
     await kernel.close()
@@ -391,6 +412,45 @@ test('a running recipient guides the same queued Run once and replay reads its d
   expect(replay).toMatchObject({ operationId: first.operationId, delivery: 'steered' })
   expect(state.guideCalls).toHaveLength(1)
   expect(state.guideCalls[0]).toMatchObject({ operationId: first.operationId, activeRunId: 'active-target-run' })
+  expect(state.submissions).toHaveLength(1)
+})
+
+test('queue delivery keeps the peer message attached to its own Run while the recipient is active', async () => {
+  const state = fixture()
+  state.setRunning(targetId, 'active-target-run')
+  const first = (await state.send({ deliveryPolicy: 'queue' })) as {
+    operationId: string
+    targetRunId: string
+    delivery: string
+    status: string
+  }
+  expect(first).toMatchObject({
+    operationId: 'peer-run-1',
+    targetRunId: 'peer-run-1',
+    delivery: 'queued',
+    status: 'queued',
+  })
+  const replay = (await state.send({ deliveryPolicy: 'queue' })) as {
+    operationId: string
+    targetRunId: string
+    delivery: string
+  }
+  expect(replay).toMatchObject({ operationId: first.operationId, targetRunId: first.targetRunId, delivery: 'queued' })
+  expect(state.guideCalls).toHaveLength(0)
+  expect(state.submissions).toHaveLength(1)
+  expect(state.submissions[0]?.input.peerMessage).toMatchObject({
+    actorId,
+    deliveryPolicy: 'queue',
+    queuedBehindActive: true,
+    payloadHash: state.submissions[0]?.command.inputHash,
+  })
+})
+
+test('peer queue policy is part of the idempotent request identity', async () => {
+  const state = fixture()
+  state.setRunning(targetId, 'active-target-run')
+  await state.send({}, 'policy-key')
+  await expectCode(state.send({ deliveryPolicy: 'queue' }, 'policy-key'), 'IDEMPOTENCY_CONFLICT')
   expect(state.submissions).toHaveLength(1)
 })
 
