@@ -53,7 +53,7 @@
   inline-size: 100%;
 }
 
-.hbar-app-react-status-controls [data-lumen-part~="select.label"] {
+.hbar-app-react-status-controls [data-lumen-part~='select.label'][data-text-flow='single'] {
   text-overflow: clip;
 
   min-inline-size: max-content;

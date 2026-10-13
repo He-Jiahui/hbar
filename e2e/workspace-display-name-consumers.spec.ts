@@ -1,5 +1,10 @@
 import { expect, test, type Locator } from '@playwright/test'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
+import {
+  WORKSPACE_DISPLAY_NAME_MAX_LENGTH,
+  workspaceDisplayNameSchema,
+} from '@hbar/contracts/commands/workspace-display-names'
+import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -32,7 +37,33 @@ const attachmentName = 'alias-consumer-material.md'
 const sharedAlias = 'Shared display name — 同名别名'
 
 function files(f: Fixture) {
-  return f.page.locator('.lumen-app-tool-drawer .hbar-app-react-file-workspace')
+  return f.page.locator('.hbar-app-react-file-workspace')
+}
+async function expectFilesSurface(f: Fixture): Promise<void> {
+  const workspace = files(f)
+  await expect(workspace).toHaveCount(1, { timeout: 5000 })
+  await expect(workspace).toBeVisible({ timeout: 5000 })
+  const surfaceId = await workspace.evaluate(
+    (element) => element.closest<HTMLElement>('[data-lumen-floating-surface]')?.dataset.lumenFloatingId ?? null,
+  )
+  if (!surfaceId) throw new Error('Files workspace has no owning Lumen surface')
+  const surface = f.page.locator(`[data-lumen-floating-surface][data-lumen-floating-id=${JSON.stringify(surfaceId)}]`)
+  await expect(surface).toHaveCount(1, { timeout: 5000 })
+  await expect(surface).toBeVisible({ timeout: 5000 })
+}
+async function closeFilesDrawerForNavigation(f: Fixture): Promise<boolean> {
+  const modal = await files(f).evaluate(
+    (element) => element.closest('[data-lumen-floating-surface]')?.getAttribute('aria-modal') === 'true',
+  )
+  if (!modal) return false
+  await files(f).getByRole('button', { name: f.copy.files.close, exact: true }).click()
+  await expect(files(f)).toHaveCount(0)
+  return true
+}
+async function restoreFilesAfterNavigation(f: Fixture): Promise<void> {
+  await openSessionTool(f.page, f.copy.session.tools, 'files')
+  await expectFilesSurface(f)
+  await expect(files(f).getByRole('textbox', { name: fileName, exact: true })).toHaveValue(dirtyFile)
 }
 function sessionTab(f: Fixture) {
   return f.page.getByRole('tab', { name: f.ready.firstSession.title, exact: true, includeHidden: true })
@@ -75,6 +106,45 @@ async function expectLumenOptions(
   await control.page().keyboard.press('Escape')
   await expect(control).toHaveAttribute('aria-expanded', 'false')
 }
+async function expectCompleteRepositoryValue(
+  control: Locator,
+  expectedText: string,
+  shouldWrap: boolean,
+): Promise<void> {
+  const value = control.locator('.lumen-popup-select-label')
+  await expect(value).toHaveAttribute('data-text-context', 'choice.title')
+  await expect(value).toHaveAttribute('data-text-flow', 'reading')
+  const geometry = await value.evaluate((element) => {
+    const textNodes: Text[] = []
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node instanceof Text && node.data.length > 0) textNodes.push(node)
+    }
+    const first = textNodes[0]
+    const last = textNodes.at(-1)
+    if (!first || !last) throw new Error('Selected repository value has no text nodes')
+    const range = document.createRange()
+    range.setStart(first, 0)
+    range.setEnd(first, 1)
+    const firstCharacter = range.getBoundingClientRect()
+    range.setStart(last, last.length - 1)
+    range.setEnd(last, last.length)
+    const lastCharacter = range.getBoundingClientRect()
+    const bounds = element.getBoundingClientRect()
+    return {
+      text: element.textContent,
+      whiteSpace: getComputedStyle(element).whiteSpace,
+      wrapped: lastCharacter.top > firstCharacter.top,
+      noOverflow: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+      finalCharacterInside: lastCharacter.left >= bounds.left - 1 && lastCharacter.right <= bounds.right + 1,
+    }
+  })
+  expect(geometry.text).toBe(expectedText)
+  expect(geometry.whiteSpace).toBe('normal')
+  expect(geometry.noOverflow).toBe(true)
+  expect(geometry.finalCharacterInside).toBe(true)
+  if (shouldWrap) expect(geometry.wrapped).toBe(true)
+}
 async function openCommand(f: Fixture, command: 'app.setWorkspace' | 'app.setSession') {
   const dialog = f.page.getByRole('dialog', { name: f.copy.commandPalette.title, exact: true })
   if (!(await dialog.isVisible())) await f.page.keyboard.press('ControlOrMeta+Shift+p')
@@ -108,6 +178,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     }) => {
       test.setTimeout(120000)
       const f = await start(browser, locale, width)
+      f.page.setDefaultTimeout(15000)
       const observations: unknown[] = []
       const externalWrites: { workspaceId: string; displayName: string | null; revision: number }[] = []
       const warnings: string[] = []
@@ -149,20 +220,34 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await transfer.dispose()
         await expect(f.page.locator('.lumen-attachment-chip').filter({ hasText: attachmentName })).toBeVisible()
         await openSessionTool(f.page, f.copy.session.tools, 'files')
+        await expectFilesSurface(f)
         await files(f).getByRole('button', { name: fileName, exact: true }).click()
         await files(f).getByRole('button', { name: f.copy.files.edit, exact: true }).click()
         const fileEditor = files(f).getByRole('textbox', { name: fileName, exact: true })
         await fileEditor.fill(dirtyFile)
-        const originalFileElement = await fileEditor.elementHandle()
+        await expect(fileEditor).toHaveValue(dirtyFile, { timeout: 5000 })
+        observations.push({ stage: 'dirty-file-ready', workspaceVisible: true, editorHasUnsavedText: true })
+        const fileElementBeforeRename = await fileEditor.elementHandle()
         const originalTabElement = await sessionTab(f).elementHandle()
-        if (!originalFileElement || !originalTabElement) throw new Error('Original view elements are missing')
+        if (!fileElementBeforeRename || !originalTabElement) throw new Error('Original view elements are missing')
         const tabId = await sessionTab(f).getAttribute('id')
 
+        const filesClosedForRename = await closeFilesDrawerForNavigation(f)
         const editor = await openEditor(f)
         await editor.getByTestId('workspace-display-name-input').fill(sharedAlias)
         await editor.getByRole('button', { name: f.names.save, exact: true }).click()
         await expect(editor).toHaveCount(0)
+        observations.push({ stage: 'alias-editor-save', editorClosed: true })
+        observations.push({ stage: 'sidebar-hide-requested' })
         await hideSidebar(f)
+        observations.push({ stage: 'sidebar-hidden' })
+        if (filesClosedForRename) {
+          expect(await fileElementBeforeRename.evaluate((element) => element.isConnected)).toBe(false)
+          await restoreFilesAfterNavigation(f)
+          observations.push({ stage: 'files-restored-after-rename', originalDirtyTextPreserved: true })
+        }
+        const originalFileElement = filesClosedForRename ? await fileEditor.elementHandle() : fileElementBeforeRename
+        if (!originalFileElement) throw new Error('Alias-update file view element missing')
         await expect(files(f).getByText(sharedAlias, { exact: true })).toBeVisible()
         await expect(sessionTab(f)).toHaveAttribute('title', `${f.ready.firstSession.title}\n${sharedAlias}`)
         await change(f.ready.secondWorkspace.id, sharedAlias)
@@ -187,6 +272,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           focusedOriginalEditor: true,
         })
 
+        const filesClosedForCommands = await closeFilesDrawerForNavigation(f)
         let palette = await openCommand(f, 'app.setWorkspace')
         const workspaceChoice = palette.locator('#hbar-command-workspaceId')
         await selectLumenOption(workspaceChoice, f.ready.secondWorkspace.id)
@@ -236,6 +322,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         )
         await palette.getByRole('button', { name: f.copy.commandPalette.close, exact: true }).click()
         await expect(palette).toHaveCount(0)
+        if (filesClosedForCommands) await restoreFilesAfterNavigation(f)
         observations.push({
           stage: 'commands',
           duplicateAliasesDistinctPaths: true,
@@ -243,6 +330,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           activeSessionId: f.ready.firstSession.id,
         })
 
+        const filesClosedForSettings = await closeFilesDrawerForNavigation(f)
         await projectSettings(f)
         const scope = f.page.getByRole('combobox', { name: f.copy.settings.scopes, exact: true })
         await expectLumenValue(scope, 'workspace')
@@ -292,6 +380,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(budget).toHaveValue('12345')
         await expect(f.page.getByText(f.copy.settings.unsaved(1), { exact: true })).toBeVisible()
         await f.page.getByRole('button', { name: f.copy.settings.back, exact: true }).click()
+        if (filesClosedForSettings) await restoreFilesAfterNavigation(f)
         await expect(files(f)).toBeVisible()
         await expect(fileEditor).toHaveValue(dirtyFile)
         observations.push({
@@ -303,8 +392,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           resetToCanonical: true,
         })
 
-        const side = await showSidebar(f)
-        await side.getByRole('button', { name: f.copy.shell.status, exact: true }).click()
+        const filesClosedForStatus = await closeFilesDrawerForNavigation(f)
+        await showSidebar(f)
+        const navigation = globalFeatureCopy(locale).navigation
+        await f.page.getByRole('button', { name: navigation, exact: true }).click()
+        await f.page
+          .getByRole('menu', { name: navigation, exact: true })
+          .getByRole('menuitem', { name: f.copy.shell.status, exact: true })
+          .click()
         await hideSidebar(f)
         const status = f.page.locator('.hbar-app-react-status-workspace')
         await status
@@ -316,26 +411,55 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await selectLumenOption(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeEnabled()
         await repository.focus()
-        await change(f.ready.secondWorkspace.id, sharedAlias)
-        await expectLumenOptions(repository, expectedWorkspaceOptions)
+        const longAliasBase =
+          locale === 'zh-CN' ? '很长的完整项目名称和项目说明' : 'a deliberately long complete project display name'
+        const longAlias =
+          longAliasBase
+            .repeat(Math.ceil((WORKSPACE_DISPLAY_NAME_MAX_LENGTH - 1) / longAliasBase.length))
+            .slice(0, WORKSPACE_DISPLAY_NAME_MAX_LENGTH - 1) + (locale === 'zh-CN' ? '界' : 'Z')
+        expect(longAlias).toHaveLength(WORKSPACE_DISPLAY_NAME_MAX_LENGTH)
+        expect(workspaceDisplayNameSchema.parse(longAlias)).toBe(longAlias)
+        const selectedRepositoryText = f.copy.status.git.workspaceOption(longAlias, f.ready.secondWorkspace.path)
+        await change(f.ready.secondWorkspace.id, longAlias)
+        const repositoryOptionsWithLongAlias = [
+          { workspace: f.ready.firstWorkspace, displayName: sharedAlias },
+          { workspace: f.ready.secondWorkspace, displayName: longAlias },
+        ]
+          .sort(
+            (left, right) =>
+              left.displayName.localeCompare(right.displayName) || left.workspace.id.localeCompare(right.workspace.id),
+          )
+          .map(({ workspace, displayName }) => ({
+            value: workspace.id,
+            label: f.copy.status.git.workspaceOption(displayName, workspace.path),
+          }))
+        await expectLumenOptions(repository, repositoryOptionsWithLongAlias)
         await expectLumenValue(repository, f.ready.secondWorkspace.id)
+        await expectCompleteRepositoryValue(repository, selectedRepositoryText, width === 320)
         await expect(repository).toBeFocused()
         await capture(f, `${phase}/git-duplicate-${locale}-${width}`)
         await change(f.ready.firstWorkspace.id, null)
         const resetGitOptions = [
           {
             value: f.ready.firstWorkspace.id,
+            displayName: f.ready.firstWorkspace.name,
             label: f.copy.status.git.workspaceOption(f.ready.firstWorkspace.name, f.ready.firstWorkspace.path),
           },
           {
             value: f.ready.secondWorkspace.id,
-            label: f.copy.status.git.workspaceOption(sharedAlias, f.ready.secondWorkspace.path),
+            displayName: longAlias,
+            label: selectedRepositoryText,
           },
-        ].sort((left, right) => left.label.localeCompare(right.label) || left.value.localeCompare(right.value))
+        ]
+          .sort(
+            (left, right) => left.displayName.localeCompare(right.displayName) || left.value.localeCompare(right.value),
+          )
+          .map(({ value, label }) => ({ value, label }))
         await expectLumenOptions(repository, resetGitOptions)
         await expectLumenValue(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeFocused()
         await status.getByRole('button', { name: f.copy.status.close, exact: true }).click()
+        if (filesClosedForStatus) await restoreFilesAfterNavigation(f)
         await expect(files(f)).toBeVisible()
         await expect(files(f).getByText(f.ready.firstWorkspace.name, { exact: true })).toBeVisible()
         await expect(fileEditor).toHaveValue(dirtyFile)
@@ -368,8 +492,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         completed = true
       } finally {
         try {
-          await f.page.screenshot({ path: `${output}/last-${locale}-${width}.png` })
-          if (tracingStarted) await f.context.tracing.stop({ path: `${output}/trace-${locale}-${width}.zip` })
+          try {
+            await f.page.screenshot({ path: `${output}/last-${locale}-${width}.png` })
+          } catch {
+            // Preserve the original test failure if optional screenshot capture is unavailable.
+          }
+          if (tracingStarted) {
+            try {
+              await f.context.tracing.stop({ path: `${output}/trace-${locale}-${width}.zip` })
+            } catch {
+              warnings.push('Trace capture could not be finalized')
+            }
+          }
           await writeFile(
             `${output}/observations-${locale}-${width}.json`,
             JSON.stringify(

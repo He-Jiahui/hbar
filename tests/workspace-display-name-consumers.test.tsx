@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { z } from 'zod'
+import { LumenPopupSelect } from '@lumen/app-ui'
 import { HbarCommandPalette, HbarRuntimeProvider, HbarSettingsWorkspace, HbarStatusWorkspace } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { HbarClient } from '@hbar/client'
@@ -111,6 +112,7 @@ async function fixture(withAliases = true) {
 }
 
 type SemanticChoice = { value: string | null; text: string }
+type SemanticValueText = { valueContext: string | null; textFlow: string | null; text: string }
 
 /**
  * LumenPopupSelect is a button/listbox control rather than a native select.
@@ -136,6 +138,25 @@ async function selectedChoice(html: string, selector: string): Promise<SemanticC
     .transform(new Response(html))
     .text()
   return value === null ? null : { value, text }
+}
+
+async function selectedValueSemantics(html: string, selector: string): Promise<SemanticValueText> {
+  let valueContext: string | null = null
+  let textFlow: string | null = null
+  let text = ''
+  await new HTMLRewriter()
+    .on(`${selector} .lumen-popup-select-label`, {
+      element(element) {
+        valueContext = element.getAttribute('data-text-context')
+        textFlow = element.getAttribute('data-text-flow')
+      },
+      text(chunk) {
+        text += chunk.text
+      },
+    })
+    .transform(new Response(html))
+    .text()
+  return { valueContext, textFlow, text }
 }
 
 async function selectedChoices(
@@ -319,6 +340,11 @@ test('Git repository semantic control keeps stable aliases, targets, and read co
           <HbarStatusWorkspace labels={getShellCopy('zh-CN').status} />
         </HbarRuntimeProvider>,
       )
+    expect(await selectedValueSemantics(render(), '#hbar-status-git-repository')).toEqual({
+      valueContext: 'choice.title',
+      textFlow: 'reading',
+      text: getShellCopy('zh-CN').status.git.workspaceOption('同名 Git project', workspaceA.path),
+    })
     let choice = await selectedChoice(render(), '#hbar-status-git-repository')
     expect(choice).toEqual({
       value: workspaceA.id,
@@ -335,6 +361,41 @@ test('Git repository semantic control keeps stable aliases, targets, and read co
   } finally {
     runtime.dispose()
   }
+})
+
+test('PopupSelect keeps default single-line semantics and renders empty or stale values with the supplied semantic context', async () => {
+  const render = (value: string | null, selectedLabel?: string, valueContext?: 'choice.title' | 'control.label') =>
+    renderToStaticMarkup(
+      <LumenPopupSelect
+        id="semantic-context-fixture"
+        value={value}
+        options={[
+          { id: '', label: 'All projects' },
+          { id: 'known-project', label: 'Known project' },
+        ]}
+        {...(selectedLabel === undefined ? {} : { selectedLabel })}
+        {...(valueContext === undefined ? {} : { valueContext })}
+        onValueChange={() => undefined}
+      />,
+    )
+
+  expect(await selectedValueSemantics(render('known-project'), '#semantic-context-fixture')).toEqual({
+    valueContext: 'control.label',
+    textFlow: 'single',
+    text: 'Known project',
+  })
+  expect(await selectedValueSemantics(render(''), '#semantic-context-fixture')).toEqual({
+    valueContext: 'control.label',
+    textFlow: 'single',
+    text: 'All projects',
+  })
+  const stale = render('removed-project', 'Archived project — D:/archive/long-project-path', 'choice.title')
+  expect(stale).toContain('data-stale="true"')
+  expect(await selectedValueSemantics(stale, '#semantic-context-fixture')).toEqual({
+    valueContext: 'choice.title',
+    textFlow: 'reading',
+    text: 'Archived project — D:/archive/long-project-path',
+  })
 })
 
 test('workspace tab project captions update and reset without replacing real session titles or tab lifetimes', async () => {

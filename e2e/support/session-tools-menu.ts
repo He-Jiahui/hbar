@@ -7,12 +7,17 @@ type SessionTool = 'activity' | 'files' | 'monitoring' | 'agents' | 'goals' | 's
 /** Use the actual header entrance; opening a menu never opens or mutates a tool. */
 export async function openSessionTool(page: Page, labels: SessionToolsLabels, tool: SessionTool): Promise<void> {
   const direct = page.getByRole('button', { name: labels[tool], exact: true })
+  const trigger = page.getByRole('button', { name: labels.panel, exact: true })
+  const mobileTrigger = page.locator('.hbar-mobile-header-menu-trigger')
+  if (tool === 'files' || tool === 'settings') {
+    // Sidebar transitions can change the available header entrance after the
+    // click receipt. Files and Settings have direct/mobile actions, not tabs.
+    await expect.poll(async () => (await direct.isVisible()) || (await mobileTrigger.isVisible())).toBe(true)
+  }
   if ((tool === 'files' || tool === 'settings') && (await direct.isVisible())) {
     await direct.click()
     return
   }
-  const trigger = page.getByRole('button', { name: labels.panel, exact: true })
-  const mobileTrigger = page.locator('.hbar-mobile-header-menu-trigger')
   await expect.poll(async () => (await trigger.isVisible()) || (await mobileTrigger.isVisible())).toBe(true)
   if (!(await trigger.isVisible())) {
     if ((await mobileTrigger.getAttribute('aria-expanded')) !== 'true') await mobileTrigger.click()

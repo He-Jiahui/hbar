@@ -1,6 +1,7 @@
 'use client'
 
 import { lumenPartProps } from './style-contract'
+import { LumenContentText, LUMEN_TEXT_CONTEXTS, type LumenTextContext } from './content-text'
 
 import * as React from 'react'
 import type { LumenSize } from './appearance'
@@ -23,6 +24,8 @@ export interface LumenPopupSelectProps {
   placeholder?: string | undefined
   /** Host-provided text for a persisted value that is no longer in options. */
   selectedLabel?: string | undefined
+  /** Semantic context for the selected value and stale-value label; controls its text-flow policy. */
+  valueContext?: LumenTextContext | undefined
   boundary?: 'horizontal' | 'vertical' | undefined
   size?: LumenSize | undefined
   variant?: LumenFieldVariant | undefined
@@ -87,6 +90,7 @@ export const LumenPopupSelect = React.forwardRef<HTMLButtonElement, LumenPopupSe
     onValueChange,
     placeholder,
     selectedLabel,
+    valueContext = 'control.label',
     boundary = 'horizontal',
     size,
     variant = 'outlined',
@@ -230,6 +234,7 @@ export const LumenPopupSelect = React.forwardRef<HTMLButtonElement, LumenPopupSe
       data-size={resolvedSize}
       data-lumen-variant={lumenVariant}
       data-value={value ?? ''}
+      data-value-flow={LUMEN_TEXT_CONTEXTS[valueContext].flow}
       data-stale={stale || undefined}
       role="combobox"
       aria-haspopup="listbox"
@@ -251,11 +256,13 @@ export const LumenPopupSelect = React.forwardRef<HTMLButtonElement, LumenPopupSe
       onFocus={onFocus}
       onBlur={onBlur}
     >
-      <span
-        {...lumenPartProps("select.label")} className={['lumen-popup-select-label', selected || stale ? '' : 'is-placeholder'].filter(Boolean).join(' ')}
+      <LumenContentText
+        context={valueContext}
+        {...lumenPartProps('select.label')}
+        className={['lumen-popup-select-label', selected || stale ? '' : 'is-placeholder'].filter(Boolean).join(' ')}
       >
         {label}
-      </span>
+      </LumenContentText>
       <PopupChevron />
     </button>
   )

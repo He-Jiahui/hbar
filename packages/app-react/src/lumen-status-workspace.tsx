@@ -734,6 +734,7 @@ function StatusWorkspaceContent({
           <LumenFormField controlId="hbar-status-git-repository" label={g('git').repositoryFilter}>
             <LumenPopupSelect
               id="hbar-status-git-repository"
+              valueContext="choice.title"
               value={gitQuery.workspaceId}
               disabled={entry?.status === 'loading'}
               options={gitWorkspaces.map((workspace) => ({
