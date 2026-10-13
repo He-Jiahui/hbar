@@ -1059,12 +1059,16 @@ export class GitRuntime implements GitService {
           throw new HbarError('GIT_WORKTREE_PATH', 'Worktree target cannot be inspected')
       }
       const branch = operation.branch ? branchName(operation.branch) : undefined
+      const startPoint = operation.startPoint ? branchName(operation.startPoint) : undefined
       const args = ['worktree', 'add']
       if (operation.createBranch) {
         if (!branch) throw new HbarError('GIT_WORKTREE_BRANCH', 'A branch is required when createBranch is true')
         args.push('-b', branch)
       }
-      args.push(target, ...(branch && !operation.createBranch ? [branch] : []))
+      args.push(
+        target,
+        ...(operation.createBranch ? (startPoint ? [startPoint] : []) : branch ? [branch] : []),
+      )
       await this.run(path, args, signal)
       await this.notifyChanged(path)
       const entries = (await this.worktree(path, {}, signal)) as GitWorktreeInfo[]

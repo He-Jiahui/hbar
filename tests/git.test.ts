@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { GitCommitInfo } from '@hbar/contracts'
+import { gitWorktreeInfoSchema, type GitCommitInfo } from '@hbar/contracts'
 import type { ToolContext } from '@hbar/plugin-sdk'
 import { GitRuntime, ProcessGitRunner, gitConfigSchema, gitTools } from '../plugins/git/src/index.ts'
 
@@ -163,6 +163,61 @@ test('Git commit, branch, and worktree operations use validated paths', async ()
   } catch (error) {
     expect(error instanceof Error ? error.message : String(error)).toContain('escape')
   }
+})
+
+test('Git creates a new worktree branch from the requested start point instead of current HEAD', async () => {
+  const { root, runtime } = await fixture()
+  const startPoint = 'base/selected-start'
+  await runGit(root, ['branch', startPoint])
+  const startPointOid = await runGit(root, ['rev-parse', startPoint])
+  await writeFile(join(root, 'README.md'), 'advance current HEAD\n')
+  await runGit(root, ['add', 'README.md'])
+  await runGit(root, ['commit', '-q', '-m', 'advance current HEAD'])
+  const currentHeadOid = await runGit(root, ['rev-parse', 'HEAD'])
+  expect(currentHeadOid).not.toBe(startPointOid)
+
+  const requestedPath = join(root, 'trees', 'feature-from-selected-start')
+  const created = gitWorktreeInfoSchema.parse(await runtime.worktree(root, {
+    operation: 'add',
+    path: 'feature-from-selected-start',
+    branch: 'feature/from-selected-start',
+    createBranch: true,
+    startPoint,
+  }))
+  if (Array.isArray(created)) throw new Error('Creating one Git worktree returned a worktree list')
+  const worktree = created
+  expect(worktree.path.replaceAll('\\', '/')).toBe(requestedPath.replaceAll('\\', '/'))
+  expect(worktree.head).toBe(startPointOid)
+  const nativeHeadOid = await runGit(requestedPath, ['rev-parse', 'HEAD'])
+  expect(nativeHeadOid).toBe(startPointOid)
+  expect(nativeHeadOid).not.toBe(currentHeadOid)
+  await runtime.worktree(root, { operation: 'remove', path: 'feature-from-selected-start', force: true })
+})
+
+test('Git rejects an option-like worktree start point before invoking Git', async () => {
+  const { root } = await fixture()
+  const calls: string[][] = []
+  const runtime = new GitRuntime(root, gitConfigSchema.parse({ worktreeRoot: join(root, 'trees') }), {
+    async run(_cwd, args) {
+      calls.push(args)
+      return { stdout: '', stderr: '', code: 0, truncated: false }
+    },
+  })
+  let failure: unknown
+  try {
+    await runtime.worktree(root, {
+      operation: 'add',
+      path: 'invalid-start-point',
+      branch: 'feature/invalid-start-point',
+      createBranch: true,
+      startPoint: '--upload-pack=unsafe',
+    })
+  } catch (error) {
+    failure = error
+  }
+  expect(failure).toMatchObject({ code: 'GIT_INVALID_BRANCH' })
+  expect(calls).toEqual([])
+  expect(await Bun.file(join(root, 'trees', 'invalid-start-point')).exists()).toBeFalse()
 })
 
 test('Git stage and unstage update the index for selected paths', async () => {

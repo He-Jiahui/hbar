@@ -583,7 +583,13 @@ export type GitBranchOperation =
   | { operation: 'create' | 'switch' | 'delete'; name: string; force?: boolean | undefined }
 export type GitWorktreeOperation =
   | { operation?: 'list' | undefined }
-  | { operation: 'add'; path: string; branch?: string | undefined; createBranch?: boolean | undefined }
+  | {
+      operation: 'add'
+      path: string
+      branch?: string | undefined
+      createBranch?: boolean | undefined
+      startPoint?: string | undefined
+    }
   | { operation: 'remove'; path: string; force?: boolean | undefined }
 
 export type GitLaunchBranchHead =
