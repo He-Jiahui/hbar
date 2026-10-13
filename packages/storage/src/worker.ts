@@ -1182,6 +1182,7 @@ function indexEvent(projectId: string, event: SessionEvent, location: ReturnType
 
 // JSONL is committed first. SQLite is a query projection and can be rebuilt from it.
 let eventLogWriteVersion = 0
+let storageOutcomePoisoned = false
 function appendEvent(
   sessionId: string,
   type: string,
@@ -3811,10 +3812,57 @@ function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]):
   return undefined
 }
 
+function safeStorageErrorCodes(error: unknown): string[] {
+  const maximumCodes = 12
+  const maximumDepth = 4
+  const visited = new Set<AggregateError>()
+  const codes: string[] = []
+  const visit = (value: unknown, depth: number): void => {
+    if (codes.length >= maximumCodes) return
+    if (!(value instanceof AggregateError)) {
+      codes.push(safeStorageErrorCode(value))
+      return
+    }
+    if (depth >= maximumDepth || visited.has(value)) {
+      codes.push('STORAGE_ERROR')
+      return
+    }
+    visited.add(value)
+    let count = 0
+    try {
+      for (const nested of value.errors) {
+        if (codes.length >= maximumCodes) break
+        count++
+        visit(nested, depth + 1)
+      }
+    } catch {
+      codes.push('STORAGE_ERROR')
+    }
+    if (count === 0 && codes.length < maximumCodes) codes.push('STORAGE_ERROR')
+  }
+  visit(error, 0)
+  return codes.length ? codes : ['STORAGE_ERROR']
+}
+
 parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
   const startedAt = performance.now()
-  let reply: StorageReply
   workerDiagnostics.started(id, String(method))
+  if (storageOutcomePoisoned) {
+    const error = new HbarError('STORAGE_RESULT_UNKNOWN', 'Storage write outcome requires reconciliation')
+    if (method === 'close') {
+      try {
+        methods.close()
+        parentPort!.postMessage({ id, ok: true, result: undefined } satisfies StorageReply)
+      } catch {
+        parentPort!.postMessage({ id, ok: false, error: error.message, code: error.code } satisfies StorageReply)
+      }
+    } else {
+      workerDiagnostics.operation(id, String(method), startedAt, 'unknown', error)
+      parentPort!.postMessage({ id, ok: false, error: error.message, code: error.code } satisfies StorageReply)
+    }
+    return
+  }
+  let reply: StorageReply
   let draftVersion: number | null = null
   let logVersion = eventLogWriteVersion
   try {
@@ -3845,6 +3893,14 @@ parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
     if (databaseMaintenanceOwner && method !== 'close') db.clearQueryCache()
     workerDiagnostics.operation(id, String(method), startedAt, 'success')
   } catch (error) {
+    const nestedErrorCodes = safeStorageErrorCodes(error)
+    const primaryErrorCode =
+      error instanceof AggregateError ? (nestedErrorCodes[0] ?? 'STORAGE_ERROR') : safeStorageErrorCode(error)
+    const nestedCleanupErrorCodes = error instanceof AggregateError ? nestedErrorCodes.slice(1) : []
+    const canonicalWriteAttempted = logVersion !== eventLogWriteVersion
+    const draftWriteAttempted = draftVersion !== null && draftVersion !== chatDatabaseArtifacts.writeVersion()
+    const outcomeUnknown = canonicalWriteAttempted || draftWriteAttempted
+    if (outcomeUnknown) storageOutcomePoisoned = true
     workerDiagnostics.emit({
       event: 'sqlite.request_error_caught',
       phase: 'catch',
@@ -3852,28 +3908,77 @@ parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
       method: String(method),
       storageRequestId: id,
       operationId: id,
-      outcome: 'failure',
+      errorCode: primaryErrorCode,
+      outcome: outcomeUnknown ? 'unknown' : 'failure',
       sampled: true,
     })
-    if (draftVersion !== null && draftVersion !== chatDatabaseArtifacts.writeVersion()) chatDatabaseArtifacts.invalidateDraftJournal()
-    if (logVersion !== eventLogWriteVersion) db.exec('UPDATE chat_database_event_reference_health SET complete=0 WHERE id=1')
-    reply = {
-      id,
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-      code: error instanceof HbarError ? error.code : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_CLAIMED') ? 'ARTIFACT_RESERVED' : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_DELETED') ? 'ARTIFACT_UNAVAILABLE' : 'STORAGE_ERROR',
+    const cleanupErrorCodes = [...nestedCleanupErrorCodes]
+    if (draftWriteAttempted) {
+      try {
+        chatDatabaseArtifacts.invalidateDraftJournal()
+      } catch (cleanupError: unknown) {
+        cleanupErrorCodes.push(...safeStorageErrorCodes(cleanupError))
+      }
+    }
+    if (canonicalWriteAttempted) {
+      try {
+        db.exec('UPDATE chat_database_event_reference_health SET complete=0 WHERE id=1')
+      } catch (cleanupError: unknown) {
+        cleanupErrorCodes.push(...safeStorageErrorCodes(cleanupError))
+      }
+    }
+    if (cleanupErrorCodes.length) storageOutcomePoisoned = true
+    for (const errorCode of cleanupErrorCodes) {
+      workerDiagnostics.emit({
+        event: 'sqlite.request_reconciliation_failed',
+        phase: 'catch',
+        level: 'fatal',
+        method: String(method),
+        storageRequestId: id,
+        operationId: id,
+        errorCode,
+        outcome: 'failure',
+        sampled: true,
+      })
+    }
+    if (storageOutcomePoisoned) {
+      reply = {
+        id,
+        ok: false,
+        error: 'Storage write outcome requires reconciliation',
+        code: 'STORAGE_RESULT_UNKNOWN',
+      }
+      workerDiagnostics.emit({
+        event: 'sqlite.request_outcome_unknown',
+        phase: 'catch',
+        level: 'fatal',
+        method: String(method),
+        storageRequestId: id,
+        operationId: id,
+        errorCode: 'STORAGE_RESULT_UNKNOWN',
+        outcome: 'unknown',
+        sampled: true,
+      })
+    } else {
+      reply = {
+        id,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+        code: error instanceof HbarError ? error.code : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_CLAIMED') ? 'ARTIFACT_RESERVED' : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_DELETED') ? 'ARTIFACT_UNAVAILABLE' : 'STORAGE_ERROR',
+      }
     }
     workerDiagnostics.emit({
       event: 'sqlite.request_reply_built',
       phase: 'reply',
-      level: 'debug',
+      level: storageOutcomePoisoned ? 'fatal' : 'debug',
       method: String(method),
       storageRequestId: id,
       operationId: id,
-      outcome: 'failure',
+      ...(reply.ok ? {} : { errorCode: reply.code }),
+      outcome: storageOutcomePoisoned ? 'unknown' : 'failure',
       sampled: true,
     })
-    workerDiagnostics.operation(id, String(method), startedAt, 'failure', error)
+    workerDiagnostics.operation(id, String(method), startedAt, storageOutcomePoisoned ? 'unknown' : 'failure', error)
   }
   parentPort!.postMessage(reply)
 })
