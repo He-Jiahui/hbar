@@ -1,10 +1,12 @@
-import { chmod, mkdir, mkdtemp, readFile, readlink, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, readlink, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path/posix'
 import { HbarError } from '@hbar/contracts'
 import type { OsConfinementOptions } from '@hbar/plugin-sdk'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
+import type { NodeExecutionInternalMount, NodeExecutionWorkspaceMount } from '@hbar/node-core'
+import { verifyManagedWorktreeMounts } from './managed-worktree-mount-validation'
 
 export type UnixConfinementBackend = 'bwrap' | 'seatbelt'
 export interface UnixConfinementCapabilities {
@@ -25,6 +27,8 @@ export interface UnixConfinementRequest {
   readonly confinement: OsConfinementOptions
   readonly protectedPaths: readonly string[]
   readonly readOnlyPaths?: readonly string[]
+  readonly workspaceMounts?: readonly NodeExecutionWorkspaceMount[]
+  readonly internalMounts?: readonly NodeExecutionInternalMount[]
 }
 export interface UnixConfinementLaunchPlan {
   readonly argv: readonly [string, ...string[]]
@@ -226,30 +230,145 @@ function isWithin(root: string, path: string): boolean {
   return value === '' || (value !== '..' && !value.startsWith(`..${sep}`) && !isAbsolute(value))
 }
 export function validateUnixConfinementRoots(
-  input: Pick<UnixConfinementRequest, 'cwd' | 'confinement' | 'protectedPaths' | 'readOnlyPaths'>,
+  input: Pick<
+    UnixConfinementRequest,
+    'cwd' | 'confinement' | 'protectedPaths' | 'readOnlyPaths' | 'workspaceMounts' | 'internalMounts'
+  > & { readonly backend?: UnixConfinementBackend },
 ): {
   readableRoots: string[]
   writableRoots: string[]
   protectedPaths: string[]
   readOnlyPaths: string[]
+  workspaceMounts: readonly NodeExecutionWorkspaceMount[]
+  internalMounts: readonly NodeExecutionInternalMount[]
   cwd: string
 } {
   const cwd = assertPosixPath(input.cwd, 'working directory')
-  const readableRoots = input.confinement.readableRoots.map((path) => assertPosixPath(path, 'read root'))
-  const writableRoots = input.confinement.writableRoots.map((path) => assertPosixPath(path, 'write root'))
-  const protectedPaths = [...new Set(input.protectedPaths.map((path) => assertPosixPath(path, 'protected path')))]
-  const readOnlyPaths = [...new Set((input.readOnlyPaths ?? []).map((path) => assertPosixPath(path, 'read-only path')))]
+  const physicalReadableRoots = input.confinement.readableRoots.map((path) => assertPosixPath(path, 'read root'))
+  const physicalWritableRoots = input.confinement.writableRoots.map((path) => assertPosixPath(path, 'write root'))
+  const workspaceMounts = input.workspaceMounts ?? []
+  const internalMounts = input.internalMounts ?? []
+  const aliases = new Set<string>()
+  const rootIds = new Set<string>()
+  const physicalRoots = new Set<string>()
+  const targets = new Set<string>()
+  for (const mount of workspaceMounts) {
+    const source = assertPosixPath(mount.sourceRoot, 'workspace mount source')
+    const target = assertPosixPath(mount.target, 'workspace mount target')
+    if (
+      source !== mount.sourceRoot ||
+      target !== `/workspace/${mount.alias}` ||
+      !/^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u.test(mount.alias) ||
+      aliases.has(mount.alias.toLocaleLowerCase()) ||
+      rootIds.has(mount.rootId) ||
+      physicalRoots.has(source) ||
+      targets.has(target)
+    )
+      throw new HbarError('NODE_DENIED', 'Workspace mount identifiers and B-owned paths must be unique and canonical')
+    aliases.add(mount.alias.toLocaleLowerCase())
+    rootIds.add(mount.rootId)
+    physicalRoots.add(source)
+    targets.add(target)
+    if (!physicalReadableRoots.some((root) => isWithin(root, source)))
+      throw new HbarError('NODE_DENIED', 'Workspace mount source is outside its effective readable permission')
+    if (mount.access === 'write' && !physicalWritableRoots.some((root) => isWithin(root, source)))
+      throw new HbarError('NODE_DENIED', 'Writable workspace mount is outside its effective write permission')
+    for (const grant of mount.writePaths ?? []) {
+      const sourcePath = assertPosixPath(grant.sourcePath, 'workspace write source')
+      const targetPath = assertPosixPath(grant.targetPath, 'workspace write target')
+      if (
+        sourcePath !== grant.sourcePath ||
+        targetPath !== join(target, relative(source, sourcePath)) ||
+        !isWithin(source, sourcePath) ||
+        !isWithin(target, targetPath) ||
+        !physicalWritableRoots.some((root) => isWithin(root, sourcePath))
+      )
+        throw new HbarError('NODE_DENIED', 'Workspace nested write grants must be canonical and B-authorized')
+    }
+    for (const grant of [...(mount.readOnlyPaths ?? []), ...(mount.protectedPaths ?? [])]) {
+      const sourcePath = assertPosixPath(grant.sourcePath, 'workspace overlay source')
+      const targetPath = assertPosixPath(grant.targetPath, 'workspace overlay target')
+      if (
+        sourcePath !== grant.sourcePath ||
+        targetPath !== join(target, relative(source, sourcePath)) ||
+        !isWithin(source, sourcePath) ||
+        !isWithin(target, targetPath)
+      )
+        throw new HbarError('NODE_DENIED', 'Workspace overlay grants must map within their canonical B-owned root')
+    }
+  }
+  if (internalMounts.length > 0) {
+    const byKind = new Map(internalMounts.map((mount) => [mount.kind, mount]))
+    const child = byKind.get('managed-worktree')
+    const common = byKind.get('common-git')
+    const metadata = byKind.get('worktree-metadata')
+    const id = child?.worktreeId
+    const parentRootId = child?.parentRootId
+    const primaryMount = workspaceMounts.find((mount) => mount.rootId === parentRootId)
+    if (
+      internalMounts.length !== 3 ||
+      !child ||
+      !common ||
+      !metadata ||
+      !id ||
+      !parentRootId ||
+      !primaryMount ||
+      internalMounts.some((mount) => mount.worktreeId !== id || mount.parentRootId !== parentRootId) ||
+      child.sourcePath !== child.targetPath ||
+      common.sourcePath !== common.targetPath ||
+      metadata.sourcePath !== metadata.targetPath ||
+      child.access !== primaryMount.access ||
+      common.access !== 'read' ||
+      metadata.access !== 'read' ||
+      child.sourcePath !== join(dirname(dirname(child.sourcePath)), '.hbar-worktrees', id) ||
+      common.sourcePath !== join(dirname(dirname(child.sourcePath)), '.git') ||
+      metadata.sourcePath !== join(common.sourcePath, 'worktrees', id) ||
+      !physicalReadableRoots.some((root) => isWithin(root, child.sourcePath)) ||
+      !physicalReadableRoots.some((root) => isWithin(root, common.sourcePath)) ||
+      (child.access === 'write' && !physicalWritableRoots.some((root) => isWithin(root, child.sourcePath)))
+    )
+      throw new HbarError('NODE_DENIED', 'Internal worktree mounts must match B-generated canonical Git provenance')
+  }
+  const isMountedSource = (path: string) =>
+    [...physicalRoots].some((root) => isWithin(path, root) || isWithin(root, path))
+  const mapMountedPath = (path: string): string | undefined => {
+    const mount = workspaceMounts.find((item) => isWithin(item.sourceRoot, path))
+    return mount ? join(mount.target, relative(mount.sourceRoot, path)) : undefined
+  }
+  const readableRoots = [
+    ...physicalReadableRoots.filter((root) => !isMountedSource(root)),
+    ...workspaceMounts.map((mount) => mount.target),
+    ...internalMounts.filter((mount) => mount.access === 'read').map((mount) => mount.targetPath),
+  ]
+  const writableRoots = [
+    ...physicalWritableRoots.filter((root) => !isMountedSource(root)),
+    ...workspaceMounts.filter((mount) => mount.access === 'write').map((mount) => mount.target),
+    ...workspaceMounts.flatMap((mount) => (mount.writePaths ?? []).map((grant) => grant.targetPath)),
+    ...internalMounts
+      .filter((mount) => mount.access === 'write' && mount.kind !== 'managed-worktree')
+      .map((mount) => mount.targetPath),
+  ]
+  const protectedPaths = [
+    ...input.protectedPaths
+      .map((path) => assertPosixPath(path, 'protected path'))
+      .map((path) => mapMountedPath(path) ?? (isMountedSource(path) ? undefined : path))
+      .filter((path): path is string => path !== undefined),
+  ]
+  const readOnlyPaths = [
+    ...(input.readOnlyPaths ?? [])
+      .map((path) => assertPosixPath(path, 'read-only path'))
+      .map((path) => mapMountedPath(path) ?? (isMountedSource(path) ? undefined : path))
+      .filter((path): path is string => path !== undefined),
+  ]
+  if (workspaceMounts.length > 0 && input.backend === 'seatbelt')
+    throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', 'Seatbelt cannot provide the required mounted workspace view')
   if (!readableRoots.some((root) => isWithin(root, cwd)))
     throw new HbarError('NODE_DENIED', 'The command working directory is outside the readable roots')
   for (const root of writableRoots)
     if (!readableRoots.some((readable) => isWithin(readable, root)))
       throw new HbarError('NODE_DENIED', 'Writable roots must be contained in readable roots')
   for (const protectedPath of protectedPaths)
-    if (
-      isWithin(protectedPath, cwd) ||
-      readableRoots.some((root) => isWithin(protectedPath, root)) ||
-      writableRoots.some((root) => isWithin(protectedPath, root))
-    )
+    if (isWithin(protectedPath, cwd) || writableRoots.some((root) => isWithin(protectedPath, root)))
       throw new HbarError('NODE_DENIED', 'Protected paths cannot contain a readable or writable root')
   for (const path of readOnlyPaths) {
     if (!readableRoots.some((root) => isWithin(root, path)))
@@ -257,10 +376,10 @@ export function validateUnixConfinementRoots(
     if (writableRoots.some((root) => isWithin(path, root)))
       throw new HbarError('NODE_DENIED', 'A read-only path cannot contain a writable root')
   }
-  for (const root of [...readableRoots, ...writableRoots])
+  for (const root of [...physicalReadableRoots, ...physicalWritableRoots])
     if (systemMounts.some((system) => isWithin(system, root) || isWithin(root, system)))
       throw new HbarError('NODE_DENIED', 'A shared root cannot replace an operating system directory')
-  return { readableRoots, writableRoots, protectedPaths, readOnlyPaths, cwd }
+  return { readableRoots, writableRoots, protectedPaths, readOnlyPaths, workspaceMounts, internalMounts, cwd }
 }
 
 /** Runs a bounded live probe. A binary being installed is not sufficient evidence of enforcement. */
@@ -435,13 +554,22 @@ async function addProtectedMount(
   args: string[],
   knownDirs: Set<string>,
   path: string,
+  source: string,
   writableRoots: readonly string[],
+  nestedMountTargets: readonly string[] = [],
 ): Promise<void> {
   addDir(args, knownDirs, dirname(path))
   try {
-    const info = await stat(path)
-    if (info.isDirectory()) args.push('--tmpfs', path, '--remount-ro', path)
-    else args.push('--ro-bind', '/dev/null', path)
+    const info = await stat(source)
+    if (info.isDirectory()) {
+      args.push('--tmpfs', path)
+      for (const target of nestedMountTargets) {
+        if (!isWithin(path, target) || target === path) continue
+        args.push('--dir', target)
+        knownDirs.add(target)
+      }
+      args.push('--remount-ro', path)
+    } else args.push('--ro-bind', '/dev/null', path)
   } catch (error) {
     if (!(error instanceof Error) || !('code' in error) || String(error.code) !== 'ENOENT') throw error
     if (writableRoots.some((root) => isWithin(root, path)))
@@ -453,12 +581,12 @@ async function addProtectedMount(
   }
 }
 
-async function addReadOnlyMount(args: string[], knownDirs: Set<string>, path: string): Promise<void> {
+async function addReadOnlyMount(args: string[], knownDirs: Set<string>, source: string, target: string): Promise<void> {
   try {
-    const info = await stat(path)
-    addDir(args, knownDirs, dirname(path))
-    if (info.isDirectory()) args.push('--ro-bind', path, path)
-    else if (info.isFile()) args.push('--ro-bind', path, path)
+    const info = await stat(source)
+    addDir(args, knownDirs, dirname(target))
+    if (info.isDirectory()) args.push('--ro-bind', source, target)
+    else if (info.isFile()) args.push('--ro-bind', source, target)
   } catch (error) {
     if (!(error instanceof Error) || !('code' in error) || String(error.code) !== 'ENOENT') throw error
     throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', 'A read-only path must exist before it can be mounted safely')
@@ -470,7 +598,10 @@ async function prepareBwrap(input: UnixConfinementRequest): Promise<UnixConfinem
   if (!probe.available) throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', probe.reason ?? 'bubblewrap is unavailable')
   const executable = commandPath('bwrap')
   if (!executable) throw new HbarError('SANDBOX_BACKEND_UNAVAILABLE', 'bubblewrap disappeared after its probe')
-  const { readableRoots, writableRoots, protectedPaths, readOnlyPaths, cwd } = validateUnixConfinementRoots(input)
+  const { readableRoots, writableRoots, protectedPaths, readOnlyPaths, workspaceMounts, internalMounts, cwd } =
+    validateUnixConfinementRoots(input)
+  await verifyWorkspaceMounts(workspaceMounts)
+  await verifyManagedWorktreeMounts(internalMounts)
   const args = [
     '--die-with-parent',
     '--new-session',
@@ -512,15 +643,43 @@ async function prepareBwrap(input: UnixConfinementRequest): Promise<UnixConfinem
   }
   args.push('--dev', '/dev', '--proc', '/proc', '--tmpfs', '/tmp')
   for (const root of readableRoots) {
+    if (workspaceMounts.some((mount) => isWithin(mount.target, root))) continue
     addDir(args, knownDirs, dirname(root))
     args.push('--ro-bind', root, root)
   }
   for (const root of writableRoots) {
+    if (workspaceMounts.some((mount) => isWithin(mount.target, root))) continue
     addDir(args, knownDirs, dirname(root))
     args.push('--bind', root, root)
   }
-  for (const path of readOnlyPaths) await addReadOnlyMount(args, knownDirs, path)
-  for (const path of protectedPaths) await addProtectedMount(args, knownDirs, path, writableRoots)
+  for (const mount of workspaceMounts) {
+    addDir(args, knownDirs, dirname(mount.target))
+    args.push(mount.access === 'write' ? '--bind' : '--ro-bind', mount.sourceRoot, mount.target)
+    for (const grant of mount.writePaths ?? []) {
+      addDir(args, knownDirs, dirname(grant.targetPath))
+      args.push('--bind', grant.sourcePath, grant.targetPath)
+    }
+    for (const grant of mount.readOnlyPaths ?? [])
+      await addReadOnlyMount(args, knownDirs, grant.sourcePath, grant.targetPath)
+  }
+  const sourceForView = (path: string) => {
+    const mount = workspaceMounts.find((item) => isWithin(item.target, path))
+    return mount ? join(mount.sourceRoot, relative(mount.target, path)) : path
+  }
+  for (const path of readOnlyPaths) await addReadOnlyMount(args, knownDirs, sourceForView(path), path)
+  for (const path of protectedPaths) {
+    const nestedTargets = internalMounts
+      .filter((mount) => mount.kind === 'worktree-metadata' && isWithin(path, mount.targetPath))
+      .map((mount) => mount.targetPath)
+    await addProtectedMount(args, knownDirs, path, sourceForView(path), writableRoots, nestedTargets)
+  }
+  for (const mount of workspaceMounts)
+    for (const grant of mount.protectedPaths ?? [])
+      await addProtectedMount(args, knownDirs, grant.targetPath, grant.sourcePath, writableRoots)
+  for (const mount of internalMounts.filter((item) => item.kind !== 'common-git')) {
+    addDir(args, knownDirs, dirname(mount.targetPath))
+    args.push(mount.access === 'write' ? '--bind' : '--ro-bind', mount.sourcePath, mount.targetPath)
+  }
   args.push('--chdir', cwd, '--clearenv')
   for (const [name, value] of Object.entries(input.environment)) args.push('--setenv', name, value)
   args.push('--setenv', 'TMPDIR', '/tmp', '--')
@@ -585,3 +744,42 @@ function unixTargetArgv(operation: UnixConfinementRequest['operation']): readonl
 
 /** Testable SBPL renderer; callers still must use a successful live probe before launch. */
 export const renderSeatbeltProfile = seatbeltProfile
+
+async function verifyWorkspaceMounts(mounts: readonly NodeExecutionWorkspaceMount[]): Promise<void> {
+  for (const mount of mounts) {
+    const actual = await realpath(mount.sourceRoot).catch(() => '')
+    if (
+      actual !== mount.sourceRoot ||
+      !(await stat(actual).then(
+        (info) => info.isDirectory(),
+        () => false,
+      ))
+    )
+      throw new HbarError('NODE_ROOT_CHANGED', 'A workspace mount source changed after B verified its registration')
+    for (const grant of [...(mount.writePaths ?? []), ...(mount.readOnlyPaths ?? [])]) {
+      const source = await realpath(grant.sourcePath).catch(() => '')
+      if (!source || source !== grant.sourcePath)
+        throw new HbarError('NODE_ROOT_CHANGED', 'A workspace overlay changed after B verified its snapshot')
+      const info = await stat(source)
+      if (!info.isFile() && !info.isDirectory())
+        throw new HbarError('NODE_PERMISSION_UNSUPPORTED', 'Workspace overlays must resolve to files or directories')
+    }
+    for (const grant of mount.protectedPaths ?? []) {
+      const source = await realpath(grant.sourcePath).catch(() => '')
+      if (!source) {
+        const writableTargets = [
+          ...(mount.access === 'write' ? [mount.target] : []),
+          ...(mount.writePaths ?? []).map((item) => item.targetPath),
+        ]
+        if (writableTargets.some((path) => isWithin(path, grant.targetPath)))
+          throw new HbarError(
+            'NODE_PERMISSION_UNSUPPORTED',
+            'A protected path is missing beneath a writable workspace mount',
+          )
+        continue
+      }
+      if (source !== grant.sourcePath)
+        throw new HbarError('NODE_ROOT_CHANGED', 'A protected workspace path changed through a symlink')
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import type { z } from 'zod'
 import { NODE_PROCESS_FINGERPRINT, nodeProcessInputSchema } from '../apps/node/src/execution-contract'
 
 const base = {
@@ -35,4 +36,25 @@ test('internal argv execution preserves empty arguments and rejects invalid or o
     }),
   ).toThrow()
   expect(NODE_PROCESS_FINGERPRINT).toMatch(/^[a-f0-9]{64}$/)
+})
+
+test('managed mount IPC accepts the pinned expectedRoot alongside its effective sourceRoot', () => {
+  const workspaceMount: z.output<typeof nodeProcessInputSchema>['workspaceMounts'][number] = {
+    rootId: 'engine',
+    expectedRoot: '/work/root',
+    sourceRoot: '/work/root/.hbar-worktrees/0123456789abcdef0123456789abcdef',
+    alias: 'src',
+    target: '/workspace/src',
+    access: 'write',
+    writePaths: [],
+    readOnlyPaths: [],
+    protectedPaths: [],
+  }
+  const parsed = nodeProcessInputSchema.parse({
+    ...base,
+    operation: { kind: 'command', command: 'git status --short' },
+    workspaceMounts: [workspaceMount],
+    internalMounts: [],
+  })
+  expect(parsed.workspaceMounts).toEqual([workspaceMount])
 })

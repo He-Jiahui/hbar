@@ -304,4 +304,66 @@ describe('workspace node container confinement', () => {
     })
     expect(inspections).toBe(10)
   })
+
+  it('renders registered roots under private aliases and maps protected paths to the alias target', () => {
+    const argv = renderContainerLaunchArgv(
+      config('/var/lib/hbar/node'),
+      {
+        operation: { kind: 'command', command: 'cat /workspace/docs/readme.md' },
+        cwd: '/workspace/src',
+        environment: {},
+        confinement: floor({
+          readableRoots: ['/srv/build', '/srv/docs'],
+          writableRoots: ['/srv/build'],
+        }),
+        protectedPaths: ['/workspace/docs/.git/hooks'],
+        workspaceMounts: [
+          {
+            rootId: 'engine',
+            sourceRoot: '/srv/build',
+            alias: 'src',
+            target: '/workspace/src',
+            access: 'read',
+            writePaths: [{ sourcePath: '/srv/build/cache', targetPath: '/workspace/src/cache' }],
+          },
+          { rootId: 'docs', sourceRoot: '/srv/docs', alias: 'docs', target: '/workspace/docs', access: 'read' },
+        ],
+      },
+      'job-mounts',
+      { '/workspace/docs/.git/hooks': { path: '/var/lib/hbar/masks/hooks', kind: 'directory' } },
+    )
+    expect(argv).toContain('type=bind,src=/srv/build,dst=/workspace/src,ro')
+    expect(argv).toContain('type=bind,src=/srv/docs,dst=/workspace/docs,ro')
+    expect(argv).toContain('type=bind,src=/var/lib/hbar/masks/hooks,dst=/workspace/docs/.git/hooks,ro')
+    expect(argv).toContain('type=bind,src=/srv/build/cache,dst=/workspace/src/cache,rw')
+    expect(argv).not.toContain('type=bind,src=/srv/docs,dst=/srv/docs,ro')
+  })
+
+  it('rejects alias traversal and a writable alias without an effective write grant', () => {
+    const base: ContainerRequest = {
+      operation: { kind: 'command', command: 'true' },
+      cwd: '/workspace/src',
+      environment: {},
+      confinement: floor({ readableRoots: ['/srv/build'], writableRoots: [] }),
+      protectedPaths: [],
+      workspaceMounts: [
+        {
+          rootId: 'engine',
+          sourceRoot: '/srv/build',
+          alias: 'src',
+          target: '/workspace/src/../escape',
+          access: 'write',
+        },
+      ],
+    }
+    expect(() => validateContainerRequest(base)).toThrow()
+    expect(() =>
+      validateContainerRequest({
+        ...base,
+        workspaceMounts: [
+          { rootId: 'engine', sourceRoot: '/srv/build', alias: 'src', target: '/workspace/src', access: 'write' },
+        ],
+      }),
+    ).toThrow('Writable workspace mount is outside its effective write permission')
+  })
 })

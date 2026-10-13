@@ -209,6 +209,8 @@ export async function createWindowsExecutionBackend(options: WindowsBackendOptio
     opts: NodeExecutionBackendOptions,
   ): Promise<NodeArgvResult> {
     signal.throwIfAborted()
+    if (opts.workspaceMounts?.length)
+      return unavailable('The Windows backend cannot expose a same-node multi-root workspace view')
     if (!isAbsolute(workspace))
       throw new HbarError('INVALID_INPUT', 'Windows workspace must be an absolute B-owned path')
     if (disabledReason) return unavailable(disabledReason)
@@ -337,6 +339,12 @@ export async function createWindowsExecutionBackend(options: WindowsBackendOptio
     processTree: capabilities.processTree,
     execArgv,
     async exec(workspace, command, signal, opts): Promise<ToolResult> {
+      if (opts.workspaceMounts?.length)
+        return {
+          text: 'The Windows backend cannot expose a same-node multi-root workspace view',
+          isError: true,
+          details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', exitCode: 126, truncated: false, executionStarted: false },
+        }
       if (disabledReason) return unavailable(disabledReason)
       if (!capabilities.available) return unavailable(capabilities.reason ?? 'Native capability probe failed')
       if (!opts.confinement) return unavailable('A resolved confinement profile is required')

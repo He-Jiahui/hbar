@@ -35,6 +35,44 @@ export const nodeProcessInputSchema = z.strictObject({
     .nullable(),
   protectedPaths: z.array(z.string().min(1).max(4_000)).max(256),
   readOnlyPaths: z.array(z.string().min(1).max(4_000)).max(256).default([]),
+  workspaceMounts: z
+    .array(
+      z.strictObject({
+        rootId: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
+        expectedRoot: z.string().min(1).max(4_000),
+        sourceRoot: z.string().min(1).max(4_000),
+        alias: z.string().regex(/^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u),
+        target: z.string().min(1).max(4_000),
+        access: z.enum(['read', 'write']),
+        writePaths: z
+          .array(z.strictObject({ sourcePath: z.string().min(1).max(4_000), targetPath: z.string().min(1).max(4_000) }))
+          .max(128)
+          .default([]),
+        readOnlyPaths: z
+          .array(z.strictObject({ sourcePath: z.string().min(1).max(4_000), targetPath: z.string().min(1).max(4_000) }))
+          .max(128)
+          .default([]),
+        protectedPaths: z
+          .array(z.strictObject({ sourcePath: z.string().min(1).max(4_000), targetPath: z.string().min(1).max(4_000) }))
+          .max(256)
+          .default([]),
+      }),
+    )
+    .max(32)
+    .default([]),
+  internalMounts: z
+    .array(
+      z.strictObject({
+        kind: z.enum(['managed-worktree', 'common-git', 'worktree-metadata']),
+        worktreeId: z.string().regex(/^[a-f0-9]{32}$/),
+        parentRootId: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
+        sourcePath: z.string().min(1).max(4_000),
+        targetPath: z.string().min(1).max(4_000),
+        access: z.enum(['read', 'write']),
+      }),
+    )
+    .max(3)
+    .default([]),
 })
 export const nodeProcessOutputSchema = z.strictObject({
   text: z.string().max(NODE_LIMITS.outputBytes),
@@ -54,7 +92,7 @@ export const nodeArgvOutputSchema = z.strictObject({
   timedOut: z.boolean().optional(),
 })
 export const NODE_PROCESS_FINGERPRINT = createHash('sha256')
-  .update('hbar.node.execution.v2')
+  .update('hbar.node.execution.v3')
   .update(JSON.stringify(z.toJSONSchema(nodeProcessInputSchema)))
   .update(JSON.stringify(z.toJSONSchema(nodeProcessOutputSchema)))
   .update(JSON.stringify(z.toJSONSchema(nodeArgvOutputSchema)))

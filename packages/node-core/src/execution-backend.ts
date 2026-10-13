@@ -7,6 +7,10 @@ export interface NodeExecutionBackendOptions {
   readonly confinement: OsConfinementOptions | null
   readonly protectedPaths: readonly string[]
   readonly readOnlyPaths?: readonly string[]
+  /** B-verified static floor roots mounted under a private Linux/container alias view. */
+  readonly workspaceMounts?: readonly NodeExecutionWorkspaceMount[]
+  /** B-provenance mounts for the exact child checkout and its Git metadata only. */
+  readonly internalMounts?: readonly NodeExecutionInternalMount[]
   readonly environmentAllowlist: readonly string[]
   /** Local B-only process output callback; never serialized over the node link. */
   readonly onOutput?: ((text: string) => void) | undefined
@@ -40,4 +44,24 @@ export interface NodeExecutionBackend {
     options: NodeExecutionBackendOptions,
   ): Promise<NodeArgvResult>
   dispose?(): Promise<void>
+}
+
+export interface NodeExecutionWorkspaceMount {
+  readonly rootId: string
+  readonly sourceRoot: string
+  readonly alias: string
+  readonly target: string
+  readonly access: 'read' | 'write'
+  readonly writePaths?: readonly { readonly sourcePath: string; readonly targetPath: string }[]
+  readonly readOnlyPaths?: readonly { readonly sourcePath: string; readonly targetPath: string }[]
+  readonly protectedPaths?: readonly { readonly sourcePath: string; readonly targetPath: string }[]
+}
+
+export interface NodeExecutionInternalMount {
+  readonly kind: 'managed-worktree' | 'common-git' | 'worktree-metadata'
+  readonly worktreeId: string
+  readonly parentRootId: string
+  readonly sourcePath: string
+  readonly targetPath: string
+  readonly access: 'read' | 'write'
 }

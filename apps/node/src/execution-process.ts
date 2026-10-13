@@ -75,6 +75,8 @@ async function execute(
       confinement: input.confinement,
       protectedPaths: input.protectedPaths,
       readOnlyPaths: input.readOnlyPaths,
+      workspaceMounts: input.workspaceMounts,
+      internalMounts: input.internalMounts,
     })
   }
   try {

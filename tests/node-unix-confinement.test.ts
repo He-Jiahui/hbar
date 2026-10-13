@@ -100,4 +100,35 @@ describe('workspace node Unix confinement plans', () => {
     expect(profile).toContain('"/srv/quoted\\"; (allow network*)"')
     expect(profile.split('\n').filter((line) => line === '(allow network*)')).toHaveLength(1)
   })
+
+  it('maps each B-owned root into a private alias view with the stricter folder access', () => {
+    const plan = validateUnixConfinementRoots({
+      cwd: '/workspace/src',
+      confinement: confinement({
+        readableRoots: ['/srv/build', '/srv/docs'],
+        writableRoots: ['/srv/build'],
+      }),
+      protectedPaths: ['/srv/docs/.git/hooks'],
+      readOnlyPaths: ['/srv/build/locked'],
+      workspaceMounts: [
+        { rootId: 'engine', sourceRoot: '/srv/build', alias: 'src', target: '/workspace/src', access: 'write' },
+        { rootId: 'docs', sourceRoot: '/srv/docs', alias: 'docs', target: '/workspace/docs', access: 'read' },
+      ],
+    })
+    expect(plan.readableRoots).toEqual(['/workspace/src', '/workspace/docs'])
+    expect(plan.writableRoots).toEqual(['/workspace/src'])
+    expect(plan.protectedPaths).toEqual(['/workspace/docs/.git/hooks'])
+    expect(plan.readOnlyPaths).toEqual(['/workspace/src/locked'])
+    expect(() =>
+      validateUnixConfinementRoots({
+        backend: 'seatbelt',
+        cwd: '/workspace/src',
+        confinement: confinement({ readableRoots: ['/srv/build'], writableRoots: ['/srv/build'] }),
+        protectedPaths: [],
+        workspaceMounts: [
+          { rootId: 'engine', sourceRoot: '/srv/build', alias: 'src', target: '/workspace/src', access: 'write' },
+        ],
+      }),
+    ).toThrow('Seatbelt cannot provide the required mounted workspace view')
+  })
 })

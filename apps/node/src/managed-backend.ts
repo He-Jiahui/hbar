@@ -387,6 +387,8 @@ export async function createManagedNodeBackend(options: {
             : null,
           protectedPaths: input.protectedPaths,
           readOnlyPaths: input.readOnlyPaths ?? [],
+          workspaceMounts: input.workspaceMounts ?? [],
+          internalMounts: input.internalMounts ?? [],
         },
         outputSchema,
         { signal, timeoutMs: input.timeoutMs + 5_000 },
