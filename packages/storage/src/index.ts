@@ -105,6 +105,11 @@ export interface StorageFatalEvent {
   readonly code: string
   readonly message: string
   readonly method?: string
+  readonly storageRequestId?: number
+  readonly pendingCount?: number
+  readonly workerState?: 'failed' | 'closed'
+  readonly outcome?: 'failure' | 'unknown'
+  readonly durationMs?: number
   readonly occurredAt: number
 }
 
@@ -117,7 +122,7 @@ export interface StorageLifecycleOptions {
   readonly requestTimeoutMs?: number
   readonly closeTimeoutMs?: number
   /** Fatal Worker failure belongs to its managed owner; unknown calls are never replayed here. */
-  readonly onFatal?: (error: HbarError) => void
+  readonly onFatal?: (error: HbarError, event: StorageFatalEvent) => void
   readonly maxPendingRequests?: number
   readonly diagnostics?: DiagnosticSink
   readonly diagnosticScope?: DiagnosticScopePort
@@ -154,7 +159,7 @@ export class Storage {
   private fatalListeners = new Set<StorageFatalListener>()
   private readonly requestTimeoutMs: number
   private readonly closeTimeoutMs: number
-  private readonly notifyFatalError: ((error: HbarError) => void) | undefined
+  private readonly notifyFatalError: ((error: HbarError, event: StorageFatalEvent) => void) | undefined
   private readonly maxPendingRequests: number
   private readonly diagnostics: ReturnType<typeof createStorageRequestDiagnostics>
   constructor(path: string, layout?: PathLayout, lifecycle: StorageLifecycleOptions = {}) {
@@ -200,7 +205,7 @@ export class Storage {
         const error = new HbarError('STORAGE_WORKER_EXITED', `Storage worker exited with code ${code}`)
         if (!this.closing)
           this.emitDiagnostic('storage.worker_exit', 'error', error, { workerState: 'failed', outcome: 'failure' })
-        if (!this.closing) this.fail(error, { kind: 'worker-exit' })
+        if (!this.closing) this.fail(error, { kind: 'worker-exit', ...this.pendingFailureDetails() })
         resolve()
       })
     })
@@ -227,7 +232,14 @@ export class Storage {
           durationMs: Math.max(0, performance.now() - handler.startedAt),
           ...(handler.correlation === undefined ? {} : { correlation: handler.correlation }),
         })
-        this.fail(error, { kind: 'outcome-unknown', method: handler.method })
+        this.fail(error, {
+          kind: 'outcome-unknown',
+          method: handler.method,
+          storageRequestId: reply.id,
+          pendingCount: this.pending.size,
+          durationMs: Math.max(0, performance.now() - handler.startedAt),
+          outcome: 'unknown',
+        })
         void this.terminate().catch(() => {
           // close() awaits the same termination result; unknown outcomes are never replayed.
         })
@@ -253,7 +265,7 @@ export class Storage {
         `Storage worker failed: ${event instanceof Error ? event.message : String(event)}`,
       )
       this.emitDiagnostic('storage.worker_error', 'error', error, { workerState: this.closing ? 'closed' : 'failed' })
-      if (!this.closing) this.fail(error, { kind: 'worker-error' })
+      if (!this.closing) this.fail(error, { kind: 'worker-error', ...this.pendingFailureDetails() })
       void this.terminate().catch(() => {
         // close() awaits the same termination result; no unhandled event-callback rejection.
       })
@@ -277,7 +289,13 @@ export class Storage {
   executeRpc(raw: import('./rpc').StorageRpcCall): Promise<unknown> {
     const input = storageRpcCallSchema.parse(raw)
     if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
-    return this.request(input.method, input.args as Parameters<StorageMethods[typeof input.method]>, this.requestTimeoutMs, input.authority, input.diagnostic)
+    return this.request(
+      input.method,
+      input.args as Parameters<StorageMethods[typeof input.method]>,
+      this.requestTimeoutMs,
+      input.authority,
+      input.diagnostic,
+    )
   }
   private request<K extends keyof StorageMethods>(
     method: K,
@@ -318,7 +336,14 @@ export class Storage {
           ...(correlation === undefined ? {} : { correlation }),
         })
         if (method === 'close' && this.closing) this.stop(error)
-        else this.fail(error, { kind: 'timeout', method: String(method) })
+        else
+          this.fail(error, {
+            kind: 'timeout',
+            method: String(method),
+            storageRequestId: id,
+            durationMs: Math.max(0, performance.now() - startedAt),
+            outcome: 'unknown',
+          })
         void this.terminate().catch(() => {
           // The explicit close path reports a failed termination to its caller.
         })
@@ -359,19 +384,63 @@ export class Storage {
     this.fatalListeners.add(listener)
     return () => this.fatalListeners.delete(listener)
   }
-  private fail(error: HbarError, details: { kind: StorageFatalKind; method?: string }): void {
+  private pendingFailureDetails(): {
+    readonly pendingCount: number
+    readonly workerState: 'failed'
+    readonly outcome: 'failure' | 'unknown'
+    readonly method?: string
+    readonly storageRequestId?: number
+    readonly durationMs?: number
+  } {
+    const pendingCount = this.pending.size
+    const onlyPending = pendingCount === 1 ? this.pending.entries().next().value : undefined
+    return {
+      pendingCount,
+      workerState: 'failed',
+      outcome: pendingCount > 0 ? 'unknown' : 'failure',
+      ...(onlyPending
+        ? {
+            storageRequestId: onlyPending[0],
+            method: onlyPending[1].method,
+            durationMs: Math.max(0, performance.now() - onlyPending[1].startedAt),
+          }
+        : {}),
+    }
+  }
+  private fail(
+    error: HbarError,
+    details: {
+      kind: StorageFatalKind
+      method?: string
+      storageRequestId?: number
+      pendingCount?: number
+      workerState?: 'failed' | 'closed'
+      outcome?: 'failure' | 'unknown'
+      durationMs?: number
+    },
+  ): void {
+    const pendingCount = details.pendingCount ?? this.pending.size
     this.stop(error)
     if (this.fatalNotified) return
     this.fatalNotified = true
-    if (!this.closing) {
-      try { this.notifyFatalError?.(error) } catch { console.error('[hbar storage] fatal observer failed') }
-    }
     const event: StorageFatalEvent = {
       kind: details.kind,
       code: error.code,
       message: error.message,
       ...(details.method ? { method: details.method } : {}),
+      ...(details.storageRequestId === undefined ? {} : { storageRequestId: details.storageRequestId }),
+      pendingCount,
+      workerState: details.workerState ?? 'failed',
+      outcome: details.outcome ?? (pendingCount > 0 ? 'unknown' : 'failure'),
+      ...(details.durationMs === undefined ? {} : { durationMs: details.durationMs }),
       occurredAt: Date.now(),
+    }
+    if (!this.closing) {
+      try {
+        this.notifyFatalError?.(error, event)
+      } catch {
+        console.error('[hbar storage] fatal observer failed')
+      }
     }
     for (const listener of this.fatalListeners) {
       try {

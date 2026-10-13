@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite'
-import { existsSync } from 'node:fs'
+import { existsSync, writeSync } from 'node:fs'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import {
@@ -8,9 +8,52 @@ import {
   storageRpcCallSchema,
   STORAGE_SCHEMA_VERSION,
   STORAGE_RPC_FINGERPRINT,
+  type StorageFatalEvent,
 } from '@hbar/storage'
 import { procedure, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
 import { acquireHostProcessLock } from './process-lock'
+
+const fatalDiagnosticSchema = 'hbar.storage-fatal.v1'
+const maxFatalDiagnosticBytes = 1_024
+
+/** Formats only bounded lifecycle metadata; Storage error messages may contain untrusted details. */
+export function formatStorageFatalDiagnostic(event: StorageFatalEvent): string {
+  const safeCode = /^[A-Z][A-Z0-9_]{0,79}$/.test(event.code) ? event.code : 'STORAGE_FATAL'
+  const safeMethod = event.method && /^[A-Za-z][A-Za-z0-9]{0,79}$/.test(event.method) ? event.method : undefined
+  const storageRequestId = event.storageRequestId
+  const pendingCount = event.pendingCount
+  const occurredAt = Number.isFinite(event.occurredAt) ? Math.max(0, Math.trunc(event.occurredAt)) : 0
+  const payload = {
+    schema: fatalDiagnosticSchema,
+    kind: event.kind,
+    code: safeCode,
+    ...(safeMethod ? { method: safeMethod } : {}),
+    ...(typeof storageRequestId === 'number' && Number.isSafeInteger(storageRequestId) && storageRequestId >= 0
+      ? { storageRequestId }
+      : {}),
+    ...(typeof pendingCount === 'number' && Number.isSafeInteger(pendingCount) && pendingCount >= 0
+      ? { pendingCount: Math.min(pendingCount, 1_000_000) }
+      : {}),
+    workerState: event.workerState ?? 'failed',
+    outcome: event.outcome ?? 'unknown',
+    ...(event.durationMs !== undefined && Number.isFinite(event.durationMs)
+      ? { durationMs: Math.min(Math.max(0, Math.trunc(event.durationMs)), 2_147_483_647) }
+      : {}),
+    occurredAt,
+  }
+  const line = `${JSON.stringify(payload)}\n`
+  if (Buffer.byteLength(line, 'utf8') <= maxFatalDiagnosticBytes) return line
+  return `${JSON.stringify({ schema: fatalDiagnosticSchema, kind: event.kind, code: safeCode, truncated: true })}\n`
+}
+
+export function exitStorageProcessForFatal(event: StorageFatalEvent): never {
+  try {
+    writeSync(2, Buffer.from(formatStorageFatalDiagnostic(event), 'utf8'))
+  } catch {
+    // A failed diagnostic write must not prevent the owner from terminating a poisoned Worker.
+  }
+  process.exit(76)
+}
 
 const configurationSchema = z.strictObject({
   database: z.string().min(1).max(4_000),
@@ -22,7 +65,8 @@ const configurationSchema = z.strictObject({
   skillsRoot: z.string().min(1).max(4_000),
   identityRoot: z.string().min(1).max(4_000),
   workerPath: z.string().min(1).max(4_000).optional(),
-  diagnosticsEnabled: z.boolean().optional(), diagnosticsFullCoverage: z.boolean().optional(),
+  diagnosticsEnabled: z.boolean().optional(),
+  diagnosticsFullCoverage: z.boolean().optional(),
 })
 export async function create(context: RuntimeProcessContext): Promise<RuntimeProcessService> {
   const configuration = configurationSchema.parse(context.configuration)
@@ -77,12 +121,18 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
         throw new HbarError('STORAGE_WRITER_UNAVAILABLE', 'Storage owner closed before its verified writer opened')
       if (configuration.workerPath) process.env.HBAR_STORAGE_WORKER = configuration.workerPath
       storage = new Storage(configuration.database, layout, {
-        onFatal: () => process.exit(76),
-        ...(configuration.diagnosticsEnabled ? {
-          diagnostics: { emit: event => { void context.peer.notify('runtime.diagnostic', event).catch(() => {}) } },
-          instanceId: context.peer.owner.incarnation,
-          diagnosticsFullCoverage: configuration.diagnosticsFullCoverage ?? false,
-        } : {}),
+        onFatal: (_error, event) => exitStorageProcessForFatal(event),
+        ...(configuration.diagnosticsEnabled
+          ? {
+              diagnostics: {
+                emit: (event) => {
+                  void context.peer.notify('runtime.diagnostic', event).catch(() => {})
+                },
+              },
+              instanceId: context.peer.owner.incarnation,
+              diagnosticsFullCoverage: configuration.diagnosticsFullCoverage ?? false,
+            }
+          : {}),
       })
       await storage.call('ready')
     } catch (error) {
