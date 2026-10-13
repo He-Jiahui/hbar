@@ -162,7 +162,7 @@ async function fixture(
   } finally {
     client.close()
     connections.dispose()
-    protocol.dispose()
+    await protocol.dispose()
     await server.stop(true)
     await node.dispose()
     registry.dispose()

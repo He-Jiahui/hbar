@@ -170,7 +170,7 @@ async function fixture(
   } finally {
     client.close()
     await server.stop(true)
-    protocol.dispose()
+    await protocol.dispose()
     await node.dispose()
     await state.close()
     await managed.dispose()
