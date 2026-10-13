@@ -1,135 +1,263 @@
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve, basename } from 'node:path'
-import { expect, test } from 'bun:test'
-import type { SubmitRunInput } from '@hbar/contracts/commands/run'
-import { HbarClient, createRunCommandClient, createSystemCommandClient } from '@hbar/client'
-import type { DiagnosticEvent, DiagnosticSink } from '@hbar/contracts'
+import { afterEach, expect, test } from 'bun:test'
+import { randomUUID } from 'node:crypto'
+import { mkdir, realpath, rm } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
+import { freemem } from 'node:os'
+import { z } from 'zod'
+import type { DiagnosticEvent, WireNotification } from '@hbar/contracts'
+import { RUNTIME_LIMITS } from '@hbar/contracts/runtime'
+import { createUsageFact } from '@hbar/usage'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import { definePlugin, provide, type DriverInput, type HarnessDriver } from '@hbar/plugin-sdk'
-import { startServer } from '../apps/host/src/server.ts'
+import {
+  Storage,
+  StableStoragePort,
+  callStorageRpc,
+  createPathLayout,
+  type ManagedStorageWriter,
+  type StorageMethods,
+} from '@hbar/storage'
+import {
+  definePlugin,
+  provide,
+  type DriverInput,
+  type GoalService,
+  type HarnessDriver,
+  type PlanService,
+} from '@hbar/plugin-sdk'
+import type { RuntimeOwner } from '@hbar/contracts/runtime'
 
-type Client = HbarClient
+const TEST_TIMEOUT_MS = 180_000
+const WAVE_TIMEOUT_MS = 35_000
+const FIXTURE_PREFIX = 'hbar-sqlite-agent-pressure-'
+const SEED = 0x51a7c0de
+const WAVE_SIZES = [30, 40, 50] as const
+const SUBMISSION_BATCH_SIZE = 8
+const USAGE = { input: 8, output: 3, cacheRead: 0, cacheWrite: 0, cost: 0 }
 
-type LevelReport = {
-  readonly requested: number
-  readonly sessions: number
-  readonly accepted: number
-  readonly duplicateSameActor: number
-  readonly actorScopedDistinct: number
-  readonly peakActiveRuns: number
-  readonly barrierTarget: number
-  readonly driverToolPeak: number
-  readonly toolRunResults: readonly ToolRunResult[]
-  readonly maxPendingObserved: number
-  readonly eventIsolationFailures: readonly string[]
-  readonly elapsedMs: number
-}
-type ToolRunResult = { readonly runId: string; readonly tools: readonly string[]; readonly allSucceeded: boolean }
-
-type CancellationReport = {
-  readonly cancelledOperationId: string
-  readonly cancellationRequestStatus: string
-  readonly cancelledStatus: string
-  readonly completedOperationIds: readonly string[]
-  readonly completedOtherRuns: boolean
-  readonly lateSettledEvents: number
-  readonly cancelRequestedEvents: number
-  readonly cursorBeforeReconnect: number
-  readonly cursorAfterReconnect: number
-  readonly canonicalMessages: number
-  readonly receiptRecovered: boolean
-}
-type ToolExecutionReport = {
-  readonly approval: 'allow'
-  readonly tools: readonly string[]
-  readonly writeReadVerified: boolean
-  readonly shellVerified: boolean
-  readonly barrierVerified: boolean
-  readonly fullAccessCovered: boolean
-  readonly actualToolPeak: number
-  readonly limitation: string
+type PressureSpec = {
+  readonly wave: string
+  readonly index: number
+  readonly seed: number
+  readonly extraActions: number
 }
 
-type Report = {
-  readonly artifact: string
+type DriverBarrier = {
+  readonly entered: number
+  readonly active: number
+  readonly peak: number
+  readonly release: () => void
+  readonly waitForTarget: (signal: AbortSignal) => Promise<void>
+  readonly waitUntilEntered: (target: number, deadline: number) => Promise<void>
+}
+
+type WorkerMetrics = {
+  readonly events: DiagnosticEvent[]
+  readonly storageOutstanding: Set<number>
+  readonly workerExecuting: Set<number>
+  readonly managedCalls: Map<number, string>
+  nextManagedCallId: number
+  storageOutstandingPeak: number
+  workerExecutingPeak: number
+}
+
+type WaveReport = {
+  readonly name: string
+  readonly requestedAgents: number
+  acceptedRuns: number
+  duplicateReceipts: number
+  fullAccessRuns: number
+  cancelledRunId?: string
+  sameSessionSuccessorId?: string
+  sameSessionSuccessorStatus?: string
+  cancelledActorGoalStatus?: string
+  cancelledActorGoalTokens?: number
+  enteredBeforeRelease: number
+  kernelActiveAtRelease: number
+  driverPeak: number
+  stableInFlightPeak: number
+  stableQueuedPeak: number
+  stableBufferedBytesPeak: number
+  storageRpcOutstandingPeak: number
+  sqliteWorkerExecutingPeak: number
+  streamUpdateCount: number
+  freeMemoryStartBytes: number
+  rssStartBytes: number
+  runLatencyMs: number[]
+  snapshotLatencyMs: number[]
+  statuses: Record<string, number>
+  failures: string[]
+  durationMs: number
+}
+
+type PressureReport = {
+  readonly attemptId: string
+  readonly seed: number
   readonly generatedAt: string
-  readonly storage: 'Kernel default SQLite (temporary home)'
-  readonly executionCap: number | null
-  readonly executionCapNote: string
-  readonly levels: readonly LevelReport[]
-  readonly cancellation: CancellationReport
-  readonly toolExecution: ToolExecutionReport
-  readonly totalRunsUpperBound: number
-  readonly cleanup: {
-    readonly hostClosed: boolean
-    readonly kernelClosed: boolean
-    readonly idleConfirmed: boolean
-    readonly tempRemoved: boolean
+  readonly fixtureKind: 'deterministic synthetic HarnessDriver; no model API; Goal autoContinue disabled'
+  readonly storagePath: 'Kernel -> StableStoragePort (64 active / 256 queued / 64 MiB) -> real SQLite Storage Worker'
+  readonly accessContract: {
+    readonly approval: 'allow'
+    readonly permissionAtAdmission: 'allow'
+    readonly sandboxSnapshot: 'none'
+    readonly osConfinement: 'none'
+    readonly boundary: 'built-in file tools remain restricted to the owned workspace; no shell probe in this SQLite fixture'
+  }
+  sqlite: Record<string, unknown>
+  limits: Record<string, number>
+  waves: WaveReport[]
+  history: Record<string, unknown>
+  cleanup: Record<string, unknown>
+  failure?: { readonly phase: string; readonly errorType: string; readonly errorMessage: string }
+}
+
+type Fixture = {
+  readonly root: string
+  readonly workRoot: string
+  readonly layout: ReturnType<typeof createPathLayout>
+  readonly kernel: Kernel
+  readonly stable: StableStoragePort
+  readonly physical: Storage
+  readonly metrics: WorkerMetrics
+  readonly workerOwner: RuntimeOwner
+  readonly workerExitSettled: () => boolean
+  readonly setBarrier: (barrier: DriverBarrier | undefined) => void
+  readonly resetDriverMetrics: () => void
+  readonly driverPeak: () => number
+  readonly driverEntered: () => number
+  readonly driverActive: () => number
+  readonly driverResults: Map<
+    string,
+    { readonly toolNames: readonly string[]; readonly fileContents: string[]; readonly usageTokens: number }
+  >
+  readonly wireEvents: WireNotification[]
+  readonly hotspotValues: Set<string>
+  readonly specs: Map<string, PressureSpec>
+  readonly disposeTools: () => Promise<void>
+  readonly unsubscribe: () => void
+}
+
+const activeFixtures: Fixture[] = []
+
+function seeded(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state ^= state << 13
+    state ^= state >>> 17
+    state ^= state << 5
+    return (state >>> 0) / 0x1_0000_0000
   }
 }
-type PressureInput = SubmitRunInput
-type PressureReceipt = { readonly operationId: string }
 
-const LEVELS = [4, 8, 16] as const
-const PREFIX = 'hbar-session-pressure-real-'
-const MAX_LEVEL_RUNTIME_MS = 45_000
-const MAX_TOTAL_RUNTIME_MS = 150_000
-const SUBMISSION_BATCH = 8
-
-type ToolBarrier = {
-  readonly target: number
-  readonly entered: () => number
-  readonly peakAtRelease: () => number
-  readonly wait: (signal: AbortSignal) => Promise<void>
-  readonly release: () => void
-}
-
-function createToolBarrier(target: number): ToolBarrier {
-  let count = 0
+function createBarrier(): DriverBarrier {
+  let entered = 0
+  let active = 0
+  let peak = 0
   let released = false
-  let releaseCount = 0
-  let resolveGate: () => void = () => {}
-  const gate = new Promise<void>((resolveGateValue) => {
-    resolveGate = resolveGateValue
+  let releaseGate = (): void => {}
+  const gate = new Promise<void>((resolve) => {
+    releaseGate = resolve
   })
-  return {
-    target,
-    entered: () => count,
-    peakAtRelease: () => releaseCount,
-    wait: async (signal) => {
+  const barrier: DriverBarrier = {
+    get entered() {
+      return entered
+    },
+    get active() {
+      return active
+    },
+    get peak() {
+      return peak
+    },
+    release() {
+      if (released) return
+      released = true
+      releaseGate()
+    },
+    async waitForTarget(signal) {
       signal.throwIfAborted()
-      count += 1
-      let rejectAbort: (error: unknown) => void = () => {}
+      entered += 1
+      active += 1
+      peak = Math.max(peak, active)
+      let rejectAbort: (reason: unknown) => void = () => {}
       const aborted = new Promise<never>((_, reject) => {
         rejectAbort = reject
       })
-      const onAbort = () => rejectAbort(signal.reason)
-      signal.addEventListener('abort', onAbort, { once: true })
+      const abort = () => rejectAbort(signal.reason)
+      signal.addEventListener('abort', abort, { once: true })
       try {
         await Promise.race([gate, aborted])
+        signal.throwIfAborted()
       } finally {
-        signal.removeEventListener('abort', onAbort)
+        signal.removeEventListener('abort', abort)
+        active -= 1
       }
     },
-    release: () => {
-      if (!released) {
-        released = true
-        releaseCount = count
-        resolveGate()
-      }
+    async waitUntilEntered(count, deadline) {
+      while (entered < count && performance.now() < deadline) await Bun.sleep(2)
+      if (entered < count) throw new Error(`DRIVER_BARRIER_SHORTFALL:${entered}/${count}`)
     },
+  }
+  return barrier
+}
+
+function percentile(values: readonly number[], fraction: number): number {
+  if (values.length === 0) return 0
+  const ordered = [...values].sort((left, right) => left - right)
+  return ordered[Math.min(ordered.length - 1, Math.ceil(ordered.length * fraction) - 1)] ?? 0
+}
+
+async function bounded<T>(promise: Promise<T>, milliseconds: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label}_TIMEOUT_${milliseconds}MS`)), milliseconds)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
   }
 }
 
-function createToolDriver(
-  getBarrier: () => ToolBarrier | undefined,
-  toolRunResults: Map<string, ToolRunResult>,
+function onStorageEvent(metrics: WorkerMetrics, event: DiagnosticEvent): void {
+  metrics.events.push(event)
+  const id = event.storageRequestId
+  if (typeof id !== 'number') return
+  if (event.component === 'storage' && event.event === 'storage.request_dispatched') {
+    metrics.storageOutstanding.add(id)
+    metrics.storageOutstandingPeak = Math.max(
+      metrics.storageOutstandingPeak,
+      event.pending ?? metrics.storageOutstanding.size,
+    )
+  }
+  if (event.component === 'storage' && ['storage.request_completed', 'storage.request_failed'].includes(event.event))
+    metrics.storageOutstanding.delete(id)
+  if (event.component === 'sqlite' && event.event === 'sqlite.request_started') {
+    metrics.workerExecuting.add(id)
+    metrics.workerExecutingPeak = Math.max(metrics.workerExecutingPeak, metrics.workerExecuting.size)
+  }
+  if (event.component === 'sqlite' && ['sqlite.request_completed', 'sqlite.request_failed'].includes(event.event))
+    metrics.workerExecuting.delete(id)
+}
+
+function createDriverPlugin(
+  getBarrier: () => DriverBarrier | undefined,
+  specs: Map<string, PressureSpec>,
+  metrics: {
+    active: number
+    peak: number
+    entered: number
+    readonly results: Map<
+      string,
+      { readonly toolNames: readonly string[]; readonly fileContents: string[]; readonly usageTokens: number }
+    >
+  },
 ): ReturnType<typeof definePlugin> {
   return definePlugin({
     manifest: {
       id: 'driver.pi',
-      name: 'Real tool pressure driver',
-      description: 'Executes the public tool gate behind a bounded barrier.',
+      name: 'Deterministic SQLite pressure driver',
+      description: 'Seeded local fixture that exercises public Kernel tool and event paths.',
       permissions: [],
       version: '1.0.0',
       apiVersion: '^1.0.0',
@@ -139,12 +267,19 @@ function createToolDriver(
     apply(ctx) {
       provide<HarnessDriver>(ctx, 'driver', {
         async run(input: DriverInput) {
-          const barrier = getBarrier()
-          if (!barrier) throw new Error('tool pressure barrier is not configured')
-          await barrier.wait(input.signal)
-          input.signal.throwIfAborted()
-          const suffix = input.session.id.slice(0, 8)
-          const invoke = async (name: string, args: Record<string, unknown>, callId: string) => {
+          const spec = specs.get(input.session.id)
+          if (!spec) throw new Error('PRESSURE_SPEC_MISSING')
+          metrics.entered += 1
+          metrics.active += 1
+          metrics.peak = Math.max(metrics.peak, metrics.active)
+          const random = seeded(spec.seed)
+          const streamId = `${input.run.id}-pressure-stream`
+          const stepId = `${input.run.id}-pressure-step`
+          const toolNames: string[] = []
+          const fileContents: string[] = []
+          const callTool = async (name: string, args: Record<string, unknown>, ordinal: number) => {
+            input.signal.throwIfAborted()
+            const callId = `${input.run.id}-call-${ordinal}`
             await input.commit('assistant', [{ type: 'tool_call', callId, name, args }])
             const result = await input.execute(name, args, callId)
             await input.commit('tool', [
@@ -157,609 +292,902 @@ function createToolDriver(
                 ...(result.details === undefined ? {} : { details: result.details }),
               },
             ])
-            return result
+            if (result.isError) throw new Error(`TOOL_FAILED:${name}`)
+            toolNames.push(name)
+            if ((name === 'read_file' || name === 'pressure_file_read') && result.text) fileContents.push(result.text)
           }
-          const write = await invoke(
-            'write_file',
-            { path: `pressure-${suffix}.txt`, text: `pressure-${suffix}\n` },
-            `write-${input.run.id}`,
-          )
-          if (write.isError) throw new Error(`write_file failed: ${write.text}`)
-          const read = await invoke('read_file', { path: `pressure-${suffix}.txt` }, `read-${input.run.id}`)
-          if (read.isError || !read.text.includes(`pressure-${suffix}`))
-            throw new Error(`read_file failed: ${read.text}`)
-          const shell = await invoke(
-            'shell',
-            { command: `echo pressure-${suffix}`, timeout_ms: 10_000 },
-            `shell-${input.run.id}`,
-          )
-          if (shell.isError || !shell.text.includes(`pressure-${suffix}`))
-            throw new Error(`shell failed: ${shell.text}`)
-          toolRunResults.set(input.run.id, {
-            runId: input.run.id,
-            tools: ['write_file', 'read_file', 'shell'],
-            allSucceeded: true,
-          })
+          try {
+            const barrier = getBarrier()
+            if (barrier) await barrier.waitForTarget(input.signal)
+            input.signal.throwIfAborted()
+            await input.emit('step.started', { step: 1 }, stepId)
+            let thinking = ''
+            input.stream(streamId, '', thinking)
+            for (let part = 0; part < 2; part += 1) {
+              thinking += `${part ? 'verify' : 'plan'}-${spec.index} `
+              input.stream(streamId, '', thinking)
+              await Bun.sleep(35)
+            }
+            const privatePath = `pressure-${spec.wave}-${spec.index}.txt`
+            const content = `${spec.wave}/${spec.index}/${spec.seed}`
+            await callTool('write_file', { path: privatePath, text: content }, 0)
+            await callTool('read_file', { path: privatePath }, 1)
+            await callTool(
+              'pressure_hotspot_write',
+              { value: `${spec.wave}:${spec.index}:${Math.floor(random() * 1_000_000)}` },
+              2,
+            )
+            await callTool('pressure_plan_touch', { status: 'completed' }, 3)
+            for (let ordinal = 4; ordinal < 4 + spec.extraActions; ordinal += 1) {
+              const pick = random()
+              if (pick < 0.45) {
+                const filename = `pressure-random-${spec.wave}-${spec.index}-${ordinal}.txt`
+                const value = `${spec.seed}/${ordinal}/${Math.floor(random() * 0x1_0000)}`
+                await callTool('write_file', { path: filename, text: value }, ordinal)
+                await callTool('read_file', { path: filename }, ordinal + 100)
+              } else if (pick < 0.75) {
+                await callTool(
+                  'pressure_hotspot_write',
+                  { value: `${spec.wave}:${spec.index}:${ordinal}:${Math.floor(random() * 0x1_0000)}` },
+                  ordinal,
+                )
+              } else {
+                await callTool('pressure_plan_touch', { status: 'in_progress' }, ordinal)
+              }
+              await Bun.sleep(Math.floor(random() * 4))
+            }
+            await input.emit(
+              'usage.recorded',
+              createUsageFact({
+                usage: { ...USAGE, input: USAGE.input + Math.floor(random() * 4) },
+                runId: input.run.id,
+                attemptId: `${input.run.id}-attempt`,
+                source: 'model',
+                model: input.request.model,
+              }),
+              `${input.run.id}-attempt`,
+            )
+            await input.emit('step.ended', {}, stepId)
+            await input.commit(
+              'assistant',
+              [{ type: 'text', text: `fixture complete ${spec.wave}/${spec.index}` }],
+              streamId,
+            )
+            metrics.results.set(input.run.id, { toolNames, fileContents, usageTokens: USAGE.input + USAGE.output })
+          } finally {
+            metrics.active -= 1
+          }
         },
         summarize: async () => ({
-          text: 'pressure summary',
-          usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+          text: 'deterministic pressure summary',
+          usage: USAGE,
         }),
       })
     },
   })
 }
 
-async function bounded<T>(
-  promise: Promise<T>,
-  milliseconds: number,
-  label: string,
-  controller?: AbortController,
-): Promise<T> {
-  const signal = controller?.signal
-  signal?.throwIfAborted()
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  const timedOut = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      const error = new Error(`${label} timed out after ${milliseconds}ms`)
-      controller?.abort(error)
-      reject(error)
-    }, milliseconds)
+async function createFixture(root: string, options: { readonly requestTimeoutMs?: number } = {}): Promise<Fixture> {
+  const workRoot = join(root, 'workspace')
+  await mkdir(workRoot, { recursive: true })
+  const dataRoot = join(root, 'data')
+  await mkdir(join(dataRoot, 'databases'), { recursive: true })
+  await mkdir(join(root, 'cache'), { recursive: true })
+  const layout = createPathLayout(dataRoot, join(root, 'cache'), join(root, 'paths.json'), { identityRoot: dataRoot })
+  const events: DiagnosticEvent[] = []
+  const metrics: WorkerMetrics = {
+    events,
+    storageOutstanding: new Set(),
+    workerExecuting: new Set(),
+    managedCalls: new Map(),
+    nextManagedCallId: 0,
+    storageOutstandingPeak: 0,
+    workerExecutingPeak: 0,
+  }
+  const specs = new Map<string, PressureSpec>()
+  const hotspotValues = new Set<string>()
+  let barrier: DriverBarrier | undefined
+  const driverMetrics = {
+    active: 0,
+    peak: 0,
+    entered: 0,
+    results: new Map<
+      string,
+      { readonly toolNames: readonly string[]; readonly fileContents: string[]; readonly usageTokens: number }
+    >(),
+  }
+  const physical = new Storage(layout.database, layout, {
+    ...(options.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: options.requestTimeoutMs }),
+    maxPendingRequests: 1_024,
+    diagnostics: { emit: (event) => onStorageEvent(metrics, event) },
+    diagnosticsFullCoverage: true,
+    instanceId: `pressure-storage-${randomUUID()}`,
   })
-  let abort: (() => void) | undefined
-  const aborted = signal
-    ? new Promise<never>((_, reject) => {
-        abort = () => reject(signal.reason instanceof Error ? signal.reason : new Error(`${label} aborted`))
-        signal.addEventListener('abort', abort, { once: true })
-      })
-    : undefined
-  try {
-    return await Promise.race([promise, timedOut, ...(aborted ? [aborted] : [])])
-  } finally {
-    if (timeout) clearTimeout(timeout)
-    if (abort) signal?.removeEventListener('abort', abort)
-  }
-}
-
-async function sampleActive(
-  kernel: Kernel,
-  stop: Promise<void>,
-  signal?: AbortSignal,
-): Promise<{ peak: number; samples: number }> {
-  let peak = kernel.active.size
-  let samples = 0
-  let stopped = false
-  stop
-    .finally(() => {
-      stopped = true
-    })
-    .catch(() => {})
-  while (!stopped && !signal?.aborted) {
-    peak = Math.max(peak, kernel.active.size)
-    samples++
-    await Bun.sleep(2)
-  }
-  peak = Math.max(peak, kernel.active.size)
-  return { peak, samples }
-}
-
-function releaseTimer(timer: ReturnType<typeof setTimeout>): void {
-  clearTimeout(timer)
-}
-
-function clientAt(clients: readonly Client[], index: number): Client {
-  const client = clients[index % clients.length]
-  if (!client) throw new Error(`client ${index} is unavailable`)
-  return client
-}
-
-function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
-  let resolver: (() => void) | undefined
-  const promise = new Promise<void>((resolvePromise) => {
-    resolver = resolvePromise
-  })
-  return {
-    promise,
-    resolve: () => {
-      if (!resolver) throw new Error('deferred resolver unavailable')
-      resolver()
-    },
-  }
-}
-
-async function main(controller: AbortController): Promise<Report> {
-  const signal = controller.signal
-  const root = await mkdtemp(join(resolve(process.env.TEMP ?? process.env.TMP ?? '.'), PREFIX))
-  const rootPath = resolve(await realpath(root))
-  const tempPath = resolve(await realpath(process.env.TEMP ?? process.env.TMP ?? '.'))
-  if (dirname(rootPath) !== tempPath || !basename(rootPath).startsWith(PREFIX)) {
-    throw new Error(`unsafe temporary root: ${rootPath}`)
-  }
-
-  let kernel: Kernel | undefined
-  let host: Awaited<ReturnType<typeof startServer>> | undefined
-  const clients: Client[] = []
-  let hostClosed = false
-  let kernelClosed = false
-  let idleConfirmed = false
-  let actualToolActive = 0
-  let actualToolPeak = 0
-  const activeToolCalls = new Set<string>()
-  const diagnosticErrors: string[] = []
-  const diagnosticSink: DiagnosticSink = {
-    emit: (event: DiagnosticEvent) => {
-      const key = event.runId && event.callId ? `${event.runId}:${event.callId}` : undefined
-      if (!key) return
-      if (event.event === 'tool.started') {
-        if (activeToolCalls.has(key)) diagnosticErrors.push(`duplicate tool.started:${key}`)
-        activeToolCalls.add(key)
-        actualToolActive = activeToolCalls.size
-        actualToolPeak = Math.max(actualToolPeak, actualToolActive)
-      } else if (event.event === 'tool.settled') {
-        if (!activeToolCalls.delete(key)) diagnosticErrors.push(`terminal without start:${event.event}:${key}`)
-        actualToolActive = activeToolCalls.size
+  await bounded(physical.call('ready'), 10_000, 'STORAGE_READY')
+  await physical.call('setPlugin', 'goal.codex', true, { autoContinue: false })
+  await physical.call('setSetting', 'permission.mode', 'allow')
+  const stable = new StableStoragePort(10_000)
+  let workerExitSettled = false
+  const owner: RuntimeOwner = { unitId: 'storage.sqlite', generation: 1, incarnation: randomUUID() }
+  const writer: ManagedStorageWriter = {
+    owner,
+    async retire() {
+      try {
+        await physical.close()
+      } finally {
+        workerExitSettled = true
       }
     },
-  }
-  let tempRemoved = false
-  const cleanupErrors: unknown[] = []
-  const levels: LevelReport[] = []
-  let activeBarrier: ToolBarrier | undefined
-  const toolRunResults = new Map<string, ToolRunResult>()
-  const toolDriver = createToolDriver(() => activeBarrier, toolRunResults)
-  let primaryError: unknown
-  let completedReport: Report | undefined
-  try {
-    kernel = await Kernel.create({
-      home: join(rootPath, 'data'),
-      workspace: rootPath,
-      demo: true,
-      secrets: new MemorySecrets(),
-      profile: { replacements: { 'driver.pi': toolDriver } },
-      diagnostics: diagnosticSink,
-    })
-    const runtimeKernel = kernel
-    host = await startServer(kernel, { port: 0 })
-    const baseUrl = `http://127.0.0.1:${host.server.port}`
-    // Four separately paired public clients exercise actor scoped receipts and observers.
-    let primaryClient: Client | undefined
-    for (let index = 0; index < 4; index++) {
-      const client = new HbarClient(baseUrl)
-      let pairing = host.pairing
-      if (index > 0) {
-        if (!primaryClient) throw new Error('primary client missing')
-        pairing = await createSystemCommandClient(primaryClient).execute('pairing.create', {})
-      }
-      await client.pair(pairing.code, `pressure actor ${index}`)
-      clients.push(client)
-      primaryClient ??= client
-    }
-    const workspace = (await kernel.storage.call('workspaces'))[0]
-    if (!workspace) throw new Error('temporary Kernel did not create a workspace')
-    const observerClient = clients[0]
-    if (!observerClient) throw new Error('observer client missing')
-    for (const requested of LEVELS) {
-      signal.throwIfAborted()
-      activeBarrier = createToolBarrier(requested)
-      const sessions = await Promise.all(
-        Array.from({ length: requested }, (_, index) =>
-          runtimeKernel.createSession(workspace.id, `real-pressure-${requested}-${index}`),
-        ),
-      )
-      const accepted: Array<{ sessionId: string; operationId: string; sameActor: string; crossActor: string }> = []
-      let peak = 0
-      let pending = 0
-      let maxPending = 0
-      const samplingDone = deferred()
-      const sampling = sampleActive(kernel, samplingDone.promise, signal)
-      const startedAt = performance.now()
-      const duplicateResults: Array<{
-        sessionId: string
-        index: number
-        input: PressureInput
-        sameKey: string
-        first: PressureReceipt
-      }> = []
-      for (let batchStart = 0; batchStart < sessions.length; batchStart += SUBMISSION_BATCH) {
-        const batch = sessions.slice(batchStart, batchStart + SUBMISSION_BATCH)
-        duplicateResults.push(
-          ...(await bounded(
-            Promise.all(
-              batch.map(async (session, batchIndex) => {
-                const index = batchStart + batchIndex
-                const actor = clientAt(clients, index)
-                const commands = createRunCommandClient(actor)
-                const input: SubmitRunInput = {
-                  sessionId: session.id,
-                  modelId: 'local-fixture',
-                  input: { text: '/slow', images: [], mode: 'default', approval: 'allow' },
-                }
-                pending++
-                maxPending = Math.max(maxPending, pending)
-                try {
-                  const sameKey = `real-pressure-${requested}-${index}`
-                  const [first, duplicate] = await Promise.all([
-                    commands.execute('run.submit', input, {
-                      signal,
-                      idempotencyKey: sameKey,
-                      requestId: `same-${requested}-${index}-a`,
-                    }),
-                    commands.execute('run.submit', input, {
-                      signal,
-                      idempotencyKey: sameKey,
-                      requestId: `same-${requested}-${index}-b`,
-                    }),
-                  ])
-                  if (first.operationId !== duplicate.operationId)
-                    throw new Error(`same actor duplicate was not one receipt for ${session.id}`)
-                  return { sessionId: session.id, index, input, sameKey, first }
-                } finally {
-                  pending--
-                }
-              }),
-            ),
-            MAX_LEVEL_RUNTIME_MS,
-            `same actor submissions level ${requested} batch ${batchStart}`,
-            controller,
-          )),
-        )
-      }
-      const crossResults: Array<{ sessionId: string; operationId: string; sameActor: string; crossActor: string }> = []
-      for (let batchStart = 0; batchStart < duplicateResults.length; batchStart += SUBMISSION_BATCH) {
-        const batch = duplicateResults.slice(batchStart, batchStart + SUBMISSION_BATCH)
-        crossResults.push(
-          ...(await bounded(
-            Promise.all(
-              batch.map(async ({ sessionId, index, input, sameKey, first }) => {
-                const otherActor = clientAt(clients, index + 1)
-                const cross = await createRunCommandClient(otherActor).execute('run.submit', input, {
-                  signal,
-                  idempotencyKey: sameKey,
-                  requestId: `cross-${requested}-${index}`,
-                })
-                if (cross.operationId === first.operationId)
-                  throw new Error(`cross actor receipt leaked for ${sessionId}`)
-                return {
-                  sessionId,
-                  operationId: first.operationId,
-                  sameActor: first.operationId,
-                  crossActor: cross.operationId,
-                }
-              }),
-            ),
-            MAX_LEVEL_RUNTIME_MS,
-            `cross actor submissions level ${requested} batch ${batchStart}`,
-            controller,
-          )),
-        )
-      }
-      accepted.push(...crossResults)
-      for (let index = 0; index < MAX_LEVEL_RUNTIME_MS / 10 && activeBarrier.entered() < requested; index += 1) {
-        signal.throwIfAborted()
-        await Bun.sleep(10)
-      }
-      if (activeBarrier.entered() !== requested)
-        throw new Error(`tool barrier entered ${activeBarrier.entered()} of ${requested} runs`)
-      activeBarrier.release()
-      await bounded(kernel.waitForIdle(), MAX_LEVEL_RUNTIME_MS, `idle level ${requested}`, controller)
-      samplingDone.resolve()
-      const sampled = await bounded(sampling, 2_000, `active sampler level ${requested}`, controller)
-      peak = sampled.peak
-      const failures: string[] = []
-      for (const item of accepted) {
-        const snapshot = await observerClient.call('session.snapshot', { sessionId: item.sessionId })
-        const runs = snapshot.runs.filter((run) => run.id === item.sameActor || run.id === item.crossActor)
-        if (runs.length !== 2 || runs.some((run) => run.sessionId !== item.sessionId || run.status !== 'completed'))
-          failures.push(`runs:${item.sessionId}`)
-        const ordered = [...runs].sort((left, right) => (left.startedAt ?? 0) - (right.startedAt ?? 0))
-        if (
-          ordered.length === 2 &&
-          ordered[0]?.endedAt !== null &&
-          ordered[1]?.startedAt !== null &&
-          (ordered[0]?.endedAt ?? 0) > (ordered[1]?.startedAt ?? 0)
-        )
-          failures.push(`overlap:${item.sessionId}`)
-        for (const observer of clients.slice(0, 2)) {
-          const followed = await observer.call('session.follow', { sessionId: item.sessionId, cursor: 0 })
-          if (followed.events.some((event) => event.sessionId !== item.sessionId))
-            failures.push(`events:${item.sessionId}`)
-        }
-      }
-      levels.push({
-        requested,
-        sessions: sessions.length,
-        accepted: accepted.length,
-        duplicateSameActor: accepted.length,
-        actorScopedDistinct: accepted.filter((item) => item.sameActor !== item.crossActor).length,
-        peakActiveRuns: peak,
-        barrierTarget: requested,
-        driverToolPeak: activeBarrier.peakAtRelease(),
-        toolRunResults: accepted.flatMap((item) => {
-          const same = toolRunResults.get(item.sameActor)
-          const cross = toolRunResults.get(item.crossActor)
-          if (!same || !cross) throw new Error(`missing tool result for ${item.sessionId}`)
-          return [same, cross]
-        }),
-        maxPendingObserved: maxPending,
-        eventIsolationFailures: failures,
-        elapsedMs: performance.now() - startedAt,
-      })
-      if (failures.length) throw new Error(`event isolation failure at level ${requested}: ${failures.join(',')}`)
-      if (activeBarrier.peakAtRelease() !== requested)
-        throw new Error(`tool barrier did not reach target at level ${requested}`)
-      activeBarrier = undefined
-    }
-
-    const cancelSession = await runtimeKernel.createSession(workspace.id, 'real-pressure-cancel-target')
-    const otherSessions = await Promise.all(
-      Array.from({ length: 3 }, (_, index) =>
-        runtimeKernel.createSession(workspace.id, `real-pressure-cancel-other-${index}`),
-      ),
-    )
-    activeBarrier = createToolBarrier(4)
-    const cancelClient = clients[0]
-    if (!cancelClient) throw new Error('cancel client missing')
-    const cancelCommands = createRunCommandClient(cancelClient)
-    const cancelAccepted = await cancelCommands.execute(
-      'run.submit',
-      {
-        sessionId: cancelSession.id,
-        modelId: 'local-fixture',
-        input: { text: '/slow', images: [], mode: 'default', approval: 'allow' },
-      },
-      { signal, idempotencyKey: 'cancel-target' },
-    )
-    const otherAccepted = await Promise.all(
-      otherSessions.map((session, index) =>
-        cancelCommands.execute(
-          'run.submit',
+    call: async (method, args, authority, diagnostic) => {
+      const callId = ++metrics.nextManagedCallId
+      metrics.managedCalls.set(callId, method)
+      try {
+        return await callStorageRpc(
           {
-            sessionId: session.id,
-            modelId: 'local-fixture',
-            input: { text: '/slow', images: [], mode: 'default', approval: 'allow' },
+            execute: (request) =>
+              physical.executeRpc({
+                ...request,
+                ...(diagnostic === undefined ? {} : { diagnostic }),
+              }),
           },
-          { signal, idempotencyKey: `cancel-other-${index}` },
-        ),
-      ),
-    )
-    for (
-      let index = 0;
-      index < 100 &&
-      (!runtimeKernel.active.has(cancelSession.id) ||
-        activeBarrier.entered() < 4 ||
-        runtimeKernel.active.get(cancelSession.id)?.run.id !== cancelAccepted.operationId);
-      index++
-    ) {
-      signal.throwIfAborted()
-      await Bun.sleep(5)
-    }
-    if (
-      !runtimeKernel.active.has(cancelSession.id) ||
-      activeBarrier.entered() !== 4 ||
-      runtimeKernel.active.get(cancelSession.id)?.run.id !== cancelAccepted.operationId
-    )
-      throw new Error('cancel target did not reach the barrier as the active session Run')
-    const cancellation = await cancelCommands.execute(
-      'operation.cancel',
-      { operationId: cancelAccepted.operationId },
-      { signal },
-    )
-    activeBarrier.release()
-    await bounded(runtimeKernel.waitForIdle(), MAX_LEVEL_RUNTIME_MS, 'idle cancellation', controller)
-    activeBarrier = undefined
-    const targetSnapshot = await cancelClient.call('session.snapshot', { sessionId: cancelSession.id })
-    const otherSnapshots = await Promise.all(
-      otherSessions.map((session) => cancelClient.call('session.snapshot', { sessionId: session.id })),
-    )
-    const targetEvents = await cancelClient.call('session.follow', { sessionId: cancelSession.id, cursor: 0 })
-    const cancelRunEvents = targetEvents.events.filter((event) => event.runId === cancelAccepted.operationId)
-    const reconnectCursor = targetEvents.cursor
-    cancelClient.disconnect()
-    await bounded(cancelClient.connect(), 10_000, 'client reconnect', controller)
-    const afterReconnect = await cancelClient.call('session.follow', {
-      sessionId: cancelSession.id,
-      cursor: reconnectCursor,
-    })
-    const receipt = await cancelCommands.getReceipt(cancelSession.id, 'cancel-target')
-    const finalCancelledStatus =
-      targetSnapshot.runs.find((run) => run.id === cancelAccepted.operationId)?.status ?? 'missing'
-    const cancellationReport: CancellationReport = {
-      cancelledOperationId: cancelAccepted.operationId,
-      cancellationRequestStatus: String(cancellation.status),
-      cancelledStatus: String(finalCancelledStatus),
-      completedOperationIds: otherAccepted.map((item) => item.operationId),
-      completedOtherRuns: otherSnapshots.every((snapshot, index) => {
-        const operation = otherAccepted[index]
-        return (
-          operation !== undefined &&
-          snapshot.runs.some((run) => run.id === operation.operationId && run.status === 'completed')
+          method,
+          args,
+          authority,
         )
-      }),
-      lateSettledEvents: cancelRunEvents.filter((event) => event.type === 'run.settled').length,
-      cancelRequestedEvents: cancelRunEvents.filter((event) => event.type === 'run.cancelRequested').length,
-      cursorBeforeReconnect: reconnectCursor,
-      cursorAfterReconnect: afterReconnect.cursor,
-      canonicalMessages: targetSnapshot.messages.length,
-      receiptRecovered: receipt?.operationId === cancelAccepted.operationId,
-    }
-    if (targetSnapshot.runs.find((run) => run.id === cancelAccepted.operationId)?.status !== 'cancelled')
-      throw new Error(`cancel target did not settle cancelled: ${cancelAccepted.operationId}`)
-    if (!cancellationReport.completedOtherRuns)
-      throw new Error('an unrelated session did not complete after cancellation')
-    if (cancellationReport.lateSettledEvents !== 1)
-      throw new Error('cancel target did not produce exactly one terminal fact')
-    if (cancellationReport.cancelRequestedEvents !== 1)
-      throw new Error('cancel target did not produce exactly one cancel request fact')
-    if (afterReconnect.events.length !== 0) throw new Error('reconnect replayed events at an already applied cursor')
-    if (!cancellationReport.receiptRecovered)
-      throw new Error('cancel acceptance receipt was not recovered after reconnect')
-    const pressureToolRuns = levels.flatMap((level) => level.toolRunResults)
-    const toolExecution: ToolExecutionReport = {
-      approval: 'allow',
-      tools: ['write_file', 'read_file', 'shell'],
-      writeReadVerified:
-        pressureToolRuns.length === 56 && pressureToolRuns.every((run) => run.allSucceeded && run.tools.length === 3),
-      shellVerified: pressureToolRuns.every((run) => run.tools.includes('shell') && run.allSucceeded),
-      barrierVerified: levels.every((level) => level.driverToolPeak === level.requested),
-      fullAccessCovered: true,
-      actualToolPeak,
-      limitation:
-        'The typed fixture Driver invokes the public write_file/read_file/shell gate with approval=allow and a barrier; it does not claim OS-level elevated sandbox bypass or a real paid model tool plan.',
+      } finally {
+        metrics.managedCalls.delete(callId)
+      }
+    },
+  }
+  stable.install(writer)
+  const driver = createDriverPlugin(() => barrier, specs, driverMetrics)
+  const kernel = await Kernel.create({
+    home: dataRoot,
+    layout,
+    workspace: workRoot,
+    demo: true,
+    secrets: new MemorySecrets(),
+    runIdleTimeoutMs: 20_000,
+    diagnostics: { emit: (event) => onStorageEvent(metrics, event) },
+    diagnosticFullCoverage: true,
+    profile: {
+      replacements: { 'driver.pi': driver },
+      createStorage: async () => stable,
+    },
+  })
+  const hotspotInput = z.object({ value: z.string().min(1).max(200) })
+  const planInput = z.object({ status: z.enum(['in_progress', 'completed']) })
+  const disposeHotspot = kernel.tools.register({
+    name: 'pressure_hotspot_write',
+    description: 'Write one seeded marker to a shared private SQLite setting row.',
+    effect: 'write',
+    inputSchema: hotspotInput,
+    async execute(args) {
+      const input = hotspotInput.parse(args)
+      await kernel.storage.call('setSetting', 'pressure.shared-hotspot', input.value)
+      hotspotValues.add(input.value)
+      return { text: `stored ${input.value}` }
+    },
+  })
+  const disposePlan = kernel.tools.register({
+    name: 'pressure_plan_touch',
+    description: 'Update the owning Session plan through the public PlanService.',
+    effect: 'write',
+    inputSchema: planInput,
+    async execute(args, context) {
+      const input = planInput.parse(args)
+      const plans = kernel.plugins.get<PlanService>('plan')
+      const current = await plans.get(context.session.id)
+      if (!current) throw new Error('PRESSURE_PLAN_MISSING')
+      const next = await plans.update(
+        context.session.id,
+        [{ step: 'exercise real SQLite and tool paths', status: input.status }],
+        'deterministic concurrency fixture',
+        context.run.id,
+        current.revision,
+      )
+      return { text: `plan revision ${next.revision}` }
+    },
+  })
+  const wireEvents: WireNotification[] = []
+  const unsubscribe = kernel.subscribe((event) => {
+    wireEvents.push(event)
+  })
+  const fixture: Fixture = {
+    root,
+    workRoot,
+    layout,
+    kernel,
+    stable,
+    physical,
+    metrics,
+    workerOwner: owner,
+    workerExitSettled: () => workerExitSettled,
+    setBarrier: (next) => {
+      barrier = next
+    },
+    resetDriverMetrics: () => {
+      driverMetrics.active = 0
+      driverMetrics.peak = 0
+      driverMetrics.entered = 0
+    },
+    driverPeak: () => driverMetrics.peak,
+    driverEntered: () => driverMetrics.entered,
+    driverActive: () => driverMetrics.active,
+    driverResults: driverMetrics.results,
+    wireEvents,
+    hotspotValues,
+    specs,
+    disposeTools: async () => {
+      await disposeHotspot()
+      await disposePlan()
+    },
+    unsubscribe,
+  }
+  activeFixtures.push(fixture)
+  return fixture
+}
+
+function recordPortSample(report: WaveReport, fixture: Fixture): void {
+  const port = fixture.stable.snapshot()
+  report.stableInFlightPeak = Math.max(report.stableInFlightPeak, port.inFlight)
+  report.stableQueuedPeak = Math.max(report.stableQueuedPeak, port.queued)
+  report.stableBufferedBytesPeak = Math.max(report.stableBufferedBytesPeak, port.bufferedBytes)
+  report.storageRpcOutstandingPeak = Math.max(report.storageRpcOutstandingPeak, fixture.metrics.storageOutstandingPeak)
+  report.sqliteWorkerExecutingPeak = Math.max(report.sqliteWorkerExecutingPeak, fixture.metrics.workerExecutingPeak)
+}
+
+async function waitForSessionRunSettled(
+  fixture: Fixture,
+  sessionId: string,
+  runId: string,
+  deadline: number,
+  phase: string,
+): Promise<void> {
+  let lastState: Record<string, unknown> = {}
+  while (performance.now() < deadline) {
+    const run = await fixture.kernel.storage.call('run', runId)
+    const queued = await fixture.kernel.storage.call('queuedSessions')
+    await Bun.sleep(1)
+    const port = fixture.stable.snapshot()
+    const active = fixture.kernel.active.get(sessionId)
+    lastState = {
+      status: run.status,
+      activeRunId: active?.run.id ?? null,
+      queuedForSession: queued.includes(sessionId),
+      driverActive: fixture.driverActive(),
+      storageRpcOutstanding: fixture.metrics.storageOutstanding.size,
+      sqliteWorkerExecuting: fixture.metrics.workerExecuting.size,
+      managedCalls: [...fixture.metrics.managedCalls.values()],
+      stableInFlight: port.inFlight,
+      stableQueued: port.queued,
     }
     if (
-      !toolExecution.writeReadVerified ||
-      !toolExecution.shellVerified ||
-      diagnosticErrors.length ||
-      activeToolCalls.size !== 0
+      ['completed', 'failed', 'cancelled'].includes(run.status) &&
+      !active &&
+      !queued.includes(sessionId) &&
+      port.inFlight === 0 &&
+      port.queued === 0 &&
+      fixture.metrics.workerExecuting.size === 0
     )
-      throw new Error(
-        `pressure tool gate verification failed: ${diagnosticErrors.join(';')}; unsettled=${activeToolCalls.size}`,
-      )
+      return
+    await Bun.sleep(5)
+  }
+  throw new Error(`${phase}_DEADLINE_EXCEEDED:${JSON.stringify(lastState)}`)
+}
 
-    for (const client of clients) client.disconnect()
-    await host.close()
-    hostClosed = true
-    await runtimeKernel.waitForIdle()
-    idleConfirmed = runtimeKernel.chatDatabaseIsIdle()
-    if (!idleConfirmed) throw new Error('Kernel was not idle before close')
-    await kernel.close()
-    kernelClosed = true
-    const currentRoot = resolve(await realpath(rootPath))
-    const currentParent = resolve(await realpath(dirname(currentRoot)))
-    if (currentParent !== tempPath || dirname(currentRoot) !== tempPath || !basename(currentRoot).startsWith(PREFIX))
-      throw new Error(`unsafe cleanup root after success: ${currentRoot}`)
-    await rm(currentRoot, { recursive: true, force: true })
-    tempRemoved = true
-    completedReport = {
-      artifact: 'session-concurrency-pressure.v6-proposed.ts',
-      generatedAt: new Date().toISOString(),
-      storage: 'Kernel default SQLite (temporary home)',
-      executionCap: null,
-      executionCapNote:
-        'Kernel exposes no configurable run cap. A prior fixture historically observed command BUSY; this run records only the current batch-of-8 submission fact and does not claim to reproduce BUSY.',
-      levels,
-      cancellation: cancellationReport,
-      toolExecution,
-      totalRunsUpperBound: 2 * LEVELS.reduce((sum, value) => sum + value, 0) + 4,
-      cleanup: { hostClosed, kernelClosed, idleConfirmed, tempRemoved },
+async function writeReport(path: string, report: PressureReport): Promise<void> {
+  await Bun.write(path, `${JSON.stringify(report, null, 2)}\n`)
+}
+
+async function createSessions(
+  fixture: Fixture,
+  wave: string,
+  count: number,
+): Promise<{ id: string; runId: string; acceptedAt: number; index: number }[]> {
+  const workspace = (await fixture.kernel.storage.call('workspaces'))[0]
+  if (!workspace) throw new Error('PRESSURE_WORKSPACE_MISSING')
+  const goals = fixture.kernel.plugins.get<GoalService>('goal')
+  const plans = fixture.kernel.plugins.get<PlanService>('plan')
+  const actors: { id: string; runId: string; acceptedAt: number; index: number }[] = []
+  for (let offset = 0; offset < count; offset += SUBMISSION_BATCH_SIZE) {
+    const batchSize = Math.min(SUBMISSION_BATCH_SIZE, count - offset)
+    const created = await bounded(
+      Promise.all(
+        Array.from({ length: batchSize }, async (_, localIndex) => {
+          const index = offset + localIndex
+          const session = await fixture.kernel.createSession(workspace.id, `${wave}-agent-${index}`)
+          fixture.specs.set(session.id, {
+            wave,
+            index,
+            seed: (SEED ^ Math.imul(index + 1, 0x9e3779b1) ^ wave.length) >>> 0,
+            extraActions: 1 + ((index * 7 + wave.length) % 3),
+          })
+          await goals.create(session.id, `verify ${wave} SQLite actor ${index}`, 50_000)
+          await plans.update(
+            session.id,
+            [{ step: 'exercise real SQLite and tool paths', status: 'pending' }],
+            'seeded pressure fixture',
+          )
+          return { id: session.id, index }
+        }),
+      ),
+      10_000,
+      `${wave}_CREATE_BATCH_${offset}`,
+    )
+    actors.push(...created.map((item) => ({ id: item.id, runId: '', acceptedAt: 0, index: item.index })))
+  }
+  return actors
+}
+
+async function runWave(
+  fixture: Fixture,
+  report: PressureReport,
+  waveName: string,
+  count: number,
+  options: {
+    readonly cancelFirst?: boolean
+    readonly queueSuccessor?: boolean
+    readonly snapshotSessionId?: string
+  } = {},
+): Promise<WaveReport> {
+  const wave: WaveReport = {
+    name: waveName,
+    requestedAgents: count,
+    acceptedRuns: 0,
+    duplicateReceipts: 0,
+    fullAccessRuns: 0,
+    enteredBeforeRelease: 0,
+    kernelActiveAtRelease: 0,
+    driverPeak: 0,
+    stableInFlightPeak: 0,
+    stableQueuedPeak: 0,
+    stableBufferedBytesPeak: 0,
+    storageRpcOutstandingPeak: 0,
+    sqliteWorkerExecutingPeak: 0,
+    streamUpdateCount: 0,
+    freeMemoryStartBytes: freemem(),
+    rssStartBytes: process.memoryUsage().rss,
+    runLatencyMs: [],
+    snapshotLatencyMs: [],
+    statuses: {},
+    failures: [],
+    durationMs: 0,
+  }
+  report.waves.push(wave)
+  const startedAt = performance.now()
+  const deadline = startedAt + WAVE_TIMEOUT_MS
+  if (freemem() < 4 * 1024 * 1024 * 1024) throw new Error(`${waveName}_FREE_MEMORY_BELOW_4GIB`)
+  fixture.resetDriverMetrics()
+  const actors = await createSessions(fixture, waveName, count)
+  const barrier = createBarrier()
+  fixture.setBarrier(barrier)
+  const acceptedAt = new Map<string, number>()
+  const runIds: string[] = []
+  const storageEventStart = fixture.metrics.events.length
+  const wireEventStart = fixture.wireEvents.length
+  let successorId: string | undefined
+  let primaryError: unknown
+  let stopSampler = false
+  const sampler = (async () => {
+    while (!stopSampler) {
+      recordPortSample(wave, fixture)
+      await Bun.sleep(2)
+    }
+  })()
+  const runOne = async (actor: { id: string; index: number }) => {
+    const requestId = `${waveName}-request-${actor.index}`
+    const run = await fixture.kernel.submit(
+      actor.id,
+      requestId,
+      {
+        text: `synthetic agent intent ${waveName}/${actor.index}`,
+        images: [],
+        approval: 'allow',
+      },
+      'local-fixture',
+    )
+    acceptedAt.set(run.id, performance.now())
+    runIds.push(run.id)
+    wave.acceptedRuns += 1
+    return run
+  }
+  try {
+    const accepted = []
+    for (let offset = 0; offset < actors.length; offset += SUBMISSION_BATCH_SIZE) {
+      const slice = actors.slice(offset, offset + SUBMISSION_BATCH_SIZE)
+      const batch = await bounded(
+        Promise.all(slice.map((actor) => runOne(actor))),
+        10_000,
+        `${waveName}_SUBMIT_BATCH_${offset}`,
+      )
+      accepted.push(...batch)
+    }
+    if (accepted.length !== count) throw new Error(`${waveName}_ACCEPTED_COUNT:${accepted.length}/${count}`)
+    wave.fullAccessRuns = accepted.filter(
+      (run) =>
+        run.input.approval === 'allow' &&
+        run.input.permissionAtAdmission === 'allow' &&
+        run.input.sandbox === undefined,
+    ).length
+    if (wave.fullAccessRuns !== count)
+      throw new Error(`${waveName}_FULL_ACCESS_RUN_CONFIG_MISMATCH:${wave.fullAccessRuns}/${count}`)
+    const first = accepted[0]
+    if (!first) throw new Error(`${waveName}_FIRST_RUN_MISSING`)
+    const duplicate = await bounded(
+      fixture.kernel.submit(
+        first.sessionId,
+        `${waveName}-request-0`,
+        {
+          text: `synthetic agent intent ${waveName}/0`,
+          images: [],
+          approval: 'allow',
+        },
+        'local-fixture',
+      ),
+      5_000,
+      `${waveName}_IDEMPOTENCY_REPLAY`,
+    )
+    if (duplicate.id !== first.id) throw new Error(`${waveName}_IDEMPOTENCY_DUPLICATED_RUN`)
+    wave.duplicateReceipts += 1
+    if (options.queueSuccessor) {
+      const actor = actors[0]
+      if (!actor) throw new Error(`${waveName}_QUEUE_ACTOR_MISSING`)
+      const queued = await bounded(
+        fixture.kernel.submit(
+          actor.id,
+          `${waveName}-successor`,
+          {
+            text: `queued successor ${waveName}`,
+            images: [],
+            approval: 'allow',
+          },
+          'local-fixture',
+        ),
+        5_000,
+        `${waveName}_QUEUE_SUCCESSOR`,
+      )
+      if (
+        queued.input.approval !== 'allow' ||
+        queued.input.permissionAtAdmission !== 'allow' ||
+        queued.input.sandbox !== undefined
+      )
+        throw new Error(`${waveName}_SUCCESSOR_FULL_ACCESS_RUN_CONFIG_MISMATCH`)
+      wave.fullAccessRuns += 1
+      successorId = queued.id
+      const queuedRead = await fixture.kernel.storage.call('run', queued.id)
+      if (queuedRead.status !== 'queued') throw new Error(`${waveName}_SAME_SESSION_NOT_QUEUED:${queuedRead.status}`)
+      runIds.push(queued.id)
+      acceptedAt.set(queued.id, performance.now())
+      wave.acceptedRuns += 1
+    }
+    await barrier.waitUntilEntered(count, deadline)
+    wave.enteredBeforeRelease = barrier.entered
+    wave.kernelActiveAtRelease = fixture.kernel.active.size
+    if (wave.enteredBeforeRelease !== count || wave.kernelActiveAtRelease < count)
+      throw new Error(
+        `${waveName}_OVERLAP_SHORTFALL:${wave.enteredBeforeRelease}/${count};kernel=${wave.kernelActiveAtRelease}`,
+      )
+    if (options.cancelFirst) {
+      const cancelTarget = accepted[0]
+      if (!cancelTarget) throw new Error(`${waveName}_CANCEL_TARGET_MISSING`)
+      await bounded(fixture.kernel.cancel(cancelTarget.id), 5_000, `${waveName}_CANCEL_REQUEST`)
+    }
+    barrier.release()
+    if (options.snapshotSessionId) {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const snapshotStarted = performance.now()
+        const snapshot: Awaited<ReturnType<StorageMethods['snapshot']>> = await bounded(
+          fixture.kernel.storage.call('snapshot', options.snapshotSessionId),
+          5_000,
+          `${waveName}_LONG_HISTORY_SNAPSHOT_${attempt}`,
+        )
+        if (snapshot.session.id !== options.snapshotSessionId) throw new Error(`${waveName}_SNAPSHOT_CROSSED_SESSION`)
+        wave.snapshotLatencyMs.push(performance.now() - snapshotStarted)
+      }
+    }
+    await bounded(fixture.kernel.waitForIdle(), Math.max(1, deadline - performance.now()), `${waveName}_IDLE`)
+    if (fixture.kernel.active.size !== 0) throw new Error(`${waveName}_KERNEL_NOT_IDLE:${fixture.kernel.active.size}`)
+    const terminalRuns = await Promise.all(runIds.map((runId) => fixture.kernel.storage.call('run', runId)))
+    for (const run of terminalRuns) {
+      wave.statuses[run.status] = (wave.statuses[run.status] ?? 0) + 1
+      if (run.status !== 'completed' && run.status !== 'cancelled')
+        wave.failures.push(
+          `run:${run.id}:${run.status}:${run.error ?? 'no-error'}:${run.failure?.category ?? 'no-category'}`,
+        )
+      const acceptedAtMs = acceptedAt.get(run.id)
+      if (acceptedAtMs !== undefined && run.endedAt !== null)
+        wave.runLatencyMs.push(Math.max(0, performance.now() - acceptedAtMs))
+    }
+    const expectedCancelled = options.cancelFirst ? 1 : 0
+    if (
+      (wave.statuses.completed ?? 0) !== runIds.length - expectedCancelled ||
+      (wave.statuses.cancelled ?? 0) !== expectedCancelled
+    )
+      throw new Error(`${waveName}_TERMINAL_STATUS_MISMATCH:${JSON.stringify(wave.statuses)}`)
+    const cancelledRun = terminalRuns.find((run) => run.status === 'cancelled')
+    if (cancelledRun) wave.cancelledRunId = cancelledRun.id
+    if (successorId) {
+      const successor = terminalRuns.find((run) => run.id === successorId)
+      if (successor) {
+        wave.sameSessionSuccessorId = successor.id
+        wave.sameSessionSuccessorStatus = successor.status
+      }
+      if (
+        !cancelledRun ||
+        !successor ||
+        successor.status !== 'completed' ||
+        successor.sessionId !== cancelledRun.sessionId
+      )
+        throw new Error(`${waveName}_SAME_SESSION_SUCCESSOR_TERMINAL_MISMATCH`)
+    }
+    for (const actor of actors) {
+      const events = await fixture.kernel.storage.call('events', actor.id, 0, 2_000)
+      const seqs = events.map((event) => event.seq)
+      if (seqs.some((seq, index) => index > 0 && seq <= (seqs[index - 1] ?? 0)))
+        throw new Error(`${waveName}_EVENT_SEQUENCE_INVALID:${actor.id}`)
+      const hasCompletedRun = terminalRuns.some((run) => run.sessionId === actor.id && run.status === 'completed')
+      const hasCancelledRun = terminalRuns.some((run) => run.sessionId === actor.id && run.status === 'cancelled')
+      const goal = await fixture.kernel.plugins.get<GoalService>('goal').get(actor.id)
+      if (
+        !goal.goal ||
+        (hasCancelledRun
+          ? goal.goal.status !== 'paused' || goal.goal.tokensUsed !== 0
+          : hasCompletedRun
+            ? goal.goal.tokensUsed <= 0
+            : goal.goal.tokensUsed !== 0)
+      )
+        throw new Error(`${waveName}_GOAL_USAGE_NOT_ACCOUNTED:${actor.id}`)
+      if (hasCancelledRun) {
+        wave.cancelledActorGoalStatus = goal.goal.status
+        wave.cancelledActorGoalTokens = goal.goal.tokensUsed
+      }
+      const plan = await fixture.kernel.plugins.get<PlanService>('plan').get(actor.id)
+      if (!plan || plan.revision < (hasCompletedRun ? 2 : 1))
+        throw new Error(`${waveName}_PLAN_NOT_UPDATED:${actor.id}`)
+    }
+    wave.streamUpdateCount = fixture.wireEvents
+      .slice(wireEventStart)
+      .filter((event) => event.method === 'stream.update' && runIds.includes(event.params.runId)).length
+    wave.driverPeak = fixture.driverPeak()
+    const waveDiagnostics = fixture.metrics.events.slice(storageEventStart)
+    wave.storageRpcOutstandingPeak = Math.max(
+      wave.storageRpcOutstandingPeak,
+      ...waveDiagnostics
+        .filter((event) => event.component === 'storage' && event.event === 'storage.request_dispatched')
+        .map((event) => event.pending ?? 0),
+    )
+    let workerExecuting = 0
+    for (const event of waveDiagnostics) {
+      if (event.component !== 'sqlite') continue
+      if (event.event === 'sqlite.request_started') workerExecuting += 1
+      if (event.event === 'sqlite.request_completed' || event.event === 'sqlite.request_failed')
+        workerExecuting = Math.max(0, workerExecuting - 1)
+      wave.sqliteWorkerExecutingPeak = Math.max(wave.sqliteWorkerExecutingPeak, workerExecuting)
+    }
+    recordPortSample(wave, fixture)
+    if (wave.driverPeak < count) throw new Error(`${waveName}_DRIVER_PEAK_SHORTFALL:${wave.driverPeak}/${count}`)
+    if (wave.streamUpdateCount < 1) throw new Error(`${waveName}_STREAM_EVENTS_MISSING`)
+    for (const runId of runIds) {
+      if (runId === successorId && options.cancelFirst) continue
+      const result = fixture.driverResults.get(runId)
+      const run = terminalRuns.find((item) => item.id === runId)
+      if (run?.status === 'completed') {
+        const spec = fixture.specs.get(run.sessionId)
+        if (!result || !result.toolNames.includes('write_file') || !result.toolNames.includes('read_file'))
+          throw new Error(`${waveName}_REAL_FILE_TOOLS_MISSING:${runId}`)
+        if (!spec || !result.fileContents.some((text) => text.includes(`${spec.wave}/${spec.index}/${spec.seed}`)))
+          throw new Error(`${waveName}_FILE_READBACK_MISMATCH:${runId}`)
+      }
     }
   } catch (error) {
     primaryError = error
-    if (!controller.signal.aborted) controller.abort(error)
+    wave.failures.push(error instanceof Error ? error.message : 'UNKNOWN_ERROR')
+    throw error
   } finally {
-    for (const client of clients) client.disconnect()
-    const cleanupController = new AbortController()
-    const cleanupDeadline = setTimeout(() => cleanupController.abort(new Error('cleanup deadline exceeded')), 15_000)
-    if (kernel && !kernelClosed) {
-      try {
-        const cleanupKernel = kernel
-        const activeRunIds = [...cleanupKernel.active.values()].map((active) => active.run.id)
-        const cancellations = await Promise.allSettled(activeRunIds.map((runId) => cleanupKernel.cancel(runId)))
-        for (const result of cancellations) if (result.status === 'rejected') cleanupErrors.push(result.reason)
-        activeBarrier?.release()
-        await bounded(cleanupKernel.waitForIdle(), 10_000, 'cleanup idle', cleanupController)
-        idleConfirmed = cleanupKernel.chatDatabaseIsIdle()
-      } catch (error) {
-        cleanupErrors.push(error)
-      }
-    }
-    activeBarrier?.release()
-    if (!hostClosed) {
-      try {
-        await host?.close()
-        hostClosed = true
-      } catch (error) {
-        cleanupErrors.push(error)
-      }
-    }
-    if (!kernelClosed) {
-      try {
-        await kernel?.close()
-        kernelClosed = true
-      } catch (error) {
-        cleanupErrors.push(error)
-      }
-    }
-    clearTimeout(cleanupDeadline)
-    if (!tempRemoved && idleConfirmed && hostClosed && kernelClosed && cleanupErrors.length === 0) {
-      try {
-        const currentRoot = resolve(await realpath(rootPath))
-        const currentParent = resolve(await realpath(dirname(currentRoot)))
-        if (
-          currentParent !== tempPath ||
-          dirname(currentRoot) !== tempPath ||
-          !basename(currentRoot).startsWith(PREFIX)
-        ) {
-          cleanupErrors.push(new Error(`unsafe cleanup root after close: ${currentRoot}`))
-        } else {
-          await rm(currentRoot, { recursive: true, force: true })
-          tempRemoved = true
-        }
-      } catch (error) {
-        cleanupErrors.push(error)
-      }
-    }
-    if (!tempRemoved) {
-      console.error(
-        JSON.stringify({
-          cleanup: 'retained',
-          rootPath,
-          errors: cleanupErrors.map((error) => (error instanceof Error ? error.message : String(error))),
-        }),
-      )
-    }
+    barrier.release()
+    stopSampler = true
+    await bounded(sampler, 2_000, `${waveName}_METRIC_SAMPLER_CLOSE`).catch(() => undefined)
+    fixture.setBarrier(undefined)
+    wave.durationMs = performance.now() - startedAt
+    wave.driverPeak = Math.max(wave.driverPeak, fixture.driverPeak())
+    recordPortSample(wave, fixture)
+    if (primaryError && fixture.kernel.active.size > 0)
+      wave.failures.push(`active-at-wave-exit:${fixture.kernel.active.size}`)
   }
-  if (cleanupErrors.length)
-    throw new AggregateError(
-      primaryError === undefined ? cleanupErrors : [primaryError, ...cleanupErrors],
-      'Pressure fixture failed; cleanup diagnostics retained',
+  return wave
+}
+
+function createReport(attemptId: string): PressureReport {
+  return {
+    attemptId,
+    seed: SEED,
+    generatedAt: new Date().toISOString(),
+    fixtureKind: 'deterministic synthetic HarnessDriver; no model API; Goal autoContinue disabled',
+    storagePath: 'Kernel -> StableStoragePort (64 active / 256 queued / 64 MiB) -> real SQLite Storage Worker',
+    accessContract: {
+      approval: 'allow',
+      permissionAtAdmission: 'allow',
+      sandboxSnapshot: 'none',
+      osConfinement: 'none',
+      boundary: 'built-in file tools remain restricted to the owned workspace; no shell probe in this SQLite fixture',
+    },
+    sqlite: {},
+    limits: {},
+    waves: [],
+    history: {},
+    cleanup: { kernelClosed: false, workerExitSettled: false, idleConfirmed: false, fixtureRemoved: false },
+  }
+}
+
+async function makeAttemptDirectory(): Promise<{ readonly root: string; readonly reportPath: string }> {
+  const base = join(process.cwd(), 'artifacts', 'project-c-functional-20261010', 'sqlite-agent-pressure')
+  await mkdir(base, { recursive: true })
+  const baseReal = await realpath(base)
+  const attemptId = randomUUID()
+  const root = join(baseReal, `${FIXTURE_PREFIX}${attemptId}`)
+  await mkdir(root)
+  const rootReal = await realpath(root)
+  if (dirname(rootReal) !== baseReal || basename(rootReal) !== `${FIXTURE_PREFIX}${attemptId}`)
+    throw new Error('PRESSURE_ARTIFACT_ROOT_FENCE_FAILED')
+  return { root: rootReal, reportPath: join(rootReal, 'report.json') }
+}
+
+async function assertOwnedDirectory(root: string): Promise<string> {
+  const resolved = await realpath(root)
+  const parent = await realpath(dirname(root))
+  if (dirname(resolved) !== parent || !basename(resolved).startsWith('private-'))
+    throw new Error('PRESSURE_FIXTURE_PATH_FENCE_FAILED')
+  return resolved
+}
+
+async function prepareHistory(
+  fixture: Fixture,
+  count: number,
+): Promise<{ readonly sessionId: string; readonly runs: number }> {
+  const workspace = (await fixture.kernel.storage.call('workspaces'))[0]
+  if (!workspace) throw new Error('PRESSURE_HISTORY_WORKSPACE_MISSING')
+  const session = await fixture.kernel.createSession(workspace.id, 'long-history-probe')
+  const goals = fixture.kernel.plugins.get<GoalService>('goal')
+  await goals.create(session.id, 'verify bounded long-history reads under multi-session write pressure', 50_000)
+  await fixture.kernel.plugins
+    .get<PlanService>('plan')
+    .update(session.id, [{ step: 'build canonical event history', status: 'pending' }], 'history snapshot probe')
+  for (let index = 0; index < count; index += 1) {
+    fixture.specs.set(session.id, { wave: 'history', index, seed: SEED ^ index, extraActions: 3 })
+    const run = await bounded(
+      fixture.kernel.submit(
+        session.id,
+        `history-${index}`,
+        {
+          text: `long history turn ${index}`,
+          images: [],
+          approval: 'allow',
+        },
+        'local-fixture',
+      ),
+      5_000,
+      `HISTORY_SUBMIT_${index}`,
     )
-  if (primaryError !== undefined) throw primaryError
-  if (!completedReport) throw new Error('Pressure fixture returned no completed report')
-  return completedReport
+    await waitForSessionRunSettled(fixture, session.id, run.id, performance.now() + 5_000, `HISTORY_IDLE_${index}`)
+    if ((await fixture.kernel.storage.call('run', run.id)).status !== 'completed')
+      throw new Error(`HISTORY_RUN_NOT_COMPLETED:${index}`)
+  }
+  const events = await fixture.kernel.storage.call('events', session.id, 0, 2_000)
+  if (events.length < count * 8) throw new Error(`LONG_HISTORY_TOO_SHORT:${events.length}`)
+  return { sessionId: session.id, runs: count }
+}
+
+function errorCode(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') return error.code
+  return error instanceof Error ? error.name : 'UNKNOWN_ERROR'
 }
 
 test(
-  'real public multi-session pressure fixture preserves isolation, cancellation, and tool-gate facts',
+  '30/40/50 synthetic Kernel agents overlap on one real SQLite Worker without lost state or unbounded stalls',
   async () => {
-    const controller = new AbortController()
-    const deadline = setTimeout(
-      () => controller.abort(new Error(`pressure run exceeded ${MAX_TOTAL_RUNTIME_MS}ms`)),
-      MAX_TOTAL_RUNTIME_MS,
-    )
+    const { root: attemptRoot, reportPath } = await makeAttemptDirectory()
+    const privateRoot = join(attemptRoot, 'private-runtime')
+    await mkdir(privateRoot)
+    const report = createReport(basename(attemptRoot).slice(FIXTURE_PREFIX.length))
+    const fixture = await createFixture(privateRoot)
+    let primaryError: unknown
+    let rssStop = false
+    let rssPeakBytes = process.memoryUsage().rss
+    const rssSampler = (async () => {
+      while (!rssStop) {
+        rssPeakBytes = Math.max(rssPeakBytes, process.memoryUsage().rss)
+        await Bun.sleep(25)
+      }
+    })()
     try {
-      const report = await main(controller)
-      await writeFile(
-        join(resolve('artifacts'), 'session-concurrency-pressure-report.json'),
-        `${JSON.stringify(report, null, 2)}\n`,
-        'utf8',
+      const sqliteConfig = fixture.metrics.events.find(
+        (event) => event.component === 'sqlite' && event.event === 'sqlite.configured',
       )
-      expect(report.levels).toHaveLength(3)
-      expect(report.totalRunsUpperBound).toBeLessThanOrEqual(64)
-      expect(report.levels.map((level) => level.requested)).toEqual([4, 8, 16])
-      expect(report.levels.every((level) => level.eventIsolationFailures.length === 0)).toBe(true)
-      expect(report.levels.every((level) => level.peakActiveRuns >= level.barrierTarget)).toBe(true)
-      expect(report.levels.every((level) => level.driverToolPeak === level.requested)).toBe(true)
-      expect(
-        report.levels.every(
-          (level) =>
-            level.toolRunResults.length === level.requested * 2 &&
-            level.toolRunResults.every((run) => run.allSucceeded),
-        ),
-      ).toBe(true)
-      expect(report.cancellation.cancelledStatus).toBe('cancelled')
-      expect(report.cancellation.completedOtherRuns).toBe(true)
-      expect(report.cancellation.cursorAfterReconnect).toBe(report.cancellation.cursorBeforeReconnect)
-      expect(report.cancellation.receiptRecovered).toBe(true)
-      expect(report.toolExecution.writeReadVerified).toBe(true)
-      expect(report.toolExecution.shellVerified).toBe(true)
-      expect(report.toolExecution.actualToolPeak).toBeGreaterThan(0)
-      expect(report.toolExecution.barrierVerified).toBe(true)
-      expect(report.toolExecution.fullAccessCovered).toBe(true)
+      if (!sqliteConfig) throw new Error('SQLITE_CONFIGURATION_DIAGNOSTIC_MISSING')
+      report.sqlite = {
+        runtimeVersion: sqliteConfig.runtimeVersion,
+        sqliteVersion: sqliteConfig.sqliteVersion,
+        journalMode: sqliteConfig.journalMode,
+        synchronous: sqliteConfig.synchronous,
+        busyTimeoutMs: sqliteConfig.busyTimeoutMs,
+        foreignKeys: sqliteConfig.foreignKeys,
+      }
+      if (sqliteConfig.journalMode !== 'wal' || sqliteConfig.synchronous !== 2 || sqliteConfig.busyTimeoutMs !== 5_000)
+        throw new Error('SQLITE_RUNTIME_CONFIGURATION_MISMATCH')
+      report.limits = {
+        stableInflight: RUNTIME_LIMITS.inFlight,
+        stableQueued: RUNTIME_LIMITS.queued,
+        stableBufferedBytes: RUNTIME_LIMITS.bufferedBytes,
+        directWorkerPending: 1_024,
+        workerRequestTimeoutMs: 30_000,
+        sqliteBusyTimeoutMs: 5_000,
+        freeMemoryStartBytes: freemem(),
+      }
+      report.sqlite = { ...report.sqlite, rssStartBytes: rssPeakBytes }
+
+      const baseline = await runWave(fixture, report, 'baseline-30', 30)
+      if (baseline.acceptedRuns !== 30 || baseline.enteredBeforeRelease !== 30)
+        throw new Error('BASELINE_30_REAL_TOOL_GATE_FAILED')
+      await writeReport(reportPath, report)
+      if (Bun.env.PRESSURE_STAGE === 'baseline') return
+
+      const history = await prepareHistory(fixture, 12)
+      report.history = {
+        ...history,
+        snapshotProbe: 'concurrent snapshots during 30/40/50 pressure waves',
+        minimumExpectedEvents: history.runs * 8,
+      }
+      await writeReport(reportPath, report)
+      if (Bun.env.PRESSURE_STAGE === 'history') return
+
+      for (const count of WAVE_SIZES) {
+        const waveName = `stress-${count}`
+        const waveOptions =
+          typeof report.history.sessionId === 'string'
+            ? { cancelFirst: count === 50, queueSuccessor: count === 50, snapshotSessionId: report.history.sessionId }
+            : { cancelFirst: count === 50, queueSuccessor: count === 50 }
+        const wave = await runWave(fixture, report, waveName, count, {
+          ...waveOptions,
+        })
+        if (wave.enteredBeforeRelease !== count || wave.kernelActiveAtRelease < count)
+          throw new Error(`${waveName}_REAL_OVERLAP_MISSED`)
+        await writeReport(reportPath, report)
+      }
+      report.sqlite = {
+        ...report.sqlite,
+        storageRpcOutstandingPeak: fixture.metrics.storageOutstandingPeak,
+        sqliteWorkerExecutingPeak: fixture.metrics.workerExecutingPeak,
+        sqliteWorkerRequestsStarted: fixture.metrics.events.filter(
+          (event) => event.component === 'sqlite' && event.event === 'sqlite.request_started',
+        ).length,
+        sqliteWorkerRequestsCompleted: fixture.metrics.events.filter(
+          (event) => event.component === 'sqlite' && event.event === 'sqlite.request_completed',
+        ).length,
+        sqliteWorkerRequestsFailed: fixture.metrics.events.filter(
+          (event) => event.component === 'sqlite' && event.event === 'sqlite.request_failed',
+        ).length,
+        allDispatchedRequestsSettled: fixture.metrics.storageOutstanding.size === 0,
+      }
+      if (fixture.metrics.storageOutstanding.size !== 0 || fixture.metrics.workerExecuting.size !== 0)
+        throw new Error('STORAGE_DIAGNOSTIC_REQUESTS_LEFT_IN_FLIGHT')
+      const hotspot = await fixture.kernel.storage.call('getSetting', 'pressure.shared-hotspot')
+      if (typeof hotspot !== 'string' || !fixture.hotspotValues.has(hotspot))
+        throw new Error('SHARED_SQLITE_HOTSPOT_MISSING_OR_CORRUPT')
+      report.history = {
+        ...report.history,
+        hotspotFinalValuePresent: true,
+        runP50Ms: report.waves.map((wave) => ({
+          wave: wave.name,
+          p50: percentile(wave.runLatencyMs, 0.5),
+          p95: percentile(wave.runLatencyMs, 0.95),
+          max: Math.max(0, ...wave.runLatencyMs),
+        })),
+        snapshotP95Ms: report.waves.map((wave) => ({
+          wave: wave.name,
+          p95: percentile(wave.snapshotLatencyMs, 0.95),
+          max: Math.max(0, ...wave.snapshotLatencyMs),
+        })),
+      }
+    } catch (error) {
+      primaryError = error
+      report.failure = {
+        phase: report.waves.length ? (report.waves.at(-1)?.name ?? 'pressure') : 'sqlite-preflight',
+        errorType: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+        errorMessage: (error instanceof Error ? error.message : 'UNKNOWN_ERROR').slice(0, 2_000),
+      }
+      await writeReport(reportPath, report)
+      throw error
     } finally {
-      releaseTimer(deadline)
-      if (!controller.signal.aborted) controller.abort(new Error('fixture test finished'))
+      rssStop = true
+      await bounded(rssSampler, 2_000, 'RSS_SAMPLER_CLOSE').catch(() => undefined)
+      report.sqlite = {
+        ...report.sqlite,
+        rssStartBytes: report.sqlite.rssStartBytes ?? null,
+        rssPeakBytes,
+        rssEndBytes: process.memoryUsage().rss,
+      }
+      const idleBeforeClose =
+        fixture.kernel.active.size === 0 &&
+        fixture.stable.snapshot().inFlight === 0 &&
+        fixture.stable.snapshot().queued === 0
+      report.cleanup = {
+        ...report.cleanup,
+        idleBeforeClose: idleBeforeClose,
+        stablePortBeforeClose: fixture.stable.snapshot(),
+      }
+      try {
+        fixture.setBarrier(undefined)
+        await fixture.disposeTools()
+        fixture.unsubscribe()
+        await bounded(fixture.kernel.close(), 15_000, 'KERNEL_CLOSE')
+        report.cleanup = {
+          ...report.cleanup,
+          kernelClosed: true,
+          workerExitSettled: fixture.workerExitSettled(),
+          stablePortAfterClose: fixture.stable.snapshot(),
+        }
+      } catch (error) {
+        report.cleanup = {
+          ...report.cleanup,
+          closeFailureType: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+          workerExitSettled: fixture.workerExitSettled(),
+          stablePortAfterClose: fixture.stable.snapshot(),
+        }
+        try {
+          await bounded(fixture.stable.close(), 10_000, 'STABLE_CLOSE_FALLBACK')
+          report.cleanup = {
+            ...report.cleanup,
+            stableCloseFallback: fixture.stable.snapshot().phase === 'closed',
+            workerExitSettled: fixture.workerExitSettled(),
+          }
+        } catch (stableError) {
+          report.cleanup = {
+            ...report.cleanup,
+            stableCloseFailureType: errorCode(stableError),
+            workerExitSettled: fixture.workerExitSettled(),
+          }
+        }
+        if (!primaryError) primaryError = error
+      }
+      const closed =
+        report.cleanup.kernelClosed === true &&
+        fixture.workerExitSettled() &&
+        fixture.stable.snapshot().phase === 'closed'
+      report.cleanup = {
+        ...report.cleanup,
+        workerExitConfirmed: closed,
+        idleConfirmed: closed && idleBeforeClose,
+        rssPeakBytes,
+      }
+      if (closed && idleBeforeClose && !primaryError) {
+        const owned = await assertOwnedDirectory(privateRoot)
+        await rm(owned, { recursive: true, force: true })
+        report.cleanup = { ...report.cleanup, fixtureRemoved: true }
+      } else {
+        report.cleanup = {
+          ...report.cleanup,
+          fixtureRetainedAt: privateRoot,
+          retainedReason: primaryError ? 'failed or incomplete attempt' : 'idle/close boundary not confirmed',
+        }
+      }
+      await writeReport(reportPath, report)
+      const fixtureIndex = activeFixtures.indexOf(fixture)
+      if (fixtureIndex >= 0) activeFixtures.splice(fixtureIndex, 1)
     }
+    expect(primaryError).toBeUndefined()
+    expect(report.waves.map((wave) => wave.enteredBeforeRelease)).toEqual([30, 30, 40, 50])
   },
-  MAX_TOTAL_RUNTIME_MS + 20_000,
+  TEST_TIMEOUT_MS,
 )
+
+afterEach(async () => {
+  for (const fixture of activeFixtures.splice(0)) {
+    fixture.setBarrier(undefined)
+    try {
+      await bounded(fixture.kernel.close(), 15_000, 'AFTER_EACH_KERNEL_CLOSE')
+    } catch {
+      // A failed fixture remains on disk for inspection; cleanup is intentionally skipped.
+    }
+  }
+})
