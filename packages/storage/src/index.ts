@@ -87,7 +87,7 @@ export interface StoragePort {
   onFatal?(listener: StorageFatalListener): () => void
 }
 
-export type StorageFatalKind = 'timeout' | 'worker-error' | 'worker-exit'
+export type StorageFatalKind = 'timeout' | 'worker-error' | 'worker-exit' | 'outcome-unknown'
 
 export interface StorageFatalEvent {
   readonly kind: StorageFatalKind
@@ -205,6 +205,23 @@ export class Storage {
       if (!('id' in reply)) return
       const handler = this.pending.get(reply.id)
       if (!handler) return
+      if (!reply.ok && reply.code === 'STORAGE_RESULT_UNKNOWN') {
+        const error = new HbarError('STORAGE_RESULT_UNKNOWN', 'Storage write outcome requires reconciliation')
+        this.emitDiagnostic('storage.result_unknown', 'fatal', error, {
+          method: handler.method,
+          pending: this.pending.size,
+          workerState: 'failed',
+          outcome: 'unknown',
+          storageRequestId: reply.id,
+          durationMs: Math.max(0, performance.now() - handler.startedAt),
+          ...(handler.correlation === undefined ? {} : { correlation: handler.correlation }),
+        })
+        this.fail(error, { kind: 'outcome-unknown', method: handler.method })
+        void this.terminate().catch(() => {
+          // close() awaits the same termination result; unknown outcomes are never replayed.
+        })
+        return
+      }
       this.pending.delete(reply.id)
       clearTimeout(handler.timer)
       this.diagnostics.settled({
