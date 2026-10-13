@@ -23,7 +23,7 @@ export type {
 } from './node-console-contract'
 
 type Floor = NonNullable<NodeConsoleState['policyDraft']>
-type Tab = 'overview' | 'audit' | 'sessions'
+type Tab = 'overview' | 'audit' | 'confirmations' | 'sessions'
 
 export interface HbarNodeConsoleLabels {
   readonly title: string
@@ -69,6 +69,16 @@ export interface HbarNodeConsoleLabels {
   readonly noAudit: string
   readonly auditTime: (timestamp: number) => string
   readonly auditTool: (tool: string, decision: string, backend: string, code: string | number | null) => string
+  readonly auditIdentity: (entry: NodeConsoleState['audit'][number]) => string
+  readonly confirmations: string
+  readonly noConfirmations: string
+  readonly confirmationSummary: (source: string, tool: string, root: string, expiresAt: number) => string
+  readonly confirmationIdentity: (identity: NodeConsoleState['confirmations'][number]['identity']) => string
+  readonly confirmationState: (state: string) => string
+  readonly approve: string
+  readonly reject: string
+  readonly confirmationFailure: (code: string) => string
+  readonly staleConfirmation: string
   readonly moreAudit: string
   readonly conversations: string
   readonly noSessions: string
@@ -283,6 +293,19 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
           >
             <LumenIcon icon={Shield} tier="sm" />
             {labels.audit}
+          </LumenButton>
+        )}
+        {operator && (
+          <LumenButton
+            aria-current={tab === 'confirmations' ? 'page' : undefined}
+            onClick={() => {
+              setTab('confirmations')
+              void model.loadConfirmations()
+              void model.loadPolicy()
+            }}
+          >
+            <LumenIcon icon={Shield} tier="sm" />
+            {labels.confirmations}
           </LumenButton>
         )}
         {canObserve && (
@@ -568,6 +591,7 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
                   <time dateTime={new Date(entry.time).toISOString()}>{labels.auditTime(entry.time)}</time>
                   <code>{entry.operationId}</code>
                   <span>{labels.auditTool(entry.tool, entry.decision, entry.backend, entry.code)}</span>
+                  <small>{labels.auditIdentity(entry)}</small>
                 </li>
               ))}
             </ol>
@@ -586,6 +610,79 @@ export function HbarNodeConsole({ model, labels }: HbarNodeConsoleProps) {
         </LumenFrame>
       )}
 
+      {operator && tab === 'confirmations' && (
+        <LumenFrame as="section" className="hbar-node-console-section" aria-labelledby={`${id}-confirmations`}>
+          <LumenFrame className="hbar-node-console-section-heading">
+            <LumenContentText context="section.subtitle" id={`${id}-confirmations`}>
+              {labels.confirmations}
+            </LumenContentText>
+            <LumenButton
+              disabled={state.loadingConfirmations || state.resolvingConfirmationId !== null}
+              loading={state.loadingConfirmations}
+              onClick={() => void model.loadConfirmations()}
+            >
+              {labels.refresh}
+            </LumenButton>
+          </LumenFrame>
+          {state.confirmationError && (
+            <LumenContentText context="feedback.message" role="alert">
+              {labels.confirmationFailure(state.confirmationError)}
+            </LumenContentText>
+          )}
+          {state.loadingConfirmations && state.confirmations.length === 0 ? (
+            <LumenContentText context="feedback.message" role="status">
+              {labels.loading}
+            </LumenContentText>
+          ) : state.confirmations.length ? (
+            <ul className="hbar-node-console-list" aria-label={labels.confirmations}>
+              {state.confirmations.map((item) => {
+                const stale = item.identity.floorRevision !== state.policyRevision
+                const actionable = item.state === 'waiting' && item.expiresAt > Date.now() && !stale
+                return (
+                  <li className="hbar-node-console-confirmation-row" key={item.id} data-confirmation-id={item.id}>
+                    <div className="hbar-node-console-confirmation-copy">
+                      <strong>{labels.confirmationState(item.state)}</strong>
+                      <span>
+                        {labels.confirmationSummary(
+                          item.identity.source,
+                          item.identity.tool,
+                          item.identity.rootPath,
+                          item.expiresAt,
+                        )}
+                      </span>
+                      <span>{labels.confirmationIdentity(item.identity)}</span>
+                      <p>{item.identity.summary}</p>
+                      <code>{item.identity.operationId}</code>
+                      {stale && item.state === 'waiting' && <span role="status">{labels.staleConfirmation}</span>}
+                    </div>
+                    {actionable && (
+                      <div className="hbar-node-console-confirmation-actions">
+                        <LumenButton
+                          tone="primary"
+                          disabled={state.resolvingConfirmationId !== null}
+                          loading={state.resolvingConfirmationId === item.id}
+                          onClick={() => void model.resolveConfirmation(item.id, 'approve')}
+                        >
+                          {labels.approve}
+                        </LumenButton>
+                        <LumenButton
+                          tone="danger"
+                          disabled={state.resolvingConfirmationId !== null}
+                          onClick={() => void model.resolveConfirmation(item.id, 'reject')}
+                        >
+                          {labels.reject}
+                        </LumenButton>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <LumenContentText context="feedback.message">{labels.noConfirmations}</LumenContentText>
+          )}
+        </LumenFrame>
+      )}
       {canObserve && tab === 'sessions' && (
         <LumenFrame as="section" className="hbar-node-console-observation" aria-labelledby={`${id}-sessions`}>
           <LumenFrame className="hbar-node-console-section">

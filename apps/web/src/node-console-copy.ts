@@ -1,9 +1,37 @@
 import type { ShellLocale } from './shell-copy'
-import type { HbarNodeConsoleLabels } from '@hbar/app-react/node-console'
+import type { HbarNodeConsoleLabels, NodeConsoleState } from '@hbar/app-react/node-console'
+
+type ConfirmationIdentity = NodeConsoleState['confirmations'][number]['identity']
 
 function createNodeConsoleCopy(locale: ShellLocale): HbarNodeConsoleLabels {
   const zh = locale === 'zh-CN'
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
+  const launchSelection = (identity: Extract<ConfirmationIdentity, { source: 'launch-target' }>) => {
+    const selection = identity.selection
+    const branch =
+      selection.mode === 'shared-current'
+        ? choose('共享当前分支', 'shared current branch')
+        : selection.mode === 'shared-branch'
+          ? choose(
+              `共享分支 ${selection.branch.ref}（${selection.branch.tipOid}）`,
+              `shared branch ${selection.branch.ref} (${selection.branch.tipOid})`,
+            )
+          : selection.branch.kind === 'existing'
+            ? choose(
+                `隔离工作树现有分支 ${selection.branch.name}`,
+                `isolated worktree existing branch ${selection.branch.name}`,
+              )
+            : selection.branch.kind === 'new'
+              ? choose(
+                  `隔离工作树新分支 ${selection.branch.name}，起点 ${selection.branch.startPoint ?? '默认'}`,
+                  `isolated worktree new branch ${selection.branch.name}, from ${selection.branch.startPoint ?? 'default'}`,
+                )
+              : choose(
+                  `隔离工作树派生分支，基于 ${selection.branch.baseRef}`,
+                  `isolated worktree derived branch from ${selection.branch.baseRef}`,
+                )
+    return branch
+  }
   return {
     title: choose('工作区节点控制台', 'Workspace node console'),
     description: choose(
@@ -76,6 +104,63 @@ function createNodeConsoleCopy(locale: ShellLocale): HbarNodeConsoleLabels {
     auditTime: (timestamp) =>
       new Intl.DateTimeFormat(zh ? 'zh-CN' : 'en-US', { dateStyle: 'medium', timeStyle: 'medium' }).format(timestamp),
     auditTool: (tool, decision, backend, code) => `${tool} · ${decision} · ${backend} · ${code ?? '—'}`,
+    auditIdentity: (entry) =>
+      entry.source === 'run'
+        ? choose(
+            `会话 ${entry.sessionId} · 运行 ${entry.runId} · 调用 ${entry.callId}`,
+            `Session ${entry.sessionId} · run ${entry.runId} · call ${entry.callId}`,
+          )
+        : entry.source === 'manual-query'
+          ? choose(
+              `手动查询 · 设备 ${entry.deviceId} · 工作区 ${entry.workspaceId} · 根 ${entry.rootId} · 会话 ${entry.sessionId ?? '无'}`,
+              `Manual query · device ${entry.deviceId} · workspace ${entry.workspaceId} · root ${entry.rootId} · session ${entry.sessionId ?? 'none'}`,
+            )
+          : choose(
+              `启动目标 · 工作区 ${entry.workspaceId} · 会话 ${entry.sessionId} · 运行 ${entry.runId} · 目标版本 ${entry.targetRevision} · 文件夹版本 ${entry.workspaceFolderRevision} · 根 ${entry.rootId} ${entry.rootPath} · 已接受目标 ${entry.acceptedTargetDigest}`,
+              `Launch target · workspace ${entry.workspaceId} · session ${entry.sessionId} · run ${entry.runId} · target revision ${entry.targetRevision} · folder revision ${entry.workspaceFolderRevision} · root ${entry.rootId} ${entry.rootPath} · accepted target ${entry.acceptedTargetDigest}`,
+            ),
+    confirmations: choose('本机确认队列', 'Local confirmations'),
+    noConfirmations: choose('没有待处理的本机确认。', 'There are no local confirmations to review.'),
+    confirmationSummary: (source, tool, root, expiresAt) =>
+      choose(
+        `${source} · ${tool} · ${root} · 到期 ${new Date(expiresAt).toLocaleTimeString('zh-CN')}`,
+        `${source} · ${tool} · ${root} · expires ${new Date(expiresAt).toLocaleTimeString('en-US')}`,
+      ),
+    confirmationIdentity: (identity) =>
+      identity.source === 'launch-target'
+        ? choose(
+            `启动目标约束：工作区 ${identity.workspaceId} · 会话 ${identity.sessionId} · 运行 ${identity.runId} · 节点 ${identity.nodeId} · 目标版本 ${identity.targetRevision} · ${launchSelection(identity)} · 已接受目标摘要 ${identity.acceptedTargetDigest} · 文件夹版本 ${identity.workspaceFolderRevision} · 根 ${identity.rootId}：${identity.rootPath}`,
+            `Accepted launch target: workspace ${identity.workspaceId} · session ${identity.sessionId} · run ${identity.runId} · node ${identity.nodeId} · target revision ${identity.targetRevision} · ${launchSelection(identity)} · accepted target digest ${identity.acceptedTargetDigest} · folder revision ${identity.workspaceFolderRevision} · root ${identity.rootId}: ${identity.rootPath}`,
+          )
+        : identity.source === 'run'
+          ? choose(
+              `运行身份：会话 ${identity.sessionId} · 运行 ${identity.runId} · 调用 ${identity.callId} · 根 ${identity.rootId}：${identity.rootPath}`,
+              `Run identity: session ${identity.sessionId} · run ${identity.runId} · call ${identity.callId} · root ${identity.rootId}: ${identity.rootPath}`,
+            )
+          : choose(
+              `本机查询身份：设备 ${identity.ownerDeviceId} · 工作区 ${identity.workspaceId ?? '无'} · 会话 ${identity.sessionId ?? '无'} · 根 ${identity.rootId}：${identity.rootPath}`,
+              `Manual query identity: device ${identity.ownerDeviceId} · workspace ${identity.workspaceId ?? 'none'} · session ${identity.sessionId ?? 'none'} · root ${identity.rootId}: ${identity.rootPath}`,
+            ),
+    confirmationState: (state) =>
+      ({
+        waiting: choose('等待决定', 'Waiting'),
+        approved: choose('已批准', 'Approved'),
+        rejected: choose('已拒绝', 'Rejected'),
+        cancelled: choose('已取消', 'Cancelled'),
+        expired: choose('已过期', 'Expired'),
+        consumed: choose('已使用', 'Consumed'),
+      })[state] ?? state,
+    approve: choose('批准一次', 'Approve once'),
+    reject: choose('拒绝', 'Reject'),
+    confirmationFailure: (code) =>
+      choose(
+        `确认决定失败（${code}）。队列已重新读取；请核对当前状态后重试。`,
+        `Could not resolve confirmation (${code}). The queue was refreshed; review its current state before retrying.`,
+      ),
+    staleConfirmation: choose(
+      '安全底线或根目录已变化，不能批准此请求。',
+      'The security floor or root changed; this request cannot be approved.',
+    ),
     moreAudit: choose('读取下一页审计记录', 'Load next audit page'),
     conversations: choose('绑定会话', 'Bound conversations'),
     noSessions: choose('此节点没有可观察的绑定会话', 'No bound conversations are available for observation'),

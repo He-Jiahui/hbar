@@ -11,6 +11,11 @@ import {
   type NodeObservationMethod,
 } from '@hbar/contracts/node'
 import { NodeStateStorage } from '@hbar/storage/node-state'
+import { NodeLocalConfirmationStorage } from '@hbar/storage/node-local-confirmations'
+import {
+  acceptedNodeWorktreeTargetDigest,
+  acceptedWorkspaceFolderDigest,
+} from '@hbar/contracts/node-worktree-provisioning'
 import { createNodeConsoleClient, pairNodeConsoleDeviceWithSigner } from '@hbar/client/node-console'
 import { NodeConsoleService, type NodeConsoleObservationPort } from '../../apps/node/src/console-service'
 import { startNodeControlServer } from '../../apps/node/src/control-server'
@@ -47,6 +52,7 @@ await state.call(
       },
       { rootId: 'source', name: 'Source', path: sourcePath, access: 'write' },
     ],
+    localConfirm: 'always',
   }),
 )
 
@@ -64,6 +70,83 @@ node = await WorkspaceNodeService.open(nodeIdFromPublicKey(identity.publicKey), 
     throw new Error('fixture does not execute processes')
   },
 })
+node.installLocalConfirmations(new NodeLocalConfirmationStorage(state))
+node.installWorktrees(
+  await node.createWorktreeAllocator({
+    worktree: async () => {
+      throw new Error('fixture never performs Git worktree mutations')
+    },
+  }),
+)
+await node.listLocalConfirmations(true)
+const queueFloor = await state.call('floor.snapshot', {})
+for (let index = 0; index < 62; index++) {
+  try {
+    await node.confirmManualLocalOperation({
+      operationId: `fixture-confirmation-${index}`,
+      sessionId: null,
+      ownerDeviceId: 'fixture-owner',
+      rootId: 'docs',
+      rootPath: docsPath,
+      tool: 'write_file',
+      effect: 'write',
+      snapshotDigest: 'a'.repeat(64),
+      argumentsDigest: `${index.toString(16).padStart(64, '0')}`,
+      summary:
+        index === 0
+          ? `请确认此本机文件写入请求：${'长描述'.repeat(80)}`
+          : index === 1
+            ? '请拒绝这一项队列请求。'
+            : `容量测试项目 ${index}`,
+    })
+  } catch (error) {
+    if (!(error instanceof Error) || !('code' in error) || error.code !== 'NODE_LOCAL_CONFIRMATION_PENDING') throw error
+  }
+}
+const folderSnapshot = {
+  schemaVersion: 1 as const,
+  workspaceId: 'launch-workspace',
+  revision: 12,
+  folders: [{ id: 'workspace-source', alias: 'source', path: sourcePath }],
+}
+const nodeId = nodeIdFromPublicKey(identity.publicKey)
+const selection = {
+  mode: 'isolated-worktree' as const,
+  branch: { kind: 'new' as const, name: 'feature/accepted-target', startPoint: 'main' },
+}
+for (let index = 0; index < 2; index++) {
+  const provisioningBase = {
+    workspaceId: folderSnapshot.workspaceId,
+    sessionId: 'launch-session',
+    targetRevision: 37,
+    selection,
+    workspaceFolderRevision: folderSnapshot.revision,
+    workspaceFolderDigest: acceptedWorkspaceFolderDigest(folderSnapshot),
+  }
+  const provisioning = {
+    kind: 'launch-target' as const,
+    ...provisioningBase,
+    runId: `launch-run-${index}`,
+    nodeId,
+    acceptedTargetDigest: acceptedNodeWorktreeTargetDigest(provisioningBase),
+  }
+  try {
+    await node.confirmLaunchTargetOperation({
+      operationId: `${provisioning.runId}:worktree-create`,
+      provisioning,
+      rootId: 'source',
+      rootPath: sourcePath,
+      tool: 'worktree.create',
+      argumentsDigest: `${(index + 10).toString(16).padStart(64, '0')}`,
+      summary:
+        index === 0
+          ? `请审核已接受的启动目标与新分支 feature/accepted-target：${'目标约束'.repeat(120)}`
+          : '请拒绝这一条已接受目标对应的工作树创建请求。',
+    })
+  } catch (error) {
+    if (!(error instanceof Error) || !('code' in error) || error.code !== 'NODE_LOCAL_CONFIRMATION_PENDING') throw error
+  }
+}
 
 const session = {
   id: 'docs-session',
@@ -154,6 +237,39 @@ await state.call('audit.append', {
   backend: 'none',
   code: 0,
 })
+await state.call('git-query.audit.append', {
+  source: 'manual-query',
+  operationId: 'fixture-manual-query',
+  deviceId: 'fixture-b-device',
+  workspaceId: 'docs-workspace',
+  sessionId: session.id,
+  rootId: 'docs',
+  expectedRoot: docsPath,
+  tool: 'git.query.status',
+  argumentsDigest: 'b'.repeat(64),
+  decision: 'allow',
+  backend: 'none',
+  code: 0,
+})
+await state.call('audit.append', {
+  source: 'launch-target',
+  operationId: 'launch-run-audit:worktree-create',
+  sessionId: 'launch-session',
+  runId: 'launch-run-audit',
+  workspaceId: 'launch-workspace',
+  nodeId,
+  targetRevision: 37,
+  acceptedTargetDigest: 'd'.repeat(64),
+  workspaceFolderRevision: 12,
+  workspaceFolderDigest: 'e'.repeat(64),
+  rootId: 'source',
+  rootPath: sourcePath,
+  tool: 'worktree.create',
+  argumentsDigest: 'f'.repeat(64),
+  decision: 'ask',
+  backend: 'none',
+  code: null,
+})
 const control = await startNodeControlServer(dataRoot, service, `127.0.0.1:${port}`, { staticRoot })
 const helper = Bun.serve({
   hostname: '127.0.0.1',
@@ -164,6 +280,62 @@ const helper = Bun.serve({
     if (pathname === '/policy-read') {
       const current = await state.call('floor.snapshot', {})
       return Response.json(current)
+    }
+    if (pathname === '/confirmation-capacity') {
+      let overflowCode = ''
+      try {
+        await node?.confirmManualLocalOperation({
+          operationId: 'fixture-confirmation-overflow',
+          sessionId: null,
+          ownerDeviceId: 'fixture-owner',
+          rootId: 'docs',
+          rootPath: docsPath,
+          tool: 'write_file',
+          effect: 'write',
+          snapshotDigest: 'b'.repeat(64),
+          argumentsDigest: 'c'.repeat(64),
+          summary: 'overflow',
+        })
+      } catch (error) {
+        overflowCode = error instanceof Error && 'code' in error ? String(error.code) : 'UNKNOWN'
+      }
+      return Response.json({ overflowCode, floorRevision: queueFloor.revision })
+    }
+    if (pathname === '/observer-resolve') {
+      const page = await node?.listLocalConfirmations(true)
+      const invite = (await service.invoke('node.pairing.create', {
+        name: 'Observer confirmation test',
+        role: 'observer',
+        roots: ['docs'],
+      })) as { code: string }
+      const pair = generateKeyPairSync('ed25519')
+      const publicKeyDer = pair.publicKey.export({ format: 'der', type: 'spki' })
+      const signer = {
+        publicKey: Buffer.from(publicKeyDer).subarray(-32).toString('base64url'),
+        async sign(message: Uint8Array) {
+          return sign(null, Buffer.from(message), pair.privateKey).toString('base64url')
+        },
+      }
+      const paired = await pairNodeConsoleDeviceWithSigner({
+        url: control.connection.url,
+        code: invite.code,
+        name: 'Observer confirmation test',
+        signer,
+      })
+      const client = createNodeConsoleClient({
+        url: control.connection.url,
+        credentials: { deviceId: paired.device.deviceId, publicKey: signer.publicKey, signer },
+      })
+      let code = ''
+      try {
+        await client.call('node.localConfirmation.resolve', {
+          confirmationId: page?.entries[2]?.id ?? '',
+          decision: 'approve',
+        })
+      } catch (error) {
+        code = error instanceof Error && 'code' in error ? String(error.code) : 'UNKNOWN'
+      }
+      return Response.json({ code })
     }
     if (pathname === '/policy-race') {
       const invite = (await service.invoke('node.pairing.create', {

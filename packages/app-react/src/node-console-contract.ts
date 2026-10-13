@@ -6,6 +6,9 @@ type NodeStatus = z.output<(typeof nodeConsoleMethods)['node.status']['output']>
 type NodeFloor = z.output<(typeof nodeConsoleMethods)['node.policy.get']['output']>
 type NodePolicySnapshot = z.output<(typeof nodeConsoleMethods)['node.policy.snapshot']['output']>
 type NodeAuditEntry = z.output<(typeof nodeConsoleMethods)['node.audit']['output']>[number]
+type NodeLocalConfirmation = z.output<
+  (typeof nodeConsoleMethods)['node.localConfirmation.list']['output']
+>['entries'][number]
 type NodeObservedSession = z.output<(typeof nodeConsoleMethods)['observe.sessions.list']['output']>['items'][number]
 type NodeObservedSnapshot = z.output<(typeof nodeConsoleMethods)['observe.sessions.snapshot']['output']>
 
@@ -20,6 +23,7 @@ export interface NodeConsoleState {
   readonly policyRevision: NodePolicySnapshot['revision'] | null
   readonly policyDraftRevision: NodePolicySnapshot['revision'] | null
   readonly audit: readonly NodeAuditEntry[]
+  readonly confirmations: readonly NodeLocalConfirmation[]
   readonly auditAfter: number
   readonly auditHasMore: boolean
   readonly sessions: readonly NodeObservedSession[]
@@ -30,8 +34,11 @@ export interface NodeConsoleState {
   readonly policyError: string | null
   readonly actionError: string | null
   readonly auditError: string | null
+  readonly confirmationError: string | null
   readonly observationError: string | null
   readonly loadingAudit: boolean
+  readonly loadingConfirmations: boolean
+  readonly resolvingConfirmationId: string | null
   readonly loadingSessions: boolean
   readonly loadingSnapshot: boolean
   readonly loadingMoreSessions: boolean
@@ -51,6 +58,8 @@ export interface NodeConsoleModel {
   readonly setPaused: (paused: boolean) => Promise<void>
   readonly terminate: (operationId: string) => Promise<void>
   readonly loadAudit: (append?: boolean) => Promise<void>
+  readonly loadConfirmations: () => Promise<void>
+  readonly resolveConfirmation: (confirmationId: string, decision: 'approve' | 'reject') => Promise<void>
   readonly loadSessions: (append?: boolean) => Promise<void>
   readonly selectSession: (sessionId: string) => Promise<void>
   readonly dispose: () => void

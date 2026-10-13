@@ -252,6 +252,36 @@
   gap: 0.5rem 1rem;
 }
 
+.hbar-node-console-confirmation-row {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-line);
+  padding-block: 0.75rem;
+}
+
+.hbar-node-console-confirmation-copy {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 22rem;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-node-console-confirmation-copy p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-node-console-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .hbar-node-console-observation {
   display: flex;
   min-inline-size: 0;

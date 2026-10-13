@@ -39,6 +39,7 @@ const initialState = (consoleId: string, role: NodeConsoleState['role']): NodeCo
   policyRevision: null,
   policyDraftRevision: null,
   audit: [],
+  confirmations: [],
   auditAfter: 0,
   auditHasMore: false,
   sessions: [],
@@ -49,8 +50,11 @@ const initialState = (consoleId: string, role: NodeConsoleState['role']): NodeCo
   policyError: null,
   actionError: null,
   auditError: null,
+  confirmationError: null,
   observationError: null,
   loadingAudit: false,
+  loadingConfirmations: false,
+  resolvingConfirmationId: null,
   loadingSessions: false,
   loadingSnapshot: false,
   loadingMoreSessions: false,
@@ -304,6 +308,57 @@ export function createNodeConsoleModel(
       }
     }
   }
+  const loadConfirmations = async () => {
+    const state = current()
+    if (disposed || !state.roleVerified || state.role !== 'operator' || state.loadingConfirmations) return
+    const request = generation
+    replace({ loadingConfirmations: true, confirmationError: null })
+    try {
+      const page = await client.call('node.localConfirmation.list', {}, { signal: lifetimeController.signal })
+      if (disposed || request !== generation || current().consoleId !== consoleId) return
+      replace({ confirmations: page.entries, loadingConfirmations: false })
+    } catch (reason) {
+      if (!disposed && request === generation) {
+        const code = errorCode(reason)
+        replace({ loadingConfirmations: false, confirmationError: code, ...unauthorizedState(code) })
+      }
+    }
+  }
+  const resolveConfirmation = async (confirmationId: string, decision: 'approve' | 'reject') => {
+    const state = current()
+    const entry = state.confirmations.find((item) => item.id === confirmationId)
+    if (
+      disposed ||
+      !state.roleVerified ||
+      state.role !== 'operator' ||
+      !entry ||
+      entry.state !== 'waiting' ||
+      entry.expiresAt <= Date.now() ||
+      entry.identity.floorRevision !== state.policyRevision ||
+      state.resolvingConfirmationId
+    )
+      return
+    const request = generation
+    replace({ resolvingConfirmationId: confirmationId, confirmationError: null })
+    try {
+      await client.call(
+        'node.localConfirmation.resolve',
+        { confirmationId, decision },
+        { signal: lifetimeController.signal },
+      )
+      if (disposed || request !== generation || current().consoleId !== consoleId) return
+      replace({ resolvingConfirmationId: null })
+      await loadConfirmations()
+    } catch (reason) {
+      if (!disposed && request === generation) {
+        const code = errorCode(reason)
+        replace({ resolvingConfirmationId: null, confirmationError: code, ...unauthorizedState(code) })
+        if (code.startsWith('NODE_LOCAL_CONFIRMATION_')) {
+          await Promise.all([loadConfirmations(), loadPolicy()])
+        }
+      }
+    }
+  }
   const loadSessions = async (append = false) => {
     const state = current()
     if (disposed || !state.roleVerified || state.loadingSessions || state.loadingMoreSessions) return
@@ -425,6 +480,8 @@ export function createNodeConsoleModel(
     setPaused,
     terminate,
     loadAudit,
+    loadConfirmations,
+    resolveConfirmation,
     loadSessions,
     selectSession,
     dispose() {
