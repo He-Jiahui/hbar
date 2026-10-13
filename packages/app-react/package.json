@@ -32,7 +32,8 @@
     "./approval-execution-target": "./src/approval-execution-target.tsx"
   },
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./src/theme-bridge.ts"
   ],
   "dependencies": {
     "@codemirror/commands": "6.11.0",
