@@ -93,16 +93,47 @@ export function createNodeExecutionIntentStorage(db: Database) {
 
   function assertCurrentBinding(value: NodeExecutionIntentIdentity): void {
     const bound = db
-      .query<{ nodeId: string; rootId: string; nodePath: string }, [string, string]>(
-        `SELECT l.nodeId,l.rootId,l.nodePath FROM sessions s
-         JOIN node_workspace_locations l ON l.workspaceId=s.workspaceId
+      .query<
+        {
+          nodeId: string
+          rootId: string
+          nodePath: string
+          worktreeNodeId: string | null
+          worktreeRootId: string | null
+          worktreePath: string | null
+          worktreeId: string | null
+          worktreeTargetRevision: number | null
+          parentRootId: string | null
+          originalNodePath: string | null
+        },
+        [string, string, string]
+      >(
+        `SELECT l.nodeId,l.rootId,l.nodePath,w.nodeId AS worktreeNodeId,w.worktreeRootId,w.nodePath AS worktreePath,
+           w.worktreeId,w.targetRevision AS worktreeTargetRevision,w.parentRootId,w.originalNodePath
+         FROM sessions s JOIN node_workspace_locations l ON l.workspaceId=s.workspaceId
+         LEFT JOIN node_run_worktrees w ON w.runId=? AND w.workspaceId=l.workspaceId
          WHERE s.id=? AND s.workspaceId=?`,
       )
-      .get(value.sessionId, value.workspaceId)
-    if (!bound || bound.nodeId !== value.nodeId || bound.rootId !== value.rootId || bound.nodePath !== value.nodePath)
+      .get(value.runId, value.sessionId, value.workspaceId)
+    const direct =
+      bound &&
+      bound.worktreeRootId === null &&
+      value.authority.managedWorktree === undefined &&
+      bound.rootId === value.rootId &&
+      bound.nodePath === value.nodePath
+    const managed =
+      bound &&
+      bound.worktreeNodeId === value.nodeId &&
+      bound.worktreeRootId === value.rootId &&
+      bound.worktreePath === value.nodePath &&
+      value.authority.managedWorktree?.worktreeId === bound.worktreeId &&
+      value.authority.managedWorktree.targetRevision === bound.worktreeTargetRevision &&
+      bound.parentRootId === bound.rootId &&
+      bound.originalNodePath === bound.nodePath
+    if (!bound || bound.nodeId !== value.nodeId || (!direct && !managed))
       throw new HbarError(
         'WORKSPACE_SCOPE',
-        'Remote execution intent differs from the persisted workspace root binding',
+        'Remote execution intent differs from the original workspace or durable Run worktree binding',
       )
   }
 
@@ -113,18 +144,51 @@ export function createNodeExecutionIntentStorage(db: Database) {
       )
       .get(value.runId, value.sessionId)
     if (!run) throw new HbarError('SESSION_LOG_CORRUPTED', 'Node execution history has no matching Run/session')
-    const binding = db
+    const original = db
       .query<{ nodeId: string; rootId: string; nodePath: string }, [string]>(
         'SELECT nodeId,rootId,nodePath FROM node_workspace_locations WHERE workspaceId=?',
       )
       .get(value.workspaceId)
     // A removed historical workspace/root cannot authorize recovery. Leave its
     // tool intent to the ordinary conservative unknown-effect recovery path.
-    if (!binding) return false
-    if (binding.nodeId !== value.nodeId || binding.rootId !== value.rootId || binding.nodePath !== value.nodePath)
+    if (!original) return false
+    if (original.nodeId !== value.nodeId)
       throw new HbarError(
         'SESSION_LOG_CORRUPTED',
         'Node execution history conflicts with its original workspace root pin',
+      )
+    if (original.rootId === value.rootId && original.nodePath === value.nodePath) {
+      if (value.authority.managedWorktree !== undefined)
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Direct-root history claims a managed worktree capability')
+      return true
+    }
+    const worktree = db
+      .query<
+        {
+          worktreeRootId: string
+          worktreeId: string
+          targetRevision: number
+          nodePath: string
+          parentRootId: string
+          originalNodePath: string
+        },
+        [string, string, string]
+      >(
+        'SELECT worktreeRootId,worktreeId,targetRevision,nodePath,parentRootId,originalNodePath FROM node_run_worktrees WHERE runId=? AND sessionId=? AND workspaceId=?',
+      )
+      .get(value.runId, value.sessionId, value.workspaceId)
+    if (
+      !worktree ||
+      worktree.worktreeRootId !== value.rootId ||
+      value.authority.managedWorktree?.worktreeId !== worktree.worktreeId ||
+      value.authority.managedWorktree.targetRevision !== worktree.targetRevision ||
+      worktree.nodePath !== value.nodePath ||
+      worktree.parentRootId !== original.rootId ||
+      worktree.originalNodePath !== original.nodePath
+    )
+      throw new HbarError(
+        'SESSION_LOG_CORRUPTED',
+        'Node execution history conflicts with its original workspace or Run worktree pin',
       )
     return true
   }
@@ -235,9 +299,12 @@ export function createNodeExecutionIntentStorage(db: Database) {
            JOIN tool_intents t ON t.id=i.operationId AND t.status='started'
            JOIN sessions s ON s.id=i.sessionId AND s.workspaceId=i.workspaceId
            JOIN runs r ON r.id=i.runId AND r.sessionId=i.sessionId
-           JOIN node_workspace_locations l ON l.workspaceId=i.workspaceId
-             AND l.nodeId=i.nodeId AND l.rootId=i.rootId AND l.nodePath=i.nodePath
+           JOIN node_workspace_locations l ON l.workspaceId=i.workspaceId AND l.nodeId=i.nodeId
+           LEFT JOIN node_run_worktrees w ON w.runId=i.runId AND w.workspaceId=i.workspaceId
            WHERE r.status IN ('running','waiting_approval','interrupted')
+             AND ((w.runId IS NULL AND l.rootId=i.rootId AND l.nodePath=i.nodePath)
+               OR (w.runId IS NOT NULL AND w.nodeId=i.nodeId AND w.parentRootId=l.rootId
+                 AND w.originalNodePath=l.nodePath AND w.worktreeRootId=i.rootId AND w.nodePath=i.nodePath))
              AND (? IS NULL OR i.operationId>?) ${runFilter} ORDER BY i.operationId LIMIT ?`,
         )
         .all(input.after ?? null, input.after ?? null, ...(input.runIds ?? []), input.limit + 1) as Record<

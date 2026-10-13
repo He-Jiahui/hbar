@@ -23,7 +23,7 @@ for (const previous of ['file-changes', 'runtime-recovery'] as const) {
           )
         else database.exec('DROP TABLE run_file_changes; DROP TABLE run_file_change_state;')
         database.exec(
-          'DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget;',
+          'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget;',
         )
         database.exec('PRAGMA user_version=24')
         expect(database.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version).toBe(24)
@@ -31,6 +31,13 @@ for (const previous of ['file-changes', 'runtime-recovery'] as const) {
           database
             .query<{ name: string }, []>(
               "SELECT name FROM sqlite_master WHERE type='table' AND name='node_execution_intents'",
+            )
+            .get(),
+        ).toBeNull()
+        expect(
+          database
+            .query<{ name: string }, []>(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name='node_run_worktrees'",
             )
             .get(),
         ).toBeNull()

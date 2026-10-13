@@ -7,6 +7,7 @@ import {
   createNodeExecutionIntentStorage,
   nodeExecutionIntentSettlementResultSchema,
 } from './node-execution-intents'
+import { NODE_RUN_WORKTREES_SQL, createNodeRunWorktreeStorage } from './node-run-worktrees'
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { readContextCompactionMarkers } from './context-compaction-markers'
@@ -298,7 +299,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 30
+const LATEST_SCHEMA_VERSION = 31
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
@@ -532,6 +533,7 @@ for (const [version, sql] of [
   [28, NODE_WORKSPACES_SQL],
   [29, NODE_EXECUTION_INTENTS_SQL],
   [30, 'ALTER TABLE approvals ADD COLUMN executionTarget TEXT;'],
+  [31, NODE_RUN_WORKTREES_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -592,6 +594,7 @@ const chatDatabaseAutomaticPlan = createChatDatabaseAutomaticPlan(db, chatDataba
 const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
 const chatDatabaseDeletion = createChatDatabaseDeletionStorage(db, sessionsRoot, undefined, settingsRoot)
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
+const nodeRunWorktreeStorage = createNodeRunWorktreeStorage(db, appendEvent)
 const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => sessionLaunchTarget.read(sessionId).revision)
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
@@ -2501,6 +2504,7 @@ const methods: StorageMethods = {
       }
       const owner = methods.session(sessionId)
       if (owner.archived) throw new HbarError('ARCHIVED', 'Unarchive the session before running')
+      const workspace = methods.workspace(owner.workspaceId)
       const run: Run = {
         id: crypto.randomUUID(),
         sessionId,
@@ -2513,11 +2517,30 @@ const methods: StorageMethods = {
         endedAt: null,
         error: null,
       }
-      const retainedLaunchTarget = sessionLaunchTarget.bindToRun(sessionId, run.id, methods.workspace(owner.workspaceId).path, launchTarget)
+      const retainedLaunchTarget = sessionLaunchTarget.bindToRun(sessionId, run.id, workspace.path, launchTarget)
       db.query(
         'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
       ).run(run.id, sessionId, requestId, JSON.stringify(input), modelId, 'queued', run.createdAt, null, null, null)
-      const queuedEvent = appendEvent(sessionId, 'run.queued', { run, launchTarget: retainedLaunchTarget, ...(command ? { command } : {}) }, run.id)
+      const queuedEvent = appendEvent(
+        sessionId,
+        'run.queued',
+        {
+          run,
+          launchTarget: retainedLaunchTarget,
+          workspaceId: owner.workspaceId,
+          ...(workspace.location?.kind === 'node'
+            ? {
+                nodeWorkspaceLocation: {
+                  nodeId: workspace.location.nodeId,
+                  rootId: workspace.location.rootId,
+                  nodePath: workspace.location.nodePath,
+                },
+              }
+            : {}),
+          ...(command ? { command } : {}),
+        },
+        run.id,
+      )
       return { ...run, queuedEvent }
     })(),
   runByRequest(sessionId, requestId) {
@@ -2778,6 +2801,9 @@ const methods: StorageMethods = {
       )
     })(),
   pendingNodeExecutionIntents: (input) => nodeExecutionIntentStorage.pendingPage(input),
+  nodeRunWorktreeBind: (input) => nodeRunWorktreeStorage.bind(input),
+  nodeRunWorktree: (runId) => nodeRunWorktreeStorage.read(runId),
+  nodeRunWorktreeAdmission: (runId) => nodeRunWorktreeStorage.admission(runId),
   nodeExecutionIntentSettle: (raw) =>
     db.transaction(() => {
       const input = z
@@ -3397,6 +3423,8 @@ function restoreProjection(event: SessionEvent) {
         JSON.stringify(receipt),
       )
     }
+  } else if (event.type === 'run.worktreeBound') {
+    nodeRunWorktreeStorage.restore(data, event)
   } else if (event.type === 'run.inputEdited') {
     const edited = z
       .strictObject({

@@ -164,7 +164,7 @@ test('migration 26 preserves legacy operator devices and new observer scopes ato
     const old = new Database(path)
     try {
       old.exec(
-        'DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; DROP TABLE device_access; PRAGMA user_version=25;',
+        'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; DROP TABLE device_access; PRAGMA user_version=25;',
       )
     } finally {
       old.close()

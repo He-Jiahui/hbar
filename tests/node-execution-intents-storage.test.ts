@@ -558,13 +558,29 @@ test('historical node journal replays after its completed session moves to a loc
   }
 })
 
-test('schema 29 migrates an existing version 28 SQLite database and keeps local rows readable', async () => {
+test('the current schema migrates a version 28 SQLite database and keeps local rows readable', async () => {
   await fixture(async (storage, _registry, path) => {
     const workspace = await storage.call('createWorkspace', '/legacy-node-intent-migration', 'Legacy')
     await storage.close()
     const database = new Database(path)
     try {
-      database.exec('DROP TABLE node_execution_intents; PRAGMA user_version=28')
+      database.exec(
+        'DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=28',
+      )
+      expect(database.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version).toBe(28)
+      expect(
+        database
+          .query<{ name: string }, []>(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('node_execution_intents','node_run_worktrees')",
+          )
+          .all(),
+      ).toEqual([])
+      expect(
+        database
+          .query<{ name: string }, []>('PRAGMA table_info(approvals)')
+          .all()
+          .some((column) => column.name === 'executionTarget'),
+      ).toBe(false)
     } finally {
       database.close()
     }

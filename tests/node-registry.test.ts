@@ -150,7 +150,9 @@ test('migration 27 adds a separate node registry and preserves legacy devices an
     await storage.call('putDevice', { id: 'legacy', name: 'legacy', createdAt: 1, lastSeenAt: 1 }, 'legacy-hash')
     await storage.close()
     const old = new Database(path)
-    old.exec('DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; PRAGMA user_version=26')
+    old.exec(
+      'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; PRAGMA user_version=26',
+    )
     old.close()
     storage = new Storage(path)
     expect(await storage.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })

@@ -101,12 +101,21 @@ test('schema 30 adds Approval executionTarget to a version 29 database', async (
     await storage.close()
     const db = new Database(path)
     try {
-      db.exec('ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=29;')
+      db.exec(
+        'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=29;',
+      )
+      expect(
+        db
+          .query<{ name: string }, []>(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='node_run_worktrees'",
+          )
+          .get(),
+      ).toBeNull()
     } finally {
       db.close()
     }
     storage = new Storage(path)
-    expect(await storage.call('ready')).toEqual({ version: 30 })
+    expect(await storage.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
     const migrated = new Database(path)
     try {
       expect(

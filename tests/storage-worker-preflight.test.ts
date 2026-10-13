@@ -115,7 +115,7 @@ test('cold startup can verify an older supported schema read-only, while hot rep
   await installation.close()
   const database = new Database(layout.database)
   database.exec(
-    'DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=23',
+    'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP INDEX node_execution_intents_run_call; DROP TABLE node_execution_intents; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=23',
   )
   expect(database.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version).toBe(23)
   expect(
@@ -123,6 +123,11 @@ test('cold startup can verify an older supported schema read-only, while hot rep
       .query<{ name: string }, []>(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='node_execution_intents'",
       )
+      .get(),
+  ).toBeNull()
+  expect(
+    database
+      .query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type='table' AND name='node_run_worktrees'")
       .get(),
   ).toBeNull()
   expect(
