@@ -11,6 +11,7 @@
     "./schedules": "./src/schedules.ts"
   },
   "dependencies": {
+    "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/schema-core": "workspace:*"
   }

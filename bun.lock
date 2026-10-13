@@ -203,6 +203,7 @@
       "name": "@hbar/client",
       "version": "0.1.0",
       "dependencies": {
+        "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",
         "@hbar/schema-core": "workspace:*",
       },
