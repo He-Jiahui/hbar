@@ -20,6 +20,12 @@ const MAX_PANELS = 8
 const AGENT_QUERY_CONCURRENCY = 8
 export const WORKFLOW_EVIDENCE_PAGE_SIZE = 20
 const UNKNOWN_CODES = new Set(['RESULT_UNKNOWN', 'DISCONNECTED', 'TIMEOUT'])
+const EMPTY_WORKFLOW_SNAPSHOT = workflowSnapshotSchema.parse({
+  workflowPlan: null,
+  plan: null,
+  workflow: null,
+  targetDispatches: [],
+})
 
 function code(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -313,7 +319,7 @@ export function createWorkflowWorkspace(
       instanceId,
       sessionId: target.sessionId,
       status: background && sameTarget ? previous.status : 'loading',
-      snapshot: sameTarget ? previous.snapshot : { plan: null, workflow: null },
+      snapshot: sameTarget ? previous.snapshot : EMPTY_WORKFLOW_SNAPSHOT,
       agents: sameTarget ? previous.agents : {},
       visibleEvidence: sameTarget ? previous.visibleEvidence : WORKFLOW_EVIDENCE_PAGE_SIZE,
       actions: sameTarget ? previous.actions : {},

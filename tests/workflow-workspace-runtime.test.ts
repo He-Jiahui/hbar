@@ -139,12 +139,18 @@ const agent = agentRecordSchema.parse({
   updatedAt: 12,
 })
 
-function directory() {
+function directory(sessions: readonly (typeof session)[] = [session]) {
   return {
-    async execute(name: string) {
-      if (name === 'session.get') return session
+    async execute(name: string, input?: unknown) {
+      if (name === 'session.get') {
+        const sessionId =
+          input && typeof input === 'object' && 'sessionId' in input && typeof input.sessionId === 'string'
+            ? input.sessionId
+            : sessions[0]?.id
+        return sessions.find((candidate) => candidate.id === sessionId) ?? null
+      }
       if (name === 'workspace.get') return workspace
-      if (name === 'session.list') return { items: [session], nextCursor: null }
+      if (name === 'session.list') return { items: sessions, nextCursor: null }
       if (name === 'workspace.list') return { items: [workspace], nextCursor: null }
       throw new Error(`Unsupported directory command: ${name}`)
     },
@@ -261,12 +267,14 @@ test('Workflow subscribes before its read and a concurrent clear or foreign even
     const load = runtime.view.commands.execute('workflowWorkspace.refresh', { instanceId: panel.instanceId })
     await Bun.sleep(0)
     expect(emit).toBeDefined()
-    emit?.({ plan: null, workflow: null })
+    emit?.(workflowSnapshotSchema.parse({ workflowPlan: null, plan: null, workflow: null, targetDispatches: [] }))
     resolveRead(snapshot())
     await load
     expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.snapshot).toEqual({
+      workflowPlan: null,
       plan: null,
       workflow: null,
+      targetDispatches: [],
     })
     const other = snapshot(5)
     emit?.(
@@ -277,6 +285,76 @@ test('Workflow subscribes before its read and a concurrent clear or foreign even
     )
     expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.error).toBe('INVALID_OUTPUT')
     expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.snapshot.workflow).toBeNull()
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('changing a follow-active Workflow panel clears the full snapshot while the next Host read is pending', async () => {
+  const nextSession = { ...session, id: 'next-session', title: 'Next workflow session' }
+  const emptySnapshot = workflowSnapshotSchema.parse({
+    workflowPlan: null,
+    plan: null,
+    workflow: null,
+    targetDispatches: [],
+  })
+  let resolveNextRead!: (value: WorkflowSnapshot) => void
+  const nextRead = new Promise<WorkflowSnapshot>((resolve) => {
+    resolveNextRead = resolve
+  })
+  const readSessionIds: string[] = []
+  const runtime = createAppRuntime({
+    instanceId: 'workflow-session-reset',
+    hostId: 'host',
+    directory: directory([session, nextSession]),
+    workflows: {
+      async execute(name, input) {
+        if (name !== 'workflow.get') throw new Error(`Unexpected ${name}`)
+        const sessionId =
+          input && typeof input === 'object' && 'sessionId' in input && typeof input.sessionId === 'string'
+            ? input.sessionId
+            : ''
+        readSessionIds.push(sessionId)
+        if (sessionId === session.id) return snapshot()
+        if (sessionId === nextSession.id) return nextRead
+        throw new Error(`Unexpected Workflow Session ${sessionId}`)
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'goals' },
+  })
+
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id, workspaceId: workspace.id })
+    const panel = await runtime.view.commands.execute('app.openPanel', {
+      panelId: 'goals',
+      instanceId: 'workflow-follow-active',
+      binding: 'followActive',
+    })
+    await runtime.view.commands.execute('workflowWorkspace.refresh', { instanceId: panel.instanceId })
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.snapshot.workflow).not.toBeNull()
+
+    await runtime.view.commands.execute('app.setSession', { sessionId: nextSession.id, workspaceId: workspace.id })
+    const pendingRead = runtime.view.commands.execute('workflowWorkspace.refresh', { instanceId: panel.instanceId })
+    await Bun.sleep(0)
+
+    const loading = runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]
+    expect(readSessionIds).toEqual([session.id, nextSession.id])
+    expect(loading).toMatchObject({
+      sessionId: nextSession.id,
+      status: 'loading',
+      snapshot: emptySnapshot,
+      agents: {},
+      actions: {},
+    })
+
+    resolveNextRead(emptySnapshot)
+    await pendingRead
+    const cleared = runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]
+    expect(cleared).toMatchObject({ sessionId: nextSession.id, status: 'ready', snapshot: emptySnapshot, agents: {} })
+    expect(cleared?.snapshot.workflowPlan).toBeNull()
+    expect(cleared?.snapshot.plan).toBeNull()
+    expect(cleared?.snapshot.workflow).toBeNull()
+    expect(cleared?.snapshot.targetDispatches).toEqual([])
   } finally {
     runtime.dispose()
   }
