@@ -21,6 +21,7 @@ export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKe
       kernel.changed('workspaces')
     },
     createLocalExecutionPolicy(kernel.options.noLocalExec),
+    kernel.options.nodeWorkspaceInspection?.verifyWorkspaceFolders,
   )
   registerWorkspaceOrganizationCommands(registry, kernel.storage, () => kernel.changed('workspace-organization'))
   registerWorkspaceDisplayNamesCommands(registry, kernel.storage, () => kernel.changed('workspace-display-names'))

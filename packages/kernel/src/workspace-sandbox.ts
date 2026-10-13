@@ -5,6 +5,7 @@ import { mountedPath } from '@hbar/local-tools/workspace-mounts'
 import { HbarError, LOCAL_EXECUTION_ENABLED, assertLocalExecutionAllowed } from '@hbar/contracts'
 import type { LocalExecutionPolicy } from '@hbar/contracts/local-execution-policy'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import { isNodeWorkspacePath, parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import type { StoragePort } from '@hbar/storage'
 import type { WorkspaceMount, WorkspaceMountAccess } from '@hbar/local-tools/workspace-mounts'
 
@@ -24,14 +25,22 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
   dispose() {
     this.mounts.clear()
   }
-  instructions(root: string): string {
+  instructions(root: string, remoteAliases?: readonly string[]): string {
     const mount = this.get(root)
+    if (remoteAliases?.length)
+      return `\nRemote workspace folders, in priority order: ${remoteAliases.map((alias) => `${alias}/`).join(', ')}. File tools accept these relative aliases; shell commands use the same aliases under /workspace/.`
+    if (isNodeWorkspacePath(root)) return ''
     return mount
       ? `\nVirtual workspace folders, in priority order: ${mount.folders.map((folder) => `${folder.alias}/`).join(', ')}. File tools accept these relative aliases; an unprefixed file uses the first folder. Shell commands start in the first folder; HBAR_WORKSPACE_ROOT points to the virtual root for the other aliases.`
       : ''
   }
   grantPaths(root: string, path: string): string[] {
     assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace mount path resolution')
+    if (isNodeWorkspacePath(root))
+      throw new HbarError(
+        'WORKSPACE_CANONICALIZATION_UNAVAILABLE',
+        'Node-owned paths must be resolved by the workspace node',
+      )
     assertLocalWorkspace(root)
     if (isAbsolute(path) || /^[a-z]:/i.test(path)) return [path]
     const mount = this.get(root)
@@ -46,6 +55,8 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
   async verify(mount: WorkspaceMount, signal?: AbortSignal) {
     assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace mount verification')
     signal?.throwIfAborted()
+    if (isNodeWorkspacePath(mount.root))
+      throw new HbarError('PATH_DENIED', 'Node-owned workspace aliases are verified by the workspace node')
     assertLocalWorkspace(mount.root)
     for (const folder of mount.folders) assertLocalWorkspace(folder.path)
     if (key(await realpath(mount.root)) !== key(resolve(mount.root)))
@@ -62,6 +73,19 @@ export class WorkspaceSandboxService implements WorkspaceMountAccess {
   async prepare(workspaceId: string, checkoutPath: string, signal: AbortSignal): Promise<string> {
     assertLocalExecutionAllowed(this.localExecutionPolicy, 'Workspace mount preparation')
     signal.throwIfAborted()
+    if (isNodeWorkspacePath(checkoutPath)) {
+      const owner = await this.storage.call('workspace', workspaceId)
+      const ownerAddress = parseNodeWorkspaceLocator(owner.path)
+      const checkoutAddress = parseNodeWorkspaceLocator(checkoutPath)
+      if (
+        !ownerAddress ||
+        !checkoutAddress ||
+        ownerAddress.nodeId !== checkoutAddress.nodeId ||
+        ownerAddress.rootId !== checkoutAddress.rootId
+      )
+        throw new HbarError('WORKSPACE_NODE_MISMATCH', 'Remote workspace preparation cannot change its registered root')
+      return checkoutPath
+    }
     assertLocalWorkspace(checkoutPath)
     const owner = await this.storage.call('workspace', workspaceId)
     assertLocalWorkspace(owner)

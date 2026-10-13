@@ -86,8 +86,16 @@ export async function invokeRuntimeNodeExecution(
       }
     }
   }
-  if (binding.settlement && method !== 'exec.cancel' && method !== 'exec.receipt')
-    throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Settlement can only cancel or read the original process receipt')
+  if (
+    binding.settlement &&
+    method !== 'exec.cancel' &&
+    method !== 'exec.receipt' &&
+    method !== 'node.confirmation.cancel'
+  )
+    throw new HbarError(
+      'RUNTIME_METHOD_UNAVAILABLE',
+      'Settlement can only cancel the original operation or read its receipt',
+    )
   const signal = AbortSignal.any([
     binding.signal,
     ...(requestedSignal ? [requestedSignal] : []),

@@ -32,6 +32,13 @@ export { createChatDatabaseCommandClient } from './chat-database'
 export { createSystemCommandClient } from './system'
 export { createNodeCommandClient } from './nodes'
 export {
+  createSystemTerminalClient,
+  createSystemTerminalOutputConsumer,
+  type SystemTerminalDisplay,
+  type SystemTerminalOutput,
+  type SystemTerminalTransport,
+} from './system-terminal'
+export {
   createNodeConsoleClient,
   createNodeConsoleDeviceKey,
   createNodeConsoleSigner,

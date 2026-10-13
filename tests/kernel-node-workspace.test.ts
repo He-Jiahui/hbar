@@ -7,17 +7,75 @@ import type { WorkspaceExecutionScope } from '@hbar/kernel'
 import type { Workspace } from '@hbar/contracts'
 import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
 import type { NodeExecutionTarget } from '@hbar/contracts/node-execution-target'
+import type { NodeManagedWorktree } from '@hbar/contracts/node-worktree'
 import { nodeCapabilitiesSchema } from '@hbar/contracts/node'
 import { createNodeIdentity, nodeIdFromPublicKey } from '@hbar/node-core'
 import { SANDBOX_EVALUATOR_FINGERPRINT } from '@hbar/sandbox'
 import type { ToolDefinition } from '@hbar/plugin-sdk'
+import type { NodeWorktreePort } from '@hbar/kernel'
 import { z } from 'zod'
+import { createHash } from 'node:crypto'
+import { nodeWorktreeProvisioningAuthoritySchema } from '@hbar/contracts/node-worktree-provisioning'
+import { parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 
-test('a node-owned Run keeps its B workspace and supplies admitted authority only during tool execution', async () => {
+test('a node-owned Run executes in its B-managed worktree with durable per-Run authority', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-kernel-node-workspace-'))
   let executionTarget: NodeExecutionTarget = { kind: 'local' }
+  let knownNodeId = ''
+  let managedWorktree: NodeManagedWorktree | null = null
+  const nodeWorktrees: NodeWorktreePort = {
+    create: async (_nodeId, request) => {
+      const provisioning = nodeWorktreeProvisioningAuthoritySchema.parse(request.provisioning)
+      const created: NodeManagedWorktree = {
+        worktreeId: 'c'.repeat(32),
+        sessionId: provisioning.sessionId,
+        createdByRunId: provisioning.runId,
+        targetRevision: provisioning.targetRevision,
+        worktreeRootId: `wt_${'c'.repeat(32)}`,
+        parentRootId: request.rootId,
+        nodePath: '/srv/engine/.hbar-worktrees/c',
+        branch: request.branch,
+        createdAt: Date.now(),
+      }
+      managedWorktree = created
+      executionTarget = {
+        kind: 'node',
+        nodeId: knownNodeId,
+        nodeName: 'Builder',
+        rootId: created.worktreeRootId,
+        nodePath: created.nodePath,
+        rootAccess: 'write',
+        capabilitySummary: {
+          backends: ['none'],
+          filesystem: 'none',
+          network: 'none',
+          floor: { process: true, network: false, terminal: false, osConfinement: 'off' },
+          observedAt: Date.now(),
+        },
+      }
+      return created
+    },
+    get: async () => managedWorktree,
+    remove: async () => {},
+  }
   const nodeWorkspaceInspection: NodeWorkspaceInspectionPort = {
     captureExecutionTarget: async () => executionTarget,
+    resolveWorkspaceMountManifest: async (_request, folders, primary) => {
+      const unsigned = {
+        schemaVersion: 1 as const,
+        workspaceId: folders.workspaceId,
+        revision: folders.revision,
+        nodeId: primary.nodeId,
+        primaryRootId: primary.rootId,
+        roots: folders.folders.map((folder) => {
+          const locator = parseNodeWorkspaceLocator(folder.path)
+          if (!locator) throw new Error('The test mount is not a node workspace locator')
+          return { rootId: locator.rootId, expectedRoot: '/srv/engine', alias: folder.alias }
+        }),
+      }
+      return { ...unsigned, digest: createHash('sha256').update(JSON.stringify(unsigned)).digest('hex') }
+    },
+    verifyWorkspaceFolders: async (_nodeId, folders) => folders,
   }
   const kernel = await Kernel.create({
     home: join(root, 'data'),
@@ -25,10 +83,12 @@ test('a node-owned Run keeps its B workspace and supplies admitted authority onl
     demo: true,
     secrets: new MemorySecrets(),
     nodeWorkspaceInspection,
+    nodeWorktrees,
   })
   try {
     const identity = createNodeIdentity()
     const nodeId = nodeIdFromPublicKey(identity.publicKey)
+    knownNodeId = nodeId
     const capabilities = nodeCapabilitiesSchema.parse({
       protocol: 1,
       nodeId,
@@ -46,6 +106,17 @@ test('a node-owned Run keeps its B workspace and supplies admitted authority onl
     })
     await kernel.storage.call('nodeTouch', nodeId, Date.now(), capabilities)
     const workspace = await kernel.createNodeWorkspace({ nodeId, rootId: 'engine' })
+    const folderSnapshot = await kernel.storage.call('workspaceFolders', workspace.id)
+    const primaryAlias = folderSnapshot.folders[0]?.alias
+    if (!primaryAlias) throw new Error('The remote workspace has no primary folder alias')
+    const session = await kernel.createSession(workspace.id)
+    await kernel.setSessionLaunchTarget({
+      actorId: 'test-user',
+      idempotencyKey: 'remote-isolated-target',
+      sessionId: session.id,
+      expectedRevision: 0,
+      selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'feature/remote-run' } },
+    })
     executionTarget = {
       kind: 'node',
       nodeId,
@@ -61,14 +132,15 @@ test('a node-owned Run keeps its B workspace and supplies admitted authority onl
         observedAt: Date.now(),
       },
     }
-    const session = await kernel.createSession(workspace.id)
     const targetSpy = spyOn(kernel.sessionLaunchTargets, 'workspaceForRun')
     const mountSpy = spyOn(kernel.workspaceSandboxes, 'prepare')
     const modelWorkspacePaths: string[] = []
+    const modelSystems: string[] = []
     const removeContextHook = kernel.hooks.on('context.build', (request) => {
       const workspacePath = request.context?.workspacePath
       if (typeof workspacePath !== 'string') throw new Error('Model context omitted its workspace path')
       modelWorkspacePaths.push(workspacePath)
+      modelSystems.push(request.system)
       return request
     })
     const observed: { readonly contextWorkspace: Workspace; readonly scope: WorkspaceExecutionScope | undefined }[] = []
@@ -88,34 +160,63 @@ test('a node-owned Run keeps its B workspace and supplies admitted authority onl
       await kernel.setPermissionMode('allow')
       const run = await kernel.submit(
         session.id,
-        'node-workspace-owner-scope',
+        'node-worktree-owner-scope',
         { text: '/tool scope_probe {}', images: [] },
         'local-fixture',
+        undefined,
+        undefined,
+        1,
       )
       await kernel.waitForIdle()
-      expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+      const storedRun = await kernel.storage.call('run', run.id)
+      expect(storedRun.status).toBe('completed')
       expect(targetSpy).not.toHaveBeenCalled()
       expect(mountSpy).not.toHaveBeenCalled()
       expect(modelWorkspacePaths.length).toBeGreaterThan(0)
-      expect(modelWorkspacePaths.every((path) => path === '/srv/engine')).toBe(true)
+      expect(modelWorkspacePaths.every((path) => path === '/srv/engine/.hbar-worktrees/c')).toBe(true)
+      expect(modelSystems.join('\n')).toContain(`${primaryAlias}/relative-path`)
+      expect(modelSystems.join('\n')).toContain(`/workspace/${primaryAlias}/relative-path`)
       expect(observed).toHaveLength(1)
       const capture = observed[0]
       expect(capture).toBeDefined()
       if (!capture) throw new Error('The remote tool did not capture its owner scope')
       expect(capture).toMatchObject({
-        contextWorkspace: { path: workspace.path, location: workspace.location },
+        contextWorkspace: {
+          path: `hbar-node://${nodeId}/wt_${'c'.repeat(32)}`,
+          location: { kind: 'node', nodeId, rootId: `wt_${'c'.repeat(32)}`, nodePath: '/srv/engine/.hbar-worktrees/c' },
+        },
         scope: {
-          workspace: { path: workspace.path, location: workspace.location },
+          workspace: { path: `hbar-node://${nodeId}/wt_${'c'.repeat(32)}` },
           authority: {
             sessionId: session.id,
             runId: run.id,
             sandbox: null,
             admission: { kind: 'allow' },
+            workspaceMounts: {
+              workspaceId: workspace.id,
+              nodeId,
+              primaryRootId: 'engine',
+              roots: [{ rootId: 'engine', expectedRoot: '/srv/engine', alias: primaryAlias }],
+            },
           },
         },
       })
       expect(capture.scope?.authority?.callId).toBeString()
+      expect(capture.scope?.authority?.workspaceMounts?.digest).toMatch(/^[a-f0-9]{64}$/)
       expect(capture.scope?.signal.aborted).toBe(false)
+      expect(managedWorktree).not.toBeNull()
+      expect(modelWorkspacePaths.at(-1)).toBe('/srv/engine/.hbar-worktrees/c')
+      expect(observed).toHaveLength(1)
+      expect(capture.contextWorkspace.location).toEqual({
+        kind: 'node',
+        nodeId,
+        rootId: `wt_${'c'.repeat(32)}`,
+        nodePath: '/srv/engine/.hbar-worktrees/c',
+      })
+      expect(capture.scope?.authority?.managedWorktree).toEqual({
+        worktreeId: 'c'.repeat(32),
+        targetRevision: 1,
+      })
     } finally {
       await removeTool()
       await removeContextHook()

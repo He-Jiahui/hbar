@@ -1156,6 +1156,10 @@ export const terminalSnapshotSchema = z.object({
 export type TerminalSnapshot = z.infer<typeof terminalSnapshotSchema>
 export const terminalOpenSchema = z.object({
   workspaceId: idSchema,
+  /** Reused by a terminal opener when B-local confirmation asks for a retry. */
+  operationId: idSchema.optional(),
+  /** Remote terminals are bound to the exact owning session; local legacy terminals may omit it. */
+  sessionId: idSchema.optional(),
   cols: z.number().int().min(20).max(400).default(120),
   rows: z.number().int().min(4).max(200).default(32),
 })
@@ -1207,6 +1211,7 @@ export type WireNotification =
   | { method: 'session.event'; params: SessionEvent }
   | { method: 'session.summary'; params: SessionSummary }
   | { method: 'stream.update'; params: StreamDelta }
+  | { method: 'tool.output'; params: import('./tool-execution').ToolOutputNotification }
   | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
   | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number | undefined } }
@@ -1235,7 +1240,10 @@ export type WireNotification =
       params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse | undefined }
     }
   | { method: 'auth.revoked'; params: { reason: string } }
-  | { method: 'terminal.output'; params: { terminalId: string; data: string } }
+  | {
+      method: 'terminal.output'
+      params: { terminalId: string; data: string; seq?: number | undefined; reset?: boolean | undefined }
+    }
   | { method: 'terminal.exit'; params: { terminalId: string; code: number | null; signal: string | null } }
   | {
       method: 'surface.invoke'

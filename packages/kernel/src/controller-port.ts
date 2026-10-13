@@ -1,4 +1,5 @@
 import type { Kernel } from './index'
+import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 import type { LiveStream } from '@hbar/contracts'
 import type {
   AgentService,
@@ -32,7 +33,9 @@ export type WorkspaceSessionCommandKernelPort = Pick<
   Kernel,
   'storage' | 'changed' | 'createWorkspace' | 'createNodeWorkspace' | 'updateSession'
 > & {
-  readonly options: Pick<Kernel['options'], 'layout'>
+  readonly options: Pick<Kernel['options'], 'layout'> & {
+    readonly nodeWorkspaceInspection?: Pick<NodeWorkspaceInspectionPort, 'verifyWorkspaceFolders'> | undefined
+  }
   readonly active: { has(sessionId: string): boolean }
 }
 export type SessionLaunchTargetCommandKernelPort = Pick<
@@ -137,7 +140,9 @@ export interface KernelControllerPort
     WorkspaceSessionCommandKernelPort,
     SessionLaunchTargetCommandKernelPort,
     SessionBranchTargetCommandKernelPort {
-  readonly options: Pick<Kernel['options'], 'layout' | 'demo' | 'noLocalExec'>
+  readonly options: Pick<Kernel['options'], 'layout' | 'demo' | 'noLocalExec'> & {
+    readonly nodeWorkspaceInspection?: Pick<NodeWorkspaceInspectionPort, 'verifyWorkspaceFolders'> | undefined
+  }
   readonly active: { readonly size: number; has(sessionId: string): boolean }
   readonly streams: ReadonlyMap<string, LiveStream>
   readonly plugins: KernelPluginControllerPort
@@ -145,6 +150,7 @@ export interface KernelControllerPort
   readonly directoryQueries: Pick<Kernel['directoryQueries'], 'execute' | 'dispatch' | 'describe' | 'list'>
   readonly schemaCallbacks: Pick<Kernel['schemaCallbacks'], 'query'>
   readonly sandboxProfiles: SandboxCommandPort
+  readonly sessionSandboxProfileId: Kernel['sessionSandboxProfileId']
   readonly workspaceSandboxes: Pick<Kernel['workspaceSandboxes'], 'prepare'>
   readonly sessionLaunchTargets: Pick<Kernel['sessionLaunchTargets'], 'workspaceForRun'>
 }

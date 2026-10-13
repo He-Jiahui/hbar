@@ -102,7 +102,7 @@ test('schema 30 adds Approval executionTarget to a version 29 database', async (
     const db = new Database(path)
     try {
       db.exec(
-        'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=29;',
+        'DROP INDEX node_run_workspace_mounts_session; DROP TABLE node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; ALTER TABLE approvals DROP COLUMN executionTarget; PRAGMA user_version=29;',
       )
       expect(
         db

@@ -23,7 +23,7 @@ import {
   type NodeExecutionScope,
   type NodeExecutionTarget,
 } from './execution-port'
-import { nodeExecutionRelativePath } from './execution-paths'
+import { nodeExecutionRelativePath, resolveNodeExecutionPath } from './execution-paths'
 import { decodeNodeFileText, readNodeFile, writeNodeFile, restoreNodeFiles } from './execution-transfers'
 import { executeNodeCommand } from './execution-process'
 
@@ -31,6 +31,7 @@ interface Captured {
   readonly location: NodeWorkspaceLocation
   readonly authority: NodeCallAuthority | undefined
   readonly signal: AbortSignal
+  readonly reportOutput?: NodeExecutionScope['reportOutput']
 }
 type Metadata = Pick<NodeExecutionTarget, 'location' | 'platform' | 'signal'>
 export interface ExecutionRouterOptions {
@@ -53,47 +54,70 @@ export class ExecutionRouter implements ExecutionProvider {
         signal = this.operationSignal(signal)
         const target = await this.admitted(workspace, signal)
         if (!target) return this.localQuery().search(workspace, input, signal)
-        return this.rpc(
-          target.location.nodeId,
+        const routed = resolveNodeExecutionPath(target, input.path)
+        const result = await this.rpc(
+          routed.target.location.nodeId,
           'query.search',
           {
-            ...nodeTargetBinding(target),
-            authority: target.authority,
-            query: { ...input, path: nodeExecutionRelativePath(target, input.path) },
+            ...nodeTargetBinding(routed.target),
+            authority: routed.target.authority,
+            query: { ...input, path: routed.path },
           },
-          target.signal,
+          routed.target.signal,
         )
+        const alias = this.mountAlias(routed.target)
+        return alias
+          ? {
+              ...result,
+              matches: result.matches.map((match) => ({ ...match, path: this.prefixPath(alias, match.path) })),
+              ...(result.pagination
+                ? {
+                    pagination: {
+                      ...result.pagination,
+                      folders: result.pagination.folders.map((folder) => ({
+                        ...folder,
+                        path: this.prefixPath(alias, folder.path),
+                      })),
+                    },
+                  }
+                : {}),
+            }
+          : result
       },
       find: async (workspace, input, signal) => {
         signal = this.operationSignal(signal)
         const target = await this.admitted(workspace, signal)
         if (!target) return this.localQuery().find(workspace, input, signal)
-        return this.rpc(
-          target.location.nodeId,
+        const routed = resolveNodeExecutionPath(target, input.path)
+        const result = await this.rpc(
+          routed.target.location.nodeId,
           'query.find',
           {
-            ...nodeTargetBinding(target),
-            authority: target.authority,
-            query: { ...input, path: nodeExecutionRelativePath(target, input.path) },
+            ...nodeTargetBinding(routed.target),
+            authority: routed.target.authority,
+            query: { ...input, path: routed.path },
           },
-          target.signal,
+          routed.target.signal,
         )
+        const alias = this.mountAlias(routed.target)
+        return alias ? { ...result, paths: result.paths.map((path) => this.prefixPath(alias, path)) } : result
       },
       readRange: async (workspace, path, startLine, lineCount, signal) => {
         signal = this.operationSignal(signal)
         const target = await this.admitted(workspace, signal)
         if (!target) return this.localQuery().readRange(workspace, path, startLine, lineCount, signal)
+        const routed = resolveNodeExecutionPath(target, path)
         return this.rpc(
-          target.location.nodeId,
+          routed.target.location.nodeId,
           'query.readRange',
           {
-            ...nodeTargetBinding(target),
-            authority: target.authority,
-            path: nodeExecutionRelativePath(target, path),
+            ...nodeTargetBinding(routed.target),
+            authority: routed.target.authority,
+            path: routed.path,
             startLine,
             lineCount,
           },
-          target.signal,
+          routed.target.signal,
         )
       },
       invalidate: async (workspace, path) => {
@@ -101,15 +125,16 @@ export class ExecutionRouter implements ExecutionProvider {
         if (!capture) return this.localQuery().invalidate(workspace, path)
         const target = await this.admitted(workspace)
         if (!target) throw new HbarError('WORKSPACE_SCOPE', 'Remote workspace admission is unavailable')
+        const routed = resolveNodeExecutionPath(target, path)
         await this.rpc(
-          target.location.nodeId,
+          routed.target.location.nodeId,
           'query.invalidate',
           {
-            ...nodeTargetBinding(target),
-            authority: target.authority,
-            path: nodeExecutionRelativePath(target, path),
+            ...nodeTargetBinding(routed.target),
+            authority: routed.target.authority,
+            path: routed.path,
           },
-          target.signal,
+          routed.target.signal,
         )
       },
       dispose: () => this.options.local.workspaceQuery?.dispose(),
@@ -119,6 +144,19 @@ export class ExecutionRouter implements ExecutionProvider {
     if (!this.options.local.workspaceQuery)
       throw new HbarError('QUERY_UNAVAILABLE', 'Local workspace query is unavailable')
     return this.options.local.workspaceQuery
+  }
+  private mountAlias(target: NodeExecutionTarget): string | undefined {
+    const manifest = target.authority.workspaceMounts
+    if (!manifest || target.location.rootId === manifest.primaryRootId) return undefined
+    if (
+      target.authority.managedWorktree &&
+      target.location.rootId === `wt_${target.authority.managedWorktree.worktreeId}`
+    )
+      return manifest.roots.find((root) => root.rootId === manifest.primaryRootId)?.alias
+    return manifest.roots.find((root) => root.rootId === target.location.rootId)?.alias
+  }
+  private prefixPath(alias: string, path: string): string {
+    return path === '.' ? alias : `${alias}/${path.replace(/^\.\//, '')}`
   }
   private operationSignal(signal?: AbortSignal): AbortSignal {
     const scope = this.options.current()
@@ -149,6 +187,7 @@ export class ExecutionRouter implements ExecutionProvider {
       location,
       authority: scope.authority ? nodeCallAuthoritySchema.parse(structuredClone(scope.authority)) : undefined,
       signal: AbortSignal.any([this.stopped.signal, scope.signal, ...(signal ? [signal] : [])]),
+      ...(scope.reportOutput ? { reportOutput: scope.reportOutput } : {}),
     }
   }
   private async rpc<Method extends NodeWorkspaceMethod>(
@@ -165,6 +204,27 @@ export class ExecutionRouter implements ExecutionProvider {
   }
   private async metadata(capture: Captured): Promise<Metadata> {
     capture.signal.throwIfAborted()
+    if (/^wt_[a-f0-9]{32}$/.test(capture.location.rootId)) {
+      const registered = await this.rpc(
+        capture.location.nodeId,
+        'fs.canonicalize',
+        {
+          rootId: capture.location.rootId,
+          expectedRoot: capture.location.nodePath,
+          paths: ['.'],
+        },
+        capture.signal,
+      )
+      if (registered.root !== capture.location.nodePath)
+        throw new HbarError('NODE_ROOT_CHANGED', 'The managed worktree no longer matches its captured node root')
+      capture.signal.throwIfAborted()
+      return {
+        location: capture.location,
+        platform: registered.dialect === 'win32' ? 'win32' : 'linux',
+        signal: capture.signal,
+        ...(capture.reportOutput ? { reportOutput: capture.reportOutput } : {}),
+      }
+    }
     const capability = await this.rpc(capture.location.nodeId, 'node.capabilities', {}, capture.signal)
     if (capability.nodeId !== capture.location.nodeId || capability.evaluator !== SANDBOX_EVALUATOR_FINGERPRINT)
       throw new HbarError('NODE_EVALUATOR_MISMATCH', 'Workspace node identity or sandbox evaluator is incompatible')
@@ -172,7 +232,12 @@ export class ExecutionRouter implements ExecutionProvider {
     if (!root || root.nodePath !== capture.location.nodePath)
       throw new HbarError('NODE_ROOT_CHANGED', 'The node shared root no longer matches the workspace binding')
     capture.signal.throwIfAborted()
-    return { location: capture.location, platform: capability.platform, signal: capture.signal }
+    return {
+      location: capture.location,
+      platform: capability.platform,
+      signal: capture.signal,
+      ...(capture.reportOutput ? { reportOutput: capture.reportOutput } : {}),
+    }
   }
   private async admitted(workspace: string, signal?: AbortSignal): Promise<NodeExecutionTarget | null> {
     const capture = this.capture(workspace, signal)
@@ -197,17 +262,31 @@ export class ExecutionRouter implements ExecutionProvider {
       return this.options.local.canonicalize(workspace, paths, signal)
     }
     const target = await this.metadata(capture)
+    const routedPaths = paths.map((path) =>
+      capture.authority
+        ? resolveNodeExecutionPath({ ...target, authority: capture.authority }, path)
+        : { target, path: nodeExecutionRelativePath(target, path) },
+    )
+    if (
+      routedPaths.some(
+        (item) =>
+          item.target.location.rootId !== routedPaths[0]?.target.location.rootId ||
+          item.target.location.nodePath !== routedPaths[0]?.target.location.nodePath,
+      )
+    )
+      throw new HbarError('WORKSPACE_SCOPE', 'Canonicalize one mounted root at a time')
+    const canonicalTarget = routedPaths[0]?.target ?? target
     const result = await this.rpc(
-      target.location.nodeId,
+      canonicalTarget.location.nodeId,
       'fs.canonicalize',
       {
-        ...nodeTargetBinding(target),
-        paths: paths.map((path) => nodeExecutionRelativePath(target, path)),
+        ...nodeTargetBinding(canonicalTarget),
+        paths: routedPaths.map((item) => item.path),
       },
       target.signal,
     )
     if (
-      result.root !== target.location.nodePath ||
+      result.root !== canonicalTarget.location.nodePath ||
       result.paths.length !== paths.length ||
       result.dialect !== (target.platform === 'win32' ? 'win32' : 'posix')
     )
@@ -219,45 +298,45 @@ export class ExecutionRouter implements ExecutionProvider {
       target = await this.admitted(workspace, signal)
     signal.throwIfAborted()
     if (!target) return this.options.local.list(workspace, path)
-    return this.rpc(
-      target.location.nodeId,
+    const routed = resolveNodeExecutionPath(target, path)
+    const result = await this.rpc(
+      routed.target.location.nodeId,
       'fs.list',
       {
-        ...nodeTargetBinding(target),
-        authority: target.authority,
-        path: nodeExecutionRelativePath(target, path),
+        ...nodeTargetBinding(routed.target),
+        authority: routed.target.authority,
+        path: routed.path,
       },
-      target.signal,
+      routed.target.signal,
     )
+    const alias = this.mountAlias(routed.target)
+    return alias ? result.map((entry) => ({ ...entry, path: this.prefixPath(alias, entry.path) })) : result
   }
   async readBytes(workspace: string, path: string): Promise<Uint8Array> {
     const signal = this.operationSignal(),
       target = await this.admitted(workspace, signal)
     signal.throwIfAborted()
     if (!target) return this.options.local.readBytes(workspace, path)
-    return (await readNodeFile(this.options.node, target, nodeExecutionRelativePath(target, path))).bytes
+    const routed = resolveNodeExecutionPath(target, path)
+    return (await readNodeFile(this.options.node, routed.target, routed.path)).bytes
   }
   async read(workspace: string, path: string): Promise<string> {
     const signal = this.operationSignal(),
       target = await this.admitted(workspace, signal)
     signal.throwIfAborted()
     if (!target) return this.options.local.read(workspace, path)
-    return decodeNodeFileText(
-      (await readNodeFile(this.options.node, target, nodeExecutionRelativePath(target, path))).bytes,
-    )
+    const routed = resolveNodeExecutionPath(target, path)
+    return decodeNodeFileText((await readNodeFile(this.options.node, routed.target, routed.path)).bytes)
   }
   async write(workspace: string, path: string, text: string, options?: { expectedRevision?: string }) {
     const signal = this.operationSignal(),
       target = await this.admitted(workspace, signal)
     signal.throwIfAborted()
     if (!target) return this.options.local.write(workspace, path, text, options)
-    return writeNodeFile(
-      this.options.node,
-      target,
-      nodeExecutionRelativePath(target, path),
-      text,
-      options?.expectedRevision,
-    )
+    const routed = resolveNodeExecutionPath(target, path)
+    const result = await writeNodeFile(this.options.node, routed.target, routed.path, text, options?.expectedRevision)
+    const alias = this.mountAlias(routed.target)
+    return alias ? { ...result, path: this.prefixPath(alias, result.path) } : result
   }
   async restoreFiles(workspace: string, changes: readonly ToolFileChange[], signal: AbortSignal): Promise<void> {
     signal = this.operationSignal(signal)
@@ -267,11 +346,16 @@ export class ExecutionRouter implements ExecutionProvider {
         throw new HbarError('FILE_UNDO_UNSUPPORTED', 'Local execution has no restore provider')
       return this.options.local.restoreFiles(workspace, changes, signal)
     }
-    await restoreNodeFiles(
-      this.options.node,
-      target,
-      changes.map((change) => ({ ...change, path: nodeExecutionRelativePath(target, change.path) })),
-    )
+    const groups = new Map<string, { target: NodeExecutionTarget; changes: ToolFileChange[] }>()
+    for (const change of changes) {
+      const routed = resolveNodeExecutionPath(target, change.path)
+      const key = `${routed.target.location.rootId}\0${routed.target.location.nodePath}`
+      const group = groups.get(key) ?? { target: routed.target, changes: [] }
+      group.changes.push({ ...change, path: routed.path })
+      groups.set(key, group)
+    }
+    if (groups.size > 1) throw new HbarError('FILE_UNDO_UNSUPPORTED', 'Restore one mounted root at a time')
+    for (const group of groups.values()) await restoreNodeFiles(this.options.node, group.target, group.changes)
   }
   exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
     const task = this.execute(workspace, command, signal, options)

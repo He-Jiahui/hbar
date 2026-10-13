@@ -2,11 +2,13 @@ import { expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
 import type { NodeExecutionTarget } from '@hbar/contracts/node-execution-target'
 import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { nodeCapabilitiesSchema } from '@hbar/contracts/node'
+import { parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { createNodeIdentity, nodeIdFromPublicKey } from '@hbar/node-core'
 import { SANDBOX_EVALUATOR_FINGERPRINT } from '@hbar/sandbox'
 import type { ExecOptions, ExecutionProvider } from '@hbar/plugin-sdk'
@@ -38,6 +40,22 @@ test('Kernel rejects a disabled remote process before approval, intent, or execu
       targetCaptures++
       return target
     },
+    resolveWorkspaceMountManifest: async (_request, folders, primary) => {
+      const unsigned = {
+        schemaVersion: 1 as const,
+        workspaceId: folders.workspaceId,
+        revision: folders.revision,
+        nodeId: primary.nodeId,
+        primaryRootId: primary.rootId,
+        roots: folders.folders.map((folder) => {
+          const locator = parseNodeWorkspaceLocator(folder.path)
+          if (!locator) throw new Error('The test mount is not a node workspace locator')
+          return { rootId: locator.rootId, expectedRoot: '/srv/engine', alias: folder.alias }
+        }),
+      }
+      return { ...unsigned, digest: createHash('sha256').update(JSON.stringify(unsigned)).digest('hex') }
+    },
+    verifyWorkspaceFolders: async (_nodeId, folders) => folders,
   }
   const kernel = await Kernel.create({
     home: join(root, 'data'),

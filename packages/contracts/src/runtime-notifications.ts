@@ -6,6 +6,7 @@ import { chatDatabaseDeletedEventSchema } from './commands/chat-database-mainten
 import { notificationFreshEventSchema } from './commands/notifications'
 import { performanceSampleSchema } from './metrics'
 import { workflowSnapshotSchema } from './workflow'
+import { toolOutputNotificationSchema } from './tool-execution'
 
 export const liveStreamSchema = z.strictObject({ id: idSchema, sessionId: idSchema, runId: idSchema,
   text: z.string().max(16 * 1024 * 1024), thinking: z.string().max(16 * 1024 * 1024),
@@ -20,6 +21,7 @@ const event = <Method extends WireNotification['method'], Params>(method: Method
 export const runtimeWireNotificationSchema: z.ZodType<WireNotification> = z.discriminatedUnion('method', [
   event('chatDatabase.deleted', chatDatabaseDeletedEventSchema), event('notifications.created', notificationFreshEventSchema),
   event('session.event', sessionEventSchema), event('session.summary', sessionSummarySchema), event('stream.update', streamDeltaSchema),
+  event('tool.output', toolOutputNotificationSchema),
   event('metrics.sample', performanceSampleSchema), event('host.changed', z.strictObject({ kind: z.string().min(1).max(160) })),
   event('goal.updated', z.strictObject({ sessionId: idSchema, runId: idSchema.nullable(), goal: threadGoalSchema, seq: sequence })),
   event('goal.cleared', z.strictObject({ sessionId: idSchema, seq: sequence })),

@@ -114,6 +114,15 @@ test('fresh settlement signals can reconcile the exact captured operation after 
     expect(await b.call('exec.receipt', { operationId }).catch((error: unknown) => error)).toBeInstanceOf(Error)
     expect(await b.call('exec.receipt', { operationId }, undefined, true)).toEqual({ state: 'absent' })
     expect(await b.call('exec.cancel', { operationId }, undefined, true)).toEqual({ state: 'absent' })
+    const confirmationCancel = {
+      operationId,
+      rootId: 'engine',
+      expectedRoot: f.workspace,
+      authority: b.authority,
+      admissionDigest: 'a'.repeat(64),
+      argumentsDigest: 'b'.repeat(64),
+    }
+    expect(await b.call('node.confirmation.cancel', confirmationCancel, undefined, true)).toEqual({ state: 'absent' })
     const before = f.requests.length
     expect(
       await b

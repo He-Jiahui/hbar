@@ -178,6 +178,7 @@ test('declared application methods and revision callbacks execute in the real Ke
   expect(f.storageCalls()).toBe(0)
   await f.activate(kernel)
   expect((await callRuntimeApplication(application, 'kernel', 'models', [])).some(model => model.id === 'fixture')).toBe(true)
+  expect(await callRuntimeApplication(application, 'kernel', 'sessionSandboxProfileId', [f.session.id])).toBeString()
   expect(await outcome(application.call('directory.execute', ['workspace.get', { id: 'invalid-input-key' }]))).toMatchObject({ code: 'INVALID_INPUT' })
   expect(await outcome(callRuntimeApplication(application, 'directory', 'execute', ['session.list', { workspaceId: 'missing-workspace' }]))).toMatchObject({ code: 'WORKSPACE_NOT_FOUND' })
   const plan = await callRuntimeApplication(application, 'plan', 'update', [f.session.id, [{ step: 'Check owned application ports', status: 'in_progress' }]])

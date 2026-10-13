@@ -275,12 +275,13 @@ test('node notification direction is explicit and unsupported notifications clos
     },
     handle: async () => ({}),
   })
-  expect(() => peer.notify('exec.output', { operationId: 'run:call', seq: 1, text: 'hello' })).not.toThrow()
+  const streamId = crypto.randomUUID()
+  expect(() => peer.notify('exec.output', { operationId: 'run:call', streamId, seq: 1, text: 'hello' })).not.toThrow()
   await peer.receive(
     encodeNodeFrame({
       jsonrpc: '2.0',
       method: 'exec.output',
-      params: { operationId: 'run:call', seq: 1, text: 'from wrong direction' },
+      params: { operationId: 'run:call', streamId, seq: 1, text: 'from wrong direction' },
     }),
   )
   expect(closes).toEqual([4002])

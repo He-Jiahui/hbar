@@ -54,6 +54,7 @@ export const RUNTIME_APPLICATION_METHODS = {
     'searchSettings',
     'selectSessionBranchTarget',
     'sessionSummaries',
+    'sessionSandboxProfileId',
     'setPaths',
     'setPermissionMode',
     'setSessionLaunchTarget',

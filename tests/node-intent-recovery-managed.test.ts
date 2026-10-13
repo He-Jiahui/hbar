@@ -151,6 +151,7 @@ test.skipIf(process.platform !== 'linux')(
     await mkdir(aWorkspace)
     await mkdir(bWorkspace)
     await mkdir(join(bWorkspace, '.git', 'hooks'), { recursive: true })
+    await mkdir(join(bWorkspace, '.hbar-worktrees'), { recursive: true })
     await mkdir(bHome)
     const nodeState = new NodeStateStorage(join(bHome, 'node.sqlite'))
     await nodeState.call('ready', {})

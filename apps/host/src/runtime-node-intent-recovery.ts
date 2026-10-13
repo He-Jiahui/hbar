@@ -39,6 +39,7 @@ export function createRuntimeNodeIntentRecovery(options: {
       const session = await options.storage.call('session', run.sessionId)
       const workspace = await options.storage.call('workspace', session.workspaceId)
       if (workspace.location?.kind !== 'node') return 'settled'
+      const managedWorktree = await options.storage.call('nodeRunWorktree', runId)
       const pending: NodeExecutionIntentRecord[] = []
       let cursor: string | undefined
       for (let page = 0; page < 32; page++) {
@@ -84,8 +85,16 @@ export function createRuntimeNodeIntentRecovery(options: {
                   currentWorkspace.id !== candidate.workspaceId ||
                   location?.kind !== 'node' ||
                   location.nodeId !== candidate.nodeId ||
-                  location.rootId !== candidate.rootId ||
-                  location.nodePath !== candidate.nodePath ||
+                  (managedWorktree
+                    ? managedWorktree.runId !== candidate.runId ||
+                      managedWorktree.sessionId !== candidate.sessionId ||
+                      managedWorktree.workspaceId !== candidate.workspaceId ||
+                      managedWorktree.nodeId !== candidate.nodeId ||
+                      managedWorktree.worktreeRootId !== candidate.rootId ||
+                      managedWorktree.nodePath !== candidate.nodePath ||
+                      authority.managedWorktree?.worktreeId !== managedWorktree.worktreeId ||
+                      authority.managedWorktree.targetRevision !== managedWorktree.worktreeTargetRevision
+                    : location.rootId !== candidate.rootId || location.nodePath !== candidate.nodePath) ||
                   authority.sessionId !== candidate.sessionId ||
                   authority.runId !== candidate.runId ||
                   authority.callId !== candidate.callId ||

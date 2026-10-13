@@ -78,6 +78,11 @@ const toolContextSchema = z
         (value) => typeof value === 'function',
       )
       .optional(),
+    reportOutput: z
+      .custom<NonNullable<import('@hbar/plugin-sdk').ToolContext['reportOutput']>>(
+        (value) => typeof value === 'function',
+      )
+      .optional(),
   })
   .superRefine((value, result) => {
     if (value.run.sessionId !== value.session.id || value.session.workspaceId !== value.workspace.id)
@@ -271,6 +276,7 @@ export function createRuntimePlugin(
                 ...(parsed.osConfinement ? { osConfinement: parsed.osConfinement } : {}),
                 ...(parsed.nodeAuthority ? { nodeAuthority: parsed.nodeAuthority } : {}),
                 ...(parsed.reportProgress ? { reportProgress: parsed.reportProgress } : {}),
+                ...(parsed.reportOutput ? { reportOutput: parsed.reportOutput } : {}),
               }
               const invocation = runtimePluginInvocation()
               if (!invocation)
@@ -279,6 +285,7 @@ export function createRuntimePlugin(
                 workspace: structuredClone(parsed.workspace),
                 ...(parsed.nodeAuthority ? { authority: structuredClone(parsed.nodeAuthority) } : {}),
                 signal: parsed.signal,
+                ...(parsed.reportOutput ? { reportOutput: parsed.reportOutput } : {}),
               }
               const toolArgs = z.record(z.string(), z.unknown()).parse(await tool.inputSchema.parseAsync(args[0]))
               result = await withRuntimePluginInvocation(

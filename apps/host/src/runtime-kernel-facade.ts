@@ -9,6 +9,7 @@ import { RUNTIME_APPLICATION_METHODS, type RuntimeApplicationTargets } from '@hb
 import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import { runtimeDomainError, type ManagedProcess, type RuntimeCoordinator, type RuntimeValuePort } from '@hbar/runtime'
 import type { PathLayout, StoragePort } from '@hbar/storage'
+import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
 
 export type RuntimeKernelState = z.output<typeof runtimeKernelStateSchema>
 export interface RuntimeKernelEndpoint {
@@ -22,6 +23,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly layout: PathLayout
   readonly demo: boolean
   readonly noLocalExec?: boolean
+  readonly nodeWorkspaceInspection?: Pick<NodeWorkspaceInspectionPort, 'verifyWorkspaceFolders'>
   readonly storage: StoragePort
   readonly coordinator: RuntimeCoordinator
   readonly current: () => RuntimeKernelEndpoint
@@ -98,7 +100,14 @@ export class RuntimeKernelFacade {
         changePluginTree: async () => { throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Changing the plugin capability graph requires an explicit restart') },
       } : {}),
       instanceId: options.instanceId,
-      options: { layout: options.layout, demo: options.demo, noLocalExec: options.noLocalExec ?? false },
+      options: {
+        layout: options.layout,
+        demo: options.demo,
+        noLocalExec: options.noLocalExec ?? false,
+        ...(options.nodeWorkspaceInspection
+          ? { nodeWorkspaceInspection: options.nodeWorkspaceInspection }
+          : {}),
+      },
       storage: options.storage,
       storageHealth: () => ({ ready: options.endpoints().some((endpoint) => endpoint.process.snapshot().phase === 'serving') }),
       ...(options.cancel ? { cancel: options.cancel } : {}),

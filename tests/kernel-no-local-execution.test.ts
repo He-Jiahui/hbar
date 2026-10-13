@@ -2,21 +2,46 @@ import { expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { createNodeIdentity, nodeIdFromPublicKey } from '@hbar/node-core'
 import { SANDBOX_EVALUATOR_FINGERPRINT } from '@hbar/sandbox'
 import { nodeCapabilitiesSchema } from '@hbar/contracts/node'
+import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
+import type { NodeExecutionTarget } from '@hbar/contracts/node-execution-target'
+import { parseNodeWorkspaceLocator } from '@hbar/contracts/node-address'
 
 test('Kernel noLocalExec disables local workspace services and only exposes Host global skills to node Runs', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-kernel-no-local-exec-'))
   const localWorkspace = join(root, 'workspace')
   await mkdir(localWorkspace, { recursive: true })
+  let nodeTarget: NodeExecutionTarget = { kind: 'local' }
+  const nodeWorkspaceInspection: NodeWorkspaceInspectionPort = {
+    captureExecutionTarget: async () => nodeTarget,
+    resolveWorkspaceMountManifest: async (_request, folders, primary) => {
+      const unsigned = {
+        schemaVersion: 1 as const,
+        workspaceId: folders.workspaceId,
+        revision: folders.revision,
+        nodeId: primary.nodeId,
+        primaryRootId: primary.rootId,
+        roots: folders.folders.map((folder) => {
+          const locator = parseNodeWorkspaceLocator(folder.path)
+          if (!locator) throw new Error('The test mount is not a node workspace locator')
+          return { rootId: locator.rootId, expectedRoot: primary.nodePath, alias: folder.alias }
+        }),
+      }
+      return { ...unsigned, digest: createHash('sha256').update(JSON.stringify(unsigned)).digest('hex') }
+    },
+    verifyWorkspaceFolders: async (_nodeId, folders) => folders,
+  }
   const kernel = await Kernel.create({
     home: join(root, 'data'),
     workspace: localWorkspace,
     demo: true,
     noLocalExec: true,
     secrets: new MemorySecrets(),
+    nodeWorkspaceInspection,
   })
   try {
     const registeredLocalWorkspace = (await kernel.storage.call('workspaces'))[0]
@@ -86,12 +111,27 @@ test('Kernel noLocalExec disables local workspace services and only exposes Host
     const capabilities = nodeCapabilitiesSchema.parse({
       protocol: 1,
       nodeId,
-      platform: 'linux',
+      platform: process.platform === 'win32' ? 'win32' : process.platform === 'darwin' ? 'darwin' : 'linux',
       evaluator: SANDBOX_EVALUATOR_FINGERPRINT,
       roots: [{ rootId: 'engine', name: 'Engine', nodePath: localWorkspace, access: 'write' }],
       sandbox: { backends: ['none'], filesystem: 'none', network: 'none' },
       floor: { process: true, network: false, terminal: false, osConfinement: 'off' },
     })
+    nodeTarget = {
+      kind: 'node',
+      nodeId,
+      nodeName: 'Builder',
+      rootId: 'engine',
+      nodePath: localWorkspace,
+      rootAccess: 'write',
+      capabilitySummary: {
+        backends: ['none'],
+        filesystem: 'none',
+        network: 'none',
+        floor: { process: true, network: false, terminal: false, osConfinement: 'off' },
+        observedAt: Date.now(),
+      },
+    }
     await kernel.storage.call('nodeRegister', {
       nodeId,
       publicKey: identity.publicKey,
@@ -114,7 +154,8 @@ test('Kernel noLocalExec disables local workspace services and only exposes Host
     )
     await kernel.waitForIdle()
 
-    expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+    const remoteRun = await kernel.storage.call('run', run.id)
+    expect(remoteRun).toMatchObject({ status: 'completed' })
     expect(contextSystems.length).toBeGreaterThan(0)
     expect(contextSystems.every((system) => system.includes(`Work in ${localWorkspace}.`))).toBe(true)
     expect(contextSystems.some((system) => system.includes('Host-owned skill'))).toBe(true)

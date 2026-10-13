@@ -3,8 +3,22 @@ import { createHash } from 'node:crypto'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
-import { APP_VERSION, createLocalExecutionPolicy, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
-import type { Device, DiagnosticScopePort, DiagnosticSink, HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
+import {
+  APP_VERSION,
+  createLocalExecutionPolicy,
+  HbarError,
+  PROTOCOL_VERSION,
+  rpcRequestSchema,
+  rpcSchemas,
+} from '@hbar/contracts'
+import type {
+  Device,
+  DiagnosticScopePort,
+  DiagnosticSink,
+  HostInfo,
+  RpcMethod,
+  WireNotification,
+} from '@hbar/contracts'
 import { deviceAccessOf } from '@hbar/contracts/device'
 import type { ServerWebSocket } from 'bun'
 
@@ -31,6 +45,7 @@ import { createSystemCommands } from './system-commands.ts'
 
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
+import { NodeTerminalRouter, sessionTerminalSandboxProvider } from './node-terminal-router'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
 import { isStableRpc, isRecoveryControl } from './stable-rpc'
 
@@ -57,7 +72,7 @@ interface SocketData {
   pending: number
   terminals: Set<string>
   terminalCallbacks?: {
-    onOutput(terminalId: string, data: string): void
+    onOutput(terminalId: string, data: string, cursor?: { seq: number; reset?: boolean }): number | void
     onExit(terminalId: string, code: number | null, signal: string | null): void
   }
   timer?: ReturnType<typeof setTimeout> | undefined
@@ -156,8 +171,10 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   }
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage, { available: () => options.runtime?.authenticationAvailable?.() ?? true })
-  const authorization = new DeviceAuthorization(kernel.storage,
-    id => commandDescribers.get(id)?.() ?? application.resolveCommand?.(id)?.describe(id))
+  const authorization = new DeviceAuthorization(
+    kernel.storage,
+    (id) => commandDescribers.get(id)?.() ?? application.resolveCommand?.(id)?.describe(id),
+  )
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
   const allSockets = new Set<ServerWebSocket<SocketData>>()
@@ -226,6 +243,16 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   })
   const localExecutionPolicy = createLocalExecutionPolicy(kernel.options.noLocalExec)
   const systemTerminals = new SystemTerminalManager(localExecutionPolicy)
+  const terminalRouter = new NodeTerminalRouter({
+    local: systemTerminals,
+    ...(options.nodeLink ? { node: options.nodeLink } : {}),
+    getWorkspace: (workspaceId) => kernel.storage.call('workspace', workspaceId),
+    getSession: (sessionId) => kernel.storage.call('session', sessionId),
+    loadSandbox: sessionTerminalSandboxProvider({
+      getProfileId: (sessionId) => kernel.sessionSandboxProfileId(sessionId),
+      getProfile: (id) => kernel.sandboxProfiles.get(id),
+    }),
+  })
   let broadcastFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void = () =>
     undefined
   const notificationTasks = new Set<Promise<void>>()
@@ -336,7 +363,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   }
   function send(socket: ServerWebSocket<SocketData>, value: unknown) {
     const bytes = sendSocketFrame(socket, value)
-    if (bytes > 0) requestDiagnostics.frame('out', bytes, { instanceId: kernel.instanceId, connectionId: socket.data.connectionId })
+    if (bytes > 0)
+      requestDiagnostics.frame('out', bytes, { instanceId: kernel.instanceId, connectionId: socket.data.connectionId })
     return bytes
   }
   broadcastFresh = (event) => {
@@ -387,7 +415,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     commandDispatchers.set(id, nodeCommands.dispatch)
     commandDescribers.set(id, () => nodeCommands.describe(id))
   }
-  const createRemoteWorkspace = createRemoteWorkspaceCreator(options.nodeLink, (input) => kernel.createNodeWorkspace(input))
+  const createRemoteWorkspace = createRemoteWorkspaceCreator(options.nodeLink, (input) =>
+    kernel.createNodeWorkspace(input),
+  )
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
     if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
     clearTimeout(pending.timer)
@@ -429,8 +459,10 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       const device = socket.data.device
       if (!device) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
       await authorization.authorize(device, method, raw)
-      if (method === 'workspace.list' ||
-        (method === 'command.execute' && rpcSchemas[method].parse(raw).commandId === 'workspace.list')) {
+      if (
+        method === 'workspace.list' ||
+        (method === 'command.execute' && rpcSchemas[method].parse(raw).commandId === 'workspace.list')
+      ) {
         const input = method === 'command.execute' ? rpcSchemas[method].parse(raw).input : raw
         const filtered = await authorization.workspacePage(device, input)
         if (filtered) return filtered
@@ -728,13 +760,21 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         socket.data.device = device
         socket.data.initialized = true
         const terminalCallbacks = {
-          onOutput: (terminalId: string, data: string) =>
-            send(socket, { jsonrpc: '2.0', method: 'terminal.output', params: { terminalId, data } }),
+          onOutput: (terminalId: string, data: string, cursor?: { seq: number; reset?: boolean }) =>
+            send(socket, {
+              jsonrpc: '2.0',
+              method: 'terminal.output',
+              params: {
+                terminalId,
+                data,
+                ...(cursor ? { seq: cursor.seq, ...(cursor.reset ? { reset: true } : {}) } : {}),
+              },
+            }),
           onExit: (terminalId: string, code: number | null, signal: string | null) =>
             send(socket, { jsonrpc: '2.0', method: 'terminal.exit', params: { terminalId, code, signal } }),
         }
         socket.data.terminalCallbacks = terminalCallbacks
-        for (const terminal of systemTerminals.attach(device.id, terminalCallbacks))
+        for (const terminal of terminalRouter.attach(device.id, terminalCallbacks))
           socket.data.terminals.add(terminal.id)
         clearTimeout(socket.data.timer)
         return hostInfo(device)
@@ -752,10 +792,12 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         const device = socket.data.device
         if (!device || !authorization.restricted(device)) return bootstrap
         const allowed = device.workspaceIds
-        return { ...bootstrap,
-          workspaces: bootstrap.workspaces.filter(workspace => allowed == null || allowed.includes(workspace.id)),
-          sessions: bootstrap.sessions.filter(session => allowed == null || allowed.includes(session.workspaceId)),
-          plugins: [], panels: [],
+        return {
+          ...bootstrap,
+          workspaces: bootstrap.workspaces.filter((workspace) => allowed == null || allowed.includes(workspace.id)),
+          sessions: bootstrap.sessions.filter((session) => allowed == null || allowed.includes(session.workspaceId)),
+          plugins: [],
+          panels: [],
         }
       }
       case 'system.diagnose':
@@ -988,13 +1030,13 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         const p = rpcSchemas[method].parse(raw)
         if (socket.data.terminals.size >= 8)
           throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')
-        const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const callbacks = socket.data.terminalCallbacks
-        if (!callbacks) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-        const info = systemTerminals.open(
-          socket.data.deviceId!,
-          workspace.id,
-          workspace.path,
+        if (!callbacks || !socket.data.device) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+        const info = await terminalRouter.open(
+          socket.data.device,
+          p.workspaceId,
+          p.operationId,
+          p.sessionId,
           p.cols,
           p.rows,
           callbacks,
@@ -1004,22 +1046,22 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       }
       case 'terminal.input': {
         const p = rpcSchemas[method].parse(raw)
-        systemTerminals.write(socket.data.deviceId!, p.terminalId, p.data)
+        await terminalRouter.write(socket.data.deviceId!, p.terminalId, p.data)
         return null
       }
       case 'terminal.resize': {
         const p = rpcSchemas[method].parse(raw)
-        systemTerminals.resize(socket.data.deviceId!, p.terminalId, p.cols, p.rows)
+        await terminalRouter.resize(socket.data.deviceId!, p.terminalId, p.cols, p.rows)
         return null
       }
       case 'terminal.close': {
         const p = rpcSchemas[method].parse(raw)
         socket.data.terminals.delete(p.terminalId)
-        systemTerminals.close(socket.data.deviceId!, p.terminalId)
+        await terminalRouter.close(socket.data.deviceId!, p.terminalId)
         return null
       }
       case 'terminal.list':
-        return systemTerminals.list(socket.data.deviceId!)
+        return terminalRouter.list(socket.data.deviceId!)
       case 'approval.resolve': {
         const p = rpcSchemas[method].parse(raw)
         const approval = await kernel.storage.call('approval', p.approvalId)
@@ -1232,14 +1274,31 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       try {
         if (url.pathname === '/node') {
           const source = host.requestIP(request)?.address ?? 'unknown'
-          if (!nodeSockets) return json(request, { code: 'NODE_LINK_UNAVAILABLE', error: 'Node link owner is unavailable' }, 503)
+          if (!nodeSockets)
+            return json(request, { code: 'NODE_LINK_UNAVAILABLE', error: 'Node link owner is unavailable' }, 503)
           if (!nodeRequestAllowed(request, source, secure))
-            return json(request, { code: 'NODE_TRANSPORT_REJECTED', error: 'Use a dedicated encrypted node connection' }, 403)
-          if (host.upgrade(request, { data: {
-            connectionId: crypto.randomUUID(), nodeSource: source, initialized: false, follows: new Set(),
-            operationFollows: new Set(), operationChains: new Map(), metricsFollowing: false,
-            schemaQueries: new Map(), pending: 0, terminals: new Set(),
-          } })) return undefined
+            return json(
+              request,
+              { code: 'NODE_TRANSPORT_REJECTED', error: 'Use a dedicated encrypted node connection' },
+              403,
+            )
+          if (
+            host.upgrade(request, {
+              data: {
+                connectionId: crypto.randomUUID(),
+                nodeSource: source,
+                initialized: false,
+                follows: new Set(),
+                operationFollows: new Set(),
+                operationChains: new Map(),
+                metricsFollowing: false,
+                schemaQueries: new Map(),
+                pending: 0,
+                terminals: new Set(),
+              },
+            })
+          )
+            return undefined
           return json(request, { error: 'WebSocket upgrade required' }, 426)
         }
         if (url.pathname === '/node-info') return response(request, 'Not found', 404)
@@ -1253,9 +1312,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             ? {
                 kind: fatal.kind,
                 code: fatal.code.replace(/[^A-Z0-9_.-]/g, '').slice(0, 128),
-                ...(fatal.method
-                  ? { method: fatal.method.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 128) }
-                  : {}),
+                ...(fatal.method ? { method: fatal.method.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 128) } : {}),
                 occurredAt: Number.isFinite(fatal.occurredAt) ? fatal.occurredAt : 0,
               }
             : undefined
@@ -1408,7 +1465,10 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       idleTimeout: 120,
       sendPings: true,
       open(socket) {
-        if (socket.data.nodeSource) { nodeSockets?.open(socket); return }
+        if (socket.data.nodeSource) {
+          nodeSockets?.open(socket)
+          return
+        }
         socket.data.connectionId = crypto.randomUUID()
         sockets.add(socket)
         allSockets.add(socket)
@@ -1417,14 +1477,21 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         }, 10_000)
       },
       message(socket, payload) {
-        if (socket.data.nodeSource) { nodeSockets?.message(socket, payload); return }
+        if (socket.data.nodeSource) {
+          nodeSockets?.message(socket, payload)
+          return
+        }
         void (async () => {
           let id: string | number | null = null
           let admitted = false
           let span: ReturnType<typeof requestDiagnostics.begin> | undefined
-          const bytesIn = typeof payload === 'string' ? new TextEncoder().encode(payload).byteLength : payload.byteLength
+          const bytesIn =
+            typeof payload === 'string' ? new TextEncoder().encode(payload).byteLength : payload.byteLength
           try {
-            requestDiagnostics.frame('in', bytesIn, { instanceId: kernel.instanceId, connectionId: socket.data.connectionId })
+            requestDiagnostics.frame('in', bytesIn, {
+              instanceId: kernel.instanceId,
+              connectionId: socket.data.connectionId,
+            })
             if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
             socket.data.pending++
             admitted = true
@@ -1435,10 +1502,17 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                 const envelope = rpcRequestSchema.safeParse(JSON.parse(text))
                 if (envelope.success) {
                   id = envelope.data.id
-                  stable = isStableRpc(envelope.data.method, envelope.data.params) || authorization.restricted(socket.data.device)
+                  stable =
+                    isStableRpc(envelope.data.method, envelope.data.params) ||
+                    authorization.restricted(socket.data.device)
                   if (!stable) {
-                    span = requestDiagnostics.begin({ method: envelope.data.method, rpcId: envelope.data.id,
-                      connectionId: socket.data.connectionId, bytesIn, pending: socket.data.pending })
+                    span = requestDiagnostics.begin({
+                      method: envelope.data.method,
+                      rpcId: envelope.data.id,
+                      connectionId: socket.data.connectionId,
+                      bytesIn,
+                      pending: socket.data.pending,
+                    })
                     span.stage('admission', socket.data.pending)
                   }
                 }
@@ -1468,16 +1542,24 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                     if (isRecoveryControl(request.method, request.params))
                       await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                     else socket.data.device = await auth.authenticate(socket.data.token)
-                    if (socket.data.device) await authorization.authorize(socket.data.device, request.method, request.params)
+                    if (socket.data.device)
+                      await authorization.authorize(socket.data.device, request.method, request.params)
                     signal.throwIfAborted()
                     return { actorId: socket.data.deviceId, host: hostInfo(socket.data.device) }
                   },
                 )
                 span?.stage('reply', socket.data.pending)
                 const bytesOut = sendSocketTextFrame(socket, frame)
-                if (bytesOut > 0) requestDiagnostics.frame('out', bytesOut, { instanceId: kernel.instanceId, connectionId: socket.data.connectionId })
-                const outcome = z.object({ error: z.object({ data: z.object({ code: z.string().max(128) }).optional() }).optional() }).safeParse(JSON.parse(frame))
-                if (outcome.success && outcome.data.error) span?.failure(outcome.data.error.data?.code ?? 'INVALID_REQUEST', { pending: socket.data.pending })
+                if (bytesOut > 0)
+                  requestDiagnostics.frame('out', bytesOut, {
+                    instanceId: kernel.instanceId,
+                    connectionId: socket.data.connectionId,
+                  })
+                const outcome = z
+                  .object({ error: z.object({ data: z.object({ code: z.string().max(128) }).optional() }).optional() })
+                  .safeParse(JSON.parse(frame))
+                if (outcome.success && outcome.data.error)
+                  span?.failure(outcome.data.error.data?.code ?? 'INVALID_REQUEST', { pending: socket.data.pending })
                 else if (bytesOut === 0) span?.replySkipped({ pending: socket.data.pending })
                 else span?.success({ bytesOut, pending: socket.data.pending })
                 return
@@ -1489,8 +1571,12 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             id = request.id
             const candidateParams = request.params
             const businessRequestId =
-              candidateParams && typeof candidateParams === 'object' && 'requestId' in candidateParams &&
-              typeof candidateParams.requestId === 'string' ? safeDiagnosticId(candidateParams.requestId) : undefined
+              candidateParams &&
+              typeof candidateParams === 'object' &&
+              'requestId' in candidateParams &&
+              typeof candidateParams.requestId === 'string'
+                ? safeDiagnosticId(candidateParams.requestId)
+                : undefined
             const requestSpan = requestDiagnostics.begin({
               method: request.method,
               rpcId: request.id,
@@ -1532,7 +1618,13 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           } catch (error) {
             const code = error instanceof HbarError || error instanceof CommandError ? error.code : 'INVALID_REQUEST'
             if (!span) {
-              span = requestDiagnostics.begin({ method: 'rpc.invalid', rpcId: id ?? 'unknown', connectionId: socket.data.connectionId, bytesIn, pending: socket.data.pending })
+              span = requestDiagnostics.begin({
+                method: 'rpc.invalid',
+                rpcId: id ?? 'unknown',
+                connectionId: socket.data.connectionId,
+                bytesIn,
+                pending: socket.data.pending,
+              })
             }
             span.failure(code, { pending: socket.data.pending })
             send(socket, {
@@ -1557,12 +1649,15 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         })
       },
       close(socket) {
-        if (socket.data.nodeSource) { nodeSockets?.close(socket.data.connectionId); return }
+        if (socket.data.nodeSource) {
+          nodeSockets?.close(socket.data.connectionId)
+          return
+        }
         socket.data.runtimeDispose?.()
         socket.data.runtimeDispose = undefined
         clearTimeout(socket.data.timer)
         if (socket.data.deviceId && socket.data.terminalCallbacks)
-          systemTerminals.detach(socket.data.deviceId, socket.data.terminalCallbacks)
+          terminalRouter.detach(socket.data.deviceId, socket.data.terminalCallbacks)
         socket.data.terminals.clear()
         sockets.delete(socket)
         for (const controller of socket.data.schemaQueries.values())
@@ -1605,7 +1700,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       if (!socket.data.initialized) continue
       authorization.revokeMovedSubscription(socket.data.device, socket.data.follows, event)
       if (!authorization.notification(socket.data.device, socket.data.follows, event)) continue
-      if (event.method === 'session.event' || event.method === 'stream.update') {
+      if (event.method === 'session.event' || event.method === 'stream.update' || event.method === 'tool.output') {
         const bySession = socket.data.follows.has(event.params.sessionId)
         if (event.method === 'session.event')
           for (const ids of socket.data.operationChains.values()) admitOperationRecovery(event.params, ids)
@@ -1637,7 +1732,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       metricsCommands.dispose()
       performance.stop()
       unsubscribe()
-      systemTerminals.closeAll()
+      terminalRouter.closeAll()
+      await terminalRouter.dispose()
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
       systemCommands.dispose()
       nodeCommands.dispose()

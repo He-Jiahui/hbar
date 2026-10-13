@@ -54,7 +54,7 @@ export function runtimeExecutionRouterPlugin(options: RuntimeExecutionRouterOpti
           const timeoutMs = nodeRequestTimeoutMs(method, input)
           const invocation = runtimePluginInvocation()
           let result: unknown
-          if (method === 'exec.cancel' || method === 'exec.receipt') {
+          if (method === 'exec.cancel' || method === 'exec.receipt' || method === 'node.confirmation.cancel') {
             if (!invocation?.settleHost || !invocation.invocationId)
               throw new HbarError('NODE_SETTLEMENT_UNAVAILABLE', 'The stable Host cannot reconcile this node execution')
             result = await invocation.settleHost('execution.nodeSettlement', [

@@ -137,6 +137,15 @@ export function createControllerApplication(
     readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
     readonly publishFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void
     readonly background?: boolean
+    readonly manualGitQuery?: (
+      input: {
+        readonly workspaceId: string
+        readonly actorId: string
+        readonly requestId: string
+        readonly cwd: string
+      },
+      signal: AbortSignal,
+    ) => Promise<import('@hbar/plugin-sdk').GitLaunchBranchSnapshot | null>
   },
 ) {
   const localExecutionPolicy = createLocalExecutionPolicy(kernel.options.noLocalExec)
@@ -176,7 +185,11 @@ export function createControllerApplication(
   const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),
   )
-  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(kernel.storage, kernel.plugins.get('git'))
+  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
+    kernel.storage,
+    kernel.plugins.get('git'),
+    options.manualGitQuery ? { manualQuery: options.manualGitQuery } : {},
+  )
   const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get('budget'))
   const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {

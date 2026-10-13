@@ -1,15 +1,16 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema } from '../index'
+import {
+  sessionLaunchDerivedBranchNameSchema,
+  sessionLaunchSelectionSchema,
+  type SessionLaunchSelection,
+} from '../session-launch-selection'
+
+export { sessionLaunchDerivedBranchNameSchema, sessionLaunchSelectionSchema }
+export type { SessionLaunchSelection }
 
 const revisionSchema = z.number().int().nonnegative().safe()
-const branchNameSchema = z.string().trim().min(1).max(1_000)
-const localBranchRefSchema = z
-  .string()
-  .min('refs/heads/'.length + 1)
-  .max(1_011)
-  .startsWith('refs/heads/')
-export const sessionLaunchDerivedBranchNameSchema = z.string().regex(/^hbar\/session-launch\/[0-9a-f]{64}$/)
 
 export const sessionLaunchTargetResolutionSchema = z.discriminatedUnion('status', [
   z.strictObject({ status: z.literal('idle') }),
@@ -22,33 +23,6 @@ export const sessionLaunchTargetResolutionSchema = z.discriminatedUnion('status'
   }),
   z.strictObject({ status: z.literal('cancelled'), code: z.string().min(1).max(128), message: z.string().max(1_000) }),
   z.strictObject({ status: z.literal('failed'), code: z.string().min(1).max(128), message: z.string().max(1_000) }),
-])
-
-/** Paths stay Host-owned; a shared branch choice captures the local ref and its observed tip. */
-export const sessionLaunchSelectionSchema = z.discriminatedUnion('mode', [
-  z.strictObject({ mode: z.literal('shared-current') }),
-  z.strictObject({
-    mode: z.literal('shared-branch'),
-    branch: z.strictObject({
-      ref: localBranchRefSchema,
-      tipOid: z
-        .string()
-        .regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i)
-        .toLowerCase(),
-    }),
-  }),
-  z.strictObject({
-    mode: z.literal('isolated-worktree'),
-    branch: z.discriminatedUnion('kind', [
-      z.strictObject({ kind: z.literal('existing'), name: branchNameSchema }),
-      z.strictObject({
-        kind: z.literal('new'),
-        name: branchNameSchema,
-        startPoint: branchNameSchema.optional(),
-      }),
-      z.strictObject({ kind: z.literal('derived'), baseRef: localBranchRefSchema }),
-    ]),
-  }),
 ])
 
 /** A revisioned user choice. Filesystem paths are deliberately absent from the client contract. */
@@ -176,7 +150,6 @@ export const sessionLaunchTargetSetReceiptSchema = z
     message: 'Receipt revision must describe exactly this launch-target selection',
   })
 
-export type SessionLaunchSelection = z.infer<typeof sessionLaunchSelectionSchema>
 export type SessionLaunchTarget = z.infer<typeof sessionLaunchTargetSchema>
 export type SessionLaunchTargetGetInput = z.infer<typeof sessionLaunchTargetGetInputSchema>
 export type SessionLaunchTargetSetInput = z.infer<typeof sessionLaunchTargetSetInputSchema>

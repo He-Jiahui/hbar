@@ -13,7 +13,7 @@ interface ManagedTerminal {
 }
 
 export interface SystemTerminalCallbacks {
-  onOutput(terminalId: string, data: string): void
+  onOutput(terminalId: string, data: string, cursor?: { seq: number; reset?: boolean }): number | void
   onExit(terminalId: string, code: number | null, signal: string | null): void
 }
 
@@ -24,10 +24,21 @@ export class SystemTerminalManager {
   private readonly decoder = new TextDecoder()
   constructor(private readonly localExecutionPolicy: LocalExecutionPolicy = LOCAL_EXECUTION_ENABLED) {}
   private notify(callback: () => void): void {
-    try { callback() } catch { console.error('[hbar] terminal observer failed') }
+    try {
+      callback()
+    } catch {
+      console.error('[hbar] terminal observer failed')
+    }
   }
 
-  open(owner: string, workspaceId: string, cwd: string, cols: number, rows: number, callbacks: SystemTerminalCallbacks): TerminalInfo {
+  open(
+    owner: string,
+    workspaceId: string,
+    cwd: string,
+    cols: number,
+    rows: number,
+    callbacks: SystemTerminalCallbacks,
+  ): TerminalInfo {
     assertLocalExecutionAllowed(this.localExecutionPolicy, 'Local terminal execution')
     assertLocalWorkspace(cwd)
     const id = crypto.randomUUID()

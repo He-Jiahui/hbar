@@ -3,6 +3,11 @@ import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execut
 import { RuntimeRecoveryService } from './runtime-recovery'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
+import type { NodeWorktreePort } from './node-worktree-port'
+export type { NodeWorktreePort } from './node-worktree-port'
+import { ensureNodeRunWorktree } from './node-run-worktree'
+import { assertRemoteLaunchTargetSupported, nodeWorktreeBranchPlan } from './node-worktree-selection'
+import { nodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { admitNodeProcess } from './node-admission-gate'
 import { createNativeSecrets, type SecretStore } from './secrets'
 export { MemorySecrets, createNativeSecrets, type SecretStore } from './secrets'
@@ -15,9 +20,18 @@ export type { RuntimeRecoveryAdmission } from './runtime-recovery'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 export type { KernelExecutionPort } from './runtime-execution'
 export type {
-  ConfigurationCommandKernelPort, RunCommandKernelPort, InteractionCommandKernelPort, ModelCommandKernelPort,
-  WorkspaceSessionCommandKernelPort, SessionLaunchTargetCommandKernelPort, SessionBranchTargetCommandKernelPort,
-  SandboxCommandPort, KernelControllerPort, KernelControllerCapabilities, KernelPluginControllerPort, KernelClientScopePort,
+  ConfigurationCommandKernelPort,
+  RunCommandKernelPort,
+  InteractionCommandKernelPort,
+  ModelCommandKernelPort,
+  WorkspaceSessionCommandKernelPort,
+  SessionLaunchTargetCommandKernelPort,
+  SessionBranchTargetCommandKernelPort,
+  SandboxCommandPort,
+  KernelControllerPort,
+  KernelControllerCapabilities,
+  KernelPluginControllerPort,
+  KernelClientScopePort,
 } from './controller-port'
 import { writeArtifactAtomically, recoverArtifactReferenceIndex, type ArtifactUploadOptions } from './artifact-upload'
 export type { ArtifactUploadOptions } from './artifact-upload'
@@ -86,6 +100,7 @@ import {
   taskNotificationSchema,
   themeProfileSchema,
   diagnosticEvent,
+  toolOutputChunkSchema,
 } from '@hbar/contracts'
 import type {
   ApprovalMode,
@@ -122,7 +137,13 @@ import { createKernelExecutionDiagnostics } from './execution-diagnostics'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
 import { SessionSummaryCoordinator } from './session-summary-coordinator'
 import type { SessionSummaryOverride } from './session-summary-coordinator'
-import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
+import {
+  definePlugin,
+  prependModelInstructions,
+  provide,
+  resolveToolTimeoutMs,
+  RunControlSignal,
+} from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   BudgetService,
@@ -153,6 +174,7 @@ import type { StorageLocationApply } from '@hbar/contracts/commands/storage-loca
 import type {
   PathLayout,
   SessionLaunchTargetMutationInput,
+  SessionLaunchTargetBindingInput,
   SessionLaunchTargetPreparationStartMutationInput,
   StorageFatalEvent,
   StoragePort,
@@ -163,7 +185,13 @@ import type {
   SessionLaunchTargetPreparationStartReceipt,
 } from '@hbar/contracts/commands/session-launch-target'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
-import { buildSettingsCatalog, resolveSettings, searchSettings, settingDescriptors, validateSettingValue } from './settings.ts'
+import {
+  buildSettingsCatalog,
+  resolveSettings,
+  searchSettings,
+  settingDescriptors,
+  validateSettingValue,
+} from './settings.ts'
 import type {
   QueuedRunEditTextInput,
   QueuedRunGuideInput,
@@ -395,6 +423,8 @@ export interface KernelOptions {
   nodeIntentRecovery?: NodeIntentRecoveryPort | undefined
   /** Stable Host adapter captures authenticated node facts before remote process admission. */
   nodeWorkspaceInspection?: NodeWorkspaceInspectionPort | undefined
+  /** Private Host bridge to B-owned named worktrees. */
+  nodeWorktrees?: NodeWorktreePort | undefined
   /** The stable Host owns identity across managed Kernel generations. */
   instanceId?: string | undefined
   diagnostics?: DiagnosticSink | undefined
@@ -462,7 +492,8 @@ function sameProviderModel(left: ProviderConfig['models'][number], right: Provid
     PROVIDER_MODEL_FIELDS.every((field) => left[field] === right[field]) &&
     PROVIDER_CONFIG_ARRAYS.every(
       (field) =>
-        left[field].length === right[field].length && left[field].every((value, index) => value === right[field][index]),
+        left[field].length === right[field].length &&
+        left[field].every((value, index) => value === right[field][index]),
     )
   )
 }
@@ -556,20 +587,33 @@ export class Kernel {
     storage?: StoragePort,
   ) {
     this.localExecutionPolicy = createLocalExecutionPolicy(options.noLocalExec ?? false)
-    this.instanceId = z.string().min(1).max(160).parse(options.instanceId ?? crypto.randomUUID())
-    this.executionDiagnostics = createKernelExecutionDiagnostics({ ...(options.diagnostics ? { sink: options.diagnostics } : {}), ...(options.diagnosticScope ? { scope: options.diagnosticScope } : {}), instanceId: this.instanceId })
+    this.instanceId = z
+      .string()
+      .min(1)
+      .max(160)
+      .parse(options.instanceId ?? crypto.randomUUID())
+    this.executionDiagnostics = createKernelExecutionDiagnostics({
+      ...(options.diagnostics ? { sink: options.diagnostics } : {}),
+      ...(options.diagnosticScope ? { scope: options.diagnosticScope } : {}),
+      instanceId: this.instanceId,
+    })
     this.preparing = options.lifecycle === 'candidate'
-    if (this.preparing && !storage) throw new HbarError('RUNTIME_PREPARING', 'Candidate construction requires an explicit read-only Storage port')
+    if (this.preparing && !storage)
+      throw new HbarError('RUNTIME_PREPARING', 'Candidate construction requires an explicit read-only Storage port')
     this.executionScope = new KernelExecutionScope(options.execution)
     this.sessionSummaryCoordinator = new SessionSummaryCoordinator(
       (sessionId, override, isCurrent) => this.publishSessionSummary(sessionId, override, isCurrent),
       { setTimer: (callback, delayMs) => this.executionScope.observe(() => setTimeout(callback, delayMs)) },
     )
-    const suppliedStorage = storage ?? new Storage(options.layout.database, options.layout, {
+    const suppliedStorage =
+      storage ??
+      new Storage(options.layout.database, options.layout, {
       ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
       ...(options.diagnosticScope ? { diagnosticScope: options.diagnosticScope } : {}),
       ...(options.diagnostics ? { instanceId: this.instanceId } : {}),
-      ...(options.diagnosticFullCoverage === undefined ? {} : { diagnosticsFullCoverage: options.diagnosticFullCoverage }),
+        ...(options.diagnosticFullCoverage === undefined
+          ? {}
+          : { diagnosticsFullCoverage: options.diagnosticFullCoverage }),
       ...(options.onFatal ? { onFatal: options.onFatal } : {}),
     })
     const onFatal = suppliedStorage.onFatal
@@ -582,14 +626,25 @@ export class Kernel {
       ...(onFatal ? { onFatal: (listener) => onFatal.call(suppliedStorage, listener) } : {}),
     }
     this.storage = this.executionScope.storage(guardedStorage)
-    this.runtimeRecovery = new RuntimeRecoveryService(this.storage, {
-      reconcile: (run, record) => this.executionScope.reconcile({ runId: run.id, sessionId: run.sessionId, recoveryId: record.recoveryId }, async () => {
+    this.runtimeRecovery = new RuntimeRecoveryService(
+      this.storage,
+      {
+        reconcile: (run, record) =>
+          this.executionScope.reconcile(
+            { runId: run.id, sessionId: run.sessionId, recoveryId: record.recoveryId },
+            async () => {
         await this.plugins.get<BudgetService>('budget').reconcileRun?.(run)
         await this.plugins.get<GoalService>('goal').reconcileRun?.(run)
-      }),
-      check: run => this.checkRuntimeRecovery(run),
-      publish: record => { this.changed('runtime-recovery'); if (record.run) this.kick(record.chain.sessionId) },
-    }, options.nodeIntentRecovery)
+            },
+          ),
+        check: (run) => this.checkRuntimeRecovery(run),
+        publish: (record) => {
+          this.changed('runtime-recovery')
+          if (record.run) this.kick(record.chain.sessionId)
+        },
+      },
+      options.nodeIntentRecovery,
+    )
     this.removeStorageFatalListener = suppliedStorage.onFatal?.((event) => this.handleStorageFatal(event))
     this.workspaceSandboxes = new WorkspaceSandboxService(
       this.storage,
@@ -618,7 +673,12 @@ export class Kernel {
       },
       () => this.changed('session-launch-target'),
     )
-    this.sessionBranchTargets = new SessionBranchTargetService(this.storage, options.layout, this.sessionLaunchTargets.branchTargetGit.bind(this.sessionLaunchTargets), (path, signal, excludeSessionId) => this.assertSharedCheckoutIdle(path, signal, excludeSessionId))
+    this.sessionBranchTargets = new SessionBranchTargetService(
+      this.storage,
+      options.layout,
+      this.sessionLaunchTargets.branchTargetGit.bind(this.sessionLaunchTargets),
+      (path, signal, excludeSessionId) => this.assertSharedCheckoutIdle(path, signal, excludeSessionId),
+    )
     this.permissionSettings = new SettingsService(this.storage)
     this.sandboxProfiles = new SandboxProfileService(
       {
@@ -648,21 +708,21 @@ export class Kernel {
       findWorkspace: (id) => this.storage.call('findWorkspace', id),
       findSession: (id) => this.storage.call('findSession', id),
     })
-    this.secrets =
-      options.secrets ??
-      createNativeSecrets(options.layout.identityRoot)
+    this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
     this.plugins = new PluginManager(
       this.storage,
       {
         tools: this.tools,
         hooks: this.hooks,
-        ...(options.lifecycle === 'managed' || options.lifecycle === 'candidate' ? { restoreMode: 'projection' as const } : {}),
+        ...(options.lifecycle === 'managed' || options.lifecycle === 'candidate'
+          ? { restoreMode: 'projection' as const }
+          : {}),
         sessions: {
           agentConfiguration: createAgentSessionConfiguration({
             settings: this.permissionSettings,
             model: (id) => this.plugins.get<ModelRegistry>('models').get(id),
             runs: async (id) => (await this.snapshot(id)).runs,
-            permission: sessionId => this.sessionPermissionMode(sessionId),
+            permission: (sessionId) => this.sessionPermissionMode(sessionId),
           }),
           get: (id) => this.storage.call('session', id),
           list: async (workspaceId) => {
@@ -684,7 +744,8 @@ export class Kernel {
           request: (request, signal) => this.requestUserInput(request, signal),
         } satisfies UserInputService,
         notify: (event) => this.publish(event),
-        taskNotification: (kind, sessionId, runId, title, message) => this.taskNotification(kind, sessionId, runId, title, message),
+        taskNotification: (kind, sessionId, runId, title, message) =>
+          this.taskNotification(kind, sessionId, runId, title, message),
         changed: (kind) => this.changed(kind),
         automationSet: (sessionId, unattended, goalEnabled) => this.automationSet(sessionId, unattended, goalEnabled),
       },
@@ -920,28 +981,53 @@ export class Kernel {
     this.kick(sessionId)
   }
   fenceRuns(runIds: readonly string[]): void {
-    if (runIds.length > 256 || runIds.some(id => !id || id.length > 160))
+    if (runIds.length > 256 || runIds.some((id) => !id || id.length > 160))
       throw new HbarError('INVALID_INPUT', 'Invalid interrupted Run identities')
     const ids = new Set(runIds)
     for (const { run, controller } of this.active.values())
-      if (ids.has(run.id)) controller.abort(new HbarError('EXECUTION_OWNER_REVOKED', 'The runtime owner lost execution authority'))
+      if (ids.has(run.id))
+        controller.abort(new HbarError('EXECUTION_OWNER_REVOKED', 'The runtime owner lost execution authority'))
   }
-  recoverRuns(runIds: readonly string[]) { return this.runtimeRecovery.recover(runIds) }
+  recoverRuns(runIds: readonly string[]) {
+    return this.runtimeRecovery.recover(runIds)
+  }
   async refreshSessionProjection(sessionId: string): Promise<void> {
     if (this.active.has(sessionId)) throw new HbarError('BUSY', 'An active executor retains its own Session projection')
-    const budget = this.plugins.get<BudgetService>('budget'), goal = this.plugins.get<GoalService>('goal'), plan = this.plugins.get<PlanService>('plan')
+    const budget = this.plugins.get<BudgetService>('budget'),
+      goal = this.plugins.get<GoalService>('goal'),
+      plan = this.plugins.get<PlanService>('plan')
     if (!budget.refreshSession || !goal.refreshSession || !plan.refreshSession)
-      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Session capability providers need a declared projection handoff contract')
+      throw new HbarError(
+        'RUNTIME_RESTART_REQUIRED',
+        'Session capability providers need a declared projection handoff contract',
+      )
     await budget.refreshSession(sessionId)
     await goal.refreshSession(sessionId)
     await plan.refreshSession(sessionId)
   }
-  resumeRecovery(predecessorRunId: string) { return this.runtimeRecovery.resume(predecessorRunId) }
-  async continueInterrupted(predecessorRunId: string, manual: import('@hbar/storage').RuntimeManualRecovery): Promise<Run> {
+  resumeRecovery(predecessorRunId: string) {
+    return this.runtimeRecovery.resume(predecessorRunId)
+  }
+  async continueInterrupted(
+    predecessorRunId: string,
+    manual: import('@hbar/storage').RuntimeManualRecovery,
+  ): Promise<Run> {
     const record = await this.runtimeRecovery.resumeManual(predecessorRunId, manual)
-    if (!record.run) throw new HbarError(record.chain.reasonCode ?? 'RECOVERY_WAITING', 'Continuation is waiting for its existing controls or effect reconciliation')
-    if (!record.manual || record.manual.requestId !== manual.requestId || record.manual.command.inputHash !== manual.command.inputHash || record.manual.command.actorId !== manual.command.actorId)
-      throw new HbarError('CONTINUATION_ALREADY_EXISTS', 'Observe the existing recovery chain before creating another continuation')
+    if (!record.run)
+      throw new HbarError(
+        record.chain.reasonCode ?? 'RECOVERY_WAITING',
+        'Continuation is waiting for its existing controls or effect reconciliation',
+      )
+    if (
+      !record.manual ||
+      record.manual.requestId !== manual.requestId ||
+      record.manual.command.inputHash !== manual.command.inputHash ||
+      record.manual.command.actorId !== manual.command.actorId
+    )
+      throw new HbarError(
+        'CONTINUATION_ALREADY_EXISTS',
+        'Observe the existing recovery chain before creating another continuation',
+      )
     this.kick(record.run.sessionId)
     return record.run
   }
@@ -951,10 +1037,14 @@ export class Kernel {
     for (let depth = 0; predecessor.recovery && depth < 32; depth++) {
       predecessor = await this.storage.call('run', predecessor.recovery.predecessorRunId)
       if (predecessor.sessionId !== run.sessionId || ids.has(predecessor.id))
-        throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion lineage is cyclic or belongs to another Session')
+        throw new HbarError(
+          'SESSION_LOG_CORRUPTED',
+          'Driver completion lineage is cyclic or belongs to another Session',
+        )
       ids.add(predecessor.id)
     }
-    if (predecessor.recovery) throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion lineage exceeds its recovery limit')
+    if (predecessor.recovery)
+      throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion lineage exceeds its recovery limit')
     let after = 0
     while (true) {
       const events = await this.storage.call('events', run.sessionId, after, 16)
@@ -965,7 +1055,8 @@ export class Kernel {
           return true
         }
       const next = events.at(-1)?.seq
-      if (next === undefined || next <= after) throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion cursor did not advance')
+      if (next === undefined || next <= after)
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion cursor did not advance')
       after = next
     }
   }
@@ -990,7 +1081,9 @@ export class Kernel {
       const goals = this.plugins.get<GoalService>('goal')
       if (!goals.recoveryReason && (await goals.get(run.sessionId)).goal) return 'PLUGIN_RECOVERY_RESTART_REQUIRED'
       return (await goals.recoveryReason?.(run)) ?? null
-    } catch (error) { return error instanceof HbarError ? error.code : 'RECOVERY_ADMISSION_FAILED' }
+    } catch (error) {
+      return error instanceof HbarError ? error.code : 'RECOVERY_ADMISSION_FAILED'
+    }
   }
   private async restoreAutomation() {
     this.automation.clear()
@@ -1005,7 +1098,10 @@ export class Kernel {
           if (event.type !== 'automation.changed') continue
           const parsed = automationStateSchema.safeParse(event.data)
           if (parsed.success && parsed.data.sessionId === session.id)
-            this.automation.set(session.id, { unattended: parsed.data.unattended, goalEnabled: parsed.data.goalEnabled })
+            this.automation.set(session.id, {
+              unattended: parsed.data.unattended,
+              goalEnabled: parsed.data.goalEnabled,
+            })
         }
         if (events.length < 128) break
         await Bun.sleep(0)
@@ -1074,14 +1170,17 @@ export class Kernel {
     )
     if (typeof HBAR_EXTERNAL_DRIVER !== 'undefined' && HBAR_EXTERNAL_DRIVER) {
       const external = this.options.profile?.replacements?.['driver.pi']
-      if (!external) throw new HbarError('RUNTIME_DRIVER_REQUIRED', 'The isolated Kernel needs its declared driver port')
+      if (!external)
+        throw new HbarError('RUNTIME_DRIVER_REQUIRED', 'The isolated Kernel needs its declared driver port')
       this.plugins.add(external)
     } else this.plugins.add(piPlugin)
     if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
       const port = this.options.profile?.replacements?.['execution.local']
-      if (!port) throw new HbarError('RUNTIME_PLUGIN_REQUIRED', 'The isolated Kernel needs its execution capability port')
+      if (!port)
+        throw new HbarError('RUNTIME_PLUGIN_REQUIRED', 'The isolated Kernel needs its execution capability port')
       this.plugins.add(port)
-    } else this.plugins.add(
+    } else
+      this.plugins.add(
       localExecutionPlugin(
         [this.options.layout.dataRoot],
         {
@@ -1192,7 +1291,10 @@ export class Kernel {
   }
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const recovery = this.executionScope.currentRecovery
-    if (recovery && (sessionId !== recovery.sessionId || (runId !== undefined && runId !== recovery.runId) || stepId !== undefined))
+    if (
+      recovery &&
+      (sessionId !== recovery.sessionId || (runId !== undefined && runId !== recovery.runId) || stepId !== undefined)
+    )
       throw new HbarError('RECOVERY_WRITE_FORBIDDEN', 'Recovery accounting must belong to its predecessor')
     const event = recovery
       ? await this.storage.call('runtimeRecoveryAppend', recovery.runId, recovery.recoveryId, type, data)
@@ -1213,11 +1315,7 @@ export class Kernel {
     if (this.storageFailure || this.closing) return
     this.sessionSummaryCoordinator.schedule(sessionId, activity, activeRunId)
   }
-  private async publishSessionSummary(
-    sessionId: string,
-    override: SessionSummaryOverride,
-    isCurrent: () => boolean,
-  ) {
+  private async publishSessionSummary(sessionId: string, override: SessionSummaryOverride, isCurrent: () => boolean) {
     if (this.storageFailure || this.closing || !isCurrent()) return
     try {
       const summary = await this.storage.call('sessionSummary', sessionId)
@@ -1226,8 +1324,7 @@ export class Kernel {
         method: 'session.summary',
         params: {
           ...summary,
-          ...(override.activity &&
-          (override.activeRunId === undefined || override.activeRunId === summary.activeRunId)
+          ...(override.activity && (override.activeRunId === undefined || override.activeRunId === summary.activeRunId)
             ? { activity: override.activity }
             : {}),
         },
@@ -1406,8 +1503,10 @@ export class Kernel {
     return id.data
   }
   private async assertRunPermission(run: Run): Promise<void> {
-    if (run.input.permissionAtAdmission !== undefined &&
-      run.input.permissionAtAdmission !== await this.sessionPermissionMode(run.sessionId))
+    if (
+      run.input.permissionAtAdmission !== undefined &&
+      run.input.permissionAtAdmission !== (await this.sessionPermissionMode(run.sessionId))
+    )
       throw new HbarError('PERMISSION_CHANGED', 'The current approval policy changed after Run admission')
   }
   /** Pin the sandbox rules a Run is admitted with; other approval modes never carry them. */
@@ -1419,7 +1518,10 @@ export class Kernel {
       await this.sandboxProfiles.loadSnapshot(sandbox)
       return input
     }
-    return { ...rest, sandbox: await this.sandboxProfiles.createSnapshot(await this.sessionSandboxProfileId(sessionId)) }
+    return {
+      ...rest,
+      sandbox: await this.sandboxProfiles.createSnapshot(await this.sessionSandboxProfileId(sessionId)),
+    }
   }
   async setPermissionMode(mode: ApprovalMode) {
     const next = approvalModeSchema.parse(mode)
@@ -1510,23 +1612,39 @@ export class Kernel {
     const project = projectId
       ? await this.storage.call('getSettings', 'project', projectId)
       : { version: 1 as const, revision: '', values: {} }
-    const session = scope === 'session' ? await this.storage.call('getSettings', 'session', targetId) : { version: 1 as const, revision: '', values: {} }
+    const session =
+      scope === 'session'
+        ? await this.storage.call('getSettings', 'session', targetId)
+        : { version: 1 as const, revision: '', values: {} }
     return { global, project, session }
   }
   async settingsSnapshot(scope: SettingScope, targetId?: string): Promise<SettingsSnapshot> {
     const catalog = await this.settingsCatalog()
     const documents = await this.settingDocuments(scope, targetId)
-    const values = resolveSettings(catalog.settings, scope, documents.global.values, documents.project.values, documents.session.values)
+    const values = resolveSettings(
+      catalog.settings,
+      scope,
+      documents.global.values,
+      documents.project.values,
+      documents.session.values,
+    )
     const revision = createHash('sha256')
       .update([documents.global.revision, documents.project.revision, documents.session.revision].join(':'))
       .digest('hex')
     return { schemaVersion: 1, revision, scope, ...(targetId ? { targetId } : {}), values }
   }
-  async setSetting(scope: SettingScope, targetId: string | undefined, id: string, value: unknown, expectedRevision?: string) {
+  async setSetting(
+    scope: SettingScope,
+    targetId: string | undefined,
+    id: string,
+    value: unknown,
+    expectedRevision?: string,
+  ) {
     const catalog = await this.settingsCatalog()
     const descriptor = settingDescriptors(catalog).get(id)
     if (!descriptor) throw new HbarError('NOT_FOUND', `Setting not found: ${id}`)
-    if (!descriptor.scopes.includes(scope)) throw new HbarError('INVALID_INPUT', `Setting ${id} is not editable at ${scope} scope`)
+    if (!descriptor.scopes.includes(scope))
+      throw new HbarError('INVALID_INPUT', `Setting ${id} is not editable at ${scope} scope`)
     validateSettingValue(descriptor.schema, value)
     if (id === 'appearance.profile') {
       const profile = themeProfileSchema.parse(value)
@@ -1569,7 +1687,8 @@ export class Kernel {
     const catalog = await this.settingsCatalog()
     const descriptor = settingDescriptors(catalog).get(id)
     if (!descriptor) throw new HbarError('NOT_FOUND', `Setting not found: ${id}`)
-    if (!descriptor.scopes.includes(scope)) throw new HbarError('INVALID_INPUT', `Setting ${id} is not editable at ${scope} scope`)
+    if (!descriptor.scopes.includes(scope))
+      throw new HbarError('INVALID_INPUT', `Setting ${id} is not editable at ${scope} scope`)
     const current = await this.storage.call('getSettings', scope, targetId)
     const snapshot = await this.settingsSnapshot(scope, targetId)
     if (expectedRevision && expectedRevision !== snapshot.revision)
@@ -1645,7 +1764,12 @@ export class Kernel {
       await waitForSessionLaunchTargetLock(previous, signal)
       signal?.throwIfAborted()
       return this.options.execution?.withResource
-        ? await this.options.execution.withResource(`session-target:${sessionId}`, this.executionScope.current, action, signal)
+        ? await this.options.execution.withResource(
+            `session-target:${sessionId}`,
+            this.executionScope.current,
+            action,
+            signal,
+          )
         : await action()
     } finally {
       release()
@@ -1706,7 +1830,11 @@ export class Kernel {
     }
   }
 
-  private async assertSharedCheckoutIdle(targetPath: string, signal: AbortSignal, excludeSessionId?: string): Promise<void> {
+  private async assertSharedCheckoutIdle(
+    targetPath: string,
+    signal: AbortSignal,
+    excludeSessionId?: string,
+  ): Promise<void> {
     const root = this.sharedCheckoutKey(await this.sessionLaunchTargets.checkoutRootForWorkspace(targetPath, signal))
     for (const path of await this.storage.call('activeSharedCheckoutPaths', excludeSessionId)) {
       signal.throwIfAborted()
@@ -1719,13 +1847,31 @@ export class Kernel {
   async getSessionLaunchTarget(sessionId: string) {
     return this.sessionLaunchTargets.get(sessionId)
   }
-  async selectSessionBranchTarget(input: SessionBranchTargetSelectInput, identity: Omit<SessionBranchTargetIdentity, 'sessionId'>, signal: AbortSignal) {
-    const result = await this.withSessionLaunchTargetLock(input.sessionId, () => this.withSharedCheckoutLock(input.sessionId, () => this.sessionBranchTargets.select(input, identity, signal), signal), signal)
+  async selectSessionBranchTarget(
+    input: SessionBranchTargetSelectInput,
+    identity: Omit<SessionBranchTargetIdentity, 'sessionId'>,
+    signal: AbortSignal,
+  ) {
+    const result = await this.withSessionLaunchTargetLock(
+      input.sessionId,
+      () =>
+        this.withSharedCheckoutLock(
+          input.sessionId,
+          () => this.sessionBranchTargets.select(input, identity, signal),
+          signal,
+        ),
+      signal,
+    )
     if (result.status === 'ready') this.changed('session-launch-target')
     return result
   }
   async reconcileSessionBranchTarget(input: SessionBranchTargetIdentity, signal: AbortSignal) {
-    const result = await this.withSessionLaunchTargetLock(input.sessionId, () => this.withSharedCheckoutLock(input.sessionId, () => this.sessionBranchTargets.reconcile(input, signal), signal), signal)
+    const result = await this.withSessionLaunchTargetLock(
+      input.sessionId,
+      () =>
+        this.withSharedCheckoutLock(input.sessionId, () => this.sessionBranchTargets.reconcile(input, signal), signal),
+      signal,
+    )
     if (result.status === 'ready') this.changed('session-launch-target')
     return result
   }
@@ -1792,19 +1938,29 @@ export class Kernel {
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
-    if (this.storageFailure) throw new HbarError('STORAGE_UNAVAILABLE', 'Storage is unavailable; restart the Host to recover')
+    if (this.storageFailure)
+      throw new HbarError('STORAGE_UNAVAILABLE', 'Storage is unavailable; restart the Host to recover')
     await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, input.source)
     input = { ...input, files }
+    const initialSession = await this.storage.call('session', sessionId)
+    const initialWorkspace = await this.storage.call('workspace', initialSession.workspaceId)
+    const remoteWorkspaceAtAdmission = initialWorkspace.location?.kind === 'node'
+    const initialLaunchTarget = remoteWorkspaceAtAdmission ? await this.getSessionLaunchTarget(sessionId) : undefined
+    if (initialLaunchTarget) assertRemoteLaunchTargetSupported(initialLaunchTarget.selection)
     if (expectedLaunchTargetRevision !== undefined) {
-      const target = await this.getSessionLaunchTarget(sessionId)
+      const target = initialLaunchTarget ?? (await this.getSessionLaunchTarget(sessionId))
       if (target.revision !== expectedLaunchTargetRevision)
         throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
-      if (target.resolution.status !== 'ready')
+      if (!remoteWorkspaceAtAdmission && target.resolution.status !== 'ready')
         throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
     }
     const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
     const goal = await this.plugins.get<GoalService>('goal').get(sessionId)
-    if (goal.goal && ['budget_limited', 'complete', 'blocked', 'usage_limited'].includes(goal.goal.status) && input.source === 'goal')
+    if (
+      goal.goal &&
+      ['budget_limited', 'complete', 'blocked', 'usage_limited'].includes(goal.goal.status) &&
+      input.source === 'goal'
+    )
       throw new HbarError('GOAL_NOT_ACTIVE', `Goal is ${goal.goal.status} and cannot continue automatically`)
     input = {
       ...input,
@@ -1814,7 +1970,12 @@ export class Kernel {
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
     this.admissions++
     try {
-      if (!input.text.trim() && !input.images.length && !files.length && !['goal', 'system'].includes(input.source ?? 'user'))
+      if (
+        !input.text.trim() &&
+        !input.images.length &&
+        !files.length &&
+        !['goal', 'system'].includes(input.source ?? 'user')
+      )
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       const requestedMaxMode = input.maxMode ?? (await this.maxModePreference(sessionId))
@@ -1841,8 +2002,6 @@ export class Kernel {
       const admittedWorkspace = await this.storage.call('workspace', admittedSession.workspaceId)
       const remoteWorkspace = admittedWorkspace.location?.kind === 'node'
       const noLocalExecution = !this.localExecutionPolicy.enabled
-      if (remoteWorkspace && (await this.getSessionLaunchTarget(sessionId)).selection.mode !== 'shared-current')
-        throw new HbarError('REMOTE_WORKTREE_UNSUPPORTED', 'Worktree execution is not available for workspace nodes')
       const run = await this.withSessionLaunchTargetLock(
         sessionId,
         () => {
@@ -1850,23 +2009,38 @@ export class Kernel {
             if (noLocalExecution && !remoteWorkspace) {
               const target = await this.getSessionLaunchTarget(sessionId)
               if (target.selection.mode !== 'shared-current')
-                throw new HbarError('LOCAL_EXECUTION_DISABLED', 'Local worktree targets are disabled by the Host runtime configuration')
+                throw new HbarError(
+                  'LOCAL_EXECUTION_DISABLED',
+                  'Local worktree targets are disabled by the Host runtime configuration',
+                )
               if (expectedLaunchTargetRevision !== undefined && target.revision !== expectedLaunchTargetRevision)
                 throw new HbarError('VERSION_CONFLICT', 'The session launch target changed; refresh and try again')
             }
-            const binding = remoteWorkspace || noLocalExecution
-              ? undefined
-              : await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
+            let binding: SessionLaunchTargetBindingInput | undefined
+            if (remoteWorkspace) {
+              const target = await this.getSessionLaunchTarget(sessionId)
+              if (expectedLaunchTargetRevision !== undefined && target.revision !== expectedLaunchTargetRevision)
+                throw new HbarError('VERSION_CONFLICT', 'The session launch target changed; refresh and try again')
+              const plan = nodeWorktreeBranchPlan(target.selection, sessionId, target.revision)
+              binding = {
+                sessionId,
+                expectedRevision: target.revision,
+                selection: target.selection,
+                targetPath: admittedWorkspace.path,
+                branch: plan?.branch ?? null,
+                head: target.selection.mode === 'shared-branch' ? target.selection.branch.tipOid : null,
+              }
+            } else if (noLocalExecution) {
+              binding = undefined
+            } else {
+              binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
+            }
             signal?.throwIfAborted()
             return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
           }
           return remoteWorkspace || noLocalExecution
             ? enqueue()
-            : this.withSharedCheckoutLock(
-            sessionId,
-            enqueue,
-            signal,
-          )
+            : this.withSharedCheckoutLock(sessionId, enqueue, signal)
         },
         signal,
       )
@@ -1894,9 +2068,19 @@ export class Kernel {
       .catch((error) => {
         const code = error instanceof HbarError ? error.code : 'KERNEL_EXECUTION_FAILED'
         console.error(`[hbar kernel] Session execution stopped (${code})`)
-        if (!['EXECUTION_OWNER_REVOKED', 'RUNTIME_NOT_DEFAULT', 'RUNTIME_DEPENDENCY_UNAVAILABLE', 'EXECUTION_RECONCILIATION_REQUIRED'].includes(code)) {
-          try { this.options.onFatal?.(new HbarError(code, 'Kernel scheduling lost its execution boundary')) }
-          catch { console.error('[hbar kernel] fatal observer failed') }
+        if (
+          ![
+            'EXECUTION_OWNER_REVOKED',
+            'RUNTIME_NOT_DEFAULT',
+            'RUNTIME_DEPENDENCY_UNAVAILABLE',
+            'EXECUTION_RECONCILIATION_REQUIRED',
+          ].includes(code)
+        ) {
+          try {
+            this.options.onFatal?.(new HbarError(code, 'Kernel scheduling lost its execution boundary'))
+          } catch {
+            console.error('[hbar kernel] fatal observer failed')
+          }
         }
       })
       .finally(() => {
@@ -1950,10 +2134,18 @@ export class Kernel {
       }
       try {
         const execute = () => this.executionScope.run(claimed?.lease, () => this.executeClaimed(sessionId, run))
-        if (this.options.diagnosticScope) await this.options.diagnosticScope.run({ instanceId: this.instanceId, sessionId, runId: run.id, requestId: run.requestId }, execute)
+        if (this.options.diagnosticScope)
+          await this.options.diagnosticScope.run(
+            { instanceId: this.instanceId, sessionId, runId: run.id, requestId: run.requestId },
+            execute,
+          )
         else await execute()
       } catch (error) {
-        if (claimed) await this.options.execution?.interrupted?.(claimed.lease, error instanceof HbarError ? error.code : 'KERNEL_EXECUTION_FAILED')
+        if (claimed)
+          await this.options.execution?.interrupted?.(
+            claimed.lease,
+            error instanceof HbarError ? error.code : 'KERNEL_EXECUTION_FAILED',
+          )
         throw error
       }
       if (claimed) await this.options.execution?.release(claimed.lease)
@@ -1996,8 +2188,10 @@ export class Kernel {
       failureDetails: RunFailure | undefined
     const runDiagnosticStartedAt = performance.now()
     this.executionDiagnostics.runStarted({ sessionId, runId: run.id, requestId: run.requestId })
-    let startedStepCount = 0, completedStepCount = 0
-    const startedStepIds = new Set<string>(), completedStepIds = new Set<string>()
+    let startedStepCount = 0,
+      completedStepCount = 0
+    const startedStepIds = new Set<string>(),
+      completedStepIds = new Set<string>()
     const modelStartedAt = new Map<string, number>()
     const reportedModelFailures = new Set<string>()
     const reportedModelCancellations = new Set<string>()
@@ -2011,9 +2205,10 @@ export class Kernel {
       }
       this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
       idleTimeout.progress()
-      if (run.recovery && await this.driverCompletionCommitted(run)) {
+      if (run.recovery && (await this.driverCompletionCommitted(run))) {
         controller.signal.throwIfAborted()
-        if (await this.storage.call('cancelRequested', run.id)) throw new HbarError('USER_CANCELLED', 'Cancelled by user')
+        if (await this.storage.call('cancelRequested', run.id))
+          throw new HbarError('USER_CANCELLED', 'Cancelled by user')
         return
       }
       await scope.hooks.dispatch('run.start', {
@@ -2028,34 +2223,106 @@ export class Kernel {
       const remoteWorkspace = workspace.location?.kind === 'node'
       const noLocalExecution = !this.localExecutionPolicy.enabled
       let workspaceForRun: Workspace
-      if (remoteWorkspace || noLocalExecution) {
-        // Node-owned Runs stay bound to B. Conversation-only local Runs use the
-        // shared-current root without touching local Git or mounting the workspace.
+      if (remoteWorkspace) {
+        const admission = await this.storage.call('nodeRunWorktreeAdmission', run.id)
+        if (!admission)
+          throw new HbarError(
+            'NODE_WORKTREE_ADMISSION_MISSING',
+            'The accepted Run has no durable node workspace binding',
+          )
+        const needsManagedWorktree =
+          nodeWorktreeBranchPlan(
+            admission.launchTarget.selection,
+            admission.sessionId,
+            admission.launchTarget.expectedRevision,
+          ) !== null
+        const worktrees = this.options.nodeWorktrees
+        let managed: Awaited<ReturnType<typeof ensureNodeRunWorktree>> = null
+        if (needsManagedWorktree) {
+          if (!worktrees) throw new HbarError('NODE_LINK_UNAVAILABLE', 'Managed node worktree execution is unavailable')
+          managed = await ensureNodeRunWorktree(
+            admission,
+            {
+              storage: {
+                nodeRunWorktree: (runId) => this.storage.call('nodeRunWorktree', runId),
+                nodeRunWorktreeBind: (input) => this.storage.call('nodeRunWorktreeBind', input),
+              },
+              worktrees,
+            },
+            controller.signal,
+          )
+        }
+        if (managed) {
+          workspaceForRun = {
+            ...workspace,
+            path: nodeWorkspaceLocator(managed.nodeId, managed.worktreeRootId),
+            location: {
+              kind: 'node',
+              nodeId: managed.nodeId,
+              rootId: managed.worktreeRootId,
+              nodePath: managed.nodePath,
+            },
+          }
+        } else {
+          workspaceForRun = workspace
+        }
+        const mountSnapshot = admission.workspaceFoldersSnapshot
+        if (!mountSnapshot)
+          throw new HbarError('NODE_MOUNT_ADMISSION_MISSING', 'The accepted Run has no workspace-folder snapshot')
+        let mountManifest = await this.storage.call('nodeRunWorkspaceMount', run.id)
+        if (!mountManifest) {
+          const inspection = this.options.nodeWorkspaceInspection
+          if (!inspection?.resolveWorkspaceMountManifest)
+            throw new HbarError('NODE_LINK_UNAVAILABLE', 'Remote workspace mount verification is unavailable')
+          mountManifest = await inspection.resolveWorkspaceMountManifest(
+            { sessionId, runId: run.id, workspaceId: workspace.id },
+            mountSnapshot,
+            admission.originalWorkspaceLocation,
+            controller.signal,
+          )
+          mountManifest = await this.storage.call('nodeRunWorkspaceMountBind', {
+            runId: run.id,
+            manifest: mountManifest,
+          })
+        }
+      } else if (noLocalExecution) {
+        // Conversation-only local Runs use the shared-current root without touching local Git or mounting the workspace.
         workspaceForRun = workspace
       } else {
-        const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)
+        const branchTarget = await this.withSessionLaunchTargetLock(
+          sessionId,
+          () =>
+            this.withSharedCheckoutLock(
+              sessionId,
+              () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal),
+              controller.signal,
+            ),
+          controller.signal,
+        )
         idleTimeout.progress()
         branchTargetRevision = branchTarget?.revision ?? null
-        branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal)
+        branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(
+          sessionId,
+          workspace.path,
+          controller.signal,
+        )
         idleTimeout.progress()
         workspaceForRun = {
           ...workspace,
-          path: await this.workspaceSandboxes.prepare(
-            workspace.id,
-            branchExecutionPath,
-            controller.signal,
-          ),
+          path: await this.workspaceSandboxes.prepare(workspace.id, branchExecutionPath, controller.signal),
         }
       }
       idleTimeout.progress()
-      const model = resolveModelContextMode(await this.plugins.get<ModelRegistry>('models').get(run.modelId), run.input.maxMode === true)
+      const model = resolveModelContextMode(
+        await this.plugins.get<ModelRegistry>('models').get(run.modelId),
+        run.input.maxMode === true,
+      )
       const providerSnapshot = (await this.storage.call('providers')).find(
         (candidate) => run.modelId === candidate.id || run.modelId.startsWith(`${candidate.id}/`),
       )
       const activeSnapshot = this.active.get(sessionId)
       if (activeSnapshot && providerSnapshot) activeSnapshot.providerSnapshot = providerSnapshot
-      const apiKey =
-        model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id)
+      const apiKey = model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id)
       idleTimeout.progress()
       const content: ContentBlock[] = [
         ...(run.input.text ? [{ type: 'text' as const, text: run.input.text }] : []),
@@ -2151,9 +2418,7 @@ export class Kernel {
           const artifact = await this.storage.call('artifact', id)
           return {
             mime: artifact.mime,
-            data: Buffer.from(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer()).toString(
-              'base64',
-            ),
+            data: Buffer.from(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer()).toString('base64'),
           }
         },
         readFile: async (id) => {
@@ -2283,7 +2548,8 @@ export class Kernel {
             request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             if (
               !compactedForCapacity &&
-              (contextExceedsCapacity(request) || this.plugins
+              (contextExceedsCapacity(request) ||
+                this.plugins
                 .get<CompactionProvider>('compaction')
                 .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100))
             ) {
@@ -2473,7 +2739,6 @@ export class Kernel {
               )
             }
             modelStartedAt.clear()
-
       }
     } finally {
       idleTimeout.dispose()
@@ -2515,19 +2780,37 @@ export class Kernel {
           const observedPath = branchExecutionPath
           const observedRevision = branchTargetRevision
           const observationSignal = AbortSignal.timeout(5_000)
-          await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.observeRunBranch(sessionId, run.id, observedRevision, observedPath, observationSignal), observationSignal), observationSignal).catch((error: unknown) => console.error('Session branch observation failed:', error))
+          await this.withSessionLaunchTargetLock(
+            sessionId,
+            () =>
+              this.withSharedCheckoutLock(
+                sessionId,
+                () =>
+                  this.sessionBranchTargets.observeRunBranch(
+                    sessionId,
+                    run.id,
+                    observedRevision,
+                    observedPath,
+                    observationSignal,
+                  ),
+                observationSignal,
+              ),
+            observationSignal,
+          ).catch((error: unknown) => console.error('Session branch observation failed:', error))
         }
         this.publishEvent(settledEvent)
         await scope.hooks
           .dispatch('run.end', { sessionId, runId: run.id, status, run: await this.storage.call('run', run.id) })
           .catch((error) => console.error('Run observer failed:', error))
         if (status === 'completed') {
-          const queued = (await this.storage.call('snapshot', sessionId, undefined, 40)).runs.some((item) => item.status === 'queued')
+          const queued = (await this.storage.call('snapshot', sessionId, undefined, 40)).runs.some(
+            (item) => item.status === 'queued',
+          )
           const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
           if (!queued && (!goalState.goal || goalState.goal.status === 'complete'))
-            void this.executionScope.observe(() => this.taskNotification('completed', sessionId, run.id, '任务完成', '当前任务已完成。')).catch((error) =>
-              console.error('Task notification failed:', error),
-            )
+            void this.executionScope
+              .observe(() => this.taskNotification('completed', sessionId, run.id, '任务完成', '当前任务已完成。'))
+              .catch((error) => console.error('Task notification failed:', error))
         } else if (status === 'failed') {
           const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
           const controlled =
@@ -2535,13 +2818,17 @@ export class Kernel {
             run.input.source === 'system' ||
             ['active', 'blocked', 'usage_limited', 'budget_limited'].includes(goalState.goal?.status ?? '')
           if (controlled)
-            void this.executionScope.observe(() => this.taskNotification(
+            void this.executionScope
+              .observe(() =>
+                this.taskNotification(
               'retry_failed',
               sessionId,
               run.id,
               '任务失败',
               '任务执行失败，请检查错误后重试。',
-            )).catch((error) => console.error('Task notification failed:', error))
+                ),
+              )
+              .catch((error) => console.error('Task notification failed:', error))
         }
       } finally {
         this.active.delete(sessionId)
@@ -2617,11 +2904,21 @@ export class Kernel {
     const session = await this.storage.call('session', sessionId)
     const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
     const modelWorkspacePath = workspace.location?.kind === 'node' ? workspace.location.nodePath : workspace.path
+    let remoteFolderAliases: readonly string[] | undefined
+    if (run && workspace.location?.kind === 'node') {
+      const admission = await this.storage.call('nodeRunWorktreeAdmission', run.id)
+      if (!admission?.workspaceFoldersSnapshot)
+        throw new HbarError('NODE_MOUNT_ADMISSION_MISSING', 'The accepted Run has no workspace-folder snapshot')
+      remoteFolderAliases = admission.workspaceFoldersSnapshot.folders.map((folder) => folder.alias)
+    }
+    const remotePathInstructions = remoteFolderAliases?.length
+      ? `\nFor this remote workspace, file tools accept ${remoteFolderAliases.map((alias) => `${alias}/relative-path`).join(', ')}; shell commands use ${remoteFolderAliases.map((alias) => `/workspace/${alias}/relative-path`).join(', ')}. Do not use the B host absolute path in tool arguments.`
+      : ''
     const messages = steering
       ? buildSteeringContext(context.messages, { ...steering, compactedThroughSeq: context.throughSeq })
       : context.messages
     return hooks.dispatch('context.build', {
-      system: `You are hbar, a coding assistant. Work in ${modelWorkspacePath}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(modelWorkspacePath)}${run?.recovery ? '\nThis Run safely continues an interrupted execution. Use the durable conversation and tool results below. Continue only unfinished work under the original authorization; do not repeat committed operations or perform an operation whose prior result is unknown.' : ''}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
+      system: `You are hbar, a coding assistant. Work in ${modelWorkspacePath}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(modelWorkspacePath, remoteFolderAliases)}${remotePathInstructions}${run?.recovery ? '\nThis Run safely continues an interrupted execution. Use the durable conversation and tool results below. Continue only unfinished work under the original authorization; do not repeat committed operations or perform an operation whose prior result is unknown.' : ''}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
       messages:
         context.summary && messages[0]?.role !== 'user'
           ? [
@@ -2659,7 +2956,11 @@ export class Kernel {
       offset: stream.text.length + stream.thinking.length,
       version: published?.version ?? 0,
     })
-    this.scheduleSessionSummary(stream.sessionId, stream.thinking ? 'thinking' : stream.text ? 'output' : 'thinking', stream.runId)
+    this.scheduleSessionSummary(
+      stream.sessionId,
+      stream.thinking ? 'thinking' : stream.text ? 'output' : 'thinking',
+      stream.runId,
+    )
     if (this.streamTimers.has(stream.id)) return
     this.streamTimers.set(
       stream.id,
@@ -2708,9 +3009,8 @@ export class Kernel {
     selectedTools?: readonly ToolDefinition[],
   ): Promise<ToolResult> {
     const workspace = structuredClone(context.workspace)
-    return this.workspaceExecutionScopes.run(
-      { workspace, signal: context.signal },
-      () => this.executeAdmittedTool(name, rawArgs, context, scope, selectedTools),
+    return this.workspaceExecutionScopes.run({ workspace, signal: context.signal }, () =>
+      this.executeAdmittedTool(name, rawArgs, context, scope, selectedTools),
     )
   }
   private async executeAdmittedTool(
@@ -2727,9 +3027,15 @@ export class Kernel {
     const executionRoot = context.workspace.path
     const requestedMode = context.run.input.approval
     const pinnedSandbox = context.run.input.sandbox ? structuredClone(context.run.input.sandbox) : null
-    const executionFacts = { session: structuredClone(context.session), workspace: structuredClone(context.workspace),
-      run: structuredClone(context.run), callId: context.callId }
-    const restoreExecutionFacts = () => { Object.assign(context, structuredClone(executionFacts)) }
+    const executionFacts = {
+      session: structuredClone(context.session),
+      workspace: structuredClone(context.workspace),
+      run: structuredClone(context.run),
+      callId: context.callId,
+    }
+    const restoreExecutionFacts = () => {
+      Object.assign(context, structuredClone(executionFacts))
+    }
     const toolDiagnosticIdentity = {
       sessionId: executionIdentity.sessionId,
       runId: executionIdentity.runId,
@@ -2743,7 +3049,12 @@ export class Kernel {
     if (hostSignal.aborted) forwardAbort()
     const tool = scope.tools.get(name)
     if (!tool) {
-      this.executionDiagnostics.toolFailed(toolDiagnosticIdentity, name, 'TOOL_NOT_FOUND', performance.now() - toolStartedAt)
+      this.executionDiagnostics.toolFailed(
+        toolDiagnosticIdentity,
+        name,
+        'TOOL_NOT_FOUND',
+        performance.now() - toolStartedAt,
+      )
       hostSignal.removeEventListener('abort', forwardAbort)
       throw new HbarError('TOOL_NOT_FOUND', name)
     }
@@ -2783,7 +3094,9 @@ export class Kernel {
     }
     try {
       assertBoundary()
-      const initial = tool.validate ? await tool.validate(rawArgs) : tool.inputSchema.parse(rawArgs) as Record<string, unknown>
+      const initial = tool.validate
+        ? await tool.validate(rawArgs)
+        : (tool.inputSchema.parse(rawArgs) as Record<string, unknown>)
       const transformed = await scope.hooks.dispatch('tool.before', {
         name,
         args: structuredClone(initial),
@@ -2791,7 +3104,9 @@ export class Kernel {
         tool,
       })
       restoreExecutionFacts()
-      const args = tool.validate ? await tool.validate(transformed.args) : tool.inputSchema.parse(transformed.args) as Record<string, unknown>
+      const args = tool.validate
+        ? await tool.validate(transformed.args)
+        : (tool.inputSchema.parse(transformed.args) as Record<string, unknown>)
       const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args
@@ -2814,20 +3129,25 @@ export class Kernel {
         snapshotNetworkEnabled = sandbox.networkEnabled ?? false
       }
       let executionTarget: import('@hbar/contracts/node-execution-target').NodeExecutionTarget | undefined
-      const remoteWorkspaceAdmission = context.workspace.location?.kind === 'node' &&
+      const remoteWorkspaceAdmission =
+        context.workspace.location?.kind === 'node' &&
         ((tool.workspaceAccess !== undefined && tool.workspaceAccess.kind !== 'none') ||
           (tool.effect === 'process' && tool.commandArgument !== undefined) ||
           tool.requiresProcess === true)
       if (remoteWorkspaceAdmission) {
         if (!this.options.nodeWorkspaceInspection)
-          throw new HbarError('NODE_CAPABILITIES_UNAVAILABLE', 'Remote process admission requires verified node capabilities')
+          throw new HbarError(
+            'NODE_CAPABILITIES_UNAVAILABLE',
+            'Remote process admission requires verified node capabilities',
+          )
         executionTarget = await this.options.nodeWorkspaceInspection.captureExecutionTarget(
           { sessionId: context.session.id, runId: context.run.id, workspaceId: context.workspace.id },
           hostSignal,
         )
         const pinnedLocation = context.workspace.location
         if (
-          executionTarget.kind !== 'node' || pinnedLocation?.kind !== 'node' ||
+          executionTarget.kind !== 'node' ||
+          pinnedLocation?.kind !== 'node' ||
           executionTarget.nodeId !== pinnedLocation.nodeId ||
           executionTarget.rootId !== pinnedLocation.rootId ||
           executionTarget.nodePath !== pinnedLocation.nodePath
@@ -2877,19 +3197,58 @@ export class Kernel {
       await this.assertRunPermission(context.run)
       this.toolExecutions.assertAvailable(`${context.session.id}:${name}`, name)
       const authority = this.executionScope.current
+      const nodeLocationForAuthority = executionFacts.workspace.location
+      const workspaceMounts =
+        nodeLocationForAuthority?.kind === 'node'
+          ? await this.storage.call('nodeRunWorkspaceMount', context.run.id)
+          : null
+      if (nodeLocationForAuthority?.kind === 'node' && !workspaceMounts)
+        throw new HbarError('NODE_MOUNT_ADMISSION_MISSING', 'The Run has no durable workspace mount manifest')
+      const managedBinding =
+        nodeLocationForAuthority?.kind === 'node' && nodeLocationForAuthority.rootId.startsWith('wt_')
+          ? await this.storage.call('nodeRunWorktree', context.run.id)
+          : null
+      if (
+        nodeLocationForAuthority?.kind === 'node' &&
+        nodeLocationForAuthority.rootId.startsWith('wt_') &&
+        (!managedBinding ||
+          managedBinding.nodeId !== nodeLocationForAuthority.nodeId ||
+          managedBinding.worktreeRootId !== nodeLocationForAuthority.rootId ||
+          managedBinding.nodePath !== nodeLocationForAuthority.nodePath)
+      )
+        throw new HbarError('WORKSPACE_SCOPE', 'Execution worktree has no matching durable Run binding')
       const nodeAuthority = nodeCallAuthoritySchema.parse({
         ...executionIdentity,
         sandbox: mode === 'sandbox' ? pinnedSandbox : null,
         admission: nodeAdmission,
+        ...(workspaceMounts ? { workspaceMounts } : {}),
+        ...(managedBinding
+          ? {
+              managedWorktree: {
+                worktreeId: managedBinding.worktreeId,
+                targetRevision: managedBinding.worktreeTargetRevision,
+              },
+            }
+          : {}),
       })
       const nodeLocation = executionFacts.workspace.location
       // Only the built-in workspace shell has a process receipt on B. Other
       // process tools may execute on A and must keep ordinary unknown-effect recovery.
-      const nodeExecution = nodeLocation?.kind === 'node' && name === 'shell' && tool.effect === 'process' &&
-        tool.workspaceAccess?.kind === 'workspace' && tool.commandArgument
-        ? { workspaceId: executionFacts.workspace.id, nodeId: nodeLocation.nodeId, rootId: nodeLocation.rootId,
-          nodePath: nodeLocation.nodePath, operationId: `${executionIdentity.runId}:${executionIdentity.callId}`,
-          kind: 'process' as const, authority: nodeAuthority }
+      const nodeExecution =
+        nodeLocation?.kind === 'node' &&
+        name === 'shell' &&
+        tool.effect === 'process' &&
+        tool.workspaceAccess?.kind === 'workspace' &&
+        tool.commandArgument
+          ? {
+              workspaceId: executionFacts.workspace.id,
+              nodeId: nodeLocation.nodeId,
+              rootId: nodeLocation.rootId,
+              nodePath: nodeLocation.nodePath,
+              operationId: `${executionIdentity.runId}:${executionIdentity.callId}`,
+              kind: 'process' as const,
+              authority: nodeAuthority,
+            }
         : undefined
       if (authority && this.options.execution?.reserveTool && !tool.runtimeOwner)
         permitId = (await this.options.execution.reserveTool(authority, executionIdentity.callId)).id
@@ -2931,8 +3290,71 @@ export class Kernel {
           assertBoundary()
           controller.signal.throwIfAborted()
           // These execution fields are Host-owned, even when hooks mutate ToolContext.
-          const { environment: _hookEnvironment, reportProgress: _hookProgress,
-            osConfinement: _hookConfinement, nodeAuthority: _hookNodeAuthority, ...plain } = context
+          const {
+            environment: _hookEnvironment,
+            reportProgress: _hookProgress,
+            reportOutput: _hookOutput,
+            osConfinement: _hookConfinement,
+            nodeAuthority: _hookNodeAuthority,
+            ...plain
+          } = context
+          let outputStreamId: string | undefined
+          let outputSeq = 0
+          const reportOutput = nodeExecution
+            ? async (raw: import('@hbar/contracts').ToolOutputChunk) => {
+                controller.signal.throwIfAborted()
+                const chunk = toolOutputChunkSchema.parse(raw)
+                if (chunk.reset) {
+                  outputStreamId = chunk.streamId
+                  outputSeq = chunk.text ? Math.max(0, chunk.seq - 1) : chunk.seq
+                  this.publish({
+                    method: 'tool.output',
+                    params: {
+                      sessionId: executionIdentity.sessionId,
+                      runId: executionIdentity.runId,
+                      callId: executionIdentity.callId,
+                      streamId: chunk.streamId,
+                      seq: outputSeq,
+                      text: chunk.text,
+                      reset: true,
+                      ...(chunk.reason ? { reason: chunk.reason } : {}),
+                    },
+                  })
+                  if (!chunk.text) return
+                }
+                if (outputStreamId !== chunk.streamId)
+                  throw new HbarError('NODE_OUTPUT_STREAM_CHANGED', 'Process output changed its operation generation')
+                if (chunk.seq <= outputSeq) return
+                if (chunk.seq !== outputSeq + 1) {
+                  this.publish({
+                    method: 'tool.output',
+                    params: {
+                      sessionId: executionIdentity.sessionId,
+                      runId: executionIdentity.runId,
+                      callId: executionIdentity.callId,
+                      streamId: chunk.streamId,
+                      seq: outputSeq,
+                      text: '',
+                      reset: true,
+                      reason: 'gap',
+                    },
+                  })
+                  outputSeq = chunk.seq - 1
+                }
+                outputSeq = chunk.seq
+                this.publish({
+                  method: 'tool.output',
+                  params: {
+                    sessionId: executionIdentity.sessionId,
+                    runId: executionIdentity.runId,
+                    callId: executionIdentity.callId,
+                    streamId: chunk.streamId,
+                    seq: chunk.seq,
+                    text: chunk.text,
+                  },
+                })
+              }
+            : undefined
           const toolContext: ToolContext = {
             ...plain,
             ...structuredClone(executionFacts),
@@ -2943,11 +3365,17 @@ export class Kernel {
               controller.signal.throwIfAborted()
               await reportProgress(progress)
             },
+            ...(reportOutput ? { reportOutput } : {}),
             ...(environment ? { environment } : {}),
             ...(osConfinement ? { osConfinement } : {}),
           }
           let executed = await this.workspaceExecutionScopes.run(
-            { workspace: executionFacts.workspace, authority: nodeAuthority, signal: controller.signal },
+            {
+              workspace: executionFacts.workspace,
+              authority: nodeAuthority,
+              signal: controller.signal,
+              ...(reportOutput ? { reportOutput: async (chunk) => await reportOutput(chunk) } : {}),
+            },
             () => tool.execute(args, toolContext),
           )
           completedFileChanges = executed.fileChanges
@@ -2957,7 +3385,8 @@ export class Kernel {
           const captured = await persistToolResultImages(
             name,
             executed,
-            (file, mime, bytes) => this.upload(file, mime, bytes, {
+            (file, mime, bytes) =>
+              this.upload(file, mime, bytes, {
               actorId: 'host-tools',
               owner: { kind: 'session', id: executionIdentity.sessionId, clientRevision: 0 },
             }),
@@ -3018,8 +3447,10 @@ export class Kernel {
     const batch = sequence?.progress()
     const measured = toolActivitySchema.safeParse(result.activity)
     const activity = started && measured.success ? measured.data : undefined
-    const changedFiles = started && (tool.effect === 'write' || tool.effect === 'process')
-      ? toolFileChangesSchema.safeParse({ root: executionRoot, files: completedFileChanges }) : null
+    const changedFiles =
+      started && (tool.effect === 'write' || tool.effect === 'process')
+        ? toolFileChangesSchema.safeParse({ root: executionRoot, files: completedFileChanges })
+        : null
     result = { ...result, activity, hostFailure, hostControl, execution, outcome }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
@@ -3040,7 +3471,13 @@ export class Kernel {
     ]
     this.executionDiagnostics.toolSettled(
       toolDiagnosticIdentity,
-      outcome?.kind === 'succeeded' ? 'success' : outcome?.kind === 'unknown' ? 'unknown' : outcome?.kind === 'cancelled' ? 'skipped' : 'failure',
+      outcome?.kind === 'succeeded'
+        ? 'success'
+        : outcome?.kind === 'unknown'
+          ? 'unknown'
+          : outcome?.kind === 'cancelled'
+            ? 'skipped'
+            : 'failure',
       performance.now() - toolStartedAt,
       name,
     )
@@ -3099,17 +3536,14 @@ export class Kernel {
       return { verdict, paths }
     }
     const evaluated = remoteWorkspace
-      ? await this.workspaceExecutionScopes.run(
-          { workspace: context.workspace, signal: context.signal },
-          async () => {
+      ? await this.workspaceExecutionScopes.run({ workspace: context.workspace, signal: context.signal }, async () => {
             const ownerPaths = await remoteSandboxPathPort(
               this.plugins.get<ExecutionProvider>('execution'),
               context.workspace,
               context.signal,
             )
             return evaluate(ownerPaths.root, ownerPaths.port)
-          },
-        )
+        })
       : await evaluate(context.workspace.path)
     const { verdict } = evaluated
     const result: {
@@ -3140,7 +3574,8 @@ export class Kernel {
       if (remoteWorkspace) {
         const grants = profile.filesystem.grants
         const ownerPaths = evaluated.paths
-        if (!ownerPaths) throw new HbarError('WORKSPACE_CANONICALIZATION_UNAVAILABLE', 'Workspace node paths are unavailable')
+        if (!ownerPaths)
+          throw new HbarError('WORKSPACE_CANONICALIZATION_UNAVAILABLE', 'Workspace node paths are unavailable')
         const canonical = await ownerPaths.canonicalMany(
           grants.map((grant) => ownerPaths.resolve(remoteLocation.nodePath, grant.path)),
           context.signal,
@@ -3216,7 +3651,7 @@ export class Kernel {
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
-      return { ...await outcome, approvalId: approval.id }
+      return { ...(await outcome), approvalId: approval.id }
     } finally {
       hostSignal.removeEventListener('abort', onAbort)
       this.approvals.delete(approval.id)
@@ -3250,10 +3685,14 @@ export class Kernel {
       })
     )
       throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
-    if (request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1))
+    if (
+      request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1)
+    )
       throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
     const unattended = this.automation.get(request.sessionId)?.unattended ?? false
-    const recommended = request.questions.map((question) => (question.options ?? []).filter((option) => option.recommended))
+    const recommended = request.questions.map((question) =>
+      (question.options ?? []).filter((option) => option.recommended),
+    )
     if (unattended && recommended.every((options) => options.length === 1)) {
       const answers = Object.fromEntries(
         request.questions.map((question, index) => [question.id, { answers: [recommended[index]![0]!.label] }]),
@@ -3338,13 +3777,22 @@ export class Kernel {
     return this.userInputs.get(requestId)?.request ?? null
   }
   /** Pure projection for the stable listener. Neither callback functions nor private runtime objects leave the owner. */
-  runtimeExecution(): import('@hbar/contracts/runtime').ExecutionOwnership | undefined { return this.executionScope.current }
+  runtimeExecution(): import('@hbar/contracts/runtime').ExecutionOwnership | undefined {
+    return this.executionScope.current
+  }
   runtimeView() {
     const userInputs = [...this.userInputs.values()].map(({ request }) => request)
-    const sessionIds = new Set([...this.active.keys(), ...this.drains.keys(), ...this.wakeups,
-      ...userInputs.map(request => request.sessionId)])
-    return { userInputs, idle: this.chatDatabaseIsIdle(), protectedRoots: this.plugins.protectedResourceRoots(),
-      protection: [...sessionIds].flatMap(sessionId => {
+    const sessionIds = new Set([
+      ...this.active.keys(),
+      ...this.drains.keys(),
+      ...this.wakeups,
+      ...userInputs.map((request) => request.sessionId),
+    ])
+    return {
+      userInputs,
+      idle: this.chatDatabaseIsIdle(),
+      protectedRoots: this.plugins.protectedResourceRoots(),
+      protection: [...sessionIds].flatMap((sessionId) => {
         const reason = this.chatDatabaseSessionProtection(sessionId)
         return reason === 'active' || reason === 'userInput' || reason === 'queued' ? [{ sessionId, reason }] : []
       }),
@@ -3447,7 +3895,7 @@ export class Kernel {
   }
   async cancel(runId: string, persisted = false) {
     const observed = this.cancelled.has(runId)
-    const activeRun = [...this.active.values()].find(active => active.run.id === runId)
+    const activeRun = [...this.active.values()].find((active) => active.run.id === runId)
     const { run, event } = await this.storage.call('requestCancel', runId)
     if (event) this.publishEvent(event)
     if (['running', 'waiting_approval'].includes(run.status)) {
@@ -3455,7 +3903,10 @@ export class Kernel {
       for (const active of this.active.values())
         if (active.run.id === runId) active.controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
     } else this.cancelled.delete(runId)
-    if (event || (persisted && !observed)) await this.executionScope.run(activeRun?.lease, () => this.hooks.dispatch('run.cancelRequested', { sessionId: run.sessionId, runId, run }))
+    if (event || (persisted && !observed))
+      await this.executionScope.run(activeRun?.lease, () =>
+        this.hooks.dispatch('run.cancelRequested', { sessionId: run.sessionId, runId, run }),
+      )
   }
   async reorderQueued(sessionId: string, runIds: string[]) {
     const events = await this.storage.call('reorderQueued', sessionId, runIds)
@@ -3751,12 +4202,17 @@ export class Kernel {
       rebuiltWithinCapacity ? 'success' : 'failure',
     )
     if (!rebuiltWithinCapacity) {
-      throw new HbarError('COMPACTION_FAILED', 'Generated summary and retained history exceed the model context capacity')
+      throw new HbarError(
+        'COMPACTION_FAILED',
+        'Generated summary and retained history exceed the model context capacity',
+      )
     }
     this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_started', { chunkCount: completedChunks })
     try {
       await journal.complete(throughSeq, summary, model.id, rebuiltTokens, retained.length, completedChunks)
-      this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_completed', { chunkCount: completedChunks })
+      this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_completed', {
+        chunkCount: completedChunks,
+      })
     } catch (error) {
       this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_failed', { chunkCount: completedChunks })
       throw error
@@ -3784,7 +4240,8 @@ export class Kernel {
       if (!valid) throw new HbarError('UNSUPPORTED_TYPE', 'Image data does not match its declared type')
     }
     const id = createHash('sha256').update(bytes).digest('hex')
-    if (options?.sha256 !== undefined && options.sha256 !== id) throw new HbarError('CONTENT_MISMATCH', 'Attachment bytes do not match their declared hash')
+    if (options?.sha256 !== undefined && options.sha256 !== id)
+      throw new HbarError('CONTENT_MISMATCH', 'Attachment bytes do not match their declared hash')
     const artifact = {
       id,
       name: basename(name).slice(0, 240) || 'attachment',
@@ -3811,9 +4268,14 @@ export class Kernel {
       heartbeat = setInterval(() => {
         if (renewing) return
         renewing = true
-        void this.storage.call('chatDatabaseArtifactRenewUpload', leaseId)
-          .catch((reason: unknown) => { leaseFailure = reason })
-          .finally(() => { renewing = false })
+        void this.storage
+          .call('chatDatabaseArtifactRenewUpload', leaseId)
+          .catch((reason: unknown) => {
+            leaseFailure = reason
+          })
+          .finally(() => {
+            renewing = false
+          })
       }, 30_000)
       await writeArtifactAtomically(this.options.layout.artifacts, id, bytes)
       if (leaseFailure) throw leaseFailure
@@ -3821,22 +4283,40 @@ export class Kernel {
       return artifact
     } finally {
       clearInterval(heartbeat)
-      try { await this.storage.call('chatDatabaseArtifactEndUpload', leaseId) }
-      finally { this.chatDatabaseWrites-- }
+      try {
+        await this.storage.call('chatDatabaseArtifactEndUpload', leaseId)
+      } finally {
+        this.chatDatabaseWrites--
+      }
     }
   }
   assertIdle() {
-    if (this.active.size || this.drains.size || this.admissions || this.maintenance || this.chatDatabaseWrites || this.closing)
+    if (
+      this.active.size ||
+      this.drains.size ||
+      this.admissions ||
+      this.maintenance ||
+      this.chatDatabaseWrites ||
+      this.closing
+    )
       throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
   }
   chatDatabaseIsIdle(): boolean {
-    return !this.active.size && !this.drains.size && !this.admissions && !this.maintenance && !this.chatDatabaseWrites && !this.closing
+    return (
+      !this.active.size &&
+      !this.drains.size &&
+      !this.admissions &&
+      !this.maintenance &&
+      !this.chatDatabaseWrites &&
+      !this.closing
+    )
   }
   async maintainChatDatabase<Value>(action: () => Promise<Value>): Promise<Value> {
     this.assertIdle()
     this.maintenance = true
     try {
-      if ((await this.storage.call('queuedSessions')).length) throw new HbarError('BUSY', 'Queued chats prevent database maintenance')
+      if ((await this.storage.call('queuedSessions')).length)
+        throw new HbarError('BUSY', 'Queued chats prevent database maintenance')
       return await action()
     } finally {
       this.maintenance = false
@@ -3858,7 +4338,11 @@ export class Kernel {
         return { deleted: false, reason, reclaimedBytes: 0, reusableBytes: 0, revision: usage.revision }
       }
       this.chatDatabaseWrites++
-      try { return await this.storage.call('chatDatabaseDeleteSession', input) } finally { this.chatDatabaseWrites-- }
+      try {
+        return await this.storage.call('chatDatabaseDeleteSession', input)
+      } finally {
+        this.chatDatabaseWrites--
+      }
     })
   }
 
@@ -3891,7 +4375,8 @@ export class Kernel {
     for (const active of this.active.values()) active.controller.abort(event)
   }
   notifyChatDatabaseDeleted(sessionIds: string[], revision: number): void {
-    if (sessionIds.length < 1 || sessionIds.length > 100) throw new HbarError('INVALID_INPUT', 'Deletion notifications are bounded')
+    if (sessionIds.length < 1 || sessionIds.length > 100)
+      throw new HbarError('INVALID_INPUT', 'Deletion notifications are bounded')
     for (const id of sessionIds) {
       this.sessionSummaryCoordinator.cancel(id)
       this.wakeups.delete(id)
@@ -3902,21 +4387,31 @@ export class Kernel {
   }
   async removeChatDatabaseResource(input: ChatDatabaseResourceRequest): Promise<ChatDatabaseResourceResult> {
     if (input.item.kind === 'cache') {
-      try { this.assertIdle() } catch (reason) {
-        if (reason instanceof HbarError && reason.code === 'BUSY') return { deleted: false, reason: 'inUse', reclaimedBytes: 0 }
+      try {
+        this.assertIdle()
+      } catch (reason) {
+        if (reason instanceof HbarError && reason.code === 'BUSY')
+          return { deleted: false, reason: 'inUse', reclaimedBytes: 0 }
         throw reason
       }
       this.maintenance = true
-      try { return await this.storage.call('chatDatabaseResourceRemove', { ...input, protectedRoots: this.plugins.protectedResourceRoots() }) }
-      finally {
+      try {
+        return await this.storage.call('chatDatabaseResourceRemove', {
+          ...input,
+          protectedRoots: this.plugins.protectedResourceRoots(),
+        })
+      } finally {
         this.maintenance = false
         for (const sessionId of this.wakeups) this.kick(sessionId)
       }
     }
     if (this.maintenance || this.closing) return { deleted: false, reason: 'inUse', reclaimedBytes: 0 }
     this.chatDatabaseWrites++
-    try { return await this.storage.call('chatDatabaseResourceRemove', input) }
-    finally { this.chatDatabaseWrites-- }
+    try {
+      return await this.storage.call('chatDatabaseResourceRemove', input)
+    } finally {
+      this.chatDatabaseWrites--
+    }
   }
   private async cacheSize(root: string): Promise<number> {
     let total = 0

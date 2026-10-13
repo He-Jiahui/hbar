@@ -22,6 +22,7 @@ export interface NodeExecutionTarget {
   readonly authority: NodeCallAuthority
   readonly platform: 'linux' | 'darwin' | 'win32'
   readonly signal: AbortSignal
+  readonly reportOutput?: NodeExecutionScope['reportOutput']
 }
 export const nodeTargetBinding = (target: Pick<NodeExecutionTarget, 'location'>) => ({
   rootId: target.location.rootId,

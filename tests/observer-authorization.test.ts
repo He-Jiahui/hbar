@@ -3,7 +3,12 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
-import { HbarClient, createSystemCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
+import {
+  HbarClient,
+  createSystemCommandClient,
+  createSessionLaunchBranchesReader,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
 import { Storage } from '@hbar/storage'
 import { Database } from 'bun:sqlite'
 import { z } from 'zod'
@@ -164,7 +169,7 @@ test('migration 26 preserves legacy operator devices and new observer scopes ato
     const old = new Database(path)
     try {
       old.exec(
-        'DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; DROP TABLE device_access; PRAGMA user_version=25;',
+        'DROP INDEX node_run_workspace_mounts_session; DROP TABLE node_run_workspace_mounts; DROP INDEX node_run_worktrees_session; DROP TABLE node_run_worktrees; DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; DROP TABLE device_access; PRAGMA user_version=25;',
       )
     } finally {
       old.close()
@@ -257,6 +262,25 @@ test('the managed Controller cannot bypass observer admission for legacy RPC or 
     if (!workspace) throw new Error('No managed workspace')
     const session = await runtime.storage.call('createSession', workspace.id, 'managed observer')
     expect((await client.call('session.snapshot', { sessionId: session.id })).session.id).toBe(session.id)
+    expect(await createSessionLaunchBranchesReader(client).list({ workspaceId: workspace.id })).toMatchObject({
+      workspaceId: workspace.id,
+    })
+    expect(
+      await failure(
+        client.call('command.execute', {
+          protocol: 1,
+          requestId: crypto.randomUUID(),
+          commandId: 'sessionLaunchBranches.create',
+          commandVersion: 1,
+          input: {
+            workspaceId: workspace.id,
+            name: 'observer-forbidden',
+            baseRef: 'refs/heads/main',
+            expectedBaseOid: '0'.repeat(40),
+          },
+        }),
+      ),
+    ).toMatchObject({ code: 'FORBIDDEN' })
     expect(
       await failure(
         createWorkspaceSessionCommandClient(client).execute('session.rename', {
@@ -276,6 +300,16 @@ test('the managed Controller cannot bypass observer admission for legacy RPC or 
       ),
     ).toMatchObject({ code: 'FORBIDDEN' })
     expect((await runtime.storage.call('session', session.id)).title).toBe('managed observer')
+    const scoped = await host.auth.createDevice('scoped operator', { role: 'operator', workspaceIds: [] })
+    const scopedClient = new HbarClient(`http://127.0.0.1:${host.server.port}`, scoped.token)
+    try {
+      await scopedClient.connect()
+      expect(
+        await failure(createSessionLaunchBranchesReader(scopedClient).list({ workspaceId: workspace.id })),
+      ).toMatchObject({ code: 'FORBIDDEN' })
+    } finally {
+      scopedClient.disconnect()
+    }
   } finally {
     client.disconnect()
     await host.close()

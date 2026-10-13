@@ -1,5 +1,32 @@
 import { z } from 'zod'
 
+/** Transient node-process output chunk. The settled ToolResult remains the recovery source. */
+export const toolOutputChunkSchema = z
+  .strictObject({
+    streamId: z.string().uuid(),
+    seq: z.number().int().nonnegative().safe(),
+    text: z.string().max(8 * 1024),
+    reset: z.boolean().optional(),
+    reason: z.enum(['gap', 'retention', 'limited']).optional(),
+  })
+  .superRefine((chunk, context) => {
+    if (!chunk.reset && chunk.seq === 0)
+      context.addIssue({ code: 'custom', message: 'Output data sequences start at one' })
+  })
+export type ToolOutputChunk = z.infer<typeof toolOutputChunkSchema>
+
+export const toolOutputNotificationSchema = z.strictObject({
+  sessionId: z.string().min(1).max(160),
+  runId: z.string().min(1).max(160),
+  callId: z.string().min(1).max(160),
+  streamId: z.string().uuid(),
+  seq: z.number().int().nonnegative().safe(),
+  text: z.string().max(8 * 1024),
+  reset: z.boolean().optional(),
+  reason: z.enum(['gap', 'retention', 'limited']).optional(),
+})
+export type ToolOutputNotification = z.infer<typeof toolOutputNotificationSchema>
+
 /** Work units reported by the executing tool, never estimated from elapsed time. */
 export const toolProgressSchema = z
   .strictObject({ completed: z.number().finite().nonnegative(), total: z.number().finite().positive() })

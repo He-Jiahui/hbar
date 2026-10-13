@@ -126,6 +126,8 @@ export interface ToolContext {
   executeSequence?: (calls: readonly ToolSequenceCall[]) => Promise<readonly ToolSequenceResult[]>
   /** Report actual completed/total work. Host validates, coalesces, and closes this port on settlement. */
   reportProgress?: (progress: ToolProgress) => Promise<void>
+  /** Report bounded transient process output; the final ToolResult remains the recovery source. */
+  reportOutput?: (chunk: import('@hbar/contracts').ToolOutputChunk) => Promise<void>
   /** Host-owned variables for processes this call starts, from the Run's sandbox profile. */
   environment?: Readonly<Record<string, string>>
   /** Host-owned OS isolation requirement; unsupported execution backends must refuse it. */
@@ -139,6 +141,8 @@ export interface WorkspaceExecutionScope {
   /** Absent only before the Host completes tool admission; execution effects require it. */
   readonly authority?: NodeCallAuthority
   readonly signal: AbortSignal
+  /** Active-call sink for bounded remote process output; settled ToolResult is authoritative after recovery. */
+  readonly reportOutput?: ((chunk: import('@hbar/contracts').ToolOutputChunk) => Promise<void>) | undefined
 }
 export interface ToolSequenceCall {
   name: string
@@ -209,6 +213,8 @@ export interface ExecOptions {
   readonly osConfinement?: OsConfinementOptions | undefined
   /** Forward the Host's admitted call unchanged when execution is routed to a workspace node. */
   readonly nodeAuthority?: NodeCallAuthority | undefined
+  /** Receives bounded process output from a remote execution owner. */
+  readonly onOutput?: ((text: string, reset?: boolean) => Promise<void> | void) | undefined
 }
 export interface ExecutionProvider {
   /** Resolve paths using their execution owner before sandbox admission. This performs no tool effect. */
