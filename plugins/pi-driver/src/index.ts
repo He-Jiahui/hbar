@@ -993,85 +993,111 @@ export class PiDriver implements HarnessDriver {
     signal: AbortSignal,
     onDiagnostic?: (event: ModelDiagnosticEvent) => void,
   ) {
-    const startedAt = performance.now()
-    const modelRequestId = crypto.randomUUID()
-    let terminalEmitted = false
-    let latestResponse: ProviderResponse | undefined
-    let latestTransportKind: TransportFailureKind | undefined
-    let latestTransportCode: TransportFailureCode | undefined
-    let latestTransportPhase: 'fetch' | 'stream' | undefined
-    const streamState = new ProviderStreamObservation()
-    emitModelDiagnostic(onDiagnostic, {
-      phase: 'started',
-      purpose: 'compaction',
-      providerId: diagnosticProviderId(request.model.id),
-      modelSelectionId: request.model.id,
-      modelRequestId,
-      model: request.model.model,
-      protocol: request.model.protocol,
-    })
-    try {
-      const stream = streamProvider(
-        request.model,
-        {
-          systemPrompt: request.system,
-          messages: await toPiMessages(request.messages, { ...request.model, imageInput: true }, undefined, undefined),
-        },
-        apiKey,
-        signal,
-        request.context?.thinking,
-        '',
-        request.context?.sessionId,
-        (response) => {
-          latestResponse = response
-          responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction')
-        },
-        (kind, code, phase) => {
-          latestTransportKind = kind
-          latestTransportCode = code
-          latestTransportPhase = phase
-          transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction', phase)
-        },
-        (event) => streamState.observe(event),
-        (errorCode) => streamState.markProviderError(errorCode),
-        () => streamState.markEof(),
-      )
-      for await (const event of stream) {
-        void event
+    let preparedContext: PiContext | undefined
+    let retryCount = 0
+    for (;;) {
+      // Each provider try gets its own request ID. The Kernel associates these
+      // ordered lifecycle events with the same compaction chunk attempt ID.
+      const startedAt = performance.now()
+      const modelRequestId = crypto.randomUUID()
+      let terminalEmitted = false
+      let latestResponse: ProviderResponse | undefined
+      let latestTransportKind: TransportFailureKind | undefined
+      let latestTransportCode: TransportFailureCode | undefined
+      let latestTransportPhase: 'fetch' | 'stream' | undefined
+      const streamState = new ProviderStreamObservation()
+      emitModelDiagnostic(onDiagnostic, {
+        phase: 'started',
+        purpose: 'compaction',
+        providerId: diagnosticProviderId(request.model.id),
+        modelSelectionId: request.model.id,
+        modelRequestId,
+        model: request.model.model,
+        protocol: request.model.protocol,
+      })
+      try {
         signal.throwIfAborted()
-      }
-      const message = await stream.result()
-      if (message.stopReason === 'error' || message.stopReason === 'aborted' || message.stopReason === 'length') {
-        const incomplete = message.stopReason === 'length'
-        terminalEmitted = true
-        emitModelDiagnostic(onDiagnostic, {
-          phase: message.stopReason === 'aborted' ? 'cancelled' : 'failed',
-          purpose: 'compaction',
-          providerId: diagnosticProviderId(request.model.id),
-          modelSelectionId: request.model.id,
-          modelRequestId,
-          model: request.model.model,
-          protocol: request.model.protocol,
-          stopReason: message.stopReason,
-          ...terminalProviderFacts(
-            latestResponse,
-            latestTransportKind,
-            latestTransportCode,
-            message.stopReason === 'error' || incomplete,
-            latestTransportPhase,
-            streamState,
-            diagnosticStopReason(message.stopReason),
-          ),
-          ...(incomplete ? { errorCode: 'COMPACTION_INCOMPLETE' } : {}),
-          durationMs: Math.max(0, performance.now() - startedAt),
-        })
-        if (incomplete)
-          throw new HbarError('COMPACTION_INCOMPLETE', 'Provider summary stopped before completion (length)')
-        throw request.model.protocol === 'mock'
-          ? new Error(message.errorMessage ?? 'Compaction failed')
-          : providerFailure(message.errorMessage ?? 'Compaction failed')
-      }
-      if (!terminalEmitted)
+        const context =
+          preparedContext ??
+          (preparedContext = {
+            systemPrompt: request.system,
+            messages: await toPiMessages(
+              request.messages,
+              { ...request.model, imageInput: true },
+              undefined,
+              undefined,
+            ),
+          })
+        const stream = streamProvider(
+          request.model,
+          context,
+          apiKey,
+          signal,
+          request.context?.thinking,
+          '',
+          request.context?.sessionId,
+          (response) => {
+            latestResponse = response
+            responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction')
+          },
+          (kind, code, phase) => {
+            latestTransportKind = kind
+            latestTransportCode = code
+            latestTransportPhase = phase
+            transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction', phase)
+          },
+          (event) => streamState.observe(event),
+          (errorCode) => streamState.markProviderError(errorCode),
+          () => streamState.markEof(),
+        )
+        for await (const event of stream) {
+          void event
+          signal.throwIfAborted()
+        }
+        const message = await stream.result()
+        if (message.stopReason === 'error' || message.stopReason === 'aborted' || message.stopReason === 'length') {
+          const incomplete = message.stopReason === 'length'
+          terminalEmitted = true
+          emitModelDiagnostic(onDiagnostic, {
+            phase: message.stopReason === 'aborted' ? 'cancelled' : 'failed',
+            purpose: 'compaction',
+            providerId: diagnosticProviderId(request.model.id),
+            modelSelectionId: request.model.id,
+            modelRequestId,
+            model: request.model.model,
+            protocol: request.model.protocol,
+            stopReason: message.stopReason,
+            ...terminalProviderFacts(
+              latestResponse,
+              latestTransportKind,
+              latestTransportCode,
+              message.stopReason === 'error' || incomplete,
+              latestTransportPhase,
+              streamState,
+              diagnosticStopReason(message.stopReason),
+            ),
+            ...(incomplete ? { errorCode: 'COMPACTION_INCOMPLETE' } : {}),
+            durationMs: Math.max(0, performance.now() - startedAt),
+          })
+          if (incomplete)
+            throw new HbarError('COMPACTION_INCOMPLETE', 'Provider summary stopped before completion (length)')
+          if (
+            message.stopReason === 'error' &&
+            !signal.aborted &&
+            retryCount < 2 &&
+            latestResponse !== undefined &&
+            latestResponse.status === 200 &&
+            streamState.facts('unknown').streamSubtype === 'provider_error' &&
+            streamState.facts('unknown').streamErrorClass === 'upstream'
+          ) {
+            retryCount++
+            await abortableDelay(retryCount * 250, signal)
+            continue
+          }
+          throw request.model.protocol === 'mock'
+            ? new Error(message.errorMessage ?? 'Compaction failed')
+            : providerFailure(message.errorMessage ?? 'Compaction failed')
+        }
         emitModelDiagnostic(onDiagnostic, {
           phase: 'settled',
           purpose: 'compaction',
@@ -1092,36 +1118,37 @@ export class PiDriver implements HarnessDriver {
           ),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
-      return {
-        text: message.content
-          .filter((c) => c.type === 'text')
-          .map((c) => c.text)
-          .join('\n'),
-        usage: normalizeUsage(message.usage),
+        return {
+          text: message.content
+            .filter((c) => c.type === 'text')
+            .map((c) => c.text)
+            .join('\n'),
+          usage: normalizeUsage(message.usage),
+        }
+      } catch (error) {
+        if (!terminalEmitted)
+          emitModelDiagnostic(onDiagnostic, {
+            phase: signal.aborted ? 'cancelled' : 'failed',
+            purpose: 'compaction',
+            providerId: diagnosticProviderId(request.model.id),
+            modelSelectionId: request.model.id,
+            modelRequestId,
+            model: request.model.model,
+            protocol: request.model.protocol,
+            stopReason: signal.aborted ? 'aborted' : 'error',
+            ...terminalProviderFacts(
+              latestResponse,
+              latestTransportKind,
+              latestTransportCode,
+              !signal.aborted,
+              latestTransportPhase,
+              streamState,
+              signal.aborted ? 'aborted' : 'error',
+            ),
+            durationMs: Math.max(0, performance.now() - startedAt),
+          })
+        throw error
       }
-    } catch (error) {
-      if (!terminalEmitted)
-        emitModelDiagnostic(onDiagnostic, {
-          phase: signal.aborted ? 'cancelled' : 'failed',
-          purpose: 'compaction',
-          providerId: diagnosticProviderId(request.model.id),
-          modelSelectionId: request.model.id,
-          modelRequestId,
-          model: request.model.model,
-          protocol: request.model.protocol,
-          stopReason: signal.aborted ? 'aborted' : 'error',
-          ...terminalProviderFacts(
-            latestResponse,
-            latestTransportKind,
-            latestTransportCode,
-            !signal.aborted,
-            latestTransportPhase,
-            streamState,
-            signal.aborted ? 'aborted' : 'error',
-          ),
-          durationMs: Math.max(0, performance.now() - startedAt),
-        })
-      throw error
     }
   }
 }
