@@ -118,6 +118,9 @@ test('agent commands create one budgeted child session per actor key and recover
     'workflow.get',
     'workflow.plan.save',
     'workflow.start',
+    'workflow.targets.cancel',
+    'workflow.targets.dispatch',
+    'workflow.targets.reconcile',
   ])
   expect(await commands.execute('agent.profiles.list', {})).toEqual(['explore'])
   const input = {
