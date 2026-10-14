@@ -132,6 +132,85 @@ test('external Kernel registers the remote image-generation capability without s
     expect(kernel.tools.get('image_generate')).toBeDefined()
     expect(remoteImagePluginStarts).toBe(1)
     expect(remoteImageToolExecutions).toBe(0)
+
+    await kernel.close()
+    kernel = undefined
+    remoteImagePluginStarts = 0
+    const driverReplacement = replacements['driver.pi']
+    if (!driverReplacement) throw new Error('The isolated driver replacement fixture is missing')
+    const managedPlugins = sources
+      .filter((source) => source.manifest.id !== 'driver.pi')
+      .map((source) => {
+        const replacement = replacements[source.manifest.id]
+        if (!replacement) throw new Error(`The isolated ${source.manifest.id} fixture is missing`)
+        return replacement
+      })
+    const managedWithoutExecution = managedPlugins.filter((plugin) => plugin.manifest.id !== 'execution.local')
+    let missingExecutionPortError: unknown
+    try {
+      const unexpectedlyCreated = await Kernel.create({
+        home: join(root, 'missing-execution-data'),
+        cacheRoot: join(root, 'missing-execution-cache'),
+        pointerFile: join(root, 'missing-execution-pointer.json'),
+        secrets: new MemorySecrets(),
+        lifecycle: 'candidate',
+        profile: {
+          createStorage: createFixtureStorage,
+          replacements: { 'driver.pi': driverReplacement },
+          managedPlugins: managedWithoutExecution,
+        },
+      })
+      await unexpectedlyCreated.close()
+    } catch (error) {
+      missingExecutionPortError = error
+    }
+    expect(missingExecutionPortError).toMatchObject({
+      code: 'RUNTIME_PLUGIN_REQUIRED',
+      message: 'The isolated Kernel needs its execution capability port',
+    })
+
+    const managedWithoutBrowser = managedPlugins.filter((plugin) => plugin.manifest.id !== 'browser-use.codex')
+    let missingManagedPortError: unknown
+    try {
+      const unexpectedlyCreated = await Kernel.create({
+        home: join(root, 'missing-managed-data'),
+        cacheRoot: join(root, 'missing-managed-cache'),
+        pointerFile: join(root, 'missing-managed-pointer.json'),
+        secrets: new MemorySecrets(),
+        lifecycle: 'candidate',
+        profile: {
+          createStorage: createFixtureStorage,
+          replacements: { 'driver.pi': driverReplacement },
+          managedPlugins: managedWithoutBrowser,
+        },
+      })
+      await unexpectedlyCreated.close()
+    } catch (error) {
+      missingManagedPortError = error
+    }
+    expect(missingManagedPortError).toMatchObject({
+      code: 'RUNTIME_PLUGIN_REQUIRED',
+      message: 'The isolated Kernel needs its declared browser-use.codex port',
+    })
+    expect(remoteImagePluginStarts).toBe(0)
+
+    kernel = await Kernel.create({
+      home: join(root, 'managed-data'),
+      cacheRoot: join(root, 'managed-cache'),
+      pointerFile: join(root, 'managed-pointer.json'),
+      secrets: new MemorySecrets(),
+      lifecycle: 'candidate',
+      profile: {
+        createStorage: createFixtureStorage,
+        replacements: { 'driver.pi': driverReplacement },
+        managedPlugins,
+      },
+    })
+    const registeredPluginIds = new Set(kernel.plugins.list().map((plugin) => plugin.id))
+    for (const source of sources) expect(registeredPluginIds.has(source.manifest.id)).toBe(true)
+    expect(remoteImagePluginStarts).toBe(1)
+    expect(kernel.tools.get('image_generate')).toBeDefined()
+    expect(remoteImageToolExecutions).toBe(0)
   } finally {
     await kernel?.close()
     for (const [name, descriptor] of priorFlags) {

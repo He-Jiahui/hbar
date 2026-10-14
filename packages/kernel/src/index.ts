@@ -1130,6 +1130,9 @@ export class Kernel {
     }
   }
   private registerDefaults() {
+    const isolatedPlugin = (id: string): HbarPlugin | undefined =>
+      this.options.profile?.replacements?.[id] ??
+      this.options.profile?.managedPlugins?.find((plugin) => plugin.manifest.id === id)
     const registry: ModelRegistry = {
       list: () => this.storage.call('providers'),
       get: async (id) => {
@@ -1196,7 +1199,7 @@ export class Kernel {
       this.plugins.add(external)
     } else this.plugins.add(piPlugin)
     if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
-      const port = this.options.profile?.replacements?.['execution.local']
+      const port = isolatedPlugin('execution.local')
       if (!port)
         throw new HbarError('RUNTIME_PLUGIN_REQUIRED', 'The isolated Kernel needs its execution capability port')
       this.plugins.add(port)
@@ -1275,7 +1278,7 @@ export class Kernel {
         'computer-use.codex',
         'image-generation.openai-compatible',
       ]) {
-        const port = this.options.profile?.replacements?.[id]
+        const port = isolatedPlugin(id)
         if (!port) throw new HbarError('RUNTIME_PLUGIN_REQUIRED', `The isolated Kernel needs its declared ${id} port`)
         this.plugins.add(port)
       }
