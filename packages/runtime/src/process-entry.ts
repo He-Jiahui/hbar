@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { HbarError } from '@hbar/contracts/errors'
 import { RUNTIME_LIMITS, runtimeOwnerSchema } from '@hbar/contracts/runtime'
 import { IpcPeer, procedure } from './ipc'
 import {

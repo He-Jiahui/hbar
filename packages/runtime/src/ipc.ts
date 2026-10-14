@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { HbarError } from '@hbar/contracts/errors'
 import { runtimeDomainError } from './errors'
 import {
   executionOwnershipSchema,

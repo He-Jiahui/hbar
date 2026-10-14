@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RuntimeOwner, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
+import { HbarError as PublicHbarError } from '@hbar/contracts/errors'
 import { internalRuntimeCommand } from '../apps/cli/src/host-process'
 
 const instances: ManagedProcess[] = []
@@ -103,6 +104,21 @@ test('the lightweight CLI runtime role owns a real IPC service independently of 
   expect(await runtime.call('fixture.echo', 'CLI runtime role', z.string())).toBe('CLI runtime role')
   await runtime.dispose()
   expect(runtime.snapshot().phase).toBe('disposed')
+})
+
+test('the public error subpath crosses a real Bun runtime IPC boundary', async () => {
+  const runtime = fixture({
+    modulePath: fileURLToPath(new URL('./fixtures/runtime-entry-error-service.ts', import.meta.url)),
+  })
+  try {
+    await runtime.prepare()
+    await runtime.activate()
+    const failure = await runtime.call('fixture.domainError', undefined, z.unknown()).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(PublicHbarError)
+    expect(failure).toMatchObject({ code: 'FIXTURE_DOMAIN_ERROR', message: 'Public error survived runtime IPC' })
+  } finally {
+    await runtime.dispose()
+  }
 })
 
 test('candidate failure and compatibility rejection never activate or schedule production recovery', async () => {
