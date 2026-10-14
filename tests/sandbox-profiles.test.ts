@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import type { SandboxProfileSaveInput } from '@hbar/contracts/sandbox'
 import { HbarClient, createSandboxCommandClient } from '@hbar/client'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { Kernel, MemorySecrets, createSandboxCommands } from '@hbar/kernel'
 import { createSandboxProfileStorage, SANDBOX_PROFILES_SQL } from '../packages/storage/src/sandbox-profiles'
 import { startServer } from '../apps/host/src/server'
 
@@ -241,4 +241,45 @@ describe('sandbox profile host commands', () => {
       commands.execute('sandbox.save', body('orphan', { extends: 'nope' }), { idempotencyKey: 'orphan' }),
     ).rejects.toMatchObject({ code: 'SANDBOX_PROFILE_NOT_FOUND' })
   })
+})
+
+test('sandbox catalog forwards hidden authorization descriptors and all filters without exposing them by default', async () => {
+  const { kernel } = await host()
+  const service = createSandboxCommands(kernel.sandboxProfiles)
+  try {
+    expect(service.list().items).toHaveLength(0)
+    const all = service.list({ includeInternal: true })
+    expect(all.items.map((item) => item.metadata.id)).toEqual([
+      'sandbox.delete',
+      'sandbox.get',
+      'sandbox.list',
+      'sandbox.receipt',
+      'sandbox.save',
+    ])
+    expect(all.items.find((item) => item.metadata.id === 'sandbox.save')?.metadata).toMatchObject({
+      visibility: 'internal',
+      scope: 'global',
+      stateEffect: 'persistent',
+      idempotency: 'required',
+    })
+    const first = service.list({ includeInternal: true, limit: 2 })
+    expect(first.items.map((item) => item.metadata.id)).toEqual(['sandbox.delete', 'sandbox.get'])
+    expect(first.nextCursor).toBe('sandbox.get')
+    if (first.nextCursor === undefined) throw new Error('SANDBOX_CATALOG_CURSOR_MISSING')
+    expect(
+      service.list({ includeInternal: true, after: first.nextCursor, limit: 2 }).items.map((item) => item.metadata.id),
+    ).toEqual(['sandbox.list', 'sandbox.receipt'])
+    expect(service.list({ includeInternal: true, category: 'run.approval', surface: 'api' }).items).toHaveLength(5)
+    expect(service.list({ includeInternal: true, category: 'unknown' }).items).toHaveLength(0)
+    expect(service.list({ includeInternal: true, surface: 'cli' }).items).toHaveLength(0)
+    await expect(
+      service.execute('sandbox.save', body('catalog-private'), {
+        actorId: 'catalog-actor',
+        idempotencyKey: 'catalog-save-key',
+      }),
+    ).resolves.toMatchObject({ id: 'catalog-private', builtin: false, revision: 1 })
+    expect(service.list().items).toHaveLength(0)
+  } finally {
+    service.dispose()
+  }
 })
