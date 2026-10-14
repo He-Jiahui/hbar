@@ -311,27 +311,70 @@ test('a lost response after publication recovers metadata only when the complete
 
 test('the upload completion proof survives a failed metadata projection commit', async () => {
   const f = await fixture()
-  const db = new Database(f.kernel.options.layout.database)
+  const layout = f.kernel.options.layout
   const bytes = new TextEncoder().encode('metadata projection failure')
   const id = createHash('sha256').update(bytes).digest('hex')
+  const fatalCodes: string[] = []
+  const removeFatal = f.kernel.storage.onFatal?.((event) => fatalCodes.push(event.code))
+  const injection = new Database(layout.database)
   try {
-    db.exec(
+    injection.exec(
       "CREATE TRIGGER fail_artifact_projection BEFORE INSERT ON artifacts BEGIN SELECT RAISE(ABORT,'fixture metadata projection failure'); END",
     )
-    expect(await errorOf(f.kernel.upload('recovered.txt', 'text/plain', bytes))).toBeInstanceOf(Error)
-    db.exec('DROP TRIGGER fail_artifact_projection')
   } finally {
-    db.close()
+    injection.close()
   }
-  while (!(await f.kernel.storage.call('chatDatabaseDraftBackfill', 100)).done) {
+  expect(await errorOf(f.kernel.upload('recovered.txt', 'text/plain', bytes))).toMatchObject({
+    code: 'STORAGE_RESULT_UNKNOWN',
+  })
+  expect(await errorOf(f.kernel.storage.call('chatDatabaseDraftBackfill', 100))).toMatchObject({
+    code: 'STORAGE_CLOSED',
+  })
+  expect(await errorOf(f.kernel.storage.call('chatDatabaseArtifactClaim', id, 'cleanup', Date.now()))).toMatchObject({
+    code: 'STORAGE_CLOSED',
+  })
+  await f.kernel.close()
+  expect(fatalCodes).toEqual(['STORAGE_RESULT_UNKNOWN'])
+  removeFatal?.()
+  const inspection = new Database(layout.database, { readonly: true })
+  try {
+    expect(
+      inspection.query('SELECT draftJournalComplete FROM chat_database_reference_health WHERE id=1').get(),
+    ).toEqual({
+      draftJournalComplete: 0,
+    })
+    expect(inspection.query('SELECT id FROM artifacts WHERE id=?').get(id)).toBeNull()
+  } finally {
+    inspection.close()
+  }
+  const published = new Uint8Array(await readFile(join(layout.artifacts, id)))
+  expect(published).toEqual(bytes)
+  expect(createHash('sha256').update(published).digest('hex')).toBe(id)
+  const cleanup = new Database(layout.database)
+  try {
+    cleanup.exec('DROP TRIGGER fail_artifact_projection')
+  } finally {
+    cleanup.close()
+  }
+  const current = await Kernel.create({
+    home: join(f.root, 'data'),
+    workspace: f.root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  f.replaceKernel(current)
+  while (!(await current.storage.call('chatDatabaseDraftBackfill', 100)).done) {
     /* canonical completion replay */
   }
-  expect(await f.kernel.storage.call('artifact', id)).toEqual({
+  expect(await current.storage.call('artifact', id)).toEqual({
     id,
     name: 'recovered.txt',
     mime: 'text/plain',
     size: bytes.length,
   })
+  const recovered = new Uint8Array(await readFile(join(current.options.layout.artifacts, id)))
+  expect(recovered).toEqual(bytes)
+  expect(createHash('sha256').update(recovered).digest('hex')).toBe(id)
 })
 
 test('repeating a hash preserves the original catalog metadata while each upload returns its selected filename', async () => {

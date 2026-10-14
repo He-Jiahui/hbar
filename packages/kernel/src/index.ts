@@ -4288,6 +4288,8 @@ export class Kernel {
     let heartbeat: ReturnType<typeof setInterval> | undefined
     let leaseFailure: unknown = null
     let renewing = false
+    let uploadFailed = false
+    let uploadFailure: unknown
     try {
       await recoverArtifactReferenceIndex(this.storage)
       if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host storage is in maintenance')
@@ -4307,15 +4309,40 @@ export class Kernel {
       await writeArtifactAtomically(this.options.layout.artifacts, id, bytes)
       if (leaseFailure) throw leaseFailure
       await this.storage.call('chatDatabaseArtifactFinishUpload', artifact, leaseId, reservation.deviceId)
-      return artifact
+    } catch (error) {
+      uploadFailed = true
+      uploadFailure = error
     } finally {
       clearInterval(heartbeat)
-      try {
-        await this.storage.call('chatDatabaseArtifactEndUpload', leaseId)
-      } finally {
-        this.chatDatabaseWrites--
-      }
     }
+    try {
+      await this.storage.call('chatDatabaseArtifactEndUpload', leaseId)
+    } catch (error) {
+      if (!uploadFailed) throw error
+      try {
+        this.options.diagnostics?.emit(
+          diagnosticEvent({
+            component: 'kernel',
+            level: 'warn',
+            event: 'artifact.upload_cleanup_failed',
+            instanceId: this.instanceId,
+            method: 'chatDatabaseArtifactEndUpload',
+            phase: 'secondary_cleanup',
+            errorCode:
+              error instanceof HbarError && error.code === 'STORAGE_CLOSED'
+                ? 'STORAGE_CLOSED'
+                : 'ARTIFACT_UPLOAD_CLEANUP_FAILED',
+            outcome: 'failure',
+          }),
+        )
+      } catch {
+        // Diagnostic observers cannot replace the primary upload failure.
+      }
+    } finally {
+      this.chatDatabaseWrites--
+    }
+    if (uploadFailed) throw uploadFailure
+    return artifact
   }
   assertIdle() {
     if (
