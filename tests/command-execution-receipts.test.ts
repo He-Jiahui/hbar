@@ -7,6 +7,8 @@ import { z } from 'zod'
 import { defineCommand, describeCommand } from '@hbar/commands'
 import {
   commandReceiptPayloadSchema,
+  commandExecutionIntentSchema,
+  commandExecutionOwnerSchema,
   type CommandExecutionIdentity,
   type CommandExecutionIntent,
   type CommandExecutionReceipt,
@@ -149,6 +151,24 @@ test('command intents require an authenticated active Run and atomically dedupli
       ),
     ).toMatchObject({ code: 'COMMAND_PREPARATION_STALE' })
     expect(await f.storage.call('commandExecutionRead', { ...f.identity, actorId: 'actor-b' })).toBeNull()
+    const clientIntent = { ...f.intent, operationKey: 'client-target', target: { clientId: 'client-a', generation: 2 } }
+    expect(commandExecutionIntentSchema.safeParse(clientIntent).success).toBe(true)
+    expect(
+      commandExecutionOwnerSchema.safeParse({ kind: 'client', ...clientIntent.target, jobId: 'job-client' }).success,
+    ).toBe(true)
+    expect(
+      commandExecutionIntentSchema.safeParse({ ...clientIntent, target: { ...clientIntent.target, generation: '2' } })
+        .success,
+    ).toBe(false)
+    await f.storage.call('commandExecutionAccept', clientIntent)
+    expect(
+      await failure(
+        f.storage.call('commandExecutionAccept', {
+          ...clientIntent,
+          target: { ...clientIntent.target, generation: 3 },
+        }),
+      ),
+    ).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
     await f.storage.call('requestCancel', f.run.id)
     expect(
       await failure(f.storage.call('commandExecutionAccept', { ...f.intent, operationKey: 'after-stop' })),

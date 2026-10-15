@@ -74,13 +74,18 @@ export const commandExecutionIntentSchema = commandExecutionIdentitySchema.exten
   callId: idSchema,
   invocation: invocationSchema,
   expectation: commandExecutionExpectationSchema,
-  target: z.strictObject({ clientId: idSchema, generation: idSchema }).optional(),
+  target: z.strictObject({ clientId: idSchema, generation: z.number().int().positive().safe() }).optional(),
 })
 export type CommandExecutionIntent = z.infer<typeof commandExecutionIntentSchema>
 export const commandExecutionOwnerSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('runtime'), owner: runtimeOwnerSchema, jobId: idSchema }),
   z.strictObject({ kind: z.literal('host'), instanceId: idSchema, jobId: idSchema }),
-  z.strictObject({ kind: z.literal('client'), clientId: idSchema, generation: idSchema, jobId: idSchema }),
+  z.strictObject({
+    kind: z.literal('client'),
+    clientId: idSchema,
+    generation: z.number().int().positive().safe(),
+    jobId: idSchema,
+  }),
 ])
 export type CommandExecutionOwner = z.infer<typeof commandExecutionOwnerSchema>
 const physicalSchema = z
