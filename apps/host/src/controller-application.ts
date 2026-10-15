@@ -85,6 +85,7 @@ export interface ControllerCommandService {
     prepare?(value: unknown): CommandInvocation | Promise<CommandInvocation>
     dispatch(value: unknown, actorId: string): Promise<unknown>
     readonly dispatchPrepared?: NonNullable<CommandRoute['dispatchPrepared']>
+    readonly dispatchPreparedTracked?: NonNullable<CommandRoute['dispatchPreparedTracked']>
     describe(id: string): CommandDescriptor
     list(filter?: { readonly includeInternal?: boolean }): { revision: number; items: readonly CommandDescriptor[] }
   }
@@ -384,6 +385,7 @@ export function createControllerApplication(
     service: {
       dispatch: service.dispatch,
       ...(service.dispatchPrepared ? { dispatchPrepared: service.dispatchPrepared } : {}),
+      ...(service.dispatchPreparedTracked ? { dispatchPreparedTracked: service.dispatchPreparedTracked } : {}),
       describe: service.describe,
       list: service.list,
       prepare: (value: unknown) => prepareCommandInvocation(definitions, value),
@@ -409,6 +411,7 @@ export function createControllerApplication(
             describe,
             ...(service?.prepare ? { prepare: service.prepare } : {}),
             ...(service?.dispatchPrepared ? { dispatchPrepared: service.dispatchPrepared } : {}),
+            ...(service?.dispatchPreparedTracked ? { dispatchPreparedTracked: service.dispatchPreparedTracked } : {}),
           }
         : undefined
     },

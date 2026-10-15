@@ -157,7 +157,8 @@ export interface KernelControllerPort
   readonly directoryQueries: Pick<
     Kernel['directoryQueries'],
     'execute' | 'dispatch' | 'dispatchPrepared' | 'describe' | 'list'
-  >
+  > &
+    Partial<Pick<Kernel['directoryQueries'], 'dispatchPreparedTracked'>>
   readonly schemaCallbacks: Pick<Kernel['schemaCallbacks'], 'query'>
   readonly sandboxProfiles: SandboxCommandPort
   readonly sessionSandboxProfileId: Kernel['sessionSandboxProfileId']

@@ -5,6 +5,7 @@ import {
   CommandRegistry,
   createCommandExpectation,
   createTrackedCommandDispatcher,
+  createCommandRouter,
   defineCommand,
 } from '@hbar/commands'
 
@@ -295,6 +296,70 @@ test('tracked owner adapters refuse logical-only implementations', async () => {
     expect(await supported.result).toEqual({ path: 'proof.txt' })
     expect(await supported.settled).toMatchObject({ status: 'succeeded', result: { path: 'proof.txt' } })
   } finally {
+    registry.dispose()
+  }
+})
+
+test('tracked routing preserves cancellation and refuses a logical-only route without executing it', async () => {
+  const entered = gate(),
+    release = gate()
+  let tracked = true,
+    ordinary = 0,
+    physicallySettled = false
+  const registry = new CommandRegistry({ execution: 'host' })
+  registry.register(
+    definition(),
+    async (value) => {
+      entered.open()
+      await release.wait
+      return value
+    },
+    { durable: true },
+  )
+  const router = createCommandRouter({
+    catalogs: () => [registry.list()],
+    resolve: () => ({
+      describe: () => registry.describe(invocation.commandId),
+      prepare: (value) => registry.prepare(value),
+      dispatch: async () => {
+        ordinary++
+        return {}
+      },
+      dispatchPrepared: async () => {
+        ordinary++
+        return {}
+      },
+      ...(tracked ? { dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry) } : {}),
+    }),
+  })
+  try {
+    const prepared = await router.prepare(invocation),
+      expected = createCommandExpectation(prepared),
+      controller = new AbortController()
+    const ticket = router.executePreparedTracked(prepared.invocation, 'operator', expected, {
+      signal: controller.signal,
+    })
+    const observer = ticket.settled.then(() => {
+      physicallySettled = true
+    })
+    await entered.wait
+    controller.abort()
+    expect(await failure(ticket.result)).toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(physicallySettled).toBe(false)
+    release.open()
+    expect(await ticket.settled).toMatchObject({
+      status: 'succeeded',
+      executionStarted: true,
+      result: { path: 'proof.txt' },
+    })
+    await observer
+    tracked = false
+    expect(() => router.executePreparedTracked(prepared.invocation, 'operator', expected)).toThrow(
+      'physical settlement tracking',
+    )
+    expect(ordinary).toBe(0)
+  } finally {
+    release.open()
     registry.dispose()
   }
 })

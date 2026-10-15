@@ -172,6 +172,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       service: {
         dispatch: maintenance.dispatch,
         ...(maintenance.dispatchPrepared ? { dispatchPrepared: maintenance.dispatchPrepared } : {}),
+        ...(maintenance.dispatchPreparedTracked ? { dispatchPreparedTracked: maintenance.dispatchPreparedTracked } : {}),
         describe: (id) => maintenance.describe(id),
         list: () => maintenance.list(),
         prepare: (value) => prepareCommandInvocation(chatDatabaseDefinitions, value),
@@ -439,6 +440,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       let describe = commandDescribers.get(id)
       let guarded = Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPrepared
         : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPrepared
+      let tracked = Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPreparedTracked
+        : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPreparedTracked
       const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions].find((definitions) =>
         Object.hasOwn(definitions, id),
       )
@@ -451,6 +454,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         describe ??= dynamic ? () => dynamic.describe(id) : undefined
         prepare ??= dynamic?.prepare
         guarded ??= dynamic?.dispatchPrepared
+        tracked ??= dynamic?.dispatchPreparedTracked
       }
       if (!dispatch || !describe) return undefined
       const selectedDispatch = dispatch
@@ -474,6 +478,16 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           }
           if (!guarded) throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch')
           return guarded(invocation, actorId, expectation, executeOptions)
+        },
+        dispatchPreparedTracked(value, actorId, expectation, executeOptions) {
+          const invocation = rpcSchemas['command.execute'].parse(value)
+          if (id === 'workspace.create') {
+            const input = workspaceCreateInputSchema.safeParse(invocation.input)
+            if (input.success && input.data.path === undefined)
+              return remoteWorkspaceCommands.dispatchPreparedTracked(invocation, actorId, expectation, executeOptions)
+          }
+          if (!tracked) throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner has no physical settlement tracking')
+          return tracked(invocation, actorId, expectation, executeOptions)
         },
       }
     },

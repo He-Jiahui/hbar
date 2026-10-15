@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { HbarError, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import { createPathLayout, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { CommandRegistry, commandExecutionExpectationSchema } from '@hbar/commands'
+import { CommandExecutionJobs, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { chatDatabaseCommands } from '@hbar/contracts/commands/chat-database'
 import {
   procedure,
@@ -19,16 +20,20 @@ import {
   runtimeControllerDispatchSchema,
   runtimeControllerRequestSchema,
   isRuntimeControllerControl,
+  runtimeControllerCommandStartSchema,
 } from './runtime-controller-contract'
 import { RuntimeControllerKernel } from './runtime-controller-kernel'
 import { createControllerApplication } from './controller-application'
 import { ownsControllerRpc, invokeControllerRpc } from './controller-rpc'
 import { RUNTIME_CONTROLLER_SERVICES } from './runtime-controller-services'
+import { attachRuntimeCommandJobs } from './runtime-command-jobs'
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   let requests = 0
   let defaultOwner = false
   let backgroundStarted = false
+  const commandJobs = new CommandExecutionJobs()
+  const detachCommandJobs = attachRuntimeCommandJobs(context.peer, commandJobs)
   const configuration = runtimeControllerConfigurationSchema.safeParse(context.configuration)
   if (!configuration.success && !z.strictObject({}).safeParse(context.configuration).success)
     throw new HbarError('INVALID_INPUT', 'Controller configuration must satisfy its declared lifecycle contract')
@@ -72,6 +77,21 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         },
       })
     : null
+  context.peer.register(
+    'controller.command.start',
+    procedure(runtimeControllerCommandStartSchema, commandJobSnapshotSchema, (input, call) => {
+      call.signal.throwIfAborted()
+      if (context.preparing() || !kernel || !application)
+        throw new HbarError('RUNTIME_PREPARING', 'Controller command jobs are not activated')
+      return kernel.pin(input.scope, () =>
+        commandJobs.start({ jobId: input.scope.invocationId, actorId: input.scope.actorId }, (jobSignal) =>
+          application.commandRouter.executePreparedTracked(input.invocation, input.scope.actorId, input.expectation, {
+            signal: jobSignal,
+          }),
+        ),
+      )
+    }),
+  )
   values.register('service', async (args, signal) => {
     if (context.preparing() || !kernel || !application)
       throw new HbarError('RUNTIME_PREPARING', 'Controller services are not activated')
@@ -220,10 +240,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       await application?.scheduleController.close()
       await application?.sessionSearchCommands.pause()
       backgroundStarted = false
-      return { requests, runs: 0, resources: 0 }
+      return { requests, runs: 0, resources: commandJobs.stats().jobs }
     },
     async dispose() {
       defaultOwner = false
+      commandJobs.dispose()
+      detachCommandJobs()
       await application?.dispose()
       maintenance.dispose()
       values.dispose()

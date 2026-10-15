@@ -8,7 +8,8 @@ import {
   invocationSchema,
   validationError,
   type CommandDescriptor,
-  type PreparedCommandRoutingPort,
+  type TrackedCommandRoutingPort,
+  type CommandExecutionTicket,
   type CommandExecutionExpectation,
   type CommandPreparedOptions,
   type CommandInvocation,
@@ -28,6 +29,12 @@ export interface CommandRoute {
     expectation: CommandExecutionExpectation,
     options?: CommandPreparedOptions,
   ) => Promise<unknown>
+  readonly dispatchPreparedTracked?: (
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ) => CommandExecutionTicket
 }
 export interface CommandRouterOptions {
   /** Resolve on each call so an owner-generation change cannot leave a cached dispatcher behind. */
@@ -47,7 +54,7 @@ function serializedBytes(value: unknown): number {
 }
 
 /** Shared routing, discovery and bounds. Executable validators, permissions and receipts stay in their owners. */
-export function createCommandRouter(options: CommandRouterOptions): PreparedCommandRoutingPort {
+export function createCommandRouter(options: CommandRouterOptions): TrackedCommandRoutingPort {
   const route = (id: string) => {
     const selected = options.resolve(id)
     if (!selected) throw new CommandError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
@@ -60,6 +67,28 @@ export function createCommandRouter(options: CommandRouterOptions): PreparedComm
     if (descriptor.metadata.id !== id || serializedBytes(descriptor) > MAX_COMMAND_CATALOG_BYTES - 2048)
       throw new CommandError('INVALID_DEFINITION', 'Command descriptor exceeds routing bounds or has another identity')
     return descriptor
+  }
+  const guarded = (
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    executeOptions: CommandPreparedOptions,
+  ) => {
+    const actor = actorSchema.safeParse(actorId)
+    if (!actor.success) throw new CommandError('FORBIDDEN', 'A Host-bound command actor is required')
+    if (executeOptions.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
+    checkInvocationSize(value)
+    const invocation = invocationSchema.parse(value)
+    const captured = captureCommandExpectation(expectation)
+    const selected = route(invocation.commandId)
+    captured.assertDescriptor(describe(invocation.commandId, selected))
+    captured.assertInput(invocation.input)
+    return {
+      selected,
+      actor: actor.data,
+      invocation: { ...invocation, input: captured.detachInput(invocation.input) },
+      expectation: captured.detached(),
+    }
   }
   return {
     describe,
@@ -144,23 +173,29 @@ export function createCommandRouter(options: CommandRouterOptions): PreparedComm
       return route(input.data.commandId).dispatch(input.data, actor.data)
     },
     async executePrepared(value, actorId, expectation, executeOptions = {}) {
-      const actor = actorSchema.safeParse(actorId)
-      if (!actor.success) throw new CommandError('FORBIDDEN', 'A Host-bound command actor is required')
-      if (executeOptions.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
-      checkInvocationSize(value)
-      const invocation = invocationSchema.parse(value)
-      const captured = captureCommandExpectation(expectation)
-      const selected = route(invocation.commandId)
+      const {
+        selected,
+        actor,
+        invocation,
+        expectation: admitted,
+      } = guarded(value, actorId, expectation, executeOptions)
       if (!selected.dispatchPrepared)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch')
-      captured.assertDescriptor(describe(invocation.commandId, selected))
-      captured.assertInput(invocation.input)
-      return selected.dispatchPrepared(
-        { ...invocation, input: captured.detachInput(invocation.input) },
-        actor.data,
-        captured.detached(),
-        executeOptions,
-      )
+      return selected.dispatchPrepared(invocation, actor, admitted, executeOptions)
+    },
+    executePreparedTracked(value, actorId, expectation, executeOptions = {}) {
+      const {
+        selected,
+        actor,
+        invocation,
+        expectation: admitted,
+      } = guarded(value, actorId, expectation, executeOptions)
+      if (!selected.dispatchPreparedTracked)
+        throw new CommandError(
+          'CAPABILITY_UNAVAILABLE',
+          'The command owner does not support physical settlement tracking',
+        )
+      return selected.dispatchPreparedTracked(invocation, actor, admitted, executeOptions)
     },
   }
 }

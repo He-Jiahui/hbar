@@ -86,6 +86,7 @@ import { RuntimeResourceRegistry } from './runtime-resource-registry'
 import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runtime-maintenance-relay'
 import { RUNTIME_MAINTENANCE_CONTROL_METHODS } from './runtime-maintenance-contract'
 import { createRuntimeControllerServices } from './runtime-controller-services'
+import { RUNTIME_COMMAND_JOB_CONTROLS } from './runtime-command-job-contract'
 import { RuntimeStatusFeed } from './runtime-status-feed'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import { hostRuntimeProcessCommand } from './runtime-package'
@@ -404,6 +405,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             return { ...catalog, items: catalog.items.filter((item) => !item.metadata.id.startsWith('chatDatabase.')) }
           },
           call: (service, method, args, options) => self.controllerAdapter().service(service, method, args, options),
+          tracked: (value, actorId, expectation, options) => self.controllerAdapter().trackCommand(value, actorId, expectation, options),
           start: async () => {
             self.controllerStarted = true
             if (!self.initializing) await self.controllerAdapter().resume()
@@ -1276,6 +1278,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
         ...RUNTIME_NODE_LINK_CONTROLS,
+        ...RUNTIME_COMMAND_JOB_CONTROLS,
         'kernel.plugins.callback',
         'kernel.plugins.control',
         'controller.control',
@@ -1318,6 +1321,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             background: () => this.coordinator.role(owner) === 'default',
             admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
             fresh: (event) => this.facade.replay({ method: 'notifications.created', params: event }),
+            retainCommand: jobId => {
+              const resource = this.coordinator.acquireResource(owner, `command.job:${jobId}`)
+              if (!resource) throw new HbarError('BUSY', 'The command job already retains its owner')
+              return () => this.coordinator.releaseResource(owner, resource.id)
+            },
           })
         if (artifact.unitId === 'maintenance')
           record.cleanup.push(

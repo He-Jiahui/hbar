@@ -131,9 +131,14 @@ export type CommandPhysicalSettlement = z.output<typeof commandPhysicalSettlemen
 export interface CommandExecutionTicket {
   readonly result: Promise<unknown>
   readonly settled: Promise<CommandPhysicalSettlement>
+  /** Managed owners retain receipts until the caller has saved them. Absent for an ordinary owner-local ticket. */
+  readonly acknowledge?: () => Promise<void>
 }
 export interface PreparedCommandRoutingPort extends CommandRoutingPort {
   executePrepared(invocation: unknown, actorId: string, expectation: CommandExecutionExpectation, options?: CommandPreparedOptions): Promise<unknown>
+}
+export interface TrackedCommandRoutingPort extends PreparedCommandRoutingPort {
+  executePreparedTracked(invocation: unknown, actorId: string, expectation: CommandExecutionExpectation, options?: CommandPreparedOptions): CommandExecutionTicket
 }
 
 export const invocationSchema = z.strictObject({

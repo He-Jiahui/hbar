@@ -3,6 +3,7 @@ import type {
   CommandInvocation,
   CommandExecutionExpectation,
   CommandPreparedOptions,
+  CommandExecutionTicket,
 } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import type { ControllerApplication, ControllerCommandService } from './controller-application'
@@ -54,6 +55,14 @@ export interface RuntimeControllerServicesOptions {
   ) => Promise<Result>
   readonly start: () => Promise<void>
   readonly stop: () => Promise<void>
+  readonly tracked?:
+    | ((
+        value: unknown,
+        actorId: string,
+        expectation: CommandExecutionExpectation,
+        options?: CommandPreparedOptions,
+      ) => CommandExecutionTicket)
+    | undefined
 }
 
 export function createRuntimeControllerServices(
@@ -81,6 +90,16 @@ export function createRuntimeControllerServices(
       expectation: CommandExecutionExpectation,
       executeOptions?: CommandPreparedOptions,
     ) => options.call('commands', 'dispatchPrepared', [value, actorId, expectation], executeOptions),
+    dispatchPreparedTracked: (
+      value: unknown,
+      actorId: string,
+      expectation: CommandExecutionExpectation,
+      executeOptions?: CommandPreparedOptions,
+    ) => {
+      if (!options.tracked)
+        throw new HbarError('CAPABILITY_UNAVAILABLE', 'The Controller transport has no physical command tracking')
+      return options.tracked(value, actorId, expectation, executeOptions)
+    },
     describe(id: string) {
       const descriptor = allDescriptors().find((value) => value.metadata.id === id)
       if (!descriptor)

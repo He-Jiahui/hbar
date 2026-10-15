@@ -19,6 +19,7 @@ export const RUNTIME_MAINTENANCE_CONTROL_METHODS = ['maintenance.control', 'main
 export interface RuntimeMaintenancePort {
   dispatch(value: unknown, actorId: string): Promise<unknown>
   readonly dispatchPrepared?: NonNullable<CommandRoute['dispatchPrepared']>
+  readonly dispatchPreparedTracked?: NonNullable<CommandRoute['dispatchPreparedTracked']>
   describe(id: string): CommandDescriptor
   list(): { revision: number; items: readonly CommandDescriptor[] }
   dispose(): void | Promise<void>
