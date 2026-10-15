@@ -33,7 +33,7 @@ import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/sy
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
 import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
-import { createCommandRouter } from '@hbar/commands'
+import { createCommandRouter, prepareCommandInvocation } from '@hbar/commands'
 
 import { Auth, requestToken } from './auth.ts'
 import { DeviceAuthorization } from './device-authorization'
@@ -167,7 +167,15 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   }
   if (options.runtime?.maintenance && options.controller?.application) {
     const maintenance = options.runtime.maintenance
-    commandServices.push({ commandIds: Object.keys(chatDatabaseDefinitions), service: maintenance })
+    commandServices.push({
+      commandIds: Object.keys(chatDatabaseDefinitions),
+      service: {
+        dispatch: maintenance.dispatch,
+        describe: (id) => maintenance.describe(id),
+        list: () => maintenance.list(),
+        prepare: (value) => prepareCommandInvocation(chatDatabaseDefinitions, value),
+      },
+    })
     for (const id of Object.keys(chatDatabaseDefinitions)) {
       commandDispatchers.set(id, maintenance.dispatch)
       commandDescribers.set(id, () => maintenance.describe(id))
@@ -427,15 +435,23 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     resolve(id) {
       let dispatch = commandDispatchers.get(id)
       let describe = commandDescribers.get(id)
+      const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions].find((definitions) =>
+        Object.hasOwn(definitions, id),
+      )
+      let prepare = localDefinitions
+        ? (value: unknown) => prepareCommandInvocation(localDefinitions, value)
+        : commandServices.find((entry) => entry.commandIds.includes(id))?.service.prepare
       if (!dispatch || !describe) {
         const dynamic = application.resolveCommand?.(id)
         dispatch ??= dynamic?.dispatch
         describe ??= dynamic ? () => dynamic.describe(id) : undefined
+        prepare ??= dynamic?.prepare
       }
       if (!dispatch || !describe) return undefined
       const selectedDispatch = dispatch
       return {
         describe,
+        ...(prepare ? { prepare } : {}),
         async dispatch(value, actorId) {
           const invocation = rpcSchemas['command.execute'].parse(value)
           if (id === 'workspace.create') {

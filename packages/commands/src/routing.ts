@@ -8,6 +8,7 @@ import {
   validationError,
   type CommandDescriptor,
   type CommandRoutingPort,
+  type CommandInvocation,
 } from './protocol'
 
 export const MAX_COMMAND_CATALOG_BYTES = 524_288
@@ -16,6 +17,7 @@ const actorSchema = z.string().min(1).max(160).regex(/\S/)
 
 export interface CommandRoute {
   readonly describe: () => CommandDescriptor
+  readonly prepare?: (invocation: unknown) => CommandInvocation | Promise<CommandInvocation>
   readonly dispatch: (invocation: unknown, actorId: string) => Promise<unknown>
 }
 export interface CommandRouterOptions {
@@ -42,16 +44,37 @@ export function createCommandRouter(options: CommandRouterOptions): CommandRouti
     if (!selected) throw new CommandError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
     return selected
   }
-  const describe = (id: string): CommandDescriptor => {
+  const describe = (id: string, selected?: CommandRoute): CommandDescriptor => {
     const input = commandDescriptionQuerySchema.safeParse({ commandId: id })
     if (!input.success) throw validationError('INVALID_INPUT', input.error)
-    const descriptor = route(input.data.commandId).describe()
+    const descriptor = (selected ?? route(input.data.commandId)).describe()
     if (descriptor.metadata.id !== id || serializedBytes(descriptor) > MAX_COMMAND_CATALOG_BYTES - 2048)
       throw new CommandError('INVALID_DEFINITION', 'Command descriptor exceeds routing bounds or has another identity')
     return descriptor
   }
   return {
     describe,
+    async prepare(value) {
+      checkInvocationSize(value)
+      const parsed = invocationSchema.safeParse(value)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      const selected = route(parsed.data.commandId)
+      if (!selected.prepare)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not expose read-only validation')
+      const descriptor = structuredClone(describe(parsed.data.commandId, selected))
+      if (descriptor.metadata.version !== parsed.data.commandVersion)
+        throw new CommandError('VERSION_MISMATCH', 'Command version is incompatible')
+      const prepared = invocationSchema.parse(await selected.prepare(structuredClone(parsed.data)))
+      if (
+        prepared.commandId !== parsed.data.commandId ||
+        prepared.commandVersion !== parsed.data.commandVersion ||
+        prepared.requestId !== parsed.data.requestId ||
+        prepared.idempotencyKey !== parsed.data.idempotencyKey
+      )
+        throw new CommandError('INVALID_DEFINITION', 'Command preparation changed its invocation identity')
+      checkInvocationSize(prepared)
+      return { descriptor, invocation: prepared }
+    },
     list(query = {}) {
       const parsed = commandCatalogQuerySchema.safeParse(query)
       if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)

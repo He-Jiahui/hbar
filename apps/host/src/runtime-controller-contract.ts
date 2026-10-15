@@ -80,7 +80,7 @@ export function isRuntimeControllerControl(request: RuntimeControllerRequest): b
 export const CONTROLLER_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
-      'hbar.controller.v1',
+      'hbar.controller.v2.command-preparation',
       z.toJSONSchema(runtimeControllerDispatchSchema),
       z.toJSONSchema(runtimeControllerConfigurationSchema),
       z.toJSONSchema(runtimeControllerScopeSchema),

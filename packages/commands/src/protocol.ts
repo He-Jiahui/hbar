@@ -87,7 +87,14 @@ export interface CommandCatalogPage {
 export interface CommandRoutingPort {
   list(query?: CommandCatalogQuery): CommandCatalogPage
   describe(commandId: string): CommandDescriptor
+  /** Read-only owner validation and defaults; never invokes the command handler. */
+  prepare(invocation: unknown): Promise<CommandPreparation>
   execute(invocation: unknown, actorId: string): Promise<unknown>
+}
+
+export interface CommandPreparation {
+  readonly descriptor: CommandDescriptor
+  readonly invocation: CommandInvocation
 }
 
 export const invocationSchema = z.strictObject({

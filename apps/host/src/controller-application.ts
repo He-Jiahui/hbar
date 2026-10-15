@@ -70,12 +70,18 @@ import { submitRunInputSchema } from '@hbar/contracts/commands/run'
 import { createScheduleService, createNotificationService } from '@hbar/kernel/controller'
 import { createScheduleHostController } from './schedule-host-controller.ts'
 import { createChatDatabaseHostController } from './chat-database-host-controller'
-import { createCommandRouter, type CommandDescriptor } from '@hbar/commands'
+import {
+  createCommandRouter,
+  prepareCommandInvocation,
+  type CommandDescriptor,
+  type CommandInvocation,
+} from '@hbar/commands'
 declare const HBAR_MANAGED_MAINTENANCE: boolean
 
 export interface ControllerCommandService {
   readonly commandIds: readonly string[]
   readonly service: {
+    prepare?(value: unknown): CommandInvocation | Promise<CommandInvocation>
     dispatch(value: unknown, actorId: string): Promise<unknown>
     describe(id: string): CommandDescriptor
     list(filter?: { readonly includeInternal?: boolean }): { revision: number; items: readonly CommandDescriptor[] }
@@ -362,7 +368,15 @@ export function createControllerApplication(
     { definitions: sandboxDefinitions, service: sandboxCommandService },
     { definitions: notificationDefinitions, service: notificationCommands },
     { definitions: runBoardDefinitions, service: runBoardCommands },
-  ].map(({ definitions, service }) => ({ commandIds: Object.keys(definitions), service }))
+  ].map(({ definitions, service }) => ({
+    commandIds: Object.keys(definitions),
+    service: {
+      dispatch: service.dispatch,
+      describe: service.describe,
+      list: service.list,
+      prepare: (value: unknown) => prepareCommandInvocation(definitions, value),
+    },
+  }))
   const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
     commandServices.flatMap(({ commandIds, service }) => commandIds.map((id) => [id, service.dispatch] as const)),
   )
@@ -376,7 +390,8 @@ export function createControllerApplication(
     resolve(id) {
       const dispatch = commandDispatchers.get(id)
       const describe = commandDescribers.get(id)
-      return dispatch && describe ? { dispatch, describe } : undefined
+      const prepare = commandServices.find((entry) => entry.commandIds.includes(id))?.service.prepare
+      return dispatch && describe ? { dispatch, describe, ...(prepare ? { prepare } : {}) } : undefined
     },
   })
 

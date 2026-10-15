@@ -258,6 +258,12 @@ test('the live Host port and authenticated RPC share discovery, actor identity a
       idempotencyKey: 'router-budget',
       input: { sessionId: session.id, tokens: 1000 },
     }
+    const prepared = await host.commands.prepare(invocation)
+    expect(prepared.descriptor).toEqual(host.commands.describe('session.setBudget'))
+    expect(prepared.invocation).toMatchObject(invocation)
+    expect(await kernel.plugins.get<import('@hbar/plugin-sdk').BudgetService>('budget').getCommandReceipt(
+      session.id, operator.device.id, 'router-budget',
+    )).toBeNull()
     const direct = budgetCommands['session.setBudget'].output.parse(
       await host.commands.execute(invocation, operator.device.id),
     )
@@ -310,6 +316,9 @@ test('stable Host commands do not consult an unavailable Controller catalog', as
   try {
     unavailable = true
     expect(host.commands.describe('system.paths.get').metadata.execution).toBe('host')
+    expect((await host.commands.prepare({
+      protocol: 1, requestId: 'stable-host-preparation', commandId: 'system.paths.get', commandVersion: 1, input: {},
+    })).invocation.input).toEqual({})
     const result = await host.commands.execute(
       {
         protocol: 1,

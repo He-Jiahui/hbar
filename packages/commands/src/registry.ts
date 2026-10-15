@@ -10,6 +10,7 @@ import {
   type CommandDefinition,
   type CommandDescriptor,
   type CommandMetadata,
+  type CommandInvocation,
 } from './protocol'
 
 export interface CommandContext {
@@ -252,6 +253,24 @@ export class CommandRegistry {
       ...(parsed.data.idempotencyKey ? { idempotencyKey: parsed.data.idempotencyKey } : {}),
       ...(options.actorId ? { actorId: options.actorId } : {}),
     })
+  }
+
+  /** Normalize with the registered owner's validator without entering execution or reserving capacity. */
+  prepare(value: unknown): CommandInvocation {
+    checkInvocationSize(value)
+    const input = invocationSchema.safeParse(value)
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    const registration = this.#find(input.data.commandId)
+    const metadata = registration.descriptor.metadata
+    if (input.data.commandVersion !== metadata.version)
+      throw new CommandError('VERSION_MISMATCH', 'Command version is incompatible')
+    const prepared = {
+      ...input.data,
+      commandId: metadata.id,
+      input: registration.parseInput(input.data.input),
+    }
+    checkInvocationSize(prepared)
+    return prepared
   }
 
   async execute(name: string, value: unknown, options: ExecuteOptions = {}): Promise<unknown> {

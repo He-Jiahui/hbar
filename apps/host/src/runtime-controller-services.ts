@@ -1,4 +1,4 @@
-import type { CommandDescriptor } from '@hbar/commands'
+import type { CommandDescriptor, CommandInvocation } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import type { ControllerApplication, ControllerCommandService } from './controller-application'
 
@@ -63,6 +63,7 @@ export function createRuntimeControllerServices(
     return { ...catalog, items: catalog.items.filter((value) => value.metadata.visibility !== 'internal') }
   }
   const service = {
+    prepare: (value: unknown) => options.call<CommandInvocation>('commands', 'prepare', [value]),
     dispatch: (value: unknown, actorId: string) => options.call('commands', 'dispatch', [value, actorId]),
     describe(id: string) {
       const descriptor = allDescriptors().find((value) => value.metadata.id === id)

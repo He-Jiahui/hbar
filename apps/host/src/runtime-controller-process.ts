@@ -80,6 +80,8 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       method = z.string().parse(args[2]),
       input = z.array(z.unknown()).max(32).parse(args[3])
     return kernel.pin(scope, async () => {
+      if (service === 'commands' && method === 'prepare')
+        return (await application.commandRouter.prepare(input[0])).invocation
       if (service === 'commands' && method === 'dispatch') {
         const invocation = rpcSchemas['command.execute'].parse(input[0])
         const dispatch = application.commandDispatchers.get(invocation.commandId)
