@@ -15,15 +15,19 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
   const snapshots: string[] = []
   const fullEvents: string[] = []
   const configurations: string[] = []
+  const fixture: { sessions?: SessionService } = {}
+  const seedPages: { id: string; after: number; limit: number | undefined; seqs: number[] }[] = []
   const reset = () => {
     snapshots.length = 0
     fullEvents.length = 0
     configurations.length = 0
+    seedPages.length = 0
   }
   const observedAgent = definePlugin({
     manifest: agentPlugin.manifest,
     apply(ctx) {
       const api = ctx.hbar.api
+      fixture.sessions = api.sessions
       const configuration = api.sessions.agentConfiguration
       if (!configuration) throw new Error('Missing real Agent configuration port')
       const sessions: SessionService = {
@@ -32,9 +36,12 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
           snapshots.push(id)
           return api.sessions.snapshot(id)
         },
-        events: (id, after, limit) => {
+        events: async (id, after, limit) => {
           if (limit === 100_000) fullEvents.push(id)
-          return api.sessions.events(id, after, limit)
+          const events = await api.sessions.events(id, after, limit)
+          if (limit !== 100_000)
+            seedPages.push({ id, after: after ?? 0, limit, seqs: events.map((event) => event.seq) })
+          return events
         },
         agentConfiguration: {
           ...configuration,
@@ -61,12 +68,15 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
   })
   try {
     kernel.beginDrain()
+    const sessions = fixture.sessions
+    if (!sessions) throw new Error('Missing real Session service')
     const workspace = (await kernel.storage.call('workspaces')).at(0)
     if (!workspace) throw new Error('Missing workspace')
     const parent = await kernel.createSession(workspace.id, 'parent')
     const agents = kernel.plugins.get<AgentService>('agent')
     const input = { parentSessionId: parent.id, objective: 'deterministic queued child', modelId: 'local-fixture' }
     const siblings = new Set<string>()
+    const records: Awaited<ReturnType<AgentService['create']>>[] = []
     let first: Awaited<ReturnType<AgentService['create']>> | undefined
     const assertNoUnrelatedReads = (ids: ReadonlySet<string>) => {
       expect(snapshots.filter((id) => ids.has(id))).toEqual([])
@@ -84,7 +94,12 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
       expect(created.status).toBe('queued')
       assertNoUnrelatedReads(siblings)
       siblings.add(created.sessionId)
+      records.push(created)
       first ??= created
+      // Give every real child a history larger than its seed page without
+      // dispatching a provider or changing its queued Run.
+      for (let event = 0; event < 3; event++)
+        await sessions.append(created.sessionId, 'fixture.large-history', { text: 'x'.repeat(16_384) })
     }
     if (!first) throw new Error('Missing first child')
     reset()
@@ -95,12 +110,34 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
     })
     expect(repeated.agentId).toBe(first.agentId)
     expect(repeated.runId).toBe(first.runId)
+    expect(seedPages).toHaveLength(30)
+    expect(seedPages.every((page) => page.after === 0 && page.limit === 2 && page.seqs.join(',') === '1,2')).toBe(true)
     const firstSessionId = first.sessionId
     const unrelated = new Set([...siblings].filter((id) => id !== firstSessionId))
     assertNoUnrelatedReads(unrelated)
     expect(snapshots).toEqual([first.sessionId])
     const snapshot = await kernel.snapshot(first.sessionId)
     expect(snapshot.runs).toHaveLength(1)
+    reset()
+    const replays = await Promise.all(
+      records.map((record, index) =>
+        agents.create(input, {
+          actorId: 'actor-one',
+          idempotencyKey: 'child-' + index,
+          requestId: 'parallel-repeat-' + record.sessionId,
+        }),
+      ),
+    )
+    expect(replays.map((record) => [record.agentId, record.runId])).toEqual(
+      records.map((record) => [record.agentId, record.runId]),
+    )
+    expect(seedPages).toHaveLength(900)
+    expect(seedPages.every((page) => page.after === 0 && page.limit === 2 && page.seqs.join(',') === '1,2')).toBe(true)
+    expect(snapshots).toHaveLength(30)
+    for (const record of records) {
+      expect(snapshots.filter((id) => id === record.sessionId)).toHaveLength(1)
+      expect((await kernel.snapshot(record.sessionId)).runs).toHaveLength(1)
+    }
     reset()
     let conflict: unknown
     try {
@@ -117,6 +154,8 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
     }
     expect(conflict).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
     assertNoUnrelatedReads(siblings)
+    expect(seedPages).toHaveLength(30)
+    expect(seedPages.every((page) => page.after === 0 && page.limit === 2 && page.seqs.join(',') === '1,2')).toBe(true)
     reset()
     const other = await agents.create(input, {
       actorId: 'actor-two',

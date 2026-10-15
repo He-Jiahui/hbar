@@ -172,11 +172,18 @@ export class AgentRuntime implements AgentService {
   }
 
   private async created(sessionId: string): Promise<CreatedAgent | null> {
-    const events = await this.sessions.events(sessionId, 0, 100)
-    for (const event of events) {
-      if (event.type !== 'agent.created') continue
-      const parsed = createdSchema.safeParse(event.data)
-      if (parsed.success) return parsed.data
+    // Current children persist their seed second; retain the original first-100
+    // event window for older histories without reading later payloads normally.
+    let events = await this.sessions.events(sessionId, 0, 2)
+    for (let page = 0; page < 2; page++) {
+      for (const event of events) {
+        if (event.type !== 'agent.created') continue
+        const parsed = createdSchema.safeParse(event.data)
+        if (parsed.success) return parsed.data
+      }
+      const last = events.at(-1)
+      if (page === 1 || events.length < 2 || !last) return null
+      events = await this.sessions.events(sessionId, last.seq, 98)
     }
     return null
   }
