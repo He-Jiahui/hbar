@@ -75,6 +75,7 @@ import {
   prepareCommandInvocation,
   type CommandDescriptor,
   type CommandInvocation,
+  type CommandRoute,
 } from '@hbar/commands'
 declare const HBAR_MANAGED_MAINTENANCE: boolean
 
@@ -83,6 +84,7 @@ export interface ControllerCommandService {
   readonly service: {
     prepare?(value: unknown): CommandInvocation | Promise<CommandInvocation>
     dispatch(value: unknown, actorId: string): Promise<unknown>
+    readonly dispatchPrepared?: NonNullable<CommandRoute['dispatchPrepared']>
     describe(id: string): CommandDescriptor
     list(filter?: { readonly includeInternal?: boolean }): { revision: number; items: readonly CommandDescriptor[] }
   }
@@ -182,11 +184,15 @@ export function createControllerApplication(
     skills: (signal) => skillInspection.list(signal),
     skillInspection,
   })
-  const gitCommands = createGitCommands(kernel.plugins.get('git'), {
-    storage: kernel.storage,
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  }, localExecutionPolicy)
+  const gitCommands = createGitCommands(
+    kernel.plugins.get('git'),
+    {
+      storage: kernel.storage,
+      resolveSessionPath: (sessionId, workspacePath, signal) =>
+        kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+    },
+    localExecutionPolicy,
+  )
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),
@@ -198,11 +204,16 @@ export function createControllerApplication(
   )
   const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get('budget'))
-  const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
-    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  }, { undo: (sessionId, runId, signal) => kernel.undoFileChanges(sessionId, runId, signal) })
+  const fileCommands = createFileCommands(
+    kernel.storage,
+    resolveExecutionProvider(kernel),
+    {
+      resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
+      resolveSessionPath: (sessionId, workspacePath, signal) =>
+        kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+    },
+    { undo: (sessionId, runId, signal) => kernel.undoFileChanges(sessionId, runId, signal) },
+  )
   const goalPlanCommands = createGoalPlanCommands(
     resolveGoalService(kernel),
     resolvePlanService(kernel),
@@ -372,6 +383,7 @@ export function createControllerApplication(
     commandIds: Object.keys(definitions),
     service: {
       dispatch: service.dispatch,
+      ...(service.dispatchPrepared ? { dispatchPrepared: service.dispatchPrepared } : {}),
       describe: service.describe,
       list: service.list,
       prepare: (value: unknown) => prepareCommandInvocation(definitions, value),
@@ -390,8 +402,15 @@ export function createControllerApplication(
     resolve(id) {
       const dispatch = commandDispatchers.get(id)
       const describe = commandDescribers.get(id)
-      const prepare = commandServices.find((entry) => entry.commandIds.includes(id))?.service.prepare
-      return dispatch && describe ? { dispatch, describe, ...(prepare ? { prepare } : {}) } : undefined
+      const service = commandServices.find((entry) => entry.commandIds.includes(id))?.service
+      return dispatch && describe
+        ? {
+            dispatch,
+            describe,
+            ...(service?.prepare ? { prepare: service.prepare } : {}),
+            ...(service?.dispatchPrepared ? { dispatchPrepared: service.dispatchPrepared } : {}),
+          }
+        : undefined
     },
   })
 

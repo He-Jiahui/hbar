@@ -1,4 +1,9 @@
-import type { CommandDescriptor, CommandInvocation } from '@hbar/commands'
+import type {
+  CommandDescriptor,
+  CommandInvocation,
+  CommandExecutionExpectation,
+  CommandPreparedOptions,
+} from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import type { ControllerApplication, ControllerCommandService } from './controller-application'
 
@@ -41,7 +46,12 @@ export interface ControllerServerApplication extends RemoteServices {
 }
 export interface RuntimeControllerServicesOptions {
   readonly catalog: () => { revision: number; items: readonly CommandDescriptor[] }
-  readonly call: <Result>(service: string, method: string, args: readonly unknown[]) => Promise<Result>
+  readonly call: <Result>(
+    service: string,
+    method: string,
+    args: readonly unknown[],
+    options?: CommandPreparedOptions,
+  ) => Promise<Result>
   readonly start: () => Promise<void>
   readonly stop: () => Promise<void>
 }
@@ -65,6 +75,12 @@ export function createRuntimeControllerServices(
   const service = {
     prepare: (value: unknown) => options.call<CommandInvocation>('commands', 'prepare', [value]),
     dispatch: (value: unknown, actorId: string) => options.call('commands', 'dispatch', [value, actorId]),
+    dispatchPrepared: (
+      value: unknown,
+      actorId: string,
+      expectation: CommandExecutionExpectation,
+      executeOptions?: CommandPreparedOptions,
+    ) => options.call('commands', 'dispatchPrepared', [value, actorId, expectation], executeOptions),
     describe(id: string) {
       const descriptor = allDescriptors().find((value) => value.metadata.id === id)
       if (!descriptor)

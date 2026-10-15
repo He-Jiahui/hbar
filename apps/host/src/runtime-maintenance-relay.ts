@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { describeCommand, invocationSchema } from '@hbar/commands'
+import { describeCommand, invocationSchema, type CommandExecutionExpectation, type CommandPreparedOptions } from '@hbar/commands'
 import { chatDatabaseCommands, chatDatabaseOperationSchema, chatDatabasePreviewItemSchema, type ChatDatabaseOperation } from '@hbar/contracts/commands/chat-database'
 import { settingsScopeSchema } from '@hbar/contracts/commands/settings'
 import type { RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
@@ -49,6 +49,11 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
   dispose(): void { /* The managed owner lifecycle belongs to ProcessHostRuntime. */ }
   list() { return { revision: 1, items: Object.values(chatDatabaseCommands).map(describeCommand) } }
   readonly dispatch = async (value: unknown, actorId: string): Promise<unknown> => {
+    return this.dispatchOwned(value, actorId)
+  }
+  readonly dispatchPrepared = (value: unknown, actorId: string, expectation: CommandExecutionExpectation, options: CommandPreparedOptions = {}): Promise<unknown> =>
+    this.dispatchOwned(value, actorId, expectation, options)
+  private async dispatchOwned(value: unknown, actorId: string, expectation?: CommandExecutionExpectation, options: CommandPreparedOptions = {}): Promise<unknown> {
     const invocation = invocationSchema.parse(value)
     this.describe(invocation.commandId)
     const target = z.object({ operationId: id.optional(), previewId: id.optional(), idempotencyKey: id.optional() }).safeParse(invocation.input)
@@ -57,7 +62,7 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
     const job = operationId ? this.jobs.get(operationId) : undefined
     const endpoint = job && !this.dead.has(job.owner.incarnation) ? this.options.resolve(job.owner) : this.options.current()
     const control = ['chatDatabase.cancel', 'chatDatabase.operation', 'chatDatabase.receipt'].includes(invocation.commandId)
-    return endpoint.process.call(control ? 'maintenance.control' : 'maintenance.dispatch', { invocation, actorId }, z.unknown())
+    return endpoint.process.call(control ? 'maintenance.control' : 'maintenance.dispatch', { invocation, actorId, ...(expectation ? { expectation } : {}) }, z.unknown(), options)
   }
   attach(peer: IpcPeer, owner: RuntimeOwner, version: RuntimeVersion): () => void {
     const values = new RuntimeValuePort(peer, { prefix: 'maintenance.application' })

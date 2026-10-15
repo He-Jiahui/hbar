@@ -21,7 +21,14 @@ export type ConfigurationCommandKernelPort = Pick<
 >
 export type RunCommandKernelPort = Pick<
   Kernel,
-  'storage' | 'submit' | 'cancel' | 'compact' | 'editQueuedRunText' | 'removeQueuedRun' | 'guideQueuedRun' | 'undoFileChanges'
+  | 'storage'
+  | 'submit'
+  | 'cancel'
+  | 'compact'
+  | 'editQueuedRunText'
+  | 'removeQueuedRun'
+  | 'guideQueuedRun'
+  | 'undoFileChanges'
 > &
   Partial<Pick<Kernel, 'continueInterrupted'>>
 export type InteractionCommandKernelPort = Pick<
@@ -147,7 +154,10 @@ export interface KernelControllerPort
   readonly streams: ReadonlyMap<string, LiveStream>
   readonly plugins: KernelPluginControllerPort
   readonly tools: { list(): Array<{ readonly name: string }> }
-  readonly directoryQueries: Pick<Kernel['directoryQueries'], 'execute' | 'dispatch' | 'describe' | 'list'>
+  readonly directoryQueries: Pick<
+    Kernel['directoryQueries'],
+    'execute' | 'dispatch' | 'dispatchPrepared' | 'describe' | 'list'
+  >
   readonly schemaCallbacks: Pick<Kernel['schemaCallbacks'], 'query'>
   readonly sandboxProfiles: SandboxCommandPort
   readonly sessionSandboxProfileId: Kernel['sessionSandboxProfileId']

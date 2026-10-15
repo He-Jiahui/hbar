@@ -78,7 +78,7 @@ export const RUNTIME_APPLICATION_METHODS = {
     'undoFileChanges',
   ],
   plugins: ['remove', 'resolve', 'graph', 'lock', 'doctor', 'clientCode', 'assetPath'],
-  directory: ['execute', 'dispatch', 'describe', 'list'],
+  directory: ['execute', 'dispatch', 'dispatchPrepared', 'describe', 'list'],
   schema: ['query'],
   sandbox: ['list', 'get', 'save', 'delete', 'receipt'],
   workspaceSandbox: ['prepare'],

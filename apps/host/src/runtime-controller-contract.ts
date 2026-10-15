@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { rpcRequestSchema, rpcSchemas, type RpcMethod, type HostInfo } from '@hbar/contracts'
 import { hostInfoSchema } from '@hbar/contracts/commands/system'
 import { liveStreamSchema } from '@hbar/contracts/runtime-notifications'
-import { commandMetadataSchema, type CommandDescriptor } from '@hbar/commands'
+import { commandMetadataSchema, commandExecutionExpectationSchema, type CommandDescriptor } from '@hbar/commands'
 import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import type { ControllerServerApplication } from './runtime-controller-services'
 
@@ -80,7 +80,8 @@ export function isRuntimeControllerControl(request: RuntimeControllerRequest): b
 export const CONTROLLER_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
-      'hbar.controller.v2.command-preparation',
+      'hbar.controller.v3.guarded-command-dispatch',
+      z.toJSONSchema(commandExecutionExpectationSchema, { unrepresentable: 'any' }),
       z.toJSONSchema(runtimeControllerDispatchSchema),
       z.toJSONSchema(runtimeControllerConfigurationSchema),
       z.toJSONSchema(runtimeControllerScopeSchema),

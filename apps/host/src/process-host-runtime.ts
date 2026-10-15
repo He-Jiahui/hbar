@@ -403,7 +403,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
               record && record.phase === 'serving' ? self.controllerAdapter().list() : { revision: 0, items: [] }
             return { ...catalog, items: catalog.items.filter((item) => !item.metadata.id.startsWith('chatDatabase.')) }
           },
-          call: (service, method, args) => self.controllerAdapter().service(service, method, args),
+          call: (service, method, args, options) => self.controllerAdapter().service(service, method, args, options),
           start: async () => {
             self.controllerStarted = true
             if (!self.initializing) await self.controllerAdapter().resume()

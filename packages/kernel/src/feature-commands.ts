@@ -31,6 +31,8 @@ function writeIdentity(context: CommandContext): { actorId: string; idempotencyK
 function facade<T extends Readonly<Record<string, CommandDefinition>>>(definitions: T, registry: CommandRegistry) {
   return {
     ...createCommandClient(definitions, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

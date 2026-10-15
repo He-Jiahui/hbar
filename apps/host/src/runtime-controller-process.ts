@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { HbarError, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import { createPathLayout, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
-import { CommandRegistry } from '@hbar/commands'
+import { CommandRegistry, commandExecutionExpectationSchema } from '@hbar/commands'
 import { chatDatabaseCommands } from '@hbar/contracts/commands/chat-database'
 import {
   procedure,
@@ -72,7 +72,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         },
       })
     : null
-  values.register('service', async (args) => {
+  values.register('service', async (args, signal) => {
     if (context.preparing() || !kernel || !application)
       throw new HbarError('RUNTIME_PREPARING', 'Controller services are not activated')
     const scope = runtimeControllerScopeSchema.parse(args[0]),
@@ -87,6 +87,16 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         const dispatch = application.commandDispatchers.get(invocation.commandId)
         if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is absent from this Controller owner')
         return dispatch(invocation, z.string().min(1).max(160).parse(input[1]))
+      }
+      if (service === 'commands' && method === 'dispatchPrepared') {
+        const actorId = z.string().min(1).max(160).parse(input[1])
+        if (actorId !== scope.actorId) throw new HbarError('FORBIDDEN', 'Command actor differs from its admitted scope')
+        return application.commandRouter.executePrepared(
+          input[0],
+          actorId,
+          commandExecutionExpectationSchema.parse(input[2]),
+          { signal },
+        )
       }
       const declared: unknown = Reflect.get(RUNTIME_CONTROLLER_SERVICES, service)
       if (!Array.isArray(declared) || !declared.includes(method))

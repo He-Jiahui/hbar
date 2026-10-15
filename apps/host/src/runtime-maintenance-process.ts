@@ -152,7 +152,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     }
   }
   let application = construct()
-  const dispatch = async (input: z.infer<typeof runtimeMaintenanceDispatchSchema>, control: boolean) => {
+  const dispatch = async (input: z.infer<typeof runtimeMaintenanceDispatchSchema>, control: boolean, signal: AbortSignal) => {
     if (!live || context.preparing()) throw new HbarError('RUNTIME_PREPARING', 'Maintenance is not activated')
     if (
       control &&
@@ -168,18 +168,20 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       throw new HbarError('RUNTIME_DRAINING', 'New maintenance jobs use the default generation')
     requests++
     try {
-      return await application.commands.dispatch(input.invocation, input.actorId)
+      return input.expectation
+        ? await application.commands.dispatchPrepared(input.invocation, input.actorId, input.expectation, { signal })
+        : await application.commands.dispatch(input.invocation, input.actorId)
     } finally {
       requests--
     }
   }
   context.peer.register(
     'maintenance.dispatch',
-    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input) => dispatch(input, false)),
+    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input, call) => dispatch(input, false, call.signal)),
   )
   context.peer.register(
     'maintenance.control',
-    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input) => dispatch(input, true)),
+    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input, call) => dispatch(input, true, call.signal)),
   )
   context.peer.register(
     'maintenance.resume',

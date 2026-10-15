@@ -63,6 +63,8 @@ export function createSessionSearchCommands(storage: StoragePort, options: { rea
   })
   return {
     ...createCommandClient(sessionSearchCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

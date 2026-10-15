@@ -25,6 +25,8 @@ export function createUsageCommands(service: UsageService) {
   })
   return {
     ...createCommandClient(usageCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

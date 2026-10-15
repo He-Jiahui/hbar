@@ -40,6 +40,8 @@ export function createBudgetCommands(service: BudgetService) {
   const commands = createCommandClient(budgetCommands, registry)
   return {
     ...commands,
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     async dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

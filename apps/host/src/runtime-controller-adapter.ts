@@ -4,7 +4,7 @@ import { HbarError } from '@hbar/contracts'
 import { nodeIdSchema } from '@hbar/contracts/node-address'
 import { workspaceFoldersSchema } from '@hbar/contracts/commands/workspace-folders'
 import { workspaceLocationOf } from '@hbar/contracts/node-address'
-import { CommandError } from '@hbar/commands/protocol'
+import { CommandError, type CommandPreparedOptions } from '@hbar/commands/protocol'
 import { procedure, RuntimeValuePort, type IpcPeer } from '@hbar/runtime'
 import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import type { KernelControllerPort } from '@hbar/kernel/controller'
@@ -169,8 +169,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
           const location = workspaceLocationOf(workspace)
           if (location.kind === 'local') return null
           const nodeLink = configuredOptions.nodeLink
-          if (!nodeLink)
-            throw new HbarError('CAPABILITY_UNAVAILABLE', 'Remote Git query transport is unavailable')
+          if (!nodeLink) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Remote Git query transport is unavailable')
           let current: NodeGitQueryInvocation | undefined = {
             workspace: { path: workspace.path, location },
             deviceId: actorId,
@@ -182,8 +181,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
           }
           const base = configuredOptions.kernel.plugins.get('git') as GitService
           const node: NodeGitQueryPort = {
-            call: (nodeId, method, request, abortSignal) =>
-              nodeLink.call(nodeId, method, request, abortSignal),
+            call: (nodeId, method, request, abortSignal) => nodeLink.call(nodeId, method, request, abortSignal),
           }
           const confirmation: NodeGitQueryConfirmationPort = {
             status: (nodeId, request, abortSignal) =>
@@ -212,7 +210,10 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
         const invocationId = z.string().min(1).max(160).parse(args[0])
         const invocation = this.invocations.get(invocationId)
         if (!invocation?.authorized || !invocation.actorId)
-          throw new HbarError('CONTROLLER_INVOCATION_EXPIRED', 'Workspace verification requires its authenticated request')
+          throw new HbarError(
+            'CONTROLLER_INVOCATION_EXPIRED',
+            'Workspace verification requires its authenticated request',
+          )
         const nodeId = nodeIdSchema.parse(args[1])
         const folders = workspaceFoldersSchema.parse(args[2])
         const verify = kernel.options.nodeWorkspaceInspection?.verifyWorkspaceFolders
@@ -307,7 +308,12 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
       items: this.catalog.flatMap((value) => value.items),
     }
   }
-  async service<Result>(service: string, method: string, args: readonly unknown[]): Promise<Result> {
+  async service<Result>(
+    service: string,
+    method: string,
+    args: readonly unknown[],
+    options: CommandPreparedOptions = {},
+  ): Promise<Result> {
     if (!this.options)
       throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'This Controller does not expose owned command services')
     if (this.closed || !this.options.admitsApplications())
@@ -317,7 +323,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
     const invocationId = crypto.randomUUID(),
       scope = AsyncLocalStorage.snapshot()
     const actorId =
-      service === 'commands' && method === 'dispatch'
+      service === 'commands' && (method === 'dispatch' || method === 'dispatchPrepared')
         ? z.string().min(1).max(160).parse(args[1])
         : 'hbar:native-adapter'
     this.invocations.set(invocationId, {
@@ -339,7 +345,10 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
         activeRuns: this.options.kernel.active.size,
         demo: Boolean(this.options.kernel.options.demo),
       })
-      return await this.values.call<Result>('service', [description, service, method, args], { timeoutMs: 120_000 })
+      return await this.values.call<Result>('service', [description, service, method, args], {
+        timeoutMs: 120_000,
+        ...options,
+      })
     } finally {
       this.invocations.delete(invocationId)
     }

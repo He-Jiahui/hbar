@@ -106,6 +106,8 @@ export function createSystemCommands(dependencies: SystemCommandDependencies) {
 
   return {
     ...createCommandClient(systemCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

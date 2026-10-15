@@ -61,6 +61,8 @@ export function createGoalPlanCommands(goals: GoalService, plans: PlanService, s
 
   return {
     ...createCommandClient(goalPlanCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

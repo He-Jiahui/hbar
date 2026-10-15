@@ -40,7 +40,7 @@ import { DeviceAuthorization } from './device-authorization'
 import { projectDesktopStartup } from './desktop-startup'
 import { desktopPairingRequestSchema } from '@hbar/contracts/desktop'
 import { projectDesktopTrayActions, projectDesktopPairing } from './desktop-tray'
-import { createNodeCommands, createRemoteWorkspaceCreator } from './node-commands'
+import { createNodeCommands, createRemoteWorkspaceCreator, createRemoteWorkspaceCommands } from './node-commands'
 import { nodeCommands as nodeDefinitions } from '@hbar/contracts/commands/nodes'
 import { workspaceCreateInputSchema } from '@hbar/contracts/commands/workspaces'
 import { NodeSocketSurface, nodeRequestAllowed } from './node-sockets'
@@ -171,6 +171,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       commandIds: Object.keys(chatDatabaseDefinitions),
       service: {
         dispatch: maintenance.dispatch,
+        ...(maintenance.dispatchPrepared ? { dispatchPrepared: maintenance.dispatchPrepared } : {}),
         describe: (id) => maintenance.describe(id),
         list: () => maintenance.list(),
         prepare: (value) => prepareCommandInvocation(chatDatabaseDefinitions, value),
@@ -430,11 +431,14 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   const createRemoteWorkspace = createRemoteWorkspaceCreator(options.nodeLink, (input) =>
     kernel.createNodeWorkspace(input),
   )
+  const remoteWorkspaceCommands = createRemoteWorkspaceCommands(createRemoteWorkspace)
   const commandRouter = createCommandRouter({
     catalogs: () => [...commandServices.map(({ service }) => service.list()), systemCommands.list()],
     resolve(id) {
       let dispatch = commandDispatchers.get(id)
       let describe = commandDescribers.get(id)
+      let guarded = Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPrepared
+        : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPrepared
       const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions].find((definitions) =>
         Object.hasOwn(definitions, id),
       )
@@ -446,6 +450,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         dispatch ??= dynamic?.dispatch
         describe ??= dynamic ? () => dynamic.describe(id) : undefined
         prepare ??= dynamic?.prepare
+        guarded ??= dynamic?.dispatchPrepared
       }
       if (!dispatch || !describe) return undefined
       const selectedDispatch = dispatch
@@ -456,9 +461,19 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           const invocation = rpcSchemas['command.execute'].parse(value)
           if (id === 'workspace.create') {
             const input = workspaceCreateInputSchema.safeParse(invocation.input)
-            if (input.success && input.data.path === undefined) return createRemoteWorkspace(input.data)
+            if (input.success && input.data.path === undefined) return remoteWorkspaceCommands.dispatch(invocation, actorId)
           }
           return selectedDispatch(invocation, actorId)
+        },
+        async dispatchPrepared(value, actorId, expectation, executeOptions) {
+          const invocation = rpcSchemas['command.execute'].parse(value)
+          if (id === 'workspace.create') {
+            const input = workspaceCreateInputSchema.safeParse(invocation.input)
+            if (input.success && input.data.path === undefined)
+              return remoteWorkspaceCommands.dispatchPrepared(invocation, actorId, expectation, executeOptions)
+          }
+          if (!guarded) throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch')
+          return guarded(invocation, actorId, expectation, executeOptions)
         },
       }
     },
@@ -1775,6 +1790,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
       systemCommands.dispose()
       nodeCommands.dispose()
+      remoteWorkspaceCommands.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })

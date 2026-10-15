@@ -52,6 +52,8 @@ export function createSessionBranchTargetCommands(kernel: SessionBranchTargetCom
   )
   return {
     ...createCommandClient(sessionBranchTargetCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch: (value: unknown, actorId: string) => registry.dispatch(value, { actorId }),
     describe: (id: string) => registry.describe(id),
     list: () => registry.list({ limit: 500 }),
