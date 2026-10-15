@@ -1,3 +1,4 @@
+import type { HbarPlugin } from '@hbar/plugin-sdk'
 import type { HarnessDriver } from '@hbar/plugin-sdk'
 import { test, expect } from 'bun:test'
 import { diagnosticEventSchema, HbarError, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
@@ -600,6 +601,100 @@ test('a real pre-request refusal has no model pair and a subsequent real demo re
   } finally {
     await rejectRequest()
     driver.run = originalRun
+    await kernel.close()
+    await removeFixture(root)
+  }
+}, 20_000)
+
+// A pre-execution Hook refusal has an admission/failure and durable result, but no physical tool lifecycle.
+test('real Kernel pairs tool settlement only after tool start and preserves pre-hook refusal results', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-kernel-execution-prehook-'))
+  const events: DiagnosticEvent[] = []
+  let executions = 0
+  const guard: HbarPlugin = {
+    manifest: {
+      id: 'diagnostic-prestart-guard',
+      name: 'Diagnostic pre-start guard',
+      description: 'Rejects the diagnostic probe before physical tool execution.',
+      version: '1.0.0',
+      apiVersion: '^1.0.0',
+      scope: 'host',
+      permissions: [],
+    },
+    apply(ctx) {
+      ctx.hbar.api.hooks.on('tool.before', (event) => {
+        if (event.name === 'diagnostic_prestart_probe' && event.args.mode === 'reject')
+          throw new HbarError('PRESSURE_GUARD_PATH_DENIED', 'Fixed pre-start refusal')
+        return event
+      })
+    },
+  }
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+    diagnostics: collector(events),
+    profile: { managedPlugins: [guard] },
+  })
+  try {
+    await kernel.changePlugin(guard.manifest.id, true)
+    kernel.tools.register({
+      name: 'diagnostic_prestart_probe',
+      description: 'Bounded lifecycle regression',
+      effect: 'read',
+      inputSchema: z.object({ mode: z.enum(['reject', 'success', 'failure']) }),
+      execute(args) {
+        executions += 1
+        if (args.mode === 'failure') throw new HbarError('DIAGNOSTIC_TOOL_FAILED', 'Fixed execution failure')
+        return Promise.resolve({ text: 'probe complete' })
+      },
+    })
+    const workspace = (await kernel.storage.call('workspaces'))[0]
+    if (!workspace) throw new Error('Kernel prehook fixture workspace missing')
+    for (const mode of ['reject', 'success', 'failure'] as const) {
+      const session = await kernel.createSession(workspace.id)
+      const run = await kernel.submit(
+        session.id,
+        `prestart-${mode}`,
+        { text: `/tool diagnostic_prestart_probe ${JSON.stringify({ mode })}`, images: [], approval: 'allow' },
+        'local-fixture',
+      )
+      await kernel.waitForIdle()
+      const own = events.filter((event) => event.runId === run.id && event.sessionId === session.id)
+      const admission = own.find((event) => event.event === 'tool.admission')
+      expect(admission?.callId).toBeDefined()
+      const starts = own.filter((event) => event.event === 'tool.started')
+      const terminals = own.filter((event) => event.event === 'tool.settled')
+      const result = (await kernel.snapshot(session.id)).messages
+        .flatMap((message) => message.content)
+        .find((block) => block.type === 'tool_result' && block.callId === admission?.callId)
+      expect(result?.type).toBe('tool_result')
+      if (mode === 'reject') {
+        expect(executions).toBe(0)
+        expect(starts).toHaveLength(0)
+        expect(terminals).toHaveLength(0)
+        expect(own.find((event) => event.event === 'tool.failed')).toMatchObject({
+          callId: admission?.callId,
+          errorCode: 'PRESSURE_GUARD_PATH_DENIED',
+        })
+        expect(result?.type === 'tool_result' ? result.isError : false).toBe(true)
+      } else {
+        expect(executions).toBe(mode === 'success' ? 1 : 2)
+        expect(starts).toHaveLength(1)
+        expect(terminals).toHaveLength(1)
+        expect(terminals[0]).toMatchObject({
+          callId: starts[0]?.callId,
+          outcome: mode === 'success' ? 'success' : 'failure',
+        })
+        if (mode === 'failure')
+          expect(own.find((event) => event.event === 'tool.failed')).toMatchObject({
+            callId: admission?.callId,
+            errorCode: 'DIAGNOSTIC_TOOL_FAILED',
+          })
+      }
+    }
+  } finally {
     await kernel.close()
     await removeFixture(root)
   }

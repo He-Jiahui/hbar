@@ -3495,18 +3495,19 @@ export class Kernel {
         ...(images ? { images } : {}),
       },
     ]
-    this.executionDiagnostics.toolSettled(
-      toolDiagnosticIdentity,
-      outcome?.kind === 'succeeded'
-        ? 'success'
-        : outcome?.kind === 'unknown'
-          ? 'unknown'
-          : outcome?.kind === 'cancelled'
-            ? 'skipped'
-            : 'failure',
-      performance.now() - toolStartedAt,
-      name,
-    )
+    if (started)
+      this.executionDiagnostics.toolSettled(
+        toolDiagnosticIdentity,
+        outcome?.kind === 'succeeded'
+          ? 'success'
+          : outcome?.kind === 'unknown'
+            ? 'unknown'
+            : outcome?.kind === 'cancelled'
+              ? 'skipped'
+              : 'failure',
+        performance.now() - toolStartedAt,
+        name,
+      )
     const event = context.parentCallId
       ? await this.storage.call(
           'append',
