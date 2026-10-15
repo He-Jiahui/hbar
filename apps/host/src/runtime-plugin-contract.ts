@@ -95,6 +95,7 @@ export const PLUGIN_RUNTIME_FINGERPRINT = createHash('sha256')
       RUNTIME_PLUGIN_HOOKS,
       z.toJSONSchema(runtimeNativeResourceSchema),
       ['resource.retain', 'resource.release'],
+      ['parent-lifecycle', 'plugin.application.workflowRecovery', 'released-terminal-only-v1'],
       z.toJSONSchema(osConfinementOptionsSchema),
       z.toJSONSchema(nodeCallAuthoritySchema),
     ]),

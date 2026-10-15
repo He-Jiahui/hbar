@@ -1,3 +1,8 @@
+import {
+  workflowRecoveryCommitSchema,
+  workflowRecoveryPageSchema,
+  type WorkflowRecoveryLifecycle,
+} from '@hbar/plugin-sdk/workflow-recovery'
 import { z } from 'zod'
 import {
   Context,
@@ -209,6 +214,23 @@ export function createRuntimePlugin(
     })
   }
   context.peer.register('plugin.state', procedure(z.undefined(), runtimePluginStateSchema, state))
+  // This named parent lifecycle endpoint is deliberately absent from capabilityMethods and the tool catalog.
+  values.register('workflowRecovery', async ([action, value, commitValue]) => {
+    if (preflight || context.preparing() || !owner)
+      throw new HbarError('RUNTIME_PREPARING', 'Workflow recovery requires an activated owner')
+    if (!plugins.some((plugin) => plugin.manifest.provides?.workflow))
+      throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'This owner has no Workflow lifecycle')
+    const lifecycle = service<WorkflowRecoveryLifecycle>(owner.ctx, 'workflow')
+    if (action === 'list')
+      return workflowRecoveryPageSchema.parse(await lifecycle.pendingRecoverySessions(z.string().max(160).parse(value)))
+    if (action !== 'recover' || typeof commitValue !== 'function')
+      throw new HbarError('RUNTIME_HOST_REQUIRED', 'Workflow recovery requires the parent commit port')
+    await lifecycle.recoverPendingMutations(z.string().min(1).max(160).parse(value), async (input) => {
+      const checked = workflowRecoveryCommitSchema.parse(input)
+      await Reflect.apply(commitValue, undefined, [checked])
+    })
+    return undefined
+  })
   values.register('invoke', async ([description, argsValue, hostValue], callSignal) => {
     if (preflight || context.preparing() || !owner)
       throw new HbarError('RUNTIME_PREPARING', 'A candidate cannot invoke production plugin code')

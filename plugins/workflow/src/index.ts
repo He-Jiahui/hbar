@@ -1,3 +1,4 @@
+import type { WorkflowRecoveryLifecycle } from '@hbar/plugin-sdk/workflow-recovery'
 import { createHash } from 'node:crypto'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { z } from 'zod'
@@ -1057,6 +1058,40 @@ export class WorkflowRuntime implements WorkflowService {
     return this.publish(plan.sessionId)
   }
 
+  async pendingRecoverySessions(after: string) {
+    const ids = [...this.workflows.entries()]
+      .filter(([id, workflow]) => id > after && Boolean(workflow.pendingMutations?.length))
+      .map(([id]) => id)
+      .sort()
+      .slice(0, 101)
+    return { sessionIds: ids.slice(0, 100), nextAfter: ids.length > 100 ? (ids[99] ?? null) : null }
+  }
+
+  async recoverPendingMutations(
+    sessionId: string,
+    commit: Parameters<WorkflowRecoveryLifecycle['recoverPendingMutations']>[1],
+  ): Promise<void> {
+    await this.serial(sessionId, async () => {
+      const current = this.workflows.get(sessionId)
+      if (!current?.pendingMutations?.length) return
+      if (['completed', 'cancelled'].includes(current.status))
+        throw new HbarError(
+          'WORKFLOW_RECOVERY_CONFLICT',
+          'Terminal Workflow cannot recover pending mutation implicitly',
+        )
+      const next = workflowStateSchema.parse({
+        ...current,
+        status: 'needs_revision',
+        pendingMutations: [],
+        revision: current.revision + 1,
+        updatedAt: Date.now(),
+      })
+      // Only the parent lifecycle port supplies this commit. Ordinary capability callers never receive it.
+      await commit({ current: structuredClone(current), next: structuredClone(next) })
+      this.workflows.set(sessionId, next)
+      this.indexTargetDispatches(sessionId, next)
+    })
+  }
   private async persistWorkflow(workflow: WorkflowState, runId?: string, data: Record<string, unknown> = {}) {
     await this.api.sessions.append(workflow.sessionId, 'workflow.updated', { workflow, ...data }, runId)
     this.workflows.set(workflow.sessionId, workflow)

@@ -1,3 +1,5 @@
+import { commitRuntimeWorkflowRecovery } from './runtime-workflow-recovery'
+import { workflowRecoveryPageSchema } from '@hbar/plugin-sdk/workflow-recovery'
 import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
@@ -316,6 +318,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private transitions: Promise<void> = Promise.resolve()
   private closing = false
   private closeTask: Promise<void> | undefined
+  private workflowRecoveryAdmission = true
   private initializing = true
   private maintaining = false
   private scheduled = false
@@ -637,6 +640,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
   }
   private async initialize(): Promise<void> {
+    this.workflowRecoveryAdmission = true
     const options = this.options
     this.sourceAbort.signal.throwIfAborted()
     this.startupDiagnostics.beginAttempt()
@@ -752,6 +756,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       this.setStartupPhase('kernel.resume')
       await this.resume()
       this.completeStartupPhase()
+      this.setStartupPhase('workflow.reconcile')
+      await this.reconcileWorkflowPending()
+      this.completeStartupPhase()
+      this.workflowRecoveryAdmission = false
+      this.schedule()
       this.setStartupPhase('goal.resume')
       await this.kernel.plugins.get('goal').resumeOnStartup()
       this.completeStartupPhase()
@@ -1302,6 +1311,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     return (
       !this.closing &&
       !this.initializing &&
+      !this.workflowRecoveryAdmission &&
       !this.maintaining &&
       !this.maintenance.isWriting() &&
       this.executionReady() &&
@@ -2154,6 +2164,85 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.pendingClaims.delete(draft.runId)
     this.stopped.delete(draft.runId)
     await this.wake(draft.sessionId)
+  }
+  private async reconcileWorkflowPending(): Promise<void> {
+    if (!this.buildUnits.some((unit) => unit.descriptor.id === 'plugin.workflow')) return
+    const endpoint = this.pluginEndpoint('plugin.workflow')
+    const assertAuthority = (sessionId: string) => {
+      if (!this.workflowRecoveryAdmission || this.closing || this.initializing || !this.executionReady())
+        throw new HbarError('WORKFLOW_RECOVERY_AUTHORITY', 'Workflow startup recovery authority has ended')
+      if (this.manager.defaultOwner('plugin.workflow').incarnation !== endpoint.owner.incarnation)
+        throw new HbarError('WORKFLOW_RECOVERY_AUTHORITY', 'Workflow recovery owner changed')
+      this.coordinator.assertCanWrite(endpoint.owner)
+      if (
+        !this.coordinator.canIdle(this.currentKernel().owner, sessionId) ||
+        this.resources.sessions().includes(sessionId) ||
+        [...this.pendingClaims.values()].some((claim) => claim.draft.sessionId === sessionId) ||
+        [...this.leases.values()].some((lease) => lease.sessionId === sessionId) ||
+        [...this.interrupted.values()].some((failure) => failure.leases.some((lease) => lease.sessionId === sessionId))
+      )
+        throw new HbarError('WORKFLOW_RECOVERY_ACTIVE', 'Workflow Session still has execution ownership')
+    }
+    const diagnostic = (
+      sessionId: string,
+      outcome: 'success' | 'skipped',
+      errorCode:
+        | 'WORKFLOW_RECOVERY_RECONCILED'
+        | 'WORKFLOW_RECOVERY_ACTIVE'
+        | 'WORKFLOW_RECOVERY_OWNED'
+        | 'WORKFLOW_RECOVERY_CONFLICT',
+    ) =>
+      this.emitProcessLifecycleDiagnostic({
+        component: 'host',
+        level: outcome === 'success' ? 'info' : 'warn',
+        event: 'host.runtime_workflow_recovery',
+        phase: `generation.${endpoint.owner.generation}`,
+        contextId: endpoint.owner.unitId,
+        requestId: endpoint.owner.incarnation,
+        instanceId: this.instanceId,
+        processId: process.pid,
+        sessionId,
+        errorCode,
+        outcome,
+      })
+    let after = ''
+    for (let page = 0; page < 1_000; page++) {
+      const result = workflowRecoveryPageSchema.parse(
+        await endpoint.application.call('workflowRecovery', ['list', after]),
+      )
+      for (const sessionId of result.sessionIds) {
+        try {
+          assertAuthority(sessionId)
+          await endpoint.application.call('workflowRecovery', [
+            'recover',
+            sessionId,
+            async (input: unknown) => {
+              await commitRuntimeWorkflowRecovery({ storage: this.storage, sessionId, input, assertAuthority })
+            },
+          ])
+          diagnostic(sessionId, 'success', 'WORKFLOW_RECOVERY_RECONCILED')
+        } catch (error) {
+          if (
+            !(error instanceof HbarError) ||
+            !['WORKFLOW_RECOVERY_ACTIVE', 'WORKFLOW_RECOVERY_OWNED', 'WORKFLOW_RECOVERY_CONFLICT'].includes(error.code)
+          )
+            throw error
+          const code =
+            error.code === 'WORKFLOW_RECOVERY_ACTIVE'
+              ? 'WORKFLOW_RECOVERY_ACTIVE'
+              : error.code === 'WORKFLOW_RECOVERY_OWNED'
+                ? 'WORKFLOW_RECOVERY_OWNED'
+                : 'WORKFLOW_RECOVERY_CONFLICT'
+          diagnostic(sessionId, 'skipped', code)
+          // Unsafe/unreleased historical work remains pending; startup must not counterfeit settlement.
+        }
+      }
+      if (result.nextAfter === null) return
+      if (result.nextAfter <= after)
+        throw new HbarError('WORKFLOW_RECOVERY_CURSOR', 'Workflow recovery cursor did not advance')
+      after = result.nextAfter
+    }
+    throw new HbarError('WORKFLOW_RECOVERY_CAPACITY', 'Workflow recovery exceeded its bounded Session scan')
   }
   private async resume(): Promise<void> {
     if (this.closing || this.initializing || !this.executionReady() || this.storage.snapshot().phase !== 'serving')
