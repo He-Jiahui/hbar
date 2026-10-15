@@ -83,6 +83,18 @@ pub(crate) fn release_workbench_on_close(launch: StartupMode, saved: StartupMode
     launch == StartupMode::Background || saved == StartupMode::Background
 }
 
+pub(crate) fn host_port_override(value: Option<String>) -> Result<Option<u16>, String> {
+    value
+        .map(|port| {
+            if port.is_empty() || !port.chars().all(|value| value.is_ascii_digit()) {
+                return Err("HBAR_PORT must be an integer from 0 to 65535".into());
+            }
+            port.parse::<u16>()
+                .map_err(|_| "HBAR_PORT must be an integer from 0 to 65535".into())
+        })
+        .transpose()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,5 +159,19 @@ mod tests {
         assert!(startup.validate().is_err());
         startup.labels.open_client = "\0".into();
         assert!(startup.validate().is_err());
+    }
+
+    #[test]
+    fn port_override_is_explicit_and_bounded() {
+        assert_eq!(host_port_override(None).unwrap(), None);
+        for port in [0, 4317, 65535] {
+            assert_eq!(
+                host_port_override(Some(port.to_string())).unwrap(),
+                Some(port)
+            );
+        }
+        for value in ["", "-1", "65536", "1.5", " 4317", "4e3"] {
+            assert!(host_port_override(Some(value.into())).is_err());
+        }
     }
 }

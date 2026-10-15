@@ -3,7 +3,7 @@ mod native_diagnostics;
 mod resource_browser;
 mod background;
 
-use background::{Startup, StartupMode, startup_override, shutdown_owner, release_workbench_on_close};
+use background::{Startup, StartupMode, startup_override, shutdown_owner, release_workbench_on_close, host_port_override};
 use native_diagnostics::NativeDiagnostics;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -1012,7 +1012,7 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf, Option<u32>), 
     let mut command = Command::new(executable);
     command
         .arg(resources.join("host.js"))
-        .args(["--supervisor", "--desktop", "--port", "0", "--data-root"])
+        .args(["--supervisor", "--desktop", "--data-root"])
         .arg(&data_root)
         .arg("--cache-root")
         .arg(&cache_root)
@@ -1022,6 +1022,9 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf, Option<u32>), 
         .stdin(Stdio::null())
         .stdout(log.try_clone()?)
         .stderr(log);
+    if let Some(port) = host_port_override(std::env::var("HBAR_PORT").ok())? {
+        command.arg("--port").arg(port.to_string());
+    }
     if let Some(url) = development_url {
         command
             .arg("--origin")
@@ -1063,6 +1066,8 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf, Option<u32>), 
         }
         if started.elapsed() > Duration::from_secs(30) {
             diagnostics.host_start_timeout(Some(child_pid));
+            diagnostics.owner_release_requested(Some(child_pid), "startup_timeout");
+            if stop_host(Some(child_pid)) { let _ = child.wait(); }
             return Err(format!(
                 "Host startup timed out. See {}",
                 log_directory.join("desktop-host.log").display()

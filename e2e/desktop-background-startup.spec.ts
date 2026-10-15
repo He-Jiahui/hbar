@@ -34,19 +34,30 @@ for (const locale of ['zh-CN', 'en-US'] as const)
       const control = page.getByRole('combobox', { name: label, exact: true })
       await expect(control).toHaveAttribute('data-value', 'string:client')
       await selectLumenOption(control, 'string:background')
+      const webAccess = page.getByRole('combobox', {
+        name: copy.settings.resolve('i18n:settings.backend.webAccess.label'),
+        exact: true,
+      })
+      const webPort = page.getByRole('textbox', {
+        name: copy.settings.resolve('i18n:settings.backend.webPort.label'),
+        exact: true,
+      })
+      await selectLumenOption(webAccess, 'string:lan')
+      await webPort.fill('46377')
       await page
         .locator('.hbar-app-react-settings-footer')
         .getByRole('button', { name: copy.settings.save, exact: true })
         .click()
       const settings = createSettingsCommandClient(host.client)
       await expect
-        .poll(
-          async () =>
-            (await settings.execute('settings.get', { scope: { kind: 'global' } })).resolution.reports[
-              'f:desktop.startupMode'
-            ]?.effectiveValue,
-        )
-        .toBe('background')
+        .poll(async () => {
+          const { resolution } = await settings.execute('settings.get', { scope: { kind: 'global' } })
+          return ['desktop.startupMode', 'backend.webAccess', 'backend.webPort'].map(
+            (name) => resolution.reports[`f:${name}`]?.effectiveValue,
+          )
+        })
+        .toEqual(['background', 'lan', 46377])
+      await expect(page.getByText(copy.general.web.current([host.url]), { exact: true })).toBeVisible()
       await mkdir('artifacts/backend-autonomy', { recursive: true })
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 900 })
@@ -54,11 +65,15 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         await expect(control).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/backend-autonomy/startup-${locale}-${width}.png`, fullPage: true })
+        await webPort.scrollIntoViewIfNeeded()
+        await page.screenshot({ path: `artifacts/backend-autonomy/web-access-${locale}-${width}.png`, fullPage: true })
       }
       await page.setViewportSize({ width: 1440, height: 960 })
       await page.reload()
       await open()
       await expect(control).toHaveAttribute('data-value', 'string:background')
+      await expect(webAccess).toHaveAttribute('data-value', 'string:lan')
+      await expect(webPort).toHaveValue('46377')
       expect(errors).toEqual([])
     } finally {
       await context.close()

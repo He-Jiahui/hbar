@@ -89,6 +89,8 @@ function settingsChoiceLabel(locale: ShellLocale, value: unknown): string {
   if (value === 'system') return locale === 'zh-CN' ? '系统默认' : 'System default'
   if (value === 'client') return locale === 'zh-CN' ? '打开客户端' : 'Open client'
   if (value === 'background') return locale === 'zh-CN' ? '仅托盘后台' : 'Tray backend only'
+  if (value === 'local') return locale === 'zh-CN' ? '仅本机' : 'This device only'
+  if (value === 'lan') return locale === 'zh-CN' ? '允许局域网' : 'Local network'
   return approval[String(value)] ?? thinkingLevelLabel(locale, value)
 }
 
@@ -562,6 +564,10 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.general': '通用',
         'i18n:settings.desktop.startupMode.label': '桌面启动方式',
         'i18n:settings.desktop.startupMode.help': '下次启动时打开客户端，或仅在托盘运行后台。',
+        'i18n:settings.backend.webAccess.label': '网页访问范围',
+        'i18n:settings.backend.webAccess.help': '局域网设备仍需配对并遵守设备权限；重启后台后应用监听范围。',
+        'i18n:settings.backend.webPort.label': '网页端口',
+        'i18n:settings.backend.webPort.help': '默认 4317；保存后重启后台生效。端口占用时会报告启动失败。',
         'i18n:settings.client.resourceWebOpenMode.label': '网页默认打开方式',
         'i18n:settings.client.resourceFileOpenMode.label': '文件默认打开方式',
         'i18n:settings.client.resourceOpenMode.help': '右键可以单次选择打开方式，图片点击后在内置查看器中显示。',
@@ -594,6 +600,10 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.general': 'General',
         'i18n:settings.desktop.startupMode.label': 'Desktop startup',
         'i18n:settings.desktop.startupMode.help': 'On the next launch, open the client or run the backend in the tray.',
+        'i18n:settings.backend.webAccess.label': 'Web access',
+        'i18n:settings.backend.webAccess.help': 'Network devices still require pairing and device permissions. Restart the backend to apply.',
+        'i18n:settings.backend.webPort.label': 'Web port',
+        'i18n:settings.backend.webPort.help': 'Default: 4317. Restart the backend after saving. A port conflict reports a startup failure.',
         'i18n:settings.client.resourceWebOpenMode.label': 'Default website opening',
         'i18n:settings.client.resourceFileOpenMode.label': 'Default file opening',
         'i18n:settings.client.resourceOpenMode.help':

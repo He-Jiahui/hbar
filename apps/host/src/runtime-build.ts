@@ -97,6 +97,7 @@ export function hostRuntimeBaseBuildUnit(): RuntimeBuildUnit {
   return {
     descriptor: { ...descriptor('base', 'base', CONTROLLER_RUNTIME_FINGERPRINT), isolation: 'base', reloadable: false },
     entrypoint: 'apps/host/src/main.ts',
+    workers: ['packages/storage/src/maintenance-worker.ts'],
     external: RUNTIME_BUNDLE_EXTERNALS,
     resources: [
       'packages/runtime/src/build-worker.ts',

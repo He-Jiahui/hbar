@@ -35,6 +35,7 @@
     "./diagnostic-context": "./src/diagnostic-context.ts",
     "./decision": "./src/decision.ts",
     "./desktop": "./src/desktop.ts",
+    "./backend": "./src/backend.ts",
     "./sandbox": "./src/sandbox.ts",
     "./commands": "./src/commands/index.ts",
     "./commands/nodes": "./src/commands/nodes.ts",

@@ -899,11 +899,14 @@ function WorkspaceBodyContent({
                     zoom={zoom}
                     nativeZoom={nativeDesktop}
                     connected={connected}
+                    webAddresses={client.connectionHost()?.addresses}
                   />
                   {context.renderFields([
                     'f:client.resourceWebOpenMode',
                     'f:client.resourceFileOpenMode',
                     'f:desktop.startupMode',
+                    'f:backend.webAccess',
+                    'f:backend.webPort',
                   ])}
                 </>
               ),

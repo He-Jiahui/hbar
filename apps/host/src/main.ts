@@ -2,7 +2,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { runtimeDomainError, type RuntimeArtifactPackage } from '@hbar/runtime'
-import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
+import { getStorageLocations, resolvePathLayout, readStartupSettingsLayer } from '@hbar/storage'
+import { resolveStartupWebConfiguration } from '@hbar/kernel/controller'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
 import { desktopConnection, desktopConnectionToken, resolveDesktopDevice } from './desktop-connection.ts'
@@ -11,7 +12,7 @@ import { FAILURE_EXIT_CODE, installHostShutdown, registerHostProcessHandlers } f
 import { sendHostSupervisorMessage } from './supervisor-protocol'
 import { acquireHostProcessLock } from './process-lock'
 import { ProcessHostRuntime } from './process-host-runtime'
-import { embeddedRuntimePackage, hostRuntimeProcessCommand } from './runtime-package'
+import { embeddedRuntimePackage, hostRuntimeProcessCommand, hostMaintenanceWorkerPath } from './runtime-package'
 import { createHostRuntimeDiagnostics, hostLifecycleEvent } from './runtime-diagnostics'
 
 export async function runHost(
@@ -103,6 +104,10 @@ export async function runHost(
   }, 5_000, diagnostics)
   registerHostProcessHandlers(requestShutdown, diagnostics)
   try {
+    const workerPath = hostMaintenanceWorkerPath()
+    const web = resolveStartupWebConfiguration(
+      await readStartupSettingsLayer(layout.database, workerPath ? { workerPath } : {}),
+    )
     const dataRootId = await ensureHostDataRootId(layout.settings)
     const artifactPackage = await loadArtifactPackage()
     runtime = await ProcessHostRuntime.open({
@@ -128,8 +133,8 @@ export async function runHost(
       diagnosticFull: diagnostics.snapshot().fullCoverage,
       diagnosticSampleRate: diagnostics.snapshot().fullCoverage ? 1 : 0.1,
       dataRootId,
-      ...(values.host ? { hostname: values.host } : {}),
-      ...(values.port ? { port: Number(values.port) } : {}),
+      hostname: values.host ?? (web.access === 'lan' ? '0.0.0.0' : '127.0.0.1'),
+      port: values.port === undefined ? web.port : Number(values.port),
       ...(values.desktop ? { desktop: true } : {}),
       ...(values.origin ? { origins: values.origin } : {}),
       ...(values.cert ? { cert: values.cert } : {}),
@@ -183,8 +188,10 @@ export async function runHost(
       )
     }
   } catch (error) {
+    const listenerCode = error && typeof error === 'object' && 'code' in error &&
+      (error.code === 'EADDRINUSE' || error.code === 'EACCES') ? error.code : undefined
     console.error(
-      `[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`,
+      `[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? listenerCode ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`,
     )
     requestShutdown(FAILURE_EXIT_CODE)
   }

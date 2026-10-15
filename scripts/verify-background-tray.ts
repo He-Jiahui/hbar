@@ -107,6 +107,7 @@ function launch(args: readonly string[], debugPort?: number) {
       HBAR_DEMO: '1',
       HBAR_DESKTOP_DEV: '0',
       HBAR_RUNTIME_WATCH: '0',
+      HBAR_PORT: '0',
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: debugPort ? `--remote-debugging-port=${debugPort}` : '',
       WEBVIEW2_USER_DATA_FOLDER: join(root, 'workbench-webview'),
     },

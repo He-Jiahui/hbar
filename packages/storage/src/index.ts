@@ -22,6 +22,7 @@ export type { NodeRunWorktreeAdmission, NodeRunWorktreeBindInput, NodeRunWorktre
 export type { NodeRunWorkspaceMount, NodeRunWorkspaceMountBindInput } from './node-run-workspace-mounts'
 export { runtimeRecoveryRecordSchema, runtimeManualRecoverySchema } from './runtime-state'
 export { StableStoragePort } from './stable-port'
+export { readStartupSettingsLayer } from './startup-settings'
 export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'
 export { storageRpcCallSchema, storageRpcInput, callStorageRpc } from './rpc'
 export type { StorageRpcCall, StorageRpcPort } from './rpc'

@@ -3,6 +3,12 @@ import { HbarError } from '@hbar/contracts'
 import { DEFAULT_SANDBOX_PROFILE_ID } from '@hbar/contracts/sandbox'
 import { chatDatabaseSettingsFields } from '@hbar/contracts/commands/chat-database'
 import { DESKTOP_STARTUP_MODE_SETTING } from '@hbar/contracts/desktop'
+import {
+  BACKEND_WEB_ACCESS_SETTING,
+  BACKEND_WEB_PORT_SETTING,
+  backendWebConfigurationSchema,
+  type BackendWebConfiguration,
+} from '@hbar/contracts/backend'
 import { resolveChatDatabasePolicy } from './chat-database-policy'
 import {
   COMPACTION_PERCENT_SETTING,
@@ -26,7 +32,7 @@ import {
   type SettingsResolution,
   type ValueSchema,
 } from '@hbar/settings-core'
-import type { SchemaPath } from '@hbar/schema-core'
+import { encodePath, type SchemaPath } from '@hbar/schema-core'
 import type { SettingsCommitReceipt, StoredSettingsLayer, StoragePort } from '@hbar/storage'
 
 export const HBAR_SETTINGS_SCHEMA_VERSION = 1
@@ -69,6 +75,37 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         group: 'general',
         order: 40,
         component: 'PopupSelect',
+        multiple: false,
+      },
+      {
+        path: path(BACKEND_WEB_ACCESS_SETTING),
+        type: 'string',
+        nullable: false,
+        defaultValue: 'local',
+        choices: ['local', 'lan'],
+        allowedScopes: ['global'],
+        applyMode: 'restart',
+        labelKey: 'i18n:settings.backend.webAccess.label',
+        helpKey: 'i18n:settings.backend.webAccess.help',
+        group: 'general',
+        order: 45,
+        component: 'PopupSelect',
+        multiple: false,
+      },
+      {
+        path: path(BACKEND_WEB_PORT_SETTING),
+        type: 'integer',
+        nullable: false,
+        defaultValue: 4317,
+        minimum: 1,
+        maximum: 65535,
+        allowedScopes: ['global'],
+        applyMode: 'restart',
+        labelKey: 'i18n:settings.backend.webPort.label',
+        helpKey: 'i18n:settings.backend.webPort.help',
+        group: 'general',
+        order: 46,
+        component: 'NumberField',
         multiple: false,
       },
       ...(['web', 'file'] as const).map((kind) => ({
@@ -324,6 +361,17 @@ function stable(value: unknown): string {
 function translate(error: unknown): never {
   if (error instanceof SettingsError) throw new HbarError(error.code, error.message)
   throw error
+}
+
+/** Startup can resolve listener policy before executable runtime units are ready. */
+export function resolveStartupWebConfiguration(layer: StoredSettingsLayer | null): BackendWebConfiguration {
+  if (layer && layer.schemaVersion !== HBAR_SETTINGS_SCHEMA_VERSION)
+    throw new HbarError('VERSION_MISMATCH', 'Startup settings layer requires migration')
+  const resolved = resolveSettings(HBAR_SETTINGS_DEFINITIONS, layer ? [layer] : [])
+  return backendWebConfigurationSchema.parse({
+    access: resolved.reports[encodePath(path(BACKEND_WEB_ACCESS_SETTING))]?.effectiveValue,
+    port: resolved.reports[encodePath(path(BACKEND_WEB_PORT_SETTING))]?.effectiveValue,
+  })
 }
 
 export class SettingsService {

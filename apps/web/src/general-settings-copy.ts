@@ -8,8 +8,8 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
     group: choose('通用', 'General'),
     title: choose('通用', 'General'),
     description: choose(
-      '界面语言、消息发送方式与界面缩放。',
-      'Display language, message sending behavior, and interface zoom.',
+      '后台与网页访问、界面语言、消息发送方式及界面缩放。',
+      'Backend and web access, display language, message sending, and interface zoom.',
     ),
     deviceScope: choose('设备与宿主', 'Device and Host'),
     language: choose('显示语言', 'Display language'),
@@ -44,6 +44,15 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
     ),
     retryRead: choose('重试读取', 'Retry reading'),
     retrySave: choose('重试保存', 'Retry saving'),
+    web: {
+      title: choose('当前网页地址', 'Current web addresses'),
+      description: choose(
+        '以下为当前后台实际监听的地址。访问需要配对；监听设置在重启后台后生效。',
+        'These addresses are active in the current backend. Access requires pairing; saved listener settings apply after restart.',
+      ),
+      current: (addresses) => addresses.join(' · '),
+      unavailable: choose('连接后台后显示实际地址。', 'Connect to the backend to see its active addresses.'),
+    },
     sending: {
       title: choose('消息发送方式', 'Message Sending'),
       description: choose('选择对话输入框如何发送消息。', 'Choose how the chat composer submits messages.'),
