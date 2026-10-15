@@ -41,14 +41,18 @@ export function createRunCommandClient(client: ClientTransport) {
       )
         throw new CommandError('INVALID_INPUT', `An idempotency key is required for ${id}`)
       try {
-        const output = await client.call('command.execute', {
-          protocol: COMMAND_PROTOCOL_VERSION,
-          requestId: options?.requestId ?? crypto.randomUUID(),
-          commandId: id,
-          commandVersion: options?.version ?? 1,
-          ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
-          input,
-        })
+        const output = await client.call(
+          'command.execute',
+          {
+            protocol: COMMAND_PROTOCOL_VERSION,
+            requestId: options?.requestId ?? crypto.randomUUID(),
+            commandId: id,
+            commandVersion: options?.version ?? 1,
+            ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
+            input,
+          },
+          { signal: options?.signal },
+        )
         if (id === 'operation.cancel') {
           const result = operationCancelResultSchema.safeParse(output)
           const requested = runCommands['operation.cancel'].input.parse(input)
@@ -241,7 +245,8 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         if (notification.method === 'session.event') admitOperationRecovery(notification.params, runIds)
         if (
           notification.method !== 'session.event' ||
-          ((!notification.params.runId || !runIds.has(notification.params.runId)) && guidedOperationId(notification.params) !== operationId) ||
+          ((!notification.params.runId || !runIds.has(notification.params.runId)) &&
+            guidedOperationId(notification.params) !== operationId) ||
           closed
         )
           return
@@ -290,7 +295,8 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         }
         for (const event of initial.events) {
           admitOperationRecovery(event, runIds)
-          if ((event.runId && runIds.has(event.runId)) || guidedOperationId(event) === operationId) seen.add(event.eventId)
+          if ((event.runId && runIds.has(event.runId)) || guidedOperationId(event) === operationId)
+            seen.add(event.eventId)
         }
         loading = false
         for (const event of pending.splice(0)) deliver(event)
