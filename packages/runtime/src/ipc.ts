@@ -107,6 +107,8 @@ export function procedure<Input, Output>(
 }
 export interface IpcCallOptions {
   readonly signal?: AbortSignal | undefined
+  /** Preserve local abort provenance for application bridges; remote failures retain their own error. */
+  readonly preserveAbortReason?: boolean | undefined
   readonly timeoutMs?: number | undefined
   readonly requestId?: string | undefined
   readonly ownership?: ExecutionOwnership | undefined
@@ -148,7 +150,7 @@ interface Pending {
   encoded: string | undefined
   readonly bytes: number
   readonly resolve: (value: unknown) => void
-  readonly reject: (error: Error) => void
+  readonly reject: (error: unknown) => void
   readonly signal: AbortSignal | undefined
   readonly abort: () => void
   timer: ReturnType<typeof setTimeout> | undefined
@@ -344,8 +346,12 @@ export class IpcPeer {
     output: z.ZodType<Output>,
     options: IpcCallOptions = {},
   ): Promise<Output> {
+    const { signal, preserveAbortReason } = options
     if (this.failure) return Promise.reject(this.failure)
-    if (options.signal?.aborted) return Promise.reject(new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'))
+    if (signal?.aborted)
+      return Promise.reject(
+        preserveAbortReason ? signal.reason : new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'),
+      )
     const callId = crypto.randomUUID()
     const requestId = options.requestId ?? callId
     let message: CallMessage
@@ -389,11 +395,15 @@ export class IpcPeer {
           }
         },
         reject,
-        signal: options.signal,
+        signal,
         timer: undefined,
         started: false,
         settled: false,
-        abort: () => this.cancel(callId, new HbarError('IPC_CANCELLED', 'Runtime request was cancelled')),
+        abort: () =>
+          this.cancel(
+            callId,
+            preserveAbortReason ? signal?.reason : new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'),
+          ),
       }
       this.pending.set(callId, pending)
       this.queue.push(callId)
@@ -421,8 +431,8 @@ export class IpcPeer {
           }
         }
       }, options.timeoutMs ?? this.timeoutMs)
-      options.signal?.addEventListener('abort', pending.abort, { once: true })
-      if (options.signal?.aborted) pending.abort()
+      signal?.addEventListener('abort', pending.abort, { once: true })
+      if (signal?.aborted) pending.abort()
       this.drain()
     })
   }
@@ -533,7 +543,7 @@ export class IpcPeer {
     pending.signal?.removeEventListener('abort', pending.abort)
   }
 
-  private cancel(callId: string, error: HbarError): void {
+  private cancel(callId: string, error: unknown): void {
     const pending = this.pending.get(callId)
     if (!pending || pending.settled) return
     this.settle(pending)
