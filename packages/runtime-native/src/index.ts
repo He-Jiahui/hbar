@@ -1,4 +1,4 @@
-import { HbarError } from '@hbar/contracts'
+import { HbarError } from '@hbar/contracts/errors'
 import { RUNTIME_LIMITS, type RuntimeProcessTree, type RuntimeProcessTreePort } from '@hbar/contracts/runtime'
 import { z } from 'zod'
 
