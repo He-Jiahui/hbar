@@ -739,15 +739,25 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         this.startupRecovered = true
         this.completeStartupPhase()
       }
-      this.setStartupPhase('runtime.resume')
       this.initializing = false
-      if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance')) await this.maintenance.reconcile()
+      if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance')) {
+        this.setStartupPhase('maintenance.reconcile')
+        await this.maintenance.reconcile()
+        this.completeStartupPhase()
+      }
+      this.setStartupPhase('kernel.resume')
       await this.resume()
+      this.completeStartupPhase()
+      this.setStartupPhase('goal.resume')
       await this.kernel.plugins.get('goal').resumeOnStartup()
-      if (this.controllerStarted) await this.controllerAdapter().resume()
+      this.completeStartupPhase()
+      if (this.controllerStarted) {
+        this.setStartupPhase('controller.resume')
+        await this.controllerAdapter().resume()
+        this.completeStartupPhase()
+      }
       this.reasonCode = null
       this.startupNextAttemptAt = null
-      this.completeStartupPhase()
       this.statusFeed.refresh()
     } catch (error) {
       this.initializing = true
