@@ -184,10 +184,13 @@ function delayedShellWriteCommand(
 async function waitForMarker(path: string, marker: string, label: string, timeoutMs = 10_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   for (;;) {
-    if (await Bun.file(path).exists()) {
+    try {
       const observed = await readFile(path, 'utf8')
       if (observed === marker) return
       throw new Error(`${label}_MISMATCH:${JSON.stringify(observed)}`)
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'EBUSY')))
+        throw error
     }
     if (Date.now() >= deadline) throw new Error(`${label}_MISSING`)
     await Bun.sleep(25)
