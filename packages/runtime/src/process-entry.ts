@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url'
+import { writeSync } from 'node:fs'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts/errors'
 import { RUNTIME_LIMITS, runtimeOwnerSchema } from '@hbar/contracts/runtime'
@@ -21,6 +22,7 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
   let service: RuntimeProcessService | undefined
   let phase: 'boot' | 'preparing' | 'ready' | 'serving' | 'draining' | 'disposed' = 'boot'
   let exiting = false
+  let timeoutReported = false
   const stop = (code: number) => {
     if (exiting) return
     exiting = true
@@ -38,7 +40,10 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
   const peer = new IpcPeer({
     owner,
     remote,
-    controlMethods: z.array(z.string().min(1).max(128)).max(128).parse(JSON.parse(process.env.HBAR_RUNTIME_CONTROL_METHODS ?? JSON.stringify(RUNTIME_CONTROL_METHODS))),
+    controlMethods: z
+      .array(z.string().min(1).max(128))
+      .max(128)
+      .parse(JSON.parse(process.env.HBAR_RUNTIME_CONTROL_METHODS ?? JSON.stringify(RUNTIME_CONTROL_METHODS))),
     transport: {
       send(frame) {
         if (!process.send) throw new Error('Runtime parent has exited')
@@ -46,7 +51,29 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
       },
     },
     onFailure: () => stop(76),
-    onTimeout: () => stop(76),
+    onTimeout: (_requestId, timeout) => {
+      if (!timeoutReported) {
+        timeoutReported = true
+        try {
+          writeSync(
+            2,
+            `[hbar runtime timeout] ${JSON.stringify({
+              event: 'runtime.child_call_timeout',
+              code: 'IPC_TIMEOUT',
+              unitId: owner.unitId,
+              generation: owner.generation,
+              incarnation: owner.incarnation,
+              childPid: process.pid,
+              remoteUnitId: remote.unitId,
+              ...timeout,
+            })}\n`,
+          )
+        } catch {
+          /* A diagnostic sink failure must not change the existing stop policy. */
+        }
+      }
+      stop(76)
+    },
   })
   process.on('message', (message: unknown) => peer.receive(message))
   process.on('uncaughtException', () => stop(76))
@@ -70,7 +97,9 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
       // The trusted registered artifact is built against RuntimeProcessModule. Its wire values are still validated.
       const module = imported as RuntimeProcessModule
       service = await module.create({
-        purpose: z.enum(['startup', 'candidate', 'recovery']).parse(process.env.HBAR_RUNTIME_PREPARATION ?? 'candidate'),
+        purpose: z
+          .enum(['startup', 'candidate', 'recovery'])
+          .parse(process.env.HBAR_RUNTIME_PREPARATION ?? 'candidate'),
         peer,
         configuration: input.configuration,
         preparing: () => phase === 'preparing' || phase === 'ready',

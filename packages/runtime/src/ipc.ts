@@ -122,7 +122,21 @@ export interface IpcPeerOptions {
   readonly timeoutMs?: number
   readonly fragmentTimeoutMs?: number
   readonly onFailure?: (error: HbarError) => void
-  readonly onTimeout?: (requestId: string) => void
+  readonly onTimeout?: (
+    requestId: string,
+    timeout: {
+      readonly callId: string
+      readonly method: string
+      readonly elapsedMs: number
+      readonly timeoutMs: number
+      readonly started: boolean
+      readonly pending: number
+      readonly inFlight: number
+      readonly queued: number
+      readonly incoming: number
+      readonly incomingQueued: number
+    },
+  ) => void
   /** Reserve physical slots for named control ports so approval/cancel cannot queue behind blocked work. */
   readonly controlMethods?: readonly string[]
   readonly reservedControl?: number
@@ -360,6 +374,7 @@ export class IpcPeer {
       this.queuedBytes + bytes > this.maximumBytes
     )
       return Promise.reject(new HbarError('IPC_BUSY', 'Runtime request capacity is exhausted'))
+    const enqueuedAt = performance.now()
     return new Promise<Output>((resolve, reject) => {
       const pending: Pending = {
         id: callId,
@@ -384,10 +399,23 @@ export class IpcPeer {
       this.queue.push(callId)
       this.queuedBytes += bytes
       pending.timer = setTimeout(() => {
+        const state = this.snapshot()
+        const pendingCount = this.pending.size
         this.cancel(callId, new HbarError('IPC_TIMEOUT', 'Runtime request deadline exceeded; reconcile its outcome'))
         if (pending.started) {
           try {
-            this.options.onTimeout?.(requestId)
+            this.options.onTimeout?.(requestId, {
+              callId,
+              method,
+              elapsedMs: Math.max(0, performance.now() - enqueuedAt),
+              timeoutMs: options.timeoutMs ?? this.timeoutMs,
+              started: pending.started,
+              pending: pendingCount,
+              inFlight: state.inFlight,
+              queued: state.queued,
+              incoming: state.incoming,
+              incomingQueued: state.incomingQueued,
+            })
           } catch {
             console.error('[hbar runtime] timeout observer failed')
           }
