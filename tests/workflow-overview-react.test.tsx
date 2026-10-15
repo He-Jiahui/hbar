@@ -165,7 +165,7 @@ test('workflow overview covers empty, stale-focus, evidence boundary, and bounda
     instanceId: 'panel',
     sessionId: 'session',
     status: 'ready',
-    snapshot: { plan: null, workflow: null },
+    snapshot: workflowSnapshotSchema.parse({ plan: null, workflow: null }),
     agents: {},
     visibleEvidence: 0,
     actions: {},
