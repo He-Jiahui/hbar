@@ -31,6 +31,7 @@
     "./path-containment": "./src/path-containment.ts",
     "./device": "./src/device.ts",
     "./execution-principal": "./src/execution-principal.ts",
+    "./command-execution": "./src/command-execution.ts",
     "./runtime-notifications": "./src/runtime-notifications.ts",
     "./diagnostics": "./src/diagnostics.ts",
     "./diagnostic-context": "./src/diagnostic-context.ts",

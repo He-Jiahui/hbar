@@ -20,6 +20,7 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'runByRequest',
   'sessionExecutionPrincipal',
   'runExecutionPrincipal',
+  'commandExecutionRead',
   'deviceById',
   'snapshot',
   'cancelRequested',

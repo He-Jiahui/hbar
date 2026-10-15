@@ -1,4 +1,5 @@
 import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/execution-principal'
+import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type {
   Approval,
   ArtifactRef,
@@ -293,6 +294,9 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
+  commandExecutionAccept: ReturnType<typeof createCommandExecutionReceiptStorage>['accept']
+  commandExecutionRead: ReturnType<typeof createCommandExecutionReceiptStorage>['read']
+  commandExecutionUpdate: ReturnType<typeof createCommandExecutionReceiptStorage>['update']
   chatDatabaseMaintenanceBegin(operationId: string): void
   chatDatabaseMaintenanceEnd(operationId: string): void
   chatDatabaseUsageBackfill: ReturnType<typeof createChatDatabaseProjection>['backfill']

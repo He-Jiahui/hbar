@@ -1,6 +1,7 @@
 import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage } from './execution-principals'
+import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import { executionPrincipalSchema, sessionCreationSourceSchema } from '@hbar/contracts/execution-principal'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
@@ -634,6 +635,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     )
     const deviceStorage = createDeviceStorage(db, (id) => chatDatabaseArtifacts.unknownDevice(id, false))
     const executionPrincipals = createExecutionPrincipalStorage(db)
+    const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
     const nodeRegistryStorage = createNodeRegistryStorage(db)
     const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
     const nodeExecutionIntentStorage = createNodeExecutionIntentStorage(db)
@@ -1678,6 +1680,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         readWorkspaceRow(db, required(db.query('SELECT * FROM workspaces WHERE id=?').get(id), 'Workspace')),
       sessionExecutionPrincipal: executionPrincipals.session,
       runExecutionPrincipal: executionPrincipals.run,
+      commandExecutionAccept: commandExecutionReceipts.accept,
+      commandExecutionRead: commandExecutionReceipts.read,
+      commandExecutionUpdate: commandExecutionReceipts.update,
       createSession(workspaceId, title = 'New session', parentId, source) {
         return db.transaction(() => {
           const workspace = methods.workspace(workspaceId)
