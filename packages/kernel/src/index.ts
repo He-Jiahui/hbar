@@ -2571,25 +2571,6 @@ export class Kernel {
           let advertised: { tools: ToolDefinition[]; instructions?: string }
           for (;;) {
             request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
-            if (
-              !compactedForCapacity &&
-              (contextExceedsCapacity(request) ||
-                this.plugins
-                  .get<CompactionProvider>('compaction')
-                  .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100))
-            ) {
-              await this.compactInternal(
-                sessionId,
-                model,
-                controller.signal,
-                run.id,
-                workspaceForRun,
-                steeringContext,
-                run.input.thinking,
-              )
-              compactedForCapacity = true
-              continue
-            }
             request = await scope.hooks.dispatch('model.request', request)
             const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
             if (
@@ -2629,11 +2610,11 @@ export class Kernel {
               toolNames: advertised.tools.map((tool) => tool.name),
             }
             controller.signal.throwIfAborted()
-            try {
-              assertContextCapacity(request)
-            } catch (error) {
-              if (!(error instanceof HbarError) || error.code !== 'CONTEXT_WINDOW_EXCEEDED' || compactedForCapacity)
-                throw error
+            const requiresCapacity = contextExceedsCapacity(request)
+            const shouldCompact = this.plugins
+              .get<CompactionProvider>('compaction')
+              .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100)
+            if (!compactedForCapacity && (requiresCapacity || shouldCompact)) {
               await this.compactInternal(
                 sessionId,
                 model,
@@ -2642,10 +2623,16 @@ export class Kernel {
                 workspaceForRun,
                 steeringContext,
                 run.input.thinking,
+                {
+                  contextWindow: request.model.contextWindow,
+                  maxOutput: request.model.maxOutput,
+                  fixedInputTokens: estimateContextTokens({ ...request, messages: [] }),
+                },
               )
               compactedForCapacity = true
               continue
             }
+            assertContextCapacity(request)
             break
           }
           this.executionDiagnostics.modelPrepared({
@@ -4003,6 +3990,7 @@ export class Kernel {
     workspaceOverride?: Workspace,
     steering?: RunSteeringContext,
     thinking?: ThinkingLevel,
+    capacityBudget?: { readonly contextWindow: number; readonly maxOutput: number; readonly fixedInputTokens: number },
   ) {
     const startedAt = performance.now()
     const bounded = createBoundedCompactionSignal(signal, this.options.compactionTimeoutMs)
@@ -4019,6 +4007,7 @@ export class Kernel {
         workspaceOverride,
         steering,
         thinking,
+        capacityBudget,
       )
       const identity = runId ? { sessionId, runId } : { sessionId }
       this.executionDiagnostics.compacted(identity, performance.now() - startedAt)
@@ -4046,11 +4035,30 @@ export class Kernel {
     workspaceOverride?: Workspace,
     steering?: RunSteeringContext,
     thinking?: ThinkingLevel,
+    capacityBudget?: { readonly contextWindow: number; readonly maxOutput: number; readonly fixedInputTokens: number },
   ) {
     const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
     const percent = await this.compactionPercent(sessionId)
-    const boundary = compactionBoundary(request, retain, percent, steering)
+    const boundaryRequest = capacityBudget
+      ? {
+          ...request,
+          model: {
+            ...request.model,
+            contextWindow: Math.min(request.model.contextWindow, capacityBudget.contextWindow),
+            maxOutput: Math.max(request.model.maxOutput, capacityBudget.maxOutput),
+          },
+        }
+      : request
+    const boundary = compactionBoundary(
+      boundaryRequest,
+      retain,
+      percent,
+      steering,
+      capacityBudget
+        ? Math.max(0, capacityBudget.fixedInputTokens - estimateContextTokens({ ...boundaryRequest, messages: [] })) + 1
+        : 0,
+    )
     const storedContext = await this.storage.call('context', sessionId)
     const summarizeExisting =
       boundary === 0 &&

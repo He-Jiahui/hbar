@@ -398,7 +398,7 @@ test('rechecks capacity after request hooks and compacts before admitting the pr
   const { kernel, session, summaries } = await fixture(async (input) => {
     requests.push(await input.beforeRequest(input.request, 'hooked-capacity'))
   })
-  for (let index = 0; index < 5; index++)
+  for (let index = 0; index < 6; index++)
     await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
       { type: 'text', text: `History ${index} ${'h'.repeat(2600)}` },
     ])
@@ -412,6 +412,32 @@ test('rechecks capacity after request hooks and compacts before admitting the pr
   expect(summaries.length).toBeGreaterThan(0)
   expect(requests).toHaveLength(1)
   expect(estimateContextTokens(requests[0]!) + requests[0]!.model.maxOutput).toBeLessThanOrEqual(4096)
+})
+
+test('uncompleted user history remains protected when final hook overhead cannot fit', async () => {
+  const requests: ModelRequest[] = []
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    requests.push(await input.beforeRequest(input.request, 'hooked-capacity'))
+  })
+  for (let index = 0; index < 5; index++)
+    await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
+      { type: 'text', text: `History ${index} ${'h'.repeat(2600)}` },
+    ])
+  kernel.hooks.on('model.request', (request) => ({
+    ...request,
+    system: `${request.system}\n${'hook-instruction '.repeat(300)}`,
+  }))
+  const run = await kernel.submit(session.id, 'hooked-capacity', { text: 'Continue.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).failure?.code).toBe('CONTEXT_WINDOW_EXCEEDED')
+  expect(summaries.length).toBeGreaterThan(0)
+  expect(requests).toHaveLength(0)
+  expect(
+    (await kernel.snapshot(session.id)).messages.some((message) =>
+      message.content.some((block) => block.type === 'text' && block.text === 'History 4 ' + 'h'.repeat(2600)),
+    ),
+  ).toBe(true)
+  expect((await kernel.snapshot(session.id)).contextCompactions).toHaveLength(1)
 })
 
 test.each(['failure', 'cancellation'] as const)(
@@ -532,4 +558,103 @@ test('chunks cover escaped and Unicode history exactly and stay within the input
     offset = next.nextOffset
   }
   expect(covered).toBe(document)
+})
+
+test.each(['model', 'tools'] as const)(
+  'final %s instructions reserve capacity before bounded compaction',
+  async (kind) => {
+    const admitted: ModelRequest[] = []
+    const { kernel, session, summaries } = await fixture(async (input) => {
+      admitted.push(await input.beforeRequest(input.request, 'final-budget'))
+    })
+    for (let index = 0; index < 6; index++)
+      await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
+        { type: 'text', text: 'h'.repeat(2600) },
+      ])
+    if (kind === 'model')
+      kernel.hooks.on('model.request', (request) => ({
+        ...request,
+        system: `${request.system}\n${'hook-instruction '.repeat(300)}`,
+      }))
+    else
+      kernel.hooks.on('tools.advertise', (advertised) => ({
+        ...advertised,
+        instructions: 'tool-instruction '.repeat(300),
+      }))
+    const run = await kernel.submit(session.id, 'final-budget', { text: 'Continue.', images: [] }, 'context-overflow')
+    await kernel.waitForIdle()
+    expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+    expect(summaries.length).toBeGreaterThan(0)
+    expect(admitted).toHaveLength(1)
+    for (const request of admitted)
+      expect(estimateContextTokens(request) + request.model.maxOutput).toBeLessThanOrEqual(4096)
+  },
+)
+
+test('fixed final hook overhead that cannot fit fails after at most one compaction without provider admission', async () => {
+  const admitted: ModelRequest[] = []
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    admitted.push(await input.beforeRequest(input.request, 'fixed-overhead'))
+  })
+  kernel.hooks.on('model.request', (request) => ({ ...request, system: `${request.system}\n${'x'.repeat(16000)}` }))
+  const run = await kernel.submit(session.id, 'fixed-overhead', { text: 'Continue.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).failure?.code).toBe('CONTEXT_WINDOW_EXCEEDED')
+  expect(admitted).toHaveLength(0)
+  expect(summaries).toHaveLength(0)
+})
+test('validated hook reductions of context and output budgets guide final capacity compaction', async () => {
+  const admitted: ModelRequest[] = []
+  const { kernel, session } = await fixture(async (input) => {
+    admitted.push(await input.beforeRequest(input.request, 'reduced-budget'))
+  })
+  for (let index = 0; index < 6; index++)
+    await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
+      { type: 'text', text: 'h'.repeat(2600) },
+    ])
+  kernel.hooks.on('model.request', (request) => ({
+    ...request,
+    model: { ...request.model, contextWindow: 3072, maxOutput: 512 },
+    system: `${request.system}\n${'hook '.repeat(120)}`,
+  }))
+  const run = await kernel.submit(session.id, 'reduced-budget', { text: 'Continue.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(admitted).toHaveLength(1)
+  for (const request of admitted) {
+    expect(request.model).toMatchObject({ contextWindow: 3072, maxOutput: 512 })
+    expect(estimateContextTokens(request) + request.model.maxOutput).toBeLessThanOrEqual(3072)
+  }
+})
+test('a replaceable oversized checkpoint is resummarized before final hooked provider admission', async () => {
+  const admitted: ModelRequest[] = []
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    admitted.push(await input.beforeRequest(input.request, 'replace-checkpoint'))
+  })
+  await kernel.storage.call('commit', session.id, 'seed', 'user', [{ type: 'text', text: 'Earlier task.' }])
+  await kernel.storage.call('commit', session.id, 'seed', 'assistant', [
+    { type: 'text', text: 'Earlier task completed.' },
+  ])
+  const before = await kernel.snapshot(session.id)
+  const throughSeq = before.messages.at(-1)?.seq
+  if (throughSeq === undefined) throw new Error('Expected a completed history boundary')
+  await kernel.storage.call('compact', session.id, throughSeq, 'z'.repeat(12000), 'context-overflow')
+  kernel.hooks.on('model.request', (request) => ({
+    ...request,
+    system: `${request.system}\n${'hook-instruction '.repeat(300)}`,
+  }))
+  const run = await kernel.submit(
+    session.id,
+    'replace-checkpoint',
+    { text: 'Continue.', images: [] },
+    'context-overflow',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(summaries.length).toBeGreaterThan(0)
+  expect(admitted).toHaveLength(1)
+  for (const request of admitted)
+    expect(estimateContextTokens(request) + request.model.maxOutput).toBeLessThanOrEqual(4096)
+  expect((await kernel.storage.call('context', session.id)).summary).not.toBe('z'.repeat(12000))
+  expect((await kernel.snapshot(session.id)).messages).toHaveLength(3)
 })

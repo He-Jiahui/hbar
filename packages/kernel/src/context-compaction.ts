@@ -33,7 +33,10 @@ export function compactionBoundary(
   retainMessages: number,
   percent: number,
   steering?: RunSteeringContext,
+  extraInputTokens = 0,
 ): number {
+  if (!Number.isSafeInteger(extraInputTokens) || extraInputTokens < 0)
+    throw new RangeError('Invalid compaction input reservation')
   const messages = request.messages
   const delivered = new Set(steering?.deliveries.map((delivery) => delivery.message.id))
   const pendingGuide = steering
@@ -71,6 +74,7 @@ export function compactionBoundary(
   const target =
     compactionInputThreshold(request, percent) -
     summaryOutputBudget(request, percent) -
+    extraInputTokens -
     estimateContextTokens({ ...request, messages: [] })
   const suffixSizes = new Array<number>(messages.length + 1)
   suffixSizes[messages.length] = 2
