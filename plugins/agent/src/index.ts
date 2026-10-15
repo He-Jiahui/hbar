@@ -172,11 +172,18 @@ export class AgentRuntime implements AgentService {
   }
 
   private async created(sessionId: string): Promise<CreatedAgent | null> {
-    const events = await this.sessions.events(sessionId, 0, 100)
-    for (const event of events) {
-      if (event.type !== 'agent.created') continue
-      const parsed = createdSchema.safeParse(event.data)
-      if (parsed.success) return parsed.data
+    // Current children persist their seed second; retain the original first-100
+    // event window for older histories without reading later payloads normally.
+    let events = await this.sessions.events(sessionId, 0, 2)
+    for (let page = 0; page < 2; page++) {
+      for (const event of events) {
+        if (event.type !== 'agent.created') continue
+        const parsed = createdSchema.safeParse(event.data)
+        if (parsed.success) return parsed.data
+      }
+      const last = events.at(-1)
+      if (page === 1 || events.length < 2 || !last) return null
+      events = await this.sessions.events(sessionId, last.seq, 98)
     }
     return null
   }
@@ -245,9 +252,9 @@ export class AgentRuntime implements AgentService {
     })
   }
 
-  private async children(parentSessionId: string): Promise<{ seed: CreatedAgent; record: AgentRecord }[]> {
+  private async childSeeds(parentSessionId: string): Promise<CreatedAgent[]> {
     await this.sessions.get(parentSessionId)
-    const result: { seed: CreatedAgent; record: AgentRecord }[] = []
+    const result: CreatedAgent[] = []
     let after: string | undefined
     let scanned = 0
     for (;;) {
@@ -256,15 +263,20 @@ export class AgentRuntime implements AgentService {
       if (scanned > MAX_SCANNED_CHILD_SESSIONS) throw new HbarError('AGENT_LIMIT', 'Too many child sessions')
       for (const session of candidates) {
         const seed = await this.created(session.id)
-        if (seed) result.push({ seed, record: await this.record(seed) })
+        if (seed) result.push(seed)
         if (result.length > MAX_CHILDREN) throw new HbarError('AGENT_LIMIT', 'Too many direct child agents')
       }
       if (candidates.length < 200) break
       after = candidates.at(-1)!.id
     }
-    return result.sort((left, right) => left.record.agentId.localeCompare(right.record.agentId))
+    return result.sort((left, right) => left.agentId.localeCompare(right.agentId))
   }
 
+  private async children(parentSessionId: string): Promise<{ seed: CreatedAgent; record: AgentRecord }[]> {
+    const result: { seed: CreatedAgent; record: AgentRecord }[] = []
+    for (const seed of await this.childSeeds(parentSessionId)) result.push({ seed, record: await this.record(seed) })
+    return result
+  }
   async create(
     input: AgentCreateInput,
     context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },
@@ -353,14 +365,15 @@ export class AgentRuntime implements AgentService {
     context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },
   ): Promise<AgentRecord> {
     const hash = inputHash(parsed)
-    const existing = (await this.children(parsed.parentSessionId)).find(
-      ({ seed }) => seed.command.actorId === context.actorId && seed.command.idempotencyKey === context.idempotencyKey,
+    const existing = (await this.childSeeds(parsed.parentSessionId)).find(
+      (seed) => seed.command.actorId === context.actorId && seed.command.idempotencyKey === context.idempotencyKey,
     )
     if (existing) {
-      if (existing.seed.command.inputHash !== hash)
+      if (existing.command.inputHash !== hash)
         throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key was already used with different agent input')
-      if (existing.record.runId || existing.record.status === 'failed') return existing.record
-      return this.start(existing.seed, parsed)
+      const record = await this.record(existing)
+      if (record.runId || record.status === 'failed') return record
+      return this.start(existing, parsed)
     }
     const configuration = await this.resolveConfiguration(parsed, context.parentRunId)
     const resolved = { ...parsed, modelId: configuration.modelId, configuration }
@@ -776,8 +789,9 @@ export class AgentRuntime implements AgentService {
         await visit(child.sessionId)
       }
     }
-    const direct = (await this.children(parentSessionId)).find(({ record }) => record.agentId === agentId)
-    if (!direct) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not a direct child of the target session')
+    const seed = (await this.childSeeds(parentSessionId)).find((candidate) => candidate.agentId === agentId)
+    if (!seed) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not a direct child of the target session')
+    const direct = { seed, record: await this.record(seed) }
     if (direct.record.patch && ['ready', 'conflict'].includes(direct.record.patch.status)) {
       const patch = agentPatchSchema.parse({ ...direct.record.patch, status: 'rejected' })
       await this.persistPatch(direct.seed, patch)
