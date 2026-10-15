@@ -5,6 +5,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
 import { createCommandExpectation } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
+import { chatDatabaseCommands } from '@hbar/contracts/commands/chat-database'
 import { HbarClient } from '@hbar/client'
 import { MemorySecrets } from '@hbar/kernel/secrets'
 import { createPathLayout } from '@hbar/storage'
@@ -182,6 +183,96 @@ test('an actual Controller retains a late write receipt and its generation throu
   } finally {
     await writeFile(release, 'released')
     client?.disconnect()
+    await host?.close()
+    await runtime?.close()
+    await removeOwnedTestDirectory(root, prefix)
+    await removeOwnedSourceDirectory(source, sourcePrefix)
+  }
+}, 120_000)
+
+test('an actual Maintenance owner retains its command receipt through reload and routes new queries to the new owner', async () => {
+  const prefix = 'hbar-maintenance-command-jobs-'
+  const root = await mkdtemp(join(tmpdir(), prefix))
+  const sourcePrefix = 'maintenance-command-jobs-owner-'
+  const source = await mkdtemp(join(process.cwd(), 'artifacts', sourcePrefix))
+  let runtime: ProcessHostRuntime | undefined
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  try {
+    runtime = await ProcessHostRuntime.create({
+      layout: createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json')),
+      sourceRoot: process.cwd(),
+      workspace: root,
+      demo: true,
+      secrets: new MemorySecrets(),
+    })
+    host = await startServer(runtime.kernel, { port: 0, runtime, controller: runtime.controller })
+    const operator = await host.auth.createDevice('tracked Maintenance query fixture')
+    const prepared = await host.commands.prepare({
+      protocol: 1,
+      commandId: 'chatDatabase.statistics',
+      commandVersion: 1,
+      requestId: 'maintenance-tracked-statistics',
+      input: { scope: { kind: 'global' } },
+    })
+    const expected = createCommandExpectation(prepared)
+    const rejected = runtime.maintenance.dispatchPreparedTracked(prepared.invocation, operator.device.id, {
+      ...expected,
+      descriptor: { ...expected.descriptor, metadata: { ...expected.descriptor.metadata, timeoutMs: 1 } },
+    })
+    expect(await failure(rejected.result)).toMatchObject({ code: 'COMMAND_PREPARATION_STALE' })
+    expect(await rejected.settled).toMatchObject({ status: 'failed', executionStarted: false })
+    await rejected.acknowledge()
+    const ticket = host.commands.executePreparedTracked(prepared.invocation, operator.device.id, expected)
+    if (!ticket.acknowledge) throw new Error('Maintenance ticket has no receipt acknowledgment')
+    const result = chatDatabaseCommands['chatDatabase.statistics'].output.parse(await ticket.result)
+    expect(await ticket.settled).toEqual({ status: 'succeeded', executionStarted: true, result })
+    const updated = join(source, 'updated.ts')
+    const original = (await readFile('apps/host/src/runtime-maintenance-process.ts', 'utf8')).replaceAll(
+      "'./",
+      "'../../apps/host/src/",
+    )
+    await writeFile(updated, original + '\nexport const compatibleMaintenanceTrackedRevision = 2\n')
+    const unit = runtime.buildUnits.find((unit) => unit.descriptor.id === 'maintenance')
+    if (!unit) throw new Error('Maintenance build unit missing')
+    const set = await runtime.artifacts.registerSet([await runtime.artifacts.build({ ...unit, entrypoint: updated })])
+    const reload = runtime.reload(set.id, ['maintenance'])
+    const activeRuntime = runtime
+    await until(
+      () =>
+        activeRuntime
+          .snapshot()
+          .units.find((unit) => unit.descriptor.id === 'maintenance')
+          ?.generations.some(
+            (generation) =>
+              generation.generation === 2 && generation.role === 'default' && generation.phase === 'serving',
+          ) ?? false,
+    )
+    await Bun.sleep(1_100)
+    const old = runtime
+      .snapshot()
+      .units.find((unit) => unit.descriptor.id === 'maintenance')
+      ?.generations.find((generation) => generation.generation === 1)
+    expect(old).toMatchObject({ role: 'draining', phase: 'draining' })
+    expect(old?.references.resources).toBeGreaterThan(0)
+    expect(runtime.getReload(reload.operationId).phase).toBe('draining')
+    await ticket.acknowledge()
+    await until(() => activeRuntime.getReload(reload.operationId).phase === 'completed')
+    expect(
+      runtime
+        .snapshot()
+        .units.find((unit) => unit.descriptor.id === 'maintenance')
+        ?.generations.some((generation) => generation.generation === 1),
+    ).toBe(false)
+    const next = host.commands.executePreparedTracked(
+      { ...prepared.invocation, requestId: 'statistics-after-owner-reload' },
+      operator.device.id,
+      expected,
+    )
+    chatDatabaseCommands['chatDatabase.statistics'].output.parse(await next.result)
+    expect(await next.settled).toMatchObject({ status: 'succeeded', executionStarted: true })
+    if (!next.acknowledge) throw new Error('New Maintenance ticket has no receipt acknowledgment')
+    await next.acknowledge()
+  } finally {
     await host?.close()
     await runtime?.close()
     await removeOwnedTestDirectory(root, prefix)

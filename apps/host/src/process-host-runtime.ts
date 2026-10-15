@@ -867,6 +867,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async dispose(): Promise<void> {
     this.closing = true
     this.commandDiscovery.close()
+    this.maintenance.dispose()
     this.disposeStatus()
     this.statusFeed.close()
     this.disposeSource()
