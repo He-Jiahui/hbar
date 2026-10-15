@@ -356,7 +356,8 @@ class GoalRuntime implements GoalService {
                 )
             }
             if (
-              !projectionOnly && normalized.status === 'active' &&
+              !projectionOnly &&
+              normalized.status === 'active' &&
               normalized.continuationIntent?.phase === 'stopped' &&
               ['no_tool_calls', 'no_progress'].includes(normalized.continuationIntent.reason) &&
               normalized.continuationIntent.modelId !== null
@@ -422,7 +423,7 @@ class GoalRuntime implements GoalService {
               // A recovered Run is a historical fact. Start a new Goal-bound turn,
               // never replay its calls or revive its request identity.
               if (lastRun?.failure?.category === 'result_unknown') {
-                await this.stopContinuation(goal, lastRun, 'result_unknown')
+                await this.stopContinuation(goal, lastRun, 'result_unknown', 'startup')
                 return
               }
               if (lastRun?.status === 'cancelled' || lastRun?.failure?.category === 'cancelled') {
@@ -430,7 +431,7 @@ class GoalRuntime implements GoalService {
                 return
               }
               if (lastRun && isUsageLimitError(lastRun)) {
-                await this.stopContinuation({ ...goal, status: 'usage_limited' }, lastRun, 'usage_limited')
+                await this.stopContinuation({ ...goal, status: 'usage_limited' }, lastRun, 'usage_limited', 'startup')
                 return
               }
               if (
@@ -438,7 +439,7 @@ class GoalRuntime implements GoalService {
                 lastRun?.status === 'failed' &&
                 lastRun.failure?.category !== 'interrupted'
               ) {
-                await this.stopContinuation(goal, lastRun, 'run_failed')
+                await this.stopContinuation(goal, lastRun, 'run_failed', 'startup')
                 return
               }
               const runs = (await this.api.sessions.snapshot(goal.threadId)).runs
@@ -527,8 +528,9 @@ class GoalRuntime implements GoalService {
         if (
           !goal ||
           goal.goalId !== binding.goalId ||
-          (!event.run.recovery && (goal.continuationIntent?.intentId !== binding.intentId ||
-          !['queued', 'pending', 'waiting'].includes(goal.continuationIntent.phase)))
+          (!event.run.recovery &&
+            (goal.continuationIntent?.intentId !== binding.intentId ||
+              !['queued', 'pending', 'waiting'].includes(goal.continuationIntent.phase)))
         )
           throw new HbarError('CONTINUATION_STALE', 'Automatic continuation no longer matches the active Goal')
         const mode = await this.api.service<ModeService>('mode').get(event.sessionId)
@@ -551,10 +553,17 @@ class GoalRuntime implements GoalService {
           await this.persist({
             ...waiting,
             continuationIntent: {
-              ...(goal.continuationIntent ?? continuationIntentSchema.parse({
-                intentId: binding.intentId, goalId: binding.goalId, trigger: event.run.recovery?.predecessorRunId ?? event.runId,
-                modelId: event.run.modelId, text: '', phase: 'pending', reason: 'goal_active', updatedAt: Date.now(),
-              })),
+              ...(goal.continuationIntent ??
+                continuationIntentSchema.parse({
+                  intentId: binding.intentId,
+                  goalId: binding.goalId,
+                  trigger: event.run.recovery?.predecessorRunId ?? event.runId,
+                  modelId: event.run.modelId,
+                  text: '',
+                  phase: 'pending',
+                  reason: 'goal_active',
+                  updatedAt: Date.now(),
+                })),
               ...waiting.continuationIntent,
               intentId: crypto.randomUUID(),
             },
@@ -822,7 +831,12 @@ class GoalRuntime implements GoalService {
     return { ...goal, continuationIntent: { ...goal.continuationIntent, phase, reason, updatedAt: Date.now() } }
   }
 
-  private async stopContinuation(goal: PersistedGoal, run: Run, reason: GoalContinuation['reason']) {
+  private async stopContinuation(
+    goal: PersistedGoal,
+    run: Run,
+    reason: GoalContinuation['reason'],
+    context: 'execution' | 'startup' = 'execution',
+  ) {
     const intent =
       goal.continuationIntent ??
       continuationIntentSchema.parse({
@@ -839,10 +853,14 @@ class GoalRuntime implements GoalService {
     // Infrastructure interruption retains the original Goal state for fenced Run recovery.
     // A paused Goal and user cancellation retain their existing control semantics.
     return this.persist(
-      reason === 'interrupted' && ['HOST_SHUTTING_DOWN', 'HOST_INTERRUPTED', 'EXECUTION_OWNER_REVOKED'].includes(run.failure?.code ?? '')
+      reason === 'interrupted' &&
+        ['HOST_SHUTTING_DOWN', 'HOST_INTERRUPTED', 'EXECUTION_OWNER_REVOKED'].includes(run.failure?.code ?? '')
         ? this.withContinuation(stopped, 'stopped', reason)
         : this.pauseContinuation(stopped, reason),
-      run.id,
+      // Startup changes Goal control state, not the historical execution. Its
+      // released lease cannot authorize new Run-scoped writes. Keep correlation
+      // in continuationIntent.trigger; live execution still writes with run.id.
+      context === 'startup' ? undefined : run.id,
     )
   }
 
@@ -1016,7 +1034,8 @@ class GoalRuntime implements GoalService {
     return this.result(sessionId)
   }
   async reconcileRun(run: Run): Promise<void> {
-    if (run.status !== 'interrupted') throw new HbarError('GOAL_RECOVERY_INVALID', 'Goal accounting recovery requires an interrupted Run')
+    if (run.status !== 'interrupted')
+      throw new HbarError('GOAL_RECOVERY_INVALID', 'Goal accounting recovery requires an interrupted Run')
     const events = await readGoalEvents(
       this.api.sessions,
       run.sessionId,
@@ -1040,19 +1059,34 @@ class GoalRuntime implements GoalService {
   async refreshSession(sessionId: string): Promise<void> {
     await this.serial(sessionId, async () => {
       const events = await readGoalEvents(this.api.sessions, sessionId, GOAL_STATE_EVENT_TYPES, 'GOAL_RESTORE_LIMIT')
-      this.goals.delete(sessionId); this.sequences.delete(sessionId); this.continuationTriggers.delete(sessionId)
-      this.uncertainSessions.delete(sessionId); this.restoredRuns.delete(sessionId)
-      for (const [runId, accounting] of this.activeRuns) if (accounting.sessionId === sessionId) this.activeRuns.delete(runId)
+      this.goals.delete(sessionId)
+      this.sequences.delete(sessionId)
+      this.continuationTriggers.delete(sessionId)
+      this.uncertainSessions.delete(sessionId)
+      this.restoredRuns.delete(sessionId)
+      for (const [runId, accounting] of this.activeRuns)
+        if (accounting.sessionId === sessionId) this.activeRuns.delete(runId)
       for (const event of events) {
-        if (event.type === 'goal.cleared') { this.goals.delete(sessionId); this.sequences.set(sessionId, event.seq); this.continuationTriggers.delete(sessionId); continue }
+        if (event.type === 'goal.cleared') {
+          this.goals.delete(sessionId)
+          this.sequences.set(sessionId, event.seq)
+          this.continuationTriggers.delete(sessionId)
+          continue
+        }
         const goal = eventGoal(event)
         if (goal) {
-          if (goal.threadId !== sessionId) throw new HbarError('GOAL_REPLAY', 'Goal handoff journal belongs to another Session')
-          this.goals.set(sessionId, goal); this.sequences.set(sessionId, event.seq); this.rememberTriggers(goal)
+          if (goal.threadId !== sessionId)
+            throw new HbarError('GOAL_REPLAY', 'Goal handoff journal belongs to another Session')
+          this.goals.set(sessionId, goal)
+          this.sequences.set(sessionId, event.seq)
+          this.rememberTriggers(goal)
         }
         if (event.runId && ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type)) {
           const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
-          if (checkpoint.success) { this.activeRuns.set(event.runId, checkpoint.data.accounting); this.boundRuns.add(event.runId) }
+          if (checkpoint.success) {
+            this.activeRuns.set(event.runId, checkpoint.data.accounting)
+            this.boundRuns.add(event.runId)
+          }
         }
       }
       for (const runId of this.goals.get(sessionId)?.accountedRuns ?? []) this.activeRuns.delete(runId)
@@ -1066,8 +1100,14 @@ class GoalRuntime implements GoalService {
     if (!goal) return null
     if (!this.config.autoContinue) return 'GOAL_CONTINUATION_DISABLED'
     if (goal.status !== 'active') return `GOAL_${goal.status.toUpperCase()}`
-    if (this.config.maxContinuations !== null && goal.continuationCount >= this.config.maxContinuations) return 'GOAL_CONTINUATION_LIMIT'
-    const admission = await this.api.hooks.dispatch('goal.beforeContinue', { sessionId: run.sessionId, runId: run.id, goal: publicGoal(goal), allowed: true })
+    if (this.config.maxContinuations !== null && goal.continuationCount >= this.config.maxContinuations)
+      return 'GOAL_CONTINUATION_LIMIT'
+    const admission = await this.api.hooks.dispatch('goal.beforeContinue', {
+      sessionId: run.sessionId,
+      runId: run.id,
+      goal: publicGoal(goal),
+      allowed: true,
+    })
     return admission.allowed ? null : 'GOAL_WORKFLOW_WAIT'
   }
 
