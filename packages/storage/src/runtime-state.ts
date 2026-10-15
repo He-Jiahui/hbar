@@ -2,6 +2,7 @@ import type { Database } from 'bun:sqlite'
 import { z } from 'zod'
 import { HbarError, runSchema, type Run, type SessionEvent } from '@hbar/contracts'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
+import { executionPrincipalSchema } from '@hbar/contracts/execution-principal'
 import { sessionLaunchTargetBindingSchema } from './session-launch-target'
 import type { SessionLaunchTargetBinding } from './types'
 import {
@@ -41,6 +42,7 @@ export const runtimeRecoveryRecordSchema = z.strictObject({
   chain: recoveryChainSchema,
   run: runSchema.nullable(),
   manual: runtimeManualRecoverySchema.optional(),
+  executionPrincipal: executionPrincipalSchema.nullable().optional(),
   launchTarget: sessionLaunchTargetBindingSchema.optional(),
 })
 export type RuntimeRecoveryRecord = z.infer<typeof runtimeRecoveryRecordSchema>

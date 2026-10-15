@@ -1399,7 +1399,11 @@ export class Kernel {
     return workspace
   }
   async createSession(workspaceId: string, title?: string, parentId?: string) {
-    const session = await this.storage.call('createSession', workspaceId, title, parentId)
+    const parentRun = parentId ? this.active.get(parentId)?.run : undefined
+    const session = await this.storage.call(
+      'createSession', workspaceId, title, parentId,
+      parentRun ? { kind: 'run', runId: parentRun.id } : undefined,
+    )
     this.changed('sessions')
     return session
   }
@@ -2076,7 +2080,9 @@ export class Kernel {
               binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
             }
             signal?.throwIfAborted()
-            return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+            return this.storage.call(
+              'enqueue', sessionId, requestId, input, modelId, command, binding, this.executionScope.current?.runId,
+            )
           }
           return remoteWorkspace || noLocalExecution
             ? enqueue()

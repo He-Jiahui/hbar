@@ -4,6 +4,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemorySecrets } from '@hbar/kernel/secrets'
+import { HbarClient, createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { createPathLayout } from '@hbar/storage'
 import { commandDescriptorSchema } from '@hbar/commands'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
@@ -27,27 +28,50 @@ test('independent real managed sessions discover command mode and read schemas i
     secrets: new MemorySecrets(),
   })
   const host = await startServer(runtime.kernel, { port: 0, runtime, controller: runtime.controller })
+  const firstDevice = await host.auth.createDevice('First command operator')
+  const secondDevice = await host.auth.createDevice('Second command operator')
+  const firstClient = new HbarClient(`http://127.0.0.1:${host.server.port}`, firstDevice.token)
+  const secondClient = new HbarClient(`http://127.0.0.1:${host.server.port}`, secondDevice.token)
   try {
+    await Promise.all([firstClient.connect(), secondClient.connect()])
     const workspace = (await runtime.storage.call('workspaces'))[0]
     if (!workspace) throw new Error('Command-tool fixture has no workspace')
-    const first = await runtime.storage.call('createSession', workspace.id, 'First command reader')
-    const second = await runtime.storage.call('createSession', workspace.id, 'Second command reader')
+    const first = await createWorkspaceSessionCommandClient(firstClient).execute(
+      'session.create',
+      { workspaceId: workspace.id, title: 'First command reader' },
+      { idempotencyKey: 'first-reader' },
+    )
+    const second = await createWorkspaceSessionCommandClient(secondClient).execute(
+      'session.create',
+      { workspaceId: workspace.id, title: 'Second command reader' },
+      { idempotencyKey: 'second-reader' },
+    )
+    expect((await runtime.storage.call('sessionExecutionPrincipal', first.id))?.actorId).toBe(firstDevice.device.id)
+    expect((await runtime.storage.call('sessionExecutionPrincipal', second.id))?.actorId).toBe(secondDevice.device.id)
     async function call(sessionId: string, name: string, args: Record<string, unknown>) {
-      const run = await runtime.kernel.submit(
-        sessionId,
-        crypto.randomUUID(),
+      const client = sessionId === first.id ? firstClient : secondClient
+      const accepted = await createRunCommandClient(client).execute(
+        'run.submit',
         {
-          text: `/tool ${name} ${JSON.stringify(args)}`,
-          images: [],
-          approval: 'deny',
-          mode: 'plan',
+          sessionId,
+          modelId: 'local-fixture',
+          input: {
+            text: `/tool ${name} ${JSON.stringify(args)}`,
+            images: [],
+            approval: 'deny',
+            mode: 'plan',
+          },
         },
-        'local-fixture',
+        { idempotencyKey: crypto.randomUUID() },
       )
+      const run = await runtime.storage.call('run', accepted.operationId)
       await runtime.waitForIdle()
       const snapshot = await runtime.kernel.snapshot(sessionId)
       expect(snapshot.runs.find((item) => item.id === run.id)?.status).toBe('completed')
       expect(snapshot.approvals).toHaveLength(0)
+      const principal = await runtime.storage.call('runExecutionPrincipal', run.id)
+      expect(principal?.actorId).toBe(sessionId === first.id ? firstDevice.device.id : secondDevice.device.id)
+      expect(principal?.originRunId).toBe(run.id)
       const result = snapshot.messages
         .filter((message) => message.runId === run.id)
         .flatMap((message) => message.content)
@@ -87,6 +111,8 @@ test('independent real managed sessions discover command mode and read schemas i
     expect((await runtime.kernel.plugins.get('goal').get(first.id)).goal).toBeNull()
     expect((await runtime.kernel.plugins.get('goal').get(second.id)).goal).toBeNull()
   } finally {
+    firstClient.disconnect()
+    secondClient.disconnect()
     await host.close()
     await runtime.close()
     await removeOwnedTestDirectory(root, prefix)

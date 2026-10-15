@@ -1,5 +1,7 @@
 import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
+import { createExecutionPrincipalStorage } from './execution-principals'
+import { executionPrincipalSchema, sessionCreationSourceSchema } from '@hbar/contracts/execution-principal'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
 import {
@@ -189,6 +191,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
   const databaseMaintenanceReads = new Set<string>([
     'ready',
     'deviceByHash',
+    'deviceById',
     'devices',
     'pendingNodeExecutionIntents',
     'chatDatabaseOperationRead',
@@ -630,6 +633,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       { readOnly: preflight && !shadowMemory },
     )
     const deviceStorage = createDeviceStorage(db, (id) => chatDatabaseArtifacts.unknownDevice(id, false))
+    const executionPrincipals = createExecutionPrincipalStorage(db)
     const nodeRegistryStorage = createNodeRegistryStorage(db)
     const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
     const nodeExecutionIntentStorage = createNodeExecutionIntentStorage(db)
@@ -1425,6 +1429,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             chain: { ...chain, currentRunId: run.id },
             run,
             ...(manual ? { manual } : {}),
+            executionPrincipal: manual
+              ? executionPrincipalSchema.parse({ version: 1, actorId: manual.command.actorId, originSessionId: run.sessionId, originRunId: run.id })
+              : executionPrincipals.run(original.id),
             launchTarget,
           },
           run.id,
@@ -1669,7 +1676,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       workspace: (id) =>
         readWorkspaceRow(db, required(db.query('SELECT * FROM workspaces WHERE id=?').get(id), 'Workspace')),
-      createSession(workspaceId, title = 'New session', parentId) {
+      sessionExecutionPrincipal: executionPrincipals.session,
+      runExecutionPrincipal: executionPrincipals.run,
+      createSession(workspaceId, title = 'New session', parentId, source) {
         return db.transaction(() => {
           const workspace = methods.workspace(workspaceId)
           if (parentId) methods.session(parentId)
@@ -1683,6 +1692,13 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             updatedAt: Date.now(),
             seq: 0,
           }
+          const origin = source === undefined ? undefined : sessionCreationSourceSchema.parse(source)
+          const sourceRun = origin?.kind === 'run' ? methods.run(origin.runId) : undefined
+          if (sourceRun && sourceRun.sessionId !== parentId)
+            throw new HbarError('EXECUTION_PRINCIPAL_SOURCE', 'A child session must inherit from its actual parent Run')
+          const executionPrincipal = origin?.kind === 'command'
+            ? executionPrincipalSchema.parse({ version: 1, actorId: origin.actorId, originSessionId: session.id, originRunId: null })
+            : sourceRun ? executionPrincipals.run(sourceRun.id) : parentId ? executionPrincipals.session(parentId) : null
           db.query('INSERT INTO sessions VALUES(?,?,?,?,?,?,?,?)').run(
             session.id,
             workspaceId,
@@ -1693,7 +1709,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             session.updatedAt,
             0,
           )
-          appendEvent(session.id, 'session.created', { session, workspace })
+          appendEvent(session.id, 'session.created', { session, workspace, executionPrincipal })
           return methods.session(session.id)
         })()
       },
@@ -1706,7 +1722,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           })
           const prior = entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
           if (prior) return prior
-          const session = methods.createSession(input.workspaceId, input.title)
+          const session = methods.createSession(input.workspaceId, input.title, undefined, { kind: 'command', actorId: input.actorId })
           storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
           return session
         })()
@@ -2730,7 +2746,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           db.query('INSERT INTO compactions VALUES(?,?,?,?)').run(sessionId, throughSeq, summary, event.seq)
           return event
         })(),
-      fork: (sessionId, atSeq) =>
+      fork: (sessionId, atSeq, source) =>
         db.transaction(() => {
           const parent = methods.session(sessionId)
           const boundary = atSeq ?? parent.seq
@@ -2745,7 +2761,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               .get(sessionId, atSeq)
           )
             throw new HbarError('INVALID_BOUNDARY', 'A fork must end at a settled run')
-          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id)
+          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id, source)
           appendEvent(child.id, 'session.forked', { parentId: parent.id, atSeq: boundary })
           for (const row of db
             .query('SELECT * FROM messages WHERE sessionId=? AND seq<=? ORDER BY seq')
@@ -2768,7 +2784,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const payloadHash = entityPayloadHash(commandId, { sessionId: input.sessionId, atSeq: input.atSeq ?? null })
           const prior = entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
           if (prior) return prior
-          const session = methods.fork(input.sessionId, input.atSeq)
+          const session = methods.fork(input.sessionId, input.atSeq, { kind: 'command', actorId: input.actorId })
           storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
           return session
         })()
@@ -2786,7 +2802,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const parent = methods.session(input.sessionId)
           const { target, prefix } = messageForkPrefix(parent.id, input.messageId)
 
-          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id)
+          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id, { kind: 'command', actorId: input.actorId })
           appendEvent(child.id, 'session.forked', {
             parentId: parent.id,
             sourceMessageId: target.id,
@@ -2868,8 +2884,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           return { sessionId: parsed.sessionId, items: parsed.messageIds.map((id) => unique.get(id)!) }
         })()
       },
-      enqueue: (sessionId, requestId, input, modelId, command, launchTarget) =>
+      enqueue: (sessionId, requestId, input, modelId, command, launchTarget, sourceRunId) =>
         db.transaction(() => {
+          const submittedCommand = command === undefined ? undefined : runCommandRecordSchema.parse(command)
           const existing = db
             .query('SELECT * FROM runs WHERE sessionId=? AND requestId=?')
             .get(sessionId, requestId) as Row | null
@@ -2885,6 +2902,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             const original = runSchema.parse((parseJson(queued.data) as { run: unknown }).run)
             if (original.modelId !== modelId || stableJson(original.input) !== stableJson(input))
               throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id was already used with different input')
+            const accepted = z.object({ command: runCommandRecordSchema.optional() }).parse(parseJson(queued.data))
+            if (submittedCommand && stableJson(accepted.command) !== stableJson(submittedCommand))
+              throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id already belongs to a different authenticated submission')
             return prior
           }
           const owner = methods.session(sessionId)
@@ -2902,6 +2922,12 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             endedAt: null,
             error: null,
           }
+          const sourceRun = submittedCommand || sourceRunId === undefined ? undefined : methods.run(idSchema.parse(sourceRunId))
+          if (sourceRun && sourceRun.sessionId !== owner.id && sourceRun.sessionId !== owner.parentId)
+            throw new HbarError('EXECUTION_PRINCIPAL_SOURCE', 'A Run can inherit only from its session or its parent session')
+          const executionPrincipal = submittedCommand
+            ? executionPrincipalSchema.parse({ version: 1, actorId: submittedCommand.actorId, originSessionId: sessionId, originRunId: run.id })
+            : sourceRun ? executionPrincipals.run(sourceRun.id) : executionPrincipals.session(sessionId)
           const retainedLaunchTarget = sessionLaunchTarget.bindToRun(sessionId, run.id, workspace.path, launchTarget)
           db.query(
             'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
@@ -2911,6 +2937,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             'run.queued',
             {
               run,
+              executionPrincipal,
               launchTarget: retainedLaunchTarget,
               workspaceId: owner.workspaceId,
               ...(workspace.location?.kind === 'node'
@@ -2923,7 +2950,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
                     workspaceFoldersSnapshot: workspaceFolders.read(owner.workspaceId),
                   }
                 : {}),
-              ...(command ? { command } : {}),
+              ...(submittedCommand ? { command: submittedCommand } : {}),
             },
             run.id,
           )
@@ -3580,6 +3607,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       putDevice: (device, tokenHash) => deviceStorage.put(device, tokenHash),
       deviceByHash: (hash) => deviceStorage.byHash(hash),
+      deviceById: (id) => deviceStorage.byId(idSchema.parse(id)),
       devices: () => deviceStorage.list(),
       revokeDevice: (id) => deviceStorage.revoke(id),
       nodeIdentityEnsure: (identity) => nodeRegistryStorage.ensureIdentity(identity),

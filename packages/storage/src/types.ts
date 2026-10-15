@@ -1,3 +1,4 @@
+import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/execution-principal'
 import type {
   Approval,
   ArtifactRef,
@@ -408,7 +409,9 @@ export interface StorageMethods {
   workspaceDisplayNamesReceipt(input: WorkspaceDisplayNamesMutationInput): WorkspaceDisplayNamesReceipt | null
   findSession(id: string): Session | null
   workspace(id: string): Workspace
-  createSession(workspaceId: string, title?: string, parentId?: string): Session
+  createSession(workspaceId: string, title?: string, parentId?: string, source?: SessionCreationSource): Session
+  sessionExecutionPrincipal(sessionId: string): ExecutionPrincipal | null
+  runExecutionPrincipal(runId: string): ExecutionPrincipal | null
   createSessionCommand(input: CreateSessionCommandInput): Session
   sessions(): Session[]
   childSessions(parentId: string, after?: string, limit?: number): Session[]
@@ -527,7 +530,7 @@ export interface StorageMethods {
       chunks: number
     },
   ): SessionEvent
-  fork(sessionId: string, atSeq?: number): Session
+  fork(sessionId: string, atSeq?: number, source?: SessionCreationSource): Session
   forkSessionCommand(input: ForkSessionCommandInput): Session
   forkFromMessageCommand(input: ForkFromMessageCommandInput): Session
   forkFromMessageReceipt(input: ForkFromMessageReceiptInput): Session | null
@@ -539,6 +542,7 @@ export interface StorageMethods {
     modelId: string,
     command?: RunCommandRecord,
     launchTarget?: SessionLaunchTargetBindingInput,
+    sourceRunId?: string,
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   runByRequestInWorkspace(
@@ -614,6 +618,7 @@ export interface StorageMethods {
   artifact(id: string): ArtifactRef
   putDevice(device: Device, tokenHash: string): void
   deviceByHash(hash: string): Device | null
+  deviceById(id: string): Device | null
   devices(): Device[]
   revokeDevice(id: string): void
   nodeIdentityEnsure(identity: import('@hbar/contracts/node-registry').NodeRegistryInput<'identity.ensure'>): import('@hbar/contracts/node-registry').NodeRegistryOutput<'identity.ensure'>

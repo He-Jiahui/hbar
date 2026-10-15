@@ -30,6 +30,7 @@
     "./local-execution-policy": "./src/local-execution-policy.ts",
     "./path-containment": "./src/path-containment.ts",
     "./device": "./src/device.ts",
+    "./execution-principal": "./src/execution-principal.ts",
     "./runtime-notifications": "./src/runtime-notifications.ts",
     "./diagnostics": "./src/diagnostics.ts",
     "./diagnostic-context": "./src/diagnostic-context.ts",
