@@ -47,6 +47,7 @@ import { workspaceCreateInputSchema } from '@hbar/contracts/commands/workspaces'
 import { NodeSocketSurface, nodeRequestAllowed } from './node-sockets'
 import { resourceReadInputSchema } from '@hbar/contracts/commands/resources'
 import { createSystemCommands } from './system-commands.ts'
+import { LocalCommandJobs } from './local-command-jobs'
 
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
@@ -173,7 +174,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       service: {
         dispatch: maintenance.dispatch,
         ...(maintenance.dispatchPrepared ? { dispatchPrepared: maintenance.dispatchPrepared } : {}),
-        ...(maintenance.dispatchPreparedTracked ? { dispatchPreparedTracked: maintenance.dispatchPreparedTracked } : {}),
+        ...(maintenance.dispatchPreparedTracked
+          ? { dispatchPreparedTracked: maintenance.dispatchPreparedTracked }
+          : {}),
         describe: (id) => maintenance.describe(id),
         list: () => maintenance.list(),
         prepare: (value) => prepareCommandInvocation(chatDatabaseDefinitions, value),
@@ -434,16 +437,22 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     kernel.createNodeWorkspace(input),
   )
   const remoteWorkspaceCommands = createRemoteWorkspaceCommands(createRemoteWorkspace)
+  const localCommandJobs = new LocalCommandJobs({
+    ...(options.runtime?.commandScopes ? { scopes: options.runtime.commandScopes } : {}),
+  })
   const commandRouter = createCommandRouter({
     catalogs: () => [...commandServices.map(({ service }) => service.list()), systemCommands.list()],
     resolve(id) {
       let dispatch = commandDispatchers.get(id)
       let describe = commandDescribers.get(id)
-      let guarded = Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPrepared
-        : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPrepared
-      let tracked = Object.hasOwn(directoryDefinitions, id) ? kernel.directoryQueries.dispatchPreparedTracked
-        : Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPreparedTracked
-          : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPreparedTracked
+      let guarded = Object.hasOwn(systemDefinitions, id)
+        ? systemCommands.dispatchPrepared
+        : commandServices.find((entry) => entry.commandIds.includes(id))?.service.dispatchPrepared
+      let tracked = Object.hasOwn(directoryDefinitions, id)
+        ? kernel.directoryQueries.dispatchPreparedTracked
+        : Object.hasOwn(systemDefinitions, id)
+          ? systemCommands.dispatchPreparedTracked
+          : commandServices.find((entry) => entry.commandIds.includes(id))?.service.dispatchPreparedTracked
       const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions].find((definitions) =>
         Object.hasOwn(definitions, id),
       )
@@ -467,7 +476,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           const invocation = rpcSchemas['command.execute'].parse(value)
           if (id === 'workspace.create') {
             const input = workspaceCreateInputSchema.safeParse(invocation.input)
-            if (input.success && input.data.path === undefined) return remoteWorkspaceCommands.dispatch(invocation, actorId)
+            if (input.success && input.data.path === undefined)
+              return remoteWorkspaceCommands.dispatch(invocation, actorId)
           }
           return selectedDispatch(invocation, actorId)
         },
@@ -478,7 +488,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             if (input.success && input.data.path === undefined)
               return remoteWorkspaceCommands.dispatchPrepared(invocation, actorId, expectation, executeOptions)
           }
-          if (!guarded) throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch')
+          if (!guarded)
+            throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch')
           return guarded(invocation, actorId, expectation, executeOptions)
         },
         dispatchPreparedTracked(value, actorId, expectation, executeOptions) {
@@ -486,10 +497,31 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           if (id === 'workspace.create') {
             const input = workspaceCreateInputSchema.safeParse(invocation.input)
             if (input.success && input.data.path === undefined)
-              return remoteWorkspaceCommands.dispatchPreparedTracked(invocation, actorId, expectation, executeOptions)
+              return localCommandJobs.execute(
+                actorId,
+                (signal) =>
+                  remoteWorkspaceCommands.dispatchPreparedTracked(invocation, actorId, expectation, {
+                    ...executeOptions,
+                    signal,
+                  }),
+                { signal: executeOptions?.signal },
+              )
           }
-          if (!tracked) throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner has no physical settlement tracking')
-          return tracked(invocation, actorId, expectation, executeOptions)
+          if (!tracked)
+            throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner has no physical settlement tracking')
+          const actual = tracked
+          const managed = Object.hasOwn(directoryDefinitions, id)
+            ? !!options.runtime
+            : Object.hasOwn(chatDatabaseDefinitions, id)
+              ? !!options.runtime?.maintenance || !!options.controller?.application
+              : !!options.controller?.application
+          if (localDefinitions || !managed)
+            return localCommandJobs.execute(
+              actorId,
+              (signal) => actual(invocation, actorId, expectation, { ...executeOptions, signal }),
+              { signal: executeOptions?.signal },
+            )
+          return actual(invocation, actorId, expectation, executeOptions)
         },
       }
     },
@@ -1422,14 +1454,27 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           if (authorization.restricted(device) && url.pathname !== '/api/resource-media')
             throw new HbarError('FORBIDDEN', 'Use scoped resource reads for this device')
           if (url.pathname === '/api/desktop/tray' && request.method === 'GET')
-            return json(request, projectDesktopTrayActions(request.headers.get('accept-language') ?? 'zh-CN'), 200,
-              { 'Cache-Control': 'no-store' })
+            return json(request, projectDesktopTrayActions(request.headers.get('accept-language') ?? 'zh-CN'), 200, {
+              'Cache-Control': 'no-store',
+            })
           if (url.pathname === '/api/desktop/pairing' && request.method === 'POST') {
             const input = desktopPairingRequestSchema.parse(await request.json())
-            const pairing = await systemCommands.execute('pairing.create', { role: input.role, workspaceIds: null },
-              { actorId: device.id })
-            return json(request, projectDesktopPairing(pairing, input.role, hostInfo(device).addresses,
-              request.headers.get('accept-language') ?? 'zh-CN'), 200, { 'Cache-Control': 'no-store' })
+            const pairing = await systemCommands.execute(
+              'pairing.create',
+              { role: input.role, workspaceIds: null },
+              { actorId: device.id },
+            )
+            return json(
+              request,
+              projectDesktopPairing(
+                pairing,
+                input.role,
+                hostInfo(device).addresses,
+                request.headers.get('accept-language') ?? 'zh-CN',
+              ),
+              200,
+              { 'Cache-Control': 'no-store' },
+            )
           }
           if (url.pathname === '/api/desktop/startup' && request.method === 'GET')
             return json(
@@ -1790,12 +1835,14 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     server,
     /** Trusted in-process adapters share the same route as authenticated RPC. */
     commands: commandRouter,
+    commandJobs: localCommandJobs,
     auth,
     pairing,
     info: hostInfo,
     async close() {
       closing = true
       detachCommandRouting?.()
+      localCommandJobs.dispose()
       nodeSockets?.closeAll()
       await application.dispose()
       metricsCommands.dispose()

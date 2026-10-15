@@ -149,6 +149,17 @@ test('a real managed Controller validates command input without creating a recei
       input: {},
     })
     expect(stable.descriptor.metadata.id).toBe('system.paths.get')
+    const stableTicket = host.commands.executePreparedTracked(
+      stable.invocation,
+      operator.device.id,
+      createCommandExpectation(stable),
+    )
+    expect(await stableTicket.result).toMatchObject({ dataRoot: join(root, 'data') })
+    expect(await stableTicket.settled).toMatchObject({ status: 'succeeded', executionStarted: true })
+    expect(host.commandJobs.stats()).toMatchObject({ jobs: 1, active: 0 })
+    if (!stableTicket.acknowledge) throw new Error('Stable Host ticket has no acknowledgment')
+    await stableTicket.acknowledge()
+    expect(host.commandJobs.stats()).toEqual({ jobs: 0, active: 0, waiters: 0, bufferedBytes: 0 })
     expect(
       await host.commands.executePrepared(stable.invocation, operator.device.id, createCommandExpectation(stable)),
     ).toMatchObject({ dataRoot: join(root, 'data') })

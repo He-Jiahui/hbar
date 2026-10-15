@@ -17,6 +17,9 @@ export class HostCommandExecutionScopes {
       operation,
     )
   }
+  hasSource(): boolean {
+    return this.context.getStore() !== undefined
+  }
   beforeStart(owner: CommandExecutionOwner): ((signal: AbortSignal) => Promise<void>) | undefined {
     const scope = this.context.getStore()
     if (!scope) return undefined
