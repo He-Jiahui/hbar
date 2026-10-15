@@ -113,6 +113,16 @@ export interface CommandPreparation {
   readonly invocation: CommandInvocation
 }
 
+/** Trusted admission facts, carried separately from an invocation and its authenticated actor. */
+export const commandExecutionExpectationSchema = z.strictObject({ descriptor: commandDescriptorSchema, input: z.unknown() })
+export type CommandExecutionExpectation = z.output<typeof commandExecutionExpectationSchema>
+export interface CommandPreparedOptions {
+  readonly signal?: AbortSignal
+}
+export interface PreparedCommandRoutingPort extends CommandRoutingPort {
+  executePrepared(invocation: unknown, actorId: string, expectation: CommandExecutionExpectation, options?: CommandPreparedOptions): Promise<unknown>
+}
+
 export const invocationSchema = z.strictObject({
   protocol: z.literal(COMMAND_PROTOCOL_VERSION),
   requestId: z.string().min(1).max(128),
@@ -126,6 +136,7 @@ export type CommandInvocation = z.output<typeof invocationSchema>
 export const commandErrorCodes = [
   'COMMAND_NOT_FOUND',
   'COMMAND_CONFLICT',
+  'COMMAND_PREPARATION_STALE',
   'INVALID_DEFINITION',
   'INVALID_INPUT',
   'INVALID_OUTPUT',

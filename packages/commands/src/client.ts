@@ -5,12 +5,36 @@ import {
   validationError,
   type CommandDefinition,
   type CommandInvocation,
+  type CommandExecutionExpectation,
+  type CommandPreparedOptions,
 } from './protocol'
 import type { ExecuteOptions } from './registry'
 import { checkInvocationSize } from './limits'
 
 export interface CommandExecutor {
   execute(name: string, input: unknown, options?: ExecuteOptions): Promise<unknown>
+  dispatchPrepared?(
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ): Promise<unknown>
+}
+
+/** Explicit owner adapter; ordinary typed clients do not acquire a private execution capability. */
+export function createGuardedCommandDispatcher(executor: CommandExecutor) {
+  return (
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): Promise<unknown> => {
+    if (!executor.dispatchPrepared)
+      return Promise.reject(
+        new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch'),
+      )
+    return executor.dispatchPrepared(value, actorId, expectation, options)
+  }
 }
 
 function parseOutput<Schema extends z.ZodType>(schema: Schema, value: unknown): z.output<Schema> {

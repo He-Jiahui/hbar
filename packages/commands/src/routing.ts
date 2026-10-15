@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { checkInvocationSize } from './limits'
+import { captureCommandExpectation } from './execution-expectation'
 import {
   CommandError,
   commandCatalogQuerySchema,
@@ -7,7 +8,9 @@ import {
   invocationSchema,
   validationError,
   type CommandDescriptor,
-  type CommandRoutingPort,
+  type PreparedCommandRoutingPort,
+  type CommandExecutionExpectation,
+  type CommandPreparedOptions,
   type CommandInvocation,
 } from './protocol'
 
@@ -19,6 +22,12 @@ export interface CommandRoute {
   readonly describe: () => CommandDescriptor
   readonly prepare?: (invocation: unknown) => CommandInvocation | Promise<CommandInvocation>
   readonly dispatch: (invocation: unknown, actorId: string) => Promise<unknown>
+  readonly dispatchPrepared?: (
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ) => Promise<unknown>
 }
 export interface CommandRouterOptions {
   /** Resolve on each call so an owner-generation change cannot leave a cached dispatcher behind. */
@@ -38,7 +47,7 @@ function serializedBytes(value: unknown): number {
 }
 
 /** Shared routing, discovery and bounds. Executable validators, permissions and receipts stay in their owners. */
-export function createCommandRouter(options: CommandRouterOptions): CommandRoutingPort {
+export function createCommandRouter(options: CommandRouterOptions): PreparedCommandRoutingPort {
   const route = (id: string) => {
     const selected = options.resolve(id)
     if (!selected) throw new CommandError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
@@ -133,6 +142,25 @@ export function createCommandRouter(options: CommandRouterOptions): CommandRouti
       const input = invocationSchema.safeParse(value)
       if (!input.success) throw validationError('INVALID_INPUT', input.error)
       return route(input.data.commandId).dispatch(input.data, actor.data)
+    },
+    async executePrepared(value, actorId, expectation, executeOptions = {}) {
+      const actor = actorSchema.safeParse(actorId)
+      if (!actor.success) throw new CommandError('FORBIDDEN', 'A Host-bound command actor is required')
+      if (executeOptions.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
+      checkInvocationSize(value)
+      const invocation = invocationSchema.parse(value)
+      const captured = captureCommandExpectation(expectation)
+      const selected = route(invocation.commandId)
+      if (!selected.dispatchPrepared)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch')
+      captured.assertDescriptor(describe(invocation.commandId, selected))
+      captured.assertInput(invocation.input)
+      return selected.dispatchPrepared(
+        { ...invocation, input: captured.detachInput(invocation.input) },
+        actor.data,
+        captured.detached(),
+        executeOptions,
+      )
     },
   }
 }

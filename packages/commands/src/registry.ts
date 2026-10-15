@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { describeCommand } from './descriptor'
 import { parseArguments, tokenizeCommand } from './parser'
 import { checkInvocationSize } from './limits'
+import { captureCommandExpectation, type CapturedCommandExpectation } from './execution-expectation'
 import {
   COMMAND_PROTOCOL_VERSION,
   CommandError,
@@ -11,6 +12,8 @@ import {
   type CommandDescriptor,
   type CommandMetadata,
   type CommandInvocation,
+  type CommandExecutionExpectation,
+  type CommandPreparedOptions,
 } from './protocol'
 
 export interface CommandContext {
@@ -44,7 +47,7 @@ export interface ExecuteOptions {
 interface Registration {
   readonly descriptor: CommandDescriptor
   readonly parseInput: (value: unknown) => unknown
-  readonly run: (input: unknown, context: CommandContext) => Promise<unknown>
+  readonly run: (input: unknown, context: CommandContext, expectation?: CapturedCommandExpectation) => Promise<unknown>
   readonly active: Set<AbortController>
   readonly durable: boolean
 }
@@ -114,8 +117,10 @@ export class CommandRegistry {
       parseInput,
       active: new Set(),
       durable: options.durable ?? false,
-      async run(value, context) {
-        const result = await handler(parseInput(value), context)
+      async run(value, context, expectation) {
+        const input = parseInput(value)
+        expectation?.assertInput(input)
+        const result = await handler(input, context)
         const parsed = outputSchema.safeParse(result)
         if (!parsed.success) throw validationError('INVALID_OUTPUT', parsed.error)
         return parsed.data
@@ -255,6 +260,32 @@ export class CommandRegistry {
     })
   }
 
+  /** The final owner checks the same definition and normalized arguments that passed tool admission. */
+  async dispatchPrepared(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): Promise<unknown> {
+    checkInvocationSize(value)
+    const invocation = invocationSchema.parse(value)
+    if (!actorId || actorId.length > 160 || !/\S/.test(actorId))
+      throw new CommandError('FORBIDDEN', 'A Host-bound command actor is required')
+    const captured = captureCommandExpectation(expectation)
+    return this.#execute(
+      invocation.commandId,
+      invocation.input,
+      {
+        ...options,
+        actorId,
+        requestId: invocation.requestId,
+        version: invocation.commandVersion,
+        ...(invocation.idempotencyKey ? { idempotencyKey: invocation.idempotencyKey } : {}),
+      },
+      captured,
+    )
+  }
+
   /** Normalize with the registered owner's validator without entering execution or reserving capacity. */
   prepare(value: unknown): CommandInvocation {
     checkInvocationSize(value)
@@ -274,8 +305,18 @@ export class CommandRegistry {
   }
 
   async execute(name: string, value: unknown, options: ExecuteOptions = {}): Promise<unknown> {
+    return this.#execute(name, value, options)
+  }
+
+  async #execute(
+    name: string,
+    value: unknown,
+    options: ExecuteOptions,
+    expectation?: CapturedCommandExpectation,
+  ): Promise<unknown> {
     const registration = this.#find(name)
     const metadata = registration.descriptor.metadata
+    expectation?.assertDescriptor(registration.descriptor)
     if (options.version !== undefined && options.version !== metadata.version)
       throw new CommandError('VERSION_MISMATCH', 'Command version is incompatible')
     // Persistent/external execution is enabled with the journal adapter in A3, never silently memory-only.
@@ -291,7 +332,8 @@ export class CommandRegistry {
     if (registration.durable && metadata.idempotency === 'required' && !options.idempotencyKey)
       throw new CommandError('INVALID_INPUT', 'Durable command requires an idempotency key')
     if (options.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
-    const input = registration.parseInput(value)
+    const input = registration.parseInput(expectation ? expectation.detachInput(value) : value)
+    expectation?.assertInput(input)
     if (this.#active.size >= this.#maxConcurrent || registration.active.size >= metadata.maxConcurrent)
       throw new CommandError('BUSY', 'Command concurrency limit reached')
     const requestId = options.requestId ?? `local-${++this.#requestSequence}`
@@ -344,7 +386,7 @@ export class CommandRegistry {
           throw new CommandError('FORBIDDEN', 'Command capability is not authorized')
         if (controller.signal.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
         enteredHandler = true
-        return registration.run(input, context)
+        return registration.run(input, context, expectation)
       }
       // Retain capacity until the real handler settles, even if it ignores cancellation.
       run().then(
