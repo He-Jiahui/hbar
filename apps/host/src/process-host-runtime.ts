@@ -859,20 +859,40 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private async dispose(): Promise<void> {
     this.closing = true
-    this.disposeStatus()
-    this.statusFeed.close()
-    this.disposeSource()
-    this.sourceAbort.abort()
-    await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
-    await this.sourceTask
+    const errors: unknown[] = []
+    const attempt = async (cleanup: () => void | Promise<void>): Promise<void> => {
+      try {
+        await cleanup()
+      } catch (error) {
+        errors.push(error)
+      }
+    }
+    await attempt(() => this.disposeStatus())
+    await attempt(() => this.statusFeed.close())
+    await attempt(() => this.disposeSource())
+    await attempt(() => this.sourceAbort.abort())
+    const startupOutcomes = await Promise.allSettled([
+      Promise.resolve().then(() => this.startupProbe?.close()),
+      Promise.resolve().then(() => this.startupStorage?.close()),
+    ])
+    for (const outcome of startupOutcomes) {
+      if (outcome.status === 'rejected') {
+        const error: unknown = outcome.reason
+        errors.push(error)
+      }
+    }
+    await attempt(() => this.sourceTask)
     clearInterval(this.sweep)
     for (const record of this.generations.values())
-      if (record.artifact.unitId === 'kernel') await record.process.dispose()
-    await this.storage.close()
-    await this.manager.close()
+      if (record.artifact.unitId === 'kernel') await attempt(() => record.process.dispose())
+    await attempt(() => this.storage.close())
+    await attempt(() => this.manager.close())
     await this.startupTask?.catch(() => {})
-    await this.transitions
-    this.facade.dispose()
+    await attempt(() => this.transitions)
+    await attempt(() => this.facade.dispose())
+    // Closing attempts every release; it does not establish execution/ownership convergence.
+    if (errors.length === 1) throw errors[0]
+    if (errors.length > 1) throw new AggregateError(errors, 'Runtime shutdown failed', { cause: errors[0] })
   }
   private async buildInitial(): Promise<RuntimeArtifact[]> {
     const artifacts: RuntimeArtifact[] = []
