@@ -2101,8 +2101,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           this.stopped.delete(lease.runId)
           await this.wake(lease.sessionId)
         }
-        const index = failure.leases.findIndex((value) => value.runId === lease.runId)
-        if (index >= 0) failure.leases.splice(index, 1)
+        // A Kernel and a captured dependency can fail for the same Run. The
+        // authority reconciliation above verifies ALL interrupted owners exited
+        // and physical resources released; recovery/replay must succeed before
+        // retiring every duplicate bookkeeping reference to that one outcome.
+        for (const interruption of this.interrupted.values()) {
+          const index = interruption.leases.findIndex((value) => value.runId === lease.runId)
+          if (index >= 0) interruption.leases.splice(index, 1)
+        }
         await this.wake(lease.sessionId)
       }
       if (!failure.leases.length) {
