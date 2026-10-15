@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { runtimeDomainError } from '@hbar/runtime'
+import { runtimeDomainError, type RuntimeArtifactPackage } from '@hbar/runtime'
 import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
@@ -18,6 +18,8 @@ export async function runHost(
   args: string[] = Bun.argv.slice(2),
   supervisorCommand: readonly [string, ...string[]] = [process.execPath, import.meta.path],
   runtimeCommand: readonly [string, ...string[]] = hostRuntimeProcessCommand(),
+  loadArtifactPackage: () => Promise<RuntimeArtifactPackage | undefined> = () =>
+    Promise.resolve(embeddedRuntimePackage()),
 ): Promise<void> {
   const { values } = parseArgs({
     args,
@@ -102,7 +104,7 @@ export async function runHost(
   registerHostProcessHandlers(requestShutdown, diagnostics)
   try {
     const dataRootId = await ensureHostDataRootId(layout.settings)
-    const artifactPackage = embeddedRuntimePackage()
+    const artifactPackage = await loadArtifactPackage()
     runtime = await ProcessHostRuntime.open({
       layout,
       diagnostics: diagnostics.sink,

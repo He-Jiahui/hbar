@@ -8,7 +8,9 @@ import {
 } from './host-process'
 import { publicServiceEntry, type PublicServiceEntry } from './service-entry'
 
-declare const HBAR_RUNTIME_PACKAGE_JSON: string | undefined
+function loadRuntimePackage(): Promise<import('@hbar/runtime').RuntimeArtifactPackage | undefined> {
+  return import('./embedded-runtime-package').then(({ loadEmbeddedRuntimePackage }) => loadEmbeddedRuntimePackage())
+}
 
 // Dispatch service roles before loading interactive UI, native terminal packages or command execution.
 if (Bun.argv[2] === INTERNAL_RUNTIME_ROLE) {
@@ -19,15 +21,11 @@ if (Bun.argv[2] === INTERNAL_RUNTIME_ROLE) {
   await new Promise<never>(() => {})
 } else if (Bun.argv[2] === INTERNAL_HOST_ROLE) {
   const { runHost } = await import('@hbar/host')
-  await runHost(Bun.argv.slice(3), internalHostCommand(), internalRuntimeCommand())
+  await runHost(Bun.argv.slice(3), internalHostCommand(), internalRuntimeCommand(), loadRuntimePackage)
   await new Promise<never>(() => {})
 } else if (Bun.argv[2] === INTERNAL_NODE_ROLE) {
   const { runNode } = await import('@hbar/node')
-  const { runtimeArtifactPackageSchema } = await import('@hbar/runtime')
-  const packaged =
-    typeof HBAR_RUNTIME_PACKAGE_JSON === 'undefined'
-      ? undefined
-      : runtimeArtifactPackageSchema.parse(JSON.parse(HBAR_RUNTIME_PACKAGE_JSON))
+  const packaged = await loadRuntimePackage()
   await runNode(Bun.argv.slice(3), { command: internalRuntimeCommand(), ...(packaged ? { packaged } : {}) })
 } else {
   let entry: PublicServiceEntry
@@ -39,11 +37,7 @@ if (Bun.argv[2] === INTERNAL_RUNTIME_ROLE) {
   }
   if (entry.kind === 'workspace') {
     const { runNode } = await import('@hbar/node')
-    const { runtimeArtifactPackageSchema } = await import('@hbar/runtime')
-    const packaged =
-      typeof HBAR_RUNTIME_PACKAGE_JSON === 'undefined'
-        ? undefined
-        : runtimeArtifactPackageSchema.parse(JSON.parse(HBAR_RUNTIME_PACKAGE_JSON))
+    const packaged = await loadRuntimePackage()
     await runNode(entry.argv, { command: internalRuntimeCommand(), ...(packaged ? { packaged } : {}) })
   } else if (entry.kind === 'node') {
     const { runNodeCommand } = await import('@hbar/node')
