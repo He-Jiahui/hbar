@@ -18,13 +18,17 @@ export function createComputerCommandClient(client: ClientTransport) {
   return createCommandClient(computerCommands, {
     async execute(commandId, input, options) {
       try {
-        return await client.call('command.execute', {
-          protocol: COMMAND_PROTOCOL_VERSION,
-          requestId: options?.requestId ?? crypto.randomUUID(),
-          commandId,
-          commandVersion: options?.version ?? 1,
-          input,
-        })
+        return await client.call(
+          'command.execute',
+          {
+            protocol: COMMAND_PROTOCOL_VERSION,
+            requestId: options?.requestId ?? crypto.randomUUID(),
+            commandId,
+            commandVersion: options?.version ?? 1,
+            input,
+          },
+          { signal: options?.signal },
+        )
       } catch (error) {
         if (
           externalCommands.has(commandId) &&
