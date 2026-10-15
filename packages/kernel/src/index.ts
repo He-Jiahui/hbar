@@ -612,14 +612,14 @@ export class Kernel {
     const suppliedStorage =
       storage ??
       new Storage(options.layout.database, options.layout, {
-      ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
-      ...(options.diagnosticScope ? { diagnosticScope: options.diagnosticScope } : {}),
-      ...(options.diagnostics ? { instanceId: this.instanceId } : {}),
+        ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
+        ...(options.diagnosticScope ? { diagnosticScope: options.diagnosticScope } : {}),
+        ...(options.diagnostics ? { instanceId: this.instanceId } : {}),
         ...(options.diagnosticFullCoverage === undefined
           ? {}
           : { diagnosticsFullCoverage: options.diagnosticFullCoverage }),
-      ...(options.onFatal ? { onFatal: options.onFatal } : {}),
-    })
+        ...(options.onFatal ? { onFatal: options.onFatal } : {}),
+      })
     const onFatal = suppliedStorage.onFatal
     const guardedStorage: StoragePort = {
       call: (method, ...args) => {
@@ -637,8 +637,8 @@ export class Kernel {
           this.executionScope.reconcile(
             { runId: run.id, sessionId: run.sessionId, recoveryId: record.recoveryId },
             async () => {
-        await this.plugins.get<BudgetService>('budget').reconcileRun?.(run)
-        await this.plugins.get<GoalService>('goal').reconcileRun?.(run)
+              await this.plugins.get<BudgetService>('budget').reconcileRun?.(run)
+              await this.plugins.get<GoalService>('goal').reconcileRun?.(run)
             },
           ),
         check: (run) => this.checkRuntimeRecovery(run),
@@ -939,8 +939,7 @@ export class Kernel {
       const seenProfilePluginIds = new Set<string>()
       for (const plugin of [...profilePlugins, ...managedPlugins]) {
         const id = plugin.manifest.id
-        if (seenProfilePluginIds.has(id))
-          throw new HbarError('PLUGIN_CONFLICT', `Duplicate profile plugin ID: ${id}`)
+        if (seenProfilePluginIds.has(id)) throw new HbarError('PLUGIN_CONFLICT', `Duplicate profile plugin ID: ${id}`)
         seenProfilePluginIds.add(id)
       }
       const replacementIds = new Set(Object.keys(options.profile?.replacements ?? {}))
@@ -1205,17 +1204,17 @@ export class Kernel {
       this.plugins.add(port)
     } else
       this.plugins.add(
-      localExecutionPlugin(
-        [this.options.layout.dataRoot],
-        {
-          root: this.options.layout.worktrees,
-          protectedRoot: this.options.layout.dataRoot,
-          verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
-        },
-        this.workspaceSandboxes,
-        this.localExecutionPolicy,
-      ),
-    )
+        localExecutionPlugin(
+          [this.options.layout.dataRoot],
+          {
+            root: this.options.layout.worktrees,
+            protectedRoot: this.options.layout.dataRoot,
+            verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
+          },
+          this.workspaceSandboxes,
+          this.localExecutionPolicy,
+        ),
+      )
     this.plugins.add(
       definePlugin({
         manifest: {
@@ -1262,9 +1261,8 @@ export class Kernel {
           }),
       }),
     )
-    for (const plugin of kernelCapabilityPlugins(
-      typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS,
-    )) this.plugins.add(plugin)
+    for (const plugin of kernelCapabilityPlugins(typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS))
+      this.plugins.add(plugin)
     if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
       for (const id of [
         'tools.workspace',
@@ -2476,15 +2474,15 @@ export class Kernel {
             )
           if (type === 'run.driverCompleted') z.strictObject({ version: z.literal(1) }).parse(data)
           const event = await this.append(sessionId, type, data, run.id, stepId)
-              if (type === 'step.started' && stepId && !startedStepIds.has(stepId) && startedStepCount < 1_000_000) {
-                startedStepIds.add(stepId)
-                startedStepCount += 1
-              }
-              if (type === 'step.ended' && stepId && !completedStepIds.has(stepId) && completedStepCount < 1_000_000) {
-                completedStepIds.add(stepId)
-                // This counts durable ended steps, including failed/cancelled model turns.
-                completedStepCount += 1
-              }
+          if (type === 'step.started' && stepId && !startedStepIds.has(stepId) && startedStepCount < 1_000_000) {
+            startedStepIds.add(stepId)
+            startedStepCount += 1
+          }
+          if (type === 'step.ended' && stepId && !completedStepIds.has(stepId) && completedStepCount < 1_000_000) {
+            completedStepIds.add(stepId)
+            // This counts durable ended steps, including failed/cancelled model turns.
+            completedStepCount += 1
+          }
           if (type === 'run.driverCompleted') driverCompletionRecorded = true
           return event
         },
@@ -2504,55 +2502,55 @@ export class Kernel {
             idleTimeout.progress()
           this.updateStream({ id, sessionId, runId: run.id, text, thinking })
         },
-            onModelDiagnostic: (event) => {
-              const method = event.purpose === 'compaction' ? 'context.compaction' : 'model.request'
-              const identity = {
-                sessionId,
-                runId: run.id,
-                requestId: run.requestId,
-                method,
-                providerId: event.providerId,
-                modelSelectionId: event.modelSelectionId,
-                modelRequestId: event.modelRequestId,
-                model: event.model,
-                protocol: event.protocol,
-                stopReason: event.stopReason,
-                httpStatus: event.httpStatus,
-                upstreamRequestIdSha256: event.upstreamRequestIdSha256,
-                transportKind: event.transportKind,
-                transportCode: event.transportCode,
-                failureKind: event.failureKind,
-                failurePhase: event.failurePhase,
-                streamSubtype: event.streamSubtype,
-                streamEventCount: event.streamEventCount,
-                streamTextChars: event.streamTextChars,
-                streamThinkingChars: event.streamThinkingChars,
-                streamFirstEventMs: event.streamFirstEventMs,
-                streamLastEventMs: event.streamLastEventMs,
-                streamErrorClass: event.streamErrorClass,
-                errorCode: event.errorCode,
-              }
-              if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
-              else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)
-              else if (event.phase === 'transport_failure')
-                this.executionDiagnostics.providerTransportFailure(identity, event.transportKind, event.transportCode)
-              else if (event.phase === 'settled')
-                this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
-              else if (event.phase === 'cancelled') {
-                this.executionDiagnostics.providerRequestSettled(identity, 'skipped', event.durationMs ?? 0)
-                if (event.modelRequestId) reportedModelCancellations.add(event.modelRequestId)
-              } else {
-                this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
-                if (event.modelRequestId && !reportedModelFailures.has(event.modelRequestId)) {
-                  reportedModelFailures.add(event.modelRequestId)
-                  this.executionDiagnostics.modelFailed(
-                    { ...identity, stepId: event.modelRequestId },
-                    event.errorCode,
-                    event.durationMs,
-                  )
-                }
-              }
-            },
+        onModelDiagnostic: (event) => {
+          const method = event.purpose === 'compaction' ? 'context.compaction' : 'model.request'
+          const identity = {
+            sessionId,
+            runId: run.id,
+            requestId: run.requestId,
+            method,
+            providerId: event.providerId,
+            modelSelectionId: event.modelSelectionId,
+            modelRequestId: event.modelRequestId,
+            model: event.model,
+            protocol: event.protocol,
+            stopReason: event.stopReason,
+            httpStatus: event.httpStatus,
+            upstreamRequestIdSha256: event.upstreamRequestIdSha256,
+            transportKind: event.transportKind,
+            transportCode: event.transportCode,
+            failureKind: event.failureKind,
+            failurePhase: event.failurePhase,
+            streamSubtype: event.streamSubtype,
+            streamEventCount: event.streamEventCount,
+            streamTextChars: event.streamTextChars,
+            streamThinkingChars: event.streamThinkingChars,
+            streamFirstEventMs: event.streamFirstEventMs,
+            streamLastEventMs: event.streamLastEventMs,
+            streamErrorClass: event.streamErrorClass,
+            errorCode: event.errorCode,
+          }
+          if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
+          else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)
+          else if (event.phase === 'transport_failure')
+            this.executionDiagnostics.providerTransportFailure(identity, event.transportKind, event.transportCode)
+          else if (event.phase === 'settled')
+            this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
+          else if (event.phase === 'cancelled') {
+            this.executionDiagnostics.providerRequestSettled(identity, 'skipped', event.durationMs ?? 0)
+            if (event.modelRequestId) reportedModelCancellations.add(event.modelRequestId)
+          } else {
+            this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
+            if (event.modelRequestId && !reportedModelFailures.has(event.modelRequestId)) {
+              reportedModelFailures.add(event.modelRequestId)
+              this.executionDiagnostics.modelFailed(
+                { ...identity, stepId: event.modelRequestId },
+                event.errorCode,
+                event.durationMs,
+              )
+            }
+          }
+        },
         execute: async (name, args, callId) => {
           const effectiveMode = await this.plugins.get<ModeService>('mode').effectiveMode(run)
           const effectiveRun =
@@ -2577,8 +2575,8 @@ export class Kernel {
               !compactedForCapacity &&
               (contextExceedsCapacity(request) ||
                 this.plugins
-                .get<CompactionProvider>('compaction')
-                .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100))
+                  .get<CompactionProvider>('compaction')
+                  .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100))
             ) {
               await this.compactInternal(
                 sessionId,
@@ -2650,21 +2648,21 @@ export class Kernel {
             }
             break
           }
-              this.executionDiagnostics.modelPrepared({
-                sessionId,
-                runId: run.id,
-                requestId: run.requestId,
-                stepId,
-                method: 'model.request',
-              })
-              modelStartedAt.set(stepId, performance.now())
-              this.executionDiagnostics.modelStarted({
-                sessionId,
-                runId: run.id,
-                requestId: run.requestId,
-                stepId,
-                method: 'model.request',
-              })
+          this.executionDiagnostics.modelPrepared({
+            sessionId,
+            runId: run.id,
+            requestId: run.requestId,
+            stepId,
+            method: 'model.request',
+          })
+          modelStartedAt.set(stepId, performance.now())
+          this.executionDiagnostics.modelStarted({
+            sessionId,
+            runId: run.id,
+            requestId: run.requestId,
+            stepId,
+            method: 'model.request',
+          })
           await this.append(
             sessionId,
             'request.started',
@@ -2690,11 +2688,12 @@ export class Kernel {
           modelStartedAt.delete(stepId)
           const failed = reportedModelFailures.has(stepId)
           const cancelled = !failed && (controller.signal.aborted || reportedModelCancellations.has(stepId))
-          this.executionDiagnostics.modelSettled(
-            { sessionId, runId: run.id, requestId: run.requestId, stepId },
-            failed ? 'failure' : cancelled ? 'skipped' : 'success',
-            startedAt === undefined ? 0 : performance.now() - startedAt,
-          )
+          if (startedAt !== undefined)
+            this.executionDiagnostics.modelSettled(
+              { sessionId, runId: run.id, requestId: run.requestId, stepId },
+              failed ? 'failure' : cancelled ? 'skipped' : 'success',
+              performance.now() - startedAt,
+            )
 
           // A failed or cancelled turn must not start new model work at its end.
           // In particular, a summary failure must not replace the original provider error.
@@ -2757,15 +2756,15 @@ export class Kernel {
               ? 'interrupted'
               : 'failed'
         failure = cause instanceof Error ? cause.message : String(cause)
-            for (const [stepId, startedAt] of modelStartedAt) {
-              if (reportedModelFailures.has(stepId)) continue
-              this.executionDiagnostics.modelFailed(
-                { sessionId, runId: run.id, requestId: run.requestId, stepId },
-                failureDetails.code,
-                performance.now() - startedAt,
-              )
-            }
-            modelStartedAt.clear()
+        for (const [stepId, startedAt] of modelStartedAt) {
+          if (reportedModelFailures.has(stepId)) continue
+          this.executionDiagnostics.modelFailed(
+            { sessionId, runId: run.id, requestId: run.requestId, stepId },
+            failureDetails.code,
+            performance.now() - startedAt,
+          )
+        }
+        modelStartedAt.clear()
       }
     } finally {
       idleTimeout.dispose()
@@ -2776,32 +2775,32 @@ export class Kernel {
           await this.storage.call('closeRunSteering', sessionId, run.id)
         }
         const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
-          const durationMs = Math.max(0, performance.now() - runDiagnosticStartedAt)
-          if (status === 'cancelled')
-            this.executionDiagnostics.runCancelled({ sessionId, runId: run.id, requestId: run.requestId }, durationMs, {
+        const durationMs = Math.max(0, performance.now() - runDiagnosticStartedAt)
+        if (status === 'cancelled')
+          this.executionDiagnostics.runCancelled({ sessionId, runId: run.id, requestId: run.requestId }, durationMs, {
+            startedStepCount,
+            completedStepCount,
+          })
+        else if (status === 'interrupted')
+          this.executionDiagnostics.runInterrupted(
+            { sessionId, runId: run.id, requestId: run.requestId },
+            failureDetails?.code,
+            durationMs,
+            { startedStepCount, completedStepCount },
+          )
+        else
+          this.executionDiagnostics.runSettled(
+            { sessionId, runId: run.id, requestId: run.requestId },
+            status === 'completed' ? 'success' : 'failure',
+            durationMs,
+            failureDetails?.code,
+            failureDetails?.code === RUN_STEP_LIMIT_CODE ? 'step_limit' : undefined,
+            {
               startedStepCount,
               completedStepCount,
-            })
-          else if (status === 'interrupted')
-            this.executionDiagnostics.runInterrupted(
-              { sessionId, runId: run.id, requestId: run.requestId },
-              failureDetails?.code,
-              durationMs,
-              { startedStepCount, completedStepCount },
-            )
-          else
-            this.executionDiagnostics.runSettled(
-              { sessionId, runId: run.id, requestId: run.requestId },
-              status === 'completed' ? 'success' : 'failure',
-              durationMs,
-              failureDetails?.code,
-              failureDetails?.code === RUN_STEP_LIMIT_CODE ? 'step_limit' : undefined,
-              {
-                startedStepCount,
-                completedStepCount,
-                ...(failureDetails?.code === RUN_STEP_LIMIT_CODE ? { hardStepLimit: 64 } : {}),
-              },
-            )
+              ...(failureDetails?.code === RUN_STEP_LIMIT_CODE ? { hardStepLimit: 64 } : {}),
+            },
+          )
 
         if (branchExecutionPath !== null && branchTargetRevision !== null) {
           const observedPath = branchExecutionPath
@@ -2848,11 +2847,11 @@ export class Kernel {
             void this.executionScope
               .observe(() =>
                 this.taskNotification(
-              'retry_failed',
-              sessionId,
-              run.id,
-              '任务失败',
-              '任务执行失败，请检查错误后重试。',
+                  'retry_failed',
+                  sessionId,
+                  run.id,
+                  '任务失败',
+                  '任务执行失败，请检查错误后重试。',
                 ),
               )
               .catch((error) => console.error('Task notification failed:', error))
@@ -3276,7 +3275,7 @@ export class Kernel {
               kind: 'process' as const,
               authority: nodeAuthority,
             }
-        : undefined
+          : undefined
       if (authority && this.options.execution?.reserveTool && !tool.runtimeOwner)
         permitId = (await this.options.execution.reserveTool(authority, executionIdentity.callId)).id
       const startEvent = await this.storage.call(
@@ -3414,9 +3413,9 @@ export class Kernel {
             executed,
             (file, mime, bytes) =>
               this.upload(file, mime, bytes, {
-              actorId: 'host-tools',
-              owner: { kind: 'session', id: executionIdentity.sessionId, clientRevision: 0 },
-            }),
+                actorId: 'host-tools',
+                owner: { kind: 'session', id: executionIdentity.sessionId, clientRevision: 0 },
+              }),
             controller.signal,
           )
           if (captured.length) images = captured
@@ -3564,12 +3563,12 @@ export class Kernel {
     }
     const evaluated = remoteWorkspace
       ? await this.workspaceExecutionScopes.run({ workspace: context.workspace, signal: context.signal }, async () => {
-            const ownerPaths = await remoteSandboxPathPort(
-              this.plugins.get<ExecutionProvider>('execution'),
-              context.workspace,
-              context.signal,
-            )
-            return evaluate(ownerPaths.root, ownerPaths.port)
+          const ownerPaths = await remoteSandboxPathPort(
+            this.plugins.get<ExecutionProvider>('execution'),
+            context.workspace,
+            context.signal,
+          )
+          return evaluate(ownerPaths.root, ownerPaths.port)
         })
       : await evaluate(context.workspace.path)
     const { verdict } = evaluated
