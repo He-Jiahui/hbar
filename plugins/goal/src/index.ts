@@ -60,6 +60,15 @@ const runAccountingSchema = z.object({
   repairKey: z.string().optional(),
 })
 type RunAccounting = z.infer<typeof runAccountingSchema>
+/** Control accounting keeps its Run correlation in payload, never borrows the active execution lease. */
+function accountingRunIdentity(event: SessionEvent): string | undefined {
+  if (event.type !== 'goal.accounted') return event.runId ?? undefined
+  const parsed = z.object({ accountingRunId: z.string().min(1).max(160).optional() }).safeParse(event.data)
+  if (!parsed.success) throw new HbarError('GOAL_REPLAY', 'Invalid Goal accounting identity')
+  if (event.runId && parsed.data.accountingRunId && event.runId !== parsed.data.accountingRunId)
+    throw new HbarError('GOAL_REPLAY', 'Goal accounting Run identities disagree')
+  return event.runId ?? parsed.data.accountingRunId
+}
 
 async function readGoalEvents(
   sessions: Pick<SessionService, 'readEventPage'>,
@@ -265,12 +274,14 @@ class GoalRuntime implements GoalService {
               if (
                 ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type) &&
                 checkpoint.success &&
-                event.runId
+                accountingRunIdentity(event)
               ) {
                 if (checkpoint.data.accounting.sessionId !== session.id)
                   throw new HbarError('GOAL_REPLAY', `Invalid run accounting in ${session.id}`)
-                this.activeRuns.set(event.runId, checkpoint.data.accounting)
-                this.boundRuns.add(event.runId)
+                const accountingId = accountingRunIdentity(event)
+                if (!accountingId) throw new HbarError('GOAL_REPLAY', 'Goal accounting is missing its Run identity')
+                this.activeRuns.set(accountingId, checkpoint.data.accounting)
+                this.boundRuns.add(accountingId)
               }
               if (event.type === 'goal.cleared') {
                 this.goals.delete(session.id)
@@ -644,6 +655,7 @@ class GoalRuntime implements GoalService {
     runId: string,
     mode: AccountingMode,
     finalRun?: Run,
+    persistence: 'execution' | 'control' = 'execution',
   ): Promise<PersistedGoal | null> {
     const existing = this.goals.get(sessionId)
     const tracking = this.activeRuns.get(runId)
@@ -700,14 +712,14 @@ class GoalRuntime implements GoalService {
       tokensAccounted: tracking.tokensAccounted + tokenDelta,
       timeAccounted: Math.max(tracking.timeAccounted, totalTime),
     }
-    return this.persist(goal, runId, 'goal.accounted', accounting)
+    return this.persist(goal, persistence === 'control' ? undefined : runId, 'goal.accounted', accounting, true, runId)
   }
 
   private async accountActiveRunsUnlocked(sessionId: string, mode: AccountingMode) {
     const runIds = [...this.activeRuns.entries()]
       .filter(([, tracking]) => tracking.goalId === this.goals.get(sessionId)?.goalId)
       .map(([runId]) => runId)
-    for (const runId of runIds) await this.accountProgressUnlocked(sessionId, runId, mode)
+    for (const runId of runIds) await this.accountProgressUnlocked(sessionId, runId, mode, undefined, 'control')
   }
 
   private validateObjective(value: string) {
@@ -732,6 +744,7 @@ class GoalRuntime implements GoalService {
     type = 'goal.updated',
     accounting?: RunAccounting,
     wake = true,
+    accountedRunId = runId,
   ) {
     goal = await this.withBudget(goal)
     if (
@@ -740,13 +753,22 @@ class GoalRuntime implements GoalService {
       !(goal.status === 'paused' && goal.continuationIntent.phase === 'stopped')
     )
       goal = this.withContinuation(goal, 'stopped', goal.status as 'paused' | 'complete' | 'blocked' | 'usage_limited')
-    const event = await this.append(goal.threadId, type, { goal, ...(accounting ? { accounting } : {}) }, runId)
+    const event = await this.append(
+      goal.threadId,
+      type,
+      {
+        goal,
+        ...(accounting ? { accounting } : {}),
+        ...(accounting && accountedRunId && !runId ? { accountingRunId: accountedRunId } : {}),
+      },
+      runId,
+    )
     this.rememberTriggers(goal)
     this.goals.set(goal.threadId, goal)
     this.sequences.set(goal.threadId, event.seq)
-    if (accounting && runId) {
-      this.activeRuns.set(runId, accounting)
-      this.boundRuns.add(runId)
+    if (accounting && accountedRunId) {
+      this.activeRuns.set(accountedRunId, accounting)
+      this.boundRuns.add(accountedRunId)
     }
     this.api.notify({
       method: 'goal.updated',
@@ -1049,7 +1071,10 @@ class GoalRuntime implements GoalService {
         this.sequences.set(run.sessionId, event.seq)
         this.rememberTriggers(goal)
       } else if (event.type === 'goal.cleared') this.goals.delete(run.sessionId)
-      if (event.runId === run.id && ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type)) {
+      if (
+        accountingRunIdentity(event) === run.id &&
+        ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type)
+      ) {
         const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
         if (checkpoint.success) this.activeRuns.set(run.id, checkpoint.data.accounting)
       }
@@ -1081,11 +1106,13 @@ class GoalRuntime implements GoalService {
           this.sequences.set(sessionId, event.seq)
           this.rememberTriggers(goal)
         }
-        if (event.runId && ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type)) {
+        if (accountingRunIdentity(event) && ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type)) {
           const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
           if (checkpoint.success) {
-            this.activeRuns.set(event.runId, checkpoint.data.accounting)
-            this.boundRuns.add(event.runId)
+            const accountingId = accountingRunIdentity(event)
+            if (!accountingId) throw new HbarError('GOAL_REPLAY', 'Goal accounting is missing its Run identity')
+            this.activeRuns.set(accountingId, checkpoint.data.accounting)
+            this.boundRuns.add(accountingId)
           }
         }
       }
