@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import type { ExecutionOwnership, RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
@@ -29,7 +30,7 @@ export class RuntimeDriverRelay {
           lease.owner.generation !== peer.remote.generation || lease.runId !== input.run.id || lease.sessionId !== input.session.id)
           throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Driver start must belong to the authenticated Kernel executor')
         this.options.coordinator.assertCanWrite(peer.remote, lease)
-        const signature = JSON.stringify(input)
+        const signature = createHash('sha256').update(JSON.stringify(input)).digest('hex')
         const existing = this.invocations.get(input.invocationId)
         if (existing) {
           if (existing.kernel !== peer || existing.signature !== signature)
