@@ -1,3 +1,4 @@
+import { scopeRuntimeDiagnostic } from './runtime-diagnostic-scope'
 import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
@@ -1310,7 +1311,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         record.cleanup.push(
           peer.onEvent('runtime.diagnostic', diagnosticEventSchema, (event) => {
             try {
-              this.options.diagnostics?.emit({ ...event, instanceId: this.instanceId })
+              this.options.diagnostics?.emit(scopeRuntimeDiagnostic(event, owner, this.instanceId))
             } catch {
               /* A journal observer never owns runtime recovery. */
             }
