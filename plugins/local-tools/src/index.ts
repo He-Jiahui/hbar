@@ -802,11 +802,15 @@ export default definePlugin({
         if (before.split(oldText).length !== 2)
           throw new HbarError('EDIT_CONFLICT', 'Expected exactly one matching occurrence')
         c.signal.throwIfAborted()
-        const details = await execution.write(
-          c.workspace.path,
-          args.path as string,
-          before.replace(oldText, args.newText as string),
-        )
+        const details = await execution
+          .write(c.workspace.path, args.path as string, before.replace(oldText, args.newText as string), {
+            expectedRevision: revision(before),
+          })
+          .catch((error: unknown) => {
+            if (error instanceof HbarError && error.code === 'FILE_CONFLICT')
+              throw new HbarError('EDIT_CONFLICT', 'File changed after reading; reload it before editing')
+            throw error
+          })
         return {
           text: `Edited ${args.path}`,
           details: { path: details.path, revision: details.revision, created: details.created },
