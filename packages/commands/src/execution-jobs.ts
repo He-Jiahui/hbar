@@ -95,8 +95,10 @@ function bound(value: number, minimum: number, maximum: number): number {
   return value
 }
 
-/** Reject non-JSON output and recursive/oversized structures before stringifying. Never invoke output getters. */
-function encodePayload(value: unknown, maxBytes: number): string {
+/** Validate bounded JSON before encoding. Optional undefined object fields follow ordinary JSON transport semantics. */
+export function encodeCommandResult(value: unknown, maxBytes = 33_554_432): string {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 33_554_432)
+    throw new RangeError('Command result byte capacity is invalid')
   const pending: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }]
   let nodes = 0,
     estimatedBytes = 0
@@ -121,6 +123,7 @@ function encodePayload(value: unknown, maxBytes: number): string {
         elements++
         estimatedBytes += new TextEncoder().encode(key).byteLength
         const child: unknown = descriptor.value
+        if (child === undefined && !array) continue
         pending.push({ value: child, depth: item.depth + 1 })
         if (nodes + pending.length > 65_536 || estimatedBytes > maxBytes) throw new Error('Payload exceeds bounds')
       }
@@ -301,7 +304,10 @@ export class CommandExecutionJobs {
   }
   private capture(value: unknown): StoredPayload {
     try {
-      const encoded = encodePayload(value, Math.min(this.maxPayloadBytes, this.maxBufferedBytes - this.bufferedBytes))
+      const encoded = encodeCommandResult(
+        value,
+        Math.min(this.maxPayloadBytes, this.maxBufferedBytes - this.bufferedBytes),
+      )
       const bytes = new TextEncoder().encode(encoded).byteLength
       this.bufferedBytes += bytes
       return { description: { kind: 'json', bytes, units: encoded.length }, encoded }

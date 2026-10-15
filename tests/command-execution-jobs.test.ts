@@ -10,11 +10,14 @@ import {
 } from '@hbar/commands'
 import {
   CommandExecutionJobs,
+  encodeCommandResult,
   commandJobLogicalResultSchema,
   commandJobSnapshotSchema,
   type CommandJobIdentity,
   type CommandJobSnapshot,
 } from '@hbar/commands/jobs'
+import { settingDescriptorSchema, resolvedSettingSchema } from '@hbar/contracts'
+import { resolveSettings } from '../packages/kernel/src/settings'
 
 function deferred<Value>() {
   let resolve: (value: Value) => void = () => {
@@ -73,6 +76,41 @@ function read(
   throw new Error('Command chunk cursor failed to finish')
 }
 const source = { jobId: 'job', actorId: 'operator' }
+
+test('real unset settings results preserve the ordinary JSON wire shape through tracked command receipts', async () => {
+  const descriptor = settingDescriptorSchema.parse({
+    id: 'fixture.unset',
+    title: 'Unset setting',
+    root: 'plugins',
+    scopes: ['global'],
+    schema: { type: 'string' },
+  })
+  const value = resolveSettings([descriptor], 'global', {}, {}, {})[descriptor.id]
+  expect(value).toBeDefined()
+  expect(resolvedSettingSchema.safeParse(value).success).toBe(true)
+  expect(value).toHaveProperty('effectiveValue', undefined)
+  const jobs = new CommandExecutionJobs()
+  try {
+    jobs.start(source, () => completed(value))
+    const state = await waitFor(jobs, source, (current) => !!current.logical && current.physical.phase === 'settled')
+    expect(state.logical?.kind).toBe('json')
+    expect(read(jobs, source, 'logical')).toEqual({ ok: true, result: JSON.parse(JSON.stringify(value)) as unknown })
+    expect(read(jobs, source, 'physical')).toEqual({
+      status: 'succeeded',
+      executionStarted: true,
+      result: JSON.parse(JSON.stringify(value)) as unknown,
+    })
+    jobs.acknowledge(source)
+  } finally {
+    jobs.dispose()
+  }
+  expect(encodeCommandResult({ optional: undefined, nested: { optional: undefined, text: '中文' } })).toBe(
+    '{"nested":{"text":"中文"}}',
+  )
+  for (const invalid of [undefined, [undefined], { value: () => {} }, { value: Symbol('invalid') }])
+    expect(() => encodeCommandResult(invalid)).toThrow()
+  expect(() => encodeCommandResult({}, 33_554_433)).toThrow('capacity')
+})
 
 test('a real late write result remains available after logical timeout and occupies its job until acknowledgment', async () => {
   const release = deferred<void>(),
