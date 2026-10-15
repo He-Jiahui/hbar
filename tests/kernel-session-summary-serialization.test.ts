@@ -29,10 +29,10 @@ async function waitFor(predicate: () => boolean): Promise<void> {
 interface SummaryGate {
   readonly entered: Deferred
   readonly release: Deferred
-  readonly failure?: Error
+  readonly failure?: unknown
 }
 
-async function createFixture() {
+async function createFixture(options: { readonly storageCloseFailure?: unknown } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-summary-coalescing-'))
   const storage = new Storage(join(root, 'state.sqlite'))
   await storage.call('ready')
@@ -43,6 +43,7 @@ async function createFixture() {
   let summaryCalls = 0
   let activeReads = 0
   let maxActiveReads = 0
+  let storagePortClosed = false
   const port: StoragePort = {
     call: async <K extends keyof StorageMethods>(method: K, ...args: Parameters<StorageMethods[K]>) => {
       if (method === 'sessionSummary' && gateEnabled) {
@@ -55,7 +56,7 @@ async function createFixture() {
           if (gate) {
             gate.entered.resolve()
             await gate.release.promise
-            if (gate.failure) throw gate.failure
+            if ('failure' in gate) throw gate.failure
           }
           return snapshot as ReturnType<StorageMethods[K]>
         } finally {
@@ -64,7 +65,10 @@ async function createFixture() {
       }
       return storage.call(method, ...args)
     },
-    close: async () => {},
+    close: () => {
+      storagePortClosed = true
+      return 'storageCloseFailure' in options ? Promise.reject(options.storageCloseFailure) : Promise.resolve()
+    },
   }
   const kernel = await Kernel.create({
     home: join(root, 'data'),
@@ -88,6 +92,12 @@ async function createFixture() {
     },
     get maxActiveReads() {
       return maxActiveReads
+    },
+    get activeReads() {
+      return activeReads
+    },
+    get storagePortClosed() {
+      return storagePortClosed
     },
   }
 }
@@ -197,7 +207,7 @@ test('public Kernel releases a failed summary read and publishes the latest pend
   }
 })
 
-test('public Kernel close suppresses a blocked session summary publication', async () => {
+test('public Kernel close waits for a blocked summary before storage retirement and suppresses publication', async () => {
   const fixture = await createFixture()
   const summaries: unknown[] = []
   fixture.kernel.subscribe((event) => {
@@ -207,10 +217,87 @@ test('public Kernel close suppresses a blocked session summary publication', asy
   fixture.enableGates()
   await fixture.kernel.append(fixture.sessionId, 'fixture.changed', { index: 0 })
   await fixture.gates[0]?.entered.promise
-  await fixture.kernel.close()
-  fixture.gates[0]?.release.resolve()
-  await new Promise((resolve) => setTimeout(resolve, 120))
-  expect(summaries).toHaveLength(0)
-  await fixture.storage.close()
-  await rm(fixture.root, { recursive: true, force: true })
+  let closed = false
+  const close = fixture.kernel.close().then(() => {
+    closed = true
+  })
+  try {
+    await Bun.sleep(0)
+    expect(closed).toBe(false)
+    expect(fixture.activeReads).toBe(1)
+    expect(fixture.storagePortClosed).toBe(false)
+    fixture.gates[0]?.release.resolve()
+    await close
+    expect(closed).toBe(true)
+    expect(fixture.activeReads).toBe(0)
+    expect(fixture.storagePortClosed).toBe(true)
+    expect(summaries).toHaveLength(0)
+  } finally {
+    for (const gate of fixture.gates) gate.release.resolve()
+    await close
+    await fixture.storage.close()
+    await rm(fixture.root, { recursive: true, force: true })
+  }
+})
+
+test('public Kernel close retires storage after a settled failed summary and then propagates the failure', async () => {
+  const fixture = await createFixture()
+  const failure = new Error('controlled-summary-shutdown-read-failure')
+  const gate = { entered: deferred(), release: deferred(), failure }
+  fixture.gates.push(gate)
+  fixture.enableGates()
+  try {
+    await fixture.kernel.append(fixture.sessionId, 'fixture.changed', { index: 0 })
+    await gate.entered.promise
+    const outcome = fixture.kernel.close().then(
+      () => ({ ok: true as const }),
+      (error: unknown) => ({ ok: false as const, error }),
+    )
+    gate.release.resolve()
+    const result = await outcome
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('EXPECTED_SUMMARY_DRAIN_FAILURE')
+    expect(result.error).toMatchObject({ code: 'SUMMARY_DRAIN_FAILED' })
+    expect(fixture.activeReads).toBe(0)
+    expect(fixture.storagePortClosed).toBe(true)
+  } finally {
+    gate.release.resolve()
+    await fixture.storage.close()
+    await rm(fixture.root, { recursive: true, force: true })
+  }
+})
+
+test('settled falsy summary and storage cleanup failures are both preserved after cleanup attempts', async () => {
+  const fixture = await createFixture({ storageCloseFailure: 0 })
+  const gate = { entered: deferred(), release: deferred(), failure: false }
+  fixture.gates.push(gate)
+  fixture.enableGates()
+  try {
+    await fixture.kernel.append(fixture.sessionId, 'fixture.changed', { index: 0 })
+    await gate.entered.promise
+    const outcome = fixture.kernel.close().then(
+      () => ({ ok: true as const }),
+      (error: unknown) => ({ ok: false as const, error }),
+    )
+    gate.release.resolve()
+    const result = await outcome
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('EXPECTED_AGGREGATED_SHUTDOWN_FAILURE')
+    expect(result.error).toBeInstanceOf(AggregateError)
+    if (!(result.error instanceof AggregateError)) throw result.error
+    const errors: unknown[] = result.error.errors
+    expect(errors).toHaveLength(2)
+    expect(errors[1]).toBe(0)
+    const summaryError = errors[0]
+    if (!(summaryError instanceof Error)) throw new Error('EXPECTED_SUMMARY_FAILURE')
+    expect(summaryError.cause).toBeInstanceOf(AggregateError)
+    if (!(summaryError.cause instanceof AggregateError)) throw new Error('EXPECTED_SUMMARY_CAUSE')
+    expect(summaryError.cause.errors).toEqual([false])
+    expect(fixture.activeReads).toBe(0)
+    expect(fixture.storagePortClosed).toBe(true)
+  } finally {
+    gate.release.resolve()
+    await fixture.storage.close()
+    await rm(fixture.root, { recursive: true, force: true })
+  }
 })
