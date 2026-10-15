@@ -30,6 +30,8 @@ type WorkspaceExpectation = { kind: 'textContains'; value: string } | { kind: 's
 async function fixture(
   initialVerifier: 'tool' | 'workspace' = 'tool',
   workspaceExpectation: WorkspaceExpectation = { kind: 'textContains', value: 'correct proof' },
+  initialTools = ['read_file', 'write_file'],
+  deferInitialFocus = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-proof-freshness-'))
   await writeFile(join(root, 'proof.txt'), 'correct proof')
@@ -48,7 +50,7 @@ async function fixture(
   const workflows = kernel.plugins.get<WorkflowService>('workflow')
   await goals.create(session.id, 'Keep the proof correct until completion')
   const plan = await plans.update(session.id, [{ step: 'Produce verified proof', status: 'in_progress' }])
-  const focus = async (tools = ['read_file', 'write_file'], verifier: 'tool' | 'workspace' = initialVerifier) =>
+  const focus = async (tools = initialTools, verifier: 'tool' | 'workspace' = initialVerifier) =>
     workflows.focus(
       session.id,
       0,
@@ -78,7 +80,9 @@ async function fixture(
       'agent',
       plan.revision,
     )
-  await focus()
+  // Publish the canonical item once, after custom tools exist; changing scope on
+  // the same active canonical Plan revision is intentionally rejected.
+  if (!deferInitialFocus) await focus()
   const run = async (name: string, args: Record<string, unknown>) => {
     await kernel.submit(
       session.id,
@@ -254,7 +258,12 @@ test('stable focus checkpoint rejects replacement focus and changed Plan while n
 })
 
 test('completion cannot race an in-flight mutation and a partial failure cannot reuse old proof', async () => {
-  const { root, kernel, session, workflows, focus, run, check, complete } = await fixture()
+  const { root, kernel, session, workflows, focus, run, check, complete } = await fixture(
+    'tool',
+    { kind: 'textContains', value: 'correct proof' },
+    ['read_file', 'delayed_write'],
+    true,
+  )
   const entered = Promise.withResolvers<void>()
   const finish = Promise.withResolvers<void>()
   kernel.tools.register({
@@ -270,7 +279,7 @@ test('completion cannot race an in-flight mutation and a partial failure cannot 
       throw new Error('Fixture failed after changing the file')
     },
   })
-  await focus(['read_file', 'delayed_write'])
+  await focus()
   await run('read_file', { path: 'proof.txt' })
   await kernel.submit(
     session.id,
@@ -302,7 +311,12 @@ test('denied mutations preserve valid evidence because execution never starts', 
 })
 
 test('a late read result cannot validate a replacement focus', async () => {
-  const { kernel, session, focus, check } = await fixture()
+  const { kernel, session, focus, check } = await fixture(
+    'tool',
+    { kind: 'textContains', value: 'correct proof' },
+    ['delayed_read'],
+    true,
+  )
   const entered = Promise.withResolvers<void>()
   const finish = Promise.withResolvers<void>()
   kernel.tools.register({
@@ -317,7 +331,7 @@ test('a late read result cannot validate a replacement focus', async () => {
       return { text: 'correct proof' }
     },
   })
-  await focus(['delayed_read'])
+  await focus()
   await kernel.submit(session.id, 'late-read', { text: '/tool delayed_read {}', images: [] }, 'local-fixture')
   try {
     await entered.promise
@@ -418,7 +432,12 @@ test('restart retains invalid proof and permits bounded focus repair without rep
 })
 
 test('clearing a Goal during a mutation does not leave the cancelled workflow permanently locked', async () => {
-  const { kernel, session, goals, workflows, focus } = await fixture()
+  const { kernel, session, goals, workflows, focus } = await fixture(
+    'tool',
+    { kind: 'textContains', value: 'correct proof' },
+    ['delayed_change'],
+    true,
+  )
   const entered = Promise.withResolvers<void>()
   const finish = Promise.withResolvers<void>()
   kernel.tools.register({
@@ -433,7 +452,7 @@ test('clearing a Goal during a mutation does not leave the cancelled workflow pe
       return { text: 'settled' }
     },
   })
-  await focus(['delayed_change'])
+  await focus()
   await kernel.submit(
     session.id,
     'clear-during-write',

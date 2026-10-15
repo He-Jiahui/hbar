@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { z } from 'zod'
-import { HbarError, providerSchema } from '@hbar/contracts'
+import { HbarError, providerSchema, type WorkflowFocusPlanItemInput } from '@hbar/contracts'
 import type {
   GoalService,
   ModeService,
@@ -23,7 +23,7 @@ afterEach(async () => {
   }
 })
 
-async function fixture() {
+async function fixture(initialFocus?: WorkflowFocusPlanItemInput, completionPolicy: 'agent' | 'user' = 'agent') {
   const root = await mkdtemp(join(tmpdir(), 'hbar-sequence-'))
   await writeFile(join(root, 'proof.txt'), 'initial')
   const kernel = await Kernel.create({
@@ -45,7 +45,9 @@ async function fixture() {
   await workflows.focus(
     session.id,
     0,
-    {
+    // The first focus publishes this canonical definition. Scope repair starts
+    // from its deliberately narrow scope rather than illegally replacing it.
+    initialFocus ?? {
       id: 'proof',
       title: 'Produce verified proof',
       scope: { readPaths: ['proof.txt'], writePaths: ['proof.txt'], tools: ['read_file', 'write_file'] },
@@ -57,7 +59,7 @@ async function fixture() {
         },
       ],
     },
-    'agent',
+    completionPolicy,
     plan.revision,
   )
   const run = async (calls: ToolSequenceCall[]) => {
@@ -109,10 +111,7 @@ const scopeRepairCalls: ToolSequenceCall[] = [
 ]
 
 async function misfocused(completionPolicy: 'agent' | 'user' = 'agent') {
-  const resource = await fixture()
-  await resource.workflows.focus(
-    resource.session.id,
-    0,
+  return fixture(
     {
       id: 'proof',
       title: 'Produce verified proof',
@@ -129,9 +128,7 @@ async function misfocused(completionPolicy: 'agent' | 'user' = 'agent') {
       ],
     },
     completionPolicy,
-    1,
   )
-  return resource
 }
 
 test('declared pre-execution scope denial is recorded, repaired and verified in one model request', async () => {
@@ -181,8 +178,18 @@ for (const conflict of ['stale-plan', 'replaced-focus', 'explicit-revision'] as 
               {
                 id: 'proof',
                 title: 'Replaced focus',
-                scope: { readPaths: [], writePaths: [], tools: [] },
-                acceptanceChecks: [],
+                scope: { readPaths: ['elsewhere'], writePaths: [], tools: ['read_file'] },
+                acceptanceChecks: [
+                  {
+                    id: 'content',
+                    description: 'Correct proof',
+                    verifier: {
+                      kind: 'tool',
+                      toolName: 'read_file',
+                      result: { kind: 'textContains', value: 'verified proof' },
+                    },
+                  },
+                ],
               },
               'agent',
               1,
@@ -449,22 +456,14 @@ test('scope-gated catalog tools stay denied until expansion and then regain stan
 })
 
 test('scope-expanded large reads keep the standalone escape hatch after bounded sequence output', async () => {
-  const { kernel, root, session, workflows, run } = await fixture()
-  const plan = await kernel.plugins.get<PlanService>('plan').get(session.id)
-  if (!plan) throw new Error('Missing fixture plan')
+  const { kernel, root, session, workflows, run } = await fixture({
+    id: 'proof',
+    title: 'Produce verified proof',
+    scope: { readPaths: [], writePaths: ['proof.txt'], tools: ['write_file'] },
+    acceptanceChecks: [],
+  })
   await writeFile(join(root, 'proof.txt'), 'large proof '.repeat(900))
-  const focused = await workflows.focus(
-    session.id,
-    0,
-    {
-      id: 'proof',
-      title: 'Produce verified proof',
-      scope: { readPaths: [], writePaths: ['proof.txt'], tools: ['write_file'] },
-      acceptanceChecks: [],
-    },
-    'agent',
-    plan.revision,
-  )
+  const focused = await workflows.get(session.id)
   const snapshot = await run([
     {
       name: 'workflow_expand_scope',
