@@ -136,7 +136,7 @@ import type {
 import { createKernelExecutionDiagnostics, toolFailureDiagnosticCode } from './execution-diagnostics'
 import { kernelCapabilityPlugins } from './plugin-composition'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
-import { SessionSummaryCoordinator } from './session-summary-coordinator'
+import { SessionSummaryCoordinator, SessionSummaryDrainError } from './session-summary-coordinator'
 import type { SessionSummaryOverride } from './session-summary-coordinator'
 import {
   definePlugin,
@@ -1358,6 +1358,8 @@ export class Kernel {
       })
     } catch (error) {
       console.error('Session summary failed:', error)
+      // During shutdown the coordinator join must observe failed issued reads.
+      if (this.closing) throw error
     }
   }
   async createWorkspace(path: string) {
@@ -4569,6 +4571,40 @@ export class Kernel {
     await this.waitForIdle()
     for (const pending of this.userInputs.values())
       await pending.settle(undefined, new HbarError('USER_INPUT_CANCELLED', 'Host shutting down'))
+    let settledSummaryFailure: SessionSummaryDrainError | undefined
+    try {
+      await this.sessionSummaryCoordinator.closeAndWait()
+    } catch (error) {
+      // Only a fully settled failed drain is safe to retire; timeout/abort remain unconfirmed.
+      if (
+        !(error instanceof SessionSummaryDrainError) ||
+        error.code !== 'SUMMARY_DRAIN_FAILED' ||
+        error.pendingOperations !== 0
+      )
+        throw error
+      settledSummaryFailure = error
+    }
+    if (settledSummaryFailure) {
+      // Narrow failed-summary path: preserve original cleanup order and retain every failure.
+      const failures: unknown[] = [settledSummaryFailure]
+      try {
+        await this.plugins.close()
+      } catch (error) {
+        failures.push(error)
+      }
+      try {
+        this.workspaceSandboxes.dispose()
+      } catch (error) {
+        failures.push(error)
+      }
+      try {
+        await this.storage.close()
+      } catch (error) {
+        failures.push(error)
+      }
+      if (failures.length === 1) throw settledSummaryFailure
+      throw new AggregateError(failures, 'Kernel cleanup failed after settled summary publications')
+    }
     await this.plugins.close()
     this.workspaceSandboxes.dispose()
     await this.storage.close()

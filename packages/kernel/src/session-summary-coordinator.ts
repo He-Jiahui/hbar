@@ -11,6 +11,24 @@ interface InFlightSummary {
   publishable: boolean
 }
 
+type SummarySettlement = { readonly ok: true } | { readonly ok: false; readonly error: unknown }
+
+export interface SessionSummaryDrainOptions {
+  readonly timeoutMs?: number | undefined
+  readonly signal?: AbortSignal | undefined
+}
+
+export class SessionSummaryDrainError extends Error {
+  constructor(
+    readonly code: 'SUMMARY_DRAIN_TIMEOUT' | 'SUMMARY_DRAIN_FAILED',
+    readonly pendingOperations: number,
+    options?: ErrorOptions,
+  ) {
+    super(code, options)
+    this.name = 'SessionSummaryDrainError'
+  }
+}
+
 export interface SessionSummaryCoordinatorOptions {
   readonly delayMs?: number | undefined
   readonly setTimer?: ((callback: () => void, delayMs: number) => SessionSummaryTimer) | undefined
@@ -25,6 +43,8 @@ export class SessionSummaryCoordinator {
   private readonly setTimer: (callback: () => void, delayMs: number) => SessionSummaryTimer
   private readonly clearTimer: (timer: SessionSummaryTimer) => void
   private closed = false
+  private readonly operations = new Set<Promise<SummarySettlement>>()
+  private readonly closeErrors: unknown[] = []
 
   constructor(
     private readonly publish: (
@@ -69,6 +89,46 @@ export class SessionSummaryCoordinator {
     this.inFlight.clear()
   }
 
+  /** Join issued work; timeout/abort do not cancel storage calls or authorize storage retirement. */
+  async closeAndWait(options: SessionSummaryDrainOptions = {}): Promise<void> {
+    const timeoutMs = options.timeoutMs ?? 5_000
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647)
+      throw new RangeError('Summary drain timeout must be a positive timer-safe integer')
+    this.close()
+    const signal = options.signal
+    signal?.throwIfAborted()
+    const pending = [...this.operations]
+    if (!pending.length) {
+      this.assertDrainSucceeded()
+      return
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let abort: (() => void) | undefined
+    try {
+      const interrupted = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new SessionSummaryDrainError('SUMMARY_DRAIN_TIMEOUT', this.operations.size)),
+          timeoutMs,
+        )
+        abort = () => reject(signal?.reason)
+        signal?.addEventListener('abort', abort, { once: true })
+        if (signal?.aborted) abort()
+      })
+      await Promise.race([Promise.all(pending), interrupted])
+      this.assertDrainSucceeded()
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      if (abort) signal?.removeEventListener('abort', abort)
+    }
+  }
+
+  private assertDrainSucceeded(): void {
+    if (this.closeErrors.length)
+      throw new SessionSummaryDrainError('SUMMARY_DRAIN_FAILED', this.operations.size, {
+        cause: new AggregateError(this.closeErrors, 'Summary publications failed during drain'),
+      })
+  }
+
   private scheduleTimer(sessionId: string): void {
     if (this.closed || this.timers.has(sessionId) || this.inFlight.has(sessionId)) return
     const timer = this.setTimer(() => {
@@ -92,12 +152,27 @@ export class SessionSummaryCoordinator {
       const latest = { ...override, ...pending }
       return latest.activity === override.activity && latest.activeRunId === override.activeRunId
     }
-    const operation = Promise.resolve().then(() => this.publish(sessionId, override, isCurrent))
-    void operation
-      .catch(() => undefined)
-      .finally(() => {
-        if (this.inFlight.get(sessionId) === state) this.inFlight.delete(sessionId)
-        if (!this.closed && this.pending.has(sessionId)) this.scheduleTimer(sessionId)
-      })
+    const publication = Promise.resolve().then(() => {
+      if (!this.closed) return this.publish(sessionId, override, isCurrent)
+      return undefined
+    })
+    const settled: Promise<SummarySettlement> = publication.then(
+      (): SummarySettlement => ({ ok: true }),
+      (error: unknown): SummarySettlement => ({ ok: false, error }),
+    )
+    const operation = settled.then((result): SummarySettlement => {
+      if (this.closed && !result.ok) this.closeErrors.push(result.error)
+      this.operations.delete(operation)
+      if (this.inFlight.get(sessionId) === state) this.inFlight.delete(sessionId)
+      if (!this.closed && this.pending.has(sessionId)) {
+        try {
+          this.scheduleTimer(sessionId)
+        } catch (error) {
+          return { ok: false, error }
+        }
+      }
+      return result
+    })
+    this.operations.add(operation)
   }
 }
