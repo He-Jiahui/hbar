@@ -137,6 +137,91 @@ interface Interruption {
 }
 const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${version.unitId}:${version.generation}`
 
+/** Bounded remembered scheduling notifications, never Run submissions or execution authority. */
+export class DeferredRuntimeWakeups {
+  private readonly sessions = new Map<
+    string,
+    { readonly since: number; failed: boolean; delivering: boolean; renewed: boolean }
+  >()
+  private closed = false
+  constructor(
+    private readonly maximum = 4096,
+    private readonly observe?: (
+      phase: 'defer' | 'flush' | 'failed' | 'capacity' | 'close',
+      sessionId: string | undefined,
+      pending: number,
+      durationMs: number,
+    ) => void,
+  ) {
+    if (!Number.isSafeInteger(maximum) || maximum < 1 || maximum > 4096)
+      throw new RangeError('Invalid deferred wake capacity')
+  }
+  defer(sessionId: string): void {
+    if (this.closed) return
+    if (!sessionId || sessionId.length > 160) throw new HbarError('INVALID_INPUT', 'Invalid deferred Session identity')
+    const existing = this.sessions.get(sessionId)
+    if (existing) {
+      if (existing.delivering) existing.renewed = true
+      return
+    }
+    if (this.sessions.size >= this.maximum) {
+      this.report('capacity', sessionId, this.sessions.size, 0)
+      throw new HbarError('EXECUTION_CAPACITY', 'Deferred scheduling notification capacity is exhausted')
+    }
+    this.sessions.set(sessionId, { since: performance.now(), failed: false, delivering: false, renewed: false })
+    this.report('defer', sessionId, this.sessions.size, 0)
+  }
+  async flush(
+    canAdmit: (sessionId: string) => boolean,
+    wake: (sessionId: string) => Promise<void>,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    // One bounded snapshot per externally triggered reconciliation; denied entries do not spin.
+    for (const [sessionId, notification] of [...this.sessions]) {
+      signal?.throwIfAborted()
+      if (this.closed) return
+      if (this.sessions.get(sessionId) !== notification || notification.delivering || !canAdmit(sessionId)) continue
+      // In-flight delivery retains its slot; another flush cannot deliver it twice.
+      notification.delivering = true
+      notification.renewed = false
+      try {
+        await wake(sessionId)
+        if (this.sessions.get(sessionId) === notification) {
+          this.sessions.delete(sessionId)
+          if (notification.renewed && !this.closed)
+            this.sessions.set(sessionId, { since: performance.now(), failed: false, delivering: false, renewed: false })
+        }
+        this.report('flush', sessionId, this.sessions.size, performance.now() - notification.since)
+      } catch (error: unknown) {
+        notification.delivering = false
+        if (!notification.failed) {
+          notification.failed = true
+          this.report('failed', sessionId, this.sessions.size, performance.now() - notification.since)
+        }
+        throw error
+      }
+    }
+  }
+  private report(
+    phase: 'defer' | 'flush' | 'failed' | 'capacity' | 'close',
+    sessionId: string | undefined,
+    pending: number,
+    durationMs: number,
+  ): void {
+    try {
+      this.observe?.(phase, sessionId, pending, durationMs)
+    } catch {
+      // Observational failures never change queue admission or delivery outcomes.
+    }
+  }
+  close(): void {
+    if (this.closed) return
+    this.closed = true
+    const pending = this.sessions.size
+    this.sessions.clear()
+    if (pending) this.report('close', undefined, pending, 0)
+  }
+}
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
   private readonly processTree = createRuntimeProcessTreePort()
@@ -198,6 +283,29 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private readonly interrupted = new Map<string, Interruption>()
   private readonly stopped = new Set<string>()
   private readonly resumed = new Set<string>()
+  private readonly deferredWakeups = new DeferredRuntimeWakeups(4096, (phase, sessionId, pending, durationMs) => {
+    this.emitProcessLifecycleDiagnostic({
+      component: 'host',
+      level: phase === 'failed' || phase === 'capacity' ? 'warn' : 'debug',
+      event: `host.deferred_wake.${phase}`,
+      phase,
+      ...(sessionId ? { sessionId } : {}),
+      instanceId: this.instanceId,
+      processId: process.pid,
+      pending,
+      durationMs,
+      errorCode:
+        phase === 'defer'
+          ? 'ADMISSION_DENIED'
+          : phase === 'failed'
+            ? 'WAKE_DELIVERY_FAILED'
+            : phase === 'capacity'
+              ? 'EXECUTION_CAPACITY'
+              : phase === 'close'
+                ? 'HOST_CLOSING'
+                : 'ADMISSION_RESTORED',
+    })
+  })
   private readonly relay: RuntimeDriverRelay
   private readonly pluginRelay: RuntimePluginRelay
   private readonly resources: RuntimeResourceRegistry
@@ -862,6 +970,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.disposeStatus()
     this.statusFeed.close()
     this.disposeSource()
+    this.deferredWakeups.close()
     this.sourceAbort.abort()
     await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
     await this.sourceTask
@@ -1502,7 +1611,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       registerRuntimeCoordinatorPort(peer, this.coordinator, {
         owner,
         bindings: (caller, sessionId) => this.bindings(caller, sessionId),
-        canAdmit: (sessionId) => this.canAdmit(sessionId),
+        canAdmit: (sessionId) => {
+          const admitted = this.canAdmit(sessionId)
+          if (!admitted && !this.closing) this.deferredWakeups.defer(sessionId)
+          return admitted
+        },
         admitted: (lease) => {
           this.pendingClaims.delete(lease.runId)
           this.leases.set(lease.runId, lease)
@@ -1972,6 +2085,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
     await this.refreshKernels()
     await this.resume()
+    await this.deferredWakeups.flush(
+      (sessionId) => this.canAdmit(sessionId),
+      (sessionId) => this.wake(sessionId),
+      this.sourceAbort.signal,
+    )
   }
   private async reconcileClaim(draft: ExecutionOwnership, kernel: RuntimeKernelEndpoint): Promise<void> {
     const receipt = await this.storage.call('runtimeExecutionRead', draft.runId)
@@ -2008,7 +2126,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.resumed.add(kernel.owner.incarnation)
   }
   private async wake(sessionId: string): Promise<void> {
-    if (!this.canAdmit(sessionId)) return
+    if (!this.canAdmit(sessionId)) {
+      if (!this.closing) this.deferredWakeups.defer(sessionId)
+      return
+    }
     await this.currentKernel().process.call('kernel.wake', { sessionId }, z.undefined())
   }
   private async handoff(lease: ExecutionOwnership): Promise<void> {
