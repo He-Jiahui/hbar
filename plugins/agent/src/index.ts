@@ -245,9 +245,9 @@ export class AgentRuntime implements AgentService {
     })
   }
 
-  private async children(parentSessionId: string): Promise<{ seed: CreatedAgent; record: AgentRecord }[]> {
+  private async childSeeds(parentSessionId: string): Promise<CreatedAgent[]> {
     await this.sessions.get(parentSessionId)
-    const result: { seed: CreatedAgent; record: AgentRecord }[] = []
+    const result: CreatedAgent[] = []
     let after: string | undefined
     let scanned = 0
     for (;;) {
@@ -256,15 +256,20 @@ export class AgentRuntime implements AgentService {
       if (scanned > MAX_SCANNED_CHILD_SESSIONS) throw new HbarError('AGENT_LIMIT', 'Too many child sessions')
       for (const session of candidates) {
         const seed = await this.created(session.id)
-        if (seed) result.push({ seed, record: await this.record(seed) })
+        if (seed) result.push(seed)
         if (result.length > MAX_CHILDREN) throw new HbarError('AGENT_LIMIT', 'Too many direct child agents')
       }
       if (candidates.length < 200) break
       after = candidates.at(-1)!.id
     }
-    return result.sort((left, right) => left.record.agentId.localeCompare(right.record.agentId))
+    return result.sort((left, right) => left.agentId.localeCompare(right.agentId))
   }
 
+  private async children(parentSessionId: string): Promise<{ seed: CreatedAgent; record: AgentRecord }[]> {
+    const result: { seed: CreatedAgent; record: AgentRecord }[] = []
+    for (const seed of await this.childSeeds(parentSessionId)) result.push({ seed, record: await this.record(seed) })
+    return result
+  }
   async create(
     input: AgentCreateInput,
     context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },
@@ -776,8 +781,9 @@ export class AgentRuntime implements AgentService {
         await visit(child.sessionId)
       }
     }
-    const direct = (await this.children(parentSessionId)).find(({ record }) => record.agentId === agentId)
-    if (!direct) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not a direct child of the target session')
+    const seed = (await this.childSeeds(parentSessionId)).find((candidate) => candidate.agentId === agentId)
+    if (!seed) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not a direct child of the target session')
+    const direct = { seed, record: await this.record(seed) }
     if (direct.record.patch && ['ready', 'conflict'].includes(direct.record.patch.status)) {
       const patch = agentPatchSchema.parse({ ...direct.record.patch, status: 'rejected' })
       await this.persistPatch(direct.seed, patch)
