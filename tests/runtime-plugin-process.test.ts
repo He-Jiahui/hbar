@@ -18,13 +18,14 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
   const marker = join(root, 'effect.txt'), source = join(root, 'plugin.ts')
   await writeFile(source, `
     import { z } from 'zod'
-    import { writeFile } from 'node:fs/promises'
+    import { readFile, writeFile } from 'node:fs/promises'
     import { definePlugin, provide } from '@hbar/plugin-sdk'
     import { createRuntimePlugin } from '../../apps/host/src/runtime-plugin-process'
-    const plugin = definePlugin({ manifest: { id: 'owned.fixture', name: 'Owned fixture', description: 'Process boundary verification', version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', provides: { budget: '1.0.0' }, permissions: [] },
+    const plugin = definePlugin({ manifest: { id: 'owned.fixture', name: 'Owned fixture', description: 'Process boundary verification', version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', provides: { budget: '1.0.0', execution: '1.0.0' }, permissions: [] },
       configSchema: z.object({ limit: z.number().int().positive().default(9) }),
       apply(ctx, config) {
         provide(ctx, 'budget', { get: async sessionId => ({ pid: process.pid, session: await ctx.hbar.api.sessions.get(sessionId), page: await ctx.hbar.api.sessions.readEventPage({ sessionId, afterSeq: 0, types: ['automation.changed'], limit: 5, maxReplyBytes: 1024 }), limit: config.limit }) })
+        provide(ctx, 'execution', { readBytes: async () => readFile(${JSON.stringify(join(root, 'missing-private.txt'))}) })
         ctx.hbar.api.tools.register({ name: 'owned_write', description: 'Write once inside the owner', effect: 'write', inputSchema: z.object({ count: z.number().int().positive().default(7) }),
           execute: async (args, c) => { await writeFile(${JSON.stringify(marker)}, String(args.count)); return { text: 'owned:' + process.pid, details: { osConfinement: c.osConfinement, nodeAuthority: c.nodeAuthority } } } })
         ctx.hbar.api.hooks.on('goal.beforeComplete', value => ({ ...value, commit: async () => { await value.commit() } }))
@@ -69,6 +70,11 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
       }
       throw new Error('Unexpected fixture API method: ' + method)
     }
+    const missingFile = runtimePluginResultSchema.parse(await port.call('invoke', [
+      { operation: 'capability', name: 'execution', method: 'readBytes', catalog: state.tools }, [root, 'missing-private.txt'], host,
+    ]))
+    expect(missingFile).toMatchObject({ kind: 'error', code: 'ENOENT' })
+    expect(JSON.stringify(missingFile)).not.toContain(root)
     const validation = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'validate', name: 'owned_write', catalog: state.tools }, [{}], host]))
     expect(validation).toEqual({ kind: 'value', value: { count: 7 } })
     const capability = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'capability', name: 'budget', method: 'get', catalog: state.tools }, ['session'], host]))

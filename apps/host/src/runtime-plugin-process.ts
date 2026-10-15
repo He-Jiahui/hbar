@@ -325,10 +325,18 @@ export function createRuntimePlugin(
           } catch (error) {
             if (error instanceof RunControlSignal) return { kind: 'control', control: error.control }
             const domain = runtimeDomainError(error)
+            // Compare-and-create file commands need an absent baseline to remain
+            // distinguishable across the execution owner. Never transport raw OS paths.
+            const missingWorkspacePath =
+              request.operation === 'capability' && request.name === 'execution' &&
+              ['read', 'readBytes', 'list', 'canonicalize'].includes(request.method ?? '') &&
+              error instanceof Error && 'code' in error && error.code === 'ENOENT'
             return {
               kind: 'error',
-              code: domain?.code ?? (error instanceof z.ZodError ? 'INVALID_TOOL_INPUT' : 'RUNTIME_PLUGIN_FAILED'),
-              message: domain?.message ?? 'The owned plugin invocation failed',
+              code: domain?.code ??
+                (missingWorkspacePath ? 'ENOENT' : error instanceof z.ZodError ? 'INVALID_TOOL_INPUT' : 'RUNTIME_PLUGIN_FAILED'),
+              message: domain?.message ??
+                (missingWorkspacePath ? 'The workspace path does not exist' : 'The owned plugin invocation failed'),
             }
           } finally {
             await Promise.allSettled([...pending])
