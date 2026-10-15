@@ -849,7 +849,7 @@ export const agentPlugin = definePlugin({
     api.hooks.on('tools.select', (event) => runtime.selectProfileTools(event))
     api.hooks.on('tools.advertise', (event) => runtime.advertiseProfile(event))
     api.hooks.on('tools.advertise', (event) => runtime.advertiseTaskGuidance(event))
-    api.hooks.on('tool.before', async (event) => {
+    api.hooks.on('tool.admitting', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)
       return event
     })

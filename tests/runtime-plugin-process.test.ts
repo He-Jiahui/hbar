@@ -28,6 +28,10 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
         ctx.hbar.api.tools.register({ name: 'owned_write', description: 'Write once inside the owner', effect: 'write', inputSchema: z.object({ count: z.number().int().positive().default(7) }),
           execute: async (args, c) => { await writeFile(${JSON.stringify(marker)}, String(args.count)); return { text: 'owned:' + process.pid, details: { osConfinement: c.osConfinement, nodeAuthority: c.nodeAuthority } } } })
         ctx.hbar.api.hooks.on('goal.beforeComplete', value => ({ ...value, commit: async () => { await value.commit() } }))
+        ctx.hbar.api.hooks.on('tool.admitting', value => {
+          if (value.args.count === 13) throw new Error('Final admission fixture rejected the call')
+          return { ...value, args: { count: 99 } }
+        })
       } })
     export const create = context => createRuntimePlugin(context, { plugins: [plugin] })
   `)
@@ -78,6 +82,16 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
         run: { id: 'run', sessionId: 'session', requestId: 'request', input: { text: '', images: [], approval: 'sandbox', sandbox }, modelId: 'model', status: 'running', createdAt: 1, startedAt: 1, endedAt: null, error: null },
         nodeAuthority,
         osConfinement: { level: 'elevated', writableRoots: [root], readableRoots: [root], networkEnabled: false, envOverrides: { LANG: 'C' } } }
+    const admitted = runtimePluginResultSchema.parse(await port.call('invoke', [
+      { operation: 'hook', name: 'tool.admitting', catalog: state.tools },
+      [{ name: 'owned_write', args: { count: 7 }, context: toolContext, tool: state.tools[0] }], host,
+    ]))
+    expect(admitted).toMatchObject({ kind: 'value', value: { args: { count: 99 } } })
+    const admissionDenied = runtimePluginResultSchema.parse(await port.call('invoke', [
+      { operation: 'hook', name: 'tool.admitting', catalog: state.tools },
+      [{ name: 'owned_write', args: { count: 13 }, context: toolContext, tool: state.tools[0] }], host,
+    ]))
+    expect(admissionDenied.kind).toBe('error')
     const executed = runtimePluginResultSchema.parse(await port.call('invoke', [{ operation: 'execute', name: 'owned_write', catalog: state.tools },
       [{ count: 7 }, toolContext], host]))
     expect(executed.kind).toBe('value'); expect(await readFile(marker, 'utf8')).toBe('7')

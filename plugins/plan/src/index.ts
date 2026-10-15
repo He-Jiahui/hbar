@@ -499,7 +499,7 @@ export const planPlugin = definePlugin({
       commitExit: (sessionId, commit) => runtime.commitExit(sessionId, commit),
     })
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))
-    ctx.hbar.api.hooks.on('tool.before', ({ name, context, tool }) => runtime.enforceReadOnly(name, context, tool))
+    ctx.hbar.api.hooks.on('tool.admitting', ({ name, context, tool }) => runtime.enforceReadOnly(name, context, tool))
     ctx.hbar.api.hooks.on('run.end', async ({ sessionId, run, status }) => {
       if (status !== 'completed' || run.input.mode !== 'plan') return
       const current = await runtime.get(sessionId)

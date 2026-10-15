@@ -3139,6 +3139,11 @@ export class Kernel {
       const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args
+      // Transforming Hooks have finished. Scope/read-only gates inspect the exact
+      // validated execution arguments without receiving a mutable execution payload.
+      await scope.hooks.dispatch('tool.admitting', { name, args: structuredClone(args), context, tool })
+      restoreExecutionFacts()
+      assertBoundary()
       await this.assertRunPermission(context.run)
       const mode = requestedMode ?? this.permissionModeValue
       let nodeAdmission: NodeCallAuthority['admission'] = { kind: 'allow' }

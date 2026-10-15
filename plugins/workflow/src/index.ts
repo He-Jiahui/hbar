@@ -4093,7 +4093,7 @@ export const workflowPlugin = definePlugin({
     api.hooks.on('run.start', (event) => runtime.startReviewer(event))
     api.hooks.on('run.end', (event) => runtime.settleTargetRun(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
-    api.hooks.on('tool.before', async (event) => {
+    api.hooks.on('tool.admitting', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)
       return event
     })
