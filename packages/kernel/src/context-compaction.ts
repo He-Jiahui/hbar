@@ -140,23 +140,32 @@ export function nextSummaryChunk(
   nextOffset: number
 } {
   const source = request.messages[0]
+  const { runId: contextRunId, ...contextWithoutRun } = request.context ?? {
+    sessionId: source?.sessionId ?? 'context',
+    runId: undefined,
+  }
+  const summaryRunId = contextRunId || source?.runId || ''
   const chunkRequest = (text: string): ModelRequest => ({
     ...request,
     system: `${SUMMARY_INSTRUCTIONS}\nMerge this chunk into the prior checkpoint; retain accepted facts, evidence, failures, required verification, and next steps.`,
     messages: [
       {
         id: source?.id ?? 'context-summary',
-        sessionId: source?.sessionId ?? request.context?.sessionId ?? 'context',
-        runId: source?.runId ?? request.context?.runId ?? '',
+        sessionId: request.context?.sessionId ?? source?.sessionId ?? 'context',
+        runId: summaryRunId,
         seq: source?.seq ?? 0,
         createdAt: source?.createdAt ?? 0,
         role: 'user',
         content: [{ type: 'text', text: `Prior summary:\n${previous}\n\nNext history chunk:\n${text}` }],
       },
     ],
-    ...(request.context
-      ? { context: { ...request.context, thinking: summaryThinkingLevel(request.model, request.context.thinking) } }
-      : {}),
+    context: {
+      ...contextWithoutRun,
+      sessionId: request.context?.sessionId ?? source?.sessionId ?? 'context',
+      ...(contextRunId ? { runId: contextRunId } : {}),
+      ...(!summaryRunId ? { purpose: 'context-inspection' as const } : {}),
+      thinking: summaryThinkingLevel(request.model, request.context?.thinking),
+    },
   })
   const inputLimit = Math.min(
     request.model.contextWindow - request.model.maxOutput,

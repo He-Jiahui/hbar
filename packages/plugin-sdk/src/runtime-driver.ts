@@ -27,49 +27,49 @@ export const runtimeMessageSchema = z.object({
   createdAt: z.number().nonnegative(),
   providerData: z.unknown().optional(),
 })
-export const runtimeModelRequestSchema = z
-  .strictObject({
-    system: z.string().max(4_000_000),
-    systemContextOffset: z.number().int().nonnegative().optional(),
-    messages: z.array(runtimeMessageSchema).max(20_000),
-    model: runtimeResolvedModelSchema,
-    toolNames: z.array(z.string().min(1).max(128)).max(4096).optional(),
-    context: z
-      .strictObject({
-        sessionId: idSchema,
-        purpose: z.enum(['execution', 'context-inspection']).optional(),
-        workspacePath: z.string().min(1).max(4_000).optional(),
-        selectedToolNames: z.array(z.string().min(1).max(128)).max(4096).optional(),
-        runId: idSchema.optional(),
-        mode: runModeSchema.optional(),
-        thinking: thinkingLevelSchema.optional(),
-        source: runSourceSchema.optional(),
-      })
-      .optional(),
-  })
-  .transform((value): ModelRequest => ({
-    system: value.system,
-    model: value.model,
-    messages: value.messages,
-    ...(value.systemContextOffset === undefined ? {} : { systemContextOffset: value.systemContextOffset }),
-    ...(value.toolNames === undefined ? {} : { toolNames: value.toolNames }),
-    ...(value.context === undefined
-      ? {}
-      : {
-          context: {
-            sessionId: value.context.sessionId,
-            ...(value.context.workspacePath === undefined ? {} : { workspacePath: value.context.workspacePath }),
-            ...(value.context.selectedToolNames === undefined
-              ? {}
-              : { selectedToolNames: value.context.selectedToolNames }),
-            ...(value.context.purpose === undefined ? {} : { purpose: value.context.purpose }),
-            ...(value.context.runId === undefined ? {} : { runId: value.context.runId }),
-            ...(value.context.mode === undefined ? {} : { mode: value.context.mode }),
-            ...(value.context.thinking === undefined ? {} : { thinking: value.context.thinking }),
-            ...(value.context.source === undefined ? {} : { source: value.context.source }),
-          },
-        }),
-  }))
+const runtimeModelRequestInputSchema = z.strictObject({
+  system: z.string().max(4_000_000),
+  systemContextOffset: z.number().int().nonnegative().optional(),
+  messages: z.array(runtimeMessageSchema).max(20_000),
+  model: runtimeResolvedModelSchema,
+  toolNames: z.array(z.string().min(1).max(128)).max(4096).optional(),
+  context: z
+    .strictObject({
+      sessionId: idSchema,
+      purpose: z.enum(['execution', 'context-inspection']).optional(),
+      workspacePath: z.string().min(1).max(4_000).optional(),
+      selectedToolNames: z.array(z.string().min(1).max(128)).max(4096).optional(),
+      runId: idSchema.optional(),
+      mode: runModeSchema.optional(),
+      thinking: thinkingLevelSchema.optional(),
+      source: runSourceSchema.optional(),
+    })
+    .optional(),
+})
+
+export const runtimeModelRequestSchema = runtimeModelRequestInputSchema.transform((value): ModelRequest => ({
+  system: value.system,
+  model: value.model,
+  messages: value.messages,
+  ...(value.systemContextOffset === undefined ? {} : { systemContextOffset: value.systemContextOffset }),
+  ...(value.toolNames === undefined ? {} : { toolNames: value.toolNames }),
+  ...(value.context === undefined
+    ? {}
+    : {
+        context: {
+          sessionId: value.context.sessionId,
+          ...(value.context.workspacePath === undefined ? {} : { workspacePath: value.context.workspacePath }),
+          ...(value.context.selectedToolNames === undefined
+            ? {}
+            : { selectedToolNames: value.context.selectedToolNames }),
+          ...(value.context.purpose === undefined ? {} : { purpose: value.context.purpose }),
+          ...(value.context.runId === undefined ? {} : { runId: value.context.runId }),
+          ...(value.context.mode === undefined ? {} : { mode: value.context.mode }),
+          ...(value.context.thinking === undefined ? {} : { thinking: value.context.thinking }),
+          ...(value.context.source === undefined ? {} : { source: value.context.source }),
+        },
+      }),
+}))
 export const runtimeDriverToolSchema = z.strictObject({
   name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/),
   description: z.string().max(32_000),
@@ -205,8 +205,53 @@ export const runtimeDriverCancelSchema = z.strictObject({
   invocationId: idSchema,
   reasonCode: z.string().min(1).max(128),
 })
+const runtimeSyntheticSummaryRequestSchema = runtimeModelRequestInputSchema
+  .extend({
+    messages: z.tuple([
+      z.strictObject({
+        id: idSchema,
+        sessionId: idSchema,
+        runId: z.literal(''),
+        role: z.literal('user'),
+        seq: z.number().int().nonnegative(),
+        createdAt: z.number().nonnegative(),
+        content: z
+          .array(z.strictObject({ type: z.literal('text'), text: z.string() }))
+          .min(1)
+          .max(4096),
+      }),
+    ]),
+    context: runtimeModelRequestInputSchema.shape.context.unwrap().extend({
+      purpose: z.literal('context-inspection'),
+      runId: z.never().optional(),
+    }),
+  })
+  .superRefine((value, context) => {
+    if (value.messages[0].sessionId !== value.context.sessionId)
+      context.addIssue({
+        code: 'custom',
+        path: ['messages', 0, 'sessionId'],
+        message: 'Synthetic summary Session must match inspection context',
+      })
+  })
+  .transform((value): ModelRequest => ({
+    system: value.system,
+    model: value.model,
+    messages: value.messages,
+    context: {
+      sessionId: value.context.sessionId,
+      purpose: 'context-inspection',
+      ...(value.context.workspacePath === undefined ? {} : { workspacePath: value.context.workspacePath }),
+      ...(value.context.selectedToolNames === undefined ? {} : { selectedToolNames: value.context.selectedToolNames }),
+      ...(value.context.mode === undefined ? {} : { mode: value.context.mode }),
+      ...(value.context.source === undefined ? {} : { source: value.context.source }),
+      ...(value.context.thinking === undefined ? {} : { thinking: value.context.thinking }),
+    },
+    ...(value.systemContextOffset === undefined ? {} : { systemContextOffset: value.systemContextOffset }),
+    ...(value.toolNames === undefined ? {} : { toolNames: value.toolNames }),
+  }))
 export const runtimeDriverSummarySchema = z.strictObject({
-  request: runtimeModelRequestSchema,
+  request: z.union([runtimeModelRequestSchema, runtimeSyntheticSummaryRequestSchema]),
   apiKey: z.string().max(8192).nullable(),
 })
 export const runtimeDriverSummaryResultSchema = z.strictObject({ text: z.string().max(16_000_000), usage: usageSchema })
