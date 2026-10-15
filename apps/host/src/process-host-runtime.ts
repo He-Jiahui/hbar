@@ -1264,6 +1264,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                   }
                 : {}
     let record: Generation
+    let reportedExitIncarnation: string | undefined
     const managed = new ManagedProcess({
       descriptor: artifact.descriptor,
       artifactId: artifact.id,
@@ -1455,21 +1456,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         return this.fault(owner, reason)
       },
       onExit: async (owner, exit) => {
-        this.emitProcessLifecycleDiagnostic({
-          component: 'host',
-          level: exit.deliberate ? 'info' : 'error',
-          event: 'host.runtime_process_exit',
-          phase: `generation.${owner.generation}`,
-          contextId: owner.unitId,
-          requestId: owner.incarnation,
-          instanceId: this.instanceId,
-          processId: process.pid,
-          childPid: exit.childPid,
-          exitCode: exit.exitCode,
-          ...(exit.reasonCode ? { errorCode: exit.reasonCode } : {}),
-          restartExpected: exit.restartExpected,
-          outcome: exit.deliberate ? 'success' : 'failure',
-        })
+        if (reportedExitIncarnation !== owner.incarnation) {
+          reportedExitIncarnation = owner.incarnation
+          this.emitProcessLifecycleDiagnostic({
+            component: 'host',
+            level: exit.deliberate ? 'info' : 'error',
+            event: 'host.runtime_process_exit',
+            phase: `generation.${owner.generation}`,
+            contextId: owner.unitId,
+            requestId: owner.incarnation,
+            instanceId: this.instanceId,
+            processId: process.pid,
+            childPid: exit.childPid,
+            exitCode: exit.exitCode,
+            ...(exit.reasonCode ? { errorCode: exit.reasonCode } : {}),
+            restartExpected: exit.restartExpected,
+            outcome: exit.deliberate ? 'success' : 'failure',
+          })
+        }
         if (artifact.unitId === 'node-link') this.nodeLink.exited(owner)
         if (artifact.unitId === 'kernel') {
           this.relay.kernelExited(owner)
