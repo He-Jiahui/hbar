@@ -62,6 +62,68 @@ function fixture(overrides: Partial<CoordinationPersistence> = {}) {
   return { coordinator, kernel, driver, plugin, bindings, claim, register, claimed, revoked }
 }
 
+test('stable Host work retains the source claim through logical release without borrowing a child generation', async () => {
+  let released = 0
+  const f = fixture({
+      release: async () => {
+        released++
+      },
+    }),
+    lease = await f.claim()
+  const resource = f.coordinator.retainHostSourceResource('stable-host', 'host-job', lease)
+  expect(Object.isFrozen(resource)).toBe(true)
+  expect(f.coordinator.hostReferences('stable-host')).toBe(1)
+  expect(f.coordinator.snapshot().resources).toBe(1)
+  expect(() => f.coordinator.retainHostSourceResource('stable-host', 'host-job', lease)).toThrow('already retained')
+  expect(() => f.coordinator.releaseHostResource('other-host', resource.id)).toThrow('original stable Host')
+  await expect(f.coordinator.releaseExecution(lease)).rejects.toMatchObject({ code: 'EXECUTION_RESOURCES_ACTIVE' })
+  await f.coordinator.requestRelease(lease, () => {})
+  expect(released).toBe(0)
+  expect(f.coordinator.executionForSession(lease.sessionId)).toEqual(lease)
+  expect(() => f.coordinator.retainHostSourceResource('stable-host', 'late-job', lease)).toThrow('finished Run')
+  f.coordinator.releaseHostResource('stable-host', resource.id)
+  await Bun.sleep(0)
+  expect(released).toBe(1)
+  expect(f.coordinator.executionForSession(lease.sessionId)).toBeNull()
+  expect(f.coordinator.snapshot().resources).toBe(0)
+})
+
+test('actual source Kernel exit never releases stable Host work or allows premature recovery', async () => {
+  const f = fixture(),
+    lease = await f.claim()
+  const resource = f.coordinator.retainHostSourceResource('stable-host', 'physical-job', lease)
+  await f.coordinator.revoke(f.kernel)
+  expect(() => f.coordinator.retainHostSourceResource('stable-host', 'revoked-job', lease)).toThrow(
+    'invalid or revoked',
+  )
+  f.coordinator.ownerExited(f.kernel)
+  expect(f.coordinator.snapshot().resources).toBe(1)
+  expect(() => f.coordinator.reconciled(lease.sessionId)).toThrow('resources still hold')
+  expect(() => f.coordinator.disposeOwner(f.kernel)).toThrow('cannot be forgotten')
+  f.coordinator.releaseHostResource('stable-host', resource.id)
+  f.coordinator.reconciled(lease.sessionId)
+  expect(f.coordinator.snapshot()).toMatchObject({ sessions: 0, resources: 0 })
+  expect(() => f.coordinator.disposeOwner(f.kernel)).not.toThrow()
+})
+
+test('stable Host retainers reject forged sources and share the normal bounded resource pool', async () => {
+  const f = fixture(),
+    lease = await f.claim()
+  expect(() =>
+    f.coordinator.retainHostSourceResource('stable-host', 'forged-job', { ...lease, fence: lease.fence + 1 }),
+  ).toThrow('invalid or revoked')
+  const resources = Array.from({ length: 4095 }, (_, index) =>
+    f.coordinator.retainHostSourceResource('stable-host', `host-${index}`, lease),
+  )
+  const child = f.coordinator.acquireResource(f.plugin, 'child-final-slot')
+  expect(child).not.toBeNull()
+  expect(() => f.coordinator.retainHostSourceResource('stable-host', 'overflow-host', lease)).toThrow('capacity')
+  expect(() => f.coordinator.acquireResource(f.plugin, 'overflow-child')).toThrow('capacity')
+  for (const resource of resources) f.coordinator.releaseHostResource('stable-host', resource.id)
+  if (child) f.coordinator.releaseResource(f.plugin, child.id)
+  await f.coordinator.releaseExecution(lease)
+})
+
 test('candidates have no write authority and only a default Kernel can claim a Run', async () => {
   const f = fixture()
   const candidate = owner('kernel', 2)
@@ -80,7 +142,8 @@ test('candidates have no write authority and only a default Kernel can claim a R
 })
 
 test('candidate metadata reads lose authority when their incarnation is revoked or exits', async () => {
-  const f = fixture(), candidate = owner('kernel', 2)
+  const f = fixture(),
+    candidate = owner('kernel', 2)
   f.register(candidate, 'kernel', false)
   f.coordinator.assertCanRead(candidate)
   await f.coordinator.revoke(candidate)
@@ -104,25 +167,38 @@ test('valid lease identities cannot forge their captured capability bindings', a
 })
 
 test('new Runs may bind a draining capability only for the Session that retains its native resource', async () => {
-  const f = fixture(), next = owner('plugin.local', 2)
+  const f = fixture(),
+    next = owner('plugin.local', 2)
   const retained = f.coordinator.retainSessionResource(f.plugin, 'native:fixture-context', 'retained-session')
   f.register(next, 'plugin')
-  const wrong: unknown = await f.coordinator.claim(f.kernel, 'other-session', 'wrong-run', f.bindings()).catch((error: unknown) => error)
+  const wrong: unknown = await f.coordinator
+    .claim(f.kernel, 'other-session', 'wrong-run', f.bindings())
+    .catch((error: unknown) => error)
   expect(wrong).toMatchObject({ code: 'RUNTIME_DEPENDENCY_UNAVAILABLE' })
   const run = await f.claim('retained-session', 'retained-run')
   expect(run.versions.plugins[0]).toEqual(version(f.plugin))
   await f.coordinator.releaseExecution(run)
   f.coordinator.releaseResource(f.plugin, retained.id)
-  const expired: unknown = await f.coordinator.claim(f.kernel, 'retained-session', 'expired-run', f.bindings()).catch((error: unknown) => error)
+  const expired: unknown = await f.coordinator
+    .claim(f.kernel, 'retained-session', 'expired-run', f.bindings())
+    .catch((error: unknown) => error)
   expect(expired).toMatchObject({ code: 'RUNTIME_DEPENDENCY_UNAVAILABLE' })
-  expect((await f.claim('fresh-session', 'fresh-run', f.kernel, f.driver, next)).versions.plugins[0]).toEqual(version(next))
+  expect((await f.claim('fresh-session', 'fresh-run', f.kernel, f.driver, next)).versions.plugins[0]).toEqual(
+    version(next),
+  )
 })
 
 test('an in-flight claim retains every captured generation while its native resource closes', async () => {
   let commit: (() => void) | undefined
-  const f = fixture({ claim: lease => new Promise(resolve => { commit = () => resolve(lease) }) })
+  const f = fixture({
+    claim: (lease) =>
+      new Promise((resolve) => {
+        commit = () => resolve(lease)
+      }),
+  })
   const retained = f.coordinator.retainSessionResource(f.plugin, 'native:closing-context', 'session')
-  const next = owner('plugin.local', 2); f.register(next, 'plugin')
+  const next = owner('plugin.local', 2)
+  f.register(next, 'plugin')
   const pending = f.claim()
   f.coordinator.releaseResource(f.plugin, retained.id)
   expect(f.coordinator.references(f.plugin)).toMatchObject({ runs: 1, resources: 0 })
@@ -137,7 +213,12 @@ test('an in-flight claim retains every captured generation while its native reso
 
 test('a dependency that exits during a persisted claim cannot be replaced by a healthy incarnation with the same version', async () => {
   let finish: (() => void) | undefined
-  const f = fixture({ claim: lease => new Promise(resolve => { finish = () => resolve(lease) }) })
+  const f = fixture({
+    claim: (lease) =>
+      new Promise((resolve) => {
+        finish = () => resolve(lease)
+      }),
+  })
   const pending = f.claim().catch((error: unknown) => error)
   await f.coordinator.revoke(f.plugin)
   f.coordinator.ownerExited(f.plugin)
@@ -147,14 +228,23 @@ test('a dependency that exits during a persisted claim cannot be replaced by a h
   finish()
   expect(await pending).toMatchObject({ code: 'EXECUTION_DEPENDENCY_REVOKED' })
   expect(f.coordinator.execution('run')).toBeNull()
-  expect(f.revoked.some(item => item.owner.incarnation === f.kernel.incarnation && item.runIds.includes('run'))).toBe(true)
-  const duplicate = await f.coordinator.claim(f.kernel, 'session', 'duplicate', f.bindings(f.kernel, f.driver, replacement)).catch((error: unknown) => error)
+  expect(f.revoked.some((item) => item.owner.incarnation === f.kernel.incarnation && item.runIds.includes('run'))).toBe(
+    true,
+  )
+  const duplicate = await f.coordinator
+    .claim(f.kernel, 'session', 'duplicate', f.bindings(f.kernel, f.driver, replacement))
+    .catch((error: unknown) => error)
   expect(duplicate).toMatchObject({ code: 'EXECUTION_RECONCILIATION_REQUIRED' })
 })
 
 test('a compatible dependency switch during claim persistence preserves its captured live draining owner', async () => {
   let finish: (() => void) | undefined
-  const f = fixture({ claim: lease => new Promise(resolve => { finish = () => resolve(lease) }) })
+  const f = fixture({
+    claim: (lease) =>
+      new Promise((resolve) => {
+        finish = () => resolve(lease)
+      }),
+  })
   const pending = f.claim()
   const replacement = owner('plugin.local', 2)
   f.register(replacement, 'plugin')
@@ -180,11 +270,19 @@ test('a recovered old generation opens its draining ports without stealing the c
 test('logical terminal release retains its Session and physical capacity, rejects late commits and hands off once actual work settles', async () => {
   let persisted = 0
   let resumed = 0
-  const f = fixture({ release: async () => { persisted++ } })
+  const f = fixture({
+    release: async () => {
+      persisted++
+    },
+  })
   const lease = await f.claim()
   const permit = f.coordinator.reserveTool(lease, 'ignored-abort', f.kernel)
-  await f.coordinator.requestRelease(lease, () => { resumed++ })
-  await f.coordinator.requestRelease(lease, () => { resumed++ })
+  await f.coordinator.requestRelease(lease, () => {
+    resumed++
+  })
+  await f.coordinator.requestRelease(lease, () => {
+    resumed++
+  })
   expect(persisted).toBe(0)
   expect(f.coordinator.snapshot()).toMatchObject({ sessions: 1, physicalTools: 1 })
   expect(() => f.coordinator.assertCanWrite(f.kernel, lease)).toThrow('logical Run has finished')
@@ -201,7 +299,11 @@ test('logical terminal release retains its Session and physical capacity, reject
 
 test('a Host-bound command resource retains its source Run without granting the Controller Run capability authority', async () => {
   let released = 0
-  const f = fixture({ release: async () => { released++ } })
+  const f = fixture({
+    release: async () => {
+      released++
+    },
+  })
   const controller = owner('controller')
   f.register(controller, 'controller')
   const source = await f.claim()
@@ -247,7 +349,9 @@ test('source command retention rejects forged leases and inactive target owners 
   const source = await f.claim()
   expect(() => f.coordinator.retainSourceResource(candidate, 'candidate', source)).toThrow('candidates cannot write')
   f.coordinator.activate(candidate)
-  expect(() => f.coordinator.retainSourceResource(candidate, 'forged', { ...source, fence: source.fence + 1 })).toThrow('invalid or revoked')
+  expect(() => f.coordinator.retainSourceResource(candidate, 'forged', { ...source, fence: source.fence + 1 })).toThrow(
+    'invalid or revoked',
+  )
   expect(await f.coordinator.revoke(candidate)).toEqual([])
   expect(() => f.coordinator.retainSourceResource(candidate, 'fenced', source)).toThrow('revoked')
   expect(f.coordinator.snapshot().resources).toBe(0)
@@ -255,7 +359,8 @@ test('source command retention rejects forged leases and inactive target owners 
 })
 
 test('a command owner with many dependent sources revokes them in bounded authority batches', async () => {
-  const f = fixture(), controller = owner('controller')
+  const f = fixture(),
+    controller = owner('controller')
   f.register(controller, 'controller')
   for (let index = 0; index < 300; index++) {
     const source = await f.claim(`session-${index}`, `run-${index}`)
@@ -263,8 +368,12 @@ test('a command owner with many dependent sources revokes them in bounded author
   }
   expect(f.coordinator.executionsForOwner(controller)).toHaveLength(300)
   expect(await f.coordinator.revoke(controller)).toHaveLength(300)
-  expect(f.revoked.map(item => item.runIds.length)).toEqual([256, 44])
-  expect(f.revoked.every(item => item.owner.incarnation === f.kernel.incarnation && item.cause?.incarnation === controller.incarnation)).toBe(true)
+  expect(f.revoked.map((item) => item.runIds.length)).toEqual([256, 44])
+  expect(
+    f.revoked.every(
+      (item) => item.owner.incarnation === f.kernel.incarnation && item.cause?.incarnation === controller.incarnation,
+    ),
+  ).toBe(true)
   expect(f.coordinator.snapshot().resources).toBe(300)
   f.coordinator.ownerExited(controller)
   expect(f.coordinator.snapshot().resources).toBe(0)
@@ -273,10 +382,21 @@ test('a command owner with many dependent sources revokes them in bounded author
 test('an unknown deferred durable release closes admission and is never blindly replayed', async () => {
   let attempts = 0
   let failed = 0
-  const f = fixture({ release: async () => { attempts++; throw new Error('lost receipt') } })
+  const f = fixture({
+    release: async () => {
+      attempts++
+      throw new Error('lost receipt')
+    },
+  })
   const lease = await f.claim()
   const permit = f.coordinator.reserveTool(lease, 'physical', f.kernel)
-  await f.coordinator.requestRelease(lease, () => {}, () => { failed++ })
+  await f.coordinator.requestRelease(
+    lease,
+    () => {},
+    () => {
+      failed++
+    },
+  )
   f.coordinator.releaseTool(f.kernel, permit.id)
   await Bun.sleep(0)
   expect(attempts).toBe(1)
@@ -289,7 +409,9 @@ test('an unknown deferred durable release closes admission and is never blindly 
 test('a handoff observer error cannot undo a confirmed release or block the next Session executor', async () => {
   const f = fixture()
   const lease = await f.claim()
-  await f.coordinator.requestRelease(lease, () => { throw new Error('failed UI observer') })
+  await f.coordinator.requestRelease(lease, () => {
+    throw new Error('failed UI observer')
+  })
   expect(f.coordinator.snapshot().sessions).toBe(0)
   expect(f.coordinator.canIdle(f.kernel, 'session')).toBe(true)
 })
@@ -298,8 +420,9 @@ test('a shared writer failure revokes every active Session without making the he
   const f = fixture()
   const storage = owner('storage')
   f.register(storage, 'storage')
-  const a = await f.claim('a', 'run-a'), b = await f.claim('b', 'run-b')
-  expect((await f.coordinator.revoke(storage)).map(lease => lease.runId)).toEqual(['run-a', 'run-b'])
+  const a = await f.claim('a', 'run-a'),
+    b = await f.claim('b', 'run-b')
+  expect((await f.coordinator.revoke(storage)).map((lease) => lease.runId)).toEqual(['run-a', 'run-b'])
   expect(f.coordinator.role(f.kernel)).toBe('default')
   expect(() => f.coordinator.assertExecution(a)).toThrow('invalid or revoked owner')
   expect(() => f.coordinator.assertExecution(b)).toThrow('invalid or revoked owner')

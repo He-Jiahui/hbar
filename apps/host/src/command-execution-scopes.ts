@@ -1,7 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { commandExecutionOwnerSchema, type CommandExecutionOwner } from '@hbar/contracts/command-execution'
 import { executionOwnershipSchema, type ExecutionOwnership, type RuntimeOwner } from '@hbar/contracts/runtime'
-import type { RuntimeCoordinator, RuntimeResourceLease } from '@hbar/runtime'
+import { HbarError } from '@hbar/contracts'
+import type { RuntimeCoordinator, RuntimeResourceLease, StableHostResourceLease } from '@hbar/runtime'
 
 export interface HostCommandExecutionScope {
   readonly source: ExecutionOwnership
@@ -31,5 +32,10 @@ export class HostCommandExecutionScopes {
   retain(coordinator: RuntimeCoordinator, owner: RuntimeOwner, key: string): RuntimeResourceLease | null {
     const scope = this.context.getStore()
     return scope ? coordinator.retainSourceResource(owner, key, scope.source) : coordinator.acquireResource(owner, key)
+  }
+  retainHost(coordinator: RuntimeCoordinator, instanceId: string, key: string): StableHostResourceLease {
+    const scope = this.context.getStore()
+    if (!scope) throw new HbarError('EXECUTION_SOURCE_REQUIRED', 'A stable Host resource requires an authenticated Run')
+    return coordinator.retainHostSourceResource(instanceId, key, scope.source)
   }
 }

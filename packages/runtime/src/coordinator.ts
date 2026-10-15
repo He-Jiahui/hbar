@@ -40,6 +40,12 @@ export interface RuntimeResourceLease {
   readonly owner: Readonly<RuntimeOwner>
   readonly executionLeaseId: string | null
 }
+export interface StableHostResourceLease {
+  readonly id: string
+  readonly key: string
+  readonly instanceId: string
+  readonly executionLeaseId: string
+}
 
 function sameOwner(left: RuntimeOwner, right: RuntimeOwner): boolean {
   return left.incarnation === right.incarnation && left.unitId === right.unitId && left.generation === right.generation
@@ -63,8 +69,12 @@ export class RuntimeCoordinator {
   private readonly tools = new Map<string, RuntimeToolPermit>()
   private readonly toolKeys = new Map<string, string>()
   private readonly resources = new Map<string, RuntimeResourceLease>()
+  private readonly hostResources = new Map<string, StableHostResourceLease>()
   private readonly retainedSessions = new Map<string, string>()
-  private readonly pendingReleases = new Map<string, { lease: ExecutionOwnership; released: () => void | Promise<void>; failed: () => void }>()
+  private readonly pendingReleases = new Map<
+    string,
+    { lease: ExecutionOwnership; released: () => void | Promise<void>; failed: () => void }
+  >()
   private readonly resourceKeys = new Map<string, string>()
   private fence = 0
 
@@ -98,7 +108,10 @@ export class RuntimeCoordinator {
     const record = this.record(owner)
     if (record.role !== 'candidate')
       throw new HbarError('RUNTIME_LIFECYCLE', 'Only a prepared candidate can become default')
-    if (role === 'draining') { record.role = 'draining'; return }
+    if (role === 'draining') {
+      record.role = 'draining'
+      return
+    }
     const previous = this.defaults.get(owner.unitId)
     if (previous) {
       const old = this.owners.get(previous)
@@ -121,7 +134,10 @@ export class RuntimeCoordinator {
     if (lease) {
       this.assertExecution(lease)
       if (this.pendingReleases.has(lease.runId))
-        throw new HbarError('EXECUTION_FINISHED', 'The logical Run has finished; its retained physical capacity cannot commit')
+        throw new HbarError(
+          'EXECUTION_FINISHED',
+          'The logical Run has finished; its retained physical capacity cannot commit',
+        )
       if (
         !versions(lease.versions).some(
           (version) =>
@@ -169,15 +185,20 @@ export class RuntimeCoordinator {
       parsed.kernel.artifactId !== record.version.artifactId
     )
       throw new HbarError('RUNTIME_VERSION_MISMATCH', 'The Run must bind its actual Kernel version')
-    const dependencies = versions(parsed).map(version => {
+    const dependencies = versions(parsed).map((version) => {
       const dependency = [...this.owners.values()].find(
-          (candidate) =>
-            (candidate.role === 'default' || (candidate.role === 'draining' && [...this.retainedSessions].some(([id, retainedSession]) =>
-              retainedSession === sessionId && this.resources.get(id)?.owner.incarnation === candidate.owner.incarnation))) &&
-            !candidate.exited &&
-            candidate.version.unitId === version.unitId &&
-            candidate.version.generation === version.generation &&
-            candidate.version.artifactId === version.artifactId,
+        (candidate) =>
+          (candidate.role === 'default' ||
+            (candidate.role === 'draining' &&
+              [...this.retainedSessions].some(
+                ([id, retainedSession]) =>
+                  retainedSession === sessionId &&
+                  this.resources.get(id)?.owner.incarnation === candidate.owner.incarnation,
+              ))) &&
+          !candidate.exited &&
+          candidate.version.unitId === version.unitId &&
+          candidate.version.generation === version.generation &&
+          candidate.version.artifactId === version.artifactId,
       )
       if (!dependency) throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'A bound default capability is not ready')
       return dependency
@@ -206,11 +227,18 @@ export class RuntimeCoordinator {
       )
         throw new HbarError('EXECUTION_PROJECTION_INVALID', 'Persisted ownership does not match its claim')
       this.fence = Math.max(this.fence, lease.fence)
-      const unavailable = dependencies.some(dependency => dependency.exited || dependency.role === 'fenced')
-      if (record.role !== 'default' || record.exited || this.defaults.get(owner.unitId) !== owner.incarnation || unavailable) {
+      const unavailable = dependencies.some((dependency) => dependency.exited || dependency.role === 'fenced')
+      if (
+        record.role !== 'default' ||
+        record.exited ||
+        this.defaults.get(owner.unitId) !== owner.incarnation ||
+        unavailable
+      ) {
         await this.persistence.revoke(record.owner, [runId])
-        throw new HbarError(unavailable ? 'EXECUTION_DEPENDENCY_REVOKED' : 'EXECUTION_OWNER_REVOKED',
-          'Execution ownership or a captured dependency changed while its claim was persisted')
+        throw new HbarError(
+          unavailable ? 'EXECUTION_DEPENDENCY_REVOKED' : 'EXECUTION_OWNER_REVOKED',
+          'Execution ownership or a captured dependency changed while its claim was persisted',
+        )
       }
       this.sessions.set(sessionId, lease)
       this.runs.set(runId, lease)
@@ -254,16 +282,19 @@ export class RuntimeCoordinator {
   }
   canIdle(owner: RuntimeOwner, sessionId: string): boolean {
     const record = this.record(owner)
-    return record.descriptor.kind === 'kernel' && record.role === 'default' && !record.exited &&
-      !this.sessions.has(sessionId) && !this.claiming.has(sessionId) && !this.blocked.has(sessionId)
+    return (
+      record.descriptor.kind === 'kernel' &&
+      record.role === 'default' &&
+      !record.exited &&
+      !this.sessions.has(sessionId) &&
+      !this.claiming.has(sessionId) &&
+      !this.blocked.has(sessionId)
+    )
   }
 
   async releaseExecution(lease: ExecutionOwnership): Promise<void> {
     this.assertExecution(lease)
-    if (
-      [...this.tools.values()].some((permit) => permit.leaseId === lease.leaseId) ||
-      [...this.resources.values()].some((resource) => resource.executionLeaseId === lease.leaseId)
-    )
+    if (this.physicalReferences(lease.leaseId))
       throw new HbarError('EXECUTION_RESOURCES_ACTIVE', 'Physical execution resources have not been released')
     this.blocked.add(lease.sessionId)
     await this.persistence.release(lease)
@@ -275,7 +306,11 @@ export class RuntimeCoordinator {
   }
 
   /** A logical terminal may precede physical tool completion. Acknowledge the request without occupying an IPC slot. */
-  async requestRelease(lease: ExecutionOwnership, released: () => void | Promise<void>, failed: () => void = () => {}): Promise<void> {
+  async requestRelease(
+    lease: ExecutionOwnership,
+    released: () => void | Promise<void>,
+    failed: () => void = () => {},
+  ): Promise<void> {
     this.assertExecution(lease)
     if (this.pendingReleases.has(lease.runId)) return
     if (this.physicalReferences(lease.leaseId)) {
@@ -286,39 +321,58 @@ export class RuntimeCoordinator {
     await this.notifyReleased(released)
   }
   private async notifyReleased(released: () => void | Promise<void>): Promise<void> {
-    try { await released() } catch { console.error('[hbar runtime] execution handoff observer failed') }
+    try {
+      await released()
+    } catch {
+      console.error('[hbar runtime] execution handoff observer failed')
+    }
   }
   private physicalReferences(leaseId: string): boolean {
-    return [...this.tools.values()].some(permit => permit.leaseId === leaseId) ||
-      [...this.resources.values()].some(resource => resource.executionLeaseId === leaseId)
+    return (
+      [...this.tools.values()].some((permit) => permit.leaseId === leaseId) ||
+      [...this.resources.values()].some((resource) => resource.executionLeaseId === leaseId) ||
+      [...this.hostResources.values()].some((resource) => resource.executionLeaseId === leaseId)
+    )
   }
   private releaseSettled(): void {
     for (const [runId, pending] of this.pendingReleases) {
       if (this.physicalReferences(pending.lease.leaseId)) continue
       this.pendingReleases.delete(runId)
-      void this.releaseExecution(pending.lease).then(() => this.notifyReleased(pending.released)).catch(() => {
-        try { pending.failed() } catch { console.error('[hbar runtime] release failure observer failed') }
-        // A missing durable receipt keeps the Session reconciliation gate closed; it is never retried blindly.
-        console.error('[hbar runtime] deferred execution release requires reconciliation')
-      })
+      void this.releaseExecution(pending.lease)
+        .then(() => this.notifyReleased(pending.released))
+        .catch(() => {
+          try {
+            pending.failed()
+          } catch {
+            console.error('[hbar runtime] release failure observer failed')
+          }
+          // A missing durable receipt keeps the Session reconciliation gate closed; it is never retried blindly.
+          console.error('[hbar runtime] deferred execution release requires reconciliation')
+        })
     }
   }
 
   executionsForOwner(owner: RuntimeOwner): ExecutionOwnership[] {
     const record = this.record(owner)
-    const dependentLeases = new Set([...this.resources.values()].flatMap(resource =>
-      sameOwner(resource.owner, owner) && resource.executionLeaseId ? [resource.executionLeaseId] : []))
-    return [...this.runs.values()].filter(
-      (lease) =>
-        record.descriptor.kind === 'storage' || sameOwner(lease.owner, owner) ||
-        dependentLeases.has(lease.leaseId) ||
-        versions(lease.versions).some(
-          (version) =>
-            version.unitId === owner.unitId &&
-            version.generation === owner.generation &&
-            version.artifactId === record.version.artifactId,
-        ),
-    ).map(lease => executionOwnershipSchema.parse(lease))
+    const dependentLeases = new Set(
+      [...this.resources.values()].flatMap((resource) =>
+        sameOwner(resource.owner, owner) && resource.executionLeaseId ? [resource.executionLeaseId] : [],
+      ),
+    )
+    return [...this.runs.values()]
+      .filter(
+        (lease) =>
+          record.descriptor.kind === 'storage' ||
+          sameOwner(lease.owner, owner) ||
+          dependentLeases.has(lease.leaseId) ||
+          versions(lease.versions).some(
+            (version) =>
+              version.unitId === owner.unitId &&
+              version.generation === owner.generation &&
+              version.artifactId === record.version.artifactId,
+          ),
+      )
+      .map((lease) => executionOwnershipSchema.parse(lease))
   }
 
   async revoke(owner: RuntimeOwner): Promise<ExecutionOwnership[]> {
@@ -335,8 +389,14 @@ export class RuntimeCoordinator {
     }
     const groups = new Map<string, { authority: RuntimeOwner; cause?: RuntimeOwner; ids: string[] }>()
     for (const lease of affected) {
-      const bound = sameOwner(lease.owner, record.owner) || versions(lease.versions).some(version =>
-        version.unitId === record.owner.unitId && version.generation === record.owner.generation && version.artifactId === record.version.artifactId)
+      const bound =
+        sameOwner(lease.owner, record.owner) ||
+        versions(lease.versions).some(
+          (version) =>
+            version.unitId === record.owner.unitId &&
+            version.generation === record.owner.generation &&
+            version.artifactId === record.version.artifactId,
+        )
       const authority = bound ? record.owner : lease.owner
       let group = groups.get(authority.incarnation)
       if (!group) {
@@ -380,10 +440,7 @@ export class RuntimeCoordinator {
       for (const incarnation of this.interruptions.get(lease.runId) ?? [])
         if (!this.owners.get(incarnation)?.exited)
           throw new HbarError('EXECUTION_OWNER_ALIVE', 'A failed dependency has not actually exited')
-      if (
-        [...this.tools.values()].some((permit) => permit.leaseId === lease.leaseId) ||
-        [...this.resources.values()].some((resource) => resource.executionLeaseId === lease.leaseId)
-      )
+      if (this.physicalReferences(lease.leaseId))
         throw new HbarError('EXECUTION_RESOURCES_ACTIVE', 'Interrupted physical resources still hold this Session')
       this.runs.delete(lease.runId)
       this.sessions.delete(sessionId)
@@ -442,7 +499,7 @@ export class RuntimeCoordinator {
     this.assertCanWrite(owner, execution)
     if (!key || key.length > 4_000) throw new HbarError('INVALID_INPUT', 'Runtime resource key is invalid')
     if (this.resourceKeys.has(key)) return null
-    if (this.resources.size >= 4_096)
+    if (this.resources.size + this.hostResources.size >= 4_096)
       throw new HbarError('RUNTIME_RESOURCE_CAPACITY', 'Host resource capacity is exhausted')
     const resource = Object.freeze({
       id: crypto.randomUUID(),
@@ -456,7 +513,8 @@ export class RuntimeCoordinator {
   }
   /** Only the stable composition calls this after authenticating an owner-local native resource description. */
   retainSessionResource(owner: RuntimeOwner, key: string, sessionId: string): RuntimeResourceLease {
-    if (!sessionId || sessionId.length > 160) throw new HbarError('INVALID_INPUT', 'A retained resource needs a bounded Session identity')
+    if (!sessionId || sessionId.length > 160)
+      throw new HbarError('INVALID_INPUT', 'A retained resource needs a bounded Session identity')
     const lease = this.acquireResource(owner, key)
     if (!lease) throw new HbarError('RUNTIME_RESOURCE_EXISTS', 'The retained resource is already owned')
     this.retainedSessions.set(lease.id, sessionId)
@@ -476,6 +534,35 @@ export class RuntimeCoordinator {
     return retained
   }
 
+  /** Stable Host only; it has no reloadable child generation. Child exit never releases this physical work. */
+  retainHostSourceResource(instanceId: string, key: string, source: ExecutionOwnership): StableHostResourceLease {
+    this.assertExecution(source)
+    if (this.pendingReleases.has(source.runId))
+      throw new HbarError('EXECUTION_FINISHED', 'A finished Run cannot admit another Host command')
+    if (!instanceId || instanceId.length > 160 || !key || key.length > 4_000)
+      throw new HbarError('INVALID_INPUT', 'Stable Host resource identity is invalid')
+    if (this.resourceKeys.has(key))
+      throw new HbarError('RUNTIME_RESOURCE_EXISTS', 'The Host command is already retained')
+    if (this.resources.size + this.hostResources.size >= 4_096)
+      throw new HbarError('RUNTIME_RESOURCE_CAPACITY', 'Host resource capacity is exhausted')
+    const retained = Object.freeze({ id: crypto.randomUUID(), key, instanceId, executionLeaseId: source.leaseId })
+    this.hostResources.set(retained.id, retained)
+    this.resourceKeys.set(key, retained.id)
+    return retained
+  }
+  releaseHostResource(instanceId: string, resourceId: string): void {
+    const resource = this.hostResources.get(resourceId)
+    if (!resource) return
+    if (resource.instanceId !== instanceId)
+      throw new HbarError('RUNTIME_RESOURCE_OWNER_MISMATCH', 'Only the original stable Host may release its work')
+    this.hostResources.delete(resourceId)
+    this.resourceKeys.delete(resource.key)
+    this.releaseSettled()
+  }
+  hostReferences(instanceId: string): number {
+    return [...this.hostResources.values()].filter((resource) => resource.instanceId === instanceId).length
+  }
+
   releaseResource(owner: RuntimeOwner, resourceId: string): void {
     const resource = this.resources.get(resourceId)
     if (!resource) return
@@ -489,15 +576,23 @@ export class RuntimeCoordinator {
 
   references(owner: RuntimeOwner): { runs: number; resources: number; tools: number } {
     return {
-      runs: [...this.runs.values()].filter((lease) =>
-        versions(lease.versions).some(
-          (version) =>
-            version.unitId === owner.unitId &&
-            version.generation === owner.generation &&
-            version.artifactId === this.record(owner).version.artifactId,
-        ),
-      ).length + [...this.claimVersions.values()].filter(set => versions(set).some(version =>
-        version.unitId === owner.unitId && version.generation === owner.generation && version.artifactId === this.record(owner).version.artifactId)).length,
+      runs:
+        [...this.runs.values()].filter((lease) =>
+          versions(lease.versions).some(
+            (version) =>
+              version.unitId === owner.unitId &&
+              version.generation === owner.generation &&
+              version.artifactId === this.record(owner).version.artifactId,
+          ),
+        ).length +
+        [...this.claimVersions.values()].filter((set) =>
+          versions(set).some(
+            (version) =>
+              version.unitId === owner.unitId &&
+              version.generation === owner.generation &&
+              version.artifactId === this.record(owner).version.artifactId,
+          ),
+        ).length,
       resources: [...this.resources.values()].filter((resource) => sameOwner(resource.owner, owner)).length,
       tools: [...this.tools.values()].filter((permit) => sameOwner(permit.owner, owner)).length,
     }
@@ -509,7 +604,7 @@ export class RuntimeCoordinator {
       claims: this.claiming.size,
       blockedSessions: [...this.blocked].slice(0, 512),
       physicalTools: this.tools.size,
-      resources: this.resources.size,
+      resources: this.resources.size + this.hostResources.size,
     }
   }
 

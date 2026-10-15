@@ -13,13 +13,19 @@ export {
   type CoordinationPersistence,
   type RuntimeToolPermit,
   type RuntimeResourceLease,
+  type StableHostResourceLease,
 } from './coordinator'
 export { ManagedProcess, type ManagedProcessOptions } from './process'
 export { acquireProcessLease, processIsAlive } from './process-lease'
 export { runtimeDomainError } from './errors'
 export { RUNTIME_BUNDLE_EXTERNALS } from './bundle-externals'
 export { buildRuntimeArtifact } from './builder'
-export { runtimeSourceRoots, isRuntimeSourceChange, createRuntimeSourceReload, watchRuntimeSources } from './source-reload'
+export {
+  runtimeSourceRoots,
+  isRuntimeSourceChange,
+  createRuntimeSourceReload,
+  watchRuntimeSources,
+} from './source-reload'
 export { RuntimeValuePort, type RuntimeValuePortOptions } from './value-port'
 export {
   RuntimeNotificationDelivery,
@@ -28,7 +34,12 @@ export {
   type RuntimeNotificationDeliverySnapshot,
   type RuntimeNotificationFailureSnapshot,
 } from './notification-delivery'
-export { RuntimeCoordinatorClient, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, type RuntimeCoordinatorPortOptions } from './coordinator-port'
+export {
+  RuntimeCoordinatorClient,
+  registerRuntimeCoordinatorPort,
+  RUNTIME_COORDINATION_CONTROL_METHODS,
+  type RuntimeCoordinatorPortOptions,
+} from './coordinator-port'
 export {
   type RuntimeProcessContext,
   type RuntimeProcessModule,

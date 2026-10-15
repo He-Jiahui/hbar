@@ -12,6 +12,7 @@ import type { HostCommandExecutionScopes } from './command-execution-scopes'
 import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
 
 export interface LocalCommandJobsOptions extends CommandExecutionJobsOptions {
+  readonly instanceId?: string
   readonly scopes?: HostCommandExecutionScopes
   /** Must retain the actual stable Host lifetime against the authenticated source Run. */
   readonly retainSource?: (jobId: string) => () => void
@@ -19,12 +20,17 @@ export interface LocalCommandJobsOptions extends CommandExecutionJobsOptions {
 
 /** The stable Host uses the same bounded job protocol as child owners, without a second transport. */
 export class LocalCommandJobs {
-  readonly instanceId = crypto.randomUUID()
+  readonly instanceId: string
   private readonly jobs: CommandExecutionJobs
   private readonly lifetime = new AbortController()
   private readonly resources = new Map<string, () => void>()
   private readonly slots = new Set<string>()
   constructor(private readonly options: LocalCommandJobsOptions = {}) {
+    this.instanceId = z
+      .string()
+      .min(1)
+      .max(160)
+      .parse(options.instanceId ?? crypto.randomUUID())
     this.jobs = new CommandExecutionJobs(options)
   }
   execute(
@@ -107,9 +113,17 @@ export class LocalCommandJobs {
     return this.jobs.stats()
   }
   dispose(): void {
+    this.assertCanClose()
     this.lifetime.abort(new CommandError('CANCELLED', 'Stable Host command jobs are closing'))
     this.jobs.dispose()
     // Cancellation is not proof of physical termination; source resources remain until a confirmed acknowledgment.
+  }
+  assertCanClose(): void {
+    if (this.resources.size)
+      throw new CommandError(
+        'HOST_COMMANDS_ACTIVE',
+        'Stable Host commands require settlement and saved acknowledgment before closing',
+      )
   }
   private release(jobId: string): void {
     const release = this.resources.get(jobId)

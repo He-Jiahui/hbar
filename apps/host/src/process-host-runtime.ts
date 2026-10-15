@@ -145,8 +145,15 @@ const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${versi
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly commandScopes = new HostCommandExecutionScopes()
+  retainHostCommand(jobId: string): () => void {
+    if (this.closing) throw new HbarError('RUNTIME_STOPPED', 'The Host is closing')
+    const resource = this.commandScopes.retainHost(this.coordinator, this.instanceId, `host.command.job:${jobId}`)
+    return () => this.coordinator.releaseHostResource(this.instanceId, resource.id)
+  }
   private readonly commandDiscovery = new SessionCommandDiscovery()
-  attachCommandRouting(port: CommandRoutingPort): () => void { return this.commandDiscovery.attach(port) }
+  attachCommandRouting(port: CommandRoutingPort): () => void {
+    return this.commandDiscovery.attach(port)
+  }
   private readonly processTree = createRuntimeProcessTreePort()
   readonly storage = new StableStoragePort()
   readonly artifacts: RuntimeArtifactStore
@@ -409,7 +416,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             return { ...catalog, items: catalog.items.filter((item) => !item.metadata.id.startsWith('chatDatabase.')) }
           },
           call: (service, method, args, options) => self.controllerAdapter().service(service, method, args, options),
-          tracked: (value, actorId, expectation, options) => self.controllerAdapter().trackCommand(value, actorId, expectation, options),
+          tracked: (value, actorId, expectation, options) =>
+            self.controllerAdapter().trackCommand(value, actorId, expectation, options),
           start: async () => {
             self.controllerStarted = true
             if (!self.initializing) await self.controllerAdapter().resume()
@@ -865,6 +873,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
   }
   close(): Promise<void> {
+    if (!this.closeTask && this.coordinator.hostReferences(this.instanceId))
+      return Promise.reject(
+        new HbarError(
+          'HOST_COMMANDS_ACTIVE',
+          'Stable Host commands require settlement and saved acknowledgment before closing',
+        ),
+      )
     this.closeTask ??= this.dispose()
     return this.closeTask
   }
@@ -1327,7 +1342,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             background: () => this.coordinator.role(owner) === 'default',
             admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
             fresh: (event) => this.facade.replay({ method: 'notifications.created', params: event }),
-            retainCommand: jobId => {
+            retainCommand: (jobId) => {
               const resource = this.commandScopes.retain(this.coordinator, owner, `command.job:${jobId}`)
               if (!resource) throw new HbarError('BUSY', 'The command job already retains its owner')
               return () => this.coordinator.releaseResource(owner, resource.id)
@@ -1523,18 +1538,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       this.coordinator.assertCanWrite(owner, lease)
     }
     record.cleanup.push(
-      peer.register('kernel.commands.list', procedure(runtimeKernelCommandCatalogSchema, commandCatalogPageSchema, async (input, call) => {
-        assertCommandCaller(input)
-        const result = await this.commandDiscovery.list(input.query, call.signal)
-        assertCommandCaller(input)
-        return result
-      })),
-      peer.register('kernel.commands.describe', procedure(runtimeKernelCommandDescribeSchema, commandDescriptorSchema, async (input, call) => {
-        assertCommandCaller(input)
-        const result = await this.commandDiscovery.describe(input.commandId, call.signal)
-        assertCommandCaller(input)
-        return result
-      })),
+      peer.register(
+        'kernel.commands.list',
+        procedure(runtimeKernelCommandCatalogSchema, commandCatalogPageSchema, async (input, call) => {
+          assertCommandCaller(input)
+          const result = await this.commandDiscovery.list(input.query, call.signal)
+          assertCommandCaller(input)
+          return result
+        }),
+      ),
+      peer.register(
+        'kernel.commands.describe',
+        procedure(runtimeKernelCommandDescribeSchema, commandDescriptorSchema, async (input, call) => {
+          assertCommandCaller(input)
+          const result = await this.commandDiscovery.describe(input.commandId, call.signal)
+          assertCommandCaller(input)
+          return result
+        }),
+      ),
     )
     record.cleanup.push(
       this.relay.attachKernel(peer),
@@ -1917,14 +1938,18 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     if (owner.unitId === 'node-link') this.nodeLink.exited(owner)
     if (this.closing || this.coordinator.role(owner) === 'candidate') return
     if (owner.unitId !== 'controller') this.resumed.clear()
-    const dependencies = [...this.leases.values()].filter(lease =>
-      owner.unitId === 'storage' ||
-      [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(
-        version => version.unitId === owner.unitId && version.generation === owner.generation,
-      ))
-    const affected = [...new Map([
-      ...dependencies, ...this.coordinator.executionsForOwner(owner),
-    ].map(lease => [lease.runId, lease])).values()]
+    const dependencies = [...this.leases.values()].filter(
+      (lease) =>
+        owner.unitId === 'storage' ||
+        [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(
+          (version) => version.unitId === owner.unitId && version.generation === owner.generation,
+        ),
+    )
+    const affected = [
+      ...new Map(
+        [...dependencies, ...this.coordinator.executionsForOwner(owner)].map((lease) => [lease.runId, lease]),
+      ).values(),
+    ]
     this.interrupted.set(owner.incarnation, { owner, leases: affected, exited: false })
     if (owner.unitId === 'storage') {
       this.storageFailure = { owner, unknown: this.storage.writeCallsInFlight > 0 }

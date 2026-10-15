@@ -169,6 +169,7 @@ test('stable Host source admission requires a real lifetime retainer and bounds 
         expect(retained).toBe(1)
         expect(starts).toBe(0)
         expect(releases).toBe(0)
+        expect(() => jobs.dispose()).toThrow('saved acknowledgment')
         gate.reject(new CommandError('COMMAND_RECEIPT_FAILED', 'Cannot bind source owner'))
         expect(await failure(ticket.result)).toMatchObject({ code: 'COMMAND_RECEIPT_FAILED' })
         expect(await ticket.settled).toMatchObject({ status: 'failed', executionStarted: false })

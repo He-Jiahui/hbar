@@ -6,6 +6,8 @@ import type { StorageLocationApply, StorageLocationSnapshot } from '@hbar/contra
 import type { RuntimeSnapshot, RuntimeReload, RuntimeDelta, RuntimeWatchResult } from '@hbar/contracts/runtime'
 export interface RuntimeSystemPort {
   readonly commandScopes?: import('./command-execution-scopes').HostCommandExecutionScopes
+  readonly instanceId?: string
+  retainHostCommand?(jobId: string): () => void
   attachCommandRouting?(port: import('@hbar/commands').CommandRoutingPort): () => void
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean

@@ -437,8 +437,11 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     kernel.createNodeWorkspace(input),
   )
   const remoteWorkspaceCommands = createRemoteWorkspaceCommands(createRemoteWorkspace)
+  const retainHostCommand = options.runtime?.retainHostCommand?.bind(options.runtime)
   const localCommandJobs = new LocalCommandJobs({
     ...(options.runtime?.commandScopes ? { scopes: options.runtime.commandScopes } : {}),
+    ...(options.runtime?.instanceId ? { instanceId: options.runtime.instanceId } : {}),
+    ...(retainHostCommand ? { retainSource: retainHostCommand } : {}),
   })
   const commandRouter = createCommandRouter({
     catalogs: () => [...commandServices.map(({ service }) => service.list()), systemCommands.list()],
@@ -1840,6 +1843,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     pairing,
     info: hostInfo,
     async close() {
+      localCommandJobs.assertCanClose()
       closing = true
       detachCommandRouting?.()
       localCommandJobs.dispose()

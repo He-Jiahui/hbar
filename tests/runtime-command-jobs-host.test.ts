@@ -247,6 +247,7 @@ test('managed command owners bind their durable identity before dispatch and ret
       { ownerId: 'controller', commandId: 'session.getBudget', input: { sessionId: session.id } },
       { ownerId: 'kernel', commandId: 'workspace.list', input: {} },
       { ownerId: 'maintenance', commandId: 'chatDatabase.statistics', input: { scope: { kind: 'global' } } },
+      { ownerId: 'base', commandId: 'system.paths.get', input: {} },
     ]
     for (const [index, testCase] of cases.entries()) {
       const prepared = await host.commands.prepare({
@@ -281,7 +282,11 @@ test('managed command owners bind their durable identity before dispatch and ret
           source,
           beforeStart: async (owner) => {
             preparing = true
-            expect(owner).toMatchObject({ kind: 'runtime', owner: runtime.manager.defaultOwner(testCase.ownerId) })
+            expect(owner).toMatchObject(
+              testCase.ownerId === 'base'
+                ? { kind: 'host', instanceId: runtime.instanceId }
+                : { kind: 'runtime', owner: runtime.manager.defaultOwner(testCase.ownerId) },
+            )
             await gate
             receipt = await runtime.storage.call('commandExecutionUpdate', {
               ...identity,
@@ -302,6 +307,11 @@ test('managed command owners bind their durable identity before dispatch and ret
       await until(() => preparing)
       expect(resultDelivered).toBe(false)
       expect((await runtime.storage.call('commandExecutionRead', identity))?.owner).toBeNull()
+      if (testCase.ownerId === 'base') {
+        expect(runtime.coordinator.hostReferences(runtime.instanceId)).toBe(1)
+        expect(await failure(runtime.close())).toMatchObject({ code: 'HOST_COMMANDS_ACTIVE' })
+        expect(await failure(host.close())).toMatchObject({ code: 'HOST_COMMANDS_ACTIVE' })
+      }
       release()
       const result: unknown = await ticket.result
       const physical = await ticket.settled
