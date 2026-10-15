@@ -18,7 +18,7 @@ export interface CoordinationPersistence {
   claim(draft: ExecutionOwnership): Promise<ExecutionOwnership | null>
   release(lease: ExecutionOwnership): Promise<void>
   /** Invalidate durable write authority without declaring the interrupted Run successful. */
-  revoke(owner: RuntimeOwner, runIds: readonly string[]): Promise<void>
+  revoke(owner: RuntimeOwner, runIds: readonly string[], cause?: RuntimeOwner): Promise<void>
 }
 
 interface OwnerRecord {
@@ -304,20 +304,28 @@ export class RuntimeCoordinator {
     }
   }
 
-  async revoke(owner: RuntimeOwner): Promise<ExecutionOwnership[]> {
+  executionsForOwner(owner: RuntimeOwner): ExecutionOwnership[] {
     const record = this.record(owner)
-    record.role = 'fenced'
-    this.revoking.add(owner.incarnation)
-    const affected = [...this.runs.values()].filter(
+    const dependentLeases = new Set([...this.resources.values()].flatMap(resource =>
+      sameOwner(resource.owner, owner) && resource.executionLeaseId ? [resource.executionLeaseId] : []))
+    return [...this.runs.values()].filter(
       (lease) =>
         record.descriptor.kind === 'storage' || sameOwner(lease.owner, owner) ||
+        dependentLeases.has(lease.leaseId) ||
         versions(lease.versions).some(
           (version) =>
             version.unitId === owner.unitId &&
             version.generation === owner.generation &&
             version.artifactId === record.version.artifactId,
         ),
-    )
+    ).map(lease => executionOwnershipSchema.parse(lease))
+  }
+
+  async revoke(owner: RuntimeOwner): Promise<ExecutionOwnership[]> {
+    const record = this.record(owner)
+    const affected = this.executionsForOwner(owner)
+    record.role = 'fenced'
+    this.revoking.add(owner.incarnation)
     for (const lease of affected) {
       this.pendingReleases.delete(lease.runId)
       this.blocked.add(lease.sessionId)
@@ -325,10 +333,21 @@ export class RuntimeCoordinator {
       interrupted.add(owner.incarnation)
       this.interruptions.set(lease.runId, interrupted)
     }
-    await this.persistence.revoke(
-      record.owner,
-      affected.map((lease) => lease.runId),
-    )
+    const groups = new Map<string, { authority: RuntimeOwner; cause?: RuntimeOwner; ids: string[] }>()
+    for (const lease of affected) {
+      const bound = sameOwner(lease.owner, record.owner) || versions(lease.versions).some(version =>
+        version.unitId === record.owner.unitId && version.generation === record.owner.generation && version.artifactId === record.version.artifactId)
+      const authority = bound ? record.owner : lease.owner
+      let group = groups.get(authority.incarnation)
+      if (!group) {
+        group = { authority, ...(bound ? {} : { cause: record.owner }), ids: [] }
+        groups.set(authority.incarnation, group)
+      }
+      group.ids.push(lease.runId)
+    }
+    for (const group of groups.values())
+      for (let offset = 0; offset < group.ids.length; offset += 256)
+        await this.persistence.revoke(group.authority, group.ids.slice(offset, offset + 256), group.cause)
     return affected.map((lease) => executionOwnershipSchema.parse(lease))
   }
 
@@ -442,6 +461,19 @@ export class RuntimeCoordinator {
     if (!lease) throw new HbarError('RUNTIME_RESOURCE_EXISTS', 'The retained resource is already owned')
     this.retainedSessions.set(lease.id, sessionId)
     return lease
+  }
+
+  /** Stable Host composition only: retain a command executor on behalf of an already authenticated source Run.
+   * This does not add the executor to the Run's capability bindings or grant it storage/tool authority. */
+  retainSourceResource(owner: RuntimeOwner, key: string, source: ExecutionOwnership): RuntimeResourceLease {
+    this.assertExecution(source)
+    if (this.pendingReleases.has(source.runId))
+      throw new HbarError('EXECUTION_FINISHED', 'A finished Run cannot admit another command executor')
+    const resource = this.acquireResource(owner, key)
+    if (!resource) throw new HbarError('RUNTIME_RESOURCE_EXISTS', 'The command executor is already retained')
+    const retained = Object.freeze({ ...resource, executionLeaseId: source.leaseId })
+    this.resources.set(retained.id, retained)
+    return retained
   }
 
   releaseResource(owner: RuntimeOwner, resourceId: string): void {

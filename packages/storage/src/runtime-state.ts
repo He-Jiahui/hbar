@@ -214,8 +214,9 @@ export function createRuntimeState(db: Database, port: RuntimeStatePort) {
         projectOwnership(lease, 'released')
       }).immediate()
     },
-    revoke(value: RuntimeOwner, runIds: readonly string[]): string[] {
+    revoke(value: RuntimeOwner, runIds: readonly string[], cause?: RuntimeOwner): string[] {
       const owner = runtimeOwnerSchema.parse(value)
+      const failedOwner = cause ? runtimeOwnerSchema.parse(cause) : owner
       const ids = z.array(z.string().min(1).max(160)).max(256).parse(runIds)
       return db
         .transaction(() => {
@@ -231,7 +232,10 @@ export function createRuntimeState(db: Database, port: RuntimeStatePort) {
               )
             )
               throw new HbarError('RUNTIME_OWNER_MISMATCH', 'Fault owner is not bound to this Run')
-            port.append(current.lease.sessionId, 'execution.revoked', { lease: current.lease, failedOwner: owner }, id)
+            port.append(current.lease.sessionId, 'execution.revoked', {
+              lease: current.lease, failedOwner,
+              ...(cause ? { authorityOwner: owner } : {}),
+            }, id)
             projectOwnership(current.lease, 'revoked')
             revoked.push(id)
           }

@@ -219,7 +219,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private scheduled = false
   private reasonCode: string | null = null
   private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
-  private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[] }> = []
+  private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[]; cause?: RuntimeOwner }> = []
   private readonly sourceAbort = new AbortController()
   private disposeSource = () => {}
   private sourceBaseline: RuntimeArtifact | null = null
@@ -261,14 +261,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         return lease
       },
       release: (lease) => this.storage.call('runtimeExecutionRelease', lease),
-      revoke: async (owner, ids) => {
+      revoke: async (owner, ids, cause) => {
         // Controller/Maintenance faults without Run claims need no database projection write.
         if (!ids.length) return
         if (this.storageFailure) {
-          this.pendingRevocations.push({ owner, ids: [...ids] })
+          this.pendingRevocations.push({ owner, ids: [...ids], ...(cause ? { cause } : {}) })
           return
         }
-        await this.storage.call('runtimeExecutionRevoke', owner, ids)
+        await this.storage.call('runtimeExecutionRevoke', owner, ids, cause)
       },
     })
     this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: (version) => this.driver(version) })
@@ -1884,7 +1884,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       for (const revoke of this.pendingRevocations)
         await record.process.call(
           'storage.call',
-          { method: 'runtimeExecutionRevoke', args: [revoke.owner, revoke.ids] },
+          { method: 'runtimeExecutionRevoke', args: [revoke.owner, revoke.ids, revoke.cause] },
           z.unknown(),
         )
       this.pendingRevocations.length = 0
@@ -1912,13 +1912,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     if (owner.unitId === 'node-link') this.nodeLink.exited(owner)
     if (this.closing || this.coordinator.role(owner) === 'candidate') return
     if (owner.unitId !== 'controller') this.resumed.clear()
-    const affected = [...this.leases.values()].filter(
-      (lease) =>
-        owner.unitId === 'storage' ||
-        [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(
-          (v) => v.unitId === owner.unitId && v.generation === owner.generation,
-        ),
-    )
+    const dependencies = [...this.leases.values()].filter(lease =>
+      owner.unitId === 'storage' ||
+      [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(
+        version => version.unitId === owner.unitId && version.generation === owner.generation,
+      ))
+    const affected = [...new Map([
+      ...dependencies, ...this.coordinator.executionsForOwner(owner),
+    ].map(lease => [lease.runId, lease])).values()]
     this.interrupted.set(owner.incarnation, { owner, leases: affected, exited: false })
     if (owner.unitId === 'storage') {
       this.storageFailure = { owner, unknown: this.storage.writeCallsInFlight > 0 }

@@ -597,7 +597,7 @@ export interface StorageMethods {
   recover(scope?: RuntimeRecoveryScope): number
   runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null
   runtimeExecutionRelease(lease: ExecutionOwnership): void
-  runtimeExecutionRevoke(owner: RuntimeOwner, runIds: readonly string[]): string[]
+  runtimeExecutionRevoke(owner: RuntimeOwner, runIds: readonly string[], cause?: RuntimeOwner): string[]
   runtimeExecutionRead(runId: string): { lease: ExecutionOwnership; state: string } | null
   runtimeActiveRuns(after?: string, limit?: number): Run[]
   runtimeUnreleasedExecutions(after?: string, limit?: number): ExecutionOwnership[]

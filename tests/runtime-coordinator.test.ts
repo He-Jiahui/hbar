@@ -17,15 +17,15 @@ function version(value: RuntimeOwner): RuntimeVersion {
 }
 function fixture(overrides: Partial<CoordinationPersistence> = {}) {
   const claimed: ExecutionOwnership[] = []
-  const revoked: Array<{ owner: RuntimeOwner; runIds: readonly string[] }> = []
+  const revoked: Array<{ owner: RuntimeOwner; runIds: readonly string[]; cause?: RuntimeOwner }> = []
   const coordinator = new RuntimeCoordinator({
     async claim(lease) {
       claimed.push(lease)
       return lease
     },
     async release() {},
-    async revoke(owner, runIds) {
-      revoked.push({ owner, runIds })
+    async revoke(owner, runIds, cause) {
+      revoked.push({ owner, runIds, ...(cause ? { cause } : {}) })
     },
     ...overrides,
   })
@@ -197,6 +197,77 @@ test('logical terminal release retains its Session and physical capacity, reject
   expect(resumed).toBe(1)
   expect(f.coordinator.snapshot()).toMatchObject({ sessions: 0, physicalTools: 0 })
   expect((await f.claim('session', 'next-run', next)).owner).toEqual(next)
+})
+
+test('a Host-bound command resource retains its source Run without granting the Controller Run capability authority', async () => {
+  let released = 0
+  const f = fixture({ release: async () => { released++ } })
+  const controller = owner('controller')
+  f.register(controller, 'controller')
+  const source = await f.claim()
+  expect(() => f.coordinator.assertCanWrite(controller, source)).toThrow('not bound')
+  const retained = f.coordinator.retainSourceResource(controller, 'command.job:source', source)
+  expect(retained.executionLeaseId).toBe(source.leaseId)
+  expect(f.coordinator.references(controller)).toMatchObject({ runs: 0, resources: 1, tools: 0 })
+  expect(() => f.coordinator.assertCanWrite(controller, source)).toThrow('not bound')
+  await f.coordinator.requestRelease(source, () => {})
+  expect(released).toBe(0)
+  expect(f.coordinator.executionForSession(source.sessionId)?.runId).toBe(source.runId)
+  expect(() => f.coordinator.retainSourceResource(controller, 'late-command', source)).toThrow('finished Run')
+  f.coordinator.releaseResource(controller, retained.id)
+  await Bun.sleep(0)
+  expect(released).toBe(1)
+  expect(f.coordinator.executionForSession(source.sessionId)).toBeNull()
+  expect(f.coordinator.references(controller).resources).toBe(0)
+})
+
+test('a command executor failure fences its source Run until actual exit and explicit reconciliation', async () => {
+  const f = fixture()
+  const controller = owner('controller')
+  f.register(controller, 'controller')
+  const source = await f.claim()
+  const retained = f.coordinator.retainSourceResource(controller, 'command.job:lost', source)
+  expect(await f.coordinator.revoke(controller)).toEqual([source])
+  expect(f.revoked).toContainEqual({ owner: f.kernel, runIds: [source.runId], cause: controller })
+  expect(() => f.coordinator.assertExecution(source)).toThrow('invalid or revoked')
+  expect(f.coordinator.snapshot().resources).toBe(1)
+  f.coordinator.acknowledgeRunStopped(f.kernel, source.runId)
+  expect(() => f.coordinator.reconciled(source.sessionId)).toThrow('failed dependency has not actually exited')
+  expect(f.coordinator.ownerExited(controller).resources).toEqual([retained])
+  f.coordinator.reconciled(source.sessionId)
+  expect(f.coordinator.executionForSession(source.sessionId)).toBeNull()
+  expect(f.coordinator.snapshot().resources).toBe(0)
+  expect(() => f.coordinator.retainSourceResource(controller, 'after-exit', source)).toThrow('invalid or revoked')
+})
+
+test('source command retention rejects forged leases and inactive target owners before allocating capacity', async () => {
+  const f = fixture()
+  const candidate = owner('controller')
+  f.register(candidate, 'controller', false)
+  const source = await f.claim()
+  expect(() => f.coordinator.retainSourceResource(candidate, 'candidate', source)).toThrow('candidates cannot write')
+  f.coordinator.activate(candidate)
+  expect(() => f.coordinator.retainSourceResource(candidate, 'forged', { ...source, fence: source.fence + 1 })).toThrow('invalid or revoked')
+  expect(await f.coordinator.revoke(candidate)).toEqual([])
+  expect(() => f.coordinator.retainSourceResource(candidate, 'fenced', source)).toThrow('revoked')
+  expect(f.coordinator.snapshot().resources).toBe(0)
+  await f.coordinator.releaseExecution(source)
+})
+
+test('a command owner with many dependent sources revokes them in bounded authority batches', async () => {
+  const f = fixture(), controller = owner('controller')
+  f.register(controller, 'controller')
+  for (let index = 0; index < 300; index++) {
+    const source = await f.claim(`session-${index}`, `run-${index}`)
+    f.coordinator.retainSourceResource(controller, `command:${index}`, source)
+  }
+  expect(f.coordinator.executionsForOwner(controller)).toHaveLength(300)
+  expect(await f.coordinator.revoke(controller)).toHaveLength(300)
+  expect(f.revoked.map(item => item.runIds.length)).toEqual([256, 44])
+  expect(f.revoked.every(item => item.owner.incarnation === f.kernel.incarnation && item.cause?.incarnation === controller.incarnation)).toBe(true)
+  expect(f.coordinator.snapshot().resources).toBe(300)
+  f.coordinator.ownerExited(controller)
+  expect(f.coordinator.snapshot().resources).toBe(0)
 })
 
 test('an unknown deferred durable release closes admission and is never blindly replayed', async () => {
