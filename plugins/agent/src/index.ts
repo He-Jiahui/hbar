@@ -685,16 +685,18 @@ export class AgentRuntime implements AgentService {
   async list(parentSessionId: string, after?: string, limit = 50) {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       throw new HbarError('INVALID_INPUT', 'Agent list limit must be from 1 to 100')
-    const items = (await this.children(parentSessionId)).map(({ record }) => record)
-    const filtered = after ? items.filter((item) => item.agentId > after) : items
+    const seeds = await this.childSeeds(parentSessionId)
+    const filtered = after ? seeds.filter((seed) => seed.agentId > after) : seeds
     const page = filtered.slice(0, limit)
-    return { items: page, nextCursor: filtered.length > limit ? (page.at(-1)?.agentId ?? null) : null }
+    const items: AgentRecord[] = []
+    for (const seed of page) items.push(await this.record(seed))
+    return { items, nextCursor: filtered.length > limit ? (page.at(-1)?.agentId ?? null) : null }
   }
 
   async result(parentSessionId: string, agentId: string) {
-    const direct = (await this.children(parentSessionId)).find(({ record }) => record.agentId === agentId)
-    if (!direct) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not a direct child of the target session')
-    return direct.record
+    const seed = (await this.childSeeds(parentSessionId)).find((candidate) => candidate.agentId === agentId)
+    if (!seed) throw new HbarError('AGENT_NOT_FOUND', 'Agent is not a direct child of the target session')
+    return this.record(seed)
   }
 
   async applyPatch(
