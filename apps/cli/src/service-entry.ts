@@ -43,7 +43,7 @@ export function conversationHostArguments(args: CliArgs): readonly string[] {
     throw new Error('Invalid --port: use an integer from 0 to 65535')
   return [
     '--supervisor',
-    '--desktop',
+    '--service',
     ...(args.role ? ['--role', args.role] : []),
     ...(args.home ? ['--home', args.home] : []),
     ...(args.dataRoot ? ['--data-root', args.dataRoot] : []),

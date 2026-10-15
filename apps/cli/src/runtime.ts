@@ -12,8 +12,9 @@ import {
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import { NamedContextStore } from './context.ts'
-import { resolvePathLayout } from '@hbar/storage'
+import { resolvePathLayout, type PathLayout } from '@hbar/storage'
 import { hostProcessCommand } from './host-process.ts'
+import { hasLiveHostOwner } from './host-owner'
 import { queuedRunGuidedOperationId, admitOperationRecovery } from '@hbar/contracts/commands/run'
 import type {
   ApprovalMode,
@@ -208,28 +209,7 @@ async function connectExistingHost(client: HbarClient, expectedInstanceId: strin
 }
 
 async function startHost(layout: CliRuntime['layout'], project: string, demo: boolean, requireReady = true) {
-  let existingOwner = false
-  try {
-    const record: unknown = JSON.parse(await readFile(`${layout.hostLock}.supervisor`, 'utf8'))
-    if (
-      typeof record === 'object' &&
-      record !== null &&
-      'pid' in record &&
-      typeof record.pid === 'number' &&
-      Number.isSafeInteger(record.pid) &&
-      record.pid > 0
-    ) {
-      try {
-        process.kill(record.pid, 0)
-        existingOwner = true
-      } catch {
-        /* Owner has exited. */
-      }
-    }
-  } catch {
-    /* No launcher has claimed this isolated data root yet. */
-  }
-  if (existingOwner) {
+  if (await hasLiveHostOwner(layout.hostLock)) {
     const deadline = Date.now() + 120_000
     while (Date.now() < deadline) {
       if (await connection(layout, requireReady)) return
@@ -430,6 +410,8 @@ export async function openRuntime(
 
 export async function openCatalogClient(
   options: {
+    /** An already resolved service layout retains relocated settings/credential paths. */
+    layout?: PathLayout | undefined
     project?: string | undefined
     dataRoot?: string | undefined
     cacheRoot?: string | undefined
@@ -441,7 +423,8 @@ export async function openCatalogClient(
   startHostImpl: StartHost = startHost,
 ) {
   const initialProject = resolve(options.project ?? process.cwd())
-  const layout = await resolvePathLayout({ dataRoot: options.dataRoot, cacheRoot: options.cacheRoot })
+  const layout = options.layout ??
+    (await resolvePathLayout({ dataRoot: options.dataRoot, cacheRoot: options.cacheRoot }))
   const requireReady = options.requireReady ?? true
   let file: ConnectionFile
   let expectedInstanceId: string | undefined

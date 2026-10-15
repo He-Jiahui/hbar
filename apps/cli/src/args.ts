@@ -97,7 +97,7 @@ Usage:
   hbar repl                         Open the line-oriented command REPL
   hbar --headless --message <text> Run one request without a UI
   hbar --connect-only ...           Use a healthy existing Host; do not create anything implicitly
-  hbar serve                        Start a background Host
+  hbar serve                        Start or attach to a backend service
   hbar serve --role conversation --host <address> --port <port> --cert <pem> --key <pem>
   hbar serve --role conversation --no-local-exec
   hbar serve --role workspace --home <node-data> --join <A-url> --code <8-digits> --fingerprint <A-fingerprint>

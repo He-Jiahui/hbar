@@ -35,6 +35,7 @@ export async function runHost(
       origin: { type: 'string', multiple: true },
       demo: { type: 'boolean' },
       desktop: { type: 'boolean' },
+      service: { type: 'boolean' },
       cert: { type: 'string' },
       key: { type: 'string' },
       'web-root': { type: 'string' },
@@ -49,7 +50,7 @@ export async function runHost(
   if (values.port !== undefined && (!/^\d+$/.test(values.port) || Number(values.port) > 65535))
     throw new Error('Invalid --port: use an integer from 0 to 65535')
   const layout = await resolvePathLayout({
-    preferPointer: values.desktop === true,
+    preferPointer: values.desktop === true || values.service === true,
     home: values.home ?? process.env.HBAR_HOME,
     dataRoot: values['data-root'] ?? process.env.HBAR_DATA_ROOT,
     cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
@@ -164,7 +165,7 @@ export async function runHost(
     if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
     heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
     heartbeat.unref()
-    if (values.desktop) {
+    if (values.desktop || values.service) {
       await runtime.authenticationReady()
       let persistedToken: string | undefined
       try {

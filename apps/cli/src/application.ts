@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 import { randomUUID } from 'node:crypto'
-import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
 import { CommandError } from '@hbar/commands'
 import { createRunCommandClient } from '@hbar/client'
@@ -30,9 +29,8 @@ import {
 import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
 import { runRepl } from './repl.ts'
-import { hostProcessCommand } from './host-process.ts'
 import { isNodeManagementCommand, runNodeManagementCommand } from './node-management'
-import { conversationHostArguments } from './service-entry'
+import { serve } from './serve'
 import { tryAttachNodeConsole } from './node-console-attach'
 
 function exitCode(error: unknown, usage = false) {
@@ -61,15 +59,6 @@ function completion(shell: string | undefined) {
   if (shell === 'bash' || shell === 'zsh')
     return `complete -W "commands exec repl session model plugins skills config diagnose version" hbar`
   throw new CommandError('INVALID_SYNTAX', 'Usage: hbar completion <powershell|bash|zsh>')
-}
-
-async function serve(args: CliArgs) {
-  const command = hostProcessCommand(conversationHostArguments(args))
-  const child = spawn(command[0]!, command.slice(1), { stdio: 'inherit', windowsHide: false })
-  return new Promise<number>((resolveExit, reject) => {
-    child.once('error', reject)
-    child.once('exit', (code) => resolveExit(code ?? 7))
-  })
 }
 
 async function attached(args: CliArgs) {

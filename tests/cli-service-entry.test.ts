@@ -72,7 +72,7 @@ test('conversation service preserves bind address, TLS, data paths and profile w
   ])
   expect(conversationHostArguments(args)).toEqual([
     '--supervisor',
-    '--desktop',
+    '--service',
     '--role',
     'conversation',
     '--home',
