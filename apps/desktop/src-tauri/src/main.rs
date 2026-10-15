@@ -2,6 +2,7 @@
 mod native_diagnostics;
 mod resource_browser;
 mod background;
+mod tray_actions;
 
 use background::{Startup, StartupMode, startup_override, shutdown_owner, release_workbench_on_close, host_port_override};
 use native_diagnostics::NativeDiagnostics;
@@ -375,6 +376,7 @@ fn exit_service(app: &tauri::AppHandle, stop_backend: bool) {
         eprintln!("The local Host process tree could not be stopped");
         return;
     }
+    if let Some(actions) = app.try_state::<tray_actions::Actions>() { actions.close(); }
     app.exit(0);
 }
 
@@ -1208,6 +1210,8 @@ fn open_backend_web(app: &tauri::AppHandle) -> Result<(), String> {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             resource_browser::resource_browser,
             resource_browser::resource_open_system,
@@ -1229,6 +1233,7 @@ fn main() {
             let selected = startup_override(std::env::args().skip(1))?;
             let (connection, data_root, owned_pid) = launch(app.handle())?;
             let startup = desktop_startup(&connection)?;
+            let tray_actions = tray_actions::load(&connection)?;
             let startup_mode = selected.unwrap_or(startup.startup_mode);
             let (_, _, settings_root) = path_roots(app.handle())?;
             app.manage(NativeDiagnostics::for_settings_root(&settings_root));
@@ -1261,7 +1266,15 @@ fn main() {
             let web = MenuItem::with_id(app, "web", &startup.labels.open_web, true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", &startup.labels.exit_client, true, None::<&str>)?;
             let stop = MenuItem::with_id(app, "stop", &startup.labels.stop_backend, true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &web, &exit, &stop])?;
+            let menu = Menu::with_items(app, &[&open, &web])?;
+            if let Some(copy) = tray_actions {
+                let address = MenuItem::with_id(app, "copy-address", &copy.copy_address, true, None::<&str>)?;
+                let operator = MenuItem::with_id(app, "pair-operator", &copy.pair_operator, true, None::<&str>)?;
+                let observer = MenuItem::with_id(app, "pair-observer", &copy.pair_observer, true, None::<&str>)?;
+                menu.append_items(&[&address, &operator, &observer])?;
+                app.manage(tray_actions::Actions::new(copy));
+            }
+            menu.append_items(&[&exit, &stop])?;
             let mut pixels = vec![0u8; 32 * 32 * 4];
             for y in 0..32 {
                 for x in 0..32 {
@@ -1284,6 +1297,9 @@ fn main() {
                         if open_workbench(app).is_err() { eprintln!("Unable to open hbar client"); }
                     }
                     "web" => { if open_backend_web(app).is_err() { eprintln!("Unable to open hbar web"); } }
+                    "copy-address" => tray_actions::copy_address(app),
+                    "pair-operator" => tray_actions::pair(app, tray_actions::Role::Operator),
+                    "pair-observer" => tray_actions::pair(app, tray_actions::Role::Observer),
                     "exit" => exit_service(app, false),
                     "stop" => exit_service(app, true),
                     _ => {}
