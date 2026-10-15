@@ -10,6 +10,7 @@
     "./maintenance": "./src/maintenance.ts",
     "./secrets": "./src/secrets.ts",
     "./runtime-port": "./src/runtime-port.ts",
+    "./session-command-port": "./src/session-command-port.ts",
     "./runtime-application": "./src/runtime-application.ts",
     "./node-workspace-inspection": "./src/node-workspace-inspection.ts",
     "./node-workspace-mounts": "./src/node-workspace-mounts.ts",

@@ -38,6 +38,7 @@
     "./backend": "./src/backend.ts",
     "./sandbox": "./src/sandbox.ts",
     "./commands": "./src/commands/index.ts",
+    "./commands/cli-catalog": "./src/commands/cli-catalog.ts",
     "./commands/nodes": "./src/commands/nodes.ts",
     "./commands/surfaces": "./src/commands/surfaces.ts",
     "./commands/agents": "./src/commands/agents.ts",

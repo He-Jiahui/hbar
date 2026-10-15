@@ -7,6 +7,9 @@ import type { NodeWorktreePort } from './node-worktree-port'
 export type { NodeWorktreePort } from './node-worktree-port'
 import { ensureNodeRunWorktree } from './node-run-worktree'
 import { bindToolCall, type ToolCallPreparationPort } from './tool-call-binding'
+import { createSessionCommandTools } from './session-command-tools'
+import type { SessionCommandDiscoveryPort } from './session-command-port'
+export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
 export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
 import { assertRemoteLaunchTargetSupported, nodeWorktreeBranchPlan } from './node-worktree-selection'
 import { nodeWorkspaceLocator } from '@hbar/contracts/node-address'
@@ -425,6 +428,8 @@ export interface KernelOptions {
   execution?: KernelExecutionPort | undefined
   /** Host-owned final operation binding, after transforming Hooks and before every execution gate. */
   toolCalls?: ToolCallPreparationPort | undefined
+  /** Stable Host command discovery; every session inherits the core discovery tools when supplied. */
+  sessionCommands?: SessionCommandDiscoveryPort | undefined
   /** Private Host bridge for authenticated remote execution intent recovery. */
   nodeIntentRecovery?: NodeIntentRecoveryPort | undefined
   /** Stable Host adapter captures authenticated node facts before remote process admission. */
@@ -1134,6 +1139,8 @@ export class Kernel {
     }
   }
   private registerDefaults() {
+    if (this.options.sessionCommands)
+      for (const tool of createSessionCommandTools(this.options.sessionCommands)) this.tools.register(tool)
     const isolatedPlugin = (id: string): HbarPlugin | undefined =>
       this.options.profile?.replacements?.[id] ??
       this.options.profile?.managedPlugins?.find((plugin) => plugin.manifest.id === id)

@@ -92,12 +92,22 @@ Host 组合根还可以注入 `ToolCallPreparationPort`：在最终参数校验�
 
 受管执行 owner 的文件读取、目录读取与路径规范化保留 `ENOENT` 分类，同时用固定消息代替原始系统错误中的路径。文件写入用例因此能识别“不存在”的基线并创建新文件；其他未知插件异常继续走原有错误处理。真实 owner 的错误传输用例验证分类与路径隐藏，`tests/managed-file-commands.test.ts` 通过真实 Host、Controller、执行插件与配对设备验证嵌套新文件创建、读取及重复相同内容时的收敛行为。
 
+## Session 的 Command 发现工具
+
+受管 Host 为每个 session 注册 `hbar_commands_list` 和 `hbar_command_describe`。目录包括与 CLI 共用的 Host、client、platform 定义；命令参数与输出的 JSON Schema、默认值、版本和执行域来自当前命令所有者。两个工具沿用普通工具的最终参数、Run、Plan、权限及取消链，只进行读取，不执行命令。
+
+私有 IPC 的 session、Run 与 call ID 由工具网关提供，模型输入不接受 actor 或来源身份。稳定 Host 在读取前后核对 Run claim 与 Kernel owner。监听器尚未提供命令路由时最多保留 32 个等待请求，默认十秒超时，取消和关闭均释放请求；旧监听器的 disposer 不会移除替换后的路由。
+
+各域使用相同字符顺序合并，Host 响应因字节容量提前结束时，本地定义不能跳过尚未读取的 Host ID。模型目录每次最多 50 项、32 KiB，继续读取使用最后一项 ID；完整 IPC 页最多 200 项、512 KiB。单项描述最多 128,000 UTF-8 字节，超过容量或 ID 不匹配明确失败，不返回截断 JSON。CLI 同步使用共用目录，隐藏内部项并修正大小写游标顺序。
+
+真实受管集成通过两个独立 session 验证全目录翻页和读取定义，涵盖三个执行域；Plan 与 deny 下读取成功，无审批、无客户端，也没有给普通 Run 创建 Goal。边界用例验证来源参数伪造、输入容量、UTF-8 描述容量、错误 ID、分页、启动等待、取消、关闭及路由替换。`hbar_command_execute` 和带来源身份的执行上下文仍在后续实现范围内。
+
 ## 完整目标的后续交付
 
 以下仍属本次后台模式目标，不能把原生托盘入口的交付当作它们已经完成：
 
 - `hbar serve --unattended`。
-- 所有 session 的 Command 目录、描述与执行工具，Host/client/platform 路由及相同权限准入。
+- 所有 session 的 `hbar_command_execute`，Host/client/platform 执行路由及相同权限准入。
 - 无 UI 的有界自动调度、普通 Run 重试与修复、Goal 唯一接管、持久次数及未知副作用核对。
 - 全局默认与 session 覆盖的三种决策模式，以及决策记录、人工接管和重启恢复。
 - 推荐项与模型补全；跨 workspace 的结构化委派、运行中目标引导、循环检测、过期答复拒绝及五分钟默认等待。

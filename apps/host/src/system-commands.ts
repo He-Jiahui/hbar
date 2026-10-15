@@ -5,6 +5,7 @@ import { systemCommands } from '@hbar/contracts/commands/system'
 import type { StorageLocationApply, StorageLocationSnapshot } from '@hbar/contracts/commands/storage-locations'
 import type { RuntimeSnapshot, RuntimeReload, RuntimeDelta, RuntimeWatchResult } from '@hbar/contracts/runtime'
 export interface RuntimeSystemPort {
+  attachCommandRouting?(port: import('@hbar/commands').CommandRoutingPort): () => void
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean
   subscribe?(listener: (delta: RuntimeDelta) => void): () => void

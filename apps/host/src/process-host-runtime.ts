@@ -96,6 +96,9 @@ import { RuntimeNodeLinkRelay } from './runtime-node-link-relay'
 import { RUNTIME_NODE_LINK_CONTROLS } from './runtime-node-link-contract'
 import { createRuntimeNodeIntentRecovery } from './runtime-node-intent-recovery'
 import { createRuntimeNodeWorkspaceInspection } from './runtime-node-workspace-inspection'
+import { SessionCommandDiscovery } from './session-command-discovery'
+import { commandCatalogPageSchema, commandDescriptorSchema, type CommandRoutingPort } from '@hbar/commands'
+import { runtimeKernelCommandCatalogSchema, runtimeKernelCommandDescribeSchema } from '@hbar/kernel/runtime-port'
 
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
@@ -139,6 +142,8 @@ const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${versi
 
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
+  private readonly commandDiscovery = new SessionCommandDiscovery()
+  attachCommandRouting(port: CommandRoutingPort): () => void { return this.commandDiscovery.attach(port) }
   private readonly processTree = createRuntimeProcessTreePort()
   readonly storage = new StableStoragePort()
   readonly artifacts: RuntimeArtifactStore
@@ -859,6 +864,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private async dispose(): Promise<void> {
     this.closing = true
+    this.commandDiscovery.close()
     this.disposeStatus()
     this.statusFeed.close()
     this.disposeSource()
@@ -1496,6 +1502,26 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       prefix: 'kernel.application',
       controlMethods: RUNTIME_APPLICATION_CONTROLS,
     })
+    const assertCommandCaller = (input: { sessionId: string; runId: string }) => {
+      const lease = this.leases.get(input.runId)
+      if (!lease || lease.sessionId !== input.sessionId)
+        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Command discovery requires this Session Run claim')
+      this.coordinator.assertCanWrite(owner, lease)
+    }
+    record.cleanup.push(
+      peer.register('kernel.commands.list', procedure(runtimeKernelCommandCatalogSchema, commandCatalogPageSchema, async (input, call) => {
+        assertCommandCaller(input)
+        const result = await this.commandDiscovery.list(input.query, call.signal)
+        assertCommandCaller(input)
+        return result
+      })),
+      peer.register('kernel.commands.describe', procedure(runtimeKernelCommandDescribeSchema, commandDescriptorSchema, async (input, call) => {
+        assertCommandCaller(input)
+        const result = await this.commandDiscovery.describe(input.commandId, call.signal)
+        assertCommandCaller(input)
+        return result
+      })),
+    )
     record.cleanup.push(
       this.relay.attachKernel(peer),
       this.pluginRelay.attachKernel(peer, owner),

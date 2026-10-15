@@ -70,6 +70,22 @@ export interface CommandDescriptor {
   readonly outputSchema: z.core.JSONSchema.BaseSchema
 }
 
+/** Descriptors cross read-only ports; executable validators and functions stay in their owners. */
+const commandDescriptorWireSchema = z.strictObject({
+  metadata: commandMetadataSchema,
+  inputSchema: z.record(z.string(), z.unknown()),
+  outputSchema: z.record(z.string(), z.unknown()),
+})
+export const commandDescriptorSchema = commandDescriptorWireSchema.transform((value): CommandDescriptor => value)
+
+export const commandCatalogPageSchema = z.strictObject({
+  revision: z.number().int().nonnegative().safe(),
+  items: z.array(commandDescriptorSchema).max(200),
+  nextCursor: z.string().min(1).max(128).optional(),
+}).transform(({ nextCursor, ...page }): CommandCatalogPage =>
+  nextCursor === undefined ? page : { ...page, nextCursor },
+)
+
 export const commandCatalogQuerySchema = z.strictObject({
   category: z.string().min(1).max(128).optional(),
   after: z.string().max(128).optional(),

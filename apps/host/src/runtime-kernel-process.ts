@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
@@ -24,6 +25,8 @@ import {
   runtimeKernelVerifyWorkspaceFoldersSchema,
   runtimeKernelNodeWorktreeSchema,
   runtimeKernelCancelSchema,
+  runtimeKernelCommandCatalogSchema,
+  runtimeKernelCommandDescribeSchema,
 } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
@@ -173,6 +176,14 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
+      sessionCommands: {
+        list: (query, identity) => context.peer.call('kernel.commands.list',
+          runtimeKernelCommandCatalogSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),
+          commandCatalogPageSchema, { signal: identity.signal, timeoutMs: 15_000 }),
+        describe: (commandId, identity) => context.peer.call('kernel.commands.describe',
+          runtimeKernelCommandDescribeSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, commandId }),
+          commandDescriptorSchema, { signal: identity.signal, timeoutMs: 15_000 }),
+      },
       nodeIntentRecovery: {
         reconcileRun: (runId, signal) => context.peer.call(
           'kernel.nodeIntentRecovery.reconcileRun',

@@ -43,8 +43,8 @@ import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { metricsCommands } from '@hbar/contracts/commands/metrics'
 import { runCommands } from '@hbar/contracts/commands/run'
-import { navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
-import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-application'
+import { surfaceCommands } from '@hbar/contracts/commands'
+import { cliLocalCommands } from '@hbar/contracts/commands/cli-catalog'
 import { settingsCommands, settingsScopeSchema } from '@hbar/contracts/commands/settings'
 import { systemCommands } from '@hbar/contracts/commands/system'
 import { usageCommands, type UsageScope } from '@hbar/contracts/commands/usage'
@@ -195,23 +195,18 @@ export async function runCatalogCommand(
       remote.push(...page.items)
       cursor = page.nextCursor
     } while (cursor && remote.length < 10_000)
-    const local = [
-      ...Object.values(navigationCommands),
-      ...Object.values(connectionCommands),
-      ...Object.values(surfaceCommands),
-      ...Object.values(terminalApplicationCommands),
-      ...Object.values(attachmentCommands),
-    ]
+    const local = Object.values(cliLocalCommands)
       .map(describeCommand)
       .filter(
         ({ metadata }) =>
+          metadata.visibility !== 'internal' &&
           (!args.category ||
             metadata.category === args.category ||
             metadata.category.startsWith(`${args.category}.`)) &&
           (!args.after || metadata.id > args.after),
       )
     const descriptors = [...new Map([...remote, ...local].map((item) => [item.metadata.id, item])).values()].sort(
-      (a, b) => a.metadata.id.localeCompare(b.metadata.id),
+      (a, b) => (a.metadata.id < b.metadata.id ? -1 : a.metadata.id > b.metadata.id ? 1 : 0),
     )
     const items = descriptors.slice(0, limit)
     output(
@@ -222,13 +217,7 @@ export async function runCatalogCommand(
       }),
     )
   } else if (action === 'describe' && selector && args.commandArgs.length === 2) {
-    const local = [
-      ...Object.values(navigationCommands),
-      ...Object.values(connectionCommands),
-      ...Object.values(surfaceCommands),
-      ...Object.values(terminalApplicationCommands),
-      ...Object.values(attachmentCommands),
-    ].find((definition) => definition.metadata.id === selector)
+    const local = Object.values(cliLocalCommands).find((definition) => definition.metadata.id === selector)
     output(
       JSON.stringify(local ? describeCommand(local) : await client.call('command.describe', { commandId: selector })),
     )

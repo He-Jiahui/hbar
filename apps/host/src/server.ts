@@ -1754,6 +1754,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         send(socket, { jsonrpc: '2.0', method: 'metrics.sample', params: sample })
   })
   await scheduleController.start()
+  const detachCommandRouting = options.runtime?.attachCommandRouting?.(commandRouter)
   return {
     server,
     /** Trusted in-process adapters share the same route as authenticated RPC. */
@@ -1763,6 +1764,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     info: hostInfo,
     async close() {
       closing = true
+      detachCommandRouting?.()
       nodeSockets?.closeAll()
       await application.dispose()
       metricsCommands.dispose()

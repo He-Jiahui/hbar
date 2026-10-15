@@ -23,10 +23,14 @@ import { nodeIdSchema, nodeRootIdSchema } from '@hbar/contracts/node-address'
 import { nodeWorktreeMethods } from '@hbar/contracts/node-worktree'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
+import { commandCatalogQuerySchema, commandMetadataSchema, commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
 import { RUNTIME_APPLICATION_METHODS } from './runtime-application'
 
 const id = z.string().min(1).max(160)
+export const runtimeKernelCommandIdentitySchema = z.strictObject({ sessionId: id, runId: id, callId: id })
+export const runtimeKernelCommandCatalogSchema = runtimeKernelCommandIdentitySchema.extend({ query: commandCatalogQuerySchema })
+export const runtimeKernelCommandDescribeSchema = runtimeKernelCommandIdentitySchema.extend({ commandId: z.string().min(1).max(128) })
 export const runtimeKernelConfigurationSchema = z.strictObject({
   instanceId: id,
   dataRoot: z.string().min(1).max(4_000),
@@ -134,6 +138,8 @@ export const runtimeKernelStateSchema = z.strictObject({
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
 /** Kernel-initiated callbacks to the stable Host, never exposed as Kernel services or operator RPC. */
 export const RUNTIME_KERNEL_HOST_METHODS = [
+  'kernel.commands.list',
+  'kernel.commands.describe',
   'kernel.nodeIntentRecovery.reconcileRun',
   'kernel.nodeWorkspaceInspection.captureExecutionTarget',
   'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
@@ -160,6 +166,11 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
       RUNTIME_APPLICATION_METHODS,
       RUNTIME_KERNEL_CONTROL_METHODS,
       RUNTIME_KERNEL_HOST_METHODS,
+      z.toJSONSchema(runtimeKernelCommandCatalogSchema),
+      z.toJSONSchema(runtimeKernelCommandDescribeSchema),
+      z.toJSONSchema(commandMetadataSchema),
+      z.toJSONSchema(commandCatalogPageSchema, { unrepresentable: 'any' }),
+      z.toJSONSchema(commandDescriptorSchema, { unrepresentable: 'any' }),
       z.toJSONSchema(runtimeKernelCancelSchema),
       z.toJSONSchema(runtimeKernelNodeIntentRecoverySchema),
       z.toJSONSchema(runtimeKernelNodeWorkspaceInspectionSchema),
