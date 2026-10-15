@@ -373,7 +373,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         await this.storage.call('runtimeExecutionRevoke', owner, ids)
       },
     })
-    this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: (version) => this.driver(version) })
+    this.relay = new RuntimeDriverRelay({
+      coordinator: this.coordinator,
+      resolve: (version) => this.driver(version),
+      onDiagnostic: (event) => this.emitProcessLifecycleDiagnostic({ ...event, instanceId: this.instanceId }),
+    })
     this.resources = new RuntimeResourceRegistry(this.coordinator, this.storage)
     this.pluginRelay = new RuntimePluginRelay({
       storage: this.storage,

@@ -18,6 +18,8 @@ import { procedure, type RuntimeProcessContext, type RuntimeProcessService } fro
 import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 import { stopDriverWithDiagnostic, type DriverStopReason } from './runtime-driver-stop-diagnostics'
+import { driverCallbackCorrelation, observeDriverCallback } from './runtime-driver-callback-diagnostics'
+import { driverCallbackTimeoutMs } from './runtime-driver-timeouts'
 export { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
@@ -87,12 +89,26 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       const controller = new AbortController()
       const invocation = { controller, cancellation: undefined as ReturnType<typeof setTimeout> | undefined }
       active.set(input.invocationId, invocation)
-      const call = <Output>(value: RuntimeDriverCallbackValue, result: z.ZodType<Output>) =>
-        context.peer.call('driver.callback', { invocationId: input.invocationId, ...value }, result, {
-          signal: controller.signal,
-          timeoutMs: value.method === 'execute' ? 2_147_483_647 : value.method === 'beforeRequest' ? 120_000 : 30_000,
-          ...(input.ownership ? { ownership: input.ownership } : {}),
+      const call = <Output>(value: RuntimeDriverCallbackValue, result: z.ZodType<Output>) => {
+        const rpcId = driverCallbackCorrelation()
+        return observeDriverCallback({
+          side: 'source',
+          owner: context.peer.owner,
+          rpcId,
+          invocationId: input.invocationId,
+          method: value.method,
+          emit: (event) => {
+            context.peer.notify('runtime.diagnostic', event).catch(() => {})
+          },
+          operation: () =>
+            context.peer.call('driver.callback', { invocationId: input.invocationId, ...value }, result, {
+              requestId: rpcId,
+              signal: controller.signal,
+              timeoutMs: driverCallbackTimeoutMs(value.method),
+              ...(input.ownership ? { ownership: input.ownership } : {}),
+            }),
         })
+      }
       const tools: ToolDefinition[] = input.tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
