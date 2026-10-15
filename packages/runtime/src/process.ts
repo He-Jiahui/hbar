@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { writeSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { HbarError } from '@hbar/contracts'
 import {
@@ -86,6 +87,8 @@ export class ManagedProcess {
   private readonly retrySlowMs: number
   private readonly healthyResetMs: number
   private readonly jitter: number
+  private readonly terminationOwners = new WeakMap<Bun.Subprocess, RuntimeOwner>()
+  private readonly terminationReported = new WeakSet<Bun.Subprocess>()
   private child: Bun.Subprocess | undefined
   private peer: IpcPeer | undefined
   private monitor: ReturnType<typeof setInterval> | undefined
@@ -330,6 +333,7 @@ export class ManagedProcess {
         },
       },
     )
+    this.terminationOwners.set(child, owner)
     this.child = child
     this.state.pid = child.pid
     const peer = new IpcPeer({
@@ -364,6 +368,7 @@ export class ManagedProcess {
       this.options.onPeer?.(peer, owner)
       const tree = await attachment
       if (this.child !== child || this.stopped) {
+        this.reportTermination(child, 'ATTACHMENT_REVOKED')
         tree?.terminate()
         throw new HbarError(
           'RUNTIME_OWNER_REVOKED',
@@ -400,6 +405,7 @@ export class ManagedProcess {
       this.publish()
     } catch (error) {
       this.state.reasonCode = error instanceof HbarError ? error.code : 'RUNTIME_PREPARE_FAILED'
+      this.reportTermination(child, 'PREPARE_FAILED')
       try {
         child.kill('SIGKILL')
       } catch {
@@ -425,10 +431,45 @@ export class ManagedProcess {
       this.publish()
     })
     this.publish()
-    this.terminate(this.child)
+    this.terminate(this.child, 'FAULT')
   }
 
-  private terminate(child: Bun.Subprocess): void {
+  private reportTermination(
+    child: Bun.Subprocess,
+    reason: 'FAULT' | 'PREPARE_FAILED' | 'ATTACHMENT_REVOKED' | 'DISPOSE_DEADLINE' | 'DISPOSE_EXIT_WAIT',
+    elapsedMs = 0,
+    budgetMs = 0,
+  ): void {
+    const owner = this.terminationOwners.get(child)
+    if (!owner || child.exitCode !== null || this.terminationReported.has(child)) return
+    this.terminationReported.add(child)
+    try {
+      writeSync(
+        2,
+        `[hbar runtime terminate] ${JSON.stringify({
+          event: 'runtime.parent_terminate',
+          reason,
+          phase: this.state.phase,
+          unitId: owner.unitId,
+          generation: owner.generation,
+          incarnation: owner.incarnation,
+          childPid: child.pid,
+          elapsedMs,
+          budgetMs,
+        })}\n`,
+      )
+    } catch {
+      /* A diagnostic sink failure must not change termination or ownership reconciliation. */
+    }
+  }
+
+  private terminate(
+    child: Bun.Subprocess,
+    reason: 'FAULT' | 'DISPOSE_DEADLINE' | 'DISPOSE_EXIT_WAIT',
+    elapsedMs = 0,
+    budgetMs = 0,
+  ): void {
+    this.reportTermination(child, reason, elapsedMs, budgetMs)
     try {
       this.tree?.terminate()
     } catch {
@@ -600,6 +641,7 @@ export class ManagedProcess {
   }
 
   private async disposeProcess(): Promise<void> {
+    const startedAt = performance.now()
     const end = Date.now() + this.shutdownMs
     this.stopped = true
     this.stopController.abort()
@@ -612,7 +654,12 @@ export class ManagedProcess {
     const peer = this.peer
     if (child) {
       const deadline = setTimeout(() => {
-        this.terminate(child)
+        this.terminate(
+          child,
+          'DISPOSE_DEADLINE',
+          Math.max(0, Math.round(performance.now() - startedAt)),
+          this.shutdownMs,
+        )
       }, this.shutdownMs)
       try {
         await peer?.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: Math.max(1, end - Date.now()) })
@@ -621,7 +668,12 @@ export class ManagedProcess {
         /* The deadline is enforced by termination of the owning process. */
       }
       if (!(await this.waitForExit(child, Math.max(1, end - Date.now())))) {
-        this.terminate(child)
+        this.terminate(
+          child,
+          'DISPOSE_EXIT_WAIT',
+          Math.max(0, Math.round(performance.now() - startedAt)),
+          this.shutdownMs,
+        )
       }
       if (!(await this.waitForExit(child, this.shutdownMs)))
         throw new HbarError('RUNTIME_EXIT_UNKNOWN', 'Runtime process exit could not be confirmed')
