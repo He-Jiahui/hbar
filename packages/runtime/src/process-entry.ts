@@ -23,9 +23,40 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
   let phase: 'boot' | 'preparing' | 'ready' | 'serving' | 'draining' | 'disposed' = 'boot'
   let exiting = false
   let timeoutReported = false
-  const stop = (code: number) => {
+  const stop = (
+    code: number,
+    reason:
+      | 'IPC_FAILURE'
+      | 'CALL_TIMEOUT'
+      | 'UNCAUGHT_EXCEPTION'
+      | 'UNHANDLED_REJECTION'
+      | 'PARENT_DISCONNECTED'
+      | 'SIGNAL_SIGINT'
+      | 'SIGNAL_SIGTERM'
+      | 'REQUESTED_EXIT'
+      | 'HEARTBEAT_FAILED',
+  ) => {
     if (exiting) return
     exiting = true
+    if (code !== 0) {
+      try {
+        writeSync(
+          2,
+          `[hbar runtime stop] ${JSON.stringify({
+            event: 'runtime.child_stop',
+            exitCode: code,
+            reason,
+            phase,
+            unitId: owner.unitId,
+            generation: owner.generation,
+            incarnation: owner.incarnation,
+            childPid: process.pid,
+          })}\n`,
+        )
+      } catch {
+        /* The existing stop policy must survive a failed diagnostic sink. */
+      }
+    }
     const deadline = setTimeout(() => exit(code), RUNTIME_LIMITS.shutdownMs)
     void Promise.resolve()
       .then(() => service?.dispose())
@@ -50,7 +81,7 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
         process.send(frame)
       },
     },
-    onFailure: () => stop(76),
+    onFailure: () => stop(76, 'IPC_FAILURE'),
     onTimeout: (_requestId, timeout) => {
       if (!timeoutReported) {
         timeoutReported = true
@@ -72,15 +103,15 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
           /* A diagnostic sink failure must not change the existing stop policy. */
         }
       }
-      stop(76)
+      stop(76, 'CALL_TIMEOUT')
     },
   })
   process.on('message', (message: unknown) => peer.receive(message))
-  process.on('uncaughtException', () => stop(76))
-  process.on('unhandledRejection', () => stop(76))
-  process.on('disconnect', () => stop(0))
-  process.on('SIGINT', () => stop(0))
-  process.on('SIGTERM', () => stop(0))
+  process.on('uncaughtException', () => stop(76, 'UNCAUGHT_EXCEPTION'))
+  process.on('unhandledRejection', () => stop(76, 'UNHANDLED_REJECTION'))
+  process.on('disconnect', () => stop(0, 'PARENT_DISCONNECTED'))
+  process.on('SIGINT', () => stop(0, 'SIGNAL_SIGINT'))
+  process.on('SIGTERM', () => stop(0, 'SIGNAL_SIGTERM'))
   peer.register(
     'runtime.prepare',
     procedure(runtimePrepareSchema, runtimeReadySchema, async (input) => {
@@ -139,12 +170,12 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
   peer.register(
     'runtime.exit',
     procedure(z.undefined(), z.undefined(), () => {
-      setTimeout(() => stop(0), 20)
+      setTimeout(() => stop(0, 'REQUESTED_EXIT'), 20)
     }),
   )
   const heartbeat = setInterval(
     () => {
-      void peer.notify('runtime.heartbeat', { time: Date.now() }).catch(() => stop(76))
+      void peer.notify('runtime.heartbeat', { time: Date.now() }).catch(() => stop(76, 'HEARTBEAT_FAILED'))
     },
     Number(process.env.HBAR_RUNTIME_HEARTBEAT_MS ?? RUNTIME_LIMITS.heartbeatMs),
   )
