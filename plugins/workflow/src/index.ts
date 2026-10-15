@@ -1509,8 +1509,18 @@ export class WorkflowRuntime implements WorkflowService {
       const pendingRequired = item.acceptanceChecks.filter(
         (check) => check.required && !['passed', 'accepted'].includes(check.status),
       )
-      if (outcome === 'complete' && pendingRequired.some((check) => check.verifier.kind !== 'user'))
-        throw new HbarError('WORKFLOW_ACCEPTANCE_PENDING', 'Required automated checks are not satisfied')
+      if (outcome === 'complete' && pendingRequired.some((check) => check.verifier.kind !== 'user')) {
+        const automated = pendingRequired.filter((check) => check.verifier.kind !== 'user')
+        const missing = automated.slice(0, 5).map((check) => ({
+          checkId: check.id.slice(0, 64),
+          verifier: check.verifier.kind,
+          ...(check.verifier.kind === 'tool' ? { toolName: check.verifier.toolName.slice(0, 64) } : {}),
+        }))
+        throw new HbarError(
+          'WORKFLOW_ACCEPTANCE_PENDING',
+          `Required automated checks are not satisfied. Missing: ${JSON.stringify(missing)}${automated.length > 5 ? `; ${automated.length - 5} more` : ''}. Evidence comes from actual matching registered tool settlement; there is no workflow_verify tool. Obey execution restrictions: leave unrun checks pending and use checkpoint outcome="progress" to record delivered work and untested facts. Do not run forbidden checks or expand scope to bypass restrictions.`,
+        )
+      }
       if (outcome === 'complete') {
         const validEvidence = new Set(
           current.evidence
@@ -4092,7 +4102,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
     {
       name: 'workflow_checkpoint',
       description:
-        'Request a guarded focus checkpoint. May follow Host-tool verification in the same sequential batch; missing/failed checks refuse completion. Focus and Plan versions survive bookkeeping and scope expansion, not replacement. Complete also advances Plan.',
+        'Request a guarded focus checkpoint. May follow Host-tool verification in the same sequential batch; missing/failed checks refuse completion. Focus and Plan versions survive bookkeeping and scope expansion, not replacement. Complete also advances Plan. Evidence comes from matching registered tool settlement, not a workflow_verify tool. Leave unrun checks pending; progress records delivery without claiming completion.',
       inputSchema: workflowCheckpointToolSchema,
       effect: 'read',
       execute: async (args, context) => {
