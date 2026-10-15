@@ -33,6 +33,7 @@ import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/sy
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
 import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
+import { createCommandRouter } from '@hbar/commands'
 
 import { Auth, requestToken } from './auth.ts'
 import { DeviceAuthorization } from './device-authorization'
@@ -421,6 +422,31 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   const createRemoteWorkspace = createRemoteWorkspaceCreator(options.nodeLink, (input) =>
     kernel.createNodeWorkspace(input),
   )
+  const commandRouter = createCommandRouter({
+    catalogs: () => [...commandServices.map(({ service }) => service.list()), systemCommands.list()],
+    resolve(id) {
+      let dispatch = commandDispatchers.get(id)
+      let describe = commandDescribers.get(id)
+      if (!dispatch || !describe) {
+        const dynamic = application.resolveCommand?.(id)
+        dispatch ??= dynamic?.dispatch
+        describe ??= dynamic ? () => dynamic.describe(id) : undefined
+      }
+      if (!dispatch || !describe) return undefined
+      const selectedDispatch = dispatch
+      return {
+        describe,
+        async dispatch(value, actorId) {
+          const invocation = rpcSchemas['command.execute'].parse(value)
+          if (id === 'workspace.create') {
+            const input = workspaceCreateInputSchema.safeParse(invocation.input)
+            if (input.success && input.data.path === undefined) return createRemoteWorkspace(input.data)
+          }
+          return selectedDispatch(invocation, actorId)
+        },
+      }
+    },
+  })
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
     if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
     clearTimeout(pending.timer)
@@ -490,45 +516,14 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-        if (invocation.commandId === 'workspace.create') {
-          const input = workspaceCreateInputSchema.safeParse(invocation.input)
-          if (input.success && input.data.path === undefined) return createRemoteWorkspace(input.data)
-        }
-        const dispatch =
-          commandDispatchers.get(invocation.commandId) ?? application.resolveCommand?.(invocation.commandId)?.dispatch
-        if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
-        return dispatch(invocation, socket.data.deviceId)
+        return commandRouter.execute(invocation, socket.data.deviceId)
       }
       case 'command.catalog': {
-        const filter = rpcSchemas[method].parse(raw)
-        const catalogs = [...commandServices.map(({ service }) => service.list()), systemCommands.list()]
-        const descriptors = catalogs
-          .flatMap(({ items }) => items)
-          .filter(
-            ({ metadata }) =>
-              !filter.category ||
-              metadata.category === filter.category ||
-              metadata.category.startsWith(`${filter.category}.`),
-          )
-          .filter(({ metadata }) => !filter.after || metadata.id > filter.after)
-          .sort((a, b) => a.metadata.id.localeCompare(b.metadata.id))
-        const items = descriptors.slice(0, filter.limit)
-        return {
-          revision: catalogs.reduce((total, catalog) => total + catalog.revision, 0),
-          items,
-          ...(descriptors.length > filter.limit ? { nextCursor: items.at(-1)!.metadata.id } : {}),
-        }
+        return commandRouter.list(rpcSchemas[method].parse(raw))
       }
       case 'command.describe': {
         const input = rpcSchemas[method].parse(raw)
-        const describe =
-          commandDescribers.get(input.commandId) ??
-          (() => {
-            const service = application.resolveCommand?.(input.commandId)
-            return service ? () => service.describe(input.commandId) : null
-          })()
-        if (!describe) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
-        return describe()
+        return commandRouter.describe(input.commandId)
       }
       case 'command.getReceipt': {
         const input = rpcSchemas[method].parse(raw)
@@ -1745,6 +1740,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   await scheduleController.start()
   return {
     server,
+    /** Trusted in-process adapters share the same route as authenticated RPC. */
+    commands: commandRouter,
     auth,
     pairing,
     info: hostInfo,

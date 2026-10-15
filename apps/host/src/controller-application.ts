@@ -70,7 +70,7 @@ import { submitRunInputSchema } from '@hbar/contracts/commands/run'
 import { createScheduleService, createNotificationService } from '@hbar/kernel/controller'
 import { createScheduleHostController } from './schedule-host-controller.ts'
 import { createChatDatabaseHostController } from './chat-database-host-controller'
-import type { CommandDescriptor } from '@hbar/commands'
+import { createCommandRouter, type CommandDescriptor } from '@hbar/commands'
 declare const HBAR_MANAGED_MAINTENANCE: boolean
 
 export interface ControllerCommandService {
@@ -371,6 +371,14 @@ export function createControllerApplication(
       commandIds.map((id) => [id, () => service.describe(id)] as const),
     ),
   )
+  const commandRouter = createCommandRouter({
+    catalogs: () => commandServices.map(({ service }) => service.list()),
+    resolve(id) {
+      const dispatch = commandDispatchers.get(id)
+      const describe = commandDescribers.get(id)
+      return dispatch && describe ? { dispatch, describe } : undefined
+    },
+  })
 
   return {
     agentCommands,
@@ -408,6 +416,7 @@ export function createControllerApplication(
     commandServices,
     commandDispatchers,
     commandDescribers,
+    commandRouter,
     async dispose() {
       agentCommands.dispose()
       browserCommands.dispose()

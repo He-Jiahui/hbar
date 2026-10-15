@@ -118,7 +118,7 @@ export async function invokeControllerRpc(
     goalPlanCommands,
     interactionCommands,
     runCommands,
-    commandDispatchers,
+    commandRouter,
   } = application
   const { method, params: raw, id: rpcId } = request
   const socket = { data: { deviceId: scope.actorId } }
@@ -135,9 +135,7 @@ export async function invokeControllerRpc(
     case 'command.execute': {
       const invocation = rpcSchemas[method].parse(raw)
       if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-      const dispatch = commandDispatchers.get(invocation.commandId)
-      if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
-      return dispatch(invocation, socket.data.deviceId)
+      return commandRouter.execute(invocation, socket.data.deviceId)
     }
     case 'command.getReceipt': {
       const input = rpcSchemas[method].parse(raw)

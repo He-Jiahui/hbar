@@ -70,6 +70,26 @@ export interface CommandDescriptor {
   readonly outputSchema: z.core.JSONSchema.BaseSchema
 }
 
+export const commandCatalogQuerySchema = z.strictObject({
+  category: z.string().min(1).max(128).optional(),
+  after: z.string().max(128).optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+})
+export const commandDescriptionQuerySchema = z.strictObject({ commandId: z.string().min(1).max(128) })
+export type CommandCatalogQuery = z.input<typeof commandCatalogQuerySchema>
+export interface CommandCatalogPage {
+  readonly revision: number
+  readonly items: CommandDescriptor[]
+  readonly nextCursor?: string
+}
+
+/** Authenticated composition boundaries provide the actor; command payloads never contain it. */
+export interface CommandRoutingPort {
+  list(query?: CommandCatalogQuery): CommandCatalogPage
+  describe(commandId: string): CommandDescriptor
+  execute(invocation: unknown, actorId: string): Promise<unknown>
+}
+
 export const invocationSchema = z.strictObject({
   protocol: z.literal(COMMAND_PROTOCOL_VERSION),
   requestId: z.string().min(1).max(128),

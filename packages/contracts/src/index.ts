@@ -50,7 +50,7 @@ export {
 } from './tool-presentation'
 
 export { LEGACY_WRITE_RPC_METHODS, type LegacyWriteRpcMethod } from './legacy-rpc'
-import { invocationSchema } from '@hbar/commands/protocol'
+import { invocationSchema, commandCatalogQuerySchema, commandDescriptionQuerySchema } from '@hbar/commands/protocol'
 import {
   workspaceListInputSchema,
   workspaceGetInputSchema,
@@ -1357,12 +1357,8 @@ export const rpcSchemas = {
   'system.runtime.watch': runtimeWatchInputSchema,
   'system.runtime.unwatch': z.strictObject({}),
   'command.execute': invocationSchema,
-  'command.catalog': z.strictObject({
-    category: z.string().min(1).max(128).optional(),
-    after: z.string().max(128).optional(),
-    limit: z.number().int().min(1).max(200).default(100),
-  }),
-  'command.describe': z.strictObject({ commandId: z.string().min(1).max(128) }),
+  'command.catalog': commandCatalogQuerySchema,
+  'command.describe': commandDescriptionQuerySchema,
   'command.getReceipt': z.strictObject({
     commandId: z.enum([
       'session.setBudget',
@@ -1687,11 +1683,7 @@ export interface RpcResults {
   'system.runtime.watch': import('./runtime').RuntimeWatchResult
   'system.runtime.unwatch': null
   'command.execute': unknown
-  'command.catalog': {
-    revision: number
-    items: import('@hbar/commands/protocol').CommandDescriptor[]
-    nextCursor?: string
-  }
+  'command.catalog': import('@hbar/commands/protocol').CommandCatalogPage
   'command.describe': import('@hbar/commands/protocol').CommandDescriptor
   'command.getReceipt':
     | import('./commands/budget').BudgetReceipt
