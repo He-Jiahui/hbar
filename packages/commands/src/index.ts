@@ -9,7 +9,7 @@ export {
   type CommandRegistryOptions,
   type ExecuteOptions,
 } from './registry'
-export { createCommandClient, createGuardedCommandDispatcher, prepareCommandInvocation, type CommandExecutor } from './client'
+export { createCommandClient, createGuardedCommandDispatcher, createTrackedCommandDispatcher, prepareCommandInvocation, type CommandExecutor } from './client'
 export { MAX_INVOCATION_BYTES } from './limits'
 export { createCommandExpectation } from './execution-expectation'
 export {

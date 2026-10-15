@@ -14,6 +14,8 @@ import {
   type CommandInvocation,
   type CommandExecutionExpectation,
   type CommandPreparedOptions,
+  type CommandExecutionTicket,
+  type CommandPhysicalSettlement,
 } from './protocol'
 
 export interface CommandContext {
@@ -47,9 +49,36 @@ export interface ExecuteOptions {
 interface Registration {
   readonly descriptor: CommandDescriptor
   readonly parseInput: (value: unknown) => unknown
-  readonly run: (input: unknown, context: CommandContext, expectation?: CapturedCommandExpectation) => Promise<unknown>
+  readonly run: (
+    input: unknown,
+    context: CommandContext,
+    expectation?: CapturedCommandExpectation,
+    onEnter?: () => void,
+  ) => Promise<unknown>
   readonly active: Set<AbortController>
   readonly durable: boolean
+}
+
+interface PhysicalObserver {
+  admitted(): void
+  settle(result: CommandPhysicalSettlement): void
+}
+
+function physicalFailure(error: unknown, executionStarted: boolean): CommandPhysicalSettlement {
+  const known =
+    error instanceof CommandError
+      ? error
+      : error instanceof z.ZodError
+        ? new CommandError('INVALID_INPUT', 'Command input is invalid')
+        : new CommandError('EXECUTION_FAILED', 'Command execution failed')
+  return {
+    status: 'failed',
+    executionStarted,
+    error: {
+      code: known.code.slice(0, 128) || 'EXECUTION_FAILED',
+      message: known.message.slice(0, 8_192) || 'Command execution failed',
+    },
+  }
 }
 
 function checkedLimit(value: number, maximum: number): number {
@@ -117,9 +146,10 @@ export class CommandRegistry {
       parseInput,
       active: new Set(),
       durable: options.durable ?? false,
-      async run(value, context, expectation) {
+      async run(value, context, expectation, onEnter) {
         const input = parseInput(value)
         expectation?.assertInput(input)
+        onEnter?.()
         const result = await handler(input, context)
         const parsed = outputSchema.safeParse(result)
         if (!parsed.success) throw validationError('INVALID_OUTPUT', parsed.error)
@@ -267,6 +297,49 @@ export class CommandRegistry {
     expectation: CommandExecutionExpectation,
     options: CommandPreparedOptions = {},
   ): Promise<unknown> {
+    return this.#dispatchPrepared(value, actorId, expectation, options)
+  }
+
+  /** Preserve the actual late result while the logical result still honors timeout and cancellation. */
+  dispatchPreparedTracked(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): CommandExecutionTicket {
+    let admitted = false,
+      finished = false
+    let resolve: (settlement: CommandPhysicalSettlement) => void = () => {
+      throw new Error('Settlement has not initialized')
+    }
+    const settled = new Promise<CommandPhysicalSettlement>((complete) => {
+      resolve = complete
+    })
+    const observer: PhysicalObserver = {
+      admitted: () => {
+        admitted = true
+      },
+      settle: (settlement) => {
+        if (!finished) {
+          finished = true
+          resolve(settlement)
+        }
+      },
+    }
+    const result = this.#dispatchPrepared(value, actorId, expectation, options, observer).catch((error: unknown) => {
+      if (!admitted) observer.settle(physicalFailure(error, false))
+      throw error
+    })
+    return { result, settled }
+  }
+
+  async #dispatchPrepared(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions,
+    physical?: PhysicalObserver,
+  ): Promise<unknown> {
     checkInvocationSize(value)
     const invocation = invocationSchema.parse(value)
     if (!actorId || actorId.length > 160 || !/\S/.test(actorId))
@@ -283,6 +356,7 @@ export class CommandRegistry {
         ...(invocation.idempotencyKey ? { idempotencyKey: invocation.idempotencyKey } : {}),
       },
       captured,
+      physical,
     )
   }
 
@@ -313,6 +387,7 @@ export class CommandRegistry {
     value: unknown,
     options: ExecuteOptions,
     expectation?: CapturedCommandExpectation,
+    physical?: PhysicalObserver,
   ): Promise<unknown> {
     const registration = this.#find(name)
     const metadata = registration.descriptor.metadata
@@ -385,17 +460,21 @@ export class CommandRegistry {
         if (metadata.capabilities.length && !(await this.#authorize?.(metadata, context)))
           throw new CommandError('FORBIDDEN', 'Command capability is not authorized')
         if (controller.signal.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
-        enteredHandler = true
-        return registration.run(input, context, expectation)
+        return registration.run(input, context, expectation, () => {
+          enteredHandler = true
+        })
       }
       // Retain capacity until the real handler settles, even if it ignores cancellation.
+      physical?.admitted()
       run().then(
         (output) => {
           cleanup()
+          physical?.settle({ status: 'succeeded', executionStarted: true, result: output })
           resolve(output)
         },
         (error: unknown) => {
           cleanup()
+          physical?.settle(physicalFailure(error, enteredHandler))
           reject(
             error instanceof CommandError ? error : new CommandError('EXECUTION_FAILED', 'Command execution failed'),
           )

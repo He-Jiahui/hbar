@@ -7,6 +7,7 @@ import {
   type CommandInvocation,
   type CommandExecutionExpectation,
   type CommandPreparedOptions,
+  type CommandExecutionTicket,
 } from './protocol'
 import type { ExecuteOptions } from './registry'
 import { checkInvocationSize } from './limits'
@@ -19,6 +20,26 @@ export interface CommandExecutor {
     expectation: CommandExecutionExpectation,
     options?: CommandPreparedOptions,
   ): Promise<unknown>
+  dispatchPreparedTracked?(
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ): CommandExecutionTicket
+}
+
+/** Owner-local tracking must be explicitly supported; a logical dispatcher cannot synthesize physical completion. */
+export function createTrackedCommandDispatcher(executor: CommandExecutor) {
+  return (
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): CommandExecutionTicket => {
+    if (!executor.dispatchPreparedTracked)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not expose physical settlement tracking')
+    return executor.dispatchPreparedTracked(value, actorId, expectation, options)
+  }
 }
 
 /** Explicit owner adapter; ordinary typed clients do not acquire a private execution capability. */

@@ -119,6 +119,19 @@ export type CommandExecutionExpectation = z.output<typeof commandExecutionExpect
 export interface CommandPreparedOptions {
   readonly signal?: AbortSignal
 }
+/** Physical completion is distinct from an earlier logical timeout/cancellation response. */
+export const commandPhysicalSettlementSchema = z.discriminatedUnion('status', [
+  z.strictObject({ status: z.literal('succeeded'), executionStarted: z.literal(true), result: z.unknown() }),
+  z.strictObject({ status: z.literal('failed'), executionStarted: z.boolean(), error: z.strictObject({
+    code: z.string().min(1).max(128), message: z.string().min(1).max(8_192),
+  }) }),
+])
+export type CommandPhysicalSettlement = z.output<typeof commandPhysicalSettlementSchema>
+/** Owner-local promises. Managed owners publish named data receipts instead of serializing this object. */
+export interface CommandExecutionTicket {
+  readonly result: Promise<unknown>
+  readonly settled: Promise<CommandPhysicalSettlement>
+}
 export interface PreparedCommandRoutingPort extends CommandRoutingPort {
   executePrepared(invocation: unknown, actorId: string, expectation: CommandExecutionExpectation, options?: CommandPreparedOptions): Promise<unknown>
 }
