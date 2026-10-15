@@ -373,9 +373,22 @@ function evaluateToolCheck(
 }
 
 export class WorkflowRuntime implements WorkflowService {
-  private readonly toolTargets = new WeakMap<
-    ToolContext,
-    { workflowId: string; focusRevision: number; planRevision: number; itemId: string | null }
+  // Hook RPCs deserialize a fresh ToolContext at every stage. Object identity is not authority.
+  private readonly toolTargets = new Map<
+    string,
+    {
+      workflowId: string
+      focusRevision: number
+      planRevision: number
+      itemId: string | null
+      sessionId: string
+      runId: string
+      workspaceId: string
+      workspacePath: string
+      name: string
+      argsHash: string
+      executing: boolean
+    }
   >()
   private plans = new Map<string, WorkflowPlan>()
   private agentPlanSnapshots = new Map<string, PlanState>()
@@ -2278,6 +2291,8 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   async settleTargetRun(event: HookEvents['run.end']) {
+    for (const [key, target] of this.toolTargets)
+      if (target.sessionId === event.sessionId && target.runId === event.runId) this.toolTargets.delete(key)
     const inMemoryBinding = this.targetRunBindings.get(event.runId)
     const recoveredBinding = inMemoryBinding ? null : this.targetDispatchForRun(event.run)
     if (!inMemoryBinding && !recoveredBinding) return
@@ -3533,7 +3548,7 @@ export class WorkflowRuntime implements WorkflowService {
         workflow,
       )
     if (tool.effect !== 'read') {
-      this.rememberToolTarget(context, workflow)
+      this.rememberToolTarget(name, args, context, workflow)
       return
     }
     await this.serial(context.session.id, async () => {
@@ -3552,7 +3567,7 @@ export class WorkflowRuntime implements WorkflowService {
         updatedAt: Date.now(),
       })
       await this.persistWorkflow(next, context.run.id)
-      this.rememberToolTarget(context, next)
+      this.rememberToolTarget(name, args, context, next)
     })
   }
 
@@ -3576,17 +3591,53 @@ export class WorkflowRuntime implements WorkflowService {
       )
   }
 
-  private rememberToolTarget(context: ToolContext, workflow: WorkflowState) {
-    this.toolTargets.set(context, {
+  private toolTargetKey(context: ToolContext) {
+    return JSON.stringify([context.session.id, context.run.id, context.callId])
+  }
+
+  private rememberToolTarget(
+    name: string,
+    args: Record<string, unknown>,
+    context: ToolContext,
+    workflow: WorkflowState,
+  ) {
+    const key = this.toolTargetKey(context)
+    if (context.run.sessionId !== context.session.id || context.session.workspaceId !== context.workspace.id)
+      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Tool admission identity does not match its session')
+    if (this.toolTargets.has(key))
+      throw new HbarError('WORKFLOW_TOOL_IN_FLIGHT', 'This tool call already has a workflow admission')
+    if (this.toolTargets.size >= 4096)
+      throw new HbarError('WORKFLOW_TOOL_IN_FLIGHT', 'Workflow tool admission capacity is full; wait for settlement')
+    this.toolTargets.set(key, {
       workflowId: workflow.workflowId,
       focusRevision: workflow.focusRevision ?? workflow.createdAt,
       planRevision: workflow.planRevision,
       itemId: workflow.activeItemId,
+      sessionId: context.session.id,
+      runId: context.run.id,
+      workspaceId: context.workspace.id,
+      workspacePath: context.workspace.path,
+      name,
+      argsHash: hashValue(args),
+      executing: false,
     })
   }
 
-  private ownsToolResult(context: ToolContext, workflow: WorkflowState) {
-    const target = this.toolTargets.get(context)
+  private admittedTool(name: string, args: Record<string, unknown>, context: ToolContext) {
+    const target = this.toolTargets.get(this.toolTargetKey(context))
+    return target &&
+      target.name === name &&
+      target.argsHash === hashValue(args) &&
+      target.workspaceId === context.workspace.id &&
+      target.workspacePath === context.workspace.path &&
+      context.run.sessionId === context.session.id &&
+      context.session.workspaceId === context.workspace.id
+      ? target
+      : undefined
+  }
+
+  private ownsToolResult(name: string, args: Record<string, unknown>, context: ToolContext, workflow: WorkflowState) {
+    const target = this.admittedTool(name, args, context)
     return (
       target?.workflowId === workflow.workflowId &&
       target.focusRevision === (workflow.focusRevision ?? workflow.createdAt) &&
@@ -3595,7 +3646,9 @@ export class WorkflowRuntime implements WorkflowService {
     )
   }
 
-  async beginTool(name: string, context: ToolContext, tool: ToolDefinition) {
+  async beginTool(name: string, args: Record<string, unknown>, context: ToolContext, tool: ToolDefinition) {
+    if (context.run.sessionId !== context.session.id || context.session.workspaceId !== context.workspace.id)
+      throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'Tool execution identity does not match its session')
     const targetBinding = this.targetRunBindings.get(context.run.id)
     if (targetBinding) {
       await this.serial(targetBinding.sourceSessionId, async () => {
@@ -3629,7 +3682,10 @@ export class WorkflowRuntime implements WorkflowService {
             'A bound Workflow session moved or was archived before mutation admission',
           )
         if (tool.effect === 'read') return
-        if (current.pendingMutations?.some((entry) => entry.callId === context.callId)) return
+        if (
+          current.pendingMutations?.some((entry) => entry.callId === context.callId && entry.runId === context.run.id)
+        )
+          return
         const next = workflowStateSchema.parse({
           ...current,
           revision: current.revision + 1,
@@ -3648,12 +3704,20 @@ export class WorkflowRuntime implements WorkflowService {
     if (CONTROL_TOOLS.has(name)) return
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
-      if (!current || (['completed', 'cancelled'].includes(current.status) && !this.toolTargets.has(context))) return
       if (
-        !this.ownsToolResult(context, current) ||
+        !current ||
+        (['completed', 'cancelled'].includes(current.status) && !this.toolTargets.has(this.toolTargetKey(context)))
+      )
+        return
+      if (
+        !this.ownsToolResult(name, args, context, current) ||
         ['completed', 'cancelled', 'needs_revision'].includes(current.status)
       )
         throw new HbarError('WORKFLOW_REVISION_CONFLICT', 'The admitted workflow focus changed before tool execution')
+      const target = this.admittedTool(name, args, context)
+      if (!target || target.executing)
+        throw new HbarError('WORKFLOW_TOOL_IN_FLIGHT', 'This workflow admission already began execution')
+      target.executing = true
       if (tool.effect === 'read') return
       this.assertNoMutations(current)
       const now = Date.now()
@@ -3698,7 +3762,9 @@ export class WorkflowRuntime implements WorkflowService {
       await this.serial(targetBinding.sourceSessionId, async () => {
         const current = this.workflows.get(targetBinding.sourceSessionId)
         if (!current) return
-        const pendingMutations = (current.pendingMutations ?? []).filter((entry) => entry.callId !== context.callId)
+        const pendingMutations = (current.pendingMutations ?? []).filter(
+          (entry) => entry.callId !== context.callId || entry.runId !== context.run.id,
+        )
         if (pendingMutations.length === (current.pendingMutations?.length ?? 0)) return
         const next = workflowStateSchema.parse({
           ...current,
@@ -3720,15 +3786,21 @@ export class WorkflowRuntime implements WorkflowService {
     }
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
-      if (!current) return
-      const pendingMutations = (current.pendingMutations ?? []).filter((entry) => entry.callId !== context.callId)
+      if (!CONTROL_TOOLS.has(name) && !this.admittedTool(name, args, context)) return
+      if (!current) {
+        this.toolTargets.delete(this.toolTargetKey(context))
+        return
+      }
+      const pendingMutations = (current.pendingMutations ?? []).filter(
+        (entry) => entry.callId !== context.callId || entry.runId !== context.run.id,
+      )
       const mutationSettled = pendingMutations.length !== (current.pendingMutations?.length ?? 0)
       if (
         current.status === 'completed' ||
         !current.activeItemId ||
-        (!CONTROL_TOOLS.has(name) && !this.ownsToolResult(context, current))
+        (!CONTROL_TOOLS.has(name) && !this.ownsToolResult(name, args, context, current))
       ) {
-        this.toolTargets.delete(context)
+        if (this.admittedTool(name, args, context)) this.toolTargets.delete(this.toolTargetKey(context))
         if (mutationSettled)
           await this.persistWorkflow(
             workflowStateSchema.parse({
@@ -3741,7 +3813,7 @@ export class WorkflowRuntime implements WorkflowService {
           )
         return
       }
-      this.toolTargets.delete(context)
+      this.toolTargets.delete(this.toolTargetKey(context))
       const item = current.workItems.find((candidate) => candidate.id === current.activeItemId)
       if (!item) return
       const evaluations = item.acceptanceChecks.flatMap((check) => {
@@ -4100,7 +4172,7 @@ export const workflowPlugin = definePlugin({
     api.hooks.on('tool.settled', (event) =>
       runtime.settleTool(event.name, event.args, event.result, event.context, event.tool),
     )
-    api.hooks.on('tool.executing', (event) => runtime.beginTool(event.name, event.context, event.tool))
+    api.hooks.on('tool.executing', (event) => runtime.beginTool(event.name, event.args, event.context, event.tool))
     api.hooks.on('goal.beforeComplete', async (event) => ({
       ...event,
       commit: await runtime.guardCompletion(event.sessionId, event.goal.goalId, event.commit),
