@@ -24,6 +24,7 @@ import { nodeWorktreeMethods } from '@hbar/contracts/node-worktree'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
 import { commandCatalogQuerySchema, commandMetadataSchema, commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
+import { commandJobStartSchema, commandJobSnapshotSchema, commandJobWatchSchema, commandJobReadSchema, commandJobChunkSchema } from '@hbar/commands/jobs'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
 import { RUNTIME_APPLICATION_METHODS } from './runtime-application'
 
@@ -161,6 +162,9 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
       'hbar.kernel.runtime.v1',
+      'kernel.directory.tracked-commands.v1',
+      z.toJSONSchema(commandJobStartSchema, { unrepresentable: 'any' }),
+      [commandJobSnapshotSchema, commandJobWatchSchema, commandJobReadSchema, commandJobChunkSchema].map(schema => z.toJSONSchema(schema)),
       z.toJSONSchema(runtimeKernelConfigurationSchema),
       z.toJSONSchema(runtimeKernelSubmitSchema),
       RUNTIME_APPLICATION_METHODS,

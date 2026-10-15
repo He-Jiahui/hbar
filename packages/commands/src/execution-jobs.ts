@@ -1,10 +1,20 @@
 import { z } from 'zod'
-import { CommandError, type CommandExecutionTicket, type CommandPhysicalSettlement } from './protocol'
+import {
+  CommandError,
+  invocationSchema,
+  commandExecutionExpectationSchema,
+  type CommandExecutionTicket,
+  type CommandPhysicalSettlement,
+} from './protocol'
 
 const identity = z.string().min(1).max(160).regex(/\S/)
 const errorSchema = z.strictObject({ code: z.string().min(1).max(128), message: z.string().min(1).max(8_192) })
 export const commandJobIdentitySchema = z.strictObject({ jobId: identity, actorId: identity })
 export type CommandJobIdentity = z.infer<typeof commandJobIdentitySchema>
+export const commandJobStartSchema = commandJobIdentitySchema.extend({
+  invocation: invocationSchema,
+  expectation: commandExecutionExpectationSchema,
+})
 export const commandJobLogicalResultSchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), result: z.unknown() }),
   z.strictObject({ ok: z.literal(false), error: errorSchema }),

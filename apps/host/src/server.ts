@@ -32,6 +32,7 @@ import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/sy
 
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
 import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
+import { directoryCommands as directoryDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
 import { createCommandRouter, prepareCommandInvocation } from '@hbar/commands'
 
@@ -440,8 +441,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       let describe = commandDescribers.get(id)
       let guarded = Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPrepared
         : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPrepared
-      let tracked = Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPreparedTracked
-        : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPreparedTracked
+      let tracked = Object.hasOwn(directoryDefinitions, id) ? kernel.directoryQueries.dispatchPreparedTracked
+        : Object.hasOwn(systemDefinitions, id) ? systemCommands.dispatchPreparedTracked
+          : commandServices.find(entry => entry.commandIds.includes(id))?.service.dispatchPreparedTracked
       const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions].find((definitions) =>
         Object.hasOwn(definitions, id),
       )

@@ -80,7 +80,7 @@ function deferred<Value>() {
   return { promise, resolve, reject }
 }
 async function readPayload(
-  peer: IpcPeer,
+  peer: Pick<IpcPeer, 'call'>,
   source: CommandJobIdentity,
   channel: 'logical' | 'physical',
   description: CommandJobPayload,
@@ -122,7 +122,7 @@ async function readPayload(
 
 /** Start once, follow the accepted owner, and retain its record until the caller explicitly acknowledges saved results. */
 export function trackRuntimeCommandJob(
-  peer: IpcPeer,
+  peer: Pick<IpcPeer, 'call'>,
   identity: CommandJobIdentity,
   start: (signal: AbortSignal) => Promise<CommandJobSnapshot>,
   options: RuntimeCommandJobTrackingOptions = {},

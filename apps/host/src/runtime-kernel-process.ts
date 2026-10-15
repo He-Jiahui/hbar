@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
+import { CommandExecutionJobs, commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
+import { directoryCommands } from '@hbar/contracts/commands'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
@@ -48,9 +50,12 @@ import {
 } from '@hbar/runtime'
 import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 import { RuntimePluginAdapter } from './runtime-plugin-adapter'
+import { attachRuntimeCommandJobs } from './runtime-command-jobs'
 
 /** Managed candidates construct their actual Kernel with read-only ports; execution waits for explicit activation. */
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
+  const commandJobs = new CommandExecutionJobs()
+  const detachCommandJobs = attachRuntimeCommandJobs(context.peer, commandJobs)
   const configuration = runtimeKernelConfigurationSchema.parse(context.configuration)
   const layout = createPathLayout(
     configuration.dataRoot,
@@ -95,6 +100,21 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       throw new HbarError('RUNTIME_PREPARING', 'Kernel preflight cannot invoke production')
     return kernel
   }
+  context.peer.register(
+    'kernel.command.start',
+    procedure(commandJobStartSchema, commandJobSnapshotSchema, (input, call) => {
+      call.signal.throwIfAborted()
+      const value = application()
+      const definition = Object.values(directoryCommands).find(
+        (definition) => definition.metadata.id === input.invocation.commandId,
+      )
+      if (!definition || definition.metadata.kind !== 'query' || definition.metadata.stateEffect !== 'none')
+        throw new HbarError('COMMAND_NOT_FOUND', 'This Kernel command port only owns directory queries')
+      return commandJobs.start({ jobId: input.jobId, actorId: input.actorId }, (signal) =>
+        value.directoryQueries.dispatchPreparedTracked(input.invocation, input.actorId, input.expectation, { signal }),
+      )
+    }),
+  )
   const values = new RuntimeValuePort(context.peer, {
     prefix: 'kernel.application',
     controlMethods: RUNTIME_APPLICATION_CONTROLS,
@@ -473,10 +493,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     async drain() {
       role = 'draining'
       kernel?.beginDrain()
-      return { runs: kernel?.active.size ?? 0, requests: 0, resources: 0 }
+      return { runs: kernel?.active.size ?? 0, requests: 0, resources: commandJobs.stats().jobs }
     },
     async dispose() {
       role = 'draining'
+      commandJobs.dispose()
+      detachCommandJobs()
       kernel?.beginDrain()
       unsubscribe?.()
       notifications.dispose()

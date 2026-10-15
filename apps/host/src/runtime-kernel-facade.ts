@@ -1,6 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod'
-import { CommandRegistry } from '@hbar/commands'
+import {
+  CommandRegistry,
+  CommandError,
+  type CommandExecutionExpectation,
+  type CommandPreparedOptions,
+} from '@hbar/commands'
+import { commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { HbarError, type LiveStream, type SessionEvent, type WireNotification } from '@hbar/contracts'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
@@ -10,6 +16,7 @@ import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import { runtimeDomainError, type ManagedProcess, type RuntimeCoordinator, type RuntimeValuePort } from '@hbar/runtime'
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
+import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
 
 export type RuntimeKernelState = z.output<typeof runtimeKernelStateSchema>
 export interface RuntimeKernelEndpoint {
@@ -58,6 +65,7 @@ export class RuntimeKernelFacade {
   private readonly cursors = new Map<string, number>()
   private readonly settledRuns = new Set<string>()
   private recovered = 0
+  private readonly commandLifetime = new AbortController()
   constructor(private readonly options: RuntimeKernelFacadeOptions) {
     const directory = new CommandRegistry({ execution: 'host' })
     for (const definition of Object.values(directoryCommands))
@@ -170,6 +178,8 @@ export class RuntimeKernelFacade {
       },
       directoryQueries: {
         ...this.methods('directory'),
+        dispatchPreparedTracked: (value, actorId, expectation, options) =>
+          this.trackDirectory(value, actorId, expectation, options),
         describe: (id) => directory.describe(id),
         list: () => directory.list({ limit: 500 }),
       },
@@ -182,6 +192,36 @@ export class RuntimeKernelFacade {
   }
   pin<Result>(endpoint: RuntimeKernelEndpoint, operation: () => Result): Result {
     return this.context.run(endpoint, operation)
+  }
+  private trackDirectory(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): RuntimeCommandJobTicket {
+    if (options.signal?.aborted) throw new CommandError('CANCELLED', 'Directory command cancelled before admission')
+    const endpoint = this.selected(),
+      jobId = crypto.randomUUID()
+    const input = commandJobStartSchema.parse({ jobId, actorId, invocation: value, expectation })
+    const resource = this.options.coordinator.acquireResource(endpoint.owner, `kernel.command.job:${jobId}`)
+    if (!resource) throw new CommandError('BUSY', 'Directory command already retains its owner')
+    const release = () => this.options.coordinator.releaseResource(endpoint.owner, resource.id)
+    try {
+      return trackRuntimeCommandJob(
+        endpoint.process,
+        { jobId, actorId },
+        (signal) =>
+          endpoint.process.call('kernel.command.start', input, commandJobSnapshotSchema, { signal, timeoutMs: 30_000 }),
+        {
+          signal: options.signal,
+          lifetime: this.commandLifetime.signal,
+          onAcknowledged: release,
+        },
+      )
+    } catch (error) {
+      release()
+      throw error
+    }
   }
   projection(): RuntimeKernelState {
     return runtimeKernelStateSchema.parse({
@@ -244,6 +284,7 @@ export class RuntimeKernelFacade {
     this.publish(event)
   }
   dispose(): void {
+    this.commandLifetime.abort()
     this.listeners.clear()
     this.streams.clear()
     this.cursors.clear()
