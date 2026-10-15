@@ -29,6 +29,7 @@ import {
   type RuntimeProcessService,
 } from '@hbar/runtime'
 import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
+import { runtimePluginValidationError } from './runtime-plugin-validation-error'
 import {
   PLUGIN_RUNTIME_FINGERPRINT,
   RUNTIME_PLUGIN_SERVICES,
@@ -325,10 +326,12 @@ export function createRuntimePlugin(
           } catch (error) {
             if (error instanceof RunControlSignal) return { kind: 'control', control: error.control }
             const domain = runtimeDomainError(error)
+            const validation =
+              request.operation === 'validate' ? runtimePluginValidationError(error, request.name) : null
             return {
               kind: 'error',
               code: domain?.code ?? (error instanceof z.ZodError ? 'INVALID_TOOL_INPUT' : 'RUNTIME_PLUGIN_FAILED'),
-              message: domain?.message ?? 'The owned plugin invocation failed',
+              message: domain?.message ?? validation ?? 'The owned plugin invocation failed',
             }
           } finally {
             await Promise.allSettled([...pending])
