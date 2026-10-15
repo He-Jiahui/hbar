@@ -695,6 +695,8 @@ export interface ModeService {
   commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }
 export interface BudgetService {
+  /** Validate against the active Budget owner configuration without creating Session state. */
+  validateLimit(limit: number): Promise<void>
   refreshSession?(sessionId: string): Promise<void>
   reconcileRun?(run: Run): Promise<void>
   get(sessionId: string): Promise<SessionBudget | null>

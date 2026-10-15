@@ -235,6 +235,11 @@ export class BudgetRuntime {
       throw new HbarError('BUDGET_EXHAUSTED', `Token budget exhausted (${budget.usedTokens}/${budget.limit})`)
   }
 
+  async validateLimit(requestedLimit: number): Promise<void> {
+    await this.ready()
+    if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > this.maxLimit)
+      throw new HbarError('BUDGET_INVALID', `Budget limit must be an integer between 1 and ${this.maxLimit}`)
+  }
   async set(sessionId: string, requestedLimit: number): Promise<SessionBudget> {
     return this.serial(sessionId, () => this.setLocked(sessionId, requestedLimit))
   }
@@ -293,8 +298,7 @@ export class BudgetRuntime {
   }
 
   private async setLocked(sessionId: string, requestedLimit: number, command?: CommandRecord): Promise<SessionBudget> {
-    if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > this.maxLimit)
-      throw new HbarError('BUDGET_INVALID', `Budget limit must be an integer between 1 and ${this.maxLimit}`)
+    await this.validateLimit(requestedLimit)
     const prior = this.budgets.get(sessionId)
     if (prior && prior.phase === 'completed')
       throw new HbarError('BUDGET_COMPLETED', 'Completed budgets cannot be changed')
@@ -341,7 +345,8 @@ export class BudgetRuntime {
     await this.accountRun({ sessionId: run.sessionId, runId: run.id, status: run.status, run })
   }
   async refreshSession(sessionId: string): Promise<void> {
-    if (this.api.restoreMode !== 'projection') throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Budget handoff requires projection-only restore')
+    if (this.api.restoreMode !== 'projection')
+      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Budget handoff requires projection-only restore')
     await this.serial(sessionId, () => this.restoreSession(sessionId))
   }
 

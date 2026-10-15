@@ -98,7 +98,7 @@ export const RUNTIME_APPLICATION_METHODS = {
   ],
   plan: ['snapshot', 'get', 'withRevision', 'update', 'clear'],
   mode: ['get', 'set', 'commitExit'],
-  budget: ['get', 'set', 'setCommand', 'getCommandReceipt', 'clear', 'assertCanStart', 'reconcileRun'],
+  budget: ['get', 'validateLimit', 'set', 'setCommand', 'getCommandReceipt', 'clear', 'assertCanStart', 'reconcileRun'],
   workflow: [
     'get',
     'focus',

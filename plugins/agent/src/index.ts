@@ -375,6 +375,7 @@ export class AgentRuntime implements AgentService {
       if (record.runId || record.status === 'failed') return record
       return this.start(existing, parsed)
     }
+    if (parsed.tokenBudget !== undefined) await this.budgets.validateLimit(parsed.tokenBudget)
     const configuration = await this.resolveConfiguration(parsed, context.parentRunId)
     const resolved = { ...parsed, modelId: configuration.modelId, configuration }
     let seed: CreatedAgent
