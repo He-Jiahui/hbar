@@ -1451,6 +1451,7 @@ export class WorkflowRuntime implements WorkflowService {
     expectedRevision: CheckpointRevision,
     evidenceIds: string[] = [],
     reviewModelId?: string,
+    callerRunId?: string,
   ) {
     const cancelAgentIds: string[] = []
     await this.serial(sessionId, async () => {
@@ -1639,7 +1640,7 @@ export class WorkflowRuntime implements WorkflowService {
           sessionId,
           agentPlanSteps,
           summary,
-          agentPlan.turnId,
+          callerRunId ?? agentPlan.turnId,
           agentPlan.revision,
         )
         this.agentPlanSnapshots.set(sessionId, nextPlan)
@@ -4047,6 +4048,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
                   parsed.expectedRevision,
                   parsed.evidenceIds,
                   context.run.modelId,
+                  context.run.id,
                 )
               : await runtime.complete(context.session.id, parsed.expectedRevision, context.run.id)
         return workflowModelResult(result)
@@ -4070,6 +4072,7 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
             { focusRevision: parsed.expectedFocusRevision, planRevision: parsed.expectedPlanRevision },
             parsed.evidenceIds,
             context.run.modelId,
+            context.run.id,
           ),
         )
       },

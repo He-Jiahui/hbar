@@ -618,6 +618,7 @@ export interface WorkflowService {
     expectedRevision: number | { focusRevision: number; planRevision: number },
     evidenceIds?: string[],
     reviewModelId?: string,
+    callerRunId?: string,
   ): Promise<WorkflowSnapshot>
   delegate(
     sessionId: string,
