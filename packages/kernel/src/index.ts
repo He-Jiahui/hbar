@@ -6,6 +6,8 @@ import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 import type { NodeWorktreePort } from './node-worktree-port'
 export type { NodeWorktreePort } from './node-worktree-port'
 import { ensureNodeRunWorktree } from './node-run-worktree'
+import { bindToolCall, type ToolCallPreparationPort } from './tool-call-binding'
+export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
 import { assertRemoteLaunchTargetSupported, nodeWorktreeBranchPlan } from './node-worktree-selection'
 import { nodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { admitNodeProcess } from './node-admission-gate'
@@ -421,6 +423,8 @@ export interface KernelOptions {
   /** Managed activation never runs global recovery or starts scheduling during construction. */
   lifecycle?: 'automatic' | 'managed' | 'candidate' | undefined
   execution?: KernelExecutionPort | undefined
+  /** Host-owned final operation binding, after transforming Hooks and before every execution gate. */
+  toolCalls?: ToolCallPreparationPort | undefined
   /** Private Host bridge for authenticated remote execution intent recovery. */
   nodeIntentRecovery?: NodeIntentRecoveryPort | undefined
   /** Stable Host adapter captures authenticated node facts before remote process admission. */
@@ -3076,8 +3080,8 @@ export class Kernel {
     const forwardAbort = () => controller.abort(hostSignal.reason)
     hostSignal.addEventListener('abort', forwardAbort, { once: true })
     if (hostSignal.aborted) forwardAbort()
-    const tool = scope.tools.get(name)
-    if (!tool) {
+    const registeredTool = scope.tools.get(name)
+    if (!registeredTool) {
       this.executionDiagnostics.toolFailed(
         toolDiagnosticIdentity,
         name,
@@ -3087,6 +3091,7 @@ export class Kernel {
       hostSignal.removeEventListener('abort', forwardAbort)
       throw new HbarError('TOOL_NOT_FOUND', name)
     }
+    let tool: ToolDefinition = registeredTool
     // Hooks may alter their call context, but cannot mutate the active Run or another call's pinned facts.
     context = { ...context, ...structuredClone(executionFacts), signal: controller.signal }
     const sequence = selectedTools
@@ -3133,9 +3138,22 @@ export class Kernel {
         tool,
       })
       restoreExecutionFacts()
-      const args = tool.validate
+      let args = tool.validate
         ? await tool.validate(transformed.args)
         : (tool.inputSchema.parse(transformed.args) as Record<string, unknown>)
+      if (this.options.toolCalls) {
+        const binding = await this.options.toolCalls.prepare(name, structuredClone(args), {
+          ...structuredClone(executionFacts),
+          signal: controller.signal,
+        })
+        restoreExecutionFacts()
+        assertBoundary()
+        if (binding) {
+          const prepared = bindToolCall(tool, binding)
+          tool = prepared.tool
+          args = prepared.arguments
+        }
+      }
       const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args

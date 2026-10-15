@@ -87,6 +87,12 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
       [{ name: 'owned_write', args: { count: 7 }, context: toolContext, tool: state.tools[0] }], host,
     ]))
     expect(admitted).toMatchObject({ kind: 'value', value: { args: { count: 99 } } })
+    const resolvedTool = { ...state.tools[0], effect: 'process', commandArgument: 'command' }
+    const resolvedAdmission = runtimePluginResultSchema.parse(await port.call('invoke', [
+      { operation: 'hook', name: 'tool.admitting', catalog: [resolvedTool] },
+      [{ name: 'owned_write', args: { count: 7, command: 'echo approved' }, context: toolContext, tool: resolvedTool }], host,
+    ]))
+    expect(resolvedAdmission).toMatchObject({ kind: 'value', value: { tool: { effect: 'process', commandArgument: 'command' } } })
     const admissionDenied = runtimePluginResultSchema.parse(await port.call('invoke', [
       { operation: 'hook', name: 'tool.admitting', catalog: state.tools },
       [{ name: 'owned_write', args: { count: 13 }, context: toolContext, tool: state.tools[0] }], host,
