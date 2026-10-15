@@ -542,6 +542,36 @@ test('explicit device groups remain reachable without a Host form, but Host grou
   }
 })
 
+test('mixed device and Host settings retain their Host form save area', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-mixed-save',
+    hostId: 'host',
+    directory,
+    settings,
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'general' })
+    await waitForReady(runtime)
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace
+          labels={labels}
+          connected
+          groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+          renderGroup={(_id, context) => ({ content: context.form, saveArea: context.saveArea })}
+        />
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain(labels.mixedScope)
+    expect(html).toContain('hbar-app-react-settings-footer')
+    expect(html).toContain(labels.save)
+    expect(html).toContain('f:desktop.startupMode')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('pinned project settings name their project instead of borrowing the active session scope', async () => {
   const target = { ...workspace, id: 'workspace-pinned', name: 'Pinned 工程，与活动会话不同' }
   const runtime = createAppRuntime({

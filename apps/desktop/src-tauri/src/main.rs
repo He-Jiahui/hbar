@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod native_diagnostics;
 mod resource_browser;
+mod background;
 
+use background::{Startup, StartupMode, startup_override, shutdown_owner, release_workbench_on_close};
 use native_diagnostics::NativeDiagnostics;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -239,6 +241,16 @@ struct Connection {
 }
 struct NativeConnectionPath(PathBuf);
 
+struct DesktopLifecycle {
+    release_workbench_on_close: bool,
+    owned_pid: Option<u32>,
+}
+
+struct WorkbenchLaunch {
+    data_directory: PathBuf,
+    browser_arguments: String,
+}
+
 fn read_current_native_connection(path: &Path, expected: &Connection) -> Result<Connection, String> {
     let mut bytes = Vec::new();
     File::open(path).map_err(|_| "The local Host connection is not ready")?
@@ -326,33 +338,43 @@ fn should_exit_service() -> bool {
     false
 }
 
-fn stop_host(pid: Option<u32>) {
+fn stop_host(pid: Option<u32>) -> bool {
+    let Some(pid) = pid else { return true };
     // The source-development launcher owns the watch process tree. A captured
     // Host PID can become stale after reload; let that launcher release it.
     if cfg!(debug_assertions) && std::env::var("HBAR_DESKTOP_DEV").as_deref() == Ok("1") {
-        return;
+        return false;
     }
-    let Some(pid) = pid else { return };
     #[cfg(windows)]
     {
-        let _ = Command::new("taskkill")
+        return Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
-            .status();
+            .status().is_ok_and(|status| status.success());
     }
     #[cfg(not(windows))]
     {
-        let _ = Command::new("kill").arg(pid.to_string()).status();
+        Command::new("kill").arg(pid.to_string()).status().is_ok_and(|status| status.success())
     }
 }
 
-fn exit_service(app: &tauri::AppHandle) {
-    let pid = app
-        .try_state::<Connection>()
-        .and_then(|connection| connection.pid);
+fn exit_service(app: &tauri::AppHandle, stop_backend: bool) {
+    let connection = app.try_state::<Connection>();
+    let current = connection.as_ref().and_then(|expected| app.try_state::<NativeConnectionPath>()
+        .and_then(|path| read_current_native_connection(&path.0, expected).ok()))
+        .filter(|value| !stop_backend || connection_ready(value));
+    let service_pid = current.as_ref().and_then(|value| value.supervisor_pid.or(value.pid));
+    let pid = shutdown_owner(stop_backend, service_pid);
+    if stop_backend && pid.is_none() {
+        eprintln!("Unable to confirm the current local Host identity; backend was not stopped");
+        return;
+    }
     if let Some(diagnostics) = app.try_state::<NativeDiagnostics>() {
         diagnostics.owner_release_requested(pid, "tray");
     }
-    stop_host(pid);
+    if !stop_host(pid) {
+        eprintln!("The local Host process tree could not be stopped");
+        return;
+    }
     app.exit(0);
 }
 
@@ -870,20 +892,26 @@ fn existing(settings_root: &Path, expected_pid: Option<u32>) -> Option<Connectio
     if url.scheme() != "http" || url.host_str() != Some("127.0.0.1") {
         return None;
     }
-    let client = reqwest::blocking::Client::builder()
+    connection_ready(&connection).then_some(connection)
+}
+
+fn connection_ready(connection: &Connection) -> bool {
+    let Some(client) = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(2))
         .no_proxy()
         .build()
-        .ok()?;
-    let response = client
+        .ok() else { return false };
+    let Some(response) = client
         .get(format!("{}/healthz", connection.url))
         .send()
-        .ok()?;
+        .ok() else { return false };
     if !response.status().is_success() {
-        return None;
+        return false;
     }
-    let status: serde_json::Value = response.json().ok()?;
-    health_matches(&status, &connection.instance_id).then_some(connection)
+    let Ok(bytes) = response.take(16_385).bytes().collect::<Result<Vec<_>, _>>() else { return false };
+    if bytes.len() > 16_384 { return false; }
+    let Ok(status) = serde_json::from_slice(&bytes) else { return false };
+    health_matches(&status, &connection.instance_id)
 }
 
 fn health_matches(status: &serde_json::Value, instance_id: &str) -> bool {
@@ -941,7 +969,7 @@ fn path_roots(
     ))
 }
 
-fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::error::Error>> {
+fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf, Option<u32>), Box<dyn std::error::Error>> {
     let (data_root, cache_root, settings_root) = path_roots(app)?;
     fs::create_dir_all(&settings_root)?;
     fs::create_dir_all(&cache_root)?;
@@ -950,7 +978,7 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
     if let Some(connection) = existing(&settings_root, None) {
         diagnostics.connection_reused(&connection.instance_id, connection.supervisor_pid);
         diagnostics.host_ready(&connection);
-        return Ok((connection, data_root));
+        return Ok((connection, data_root, None));
     }
     diagnostics.connection_validation_failed();
     // The source launcher owns this Host and its workers. A native rebuild can
@@ -960,7 +988,7 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
         while started.elapsed() < Duration::from_secs(30) {
             thread::sleep(Duration::from_millis(100));
             if let Some(connection) = existing(&settings_root, None) {
-                return Ok((connection, data_root));
+                return Ok((connection, data_root, None));
             }
         }
         diagnostics.host_start_timeout(None);
@@ -1023,7 +1051,7 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
     loop {
         if let Some(connection) = existing(&settings_root, Some(child_pid)) {
             diagnostics.host_ready(&connection);
-            return Ok((connection, data_root));
+            return Ok((connection, data_root, Some(child_pid)));
         }
         if let Some(status) = child.try_wait()? {
             diagnostics.host_exited(child_pid, status.code());
@@ -1095,6 +1123,83 @@ fn native_window_profile() -> (&'static str, &'static str, Option<Effect>) {
     ("linux", "solid", None)
 }
 
+fn desktop_startup(connection: &Connection) -> Result<Startup, Box<dyn std::error::Error>> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(5)).no_proxy().build()?;
+    let started = Instant::now();
+    loop {
+        let response = client.get(format!("{}/api/desktop/startup", connection.url))
+            .bearer_auth(&connection.token).send()?;
+        let status = response.status();
+        // A desktop can attach to a Host from before the startup projection existed.
+        if status == reqwest::StatusCode::NOT_FOUND { return Ok(Startup::default()); }
+        let bytes = response.take(8193).bytes().collect::<Result<Vec<_>, _>>()?;
+        if bytes.len() > 8192 { return Err("Desktop startup response is oversized".into()); }
+        if status.is_success() {
+            let startup: Startup = serde_json::from_slice(&bytes)?;
+            startup.validate()?;
+            return Ok(startup);
+        }
+        let error: serde_json::Value = serde_json::from_slice(&bytes)?;
+        if matches!(error["code"].as_str(), Some("RUNTIME_RECOVERING" | "RUNTIME_PREPARING"))
+            && started.elapsed() < Duration::from_secs(30) {
+            // Authentication/storage can be ready before the owned Controller activates.
+            // This is a bounded read retry, never a replay of an execution request.
+            thread::sleep(Duration::from_millis(100));
+            continue;
+        }
+        return Err(format!("Desktop startup settings are unavailable ({status})").into());
+    }
+}
+
+fn open_workbench(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.show()?;
+        window.set_focus()?;
+        return Ok(());
+    }
+    let connection = app.state::<Connection>();
+    let url = tauri::Url::parse(&connection.url)?;
+    let origin = url.origin();
+    let (platform, material, effect) = native_window_profile();
+    let mut web_url = development_web_url().unwrap_or_else(|| url.clone());
+    web_url.query_pairs_mut().append_pair("hbar-native", "1")
+        .append_pair("hbar-platform", platform).append_pair("hbar-material", material);
+    let launch = app.state::<WorkbenchLaunch>();
+    let mut window_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
+        .data_directory(launch.data_directory.clone())
+        .additional_browser_args(&launch.browser_arguments)
+        .title("hbar").inner_size(1440.0, 960.0).min_inner_size(900.0, 600.0)
+        .decorations(false).shadow(true)
+        .on_navigation(move |next| next.origin() == origin || development_web_url()
+            .is_some_and(|dev_url| next.origin() == dev_url.origin()));
+    if let Some(effect) = effect {
+        window_builder = window_builder.transparent(true)
+            .effects(EffectsBuilder::new().effect(effect).build());
+    }
+    let window = window_builder.build()?;
+    let handle = window.clone();
+    let app_handle = app.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            if app_handle.state::<DesktopLifecycle>().release_workbench_on_close {
+                let _ = handle.destroy();
+            } else if should_exit_service() {
+                exit_service(&app_handle, true);
+            } else {
+                let _ = handle.hide();
+            }
+        }
+    });
+    Ok(())
+}
+
+fn open_backend_web(app: &tauri::AppHandle) -> Result<(), String> {
+    let connection = app.state::<Connection>();
+    resource_browser::open_system_target(&connection.url)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -1116,17 +1221,10 @@ fn main() {
             native_notification_delivery_status
         ])
         .setup(|app| {
-            let (connection, data_root) = launch(app.handle())?;
-            let origin = tauri::Url::parse(&connection.url)?.origin();
-            let url = tauri::Url::parse(&connection.url)?;
-            let (platform, material, effect) = native_window_profile();
-            let mut web_url = development_web_url().unwrap_or_else(|| url.clone());
-            web_url
-                .query_pairs_mut()
-                .append_pair("hbar-native", "1")
-                .append_pair("hbar-platform", platform)
-                .append_pair("hbar-material", material);
-            let host_pid = connection.pid;
+            let selected = startup_override(std::env::args().skip(1))?;
+            let (connection, data_root, owned_pid) = launch(app.handle())?;
+            let startup = desktop_startup(&connection)?;
+            let startup_mode = selected.unwrap_or(startup.startup_mode);
             let (_, _, settings_root) = path_roots(app.handle())?;
             app.manage(NativeDiagnostics::for_settings_root(&settings_root));
             app.manage(NativeConnectionPath(settings_root.join("connection.json")));
@@ -1137,6 +1235,10 @@ fn main() {
             app.manage(resource_browser::ResourceBrowsers::default());
             app.manage(resource_browser::BrowserDataDirectory(data_root.join("cache").join("resource-browser")));
             app.manage(connection);
+            app.manage(DesktopLifecycle {
+                release_workbench_on_close: release_workbench_on_close(startup_mode, startup.startup_mode),
+                owned_pid,
+            });
             // WebView2 environment overrides affect every controller. Move the
             // workbench overrides into its builder so resource views get their
             // own cookie/local-storage directory and never inherit Host credentials.
@@ -1145,45 +1247,16 @@ fn main() {
             let workbench_browser_arguments = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").unwrap_or_default();
             std::env::remove_var("WEBVIEW2_USER_DATA_FOLDER");
             std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
-            let mut window_builder =
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
-                    .data_directory(workbench_data_directory)
-                    .additional_browser_args(&workbench_browser_arguments)
-                    .title("hbar")
-                    .inner_size(1440.0, 960.0)
-                    .min_inner_size(900.0, 600.0)
-                    .decorations(false)
-                    .shadow(true)
-                    .on_navigation(move |next| {
-                        next.origin() == origin
-                            || development_web_url()
-                                .is_some_and(|dev_url| next.origin() == dev_url.origin())
-                    });
-            if let Some(effect) = effect {
-                window_builder = window_builder
-                    .transparent(true)
-                    .effects(EffectsBuilder::new().effect(effect).build());
-            }
-            let window = window_builder.build()?;
-            let handle = window.clone();
-            let app_handle = app.handle().clone();
-            window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    if should_exit_service() {
-                        if let Some(diagnostics) = app_handle.try_state::<NativeDiagnostics>() {
-                            diagnostics.owner_release_requested(host_pid, "window");
-                        }
-                        stop_host(host_pid);
-                        app_handle.exit(0);
-                    } else {
-                        let _ = handle.hide();
-                    }
-                }
+            app.manage(WorkbenchLaunch {
+                data_directory: workbench_data_directory,
+                browser_arguments: workbench_browser_arguments,
             });
-            let open = MenuItem::with_id(app, "open", "Open hbar", true, None::<&str>)?;
-            let exit = MenuItem::with_id(app, "exit", "Exit desktop", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &exit])?;
+            if startup_mode == StartupMode::Client { open_workbench(app.handle())?; }
+            let open = MenuItem::with_id(app, "open", &startup.labels.open_client, true, None::<&str>)?;
+            let web = MenuItem::with_id(app, "web", &startup.labels.open_web, true, None::<&str>)?;
+            let exit = MenuItem::with_id(app, "exit", &startup.labels.exit_client, true, None::<&str>)?;
+            let stop = MenuItem::with_id(app, "stop", &startup.labels.stop_backend, true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&open, &web, &exit, &stop])?;
             let mut pixels = vec![0u8; 32 * 32 * 4];
             for y in 0..32 {
                 for x in 0..32 {
@@ -1203,12 +1276,11 @@ fn main() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => {
-                        if let Some(window) = app.get_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        if open_workbench(app).is_err() { eprintln!("Unable to open hbar client"); }
                     }
-                    "exit" => exit_service(app),
+                    "web" => { if open_backend_web(app).is_err() { eprintln!("Unable to open hbar web"); } }
+                    "exit" => exit_service(app, false),
+                    "stop" => exit_service(app, true),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -1218,26 +1290,29 @@ fn main() {
                         ..
                     } = event
                     {
-                        if let Some(window) = tray.app_handle().get_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        if open_workbench(tray.app_handle()).is_err() { eprintln!("Unable to open hbar client"); }
                     }
                 })
                 .build(app)?;
+            app.state::<NativeDiagnostics>().tray_ready(startup_mode == StartupMode::Background);
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("Unable to start hbar desktop")
         .run(|app, event| {
+            if let RunEvent::ExitRequested { code: None, api, .. } = &event {
+                // A windowless tray is a live desktop owner, not an implicit quit request.
+                api.prevent_exit();
+            }
             if matches!(event, RunEvent::Exit) {
                 let pid = app
-                    .try_state::<Connection>()
-                    .and_then(|connection| connection.pid);
+                    .try_state::<DesktopLifecycle>()
+                    .and_then(|lifecycle| lifecycle.owned_pid);
                 if let Some(diagnostics) = app.try_state::<NativeDiagnostics>() {
                     diagnostics.owner_release_requested(pid, "process_exit");
                 }
-                stop_host(pid);
+                // The Host remains available after the last desktop client exits.
+                // Only the explicit stop action above terminates its process tree.
             }
         });
 }

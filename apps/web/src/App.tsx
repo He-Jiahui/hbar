@@ -889,17 +889,26 @@ function WorkspaceBodyContent({
               />
             )
           if (groupId === 'general' && language)
-            return { content: (<>
-              <WebGeneralSettings
-                labels={copy.general}
-                language={language}
-                sendBehavior={sendBehavior}
-                zoom={zoom}
-                nativeZoom={nativeDesktop}
-                connected={connected}
-              />
-              {context.renderFields(['f:client.resourceWebOpenMode', 'f:client.resourceFileOpenMode'])}
-            </>), saveArea: context.saveArea }
+            return {
+              content: (
+                <>
+                  <WebGeneralSettings
+                    labels={copy.general}
+                    language={language}
+                    sendBehavior={sendBehavior}
+                    zoom={zoom}
+                    nativeZoom={nativeDesktop}
+                    connected={connected}
+                  />
+                  {context.renderFields([
+                    'f:client.resourceWebOpenMode',
+                    'f:client.resourceFileOpenMode',
+                    'f:desktop.startupMode',
+                  ])}
+                </>
+              ),
+              saveArea: context.saveArea,
+            }
           if (groupId === 'appearance')
             return (
               <WebAppearanceSettings

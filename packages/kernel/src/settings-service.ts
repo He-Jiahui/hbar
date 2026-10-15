@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import { DEFAULT_SANDBOX_PROFILE_ID } from '@hbar/contracts/sandbox'
 import { chatDatabaseSettingsFields } from '@hbar/contracts/commands/chat-database'
+import { DESKTOP_STARTUP_MODE_SETTING } from '@hbar/contracts/desktop'
 import { resolveChatDatabasePolicy } from './chat-database-policy'
 import {
   COMPACTION_PERCENT_SETTING,
@@ -55,6 +56,21 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
       { id: 'chatDatabase', labelKey: 'i18n:settings.groups.chatDatabase', order: 38 },
     ],
     fields: [
+      {
+        path: path(DESKTOP_STARTUP_MODE_SETTING),
+        type: 'string',
+        nullable: false,
+        defaultValue: 'client',
+        choices: ['client', 'background'],
+        allowedScopes: ['global'],
+        applyMode: 'restart',
+        labelKey: 'i18n:settings.desktop.startupMode.label',
+        helpKey: 'i18n:settings.desktop.startupMode.help',
+        group: 'general',
+        order: 40,
+        component: 'PopupSelect',
+        multiple: false,
+      },
       ...(['web', 'file'] as const).map((kind) => ({
         path: path(`client.resource${kind === 'web' ? 'Web' : 'File'}OpenMode`),
         type: 'string' as const,

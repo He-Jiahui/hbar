@@ -87,6 +87,8 @@ function settingsChoiceLabel(locale: ShellLocale, value: unknown): string {
       : { ask: 'Ask', deny: 'Deny approval requests', sandbox: 'Sandbox profile', allow: 'Auto-approve' }
   if (value === 'internal') return locale === 'zh-CN' ? '内置' : 'Built-in'
   if (value === 'system') return locale === 'zh-CN' ? '系统默认' : 'System default'
+  if (value === 'client') return locale === 'zh-CN' ? '打开客户端' : 'Open client'
+  if (value === 'background') return locale === 'zh-CN' ? '仅托盘后台' : 'Tray backend only'
   return approval[String(value)] ?? thinkingLevelLabel(locale, value)
 }
 
@@ -558,6 +560,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     ? {
         'i18n:settings.groups.model': '模型',
         'i18n:settings.groups.general': '通用',
+        'i18n:settings.desktop.startupMode.label': '桌面启动方式',
+        'i18n:settings.desktop.startupMode.help': '下次启动时打开客户端，或仅在托盘运行后台。',
         'i18n:settings.client.resourceWebOpenMode.label': '网页默认打开方式',
         'i18n:settings.client.resourceFileOpenMode.label': '文件默认打开方式',
         'i18n:settings.client.resourceOpenMode.help': '右键可以单次选择打开方式，图片点击后在内置查看器中显示。',
@@ -588,6 +592,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     : {
         'i18n:settings.groups.model': 'Model',
         'i18n:settings.groups.general': 'General',
+        'i18n:settings.desktop.startupMode.label': 'Desktop startup',
+        'i18n:settings.desktop.startupMode.help': 'On the next launch, open the client or run the backend in the tray.',
         'i18n:settings.client.resourceWebOpenMode.label': 'Default website opening',
         'i18n:settings.client.resourceFileOpenMode.label': 'Default file opening',
         'i18n:settings.client.resourceOpenMode.help':

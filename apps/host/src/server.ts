@@ -36,6 +36,7 @@ import { CommandError } from '@hbar/commands/protocol'
 
 import { Auth, requestToken } from './auth.ts'
 import { DeviceAuthorization } from './device-authorization'
+import { projectDesktopStartup } from './desktop-startup'
 import { createNodeCommands, createRemoteWorkspaceCreator } from './node-commands'
 import { nodeCommands as nodeDefinitions } from '@hbar/contracts/commands/nodes'
 import { workspaceCreateInputSchema } from '@hbar/contracts/commands/workspaces'
@@ -1376,6 +1377,16 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           const device = await auth.authenticate(requestToken(request))
           if (authorization.restricted(device) && url.pathname !== '/api/resource-media')
             throw new HbarError('FORBIDDEN', 'Use scoped resource reads for this device')
+          if (url.pathname === '/api/desktop/startup' && request.method === 'GET')
+            return json(
+              request,
+              projectDesktopStartup(
+                await application.settingsCommands.execute('settings.get', { scope: { kind: 'global' } }),
+                request.headers.get('accept-language') ?? 'zh-CN',
+              ),
+              200,
+              { 'Cache-Control': 'no-store' },
+            )
           const clientPlugin = /^\/api\/plugins\/([^/]+)\/client\.js$/.exec(url.pathname)
           if (clientPlugin && request.method === 'GET')
             return response(request, await kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {

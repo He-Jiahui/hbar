@@ -4,6 +4,7 @@ import type { ControllerApplication, ControllerCommandService } from './controll
 
 /** Methods used by stable connection, media and scheduling adapters; private registries remain in the owner. */
 export const RUNTIME_CONTROLLER_SERVICES = {
+  settingsCommands: ['execute'],
   browserCommands: ['execute'],
   computerCommands: ['execute'],
   configurationCommands: ['execute'],

@@ -32,6 +32,10 @@ impl NativeDiagnostics {
         self.write("launcher_initialized", "info", &[]);
     }
 
+    pub(crate) fn tray_ready(&self, background: bool) {
+        self.write("tray_ready", "info", &[("background", json!(background))]);
+    }
+
     pub(crate) fn connection_reused(&self, instance_id: &str, supervisor_pid: Option<u32>) {
         self.write(
             "connection_reused",
