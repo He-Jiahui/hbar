@@ -18,10 +18,122 @@ function fakeApi() {
   return { api, notifications }
 }
 
+test('browser context references enforce Session ownership before backend and resource effects', async () => {
+  const { api } = fakeApi()
+  const backend = new FakeBrowser()
+  let retained = 0
+  let released = 0
+  const historyReads: string[] = []
+  api.resources = {
+    retain: async () => {
+      retained++
+      return () => {
+        released++
+      }
+    },
+  }
+  backend.history = async (contextId?: string) => {
+    if (contextId) historyReads.push(contextId)
+    return ['https://allowed.example/private']
+  }
+  const runtime = new BrowserRuntime(
+    api,
+    browserConfigSchema.parse({
+      allow_history_access: true,
+      default_origin_policy: { access: 'allow' },
+    }),
+    backend,
+  )
+  try {
+    const first = await runtime.navigate('session-a', 'https://allowed.example/private')
+    expect(retained).toBe(1)
+    for (const foreign of [first.contextId, 'unknown-context']) {
+      await expect(runtime.navigate('session-b', 'https://allowed.example/reader', foreign)).rejects.toMatchObject({
+        code: 'BROWSER_PAGE_NOT_FOUND',
+      })
+      await expect(runtime.history('session-b', foreign)).rejects.toMatchObject({ code: 'BROWSER_PAGE_NOT_FOUND' })
+      expect(retained).toBe(1)
+      expect(historyReads).toEqual([])
+      expect(backend.pages.size).toBe(1)
+    }
+    expect((await runtime.status('session-b')).contexts).toEqual([])
+    expect(await runtime.close('session-b', first.contextId)).toEqual({ closed: false })
+    expect(released).toBe(0)
+    expect(backend.pages.size).toBe(1)
+    expect((await runtime.snapshot('session-a', first.contextId, first.pageId)).text).toBe('snapshot text')
+    expect(await runtime.history('session-a', first.contextId)).toEqual(['https://allowed.example/private'])
+    expect(historyReads).toEqual([first.contextId])
+    const sibling = await runtime.navigate('session-a', 'https://allowed.example/shared', first.contextId)
+    expect(sibling.contextId).toBe(first.contextId)
+    expect(sibling.pageId).not.toBe(first.pageId)
+    expect(retained).toBe(1)
+    const independent = await runtime.navigate('session-b', 'https://allowed.example/independent')
+    expect(independent.contextId).not.toBe(first.contextId)
+    expect(retained).toBe(2)
+    expect(await runtime.close('session-a', first.contextId)).toEqual({ closed: true })
+    expect(released).toBe(1)
+    const readsBeforeStale = [...historyReads]
+    await expect(runtime.navigate('session-a', 'https://allowed.example/stale', first.contextId)).rejects.toMatchObject(
+      { code: 'BROWSER_PAGE_NOT_FOUND' },
+    )
+    await expect(runtime.history('session-a', first.contextId)).rejects.toMatchObject({
+      code: 'BROWSER_PAGE_NOT_FOUND',
+    })
+    expect(retained).toBe(2)
+    expect(historyReads).toEqual(readsBeforeStale)
+  } finally {
+    await runtime.dispose()
+  }
+  expect(released).toBe(2)
+})
+
+test('failed navigation keeps its browser context owned until confirmed close', async () => {
+  const { api } = fakeApi()
+  const backend = new FakeBrowser()
+  let retainedContext = ''
+  let retained = 0
+  let releases = 0
+  api.resources = {
+    retain: async (resource) => {
+      retainedContext = resource.id
+      retained++
+      return () => {
+        releases++
+      }
+    },
+  }
+  backend.navigate = async () => {
+    throw new Error('navigation failed')
+  }
+  const runtime = new BrowserRuntime(
+    api,
+    browserConfigSchema.parse({
+      default_origin_policy: { access: 'allow' },
+    }),
+    backend,
+  )
+  try {
+    await expect(runtime.navigate('session-a', 'https://allowed.example/')).rejects.toThrow('navigation failed')
+    expect(retainedContext).not.toBe('')
+    await expect(runtime.navigate('session-b', 'https://allowed.example/', retainedContext)).rejects.toMatchObject({
+      code: 'BROWSER_PAGE_NOT_FOUND',
+    })
+    expect(retained).toBe(1)
+    expect(releases).toBe(0)
+    expect(await runtime.close('session-a', retainedContext)).toEqual({ closed: true })
+    expect(releases).toBe(1)
+  } finally {
+    await runtime.dispose()
+  }
+  expect(releases).toBe(1)
+})
+
 class FakeBrowser implements BrowserBackend {
   pages = new Map<string, BrowserBackendPage>()
   actions: string[] = []
-  available() { return true }
+  available() {
+    return true
+  }
   async navigate(contextId: string, pageId: string, url: string, _signal: AbortSignal) {
     const page = { url, title: 'Example' }
     this.pages.set(`${contextId}:${pageId}`, page)
@@ -35,38 +147,73 @@ class FakeBrowser implements BrowserBackend {
     if (!this.pages.has(`${contextId}:${pageId}`)) throw new Error('missing')
     return { text: 'snapshot text' }
   }
-  async click(contextId: string, pageId: string) { this.actions.push('click'); return this.pages.get(`${contextId}:${pageId}`)! }
-  async type(contextId: string, pageId: string) { this.actions.push('type'); return this.pages.get(`${contextId}:${pageId}`)! }
-  async press(contextId: string, pageId: string) { this.actions.push('press'); return this.pages.get(`${contextId}:${pageId}`)! }
-  async screenshot() { return { mime: 'image/png', data: 'iVBORw0KGgo=' } }
-  async evaluate() { this.actions.push('evaluate'); return { ok: true } }
+  async click(contextId: string, pageId: string) {
+    this.actions.push('click')
+    return this.pages.get(`${contextId}:${pageId}`)!
+  }
+  async type(contextId: string, pageId: string) {
+    this.actions.push('type')
+    return this.pages.get(`${contextId}:${pageId}`)!
+  }
+  async press(contextId: string, pageId: string) {
+    this.actions.push('press')
+    return this.pages.get(`${contextId}:${pageId}`)!
+  }
+  async screenshot() {
+    return { mime: 'image/png', data: 'iVBORw0KGgo=' }
+  }
+  async evaluate() {
+    this.actions.push('evaluate')
+    return { ok: true }
+  }
   async close(contextId: string, pageId?: string) {
     if (pageId) this.pages.delete(`${contextId}:${pageId}`)
   }
-  async history() { return ['https://allowed.example/'] }
+  async history() {
+    return ['https://allowed.example/']
+  }
 }
 
 test('managed browser resources stay retained after a failed close and release only after actual context disposal', async () => {
-  const { api } = fakeApi(), backend = new FakeBrowser()
-  let allowClose = false, released = 0, retained = 0
+  const { api } = fakeApi(),
+    backend = new FakeBrowser()
+  let allowClose = false,
+    released = 0,
+    retained = 0
   backend.close = async () => {
     if (!allowClose) throw new Error('Native close did not complete')
     backend.pages.clear()
   }
-  api.resources = { retain: async () => { retained++; return async () => { expect(backend.pages.size).toBe(0); released++ } } }
-  const runtime = new BrowserRuntime(api, browserConfigSchema.parse({ default_origin_policy: { access: 'allow' } }), backend)
+  api.resources = {
+    retain: async () => {
+      retained++
+      return async () => {
+        expect(backend.pages.size).toBe(0)
+        released++
+      }
+    },
+  }
+  const runtime = new BrowserRuntime(
+    api,
+    browserConfigSchema.parse({ default_origin_policy: { access: 'allow' } }),
+    backend,
+  )
   await runtime.navigate('session-1', 'https://allowed.example/')
   const failed: unknown = await runtime.close('session-1').catch((error: unknown) => error)
-  expect(failed).toBeInstanceOf(Error); expect(released).toBe(0); expect(retained).toBe(1)
+  expect(failed).toBeInstanceOf(Error)
+  expect(released).toBe(0)
+  expect(retained).toBe(1)
   expect((await runtime.status('session-1')).contexts).toHaveLength(1)
   const stopped: unknown = await runtime.dispose().catch((error: unknown) => error)
-  expect(stopped).toBeInstanceOf(Error); expect(released).toBe(0)
+  expect(stopped).toBeInstanceOf(Error)
+  expect(released).toBe(0)
   allowClose = true
   await runtime.close('session-1')
   expect(released).toBe(1)
   await runtime.navigate('session-1', 'https://allowed.example/again')
   await runtime.dispose()
-  expect(retained).toBe(2); expect(released).toBe(2)
+  expect(retained).toBe(2)
+  expect(released).toBe(2)
 })
 
 test('browser runtime enforces origin and CDP policy while keeping bounded state', async () => {
@@ -87,7 +234,7 @@ test('browser runtime enforces origin and CDP policy while keeping bounded state
   await runtime.go('session-1', 'reload')
   expect(backend.actions).toContain('reload')
   expect(await runtime.evaluate('session-1', '1 + 1')).toEqual({ value: { ok: true } })
-  expect((await runtime.history('session-1'))).toContain('https://allowed.example/')
+  expect(await runtime.history('session-1')).toContain('https://allowed.example/')
   expect(notifications.length).toBeGreaterThan(0)
   try {
     await runtime.navigate('session-1', 'https://blocked.example/')
@@ -168,10 +315,14 @@ test('browser operations enforce timeout even when a backend ignores cancellatio
   class ObservingBrowser extends FakeBrowser {
     override async navigate(_contextId: string, _pageId: string, _url: string, signal: AbortSignal) {
       await new Promise<void>((resolve) => {
-        signal.addEventListener('abort', () => {
-          aborted = true
-          resolve()
-        }, { once: true })
+        signal.addEventListener(
+          'abort',
+          () => {
+            aborted = true
+            resolve()
+          },
+          { once: true },
+        )
       })
       return { url: 'https://example.test/', title: 'Example' }
     }
