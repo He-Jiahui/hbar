@@ -1,11 +1,12 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import {
   HbarClient,
   createSystemCommandClient,
+  createSessionBranchTargetCommandClient,
   createSessionLaunchBranchesReader,
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
@@ -16,6 +17,7 @@ import { startServer } from '../apps/host/src/server'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
 import { createPathLayout } from '@hbar/storage'
 import type { WireNotification } from '@hbar/contracts'
+import type { SessionBranchTargetSelectInput } from '@hbar/contracts/commands/session-branch-target'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from '../packages/storage/src/device-access'
 
 const cleanups: Array<() => Promise<void>> = []
@@ -316,4 +318,144 @@ test('the managed Controller cannot bypass observer admission for legacy RPC or 
     await runtime.close()
     await rm(root, { recursive: true, force: true })
   }
+}, 120_000)
+
+async function branchCatalogGit(cwd: string, args: string[]): Promise<string> {
+  const child = Bun.spawn(['git', ...args], {
+    cwd,
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: 'NUL', GIT_TERMINAL_PROMPT: '0' },
+    stdout: 'pipe',
+    stderr: 'pipe',
+    stdin: 'ignore',
+    windowsHide: true,
+  })
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ])
+  if (code !== 0) throw new Error(`Branch catalog fixture Git failed: ${stderr || stdout}`)
+  return stdout.trim()
+}
+
+test('managed branch target catalog authorizes real reads and keyed writes while preserving observer and workspace ACLs', async () => {
+  const prefix = 'hbar-managed-branch-catalog-'
+  const root = await mkdtemp(join(tmpdir(), prefix))
+  let runtime: ProcessHostRuntime | undefined
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  const clients: HbarClient[] = []
+  let failed = false
+  let primary: unknown
+  try {
+    const repository = join(root, 'repository')
+    await mkdir(repository)
+    await branchCatalogGit(repository, ['init', '-q', '-b', 'main'])
+    await branchCatalogGit(repository, ['config', 'user.name', 'hbar fixture'])
+    await branchCatalogGit(repository, ['config', 'user.email', 'hbar@example.invalid'])
+    await writeFile(join(repository, 'README.md'), 'managed branch catalog fixture\n')
+    await branchCatalogGit(repository, ['add', 'README.md'])
+    await branchCatalogGit(repository, ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture'])
+    const oid = await branchCatalogGit(repository, ['rev-parse', 'HEAD'])
+    await branchCatalogGit(repository, ['branch', 'feature/catalog'])
+    runtime = await ProcessHostRuntime.create({
+      layout: createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json')),
+      sourceRoot: process.cwd(),
+      workspace: repository,
+      demo: true,
+      secrets: new MemorySecrets(),
+    })
+    host = await startServer(runtime.kernel, { port: 0, runtime, controller: runtime.controller })
+    const url = `http://127.0.0.1:${host.server.port}`
+    const operator = new HbarClient(url, (await host.auth.createDevice('branch operator')).token)
+    clients.push(operator)
+    await operator.connect()
+    const observer = new HbarClient(url, (await host.auth.createDevice('branch observer', { role: 'observer' })).token)
+    clients.push(observer)
+    await observer.connect()
+    const scoped = new HbarClient(
+      url,
+      (await host.auth.createDevice('branch scoped', { role: 'operator', workspaceIds: [] })).token,
+    )
+    clients.push(scoped)
+    await scoped.connect()
+    const workspace = (await runtime.storage.call('workspaces'))[0]
+    if (!workspace) throw new Error('Managed fixture workspace missing')
+    const session = await runtime.storage.call('createSession', workspace.id, 'branch catalog')
+    const target = { sessionId: session.id, workspaceId: workspace.id }
+    const commands = createSessionBranchTargetCommandClient(operator)
+    const observerCommands = createSessionBranchTargetCommandClient(observer)
+    const scopedCommands = createSessionBranchTargetCommandClient(scoped)
+    expect(await operator.call('command.describe', { commandId: 'sessionBranchTarget.select' })).toMatchObject({
+      metadata: {
+        visibility: 'internal',
+        scope: 'session',
+        kind: 'command',
+        stateEffect: 'external',
+        idempotency: 'required',
+      },
+    })
+    expect(await commands.execute('sessionBranchTarget.list', target)).toMatchObject({
+      revision: 0,
+      execution: { branch: 'main' },
+    })
+    expect(await observerCommands.execute('sessionBranchTarget.list', target)).toMatchObject({ revision: 0 })
+    expect(await failure(scopedCommands.execute('sessionBranchTarget.list', target))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+    const input: SessionBranchTargetSelectInput = {
+      ...target,
+      expectedRevision: 0,
+      choice: { kind: 'branch', ref: 'refs/heads/feature/catalog', expectedOid: oid },
+    }
+    const options = { idempotencyKey: 'managed-catalog-selection' }
+    expect(await failure(observerCommands.execute('sessionBranchTarget.select', input, options))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+    expect(await failure(commands.execute('sessionBranchTarget.select', input))).toMatchObject({
+      code: 'INVALID_INPUT',
+    })
+    const selected = await commands.execute('sessionBranchTarget.select', input, options)
+    expect(selected).toMatchObject({ status: 'ready', revision: 1, execution: { branch: 'feature/catalog' } })
+    expect(await commands.execute('sessionBranchTarget.select', input, options)).toEqual(selected)
+    const lookup = { sessionId: session.id, idempotencyKey: options.idempotencyKey }
+    expect(await commands.execute('sessionBranchTarget.operation', lookup)).toEqual(selected)
+    expect(await observerCommands.execute('sessionBranchTarget.operation', lookup)).toBeNull()
+    expect(await commands.execute('sessionBranchTarget.reconcile', lookup, options)).toEqual(selected)
+    expect(await commands.execute('sessionBranchTarget.list', target)).toMatchObject({
+      revision: 1,
+      execution: { branch: 'feature/catalog' },
+    })
+    expect(await branchCatalogGit(repository, ['branch', '--show-current'])).toBe('feature/catalog')
+  } catch (error) {
+    failed = true
+    primary = error
+  }
+  const cleanupErrors: unknown[] = []
+  for (const client of clients) {
+    try {
+      client.disconnect()
+    } catch (error) {
+      cleanupErrors.push(error)
+    }
+  }
+  try {
+    await host?.close()
+  } catch (error) {
+    cleanupErrors.push(error)
+  }
+  try {
+    await runtime?.close()
+  } catch (error) {
+    cleanupErrors.push(error)
+  }
+  try {
+    const absolute = resolve(root)
+    if (dirname(absolute) !== resolve(tmpdir()) || !basename(absolute).startsWith(prefix))
+      throw new Error('Refusing to remove an unowned branch catalog fixture')
+    await rm(absolute, { recursive: true, force: true })
+  } catch (error) {
+    cleanupErrors.push(error)
+  }
+  if (failed) throw primary
+  if (cleanupErrors.length > 0) throw new AggregateError(cleanupErrors, 'Branch catalog fixture cleanup failed')
 }, 120_000)

@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { emptyUsage } from '@hbar/contracts'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
+import type { SessionBranchTargetSelectInput } from '@hbar/contracts/commands/session-branch-target'
+import { Kernel, MemorySecrets, createSessionBranchTargetCommands } from '@hbar/kernel'
 import { definePlugin, provide, type HarnessDriver } from '@hbar/plugin-sdk'
 
 const prefix = 'hbar-branch-target-kernel-'
@@ -120,4 +121,96 @@ test('real Run admission restores the target branch, scopes AI Git tools to a li
   )
   expect(page.execution).toEqual({ path: worktree, branch: 'codex/ai-created', kind: 'worktree' })
   expect(page.branches.find((branch) => branch.name === 'codex/ai-created')?.current).toBe(true)
+}, 60_000)
+
+test('public branch target service preserves hidden authorization descriptors, filters and durable execution', async () => {
+  const root = await mkdtemp(join(tmpdir(), prefix))
+  const repository = join(root, 'catalog-repository')
+  await mkdir(repository)
+  await git(repository, ['init', '-q', '-b', 'main'])
+  await git(repository, ['config', 'user.name', 'hbar test'])
+  await git(repository, ['config', 'user.email', 'hbar@example.invalid'])
+  await writeFile(join(repository, 'file.txt'), 'catalog fixture\n')
+  await git(repository, ['add', '.'])
+  await git(repository, ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture'])
+  const oid = await git(repository, ['rev-parse', 'HEAD'])
+  await git(repository, ['branch', 'feature/catalog'])
+  const kernel = await Kernel.create({
+    home: join(root, 'host-data'),
+    workspace: repository,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  resources.push({ root, kernel })
+  const workspace = (await kernel.storage.call('workspaces'))[0]
+  if (!workspace) throw new Error('Fixture workspace missing')
+  const session = await kernel.createSession(workspace.id, 'catalog fixture')
+  const commands = createSessionBranchTargetCommands(kernel)
+  try {
+    expect(commands.list().items).toEqual([])
+    expect(commands.list({ includeInternal: false }).items).toEqual([])
+    const all = commands.list({ includeInternal: true })
+    const ids = [
+      'sessionBranchTarget.list',
+      'sessionBranchTarget.operation',
+      'sessionBranchTarget.reconcile',
+      'sessionBranchTarget.select',
+    ]
+    expect(all.items.map((item) => item.metadata.id)).toEqual(ids)
+    expect(all.nextCursor).toBeUndefined()
+    for (const descriptor of all.items) {
+      expect(descriptor).toEqual(commands.describe(descriptor.metadata.id))
+      expect(descriptor.metadata).toMatchObject({
+        visibility: 'internal',
+        category: 'workspace.session-branch-target',
+        surfaces: ['api'],
+        execution: 'host',
+        scope: 'session',
+      })
+    }
+    expect(commands.describe('sessionBranchTarget.select').metadata).toMatchObject({
+      kind: 'command',
+      stateEffect: 'external',
+      idempotency: 'required',
+    })
+    const first = commands.list({ includeInternal: true, limit: 2 })
+    expect(first.items.map((item) => item.metadata.id)).toEqual(ids.slice(0, 2))
+    if (!first.nextCursor) throw new Error('Expected another catalog page')
+    const second = commands.list({ includeInternal: true, after: first.nextCursor, limit: 2 })
+    expect(second.items.map((item) => item.metadata.id)).toEqual(ids.slice(2))
+    expect(second.revision).toBe(first.revision)
+    expect(second.nextCursor).toBeUndefined()
+    expect(commands.list({ includeInternal: true, category: 'workspace', surface: 'api' }).items).toHaveLength(4)
+    expect(commands.list({ includeInternal: true, category: 'workspace.session-branch-target' }).items).toHaveLength(4)
+    expect(commands.list({ includeInternal: true, category: 'workspace.session-branch-target-other' }).items).toEqual(
+      [],
+    )
+    expect(commands.list({ includeInternal: true, surface: 'cli' }).items).toEqual([])
+    expect(() => commands.list({ includeInternal: true, limit: 501 })).toThrow()
+    const target = { sessionId: session.id, workspaceId: workspace.id }
+    expect(await commands.execute('sessionBranchTarget.list', target)).toMatchObject({
+      revision: 0,
+      execution: { branch: 'main' },
+    })
+    const input: SessionBranchTargetSelectInput = {
+      ...target,
+      expectedRevision: 0,
+      choice: { kind: 'branch', ref: 'refs/heads/feature/catalog', expectedOid: oid },
+    }
+    await expect(commands.execute('sessionBranchTarget.select', input)).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    const options = { actorId: 'catalog-owner', idempotencyKey: 'catalog-select' }
+    const selected = await commands.execute('sessionBranchTarget.select', input, options)
+    expect(selected).toMatchObject({ status: 'ready', revision: 1, execution: { branch: 'feature/catalog' } })
+    expect(await commands.execute('sessionBranchTarget.select', input, options)).toEqual(selected)
+    const lookup = { sessionId: session.id, idempotencyKey: options.idempotencyKey }
+    expect(await commands.execute('sessionBranchTarget.operation', lookup, { actorId: options.actorId })).toEqual(
+      selected,
+    )
+    expect(await commands.execute('sessionBranchTarget.operation', lookup, { actorId: 'another-actor' })).toBeNull()
+    expect(await commands.execute('sessionBranchTarget.reconcile', lookup, options)).toEqual(selected)
+    expect(await git(repository, ['branch', '--show-current'])).toBe('feature/catalog')
+    expect(commands.list().items).toEqual([])
+  } finally {
+    commands.dispose()
+  }
 }, 60_000)
