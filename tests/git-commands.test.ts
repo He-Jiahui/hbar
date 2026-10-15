@@ -282,3 +282,50 @@ test('disabled local execution blocks Git reads before the injected service can 
     commands.dispose()
   }
 })
+
+test('Git catalog forwards hidden authorization descriptors and complete registry filters', async () => {
+  const commands = createGitCommands(service())
+  try {
+    const visible = commands.list()
+    expect(visible.items).toHaveLength(9)
+    expect(visible.items.every((item) => item.metadata.visibility !== 'internal')).toBeTrue()
+    expect(visible.nextCursor).toBeUndefined()
+    const all = commands.list({ includeInternal: true })
+    expect(all.items).toHaveLength(12)
+    expect(all.items.slice(9).map((item) => item.metadata.id)).toEqual([
+      'sessionGit.diff',
+      'sessionGit.info',
+      'sessionGit.status',
+    ])
+    expect(
+      all.items
+        .slice(9)
+        .every(
+          (item) =>
+            item.metadata.visibility === 'internal' &&
+            item.metadata.kind === 'query' &&
+            item.metadata.stateEffect === 'none' &&
+            item.metadata.scope === 'session',
+        ),
+    ).toBeTrue()
+    expect(commands.list({ includeInternal: false }).items).toEqual(visible.items)
+    const first = commands.list({ includeInternal: true, after: 'git.worktree', limit: 2 })
+    expect(first.items.map((item) => item.metadata.id)).toEqual(['sessionGit.diff', 'sessionGit.info'])
+    expect(first.nextCursor).toBe('sessionGit.info')
+    if (first.nextCursor === undefined) throw new Error('GIT_CATALOG_CURSOR_MISSING')
+    const last = commands.list({ includeInternal: true, after: first.nextCursor, limit: 2 })
+    expect(last.items.map((item) => item.metadata.id)).toEqual(['sessionGit.status'])
+    expect(last.nextCursor).toBeUndefined()
+    expect(commands.list({ includeInternal: true, category: 'monitoring', surface: 'api' }).items).toHaveLength(12)
+    expect(commands.list({ includeInternal: true, category: 'monitoring.git', surface: 'api' }).items).toHaveLength(12)
+    expect(commands.list({ includeInternal: true, category: 'missing' }).items).toHaveLength(0)
+    expect(commands.list({ includeInternal: true, surface: 'cli' }).items).toHaveLength(9)
+    expect(commands.list({ includeInternal: true, surface: 'palette', after: 'git.worktree' }).items).toHaveLength(0)
+    expect(() => commands.list({ limit: 0 })).toThrow()
+    expect(() => commands.list({ limit: 501 })).toThrow()
+    expect(await commands.execute('git.info', {})).toMatchObject({ branch: 'main' })
+    expect(commands.list().items).toEqual(visible.items)
+  } finally {
+    commands.dispose()
+  }
+})
