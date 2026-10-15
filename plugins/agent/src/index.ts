@@ -358,14 +358,15 @@ export class AgentRuntime implements AgentService {
     context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },
   ): Promise<AgentRecord> {
     const hash = inputHash(parsed)
-    const existing = (await this.children(parsed.parentSessionId)).find(
-      ({ seed }) => seed.command.actorId === context.actorId && seed.command.idempotencyKey === context.idempotencyKey,
+    const existing = (await this.childSeeds(parsed.parentSessionId)).find(
+      (seed) => seed.command.actorId === context.actorId && seed.command.idempotencyKey === context.idempotencyKey,
     )
     if (existing) {
-      if (existing.seed.command.inputHash !== hash)
+      if (existing.command.inputHash !== hash)
         throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key was already used with different agent input')
-      if (existing.record.runId || existing.record.status === 'failed') return existing.record
-      return this.start(existing.seed, parsed)
+      const record = await this.record(existing)
+      if (record.runId || record.status === 'failed') return record
+      return this.start(existing, parsed)
     }
     const configuration = await this.resolveConfiguration(parsed, context.parentRunId)
     const resolved = { ...parsed, modelId: configuration.modelId, configuration }
