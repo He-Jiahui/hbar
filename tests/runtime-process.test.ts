@@ -76,18 +76,33 @@ test('a candidate prepares without activation, then serves and drains in its own
 })
 
 test('activation descriptions finish before serving routes open and deliberate shutdown cancels their wait', async () => {
-  let entered = false, release!: () => void
-  const gate = new Promise<void>(resolve => { release = resolve })
-  const runtime = fixture({ onActivated: async () => { entered = true; await gate } })
+  let entered = false,
+    release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const runtime = fixture({
+    onActivated: async () => {
+      entered = true
+      await gate
+    },
+  })
   await runtime.prepare()
   const activation = runtime.activate()
   void activation.catch(() => {})
   await until(() => entered)
   expect(runtime.snapshot().phase).toBe('ready')
-  await expect(runtime.call('fixture.echo', 'pending', z.string())).rejects.toMatchObject({ code: 'RUNTIME_RECOVERING' })
-  release(); await activation
+  await expect(runtime.call('fixture.echo', 'pending', z.string())).rejects.toMatchObject({
+    code: 'RUNTIME_RECOVERING',
+  })
+  release()
+  await activation
   expect(await runtime.call('fixture.echo', 'ready', z.string())).toBe('ready')
-  const stuck = fixture({ onActivated: async () => { await new Promise(() => {}) } })
+  const stuck = fixture({
+    onActivated: async () => {
+      await new Promise(() => {})
+    },
+  })
   await stuck.prepare()
   const pending = stuck.activate().catch((error: unknown) => error)
   await Bun.sleep(10)
@@ -498,4 +513,51 @@ test('an unconfirmed native exit keeps the old ownership and prevents a replacem
     joined = true
     await runtime.dispose()
   }
+})
+
+test('a real Bun channel failure carries its safe IPC cause and exact owner to onFault without changing fencing reason', async () => {
+  const faults: Array<{ owner: RuntimeOwner; reason: string; childPid: number; ipcFailureCode: string | undefined }> =
+    []
+  const exits: Array<{ owner: RuntimeOwner; childPid: number; reasonCode: string | null }> = []
+  const runtime = fixture({
+    modulePath: fileURLToPath(new URL('./fixtures/runtime-ipc-failure-service.ts', import.meta.url)),
+    heartbeatMs: 500,
+    onFault: async (owner, reason, childPid, ipcFailureCode) => {
+      faults.push({ owner: { ...owner }, reason, childPid, ipcFailureCode })
+    },
+    onExit: async (owner, exit) => {
+      exits.push({ owner: { ...owner }, childPid: exit.childPid, reasonCode: exit.reasonCode })
+    },
+  })
+  try {
+    await runtime.prepare()
+    await runtime.activate()
+    expect(await runtime.call('fixture.echo', 'healthy before fault', z.string())).toBe('healthy before fault')
+    const before = runtime.snapshot()
+    const childPid = before.pid
+    if (childPid === null) throw new Error('Expected a real owned child before channel fault')
+    expect(childPid).not.toBe(process.pid)
+    const failure = await runtime
+      .call('fixture.invalidChannelFrame', undefined, z.undefined())
+      .catch((error: unknown) => error)
+    expect(failure).toMatchObject({ code: 'IPC_PROTOCOL' })
+    await until(() => faults.some((fault) => fault.owner.incarnation === before.incarnation))
+    const matching = faults.filter((fault) => fault.owner.incarnation === before.incarnation)
+    expect(matching).toEqual([
+      {
+        owner: { unitId: descriptor.id, generation: 1, incarnation: before.incarnation },
+        reason: 'RUNTIME_IPC_FAILED',
+        childPid,
+        ipcFailureCode: 'IPC_PROTOCOL',
+      },
+    ])
+    await until(() => exits.some((exit) => exit.owner.incarnation === before.incarnation))
+    expect(exits.find((exit) => exit.owner.incarnation === before.incarnation)).toMatchObject({
+      childPid,
+      reasonCode: 'RUNTIME_IPC_FAILED',
+    })
+  } finally {
+    await runtime.dispose()
+  }
+  expect(runtime.snapshot()).toMatchObject({ phase: 'disposed', pid: null })
 })

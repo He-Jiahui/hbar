@@ -1424,7 +1424,21 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             this.schedule()
           })
       },
-      onFault: (owner, reason, childPid) => {
+      onFault: (owner, reason, childPid, ipcFailureCode) => {
+        if (ipcFailureCode !== undefined)
+          this.emitProcessLifecycleDiagnostic({
+            component: 'host',
+            level: 'error',
+            event: 'host.runtime_ipc_failure',
+            phase: `generation.${owner.generation}`,
+            contextId: owner.unitId,
+            requestId: owner.incarnation,
+            instanceId: this.instanceId,
+            processId: process.pid,
+            childPid,
+            errorCode: ipcFailureCode,
+            outcome: 'failure',
+          })
         this.emitProcessLifecycleDiagnostic({
           component: 'host',
           level: 'error',

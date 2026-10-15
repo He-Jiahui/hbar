@@ -40,9 +40,22 @@ function deferred() {
 }
 
 test('default duplex IPC remains within 64 physical calls and 256 queued calls per unit', async () => {
-  const peers = paired(), gate = deferred()
-  peers.left.register('duplex', procedure(z.number(), z.number(), async value => { await gate.promise; return value }))
-  peers.right.register('duplex', procedure(z.number(), z.number(), async value => { await gate.promise; return value }))
+  const peers = paired(),
+    gate = deferred()
+  peers.left.register(
+    'duplex',
+    procedure(z.number(), z.number(), async (value) => {
+      await gate.promise
+      return value
+    }),
+  )
+  peers.right.register(
+    'duplex',
+    procedure(z.number(), z.number(), async (value) => {
+      await gate.promise
+      return value
+    }),
+  )
   const pending = Promise.allSettled([
     ...Array.from({ length: 160 }, (_, index) => peers.left.call('duplex', index, z.number())),
     ...Array.from({ length: 160 }, (_, index) => peers.right.call('duplex', index, z.number())),
@@ -51,10 +64,16 @@ test('default duplex IPC remains within 64 physical calls and 256 queued calls p
     await until(() => peers.left.snapshot().inFlight === 32 && peers.left.snapshot().incoming === 32)
     expect(peers.left.snapshot().inFlight + peers.left.snapshot().incoming).toBe(64)
     expect(peers.left.snapshot().queued + peers.right.snapshot().queued).toBe(256)
-    expect(await peers.left.call('duplex', 161, z.number()).catch((error: unknown) => error)).toMatchObject({ code: 'IPC_BUSY' })
+    expect(await peers.left.call('duplex', 161, z.number()).catch((error: unknown) => error)).toMatchObject({
+      code: 'IPC_BUSY',
+    })
     gate.release()
-    expect((await pending).filter(result => result.status === 'fulfilled')).toHaveLength(320)
-  } finally { gate.release(); await pending; peers.close() }
+    expect((await pending).filter((result) => result.status === 'fulfilled')).toHaveLength(320)
+  } finally {
+    gate.release()
+    await pending
+    peers.close()
+  }
 })
 async function until(check: () => boolean) {
   const deadline = Date.now() + 3_000
@@ -314,5 +333,53 @@ test('real Bun IPC carries a fragmented round trip and settles pending calls on 
       child.kill('SIGKILL')
       await child.exited
     }
+  }
+})
+
+// Exercise the real IpcPeer framing/ACK state machine; transport failure injection carries no model/provider.
+test('channel failure preserves ACK timeout as first cause and rejects pending calls', async () => {
+  const failures: string[] = []
+  const peer = new IpcPeer({
+    owner,
+    remote,
+    fragmentTimeoutMs: 10,
+    transport: { send: () => {} },
+    onFailure: (error) => {
+      failures.push(error.code)
+    },
+  })
+  try {
+    const result = await peer.call('echo', 'small', z.string()).catch((error: unknown) => error)
+    expect(result).toMatchObject({ code: 'IPC_FRAGMENT_TIMEOUT' })
+    peer.close(new HbarError('IPC_PROTOCOL', 'later failure'))
+    expect(failures).toEqual(['IPC_FRAGMENT_TIMEOUT'])
+    expect(peer.snapshot()).toMatchObject({ failed: true, inFlight: 0, queued: 0, incoming: 0, bufferedBytes: 0 })
+  } finally {
+    peer.close()
+  }
+})
+
+test('channel failure maps unknown transport payload to a fixed safe descriptor', async () => {
+  const failures: Array<{ code: string; message: string }> = []
+  const canary = 'PRIVATE_TRANSPORT_PAYLOAD_CANARY'
+  const peer = new IpcPeer({
+    owner,
+    remote,
+    transport: {
+      send: () => {
+        throw new Error(canary)
+      },
+    },
+    onFailure: (error) => {
+      failures.push({ code: error.code, message: error.message })
+    },
+  })
+  try {
+    const result = await peer.call('echo', 'small', z.string()).catch((error: unknown) => error)
+    expect(result).toMatchObject({ code: 'IPC_TRANSPORT_FAILED', message: 'Runtime channel failed' })
+    expect(failures).toEqual([{ code: 'IPC_TRANSPORT_FAILED', message: 'Runtime channel failed' }])
+    expect(JSON.stringify(failures)).not.toContain(canary)
+  } finally {
+    peer.close()
   }
 })
