@@ -21,8 +21,8 @@ import {
 import { WorkspaceQueryRuntime } from './workspace-query'
 import { formatSearchText } from './search-output'
 import { fileReadActivity, fileWriteActivity } from './file-activity'
-import { FileMutationQueue, restoreFileVersions } from './file-mutations'
-import type { ToolFileChange } from '@hbar/contracts/run-file-changes'
+import { canonicalFileMutationPath, FileMutationQueue, restoreFileVersions } from './file-mutations'
+import { MAX_RUN_CHANGED_FILES, type ToolFileChange } from '@hbar/contracts/run-file-changes'
 import { mountedPath, mountedWorkspaceQuery, type WorkspaceMountAccess } from './workspace-mounts'
 export type { WorkspaceMountAccess, WorkspaceMount } from './workspace-mounts'
 export { mountedPath } from './workspace-mounts'
@@ -311,7 +311,8 @@ export class LocalExecution implements ExecutionProvider {
   async write(workspace: string, requested: string, text: string, options?: { expectedRevision?: string }) {
     this.assertLocalExecution('Local workspace file write')
     const path = await this.workspacePath(workspace, requested, true)
-    return this.fileMutations.run([path], () => this.writeUnlocked(workspace, requested, text, options))
+    const mutationPath = await canonicalFileMutationPath(path)
+    return this.fileMutations.run([mutationPath], () => this.writeUnlocked(workspace, requested, text, options))
   }
   private async writeUnlocked(
     workspace: string,
@@ -354,7 +355,10 @@ export class LocalExecution implements ExecutionProvider {
   async restoreFiles(workspace: string, changes: readonly ToolFileChange[], signal: AbortSignal): Promise<void> {
     this.assertLocalExecution('Local workspace file restore')
     assertLocalWorkspace(workspace)
-    const paths = await Promise.all(changes.map((file) => this.workspacePath(workspace, file.path, true)))
+    if (changes.length > MAX_RUN_CHANGED_FILES) throw new HbarError('FILE_LIMIT', 'Restore has too many files')
+    const paths = await Promise.all(
+      changes.map(async (file) => canonicalFileMutationPath(await this.workspacePath(workspace, file.path, true))),
+    )
     await this.fileMutations.run(paths, () =>
       restoreFileVersions(
         changes,
