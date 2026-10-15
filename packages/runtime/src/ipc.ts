@@ -105,9 +105,18 @@ export interface IpcPeerOptions {
   readonly fragmentTimeoutMs?: number
   readonly onFailure?: (error: HbarError) => void
   readonly onTimeout?: (requestId: string) => void
+  readonly onCallTimeout?: (event: IpcCallTimeout) => void
   /** Reserve physical slots for named control ports so approval/cancel cannot queue behind blocked work. */
   readonly controlMethods?: readonly string[]
   readonly reservedControl?: number
+}
+
+export interface IpcCallTimeout {
+  readonly callId: string
+  /** Only named protocol methods; invalid diagnostic vocabulary is redacted. */
+  readonly method: string
+  readonly phase: 'queued' | 'dispatched'
+  readonly elapsedMs: number
 }
 
 interface Pending {
@@ -255,7 +264,12 @@ export class IpcPeer {
     this.remote = Object.freeze(runtimeOwnerSchema.parse(options.remote))
     // Each owner can serve and initiate calls simultaneously; split the default unit budget across directions.
     this.maximumInFlight = limit(options.inFlight, RUNTIME_LIMITS.inFlight / 2)
-    this.controlMethods = new Set(z.array(methodName).max(128).parse(options.controlMethods ?? []))
+    this.controlMethods = new Set(
+      z
+        .array(methodName)
+        .max(128)
+        .parse(options.controlMethods ?? []),
+    )
     const reserved = options.reservedControl ?? (this.controlMethods.size ? Math.min(8, this.maximumInFlight - 1) : 0)
     if (!Number.isSafeInteger(reserved) || reserved < 0 || reserved >= this.maximumInFlight)
       throw new RangeError('Invalid IPC reserved control capacity')
@@ -330,11 +344,15 @@ export class IpcPeer {
       return Promise.reject(error)
     }
     if (
-      ((this.controlMethods.has(method) ? this.running >= this.maximumInFlight : this.runningNormal >= this.normalCapacity) && this.queue.length >= this.maximumQueued) ||
+      ((this.controlMethods.has(method)
+        ? this.running >= this.maximumInFlight
+        : this.runningNormal >= this.normalCapacity) &&
+        this.queue.length >= this.maximumQueued) ||
       this.queuedBytes + bytes > this.maximumBytes
     )
       return Promise.reject(new HbarError('IPC_BUSY', 'Runtime request capacity is exhausted'))
     return new Promise<Output>((resolve, reject) => {
+      const enqueuedAt = performance.now()
       const pending: Pending = {
         id: callId,
         control: this.controlMethods.has(method),
@@ -358,7 +376,18 @@ export class IpcPeer {
       this.queue.push(callId)
       this.queuedBytes += bytes
       pending.timer = setTimeout(() => {
+        const diagnostic: IpcCallTimeout = {
+          callId,
+          method: /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(method) ? method : 'redacted',
+          phase: pending.started ? 'dispatched' : 'queued',
+          elapsedMs: Math.max(0, performance.now() - enqueuedAt),
+        }
         this.cancel(callId, new HbarError('IPC_TIMEOUT', 'Runtime request deadline exceeded; reconcile its outcome'))
+        try {
+          this.options.onCallTimeout?.(diagnostic)
+        } catch {
+          console.error('[hbar runtime] timeout diagnostic observer failed')
+        }
         if (pending.started) {
           try {
             this.options.onTimeout?.(requestId)
@@ -493,7 +522,7 @@ export class IpcPeer {
 
   private drain(): void {
     while (!this.failure && this.running < this.maximumInFlight && this.queue.length) {
-      const controlIndex = this.queue.findIndex(id => this.pending.get(id)?.control)
+      const controlIndex = this.queue.findIndex((id) => this.pending.get(id)?.control)
       if (controlIndex < 0 && this.runningNormal >= this.normalCapacity) break
       const callId = this.queue.splice(controlIndex < 0 ? 0 : controlIndex, 1)[0]!
       const pending = this.pending.get(callId)
@@ -549,7 +578,10 @@ export class IpcPeer {
           return
         }
         if (
-          ((this.controlMethods.has(message.method) ? this.incomingRunning >= this.maximumInFlight : this.incomingRunningNormal >= this.normalCapacity) && this.incomingQueue.length >= this.maximumQueued) ||
+          ((this.controlMethods.has(message.method)
+            ? this.incomingRunning >= this.maximumInFlight
+            : this.incomingRunningNormal >= this.normalCapacity) &&
+            this.incomingQueue.length >= this.maximumQueued) ||
           this.incomingBytes + bytes > this.maximumBytes
         ) {
           void this.sendError(message.id, new HbarError('IPC_BUSY', 'Runtime execution capacity is exhausted')).catch(
@@ -568,7 +600,7 @@ export class IpcPeer {
 
   private drainIncoming(): void {
     while (!this.failure && this.incomingRunning < this.maximumInFlight && this.incomingQueue.length) {
-      const controlIndex = this.incomingQueue.findIndex(id => {
+      const controlIndex = this.incomingQueue.findIndex((id) => {
         const method = this.incoming.get(id)?.message.method
         return method !== undefined && this.controlMethods.has(method)
       })

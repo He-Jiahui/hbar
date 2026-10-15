@@ -1513,6 +1513,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             this.schedule()
           })
       },
+      onCallTimeout: (owner, childPid, event) => {
+        this.emitProcessLifecycleDiagnostic({
+          component: 'host',
+          level: 'error',
+          event: 'host.runtime_call_timeout',
+          phase: event.phase,
+          contextId: owner.unitId,
+          requestId: owner.incarnation,
+          callId: event.callId,
+          method: event.method,
+          durationMs: event.elapsedMs,
+          instanceId: this.instanceId,
+          processId: process.pid,
+          childPid,
+          errorCode: 'RUNTIME_CALL_TIMEOUT',
+          outcome: 'failure',
+        })
+      },
       onFault: (owner, reason, childPid) => {
         this.emitProcessLifecycleDiagnostic({
           component: 'host',

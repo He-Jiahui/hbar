@@ -10,7 +10,7 @@ import {
   type RuntimeProcessTreePort,
   type RuntimeUnitDescriptor,
 } from '@hbar/contracts/runtime'
-import { IpcPeer, type IpcCallOptions } from './ipc'
+import { IpcPeer, type IpcCallOptions, type IpcCallTimeout } from './ipc'
 import { RUNTIME_CONTROL_METHODS, runtimeDrainSchema, runtimeReadySchema, type RuntimeDrain } from './lifecycle'
 
 export interface ManagedProcessOptions {
@@ -41,6 +41,7 @@ export interface ManagedProcessOptions {
   readonly onActivated?: (owner: RuntimeOwner, role: 'default' | 'draining', signal: AbortSignal) => Promise<void>
   readonly onState?: (snapshot: RuntimeGeneration) => void
   readonly onFault?: (owner: RuntimeOwner, reasonCode: string, childPid: number) => Promise<void>
+  readonly onCallTimeout?: (owner: RuntimeOwner, childPid: number, event: IpcCallTimeout) => void
   readonly onExit?: (owner: RuntimeOwner, exit: RuntimeProcessExit) => Promise<void>
   readonly retryDelaysMs?: readonly [number, number, number]
   readonly retrySlowMs?: number
@@ -194,14 +195,19 @@ export class ManagedProcess {
       await this.peer.call('runtime.activate', { role }, z.undefined(), {
         timeoutMs: Math.max(1, deadline - Date.now()),
       })
-      if (this.options.onActivated) await new Promise<void>((resolve, reject) => {
-        const cancel = () => reject(new HbarError('RUNTIME_ACTIVATION_EXPIRED', 'Runtime description readiness expired'))
-        signal.addEventListener('abort', cancel, { once: true })
-        Promise.resolve().then(() => {
-          signal.throwIfAborted()
-          return this.options.onActivated?.(owner, role, signal)
-        }).then(resolve, reject).finally(() => signal.removeEventListener('abort', cancel))
-      })
+      if (this.options.onActivated)
+        await new Promise<void>((resolve, reject) => {
+          const cancel = () =>
+            reject(new HbarError('RUNTIME_ACTIVATION_EXPIRED', 'Runtime description readiness expired'))
+          signal.addEventListener('abort', cancel, { once: true })
+          Promise.resolve()
+            .then(() => {
+              signal.throwIfAborted()
+              return this.options.onActivated?.(owner, role, signal)
+            })
+            .then(resolve, reject)
+            .finally(() => signal.removeEventListener('abort', cancel))
+        })
       signal.throwIfAborted()
       this.state.phase = role === 'draining' ? 'draining' : 'serving'
       this.state.lastHeartbeatAt = Date.now()
@@ -329,6 +335,7 @@ export class ManagedProcess {
       transport: { send: (frame) => child.send(frame) },
       onFailure: () => this.fault('RUNTIME_IPC_FAILED'),
       onTimeout: () => this.fault('RUNTIME_CALL_TIMEOUT'),
+      onCallTimeout: (event) => this.options.onCallTimeout?.(owner, child.pid, event),
     })
     this.peer = peer
     const attachment = this.options.processTree
