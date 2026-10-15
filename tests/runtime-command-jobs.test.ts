@@ -77,6 +77,114 @@ function fixture(execute: (signal: AbortSignal) => CommandExecutionTicket, optio
 }
 const identity = { jobId: 'job', actorId: 'operator' }
 
+test('owner dispatch waits for durable preparation and a local preparation failure proves no effect occurred', async () => {
+  let starts = 0,
+    acknowledged = 0
+  const gate = deferred<void>()
+  const f = fixture(() => {
+    starts++
+    return {
+      result: Promise.resolve('executed'),
+      settled: Promise.resolve({ status: 'succeeded', executionStarted: true, result: 'executed' }),
+    }
+  })
+  const ticket = trackRuntimeCommandJob(f.peer, identity, (signal) => f.start(identity, signal), {
+    beforeStart: () => gate.promise,
+    onAcknowledged: () => {
+      acknowledged++
+    },
+  })
+  try {
+    await Bun.sleep(0)
+    expect(starts).toBe(0)
+    expect(f.jobs.stats().jobs).toBe(0)
+    gate.reject(new CommandError('COMMAND_RECEIPT_FAILED', 'Cannot persist the command owner'))
+    expect(await failure(ticket.result)).toMatchObject({ code: 'COMMAND_RECEIPT_FAILED' })
+    expect(await ticket.settled).toMatchObject({
+      status: 'failed',
+      executionStarted: false,
+      error: { code: 'COMMAND_RECEIPT_FAILED' },
+    })
+    await ticket.acknowledge()
+    await ticket.acknowledge()
+    expect(starts).toBe(0)
+    expect(acknowledged).toBe(1)
+  } finally {
+    f.dispose()
+  }
+})
+
+test('source cancellation during durable preparation releases a proven unstarted command without contacting the owner', async () => {
+  const gate = deferred<void>(),
+    controller = new AbortController()
+  let starts = 0,
+    remoteAcknowledgments = 0
+  let preparationSignal: AbortSignal | undefined
+  const f = fixture(() => {
+    starts++
+    return {
+      result: Promise.resolve('executed'),
+      settled: Promise.resolve({ status: 'succeeded', executionStarted: true, result: 'executed' }),
+    }
+  })
+  f.detach()
+  f.owner.register(
+    'command.jobs.acknowledge',
+    procedure(commandJobIdentitySchema, z.strictObject({ released: z.boolean() }), (input) => {
+      remoteAcknowledgments++
+      return f.jobs.acknowledge(input)
+    }),
+  )
+  const ticket = trackRuntimeCommandJob(f.peer, identity, (signal) => f.start(identity, signal), {
+    signal: controller.signal,
+    beforeStart: (signal) => {
+      preparationSignal = signal
+      return gate.promise
+    },
+  })
+  try {
+    controller.abort()
+    expect(preparationSignal?.aborted).toBe(true)
+    gate.resolve()
+    expect(await failure(ticket.result)).toMatchObject({ code: 'CANCELLED' })
+    expect(await ticket.settled).toMatchObject({ status: 'failed', executionStarted: false })
+    await ticket.acknowledge()
+    expect(starts).toBe(0)
+    expect(remoteAcknowledgments).toBe(0)
+  } finally {
+    f.dispose()
+  }
+})
+
+test('a lost start receipt after preparation remains unknown and retains the original owner record', async () => {
+  let starts = 0
+  const f = fixture(() => {
+    starts++
+    return {
+      result: Promise.resolve('executed'),
+      settled: Promise.resolve({ status: 'succeeded', executionStarted: true, result: 'executed' }),
+    }
+  })
+  const ticket = trackRuntimeCommandJob(
+    f.peer,
+    identity,
+    async (signal) => {
+      await f.start(identity, signal)
+      throw new Error('Start acknowledgment lost')
+    },
+    { beforeStart: async () => {} },
+  )
+  try {
+    expect(await failure(ticket.result)).toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(await failure(ticket.settled)).toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(await failure(ticket.acknowledge())).toMatchObject({ code: 'COMMAND_JOB_ACTIVE' })
+    expect(starts).toBe(1)
+    expect(f.jobs.stats().jobs).toBe(1)
+  } finally {
+    f.dispose()
+  }
+})
+
 test('data-only job endpoints deliver a late Unicode result in bounded chunks and retain it until saved acknowledgment', async () => {
   const logical = deferred<unknown>(),
     physical = deferred<CommandPhysicalSettlement>()

@@ -79,6 +79,7 @@ import { runtimeControllerRequestSchema, type RuntimeControllerPort } from './ru
 import { RuntimeControllerAdapter } from './runtime-controller-adapter'
 import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
+import { HostCommandExecutionScopes } from './command-execution-scopes'
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
 import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
@@ -143,6 +144,7 @@ const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${versi
 
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
+  readonly commandScopes = new HostCommandExecutionScopes()
   private readonly commandDiscovery = new SessionCommandDiscovery()
   attachCommandRouting(port: CommandRoutingPort): () => void { return this.commandDiscovery.attach(port) }
   private readonly processTree = createRuntimeProcessTreePort()
@@ -281,6 +283,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       nodeLink: () => this.nodeLink,
     })
     this.facade = new RuntimeKernelFacade({
+      commandScopes: this.commandScopes,
       instanceId,
       layout: options.layout,
       demo: options.demo ?? false,
@@ -351,6 +354,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
     })
     this.maintenance = new RuntimeMaintenanceRelay({
+      commandScopes: this.commandScopes,
       layout: options.layout,
       storage: this.storage,
       coordinator: this.coordinator,
@@ -1315,6 +1319,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'node-link') record.cleanup.push(this.nodeLink.attach(peer, owner))
         if (artifact.unitId === 'controller')
           record.controller = new RuntimeControllerAdapter(peer, {
+            commandScopes: this.commandScopes,
             kernel: this.kernel,
             maintenance: this.maintenance,
             nodeLink: this.nodeLink,
@@ -1323,7 +1328,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
             fresh: (event) => this.facade.replay({ method: 'notifications.created', params: event }),
             retainCommand: jobId => {
-              const resource = this.coordinator.acquireResource(owner, `command.job:${jobId}`)
+              const resource = this.commandScopes.retain(this.coordinator, owner, `command.job:${jobId}`)
               if (!resource) throw new HbarError('BUSY', 'The command job already retains its owner')
               return () => this.coordinator.releaseResource(owner, resource.id)
             },

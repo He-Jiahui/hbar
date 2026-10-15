@@ -10,6 +10,7 @@ import { RuntimeValuePort, procedure, type IpcPeer, type ManagedProcess, type Ru
 import { storageRpcCallSchema, chatDatabaseVacuumRecordSchema, createChatDatabaseVacuumRecords, type StableStoragePort, type PathLayout } from '@hbar/storage'
 import type { RuntimeMaintenancePort } from './runtime-maintenance-contract'
 import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
+import type { HostCommandExecutionScopes } from './command-execution-scopes'
 
 export interface RuntimeMaintenanceEndpoint {
   readonly owner: RuntimeOwner
@@ -37,6 +38,7 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
   constructor(private readonly options: {
     readonly storage: StableStoragePort
     readonly coordinator: RuntimeCoordinator
+    readonly commandScopes?: HostCommandExecutionScopes
     readonly kernel: KernelControllerPort
     readonly layout: PathLayout
     readonly current: () => RuntimeMaintenanceEndpoint
@@ -67,7 +69,9 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
     const { invocation, endpoint } = this.destination(value, actorId)
     const jobId = crypto.randomUUID()
     const input = commandJobStartSchema.parse({ jobId, actorId, invocation, expectation })
-    const resource = this.options.coordinator.acquireResource(endpoint.owner, `maintenance.command.job:${jobId}`)
+    const resource = this.options.commandScopes
+      ? this.options.commandScopes.retain(this.options.coordinator, endpoint.owner, `maintenance.command.job:${jobId}`)
+      : this.options.coordinator.acquireResource(endpoint.owner, `maintenance.command.job:${jobId}`)
     if (!resource) throw new CommandError('BUSY', 'Maintenance command already retains its owner')
     const release = () => this.options.coordinator.releaseResource(endpoint.owner, resource.id)
     try {
@@ -79,6 +83,7 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
         }),
         {
           signal: options.signal,
+          beforeStart: this.options.commandScopes?.beforeStart({ kind: 'runtime', owner: endpoint.owner, jobId }),
           lifetime: this.commandLifetime.signal,
           onAcknowledged: release,
         },

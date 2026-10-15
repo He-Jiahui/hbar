@@ -17,6 +17,7 @@ import { runtimeDomainError, type ManagedProcess, type RuntimeCoordinator, type 
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
 import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
+import type { HostCommandExecutionScopes } from './command-execution-scopes'
 
 export type RuntimeKernelState = z.output<typeof runtimeKernelStateSchema>
 export interface RuntimeKernelEndpoint {
@@ -33,6 +34,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly nodeWorkspaceInspection?: Pick<NodeWorkspaceInspectionPort, 'verifyWorkspaceFolders'>
   readonly storage: StoragePort
   readonly coordinator: RuntimeCoordinator
+  readonly commandScopes?: HostCommandExecutionScopes
   readonly current: () => RuntimeKernelEndpoint
   readonly endpoints: () => readonly RuntimeKernelEndpoint[]
   readonly resolve: (
@@ -203,7 +205,9 @@ export class RuntimeKernelFacade {
     const endpoint = this.selected(),
       jobId = crypto.randomUUID()
     const input = commandJobStartSchema.parse({ jobId, actorId, invocation: value, expectation })
-    const resource = this.options.coordinator.acquireResource(endpoint.owner, `kernel.command.job:${jobId}`)
+    const resource = this.options.commandScopes
+      ? this.options.commandScopes.retain(this.options.coordinator, endpoint.owner, `kernel.command.job:${jobId}`)
+      : this.options.coordinator.acquireResource(endpoint.owner, `kernel.command.job:${jobId}`)
     if (!resource) throw new CommandError('BUSY', 'Directory command already retains its owner')
     const release = () => this.options.coordinator.releaseResource(endpoint.owner, resource.id)
     try {
@@ -214,6 +218,7 @@ export class RuntimeKernelFacade {
           endpoint.process.call('kernel.command.start', input, commandJobSnapshotSchema, { signal, timeoutMs: 30_000 }),
         {
           signal: options.signal,
+          beforeStart: this.options.commandScopes?.beforeStart({ kind: 'runtime', owner: endpoint.owner, jobId }),
           lifetime: this.commandLifetime.signal,
           onAcknowledged: release,
         },

@@ -33,6 +33,7 @@ import type { RuntimeMaintenancePort } from './runtime-maintenance-contract'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import { notificationFreshEventSchema, type NotificationFreshEvent } from '@hbar/contracts/commands/notifications'
 import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
+import type { HostCommandExecutionScopes } from './command-execution-scopes'
 
 export interface RuntimeControllerAdapterOptions {
   readonly kernel: KernelControllerPort
@@ -43,6 +44,7 @@ export interface RuntimeControllerAdapterOptions {
   readonly admitsApplications: () => boolean
   readonly fresh: (event: NotificationFreshEvent) => void
   readonly retainCommand?: ((jobId: string) => () => void) | undefined
+  readonly commandScopes?: HostCommandExecutionScopes
 }
 
 /** Native sockets and their identity remain in the listener. A candidate only receives bounded request data. */
@@ -419,6 +421,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
           this.peer.call('controller.command.start', start, commandJobSnapshotSchema, { signal, timeoutMs: 30_000 }),
         {
           signal: options.signal,
+          beforeStart: this.options.commandScopes?.beforeStart({ kind: 'runtime', owner: this.peer.remote, jobId: invocationId }),
           lifetime: this.commandLifetime.signal,
           onLogicalResult: (result) => {
             if (!result.ok) close()

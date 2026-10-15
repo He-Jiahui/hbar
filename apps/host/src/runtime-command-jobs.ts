@@ -18,7 +18,7 @@ import {
   type CommandJobPayload,
   type CommandJobLogicalResult,
 } from '@hbar/commands/jobs'
-import { procedure, type IpcPeer } from '@hbar/runtime'
+import { procedure, runtimeDomainError, type IpcPeer } from '@hbar/runtime'
 
 export { RUNTIME_COMMAND_JOB_CONTROLS, RUNTIME_COMMAND_JOB_SCHEMAS } from './runtime-command-job-contract'
 
@@ -57,6 +57,8 @@ export interface RuntimeCommandJobTicket extends CommandExecutionTicket {
   acknowledge(): Promise<void>
 }
 export interface RuntimeCommandJobTrackingOptions {
+  /** Bounded persistence only; wait for accepted writes to settle, and check cancellation before starting new work. */
+  readonly beforeStart?: ((signal: AbortSignal) => Promise<void>) | undefined
   readonly signal?: AbortSignal | undefined
   readonly lifetime?: AbortSignal | undefined
   readonly maxTrackingMs?: number | undefined
@@ -137,6 +139,7 @@ export function trackRuntimeCommandJob(
     controller = new AbortController()
   const lifetime = options.lifetime ? AbortSignal.any([options.lifetime, controller.signal]) : controller.signal
   let started = false,
+    attempted = false,
     logicalKnown = false,
     physicalKnown = false,
     confirmed = false,
@@ -162,6 +165,30 @@ export function trackRuntimeCommandJob(
   }
   options.signal?.addEventListener('abort', cancel, { once: true })
   const tracking = (async () => {
+    try {
+      if (options.beforeStart)
+        await options.beforeStart(options.signal ? AbortSignal.any([lifetime, options.signal]) : lifetime)
+      lifetime.throwIfAborted()
+      options.signal?.throwIfAborted()
+    } catch (error) {
+      const failure = {
+        code:
+          lifetime.aborted || options.signal?.aborted
+            ? 'CANCELLED'
+            : (runtimeDomainError(error)?.code ?? 'COMMAND_NOT_STARTED'),
+        message:
+          (error instanceof Error ? error.message : 'Command preparation failed before dispatch').slice(0, 8_192) ||
+          'Command was not dispatched',
+      }
+      logicalKnown = true
+      physicalKnown = true
+      confirmed = true
+      result.reject(new CommandError(failure.code, failure.message))
+      settled.resolve({ status: 'failed', executionStarted: false, error: failure })
+      options.onLogicalResult?.({ ok: false, error: failure })
+      return
+    }
+    attempted = true
     let state = commandJobSnapshotSchema.parse(await start(lifetime))
     started = true
     if (options.signal?.aborted) cancel()
@@ -240,9 +267,10 @@ export function trackRuntimeCommandJob(
         )
       acknowledgment ??= (async () => {
         await tracking
-        await peer.call('command.jobs.acknowledge', source, z.strictObject({ released: z.boolean() }), {
-          timeoutMs: 5_000,
-        })
+        if (attempted)
+          await peer.call('command.jobs.acknowledge', source, z.strictObject({ released: z.boolean() }), {
+            timeoutMs: 5_000,
+          })
         acknowledged = true
         options.onAcknowledged?.()
       })().catch((error) => {

@@ -3,9 +3,11 @@ import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
-import { createCommandExpectation } from '@hbar/commands'
+import { createCommandExpectation, type CommandExecutionTicket } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { chatDatabaseCommands } from '@hbar/contracts/commands/chat-database'
+import type { CommandExecutionReceipt } from '@hbar/contracts/command-execution'
+import type { ExecutionOwnership, RuntimeVersion } from '@hbar/contracts/runtime'
 import { HbarClient } from '@hbar/client'
 import { MemorySecrets } from '@hbar/kernel/secrets'
 import { createPathLayout } from '@hbar/storage'
@@ -187,6 +189,172 @@ test('an actual Controller retains a late write receipt and its generation throu
     await runtime?.close()
     await removeOwnedTestDirectory(root, prefix)
     await removeOwnedSourceDirectory(source, sourcePrefix)
+  }
+}, 120_000)
+
+test('managed command owners bind their durable identity before dispatch and retain the source claim until saved acknowledgment', async () => {
+  const prefix = 'hbar-command-scope-host-'
+  const root = await mkdtemp(join(tmpdir(), prefix))
+  const runtime = await ProcessHostRuntime.create({
+    layout: createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json')),
+    sourceRoot: process.cwd(),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  const host = await startServer(runtime.kernel, { port: 0, runtime, controller: runtime.controller })
+  let cleanupSource: ExecutionOwnership | null = null
+  const tickets: CommandExecutionTicket[] = [],
+    releases: Array<() => void> = []
+  try {
+    const operator = await host.auth.createDevice('source scope fixture')
+    const workspace = (await runtime.storage.call('workspaces'))[0]
+    if (!workspace) throw new Error('Source scope fixture has no workspace')
+    const session = await runtime.storage.call('createSessionCommand', {
+      workspaceId: workspace.id,
+      actorId: operator.device.id,
+      idempotencyKey: 'scope-session',
+    })
+    const run = await runtime.storage.call(
+      'enqueue',
+      session.id,
+      'scope-run',
+      { text: 'source command work', images: [] },
+      'fixture',
+    )
+    const currentVersion = (id: string): RuntimeVersion => {
+      const generation = runtime
+        .snapshot()
+        .units.find((unit) => unit.descriptor.id === id)
+        ?.generations.find((generation) => generation.role === 'default' && generation.phase === 'serving')
+      if (!generation) throw new Error('Source scope owner is unavailable')
+      return { unitId: generation.unitId, generation: generation.generation, artifactId: generation.artifactId }
+    }
+    const kernel = runtime.manager.defaultOwner('kernel')
+    const plugins = runtime
+      .snapshot()
+      .units.filter((unit) => unit.descriptor.kind === 'plugin')
+      .map((unit) => currentVersion(unit.descriptor.id))
+    const source = await runtime.coordinator.claim(kernel, session.id, run.id, {
+      kernel: currentVersion('kernel'),
+      driver: currentVersion('driver.pi'),
+      plugins,
+      hooks: plugins,
+    })
+    if (!source) throw new Error('Source scope fixture failed to acquire its real Run claim')
+    cleanupSource = source
+    const cases = [
+      { ownerId: 'controller', commandId: 'session.getBudget', input: { sessionId: session.id } },
+      { ownerId: 'kernel', commandId: 'workspace.list', input: {} },
+      { ownerId: 'maintenance', commandId: 'chatDatabase.statistics', input: { scope: { kind: 'global' } } },
+    ]
+    for (const [index, testCase] of cases.entries()) {
+      const prepared = await host.commands.prepare({
+        protocol: 1,
+        commandId: testCase.commandId,
+        commandVersion: 1,
+        requestId: `scope-${index}`,
+        input: testCase.input,
+      })
+      const expectation = createCommandExpectation(prepared)
+      const identity = { sessionId: session.id, actorId: operator.device.id, operationKey: `scope-${index}` }
+      let receipt: CommandExecutionReceipt = (
+        await runtime.storage.call('commandExecutionAccept', {
+          ...identity,
+          runId: run.id,
+          callId: `scope-call-${index}`,
+          invocation: prepared.invocation,
+          expectation,
+        })
+      ).receipt
+      let release: () => void = () => {
+        throw new Error('Source scope gate is not ready')
+      }
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      releases.push(release)
+      let preparing = false,
+        resultDelivered = false
+      const ticket = runtime.commandScopes.run(
+        {
+          source,
+          beforeStart: async (owner) => {
+            preparing = true
+            expect(owner).toMatchObject({ kind: 'runtime', owner: runtime.manager.defaultOwner(testCase.ownerId) })
+            await gate
+            receipt = await runtime.storage.call('commandExecutionUpdate', {
+              ...identity,
+              expectedRevision: receipt.revision,
+              change: { kind: 'bind', owner },
+            })
+          },
+        },
+        () => host.commands.executePreparedTracked(prepared.invocation, operator.device.id, expectation),
+      )
+      tickets.push(ticket)
+      void ticket.result.then(
+        () => {
+          resultDelivered = true
+        },
+        () => {},
+      )
+      await until(() => preparing)
+      expect(resultDelivered).toBe(false)
+      expect((await runtime.storage.call('commandExecutionRead', identity))?.owner).toBeNull()
+      release()
+      const result: unknown = await ticket.result
+      const physical = await ticket.settled
+      expect(physical).toEqual({ status: 'succeeded', executionStarted: true, result })
+      receipt = await runtime.storage.call('commandExecutionUpdate', {
+        ...identity,
+        expectedRevision: receipt.revision,
+        change: { kind: 'logical', payload: { kind: 'inline', json: JSON.stringify({ ok: true, result }) } },
+      })
+      receipt = await runtime.storage.call('commandExecutionUpdate', {
+        ...identity,
+        expectedRevision: receipt.revision,
+        change: {
+          kind: 'settled',
+          physical: {
+            status: 'succeeded',
+            executionStarted: true,
+            payload: { kind: 'inline', json: JSON.stringify(physical) },
+          },
+        },
+      })
+      if (index === cases.length - 1) {
+        await runtime.storage.callOwned(source, 'setRun', run.id, 'completed')
+        await runtime.coordinator.requestRelease(source, () => {})
+        expect(runtime.coordinator.executionForSession(session.id)?.runId).toBe(run.id)
+      }
+      if (!ticket.acknowledge) throw new Error('Managed source ticket has no acknowledgment')
+      await ticket.acknowledge()
+      await runtime.storage.call('commandExecutionUpdate', {
+        ...identity,
+        expectedRevision: receipt.revision,
+        change: { kind: 'acknowledged' },
+      })
+      expect((await runtime.storage.call('commandExecutionRead', identity))?.physical?.status).toBe('succeeded')
+    }
+    await until(() => runtime.coordinator.executionForSession(session.id) === null)
+  } finally {
+    for (const release of releases) release()
+    for (const ticket of tickets) {
+      await ticket.settled
+      await ticket.acknowledge?.()
+    }
+    if (cleanupSource && runtime.coordinator.execution(cleanupSource.runId)) {
+      const runId = cleanupSource.runId
+      const current = await runtime.storage.call('run', runId)
+      if (['running', 'queued', 'waiting_approval'].includes(current.status))
+        await runtime.storage.callOwned(cleanupSource, 'setRun', runId, 'cancelled')
+      await runtime.coordinator.requestRelease(cleanupSource, () => {})
+      await until(() => runtime.coordinator.execution(runId) === null)
+    }
+    await host.close()
+    await runtime.close()
+    await removeOwnedTestDirectory(root, prefix)
   }
 }, 120_000)
 
