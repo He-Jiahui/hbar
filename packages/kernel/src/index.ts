@@ -1,3 +1,4 @@
+import type { KernelIdleCheckpoint, KernelActivationPurpose } from './runtime-idle'
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
@@ -571,6 +572,7 @@ export class Kernel {
   >()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private subscriberPublications = 0
   private maintenance = false
   private providerSaveInFlight = false
   private chatDatabaseWrites = 0
@@ -980,11 +982,16 @@ export class Kernel {
       throw error
     }
   }
-  async activate(role: 'default' | 'draining' = 'default'): Promise<void> {
+  async activate(
+    role: 'default' | 'draining' = 'default',
+    purpose: KernelActivationPurpose = 'startup',
+  ): Promise<void> {
     if (this.preparing) throw new HbarError('RUNTIME_PREPARING', 'Candidate Kernel cannot start execution')
     if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel is closed')
     this.readyForRuns = role === 'default'
     if (!this.readyForRuns) return
+    // An idle wake serves a new explicit demand; it is not startup/crash reconciliation.
+    if (purpose === 'idle-wake') return
     await this.sessionLaunchPreparations.resumePending()
     for (const session of await this.storage.call('sessions')) this.kick(session.id)
   }
@@ -995,6 +1002,65 @@ export class Kernel {
     this.permissionModeValue = stored.success ? stored.data : 'ask'
     await this.restoreAutomation()
     this.preparing = false
+  }
+  /** Pure probe: never drains, claims, dispatches hooks, refreshes timestamps or cancels timers.
+   * Host must not retire this generation while any unsupported domain remains unproven.
+   */
+  runtimeIdleCheckpoint(facts: { readonly queuedRuns: boolean | null }): KernelIdleCheckpoint {
+    const queuedRuns = facts.queuedRuns
+    const summary = this.sessionSummaryCoordinator.idleCounts()
+    const preparation = this.sessionLaunchPreparations.idleCounts()
+    const launch = this.sessionLaunchTargets.idleCounts()
+    const branch = this.sessionBranchTargets.idleCounts()
+    const counts = {
+      subscriberPublications: this.subscriberPublications,
+      physicalTools: this.toolExecutions.idleCounts().active,
+      toolsClosed: Number(this.toolExecutions.idleCounts().closed),
+      boundaryStops: this.boundaryStops.size,
+      activeRuns: this.active.size,
+      drains: this.drains.size,
+      admissions: this.admissions,
+      queuedWakes: this.wakeups.size,
+      approvals: this.approvals.size,
+      userInputs: this.userInputs.size,
+      streams: this.streams.size,
+      streamTimers: this.streamTimers.size,
+      maintenance: Number(this.maintenance),
+      providerSave: Number(this.providerSaveInFlight),
+      chatDatabaseWrites: this.chatDatabaseWrites,
+      launchLocks: this.sessionLaunchTargetLocks.size,
+      checkoutLocks: this.sharedCheckoutLocks.size,
+      checkoutWaiters: this.sharedCheckoutWaiters,
+      closing: Number(this.closing),
+      preparing: Number(this.preparing),
+      storageFailed: Number(!!this.storageFailure),
+      summaryTimers: summary.timers,
+      summaryPending: summary.pending,
+      summaryInFlight: summary.inFlight,
+      summaryOperations: summary.operations,
+      summaryFailures: summary.failed,
+      summaryClosed: Number(summary.closed),
+      preparationQueued: preparation.queued,
+      preparationActive: preparation.active,
+      preparationDeferred: preparation.deferred,
+      preparationClosed: Number(preparation.closed),
+      launchActive: launch.active,
+      launchOperations: launch.operations,
+      launchClosed: Number(launch.closed),
+      branchOperations: branch.operations,
+      branchClosed: Number(branch.closed),
+    }
+    const scheduledWakeups = this.scheduledWakeups.pendingCount
+    return {
+      schemaVersion: 1,
+      instanceId: this.instanceId,
+      coverage: 'kernel-domain',
+      counts,
+      queuedRuns,
+      scheduledWakeups,
+      requiresAlarmTransfer: scheduledWakeups !== 0,
+      eligible: queuedRuns === false && scheduledWakeups === 0 && Object.values(counts).every((value) => value === 0),
+    }
   }
   beginDrain(): void {
     this.readyForRuns = false
@@ -1308,11 +1374,17 @@ export class Kernel {
   }
   private publish(event: WireNotification) {
     for (const listener of [...this.listeners]) {
+      this.subscriberPublications++
       try {
-        void Promise.resolve(this.executionScope.observe(() => listener(event))).catch((error: unknown) => {
-          console.error('Subscriber failed:', error)
-        })
+        void Promise.resolve(this.executionScope.observe(() => listener(event)))
+          .catch((error: unknown) => {
+            console.error('Subscriber failed:', error)
+          })
+          .finally(() => {
+            this.subscriberPublications--
+          })
       } catch (error) {
+        this.subscriberPublications--
         console.error('Subscriber failed:', error)
       }
     }

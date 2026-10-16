@@ -84,6 +84,9 @@ export class ToolExecutions {
     })
   }
 
+  idleCounts() {
+    return { active: this.active.size, closed: this.closed }
+  }
   dispose(): void {
     this.closed = true
     for (const controller of this.active.values())

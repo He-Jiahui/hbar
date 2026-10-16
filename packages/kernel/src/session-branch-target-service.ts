@@ -40,6 +40,10 @@ export class SessionBranchTargetService {
     ) => Promise<void>,
   ) {}
 
+  idleCounts() {
+    return { operations: this.operations.size, closed: this.closing.signal.aborted }
+  }
+
   private track<Result>(signal: AbortSignal, action: (signal: AbortSignal) => Promise<Result>): Promise<Result> {
     if (this.closing.signal.aborted) return Promise.reject(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
     if (this.operations.size >= 64)

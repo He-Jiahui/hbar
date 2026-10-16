@@ -29,6 +29,10 @@ export class SessionWakeups {
     pending.resolve()
   }
 
+  get pendingCount(): number {
+    return this.pending.size
+  }
+
   get waiting() {
     return [...this.pending.values()].map(({ done }) => done)
   }

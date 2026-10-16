@@ -70,6 +70,15 @@ export class SessionLaunchTargetPreparationService {
   private readonly shutdownController = new AbortController()
   private closed = false
 
+  idleCounts() {
+    return {
+      queued: this.queue.length,
+      active: this.active.size,
+      deferred: this.deferredRecoveries.size,
+      closed: this.closed,
+    }
+  }
+
   constructor(
     private readonly storage: StoragePort,
     private readonly callbacks: PreparationCallbacks,
