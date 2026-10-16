@@ -11,12 +11,14 @@ export interface InputCacheWireSample {
   configurationHash: string
   model: string | null
   reasoningEffort: string | null
+  toolNames: string[] | null
   previousInputIsExactPrefix: boolean | null
   configurationStable: boolean | null
   sessionAffinityMatches: boolean
   upstreamStatus: number | null
   upstreamRequestId: string | null
   clientRequestId: string | null
+  responseClientRequestId: string | null
   turnStateSent: boolean
   turnStateReceived: boolean
   turnStateReplayMatches: boolean | null
@@ -46,6 +48,7 @@ export function startInputCacheWireProxy(options: {
       const items = input.map((item) => JSON.stringify(item))
       const configurationHash = hash(configuration)
       const reasoning = z.object({ effort: z.string() }).safeParse(configuration.reasoning)
+      const tools = z.array(z.object({ name: z.string() })).safeParse(configuration.tools)
       const expectedSession = options.sessionId()
       const sentTurnState = request.headers.get('x-codex-turn-state')
       const sample: InputCacheWireSample = {
@@ -55,6 +58,7 @@ export function startInputCacheWireProxy(options: {
         configurationHash,
         model: typeof configuration.model === 'string' ? configuration.model : null,
         reasoningEffort: reasoning.success ? reasoning.data.effort : null,
+        toolNames: tools.success ? tools.data.map((tool) => tool.name) : null,
         previousInputIsExactPrefix: previousInput
           ? previousInput.length <= items.length && previousInput.every((item, index) => item === items[index])
           : null,
@@ -66,6 +70,7 @@ export function startInputCacheWireProxy(options: {
         upstreamStatus: null,
         upstreamRequestId: null,
         clientRequestId: request.headers.get('x-client-request-id'),
+        responseClientRequestId: null,
         turnStateSent: !!sentTurnState,
         turnStateReceived: false,
         turnStateReplayMatches: firstTurnStateHash
@@ -89,6 +94,7 @@ export function startInputCacheWireProxy(options: {
       })
       sample.upstreamStatus = response.status
       sample.upstreamRequestId = response.headers.get('x-request-id')
+      sample.responseClientRequestId = response.headers.get('x-client-request-id')
       const receivedTurnState = response.headers.get('x-codex-turn-state')
       sample.turnStateReceived = !!receivedTurnState
       if (response.ok && receivedTurnState) firstTurnStateHash ??= hash(receivedTurnState)
