@@ -76,7 +76,7 @@ import {
   runSteeringReadResultSchema,
   runCommandRecordSchema,
 } from '@hbar/contracts/commands/run'
-import { USAGE_EVENT_TYPES } from '@hbar/usage'
+import { USAGE_EVENT_TYPES, projectUsageEventData } from '@hbar/usage'
 import type { UsageReadInput, UsageReadRow } from '@hbar/usage'
 import type {
   Approval,
@@ -1213,22 +1213,17 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         runId: row.runId,
         stepId: row.stepId,
         type: row.type,
-        data: row.data,
+        data: JSON.stringify(projectUsageEventData(String(row.type), JSON.parse(String(row.data)))),
         time: row.time,
         version: row.version,
       })
       const run = row.r_id
-        ? runRow({
+        ? runSchema.pick({ id: true, modelId: true, status: true, startedAt: true, endedAt: true }).parse({
             id: row.r_id,
-            sessionId: row.r_sessionId,
-            requestId: row.r_requestId,
-            input: row.r_input,
             modelId: row.r_modelId,
             status: row.r_status,
-            createdAt: row.r_createdAt,
             startedAt: row.r_startedAt,
             endedAt: row.r_endedAt,
-            error: row.r_error,
           })
         : null
       return {
@@ -2025,7 +2020,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       goalHistory: (input) => readGoalHistory(db, input),
       usageEvents(input: UsageReadInput) {
-        const limit = Math.min(Math.max(input.limit, 1), 2_000)
+        const limit = Math.min(Math.max(input.limit, 1), 128)
         const params: (string | number | null)[] = [...USAGE_EVENT_TYPES, input.from, input.to]
         let scope = ''
         if (input.scope.kind === 'workspace') {
@@ -2059,9 +2054,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             `SELECT
           e.eventId,e.sessionId,e.seq,e.runId,e.stepId,e.type,e.data,e.time,e.version,
           s.workspaceId,s.parentId AS parentSessionId,
-          r.id AS r_id,r.sessionId AS r_sessionId,r.requestId AS r_requestId,r.input AS r_input,
+          r.id AS r_id,
           r.modelId AS r_modelId,r.status AS r_status,r.createdAt AS r_createdAt,
-          r.startedAt AS r_startedAt,r.endedAt AS r_endedAt,r.error AS r_error
+          r.startedAt AS r_startedAt,r.endedAt AS r_endedAt
         FROM events e
         JOIN sessions s ON s.id=e.sessionId
         LEFT JOIN runs r ON r.id=e.runId
@@ -2069,12 +2064,35 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         ORDER BY e.time,e.eventId LIMIT ?`,
           )
           .all(...params) as Row[]
-        const items = rows.slice(0, limit).map(usageReadRow)
+        const items: UsageReadRow[] = []
+        let bytes = 0
+        for (const row of rows.slice(0, limit)) {
+          const item = usageReadRow(row)
+          const itemBytes = Buffer.byteLength(JSON.stringify(item), 'utf8') + 1
+          if (bytes + itemBytes > 512 * 1024) {
+            workerDiagnostics.emit({
+              event: 'sqlite.usage_page_bound',
+              phase: 'usage',
+              level: 'debug',
+              method: 'usageEvents',
+              bytesOut: itemBytes,
+              recordsOut: items.length,
+              outcome: 'failure',
+              sampled: true,
+            })
+            if (items.length === 0)
+              throw new HbarError('USAGE_PAGE_ITEM_TOO_LARGE', 'One accounting fact exceeds the usage page bound')
+            break
+          }
+          items.push(item)
+          bytes += itemBytes
+        }
+        const hasMore = rows.length > items.length
         const last = items.at(-1)?.event
         return {
           items,
-          hasMore: rows.length > limit,
-          ...(rows.length > limit && last ? { next: { time: last.time, eventId: last.eventId } } : {}),
+          hasMore,
+          ...(hasMore && last ? { next: { time: last.time, eventId: last.eventId } } : {}),
         }
       },
       commit: (...args) =>

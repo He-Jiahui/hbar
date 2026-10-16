@@ -37,11 +37,13 @@ export const USAGE_EVENT_TYPES = [
   'usage.recorded',
 ] as const
 
+export type UsageRunFacts = Pick<Run, 'id' | 'modelId' | 'status' | 'startedAt' | 'endedAt'>
+
 export interface UsageReadRow {
   readonly event: SessionEvent
   readonly workspaceId: string
   readonly parentSessionId: string | null
-  readonly run: Run | null
+  readonly run: UsageRunFacts | null
 }
 
 export interface UsageReadInput {
@@ -74,7 +76,7 @@ interface AttemptState {
   firstTextAt?: number | undefined
   sessionId?: string | undefined
   workspaceId?: string | undefined
-  run?: Run | null | undefined
+  run?: UsageRunFacts | null | undefined
 }
 
 interface NormalizedAttempt {
@@ -381,7 +383,7 @@ function executionSummary(
   const filtered = Boolean(input.filters.providerId || input.filters.modelId || input.filters.source)
   const includedRunIds = new Set(attempts.flatMap((attempt) => (attempt.runId ? [attempt.runId] : [])))
   const includesRun = (runId: string | null) => !filtered || (runId !== null && includedRunIds.has(runId))
-  const runs = new Map<string, Run>()
+  const runs = new Map<string, UsageRunFacts>()
   for (const row of rows) if (row.run && includesRun(row.run.id)) runs.set(row.run.id, row.run)
   const boundedRuns = [...runs.values()].slice(0, input.maxSamples)
 
@@ -636,4 +638,24 @@ export class UsageService {
       ...(matched.length > items.length && items.length ? { nextCursor: cursor(items.at(-1)!) } : {}),
     })
   }
+}
+
+/** Only accounting consumers' fields cross the managed storage boundary. */
+export function projectUsageEventData(type: string, data: unknown): unknown {
+  if (type === 'request.started' || type === 'compaction.request') return descriptor(data) ?? {}
+  if (type === 'attempt.providerStarted' || type === 'attempt.firstThinking' || type === 'attempt.firstText') {
+    const marker = usageAttemptMarkerSchema.safeParse(data)
+    return marker.success ? marker.data : {}
+  }
+  if (type === 'usage.recorded') {
+    const current = usageRecordedDataSchema.safeParse(data)
+    if (current.success) return current.data
+    const legacy = usageSchema.safeParse(data)
+    return legacy.success ? legacy.data : {}
+  }
+  if (type === 'tool.started' || type === 'tool.settled' || type === 'tool.unknown') {
+    const value = record(data)
+    return { callId: typeof value?.callId === 'string' ? value.callId : null, failed: value?.failed === true }
+  }
+  return {}
 }
