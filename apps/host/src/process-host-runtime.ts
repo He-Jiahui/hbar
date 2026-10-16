@@ -92,6 +92,7 @@ import { CommandMutationAdmission, type CommandMutationState } from './command-m
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
 import { RuntimeHumanWaits } from './runtime-human-waits'
+import { RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS } from '@hbar/plugin-sdk/runtime-driver'
 import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
 import { RuntimeResourceRegistry } from './runtime-resource-registry'
 import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runtime-maintenance-relay'
@@ -1342,7 +1343,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                     noLocalExec: this.options.noLocalExec ?? false,
                     config: artifact.pluginConfiguration ?? this.pluginConfigs.get(artifact.unitId) ?? {},
                   }
-                : {}
+                : artifact.descriptor.kind === 'driver'
+                  ? { physicalModelActivity: true }
+                  : {}
     let record: Generation
     const managed = new ManagedProcess({
       descriptor: artifact.descriptor,
@@ -1367,6 +1370,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         ...RUNTIME_KERNEL_CONTROL_METHODS,
         ...RUNTIME_KERNEL_HOST_METHODS,
         ...RUNTIME_COORDINATION_CONTROL_METHODS,
+        ...RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS,
         ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
         ...RUNTIME_NODE_LINK_CONTROLS,

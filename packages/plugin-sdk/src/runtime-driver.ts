@@ -89,6 +89,8 @@ export const runtimeDriverCallbackSchema = z.discriminatedUnion('method', [
 ])
 export type RuntimeDriverCallback = z.infer<typeof runtimeDriverCallbackSchema>
 export type RuntimeDriverCallbackValue<Value = RuntimeDriverCallback> = Value extends RuntimeDriverCallback ? Omit<Value, 'invocationId'> : never
+export const runtimeDriverModelActivitySchema = z.strictObject({ invocationId: idSchema, requestId: z.string().uuid() })
+export const RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS = ['driver.modelActivity.begin', 'driver.modelActivity.settle'] as const
 export const runtimeDriverStreamSchema = z.strictObject({ invocationId: idSchema, id: idSchema, text: z.string().max(16_000_000), thinking: z.string().max(16_000_000) })
 export const runtimeDriverTerminalSchema = z.strictObject({ invocationId: idSchema, ok: z.boolean(), reasonCode: z.string().min(1).max(128).nullable() })
 export const runtimeDriverCancelSchema = z.strictObject({ invocationId: idSchema, reasonCode: z.string().min(1).max(128) })

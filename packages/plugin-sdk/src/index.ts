@@ -298,6 +298,11 @@ export interface DriverInput {
   signal: AbortSignal
   /** Bounded observational model lifecycle metadata. Callback failures are ignored by the Host. */
   onModelDiagnostic?(event: ModelDiagnosticEvent): void
+  /** Optional physical lifecycle: settle only after the original response body/I/O actually ends. */
+  modelActivity?: {
+    begin(): Promise<string>
+    settle(requestId: string): Promise<void>
+  }
   resolveKey(modelId: string): Promise<string | null>
   readImage(id: string): Promise<{ mime: string; data: string }>
   readFile(id: string): Promise<{

@@ -14,6 +14,7 @@ import {
   runtimeDriverEventResultSchema,
   runtimeDriverDecisionSchema,
   runtimeDriverDecisionResultSchema,
+  runtimeDriverModelActivitySchema,
   type RuntimeDriverCallbackValue,
 } from '@hbar/plugin-sdk/runtime-driver'
 import { procedure, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
@@ -23,6 +24,9 @@ export { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const driver = new PiDriver()
+  const { physicalModelActivity } = z
+    .object({ physicalModelActivity: z.boolean().default(false) })
+    .parse(context.configuration ?? {})
   const active = new Map<
     string,
     {
@@ -91,6 +95,22 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     const run: DriverInput = {
       session: input.session, workspace: input.workspace, run: input.run, request: input.request,
       tools, apiKey: input.apiKey, signal: controller.signal,
+      ...(physicalModelActivity
+        ? {
+            modelActivity: {
+              begin: () => context.peer.call(
+                'driver.modelActivity.begin',
+                runtimeDriverModelActivitySchema.parse({ invocationId: input.invocationId, requestId: crypto.randomUUID() }),
+                z.string().uuid(),
+              ),
+              settle: (requestId: string) => context.peer.call(
+                'driver.modelActivity.settle',
+                runtimeDriverModelActivitySchema.parse({ invocationId: input.invocationId, requestId }),
+                z.undefined(),
+              ),
+            },
+          }
+        : {}),
       onModelDiagnostic: event => {
         void call({ method: 'modelDiagnostic', event }, z.undefined()).catch(() => {
           /* A diagnostic observer cannot interrupt the original model invocation. */

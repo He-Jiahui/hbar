@@ -225,6 +225,7 @@ function streamProvider(
   onStreamEvent?: (event: unknown) => void,
   onProviderError?: (errorCode?: unknown) => void,
   onBodyEof?: () => void,
+  onBodySettled?: () => void,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const reasoning = normalizeThinkingLevel(config, thinking)
@@ -241,6 +242,7 @@ function streamProvider(
             onTransportFailure,
             onProviderError,
             onBodyEof,
+            onBodySettled,
           ),
         }
       : {}),
@@ -804,6 +806,10 @@ export class PiDriver implements HarnessDriver {
             protocol: request.model.protocol,
           })
         modelDiagnosticStartedAt = performance.now()
+        const physicalRequest = request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
+          ? await input.modelActivity?.begin()
+          : undefined
+        const physicalState = streamState
         return streamProvider(
           request.model,
           {
@@ -834,7 +840,16 @@ export class PiDriver implements HarnessDriver {
           },
           (event) => streamState.observe(event),
           (errorCode) => streamState.markProviderError(errorCode),
-          () => streamState.markEof(),
+          () => {
+            physicalState.markEof()
+          },
+          () => {
+            if (physicalRequest) {
+              void input.modelActivity?.settle(physicalRequest).catch((error: unknown) => {
+                requestFailure = error
+              })
+            }
+          },
         )
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error

@@ -184,6 +184,55 @@ function assertLifecycle(
   ).toBeFalse()
 }
 
+test('physical model activity remains active while the original response body is still open', async () => {
+  const terminal = Promise.withResolvers<void>(),
+    eof = Promise.withResolvers<void>()
+  const fixture = await startFixture(
+    () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          async start(controller) {
+            controller.enqueue(new TextEncoder().encode(chunk('physical response')))
+            terminal.resolve()
+            await eof.promise
+            controller.enqueue(new TextEncoder().encode(chunk('', 'stop') + 'data: [DONE]\n\n'))
+            controller.close()
+          },
+        }),
+        { headers: sseHeaders },
+      ),
+  )
+  const events: ModelDiagnosticEvent[] = [],
+    began: string[] = [],
+    settled: string[] = []
+  const input = runInput(fixture.baseUrl, AbortSignal.timeout(5_000), events)
+  input.modelActivity = {
+    async begin() {
+      const id = crypto.randomUUID()
+      began.push(id)
+      return id
+    },
+    async settle(id) {
+      settled.push(id)
+    },
+  }
+  const run = new PiDriver().run(input)
+  void run.catch(() => {})
+  try {
+    await terminal.promise
+    await Bun.sleep(80)
+    expect(began).toHaveLength(1)
+    expect(settled).toHaveLength(0)
+    eof.resolve()
+    await run
+    expect(settled).toEqual(began)
+  } finally {
+    eof.resolve()
+    await run.catch(() => {})
+    await fixture.server.stop(true)
+  }
+})
+
 async function awaitArrival(arrival: Promise<void>, label: string): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {

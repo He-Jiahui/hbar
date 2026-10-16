@@ -7,7 +7,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod'
 import { HbarError, providerSchema, type Message, type SessionEvent } from '@hbar/contracts'
 import type { DriverInput } from '@hbar/plugin-sdk'
-import { ManagedProcess, RuntimeArtifactStore } from '@hbar/runtime'
+import { ManagedProcess, RuntimeArtifactStore, procedure } from '@hbar/runtime'
 import { DRIVER_RUNTIME_FINGERPRINT } from '../apps/host/src/runtime-driver-process'
 import { RuntimeDriverAdapter } from '../apps/host/src/runtime-driver-adapter'
 import type { RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
@@ -23,15 +23,26 @@ afterEach(async () => {
   }
 })
 const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
-async function fixture() {
+async function fixture(physicalModelActivity = false) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-runtime-driver-'))
   const descriptor: RuntimeUnitDescriptor = { id: 'driver.pi', kind: 'driver', isolation: 'process', dependencies: [], required: true, reloadable: true, contractFingerprint: DRIVER_RUNTIME_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION }
   const store = new RuntimeArtifactStore(join(root, 'bundles'), process.cwd())
   const artifact = await store.build({ descriptor, entrypoint: 'apps/host/src/runtime-driver-process.ts' })
   let adapter!: RuntimeDriverAdapter
+  const physical: Array<{ phase: 'begin' | 'settle'; requestId: string }> = []
   const managed = new ManagedProcess({ descriptor, artifactId: artifact.id, modulePath: await store.modulePath(artifact.id), generation: 1,
+    configuration: { physicalModelActivity },
     parent: { unitId: 'kernel', generation: 1, incarnation: 'kernel-one' },
-    onPeer: peer => { adapter = new RuntimeDriverAdapter(peer) }, onExit: async () => { adapter.dispose() },
+    onPeer: peer => {
+      adapter = new RuntimeDriverAdapter(peer)
+      const schema = z.strictObject({ invocationId: z.string(), requestId: z.string().uuid() })
+      peer.register('driver.modelActivity.begin', procedure(schema, z.string().uuid(), input => {
+        physical.push({ phase: 'begin', requestId: input.requestId }); return input.requestId
+      }))
+      peer.register('driver.modelActivity.settle', procedure(schema, z.undefined(), input => {
+        physical.push({ phase: 'settle', requestId: input.requestId })
+      }))
+    }, onExit: async () => { adapter.dispose() },
   })
   resources.push({ root, process: managed, adapter: () => adapter })
   await managed.prepare()
@@ -68,8 +79,33 @@ async function fixture() {
     beforeRequest: async request => ({ ...request, messages: [...messages] }),
     stepEnded: async () => {},
   }
-  return { root, process: managed, adapter, input, messages, events, writes, callbacks, streamTexts, authority, controller }
+  return { root, process: managed, adapter, input, messages, events, writes, callbacks, streamTexts, authority, controller, physical }
 }
+
+test('an explicitly enabled isolated Pi driver reports its original physical request before and after a real HTTP body', async () => {
+  const f = await fixture(true)
+  const chunk = (text: string, finish: string | null) => `data: ${JSON.stringify({ id: 'physical', object: 'chat.completion.chunk',
+    created: 1, model: 'fixture', choices: [{ index: 0, delta: { content: text }, finish_reason: finish }] })}\n\n`
+  const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response(chunk('physical reply', null) + chunk('', 'stop') + 'data: [DONE]\n\n',
+    { headers: { 'content-type': 'text/event-stream' } }) })
+  try {
+    f.input.request.model = { ...f.input.request.model, protocol: 'openai-completions', baseUrl: `http://127.0.0.1:${server.port}/v1` }
+    await f.process.activate()
+    await f.adapter.run(f.input)
+    const deadline = Date.now() + 2_000
+    while (f.physical.length < 2 && Date.now() < deadline) await Bun.sleep(10)
+    expect(f.physical.map(value => value.phase)).toEqual(['begin', 'settle'])
+    expect(f.physical[0]?.requestId).toBe(f.physical[1]?.requestId)
+  } finally { await server.stop(true) }
+})
+
+test('an explicitly enabled mock driver completes without inventing an HTTP physical request receipt', async () => {
+  const f = await fixture(true)
+  await f.process.activate()
+  await f.adapter.run(f.input)
+  expect(f.physical).toEqual([])
+  expect(f.messages.some(message => message.role === 'assistant')).toBe(true)
+})
 
 test('the real isolated Pi driver commits through named callbacks and preserves the original Kernel execution context', async () => {
   const f = await fixture()

@@ -67,13 +67,25 @@ export function withProviderResponseDiagnostics(
   onFailure?: TransportFailureObserver,
   onProviderError?: (errorCode?: unknown) => void,
   onBodyEof?: () => void,
+  onBodySettled?: (kind: 'eof' | 'cancelled' | 'failed') => void,
 ): FetchFunction {
   const observedFetch: typeof fetch = Object.assign(
     async (...args: Parameters<FetchFunction>) => {
+      let settled = false
+      const settle = (kind: 'eof' | 'cancelled' | 'failed') => {
+        if (settled) return
+        settled = true
+        try {
+          onBodySettled?.(kind)
+        } catch {
+          /* The physical receipt cannot change transport behavior. */
+        }
+      }
       let response: Response
       try {
         response = await fetchImpl(...args)
       } catch (error) {
+        settle('failed')
         try {
           const classified = classifyTransportFailure(error)
           onFailure?.(classified.kind, classified.code, 'fetch')
@@ -92,8 +104,13 @@ export function withProviderResponseDiagnostics(
       } catch {
         // HTTP observation is best effort and cannot alter the provider response.
       }
-      if (!response.body) return response
+      if (!response.body) {
+        settle('eof')
+        return response
+      }
       const reader = response.body.getReader()
+      let cancelling = false
+      let reading: ReturnType<typeof reader.read> | undefined
       let readerReleased = false
       const releaseReader = () => {
         if (readerReleased) return
@@ -191,8 +208,12 @@ export function withProviderResponseDiagnostics(
       const body = new ReadableStream<Uint8Array>({
         async pull(controller) {
           try {
-            const result = await reader.read()
+            const current = reader.read()
+            reading = current
+            const result = await current
+            if (reading === current) reading = undefined
             if (result.done) {
+              if (cancelling) return
               observeFrames(new Uint8Array(), true)
               try {
                 onBodyEof?.()
@@ -200,12 +221,15 @@ export function withProviderResponseDiagnostics(
                 // Diagnostics are observational and must not alter stream behavior.
               }
               releaseReader()
+              settle('eof')
               controller.close()
             } else {
               observeFrames(result.value)
               controller.enqueue(result.value)
             }
           } catch (error) {
+            reading = undefined
+            if (cancelling) return
             try {
               const classified = classifyTransportFailure(error)
               onFailure?.(classified.kind, classified.code, 'stream')
@@ -214,9 +238,11 @@ export function withProviderResponseDiagnostics(
             }
             controller.error(error)
             releaseReader()
+            settle('failed')
           }
         },
         async cancel(reason) {
+          cancelling = true
           if (requestSignal?.aborted) {
             try {
               const classified = classifyTransportFailure(requestSignal.reason)
@@ -225,10 +251,14 @@ export function withProviderResponseDiagnostics(
               /* observational */
             }
           }
+          let cancelled = false
           try {
             await reader.cancel(reason)
+            cancelled = true
           } finally {
+            await reading?.catch(() => {})
             releaseReader()
+            if (cancelled) settle('cancelled')
           }
         },
       })
