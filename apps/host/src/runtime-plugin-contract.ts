@@ -13,7 +13,7 @@ export const RUNTIME_PLUGIN_SERVICES = {
   goal: [...RUNTIME_APPLICATION_METHODS.goal, 'refreshSession'],
   plan: [...RUNTIME_APPLICATION_METHODS.plan, 'refreshSession'],
   mode: [...RUNTIME_APPLICATION_METHODS.mode, 'effectiveMode'],
-  budget: [...RUNTIME_APPLICATION_METHODS.budget, 'refreshSession'],
+  budget: [...RUNTIME_APPLICATION_METHODS.budget, 'refreshSession', 'accountPendingUsage'],
   workflow: RUNTIME_APPLICATION_METHODS.workflow,
   agent: RUNTIME_APPLICATION_METHODS.agent,
   git: RUNTIME_APPLICATION_METHODS.git,

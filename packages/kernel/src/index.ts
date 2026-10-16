@@ -11,6 +11,13 @@ import { createSessionCommandTools } from './session-command-tools'
 import type { SessionCommandDiscoveryPort } from './session-command-port'
 import type { ToolMutationAdmissionPort } from './mutation-admission'
 import { recommendedInputDecision } from './user-input-decisions'
+import {
+  captureInputDecisionContext,
+  completeInputDecision,
+  type InputDecisionContext,
+  type CompletedInputDecision,
+} from './user-input-completion'
+import type { AutonomyPolicyResolution } from '@hbar/contracts/autonomy'
 export type { ToolMutationAdmissionPort, ToolMutationAdmissionContext } from './mutation-admission'
 export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
 export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
@@ -537,6 +544,8 @@ interface ActiveRun {
   run: Run
   lease?: ExecutionOwnership
   providerSnapshot?: ProviderConfig
+  decisionContext?: InputDecisionContext
+  decisionDriver?: HarnessDriver
   controller: AbortController
   context: RuntimeScope
   idleTimeout: ReturnType<typeof createRunIdleTimeout>
@@ -2407,6 +2416,8 @@ export class Kernel {
           ).slice(0, 80),
         })
       const driver = this.plugins.get<HarnessDriver>('driver')
+      const sourceDriver = this.active.get(sessionId)
+      if (sourceDriver?.run.id === run.id) sourceDriver.decisionDriver = driver
       const supportsSteering =
         driver.supportsCanonicalSteering === true && driver.supportsSteeringAdmissionClosure === true
       const steeringDeliveries: SteeringDelivery[] = []
@@ -2718,6 +2729,8 @@ export class Kernel {
             stepId,
           )
           idleTimeout.progress()
+          const sourceDecision = this.active.get(sessionId)
+          if (sourceDecision?.run.id === run.id) sourceDecision.decisionContext = captureInputDecisionContext(request)
           return request
         },
         stepEnded: async (stepId) => {
@@ -3751,6 +3764,93 @@ export class Kernel {
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'running'))
     }
   }
+  private async inputDecisionIsCurrent(
+    request: UserInputRequest,
+    policy: AutonomyPolicyResolution,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    signal.throwIfAborted()
+    const stopped = this.boundaryStops.get(request.runId)
+    if (stopped) throw stopped
+    if (await this.storage.call('cancelRequested', request.runId))
+      throw new HbarError('USER_CANCELLED', 'The source decision Run was cancelled')
+    await this.assertRunPermission(await this.storage.call('run', request.runId))
+    const current = await this.permissionSettings.decisionPolicy(request.sessionId)
+    signal.throwIfAborted()
+    return JSON.stringify(current) === JSON.stringify(policy)
+  }
+  private async completeUserInputDecision(
+    request: UserInputRequest,
+    policy: AutonomyPolicyResolution,
+    signal: AbortSignal,
+  ): Promise<CompletedInputDecision> {
+    const active = this.active.get(request.sessionId)
+    const context = active?.run.id === request.runId ? active.decisionContext : undefined
+    if (!context) return { kind: 'human', reason: 'context_unavailable' }
+    const driver = active?.decisionDriver
+    const complete = driver?.completeDecision?.bind(driver)
+    if (!complete) return { kind: 'human', reason: 'driver_unavailable' }
+    const budget = this.plugins.get<BudgetService>('budget')
+    if (!budget.accountPendingUsage && (await budget.get(request.sessionId)))
+      return { kind: 'human', reason: 'budget_unavailable' }
+    const accountPending = budget.accountPendingUsage?.bind(budget)
+    return completeInputDecision(request, context, {
+      beforeAttempt: async () => {
+        signal.throwIfAborted()
+        await accountPending?.(request.sessionId, request.runId)
+        await budget.assertCanStart(request.sessionId)
+        return (await budget.get(request.sessionId))?.remainingTokens ?? null
+      },
+      isCurrent: () => this.inputDecisionIsCurrent(request, policy, signal),
+      requested: async (attemptId, completion, attempt) => {
+        await this.append(
+          request.sessionId,
+          'request.started',
+          {
+            ...describeUsageAttempt(attemptId, 'model', completion.request.model),
+            purpose: 'decision',
+            decisionRequestId: request.requestId,
+            decisionCallId: request.callId,
+            decisionAttempt: attempt,
+            request: completion.request,
+            tools: [],
+            maxOutputTokens: completion.maxOutputTokens,
+          },
+          request.runId,
+          attemptId,
+        )
+      },
+      complete: async (completion) =>
+        complete(
+          completion,
+          context.model.protocol === 'mock'
+            ? null
+            : await this.plugins.get<ModelRegistry>('models').secret(context.model.id),
+          signal,
+        ),
+      recorded: async (attemptId, completion, usage) => {
+        try {
+          await this.append(
+            request.sessionId,
+            'usage.recorded',
+            createUsageFact({
+              usage,
+              runId: request.runId,
+              attemptId,
+              source: 'model',
+              model: completion.request.model,
+            }),
+            request.runId,
+            attemptId,
+          )
+          await accountPending?.(request.sessionId, request.runId)
+        } catch (error) {
+          active?.controller.abort(new HbarError('DECISION_USAGE_UNKNOWN', 'Decision usage could not be confirmed'))
+          throw error
+        }
+      },
+    })
+  }
   async requestUserInput(raw: UserInputRequest, signal: AbortSignal): Promise<UserInputResponse> {
     signal.throwIfAborted()
     const parsed = userInputRequestSchema.parse(raw)
@@ -3788,24 +3888,43 @@ export class Kernel {
     const stop = this.boundaryStops.get(request.runId)
     if (stop) throw stop
     const automatic = decisionPolicy.policy.mode === 'recommended' ? recommendedInputDecision(request) : null
-    if (automatic?.kind === 'recommended') {
+    const completed =
+      automatic?.kind === 'human' && automatic.reason === 'recommendation_required'
+        ? await this.completeUserInputDecision(request, decisionPolicy, signal)
+        : null
+    const response =
+      automatic?.kind === 'recommended' ? automatic.response : completed?.kind === 'model' ? completed.response : null
+    if (response && (await this.inputDecisionIsCurrent(request, decisionPolicy, signal))) {
       await this.append(
         request.sessionId,
         'user_input.autoDecided',
         userInputAutomaticDecisionSchema.parse({
           version: 1,
-          source: 'recommended',
+          source: completed?.kind === 'model' ? 'model' : 'recommended',
           request,
-          response: automatic.response,
+          response,
           policy: decisionPolicy,
+          ...(completed?.kind === 'model'
+            ? {
+                attemptIds: completed.attemptIds,
+                modelId: this.active.get(request.sessionId)?.decisionContext?.model.id,
+              }
+            : {}),
         }),
         request.runId,
       )
       signal.throwIfAborted()
       const stopped = this.boundaryStops.get(request.runId)
       if (stopped) throw stopped
-      return automatic.response
+      return response
     }
+    if (completed?.kind === 'human')
+      await this.append(
+        request.sessionId,
+        'user_input.automationWaiting',
+        { version: 1, requestId: request.requestId, policy: decisionPolicy, reason: completed.reason },
+        request.runId,
+      )
     if (this.userInputs.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
     signal.throwIfAborted()

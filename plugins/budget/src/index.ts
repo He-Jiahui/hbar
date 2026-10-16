@@ -348,6 +348,9 @@ export class BudgetRuntime {
   async accountStep(event: HookEvents['step.end']) {
     return this.accountUsage(event.sessionId, event.runId)
   }
+  async accountPendingUsage(sessionId: string, runId: string): Promise<void> {
+    await this.accountUsage(sessionId, runId)
+  }
 
   private async accountUsage(sessionId: string, runId: string, finalRun?: HookEvents['run.end']) {
     return this.serial(sessionId, async () => {

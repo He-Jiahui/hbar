@@ -707,6 +707,8 @@ export interface ModeService {
   commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }
 export interface BudgetService {
+  /** Settle already recorded usage without ending the current Run or inventing a model step. */
+  accountPendingUsage?(sessionId: string, runId: string): Promise<void>
   refreshSession?(sessionId: string): Promise<void>
   reconcileRun?(run: Run): Promise<void>
   get(sessionId: string): Promise<SessionBudget | null>

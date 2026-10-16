@@ -270,10 +270,12 @@ export const userInputResponseSchema = z.object({
 export type UserInputResponse = z.infer<typeof userInputResponseSchema>
 export const userInputAutomaticDecisionSchema = z.strictObject({
   version: z.literal(1),
-  source: z.literal('recommended'),
+  source: z.enum(['recommended', 'model']),
   request: userInputRequestSchema,
   response: userInputResponseSchema,
   policy: autonomyPolicyResolutionSchema.optional(),
+  attemptIds: z.array(idSchema).min(1).max(2).optional(),
+  modelId: idSchema.optional(),
 })
 /** Internal transport envelope; Codex responses themselves contain answers only. */
 export const userInputResolutionSchema = userInputResponseSchema.extend({ requestId: idSchema })
