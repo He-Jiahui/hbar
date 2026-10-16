@@ -66,3 +66,20 @@ export {
   type RuntimeArtifactRegistry,
   type ManagedGenerationPort,
 } from './manager'
+
+export {
+  RuntimeDemandLifecycle,
+  DemandLifecycleError,
+  type DemandOwner,
+  type DemandLease,
+  type DemandTimer,
+  type DemandClock,
+  type StartResult,
+  type RetireResult,
+  type DemandAttempt,
+  type DemandPorts,
+  type DemandUnit,
+  type DemandLimits,
+  type DemandPhase,
+  type DemandSnapshot,
+} from './runtime-demand-lifecycle'
