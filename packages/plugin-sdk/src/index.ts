@@ -1,3 +1,11 @@
+import type { RuntimePluginIdleRegistry } from './runtime-plugin-idle'
+export {
+  runtimePluginIdleCheckpointSchema,
+  nativeDescendantsConfirmed,
+  type RuntimePluginIdleCheckpoint,
+  type RuntimePluginIdleRegistry,
+  type RuntimePluginIdleAuthority,
+} from './runtime-plugin-idle'
 import { Context, Service } from 'cordis'
 import { HbarError, sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
 export type { DecisionContext, DecisionService } from './decision'
@@ -1009,6 +1017,8 @@ export interface HookRegistry {
   dispatch<K extends keyof HookEvents>(event: K, value: HookEvents[K]): Promise<HookEvents[K]>
 }
 export interface HbarAPI {
+  /** Optional managed-owner lifecycle proof; ordinary plugins remain compatible. */
+  runtimeIdle?: RuntimePluginIdleRegistry | undefined
   scope: ScopeDescriptor
   /** Managed owners hydrate projections; reconciliation belongs to the stable recovery coordinator. */
   restoreMode?: 'projection' | undefined

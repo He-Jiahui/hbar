@@ -1,3 +1,4 @@
+import { runtimePluginIdleCheckpointSchema } from '@hbar/plugin-sdk'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
@@ -84,6 +85,7 @@ export const PLUGIN_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
       'hbar.plugin.runtime.v1',
+      ['plugin-idle-checkpoint', z.toJSONSchema(runtimePluginIdleCheckpointSchema)],
       z.toJSONSchema(runtimePluginStateSchema),
       z.toJSONSchema(runtimePluginAuthoritySchema),
       z.toJSONSchema(runtimePluginConfigurationSchema),
