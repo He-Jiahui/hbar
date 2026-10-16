@@ -19,6 +19,7 @@ export {
 export { ManagedProcess, type ManagedProcessOptions } from './process'
 export { acquireProcessLease, processIsAlive } from './process-lease'
 export { runtimeDomainError } from './errors'
+export { ExecutionSlots, type ExecutionSlotsOptions } from './execution-slots'
 export { RUNTIME_BUNDLE_EXTERNALS } from './bundle-externals'
 export { buildRuntimeArtifact } from './builder'
 export {

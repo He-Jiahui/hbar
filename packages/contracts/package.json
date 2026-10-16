@@ -40,6 +40,7 @@
     "./backend": "./src/backend.ts",
     "./autonomy": "./src/autonomy.ts",
     "./autonomy-retry": "./src/autonomy-retry.ts",
+    "./execution-slots": "./src/execution-slots.ts",
     "./user-input-state": "./src/user-input-state.ts",
     "./tool-arguments": "./src/tool-arguments.ts",
     "./sandbox": "./src/sandbox.ts",
