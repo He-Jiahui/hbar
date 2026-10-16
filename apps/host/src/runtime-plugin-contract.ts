@@ -84,6 +84,7 @@ export const PLUGIN_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
       'hbar.plugin.runtime.v1',
+      'owned-invocation-physical-reply.v1',
       z.toJSONSchema(runtimePluginStateSchema),
       z.toJSONSchema(runtimePluginAuthoritySchema),
       z.toJSONSchema(runtimePluginConfigurationSchema),

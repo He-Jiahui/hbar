@@ -6,7 +6,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
 
-function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number | (() => number) } = {}) {
+function fixture(
+  options: {
+    peerTimeoutMs?: number
+    callbackTimeoutMs?: number | (() => number)
+    callbackSettlement?: 'physical'
+  } = {},
+) {
   const transport = new AsyncResource('isolated-runtime-transport')
   let child!: IpcPeer
   const peerOptions = options.peerTimeoutMs === undefined ? {} : { timeoutMs: options.peerTimeoutMs }
@@ -29,6 +35,7 @@ function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number |
     prefix: 'application',
     controlMethods: ['approval.resolve'],
     ...(options.callbackTimeoutMs === undefined ? {} : { callbackTimeoutMs: options.callbackTimeoutMs }),
+    ...(options.callbackSettlement ? { callbackSettlement: options.callbackSettlement } : {}),
     callbackScope: (action) => {
       entered++
       return action()
@@ -38,6 +45,7 @@ function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number |
     prefix: 'application',
     controlMethods: ['approval.resolve'],
     ...(options.callbackTimeoutMs === undefined ? {} : { callbackTimeoutMs: options.callbackTimeoutMs }),
+    ...(options.callbackSettlement ? { callbackSettlement: options.callbackSettlement } : {}),
   })
   return {
     peer: parent,
@@ -115,6 +123,64 @@ test('tracked application calls preserve actual late writes after cancellation a
     expect(ownerCancelled).toBe(true)
     expect(callbacks).toBe(0)
     expect(writes).toBe(1)
+  } finally {
+    gate.resolve()
+    f.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('owned physical callbacks preserve an already accepted write and its source scope through nested cancellation', async () => {
+  const f = fixture({ callbackSettlement: 'physical' })
+  const root = await mkdtemp(join(tmpdir(), 'hbar-tracked-callback-'))
+  const scope = new AsyncLocalStorage<string>()
+  const entered = Promise.withResolvers<void>(),
+    gate = Promise.withResolvers<void>()
+  let physicallyDone = false
+  f.remote.register('commit', async ([callback]) => {
+    if (typeof callback !== 'function') throw new Error('Expected owned callback')
+    return Reflect.apply(callback, undefined, [() => 'nested callback must close'])
+  })
+  const controller = new AbortController()
+  try {
+    const ticket = scope.run('source-run', () =>
+      f.local.callTracked<string>(
+        'commit',
+        [
+          async (nested: unknown) => {
+            if (typeof nested !== 'function') throw new Error('Expected nested callback')
+            entered.resolve()
+            await gate.promise
+            expect(scope.getStore()).toBe('source-run')
+            await expect(
+              Promise.resolve().then(() => {
+                const value: unknown = Reflect.apply(nested, undefined, [])
+                return value
+              }),
+            ).rejects.toBeInstanceOf(Error)
+            await writeFile(join(root, 'result.txt'), 'nested physical write')
+            return 'nested actual reply'
+          },
+        ],
+        { signal: controller.signal },
+      ),
+    )
+    void ticket.settled.then(() => {
+      physicallyDone = true
+    })
+    await entered.promise
+    controller.abort()
+    await expect(ticket.result).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    // Cancellation of the nested IPC crosses the isolated transport asynchronously.
+    const deadline = Date.now() + 1_000
+    while (f.remote.snapshot().callbacks && Date.now() < deadline) await Bun.sleep(1)
+    expect(f.remote.snapshot().callbacks).toBe(0)
+    expect(physicallyDone).toBe(false)
+    gate.resolve()
+    expect(await ticket.settled).toBe('nested actual reply')
+    expect(await readFile(join(root, 'result.txt'), 'utf8')).toBe('nested physical write')
+    expect(f.local.snapshot().callbacks).toBe(0)
+    expect(f.remote.snapshot().callbacks).toBe(0)
   } finally {
     gate.resolve()
     f.close()

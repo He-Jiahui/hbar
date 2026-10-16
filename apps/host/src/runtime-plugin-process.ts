@@ -120,6 +120,7 @@ export function createRuntimePlugin(
     // Bound it at the maximum owner deadline; the captured request signal and each
     // outer call's validated deadline remain the tighter cancellation boundaries.
     callbackTimeoutMs: RUNTIME_PLUGIN_CALLBACK_TIMEOUT_MS,
+    callbackSettlement: 'physical',
   })
   let owner: Owner | undefined
   let calls = 0,
@@ -328,14 +329,23 @@ export function createRuntimePlugin(
             // Compare-and-create file commands need an absent baseline to remain
             // distinguishable across the execution owner. Never transport raw OS paths.
             const missingWorkspacePath =
-              request.operation === 'capability' && request.name === 'execution' &&
+              request.operation === 'capability' &&
+              request.name === 'execution' &&
               ['read', 'readBytes', 'list', 'canonicalize'].includes(request.method ?? '') &&
-              error instanceof Error && 'code' in error && error.code === 'ENOENT'
+              error instanceof Error &&
+              'code' in error &&
+              error.code === 'ENOENT'
             return {
               kind: 'error',
-              code: domain?.code ??
-                (missingWorkspacePath ? 'ENOENT' : error instanceof z.ZodError ? 'INVALID_TOOL_INPUT' : 'RUNTIME_PLUGIN_FAILED'),
-              message: domain?.message ??
+              code:
+                domain?.code ??
+                (missingWorkspacePath
+                  ? 'ENOENT'
+                  : error instanceof z.ZodError
+                    ? 'INVALID_TOOL_INPUT'
+                    : 'RUNTIME_PLUGIN_FAILED'),
+              message:
+                domain?.message ??
                 (missingWorkspacePath ? 'The workspace path does not exist' : 'The owned plugin invocation failed'),
             }
           } finally {

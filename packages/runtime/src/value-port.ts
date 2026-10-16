@@ -56,6 +56,8 @@ export interface RuntimeValuePortOptions {
   readonly callbackTimeoutMs?: CallbackTimeout
   /** Enter the captured local application scope when a named callback returns to its owner. */
   readonly callbackScope?: <Result>(operation: () => Result) => Result
+  /** Owned effect chains can wait for callbacks already running when logical cancellation arrives. */
+  readonly callbackSettlement?: 'physical'
 }
 
 /** Plain, bounded argument descriptions. Functions and signals remain local and use authenticated named callbacks. */
@@ -278,26 +280,30 @@ export class RuntimeValuePort {
         // Snapshot the owner-selected budget while decoding the original call. The original
         // request signal remains captured as the cancellation fence for nested callback values.
         const timeoutMs = this.callbackTimeout()
+        const physical = this.options.callbackSettlement === 'physical'
         return async (...args: unknown[]) => {
           signal.throwIfAborted()
           const callbacks: string[] = [],
             signals: AbortSignal[] = [signal]
           const state = this.encoding(callbacks, signals)
+          let nestedSignal: AbortSignal | undefined
+          const release = () => {
+            for (const id of callbacks) this.callbacks.delete(id)
+          }
           try {
             const described = args.map((item) => this.encode(item, state))
-            const nestedSignal = AbortSignal.any(signals)
-            const result = await this.peer.call(
-              `${this.options.prefix}.callback`,
-              { id: value.id, args: described },
-              valueSchema,
-              {
-                signal: nestedSignal,
-                ...(timeoutMs === undefined ? {} : { timeoutMs }),
-              },
-            )
+            nestedSignal = AbortSignal.any(signals)
+            nestedSignal.addEventListener('abort', release, { once: true })
+            const method = `${this.options.prefix}.callback`
+            const input = { id: value.id, args: described }
+            const options = { signal: nestedSignal, ...(timeoutMs === undefined ? {} : { timeoutMs }) }
+            const result = physical
+              ? await this.peer.callTracked(method, input, valueSchema, options).settled
+              : await this.peer.call(method, input, valueSchema, options)
             return this.decode(result, nestedSignal)
           } finally {
-            for (const id of callbacks) this.callbacks.delete(id)
+            nestedSignal?.removeEventListener('abort', release)
+            release()
           }
         }
       }

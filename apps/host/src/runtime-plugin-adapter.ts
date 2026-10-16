@@ -44,6 +44,7 @@ export class RuntimePluginAdapter {
     this.values = new RuntimeValuePort(peer, {
       prefix: 'kernel.plugins',
       callbackTimeoutMs: RUNTIME_PLUGIN_CALLBACK_TIMEOUT_MS,
+      callbackSettlement: 'physical',
     })
   }
   async load(excludedPluginIds: readonly string[] = []): Promise<HbarPlugin[]> {
@@ -267,7 +268,7 @@ export class RuntimePluginAdapter {
       ...(toolTimeout?.success ? { toolTimeoutMs: toolTimeout.data } : {}),
     })
     const result = runtimePluginResultSchema.parse(
-      await this.values.call(
+      await this.values.callTracked(
         'invoke',
         [
           unitId,
@@ -283,7 +284,7 @@ export class RuntimePluginAdapter {
           ...(operationSignal ? { signal: operationSignal } : {}),
           timeoutMs: Math.min(operationTimeoutMs + 125_000, 1_325_000),
         },
-      ),
+      ).settled,
     )
     if (result.kind === 'error') throw new HbarError(result.code, result.message)
     if (result.kind === 'control') throw new RunControlSignal(result.control)
