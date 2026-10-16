@@ -55,6 +55,7 @@ import type { CliRuntime } from './runtime.ts'
 import type { HbarClient } from '@hbar/client'
 import { selectModel, selectSession } from './runtime.ts'
 import { NamedContextStore } from './context.ts'
+import { isCommandResultQuery, runCommandResultQuery } from './command-result-query'
 
 export type CommandOutput = (value: unknown) => void
 
@@ -1163,6 +1164,10 @@ export async function runCliCommand(
 ): Promise<boolean> {
   const [action, selector] = args.commandArgs
   if (args.command === 'exec') {
+    if (isCommandResultQuery(action)) {
+      await runCommandResultQuery(args, runtime.client, runtime.session.id, output)
+      return true
+    }
     if (isConnectionCommand(action)) {
       await runConnectionCommand(args, runtime.client, output)
       return true

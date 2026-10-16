@@ -1,16 +1,29 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
+import { createHash } from 'node:crypto'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemorySecrets } from '@hbar/kernel/secrets'
-import { HbarClient, createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
+import {
+  HbarClient,
+  createCommandResultClient,
+  createRunCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
 import { createPathLayout } from '@hbar/storage'
 import { commandDescriptorSchema } from '@hbar/commands'
+import {
+  commandReceiptViewSchema,
+  commandResultReadOutputSchema,
+  commandResultReferenceSchema,
+} from '@hbar/contracts/command-receipt-read'
 import { SESSION_COMMAND_STATE_QUERY_IDS } from '@hbar/kernel/session-command-port'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
 import { startServer } from '../apps/host/src/server'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
+import { parseCli } from '../apps/cli/src/args'
+import { runCommandResultQuery } from '../apps/cli/src/command-result-query'
 
 const pageSchema = z.strictObject({
   revision: z.number(),
@@ -18,7 +31,16 @@ const pageSchema = z.strictObject({
   nextCursor: z.string().optional(),
 })
 
-test('independent real managed sessions discover command mode and read schemas in Plan/deny without a UI or mutations', async () => {
+async function commandFailure(operation: Promise<unknown>): Promise<unknown> {
+  try {
+    await operation
+  } catch (error: unknown) {
+    return error
+  }
+  throw new Error('Expected a command failure')
+}
+
+test('independent real managed sessions discover command mode and read authenticated receipt pages in Plan/deny without a UI', async () => {
   const prefix = 'hbar-session-command-tools-'
   const root = await mkdtemp(join(tmpdir(), prefix))
   const runtime = await ProcessHostRuntime.create({
@@ -99,6 +121,8 @@ test('independent real managed sessions discover command mode and read schemas i
     expect(seen).toEqual([...seen].sort())
     expect(seen).toContain('file.write')
     expect(seen).toContain('app.openPanel')
+    expect(seen).toContain('command.receipt.get')
+    expect(seen).toContain('command.result.read')
     expect([...domains].sort()).toEqual(['client', 'host', 'platform'])
     const description = commandDescriptorSchema.parse(
       JSON.parse(await call(second.id, 'hbar_command_describe', { commandId: 'file.write' })) as unknown,
@@ -170,6 +194,87 @@ test('independent real managed sessions discover command mode and read schemas i
         })
       )?.actorId,
     ).toBe(secondDevice.device.id)
+    const originalIdentity = { sessionId: first.id, operationKey }
+    const firstResults = createCommandResultClient(firstClient)
+    const secondResults = createCommandResultClient(secondClient)
+    const networkReceipt = await firstResults.execute('command.receipt.get', originalIdentity)
+    if (!networkReceipt) throw new Error('The authenticated original receipt is unavailable')
+    expect(networkReceipt).toMatchObject({
+      ...originalIdentity,
+      actorId: firstDevice.device.id,
+      commandId: 'workspace.list',
+      revision: receipt?.revision,
+      logical: { kind: 'inline' },
+      physical: { status: 'succeeded' },
+      acknowledgedAt: receipt?.acknowledgedAt,
+    })
+    const cliResults: unknown[] = []
+    await runCommandResultQuery(
+      parseCli(['exec', 'command.receipt.get', operationKey, '--request-id', 'cli-original-receipt']),
+      firstClient,
+      first.id,
+      (value) => {
+        cliResults.push(value)
+      },
+    )
+    expect(cliResults).toEqual([networkReceipt])
+    expect(await secondResults.execute('command.receipt.get', originalIdentity)).toBeNull()
+    expect(await commandFailure(secondResults.execute('command.result.read', originalIdentity))).toMatchObject({
+      code: 'COMMAND_RECEIPT_NOT_FOUND',
+    })
+    const networkPage = await firstResults.execute('command.result.read', originalIdentity)
+    expect(networkPage).toMatchObject({ ...originalIdentity, actorId: firstDevice.device.id, acknowledged: true })
+    expect(networkPage.page.nextOffset).toBeNull()
+    const networkData: unknown = JSON.parse(networkPage.page.content)
+    expect(networkData).toMatchObject({ ok: true, result: firstResult.result })
+    const agentReceipt = z.object({ status: z.literal('succeeded'), result: commandReceiptViewSchema }).parse(
+      JSON.parse(
+        await call(first.id, 'hbar_command_execute', {
+          commandId: 'command.receipt.get',
+          commandVersion: 1,
+          operationKey: 'inspect-original-receipt',
+          input: { operationKey },
+        }),
+      ) as unknown,
+    )
+    expect(agentReceipt.result).toEqual(networkReceipt)
+    const physicalPage = z.object({ status: z.literal('succeeded'), result: commandResultReadOutputSchema }).parse(
+      JSON.parse(
+        await call(first.id, 'hbar_command_execute', {
+          commandId: 'command.result.read',
+          commandVersion: 1,
+          operationKey: 'inspect-original-physical',
+          input: { operationKey, channel: 'physical' },
+        }),
+      ) as unknown,
+    ).result
+    expect(physicalPage).toMatchObject({ channel: 'physical', physicalStatus: 'succeeded', acknowledged: true })
+    expect(physicalPage.page.nextOffset).toBeNull()
+    const physicalData: unknown = JSON.parse(physicalPage.page.content)
+    expect(physicalData).toMatchObject({ status: 'succeeded', result: firstResult.result })
+    await runCommandResultQuery(
+      parseCli([
+        'exec',
+        'command.result.read',
+        '--operation-key',
+        operationKey,
+        '--channel',
+        'physical',
+        '--offset',
+        '0',
+        '--expected-sha256',
+        physicalPage.page.sha256,
+      ]),
+      firstClient,
+      first.id,
+      (value) => {
+        cliResults.push(value)
+      },
+    )
+    expect(cliResults).toEqual([networkReceipt, physicalPage])
+    expect(
+      await runtime.storage.call('commandExecutionRead', { ...originalIdentity, actorId: firstDevice.device.id }),
+    ).toEqual(receipt)
     const decisionList = await call(second.id, 'hbar_command_execute', {
       commandId: 'decision.list',
       commandVersion: 1,
@@ -223,6 +328,70 @@ test('independent real managed sessions discover command mode and read schemas i
     expect(
       await call(first.id, 'hbar_command_execute', { ...execute, actorId: secondDevice.device.id }, true),
     ).toContain('actorId')
+    const component = 'w'.repeat(200)
+    for (let index = 0; index < 80; index++)
+      await runtime.storage.call(
+        'createWorkspace',
+        join(workspace.path, component, component, component, component, `workspace-${index}`),
+        `Workspace ${index} ${'n'.repeat(140)}`,
+      )
+    const expectedWorkspaceIds = (await runtime.storage.call('workspaces')).map((item) => item.id).sort()
+    expect(expectedWorkspaceIds.length).toBeLessThanOrEqual(200)
+    const largeResult = await call(first.id, 'hbar_command_execute', {
+      commandId: 'workspace.list',
+      commandVersion: 1,
+      operationKey: 'large-workspace-directory',
+      input: { limit: 200 },
+    })
+    const reference = z
+      .object({ status: z.literal('result_available'), resultReference: commandResultReferenceSchema })
+      .parse(JSON.parse(largeResult) as unknown).resultReference
+    expect(reference.bytes).toBeGreaterThan(65_536)
+    expect(reference).toMatchObject({
+      sessionId: first.id,
+      operationKey: 'large-workspace-directory',
+      channel: 'logical',
+    })
+    expect(largeResult).not.toContain('chunks')
+    const largeIdentity = { sessionId: first.id, operationKey: reference.operationKey }
+    const storedIdentity = { ...largeIdentity, actorId: firstDevice.device.id }
+    const largeReceipt = await runtime.storage.call('commandExecutionRead', storedIdentity)
+    expect(largeReceipt?.logical?.kind).toBe('artifacts')
+    let page = z.object({ status: z.literal('succeeded'), result: commandResultReadOutputSchema }).parse(
+      JSON.parse(
+        await call(first.id, 'hbar_command_execute', {
+          commandId: 'command.result.read',
+          commandVersion: 1,
+          operationKey: 'inspect-large-first-page',
+          input: { ...largeIdentity, limit: 8192, expectedSha256: reference.sha256 },
+        }),
+      ) as unknown,
+    ).result.page
+    const parts: string[] = []
+    let offset = 0
+    for (let index = 0; index < 64; index++) {
+      expect(page.offset).toBe(offset)
+      parts.push(page.content)
+      if (page.nextOffset === null) break
+      expect(page.nextOffset).toBeGreaterThan(offset)
+      offset = page.nextOffset
+      page = (
+        await firstResults.execute('command.result.read', {
+          ...largeIdentity,
+          offset,
+          limit: 8192,
+          expectedSha256: reference.sha256,
+        })
+      ).page
+    }
+    const json = parts.join('')
+    expect(new TextEncoder().encode(json).byteLength).toBe(reference.bytes)
+    expect(createHash('sha256').update(json).digest('hex')).toBe(reference.sha256)
+    const decoded = z
+      .object({ ok: z.literal(true), result: z.object({ items: z.array(z.object({ id: z.string() })) }) })
+      .parse(JSON.parse(json) as unknown)
+    expect(decoded.result.items.map((item) => item.id).sort()).toEqual(expectedWorkspaceIds)
+    expect(await runtime.storage.call('commandExecutionRead', storedIdentity)).toEqual(largeReceipt)
     expect(runtime.coordinator.snapshot().physicalTools).toBe(0)
     expect(runtime.coordinator.snapshot().resources).toBe(0)
     expect((await runtime.kernel.plugins.get('goal').get(first.id)).goal).toBeNull()

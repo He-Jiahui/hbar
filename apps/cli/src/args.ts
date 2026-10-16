@@ -31,6 +31,9 @@ export interface CliArgs {
   inputFile?: string | undefined
   text?: string | undefined
   expectedSha256?: string | undefined
+  operationKey?: string | undefined
+  channel?: string | undefined
+  offset?: string | undefined
   client?: string | undefined
   invocationId?: string | undefined
   timeout?: string | undefined
@@ -110,6 +113,9 @@ Usage:
   hbar exec session.clearBudget --session <id|name>
   hbar exec receipt [run.submit|run.retry] <idempotency-key> --session <id|name>
   hbar commands list [--category <category>] [--limit <1-200>]
+  hbar exec command.receipt.get <operationKey> --session <id|name>
+  hbar exec command.result.read <operationKey> --session <id|name>
+    [--channel logical|physical --offset <bytes> --limit <4-8192> --expected-sha256 <hash>]
   hbar commands describe <commandId>
   hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
   hbar exec workspace.open <directory-path>
@@ -257,6 +263,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     inputFile: values['input-file'] as string | undefined,
     text: values.text as string | undefined,
     expectedSha256: values['expected-sha256'] as string | undefined,
+    operationKey: values['operation-key'] as string | undefined,
+    channel: values.channel as string | undefined,
+    offset: values.offset as string | undefined,
     client: values.client as string | undefined,
     invocationId: values['invocation-id'] as string | undefined,
     timeout: values.timeout as string | undefined,

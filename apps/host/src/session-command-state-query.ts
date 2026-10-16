@@ -3,10 +3,11 @@ import { describeCommand, type CommandDefinition } from '@hbar/commands'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
-import { SESSION_COMMAND_STATE_QUERY_IDS } from '@hbar/kernel/session-command-port'
+import { commandResultCommands } from '@hbar/contracts/commands/command-results'
+import { SESSION_COMMAND_STATE_QUERY_IDS, SESSION_COMMAND_RECEIPT_QUERY_IDS } from '@hbar/kernel/session-command-port'
 
-const commandId = z.enum(SESSION_COMMAND_STATE_QUERY_IDS)
-type StateQueryId = (typeof SESSION_COMMAND_STATE_QUERY_IDS)[number]
+const commandId = z.enum([...SESSION_COMMAND_STATE_QUERY_IDS, ...SESSION_COMMAND_RECEIPT_QUERY_IDS] as const)
+type StateQueryId = z.output<typeof commandId>
 const definitions = {
   'goal.get': goalPlanCommands['goal.get'],
   'goal.snapshot': goalPlanCommands['goal.snapshot'],
@@ -14,6 +15,7 @@ const definitions = {
   'plan.get': goalPlanCommands['plan.get'],
   'session.getBudget': budgetCommands['session.getBudget'],
   'mode.get': configurationCommands['mode.get'],
+  ...commandResultCommands,
 } satisfies Record<StateQueryId, CommandDefinition>
 const aliases = {
   'goal.get': ['get_goal'],
@@ -22,6 +24,8 @@ const aliases = {
   'plan.get': ['get_plan'],
   'session.getBudget': ['get_budget'],
   'mode.get': [],
+  'command.receipt.get': [],
+  'command.result.read': [],
 } satisfies Record<StateQueryId, string[]>
 
 /** Only reviewed session queries use this rule; command metadata alone grants no admission. */

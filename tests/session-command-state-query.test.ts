@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { describeCommand } from '@hbar/commands'
-import { SESSION_COMMAND_STATE_QUERY_IDS } from '@hbar/kernel/session-command-port'
+import { SESSION_COMMAND_STATE_QUERY_IDS, SESSION_COMMAND_RECEIPT_QUERY_IDS } from '@hbar/kernel/session-command-port'
+import { commandResultCommands } from '@hbar/contracts/commands/command-results'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
@@ -41,6 +42,16 @@ test('nearby administrative mutations and unknown queries do not inherit read ad
     'unknown.get',
   ])
     expect(sessionStateQueryCommand(id)).toBeUndefined()
+})
+
+test('receipt queries use canonical read definitions and never borrow source mutation or state-tool aliases', () => {
+  expect(new Set(SESSION_COMMAND_RECEIPT_QUERY_IDS).size).toBe(2)
+  for (const id of SESSION_COMMAND_RECEIPT_QUERY_IDS) {
+    const rule = sessionStateQueryCommand(id)
+    expect(rule?.descriptor).toEqual(describeCommand(commandResultCommands[id]))
+    expect(rule?.aliases).toEqual([])
+    expect(rule?.metadata).toMatchObject({ execution: 'host', kind: 'query', stateEffect: 'none', scope: 'session' })
+  }
 })
 
 test('omitted query targets bind to the source without changing explicit or malformed targets', () => {

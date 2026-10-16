@@ -69,7 +69,8 @@ export class CommandResultPayloads {
     if (payload.kind !== 'artifacts' || !this.artifacts.release) return
     for (const artifact of payload.chunks) await this.artifacts.release(source, artifact)
   }
-  async read(raw: CommandReceiptPayload): Promise<unknown> {
+  async read(raw: CommandReceiptPayload, signal?: AbortSignal): Promise<unknown> {
+    signal?.throwIfAborted()
     return this.withCapacity(async () => {
       const payload = commandReceiptPayloadSchema.parse(raw)
       if (payload.kind === 'unavailable') throw new HbarError(payload.error.code, payload.error.message)
@@ -78,7 +79,9 @@ export class CommandResultPayloads {
       const hash = createHash('sha256')
       let size = 0
       for (const artifact of payload.chunks) {
+        signal?.throwIfAborted()
         const bytes = await this.artifacts.read(artifact)
+        signal?.throwIfAborted()
         if (bytes.byteLength !== artifact.size || sha256(bytes) !== artifact.id)
           throw new HbarError('COMMAND_RECEIPT_ARTIFACT', 'Command result attachment failed its content check')
         size += bytes.byteLength
@@ -102,7 +105,7 @@ export class CommandResultPayloads {
       } catch {
         throw new HbarError('COMMAND_RECEIPT_ARTIFACT', 'Command result attachment is not complete UTF-8 JSON')
       }
-    })
+    }, signal)
   }
   async readPage(
     raw: CommandReceiptPayload,

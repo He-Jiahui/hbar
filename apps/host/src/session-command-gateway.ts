@@ -24,6 +24,7 @@ import { SessionCommandAuthorization } from './session-command-authorization'
 import { bindSessionGitInput, sessionGitCommand } from './session-command-git'
 import { bindInteractionSession, sessionInteractionCommand } from './session-command-interaction'
 import { bindSessionStateQueryInput, sessionStateQueryCommand } from './session-command-state-query'
+import { commandResultReferenceSchema } from '@hbar/contracts/command-receipt-read'
 import type { SessionCommandDiscovery } from './session-command-discovery'
 import type { SessionCommandExecution } from './session-command-execution'
 import type { HostSourceApplication } from './command-execution-scopes'
@@ -339,7 +340,16 @@ export class SessionCommandGateway {
     } else if (logical.kind === 'artifacts') {
       status = 'result_available'
       isError = !!receipt.uncertainty
-      content = { resultReference: logical }
+      content = {
+        resultReference: commandResultReferenceSchema.parse({
+          kind: 'command_result',
+          sessionId: receipt.sessionId,
+          operationKey: receipt.operationKey,
+          channel: 'logical',
+          bytes: logical.bytes,
+          sha256: logical.sha256,
+        }),
+      }
     } else {
       const outcome = commandJobLogicalResultSchema.parse(JSON.parse(logical.json) as unknown)
       status = outcome.ok ? 'succeeded' : 'failed'

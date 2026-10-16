@@ -1,8 +1,5 @@
 import { createHash } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
-import { deviceAccessOf } from '@hbar/contracts/device'
-import { workspacePageSchema } from '@hbar/contracts/directory'
-import { commandJobLogicalResultSchema } from '@hbar/commands/jobs'
 import {
   commandExecutionIntentSchema,
   type CommandExecutionIdentity,
@@ -24,6 +21,7 @@ import {
 import type { StoragePort } from '@hbar/storage'
 import { HostCommandExecutionScopes, type HostSourceApplication } from './command-execution-scopes'
 import { CommandResultPayloads } from './command-result-payloads'
+import { CommandReceiptReader } from './command-receipt-reader'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import { CommandJobPayloadUnavailable } from './runtime-command-jobs'
 import { CommandMutationAdmission, type PendingCommandMutation } from './command-mutation-admission'
@@ -77,6 +75,7 @@ const keyOf = (identity: CommandExecutionIdentity) =>
 export class SessionCommandExecution {
   private readonly active = new Map<string, ActiveCommand>()
   private readonly authorization: SessionCommandAuthorization
+  private readonly receipts: CommandReceiptReader
   private readonly mutations: CommandMutationAdmission
   constructor(
     private readonly options: {
@@ -89,6 +88,7 @@ export class SessionCommandExecution {
     },
   ) {
     this.authorization = new SessionCommandAuthorization(options.storage)
+    this.receipts = new CommandReceiptReader(options.storage, options.payloads)
     this.mutations = new CommandMutationAdmission(options.storage, (item, runId) => this.isKnownPending(item, runId))
   }
 
@@ -360,21 +360,8 @@ export class SessionCommandExecution {
       operationKey,
     })
     if (!receipt) return null
-    const access = deviceAccessOf(
-      (await this.authorization.authorize(sessionId, runId, receipt.expectation.descriptor, receipt.invocation)).device,
-    )
-    if (receipt.invocation.commandId !== 'workspace.list' || access.workspaceIds === null) return receipt
-    const allowed = new Set(access.workspaceIds)
-    return {
-      ...receipt,
-      logical: receipt.logical ? await this.visibleDirectoryPayload(receipt.logical, 'logical', allowed) : null,
-      physical: receipt.physical
-        ? {
-            ...receipt.physical,
-            payload: await this.visibleDirectoryPayload(receipt.physical.payload, 'physical', allowed),
-          }
-        : null,
-    }
+    await this.authorization.authorize(sessionId, runId, receipt.expectation.descriptor, receipt.invocation)
+    return this.receipts.readReceipt(source.principal.actorId, { sessionId, operationKey })
   }
   async wait(sessionId: string, runId: string, operationKey: string): Promise<CommandExecutionReceipt | null> {
     const receipt = await this.read(sessionId, runId, operationKey)
@@ -429,34 +416,6 @@ export class SessionCommandExecution {
     const receipt = await this.read(source.sessionId, source.runId, operationKey)
     if (!receipt) throw new HbarError('COMMAND_RECEIPT_REQUIRED', 'The saved command result is unavailable')
     return receipt
-  }
-  private async visibleDirectoryPayload(
-    payload: CommandReceiptPayload,
-    channel: 'logical' | 'physical',
-    allowed: ReadonlySet<string>,
-  ): Promise<CommandReceiptPayload> {
-    if (payload.kind === 'unavailable') return payload
-    try {
-      const data = await this.options.payloads.read(payload)
-      const outcome =
-        channel === 'logical' ? commandJobLogicalResultSchema.parse(data) : commandPhysicalSettlementSchema.parse(data)
-      if (!('result' in outcome)) return payload
-      const result = workspacePageSchema.parse(outcome.result)
-      if (
-        result.items.every((item) => allowed.has(item.id)) &&
-        (result.nextCursor === null || allowed.has(result.nextCursor))
-      )
-        return payload
-      return {
-        kind: 'unavailable',
-        error: {
-          code: 'COMMAND_RECEIPT_ACCESS_CHANGED',
-          message: 'The saved directory result exceeds the device current workspace access',
-        },
-      }
-    } catch (error) {
-      return { kind: 'unavailable', error: errorFact(error) }
-    }
   }
   private async change(entry: ActiveCommand, change: CommandExecutionUpdate['change']): Promise<void> {
     const action = entry.serial.then(async () => {

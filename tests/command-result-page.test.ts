@@ -234,7 +234,7 @@ test('worst-case escaped pages and reserved metadata still save inline instead o
     sha256: 'a'.repeat(64),
     content: '\u0000'.repeat(COMMAND_RESULT_PAGE_BYTES),
   })
-  const saved = await f.payloads.save({ ok: true, result: { ...page, reservedMetadata: 'm'.repeat(4096) } }, source)
+  const saved = await f.payloads.save({ ok: true, result: { ...page, reservedMetadata: 'm'.repeat(8192) } }, source)
   expect(saved.kind).toBe('inline')
   if (saved.kind !== 'inline') throw new Error('Recursive result reference')
   expect(encode(saved.json).byteLength).toBeLessThanOrEqual(COMMAND_RECEIPT_INLINE_BYTES)

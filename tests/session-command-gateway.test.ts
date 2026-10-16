@@ -1,15 +1,22 @@
 import { expect, test } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { CommandRegistry, createCommandRouter } from '@hbar/commands'
+import { CommandRegistry, createCommandRouter, prepareCommandInvocation } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { fileCommands } from '@hbar/contracts/commands/files'
 import { gitCommands } from '@hbar/contracts/commands/git'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import { commandResultCommands as commandResultDefinitions } from '@hbar/contracts/commands/command-results'
+import {
+  commandReceiptViewSchema,
+  commandResultReadOutputSchema,
+  commandResultReferenceSchema,
+} from '@hbar/contracts/command-receipt-read'
 import { SESSION_COMMAND_STATE_QUERY_IDS } from '@hbar/kernel/session-command-port'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import { Storage } from '@hbar/storage'
@@ -19,6 +26,8 @@ import { SessionCommandDiscovery } from '../apps/host/src/session-command-discov
 import { HostCommandExecutionScopes } from '../apps/host/src/command-execution-scopes'
 import { LocalCommandJobs } from '../apps/host/src/local-command-jobs'
 import { CommandResultPayloads } from '../apps/host/src/command-result-payloads'
+import { CommandReceiptReader } from '../apps/host/src/command-receipt-reader'
+import { createCommandResultCommands } from '../apps/host/src/command-result-commands'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 
 const inProcessStorage = process.env.HBAR_TEST_GATEWAY_STORAGE_IN_PROCESS === '1'
@@ -34,7 +43,7 @@ async function failure(promise: Promise<unknown>): Promise<unknown> {
   throw new Error('Expected command rejection')
 }
 
-async function fixture() {
+async function fixture(allowLargeResults = false) {
   const prefix = 'hbar-command-gateway-'
   const root = await mkdtemp(join(tmpdir(), prefix))
   const storage = inProcessStorage
@@ -138,20 +147,44 @@ async function fixture() {
       }
     },
   })
+  const artifacts = new Map<string, Uint8Array>()
+  const payloads = new CommandResultPayloads({
+    write: async (_source, index, bytes) => {
+      if (!allowLargeResults) throw new Error('Unexpected large result')
+      const id = createHash('sha256').update(bytes).digest('hex')
+      const artifact = { id, name: `result-${index}`, mime: 'application/octet-stream', size: bytes.byteLength }
+      await storage.call('putArtifact', artifact)
+      artifacts.set(id, bytes.slice())
+      return artifact
+    },
+    read: (artifact) => {
+      if (!allowLargeResults) return Promise.reject(new Error('Unexpected artifact read'))
+      const bytes = artifacts.get(artifact.id)
+      return bytes ? Promise.resolve(bytes.slice()) : Promise.reject(new Error('Unknown fixture artifact'))
+    },
+  })
+  const commandResults = createCommandResultCommands(new CommandReceiptReader(storage, payloads))
   const routing = createCommandRouter({
-    catalogs: () => [registry.list()],
-    resolve: (id) => ({
-      describe: () => registry.describe(id),
-      prepare: async (value) => registry.prepare(value),
-      dispatch: (value, actorId) => registry.dispatch(value, { actorId }),
-      dispatchPrepared: registry.dispatchPrepared.bind(registry),
-      dispatchPreparedTracked: (value, actorId, expectation, options) =>
-        jobs.execute(
-          actorId,
-          (actualSignal) => registry.dispatchPreparedTracked(value, actorId, expectation, { signal: actualSignal }),
-          options,
-        ),
-    }),
+    catalogs: () => [registry.list(), commandResults.list()],
+    resolve: (id) => {
+      const result = Object.hasOwn(commandResultDefinitions, id)
+      const guarded = result ? commandResults.dispatchPrepared : registry.dispatchPrepared.bind(registry)
+      const tracked = result ? commandResults.dispatchPreparedTracked : registry.dispatchPreparedTracked.bind(registry)
+      return {
+        describe: () => (result ? commandResults.describe(id) : registry.describe(id)),
+        prepare: (value) =>
+          result ? prepareCommandInvocation(commandResultDefinitions, value) : registry.prepare(value),
+        dispatch: (value, actorId) =>
+          result ? commandResults.dispatch(value, actorId) : registry.dispatch(value, { actorId }),
+        dispatchPrepared: guarded,
+        dispatchPreparedTracked: (value, actorId, expectation, options) =>
+          jobs.execute(
+            actorId,
+            (actualSignal) => tracked(value, actorId, expectation, { signal: actualSignal }),
+            options,
+          ),
+      }
+    },
   })
   const discovery = new SessionCommandDiscovery()
   const detach = discovery.attach(routing)
@@ -162,14 +195,7 @@ async function fixture() {
     assertSource: (actual) => {
       expect(actual).toEqual(source)
     },
-    payloads: new CommandResultPayloads({
-      write: async () => {
-        throw new Error('Unexpected large result')
-      },
-      read: async () => {
-        throw new Error('Unexpected artifact read')
-      },
-    }),
+    payloads,
   })
   const createGateway = () =>
     new SessionCommandGateway({
@@ -199,11 +225,149 @@ async function fixture() {
       detach()
       discovery.close()
       registry.dispose()
+      commandResults.dispose()
+      artifacts.clear()
       await storage.close()
       await removeOwnedTestDirectory(root, prefix)
     },
   }
 }
+
+test('receipt queries route with independent operation keys and cached pages cannot bypass current directory access', async () => {
+  const f = await fixture()
+  try {
+    const other = await f.storage.call('createWorkspace', join(f.workspace.path, 'other'), 'Other workspace')
+    const original = await f.gateway.prepare(f.source, 'list-original', f.call, f.signal)
+    expect((await f.gateway.execute(f.source, 'list-original', original, f.signal)).isError).toBe(false)
+    const identity = { sessionId: f.source.sessionId, actorId: f.device.id, operationKey: f.call.operationKey }
+    const receipt = await f.storage.call('commandExecutionRead', identity)
+    if (!receipt) throw new Error('Missing original receipt')
+    for (const commandId of ['command.receipt.get', 'command.result.read'] as const) {
+      const call = {
+        commandId,
+        commandVersion: 1,
+        operationKey: `query-${commandId}`,
+        input: { operationKey: receipt.operationKey },
+      }
+      const prepared = await f.gateway.prepare(f.source, `call-${commandId}`, call, f.signal)
+      expect(prepared.arguments.input).toMatchObject({
+        sessionId: f.source.sessionId,
+        operationKey: receipt.operationKey,
+      })
+      expect(prepared.arguments.operationKey).toBe(call.operationKey)
+      expect(prepared.admission.effect).toBe('read')
+      expect(prepared.admission.permissionAliases).toBeUndefined()
+      const result = await f.gateway.execute(f.source, `call-${commandId}`, prepared, f.signal)
+      expect(result.isError).toBe(false)
+      if (commandId === 'command.receipt.get') {
+        const view = z
+          .object({ status: z.literal('succeeded'), result: commandReceiptViewSchema })
+          .parse(JSON.parse(result.text) as unknown).result
+        expect(view).toMatchObject({ operationKey: receipt.operationKey, commandId: 'workspace.list' })
+      } else {
+        const page = z
+          .object({ status: z.literal('succeeded'), result: commandResultReadOutputSchema })
+          .parse(JSON.parse(result.text) as unknown).result
+        expect(page.page.content).toContain(other.id)
+      }
+    }
+    expect(await f.storage.call('commandExecutionRead', identity)).toEqual(receipt)
+    await f.storage.call('revokeDevice', f.device.id)
+    await f.storage.call('putDevice', { ...f.device, workspaceIds: [f.workspace.id] }, 'narrowed-scope')
+    const replay = await f.gateway.prepare(
+      f.source,
+      'replay-page',
+      {
+        commandId: 'command.result.read',
+        commandVersion: 1,
+        operationKey: 'query-command.result.read',
+        input: { operationKey: receipt.operationKey },
+      },
+      f.signal,
+    )
+    expect(await failure(f.gateway.execute(f.source, 'replay-page', replay, f.signal))).toMatchObject({
+      code: 'COMMAND_RECEIPT_ACCESS_CHANGED',
+    })
+    expect(await f.storage.call('commandExecutionRead', identity)).toEqual(receipt)
+    expect(f.counts()).toEqual({ reads: 1, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
+
+test('receipt queries read a real large Registry result through the Session gateway and reconstruct its original JSON hash', async () => {
+  const f = await fixture(true)
+  try {
+    const component = 'w'.repeat(200)
+    for (let index = 0; index < 80; index++)
+      await f.storage.call(
+        'createWorkspace',
+        join(f.workspace.path, component, component, component, component, `workspace-${index}`),
+        `Workspace ${index} ${'n'.repeat(140)}`,
+      )
+    const call = { ...f.call, input: { limit: 100 } }
+    const prepared = await f.gateway.prepare(f.source, 'large-directory', call, f.signal)
+    const result = await f.gateway.execute(f.source, 'large-directory', prepared, f.signal)
+    const reference = z
+      .object({ status: z.literal('result_available'), resultReference: commandResultReferenceSchema })
+      .parse(JSON.parse(result.text) as unknown).resultReference
+    expect(result.isError).toBe(false)
+    expect(reference.bytes).toBeGreaterThan(65_536)
+    expect(result.text).not.toContain('chunks')
+    expect(reference).toMatchObject({
+      sessionId: f.source.sessionId,
+      operationKey: call.operationKey,
+      channel: 'logical',
+    })
+    const identity = { sessionId: f.source.sessionId, actorId: f.device.id, operationKey: call.operationKey }
+    const original = await f.storage.call('commandExecutionRead', identity)
+    const parts: string[] = []
+    let offset = 0
+    for (let index = 0; index < 64; index++) {
+      const read = await f.gateway.prepare(
+        f.source,
+        `page-${index}`,
+        {
+          commandId: 'command.result.read',
+          commandVersion: 1,
+          operationKey: `read-page-${index}`,
+          input: {
+            sessionId: reference.sessionId,
+            operationKey: reference.operationKey,
+            channel: reference.channel,
+            offset,
+            limit: 8192,
+            expectedSha256: reference.sha256,
+          },
+        },
+        f.signal,
+      )
+      const response = await f.gateway.execute(f.source, `page-${index}`, read, f.signal)
+      const page = z
+        .object({ status: z.literal('succeeded'), result: commandResultReadOutputSchema })
+        .parse(JSON.parse(response.text) as unknown).result.page
+      expect(response.isError).toBe(false)
+      expect(response.text).not.toContain('resultReference')
+      expect(page.offset).toBe(offset)
+      parts.push(page.content)
+      if (page.nextOffset === null) break
+      expect(page.nextOffset).toBeGreaterThan(offset)
+      offset = page.nextOffset
+    }
+    const json = parts.join('')
+    expect(new TextEncoder().encode(json).byteLength).toBe(reference.bytes)
+    expect(createHash('sha256').update(json).digest('hex')).toBe(reference.sha256)
+    const decoded: unknown = JSON.parse(json)
+    expect(
+      z.object({ ok: z.literal(true), result: z.object({ items: z.array(z.unknown()).length(81) }) }).safeParse(decoded)
+        .success,
+    ).toBe(true)
+    expect(await f.storage.call('commandExecutionRead', identity)).toEqual(original)
+    expect(f.counts()).toEqual({ reads: 1, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
 
 test('state query commands bind defaults, preserve source aliases and reconcile their original receipt', async () => {
   const f = await fixture()

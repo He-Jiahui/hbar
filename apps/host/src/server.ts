@@ -49,6 +49,9 @@ import { resourceReadInputSchema } from '@hbar/contracts/commands/resources'
 import { createSystemCommands } from './system-commands.ts'
 import { LocalCommandJobs } from './local-command-jobs'
 import { createHostCommandResultPayloads } from './host-command-result-payloads'
+import { CommandReceiptReader } from './command-receipt-reader'
+import { createCommandResultCommands } from './command-result-commands'
+import { commandResultCommands as commandResultDefinitions } from '@hbar/contracts/commands/command-results'
 import { SessionCommandExecution } from './session-command-execution'
 import { ClientCommandRelay } from './client-command-relay'
 import { ClientCommandJobs } from './client-command-jobs'
@@ -436,6 +439,15 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     commandDispatchers.set(id, systemCommands.dispatch)
     commandDescribers.set(id, () => systemCommands.describe(id))
   }
+  const commandResultPayloads = createHostCommandResultPayloads(kernel)
+  const commandResultCommands = createCommandResultCommands(
+    new CommandReceiptReader(kernel.storage, commandResultPayloads),
+  )
+  commandServices.push({ commandIds: Object.keys(commandResultDefinitions), service: commandResultCommands })
+  for (const id of Object.keys(commandResultDefinitions)) {
+    commandDispatchers.set(id, commandResultCommands.dispatch)
+    commandDescribers.set(id, () => commandResultCommands.describe(id))
+  }
   const nodeCommands = createNodeCommands(options.nodeLink)
   commandServices.push({ commandIds: Object.keys(nodeDefinitions), service: nodeCommands })
   for (const id of Object.keys(nodeDefinitions)) {
@@ -465,8 +477,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         : Object.hasOwn(systemDefinitions, id)
           ? systemCommands.dispatchPreparedTracked
           : commandServices.find((entry) => entry.commandIds.includes(id))?.service.dispatchPreparedTracked
-      const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions].find((definitions) =>
-        Object.hasOwn(definitions, id),
+      const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions, commandResultDefinitions].find(
+        (definitions) => Object.hasOwn(definitions, id),
       )
       let prepare = localDefinitions
         ? (value: unknown) => prepareCommandInvocation(localDefinitions, value)
@@ -553,7 +565,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           storage: kernel.storage,
           routing: commandRouter,
           scopes: options.runtime.commandScopes,
-          payloads: createHostCommandResultPayloads(kernel),
+          payloads: commandResultPayloads,
           assertSource: assertCommandSource,
           ...(clientCommandJobs ? { clients: clientCommandJobs } : {}),
         })
@@ -1929,6 +1941,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
       systemCommands.dispose()
       nodeCommands.dispose()
+      commandResultCommands.dispose()
       remoteWorkspaceCommands.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
