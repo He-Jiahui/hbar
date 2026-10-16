@@ -21,7 +21,7 @@ import {
   type TrackedCommandRoutingPort,
 } from '@hbar/commands'
 import type { StoragePort } from '@hbar/storage'
-import { HostCommandExecutionScopes } from './command-execution-scopes'
+import { HostCommandExecutionScopes, type HostSourceApplication } from './command-execution-scopes'
 import { CommandResultPayloads } from './command-result-payloads'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import { CommandJobPayloadUnavailable } from './runtime-command-jobs'
@@ -32,6 +32,7 @@ export interface SessionCommandExecutionRequest {
   readonly operationKey: string
   readonly prepared: CommandPreparation
   readonly signal?: AbortSignal
+  readonly application?: HostSourceApplication
 }
 interface ActiveCommand {
   receipt: CommandExecutionReceipt | null
@@ -138,6 +139,8 @@ export class SessionCommandExecution {
         const ticket = this.options.scopes.run(
           {
             source,
+            callId: request.callId,
+            ...(request.application ? { application: request.application } : {}),
             beforeStart: async (owner, signal) => {
               entry.owner = owner
               signal.throwIfAborted()

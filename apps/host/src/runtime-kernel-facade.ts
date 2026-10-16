@@ -105,21 +105,28 @@ export class RuntimeKernelFacade {
     this.api = {
       ...this.methods('kernel'),
       createNodeWorkspace: (input) => this.call('kernel', 'createNodeWorkspace', [input]),
-      ...(options.configurePlugin ? {
-        changePlugin: options.configurePlugin,
-        changePluginTree: async () => { throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Changing the plugin capability graph requires an explicit restart') },
-      } : {}),
+      ...(options.configurePlugin
+        ? {
+            changePlugin: options.configurePlugin,
+            changePluginTree: async () => {
+              throw new HbarError(
+                'RUNTIME_RESTART_REQUIRED',
+                'Changing the plugin capability graph requires an explicit restart',
+              )
+            },
+          }
+        : {}),
       instanceId: options.instanceId,
       options: {
         layout: options.layout,
         demo: options.demo,
         noLocalExec: options.noLocalExec ?? false,
-        ...(options.nodeWorkspaceInspection
-          ? { nodeWorkspaceInspection: options.nodeWorkspaceInspection }
-          : {}),
+        ...(options.nodeWorkspaceInspection ? { nodeWorkspaceInspection: options.nodeWorkspaceInspection } : {}),
       },
       storage: options.storage,
-      storageHealth: () => ({ ready: options.endpoints().some((endpoint) => endpoint.process.snapshot().phase === 'serving') }),
+      storageHealth: () => ({
+        ready: options.endpoints().some((endpoint) => endpoint.process.snapshot().phase === 'serving'),
+      }),
       ...(options.cancel ? { cancel: options.cancel } : {}),
       get recovered() {
         return self.recovered
@@ -335,10 +342,12 @@ export class RuntimeKernelFacade {
     }
   }
   private async call<Result>(target: string, method: string, args: readonly unknown[]): Promise<Result> {
-    const endpoint = await this.options.resolve(target, method, args, this.context.getStore())
-    if (!['serving', 'draining'].includes(endpoint.process.snapshot().phase))
-      throw new HbarError('RUNTIME_RECOVERING', 'The requested Kernel owner is recovering')
     try {
+      const source = this.options.commandScopes?.invokeApplication<Result>(target, method, args)
+      if (source) return await source
+      const endpoint = await this.options.resolve(target, method, args, this.context.getStore())
+      if (!['serving', 'draining'].includes(endpoint.process.snapshot().phase))
+        throw new HbarError('RUNTIME_RECOVERING', 'The requested Kernel owner is recovering')
       return await this.pin(endpoint, () =>
         endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 }),
       )
