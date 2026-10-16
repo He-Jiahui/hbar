@@ -88,6 +88,8 @@ export function procedure<Input, Output>(
   }
 }
 export interface IpcCallOptions {
+  /** Physical reply, or proof no dispatch occurred. Closing a dispatched peer is unknown. */
+  readonly onDispatchSettled?: ((event: 'reply' | 'not-dispatched') => void) | undefined
   readonly signal?: AbortSignal | undefined
   readonly timeoutMs?: number | undefined
   readonly requestId?: string | undefined
@@ -120,6 +122,7 @@ export interface IpcCallTimeout {
 }
 
 interface Pending {
+  readonly dispatchSettled: (event: 'reply' | 'not-dispatched') => void
   readonly id: string
   readonly control: boolean
   encoded: string | undefined
@@ -321,8 +324,24 @@ export class IpcPeer {
     output: z.ZodType<Output>,
     options: IpcCallOptions = {},
   ): Promise<Output> {
-    if (this.failure) return Promise.reject(this.failure)
-    if (options.signal?.aborted) return Promise.reject(new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'))
+    let dispatchObserved = false
+    const dispatchSettled = (event: 'reply' | 'not-dispatched'): void => {
+      if (dispatchObserved) return
+      dispatchObserved = true
+      try {
+        options.onDispatchSettled?.(event)
+      } catch {
+        console.error('[hbar runtime] dispatch settlement observer failed')
+      }
+    }
+    if (this.failure) {
+      dispatchSettled('not-dispatched')
+      return Promise.reject(this.failure)
+    }
+    if (options.signal?.aborted) {
+      dispatchSettled('not-dispatched')
+      return Promise.reject(new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'))
+    }
     const callId = crypto.randomUUID()
     const requestId = options.requestId ?? callId
     let message: CallMessage
@@ -341,6 +360,7 @@ export class IpcPeer {
       bytes = new TextEncoder().encode(encoded).byteLength
       limit(options.timeoutMs, this.timeoutMs)
     } catch (error) {
+      dispatchSettled('not-dispatched')
       return Promise.reject(error)
     }
     if (
@@ -349,11 +369,14 @@ export class IpcPeer {
         : this.runningNormal >= this.normalCapacity) &&
         this.queue.length >= this.maximumQueued) ||
       this.queuedBytes + bytes > this.maximumBytes
-    )
+    ) {
+      dispatchSettled('not-dispatched')
       return Promise.reject(new HbarError('IPC_BUSY', 'Runtime request capacity is exhausted'))
+    }
     return new Promise<Output>((resolve, reject) => {
       const enqueuedAt = performance.now()
       const pending: Pending = {
+        dispatchSettled,
         id: callId,
         control: this.controlMethods.has(method),
         encoded,
@@ -471,6 +494,7 @@ export class IpcPeer {
     if (this.failure) return
     this.failure = error
     for (const pending of this.pending.values()) {
+      if (!pending.started) pending.dispatchSettled('not-dispatched')
       this.settle(pending)
       pending.reject(error)
     }
@@ -514,6 +538,7 @@ export class IpcPeer {
     this.settle(pending)
     pending.reject(error)
     if (!pending.started) {
+      pending.dispatchSettled('not-dispatched')
       this.pending.delete(callId)
       this.queue = this.queue.filter((id) => id !== callId)
       this.queuedBytes -= pending.bytes
@@ -549,6 +574,7 @@ export class IpcPeer {
         this.pending.delete(message.id)
         this.running--
         if (!pending.control) this.runningNormal--
+        pending.dispatchSettled('reply')
         if (!pending.settled) {
           this.settle(pending)
           if (message.ok) pending.resolve(message.result)
