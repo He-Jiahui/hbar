@@ -1444,6 +1444,27 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         methods.recover({ runIds: [run.id], preserveQueued: true, preserveApprovals: true, reconcileInterrupted: true })
       },
       archived: (id) => methods.session(id).archived,
+      driverCompletionCommitted(sessionId, runIds) {
+        if (runIds.length === 0 || runIds.length > 33 || new Set(runIds).size !== runIds.length)
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion requires one bounded verified lineage')
+        const row = db
+          .query<{ data: string | null }, string[]>(
+            `SELECT CASE WHEN length(CAST(data AS BLOB))<=128 THEN data ELSE NULL END AS data
+             FROM events WHERE sessionId=? AND runId IN (${runIds.map(() => '?').join(',')})
+             AND type='run.driverCompleted' ORDER BY seq LIMIT 1`,
+          )
+          .get(sessionId, ...runIds)
+        if (!row) return false
+        let data: unknown
+        try {
+          data = row.data === null ? null : JSON.parse(row.data)
+        } catch {
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion marker is not canonical JSON')
+        }
+        if (!z.strictObject({ version: z.literal(1) }).safeParse(data).success)
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion marker differs from its canonical version')
+        return true
+      },
       restoreBinding: (binding) => sessionLaunchTarget.restoreBinding(binding),
       start(run, startedAt) {
         db.query("UPDATE runs SET status='running',startedAt=? WHERE id=?").run(startedAt, run.id)

@@ -5,6 +5,7 @@ import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { executionPrincipalSchema } from '@hbar/contracts/execution-principal'
 import { sessionLaunchTargetBindingSchema } from './session-launch-target'
 import type { SessionLaunchTargetBinding } from './types'
+import { createBackendContinuationCheck } from './backend-continuation'
 import {
   executionOwnershipSchema,
   recoveryChainSchema,
@@ -61,6 +62,8 @@ export interface RuntimeStatePort {
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
   retrySuccessor?(id: string): Run | null
   archived(sessionId: string): boolean
+  /** Read a bounded canonical completion witness for this Session and its verified Run lineage. */
+  driverCompletionCommitted(sessionId: string, runIds: readonly string[]): boolean
   /** Called in the same SQLite transaction as the ownership record. */
   start(run: Run, startedAt: number): Run
   /** Atomically append one canonical record containing both Run and recovery identity. */
@@ -75,6 +78,23 @@ function parseJson(text: string): unknown {
 
 /** Durable authority is checked in the database Worker, immediately before a protected write. */
 export function createRuntimeState(db: Database, port: RuntimeStatePort) {
+  const automaticContinuationAllowed = createBackendContinuationCheck(db)
+  function driverCompletionCommitted(run: Run): boolean {
+    const ids = new Set([run.id])
+    let predecessor = run
+    for (let depth = 0; predecessor.recovery && depth < 32; depth++) {
+      predecessor = port.run(predecessor.recovery.predecessorRunId)
+      if (predecessor.sessionId !== run.sessionId || ids.has(predecessor.id))
+        throw new HbarError(
+          'SESSION_LOG_CORRUPTED',
+          'Driver completion lineage is cyclic or belongs to another Session',
+        )
+      ids.add(predecessor.id)
+    }
+    if (predecessor.recovery)
+      throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion lineage exceeds its recovery limit')
+    return port.driverCompletionCommitted(run.sessionId, [...ids])
+  }
   function ownership(runId: string): { lease: ExecutionOwnership; state: string } | null {
     const row = db
       .query<{ leaseJson: string; state: string }, [string]>(
@@ -408,14 +428,22 @@ export function createRuntimeState(db: Database, port: RuntimeStatePort) {
             return { ...record, run: port.run(record.run.id), chain: readChain(record.chain.chainId) ?? record.chain }
           if (record.chain.status !== 'pending') return record
           const original = port.run(predecessorRunId)
-          const reasonCode = reason(original)
+          const reasonCode =
+            reason(original) ??
+            (!record.manual && !automaticContinuationAllowed() && !driverCompletionCommitted(original)
+              ? 'BACKEND_AUTOMATION_DISABLED'
+              : null)
           if (reasonCode)
             return publish({
               ...record,
               chain: {
                 ...record.chain,
                 status:
-                  reasonCode === 'APPROVAL_PENDING' || reasonCode === 'EFFECT_UNKNOWN' ? 'waiting' : 'manual_required',
+                  reasonCode === 'APPROVAL_PENDING' ||
+                  reasonCode === 'EFFECT_UNKNOWN' ||
+                  reasonCode === 'BACKEND_AUTOMATION_DISABLED'
+                    ? 'waiting'
+                    : 'manual_required',
                 reasonCode,
                 updatedAt: Date.now(),
               },
