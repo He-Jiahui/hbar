@@ -29,6 +29,7 @@ import {
   runtimeKernelCancelSchema,
   runtimeKernelCommandCatalogSchema,
   runtimeKernelCommandDescribeSchema,
+  runtimeKernelMutationAdmissionSchema,
 } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
@@ -196,6 +197,21 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
+      mutationAdmission: {
+        assertAllowed: (identity) =>
+          context.peer.call(
+            'kernel.commands.admitMutation',
+            runtimeKernelMutationAdmissionSchema.parse({
+              sessionId: identity.sessionId,
+              runId: identity.runId,
+              callId: identity.callId,
+              tool: identity.tool,
+              effect: identity.effect,
+            }),
+            z.undefined(),
+            { signal: identity.signal, timeoutMs: 15_000 },
+          ),
+      },
       sessionCommands: {
         list: (query, identity) => context.peer.call('kernel.commands.list',
           runtimeKernelCommandCatalogSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),

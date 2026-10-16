@@ -43,6 +43,7 @@ import {
   runtimeKernelVerifyWorkspaceFoldersSchema,
   runtimeKernelNodeWorktreeSchema,
   runtimeKernelRunSchema,
+  runtimeKernelMutationAdmissionSchema,
 } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import {
@@ -80,6 +81,7 @@ import { RuntimeControllerAdapter } from './runtime-controller-adapter'
 import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
 import { HostCommandExecutionScopes } from './command-execution-scopes'
+import { CommandMutationAdmission, type CommandMutationState } from './command-mutation-admission'
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
 import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
@@ -160,6 +162,17 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private readonly processTree = createRuntimeProcessTreePort()
   readonly storage = new StableStoragePort()
+  private commandMutationState: CommandMutationState | null = null
+  private readonly commandMutationAdmission = new CommandMutationAdmission(
+    this.storage,
+    (item, runId) => this.commandMutationState?.isKnownPending(item, runId) ?? false,
+  )
+  attachCommandMutationState(state: CommandMutationState): () => void {
+    this.commandMutationState = state
+    return () => {
+      if (this.commandMutationState === state) this.commandMutationState = null
+    }
+  }
   readonly artifacts: RuntimeArtifactStore
   readonly coordinator: RuntimeCoordinator
   readonly manager: RuntimeManager
@@ -1538,10 +1551,22 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const assertCommandCaller = (input: { sessionId: string; runId: string }) => {
       const lease = this.leases.get(input.runId)
       if (!lease || lease.sessionId !== input.sessionId)
-        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Command discovery requires this Session Run claim')
+        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Command access requires this Session Run claim')
       this.coordinator.assertCanWrite(owner, lease)
     }
     record.cleanup.push(
+      peer.register(
+        'kernel.commands.admitMutation',
+        procedure(runtimeKernelMutationAdmissionSchema, z.undefined(), async (input, call) => {
+          assertCommandCaller(input)
+          await this.commandMutationAdmission.assertAllowed({
+            sessionId: input.sessionId,
+            runId: input.runId,
+            signal: call.signal,
+          })
+          assertCommandCaller(input)
+        }),
+      ),
       peer.register(
         'kernel.commands.list',
         procedure(runtimeKernelCommandCatalogSchema, commandCatalogPageSchema, async (input, call) => {

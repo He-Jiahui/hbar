@@ -9,6 +9,8 @@ import { ensureNodeRunWorktree } from './node-run-worktree'
 import { bindToolCall, type ToolCallPreparationPort } from './tool-call-binding'
 import { createSessionCommandTools } from './session-command-tools'
 import type { SessionCommandDiscoveryPort } from './session-command-port'
+import type { ToolMutationAdmissionPort } from './mutation-admission'
+export type { ToolMutationAdmissionPort, ToolMutationAdmissionContext } from './mutation-admission'
 export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
 export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
 import { assertRemoteLaunchTargetSupported, nodeWorktreeBranchPlan } from './node-worktree-selection'
@@ -428,6 +430,8 @@ export interface KernelOptions {
   execution?: KernelExecutionPort | undefined
   /** Host-owned final operation binding, after transforming Hooks and before every execution gate. */
   toolCalls?: ToolCallPreparationPort | undefined
+  /** Additional reconciliation restriction for all final mutating tools, including dynamically bound commands. */
+  mutationAdmission?: ToolMutationAdmissionPort | undefined
   /** Stable Host command discovery; every session inherits the core discovery tools when supplied. */
   sessionCommands?: SessionCommandDiscoveryPort | undefined
   /** Private Host bridge for authenticated remote execution intent recovery. */
@@ -3176,6 +3180,18 @@ export class Kernel {
       restoreExecutionFacts()
       assertBoundary()
       await this.assertRunPermission(context.run)
+      if (tool.effect !== 'read' && this.options.mutationAdmission) {
+        await this.options.mutationAdmission.assertAllowed({
+          sessionId: executionFacts.session.id,
+          runId: executionFacts.run.id,
+          callId: executionFacts.callId,
+          tool: name,
+          effect: tool.effect,
+          signal: controller.signal,
+        })
+        restoreExecutionFacts()
+        assertBoundary()
+      }
       const mode = requestedMode ?? this.permissionModeValue
       let nodeAdmission: NodeCallAuthority['admission'] = { kind: 'allow' }
       let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)

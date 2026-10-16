@@ -356,6 +356,58 @@ test('an unconfirmed write blocks fresh operation keys while read-only inspectio
   }
 })
 
+test('newer canonical uncertainty cannot be bypassed by a still-running in-memory command', async () => {
+  const f = await fixture()
+  let original: Promise<unknown> | undefined
+  try {
+    original = f.service.execute(f.request)
+    await f.entered.promise
+    const receipt = await f.storage.call('commandExecutionRead', {
+      sessionId: f.session.id,
+      actorId: f.device.id,
+      operationKey: 'write-once',
+    })
+    if (!receipt) throw new Error('Expected accepted original command')
+    const pending = (await f.storage.call('commandExecutionPending', f.session.id)).items[0]
+    if (!pending) throw new Error('Expected pending command metadata')
+    expect(f.service.isKnownPending(pending, f.run.id)).toBe(true)
+    await f.storage.call('commandExecutionUpdate', {
+      sessionId: f.session.id,
+      actorId: f.device.id,
+      operationKey: 'write-once',
+      expectedRevision: receipt.revision,
+      change: {
+        kind: 'uncertain',
+        error: { code: 'RESULT_UNKNOWN', message: 'A newer canonical reconciliation is required' },
+      },
+    })
+    const newer = (await f.storage.call('commandExecutionPending', f.session.id)).items[0]
+    if (!newer) throw new Error('Expected canonical uncertainty')
+    expect(f.service.isKnownPending(newer, f.run.id)).toBe(false)
+    expect(
+      await failure(
+        f.service.execute({
+          ...f.request,
+          operationKey: 'fresh-key',
+          prepared: {
+            ...f.request.prepared,
+            invocation: { ...f.request.prepared.invocation, requestId: 'fresh-request', idempotencyKey: 'fresh-key' },
+          },
+        }),
+      ),
+    ).toMatchObject({ code: 'COMMAND_RESULT_UNCONFIRMED' })
+    expect(f.counts().writes).toBe(0)
+    f.gate.resolve()
+    await original
+    await f.service.wait(f.session.id, f.run.id, 'write-once')
+    expect(f.counts().writes).toBe(1)
+  } finally {
+    f.gate.resolve()
+    await original
+    await f.close()
+  }
+})
+
 test('a replacement service and later Run cannot bypass a durable unconfirmed predecessor with a fresh key', async () => {
   const f = await fixture()
   try {

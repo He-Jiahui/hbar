@@ -3,7 +3,14 @@ import { z } from 'zod'
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Kernel, MemorySecrets, type ToolCallPreparationPort, type ToolCallBinding } from '@hbar/kernel'
+import {
+  Kernel,
+  MemorySecrets,
+  type ToolCallPreparationPort,
+  type ToolCallBinding,
+  type ToolMutationAdmissionPort,
+  type ToolMutationAdmissionContext,
+} from '@hbar/kernel'
 import { HbarError, type ApprovalMode } from '@hbar/contracts'
 import { describeRuntimeHook, restoreRuntimeHook } from '@hbar/plugin-sdk/runtime-plugin'
 import type { ToolDefinition } from '@hbar/plugin-sdk'
@@ -17,7 +24,11 @@ const input = z.strictObject({
   command: z.string().default('echo approved'),
 })
 
-async function fixture(prepare?: ToolCallPreparationPort['prepare'], timeoutMs = 1_000) {
+async function fixture(
+  prepare?: ToolCallPreparationPort['prepare'],
+  timeoutMs = 1_000,
+  mutationAdmission?: ToolMutationAdmissionPort,
+) {
   const prefix = 'hbar-tool-call-binding-'
   const root = await mkdtemp(join(tmpdir(), prefix))
   let executions = 0
@@ -55,6 +66,7 @@ async function fixture(prepare?: ToolCallPreparationPort['prepare'], timeoutMs =
     demo: true,
     secrets: new MemorySecrets(),
     toolCalls: port,
+    mutationAdmission,
   })
   const workspace = (await kernel.storage.call('workspaces'))[0]
   if (!workspace) throw new Error('Binding fixture has no workspace')
@@ -106,6 +118,120 @@ async function fixture(prepare?: ToolCallPreparationPort['prepare'], timeoutMs =
     },
   }
 }
+
+test('mutation reconciliation checks the final transformed effect before approval, durable intent or file writes', async () => {
+  const admissions: ToolMutationAdmissionContext[] = []
+  const f = await fixture(undefined, 1_000, {
+    async assertAllowed(context) {
+      admissions.push(context)
+      throw new HbarError('COMMAND_RESULT_UNCONFIRMED', 'Confirm the original write first')
+    },
+  })
+  try {
+    f.kernel.hooks.on('tool.before', (event) =>
+      event.name === 'bound_operation' ? { ...event, args: { ...event.args, action: 'write' } } : event,
+    )
+    const { run, snapshot, results } = await f.run('read', 'ask')
+    expect(admissions).toHaveLength(1)
+    expect(admissions[0]).toMatchObject({
+      sessionId: f.session.id,
+      runId: run.id,
+      tool: 'bound_operation',
+      effect: 'write',
+    })
+    expect(admissions[0]?.callId).toBeString()
+    expect(results.at(-1)?.text).toContain('Confirm the original write first')
+    expect(snapshot.approvals).toHaveLength(0)
+    expect(f.executions).toBe(0)
+    expect(await Bun.file(join(f.root, 'proof.txt')).exists()).toBe(false)
+    expect(
+      (await f.kernel.storage.call('events', f.session.id, 0)).filter((event) => event.type === 'tool.started'),
+    ).toHaveLength(0)
+  } finally {
+    await f.close()
+  }
+})
+
+test('read-only inspection remains available without admitting a mutation', async () => {
+  const f = await fixture(undefined, 1_000, {
+    async assertAllowed() {
+      throw new Error('A read must not enter mutation admission')
+    },
+  })
+  try {
+    const { results } = await f.run('read')
+    expect(results.at(-1)).toMatchObject({ text: 'bound:read' })
+    expect(f.executions).toBe(1)
+  } finally {
+    await f.close()
+  }
+})
+
+test('a reconciled mutation still requires ordinary permission and approval', async () => {
+  let admissions = 0
+  const f = await fixture(undefined, 1_000, {
+    async assertAllowed() {
+      admissions++
+    },
+  })
+  const resolutions: Promise<unknown>[] = []
+  const unsubscribe = f.kernel.subscribe((event) => {
+    if (event.method !== 'session.event' || event.params.type !== 'approval.requested') return
+    const approval = z.object({ id: z.string() }).parse(event.params.data)
+    resolutions.push(f.kernel.resolveApproval(approval.id, 'allowed'))
+  })
+  try {
+    const denied = await f.run('write', 'deny')
+    expect(denied.results.at(-1)?.isError).toBe(true)
+    expect(f.executions).toBe(0)
+    await f.run('write', 'ask')
+    await Promise.all(resolutions)
+    expect(admissions).toBe(2)
+    expect(resolutions).toHaveLength(1)
+    expect(f.executions).toBe(1)
+  } finally {
+    unsubscribe()
+    await Promise.all(resolutions)
+    await f.close()
+  }
+})
+
+test('cancellation during mutation reconciliation never records intent or executes a bound tool', async () => {
+  let entered: () => void = () => {
+    throw new Error('Mutation admission has not started')
+  }
+  const entering = new Promise<void>((resolve) => {
+    entered = resolve
+  })
+  const f = await fixture(undefined, 1_000, {
+    async assertAllowed(context) {
+      entered()
+      await new Promise<void>((resolve) => context.signal.addEventListener('abort', () => resolve(), { once: true }))
+    },
+  })
+  try {
+    const run = await f.kernel.submit(
+      f.session.id,
+      'cancel-mutation-gate',
+      {
+        text: '/tool bound_operation {"action":"write"}',
+        images: [],
+        approval: 'allow',
+      },
+      'local-fixture',
+    )
+    await entering
+    await f.kernel.cancel(run.id)
+    await f.kernel.waitForIdle()
+    expect((await f.kernel.snapshot(f.session.id)).runs[0]?.status).toBe('cancelled')
+    expect(f.executions).toBe(0)
+    expect(
+      (await f.kernel.storage.call('events', f.session.id, 0)).filter((event) => event.type === 'tool.started'),
+    ).toHaveLength(0)
+  } finally {
+    await f.close()
+  }
+})
 
 test('resolved writes use ordinary policy and approval before the bound executor and durable intent', async () => {
   const f = await fixture()

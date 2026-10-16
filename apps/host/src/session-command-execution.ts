@@ -26,6 +26,7 @@ import { HostCommandExecutionScopes, type HostSourceApplication } from './comman
 import { CommandResultPayloads } from './command-result-payloads'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import { CommandJobPayloadUnavailable } from './runtime-command-jobs'
+import { CommandMutationAdmission, type PendingCommandMutation } from './command-mutation-admission'
 
 export interface SessionCommandExecutionRequest {
   readonly source: ExecutionOwnership
@@ -68,6 +69,7 @@ const keyOf = (identity: CommandExecutionIdentity) =>
 export class SessionCommandExecution {
   private readonly active = new Map<string, ActiveCommand>()
   private readonly authorization: SessionCommandAuthorization
+  private readonly mutations: CommandMutationAdmission
   constructor(
     private readonly options: {
       readonly storage: StoragePort
@@ -78,6 +80,7 @@ export class SessionCommandExecution {
     },
   ) {
     this.authorization = new SessionCommandAuthorization(options.storage)
+    this.mutations = new CommandMutationAdmission(options.storage, (item, runId) => this.isKnownPending(item, runId))
   }
 
   async execute(request: SessionCommandExecutionRequest): Promise<CommandExecutionReceipt> {
@@ -340,29 +343,18 @@ export class SessionCommandExecution {
   }
   private async assertReconciled(intent: CommandExecutionIntent): Promise<void> {
     if (intent.expectation.descriptor.metadata.stateEffect === 'none') return
-    const pending = await this.options.storage.call('commandExecutionPending', intent.sessionId)
-    const current = keyOf(intent)
-    for (const item of pending.items) {
-      if (keyOf(item) === current) continue
-      const active = this.active.get(keyOf(item))
-      if (
-        item.reason === 'pending' &&
-        active?.receipt?.runId === intent.runId &&
-        !active.receipt.logical &&
-        !active.receipt.uncertainty &&
-        !active.ownerTrackingFailed
-      )
-        continue
-      throw new HbarError(
-        'COMMAND_RESULT_UNCONFIRMED',
-        'An earlier command in this session requires result reconciliation before new mutations',
-      )
-    }
-    if (pending.hasMore)
-      throw new HbarError(
-        'COMMAND_RESULT_UNCONFIRMED',
-        'Additional unconfirmed commands require reconciliation before new mutations',
-      )
+    await this.mutations.assertAllowed(intent, intent)
+  }
+  isKnownPending(item: PendingCommandMutation, runId: string): boolean {
+    const active = this.active.get(keyOf(item))
+    return (
+      item.reason === 'pending' &&
+      active?.receipt?.runId === runId &&
+      active.receipt.revision >= item.revision &&
+      !active.receipt.logical &&
+      !active.receipt.uncertainty &&
+      !active.ownerTrackingFailed
+    )
   }
   private async deliver(
     source: ExecutionOwnership,

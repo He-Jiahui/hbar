@@ -10,6 +10,7 @@ export interface RuntimeSystemPort {
   retainHostCommand?(jobId: string): () => void
   assertCommandSource?(source: import('@hbar/contracts/runtime').ExecutionOwnership): void
   attachCommandRouting?(port: import('@hbar/commands').CommandRoutingPort): () => void
+  attachCommandMutationState?(state: import('./command-mutation-admission').CommandMutationState): () => void
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean
   subscribe?(listener: (delta: RuntimeDelta) => void): () => void

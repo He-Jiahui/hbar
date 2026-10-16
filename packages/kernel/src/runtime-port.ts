@@ -47,6 +47,10 @@ export const runtimeKernelCommandCatalogSchema = runtimeKernelCommandIdentitySch
 export const runtimeKernelCommandDescribeSchema = runtimeKernelCommandIdentitySchema.extend({
   commandId: z.string().min(1).max(128),
 })
+export const runtimeKernelMutationAdmissionSchema = runtimeKernelCommandIdentitySchema.extend({
+  tool: z.string().min(1).max(256),
+  effect: z.enum(['write', 'process', 'network']),
+})
 export const runtimeKernelConfigurationSchema = z.strictObject({
   instanceId: id,
   dataRoot: z.string().min(1).max(4_000),
@@ -156,6 +160,7 @@ export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).
 export const RUNTIME_KERNEL_HOST_METHODS = [
   'kernel.commands.list',
   'kernel.commands.describe',
+  'kernel.commands.admitMutation',
   'kernel.nodeIntentRecovery.reconcileRun',
   'kernel.nodeWorkspaceInspection.captureExecutionTarget',
   'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
@@ -190,6 +195,7 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
       RUNTIME_KERNEL_HOST_METHODS,
       z.toJSONSchema(runtimeKernelCommandCatalogSchema),
       z.toJSONSchema(runtimeKernelCommandDescribeSchema),
+      z.toJSONSchema(runtimeKernelMutationAdmissionSchema),
       z.toJSONSchema(commandMetadataSchema),
       z.toJSONSchema(commandCatalogPageSchema, { unrepresentable: 'any' }),
       z.toJSONSchema(commandDescriptorSchema, { unrepresentable: 'any' }),

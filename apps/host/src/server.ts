@@ -1847,6 +1847,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   })
   await scheduleController.start()
   const detachCommandRouting = options.runtime?.attachCommandRouting?.(commandRouter)
+  const detachCommandMutationState = sessionCommandExecution
+    ? options.runtime?.attachCommandMutationState?.(sessionCommandExecution)
+    : undefined
   return {
     server,
     /** Trusted in-process adapters share the same route as authenticated RPC. */
@@ -1861,6 +1864,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       localCommandJobs.assertCanClose()
       closing = true
       detachCommandRouting?.()
+      detachCommandMutationState?.()
       localCommandJobs.dispose()
       nodeSockets?.closeAll()
       await application.dispose()
