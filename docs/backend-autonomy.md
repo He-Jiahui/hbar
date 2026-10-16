@@ -872,6 +872,7 @@ Session Command 增加六个只读准入规则：`goal.get`、`goal.snapshot`、
 
 - 托盘三模式切换及全部原生入口的最终端到端验收。
 - `hbar_command_execute` 完整目录的 Host/client/platform 执行路由及相同权限准入。
+- 公共回执和大结果的有界读取，设计审查见 [Command 结果读取契约](command-result-access.md)；当前返回引用仍缺少对应模型读取入口。
 - 嵌套工具的祖先等待时限关联、其余驱动的物理结束证明、普通 Run 的三次修复、完整启动恢复以及未知副作用的人工核对。
 - 关闭自动推进对 Goal 续跑的 Worker／Kernel 回归与严格门禁。
 - 委派来源上下文的构建与 Native 验收，以及重启后问答结果的唯一后继继承。
