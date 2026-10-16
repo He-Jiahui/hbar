@@ -3,6 +3,7 @@ import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import { createUserInputStateStorage } from './user-input-state'
+import { assertAutomaticPlanExit } from './automatic-plan-exit'
 import { createDecisionStorage, DECISION_PAGE_INDEX } from './decisions'
 import { createAutonomyRetryStorage, AUTONOMY_RETRY_INDEX } from './autonomy-retries'
 import { userInputAcceptSchema, userInputCommitSchema } from '@hbar/contracts/user-input-state'
@@ -3269,7 +3270,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           approval.status = status
           return { approval, event: appendEvent(approval.sessionId, 'approval.resolved', approval, approval.runId) }
         })(),
-      resolvePlanExit: (id, sessionId, runId, callId, decision, feedback, actorId) =>
+      resolvePlanExit: (id, sessionId, runId, callId, decision, feedback, actorId, rawAutomatic) =>
         db.transaction(() => {
           const approval = methods.approval(id)
           if (
@@ -3285,6 +3286,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan run is no longer waiting for approval')
           if (methods.cancelRequested(runId))
             throw new HbarError('PLAN_EXIT_CANCELLED', 'The original Plan run is being cancelled')
+          const automatic =
+            rawAutomatic === undefined
+              ? undefined
+              : assertAutomaticPlanExit(db, approval, decision, actorId, executionPrincipals.run(runId), rawAutomatic)
           const status = decision === 'implement' ? 'allowed' : 'denied'
           db.query('UPDATE approvals SET status=?,feedback=?,decidedBy=? WHERE id=?').run(
             status,
@@ -3298,7 +3303,13 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const event = appendEvent(
             sessionId,
             'plan_exit.resolved',
-            { approval: resolved, mode: decision === 'implement' ? 'default' : null, exitRunId: runId, callId },
+            {
+              approval: resolved,
+              mode: decision === 'implement' ? 'default' : null,
+              exitRunId: runId,
+              callId,
+              ...(automatic ? { automatic } : {}),
+            },
             runId,
           )
           const modeEvent = decision === 'implement' ? event : null

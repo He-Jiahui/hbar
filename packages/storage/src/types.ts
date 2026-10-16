@@ -4,6 +4,7 @@ import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
 import type { createAutonomyRetryStorage } from './autonomy-retries'
 import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
+import type { AutomaticPlanExitDecision } from '@hbar/contracts/autonomy'
 import type {
   Approval,
   ArtifactRef,
@@ -604,6 +605,7 @@ export interface StorageMethods {
     decision: 'implement' | 'continue',
     feedback: string | undefined,
     actorId: string,
+    automatic?: AutomaticPlanExitDecision,
   ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null }
   approval(id: string): Approval
   toolStart(

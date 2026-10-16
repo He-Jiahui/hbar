@@ -21,7 +21,7 @@ import {
   type InputDecisionContext,
   type CompletedInputDecision,
 } from './user-input-completion'
-import type { AutonomyPolicyResolution } from '@hbar/contracts/autonomy'
+import type { AutonomyPolicyResolution, AutomaticPlanExitDecision } from '@hbar/contracts/autonomy'
 export type { ToolMutationAdmissionPort, ToolMutationAdmissionContext } from './mutation-admission'
 export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
 export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
@@ -3805,6 +3805,7 @@ export class Kernel {
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
+      if (tool === 'exit_plan_mode' && !hostSignal.aborted) await this.automatePlanExit(approval, hostSignal)
       return {
         ...(await this.withHumanWait(
           context.run.id,
@@ -3835,6 +3836,32 @@ export class Kernel {
     return execution?.runId === runId && this.options.execution?.withHumanWait
       ? this.options.execution.withHumanWait(execution, callId, decision, operation)
       : operation()
+  }
+  private async automatePlanExit(approval: Approval, signal: AbortSignal): Promise<void> {
+    const policy = await this.permissionSettings.decisionPolicy(approval.sessionId)
+    if (policy.policy.mode !== 'recommended') return
+    const principal = await this.storage.call('runExecutionPrincipal', approval.runId)
+    if (!principal) return
+    signal.throwIfAborted()
+    await this.assertRunPermission(await this.storage.call('run', approval.runId))
+    try {
+      await this.resolvePlanExit({
+        sessionId: approval.sessionId,
+        approvalId: approval.id,
+        runId: approval.runId,
+        callId: approval.callId,
+        decision: 'implement',
+        actorId: principal.actorId,
+        automatic: { version: 1, source: 'recommended', policy },
+      })
+    } catch (error) {
+      if (
+        !(error instanceof HbarError) ||
+        !['DECISION_POLICY_CHANGED', 'PLAN_EXIT_UNAVAILABLE', 'PLAN_EXIT_SETTLED'].includes(error.code)
+      )
+        throw error
+      // A manual decision or a policy change wins; never replace it with an automatic retry.
+    }
   }
   private async inputDecisionIsCurrent(
     request: UserInputRequest,
@@ -4213,6 +4240,7 @@ export class Kernel {
     decision: 'implement' | 'continue'
     feedback?: string
     actorId: string
+    automatic?: AutomaticPlanExitDecision
   }) {
     const recorded = await this.storage.call('approval', input.approvalId)
     if (
@@ -4246,6 +4274,7 @@ export class Kernel {
         input.decision,
         input.feedback,
         input.actorId,
+        input.automatic,
       )
     const resolved =
       input.decision === 'implement'

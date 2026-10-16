@@ -23,3 +23,11 @@ export const autonomyPolicyResolutionSchema = z.strictObject({
   revisions: z.record(z.string().min(1).max(256), z.number().int().nonnegative().safe()),
 })
 export type AutonomyPolicyResolution = z.infer<typeof autonomyPolicyResolutionSchema>
+
+/** Original Run identity and approval arguments remain in the same durable Plan-exit record. */
+export const automaticPlanExitDecisionSchema = z.strictObject({
+  version: z.literal(1),
+  source: z.literal('recommended'),
+  policy: autonomyPolicyResolutionSchema,
+})
+export type AutomaticPlanExitDecision = z.infer<typeof automaticPlanExitDecisionSchema>
