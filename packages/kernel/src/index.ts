@@ -21,7 +21,12 @@ import {
   type InputDecisionContext,
   type CompletedInputDecision,
 } from './user-input-completion'
-import type { AutonomyPolicyResolution, AutomaticPlanExitDecision } from '@hbar/contracts/autonomy'
+import type {
+  AutonomyPolicyResolution,
+  AutomaticPlanExitDecision,
+  AutomaticToolApprovalAdmission,
+  AutomaticToolApprovalDecision,
+} from '@hbar/contracts/autonomy'
 export type { ToolMutationAdmissionPort, ToolMutationAdmissionContext } from './mutation-admission'
 export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
 export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
@@ -3320,7 +3325,16 @@ export class Kernel {
       }
       if (tool.humanApproval === 'required' || (decision === 'ask' && gate === 'ask')) {
         this.executionDiagnostics.toolApproval(toolDiagnosticIdentity, name)
-        const resolution = await this.requestApproval(name, args, context, hostSignal, executionTarget)
+        const resolution = await this.requestApproval(
+          name,
+          args,
+          context,
+          hostSignal,
+          executionTarget,
+          mode === 'ask' && decision === 'ask' && tool.humanApproval !== 'required'
+            ? { mode: 'ask', decision: 'ask', humanApproval: false }
+            : undefined,
+        )
         const replacementStop = this.boundaryStops.get(context.run.id)
         if (replacementStop && !hostSignal.aborted) throw replacementStop
         if (resolution.source === 'abort') {
@@ -3753,6 +3767,7 @@ export class Kernel {
     context: ToolContext,
     hostSignal: AbortSignal,
     executionTarget?: import('@hbar/contracts/node-execution-target').NodeExecutionTarget,
+    automaticAdmission?: AutomaticToolApprovalAdmission,
   ) {
     const approval: Approval = {
       id: crypto.randomUUID(),
@@ -3805,7 +3820,8 @@ export class Kernel {
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
-      if (tool === 'exit_plan_mode' && !hostSignal.aborted) await this.automatePlanExit(approval, hostSignal)
+      if ((tool === 'exit_plan_mode' || automaticAdmission) && !hostSignal.aborted)
+        await this.automateApproval(approval, hostSignal, automaticAdmission)
       return {
         ...(await this.withHumanWait(
           context.run.id,
@@ -3837,23 +3853,36 @@ export class Kernel {
       ? this.options.execution.withHumanWait(execution, callId, decision, operation)
       : operation()
   }
-  private async automatePlanExit(approval: Approval, signal: AbortSignal): Promise<void> {
+  private async automateApproval(
+    approval: Approval,
+    signal: AbortSignal,
+    admission?: AutomaticToolApprovalAdmission,
+  ): Promise<void> {
     const policy = await this.permissionSettings.decisionPolicy(approval.sessionId)
     if (policy.policy.mode !== 'recommended') return
     const principal = await this.storage.call('runExecutionPrincipal', approval.runId)
     if (!principal) return
     signal.throwIfAborted()
-    await this.assertRunPermission(await this.storage.call('run', approval.runId))
+    const run = await this.storage.call('run', approval.runId)
+    await this.assertRunPermission(run)
     try {
-      await this.resolvePlanExit({
-        sessionId: approval.sessionId,
-        approvalId: approval.id,
-        runId: approval.runId,
-        callId: approval.callId,
-        decision: 'implement',
-        actorId: principal.actorId,
-        automatic: { version: 1, source: 'recommended', policy },
-      })
+      if (approval.tool === 'exit_plan_mode')
+        await this.resolvePlanExit({
+          sessionId: approval.sessionId,
+          approvalId: approval.id,
+          runId: approval.runId,
+          callId: approval.callId,
+          decision: 'implement',
+          actorId: principal.actorId,
+          automatic: { version: 1, source: 'recommended', policy },
+        })
+      else if (admission && run.input.approval === 'ask')
+        await this.resolveApproval(approval.id, 'allowed', {
+          version: 1,
+          source: 'recommended',
+          policy,
+          admission,
+        })
     } catch (error) {
       if (
         !(error instanceof HbarError) ||
@@ -4218,10 +4247,10 @@ export class Kernel {
     const pending = [...this.userInputs.values()].filter(({ request }) => request.sessionId === sessionId)
     for (const entry of pending) await entry.settle(undefined, reason)
   }
-  async resolveApproval(id: string, decision: Approval['status']) {
+  async resolveApproval(id: string, decision: Approval['status'], automatic?: AutomaticToolApprovalDecision) {
     if (decision !== 'cancelled' && (await this.storage.call('approval', id)).tool === 'exit_plan_mode')
       throw new HbarError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
-    const result = await this.storage.call('resolveApproval', id, decision)
+    const result = await this.storage.call('resolveApproval', id, decision, automatic)
     if (result) this.publishEvent(result.event)
     // A concurrent decision may have won. Resolve from storage, never the losing argument.
     const approval = result?.approval ?? (await this.storage.call('approval', id))

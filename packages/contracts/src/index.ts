@@ -778,7 +778,7 @@ export interface Approval {
   args: Record<string, unknown>
   status: 'pending' | 'allowed' | 'denied' | 'cancelled'
   createdAt: number
-  /** Present only after a Plan-exit decision; never part of the model-supplied tool input. */
+  /** Decision metadata is never part of the model-supplied tool input. */
   feedback?: string
   decidedBy?: string
   /** Captured remote execution target and capability observation shown for this approval. */

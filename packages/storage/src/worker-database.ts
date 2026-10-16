@@ -4,6 +4,8 @@ import { createExecutionPrincipalStorage } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import { createUserInputStateStorage } from './user-input-state'
 import { assertAutomaticPlanExit } from './automatic-plan-exit'
+import { assertAutomaticDecisionPolicy } from './automatic-decision-policy'
+import { automaticToolApprovalDecisionSchema } from '@hbar/contracts/autonomy'
 import { createDecisionStorage, DECISION_PAGE_INDEX } from './decisions'
 import { createAutonomyRetryStorage, AUTONOMY_RETRY_INDEX } from './autonomy-retries'
 import { userInputAcceptSchema, userInputCommitSchema } from '@hbar/contracts/user-input-state'
@@ -3262,13 +3264,45 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         })()
       },
       approval: (id) => approvalRow(db.query('SELECT * FROM approvals WHERE id=?').get(id) as Row | null),
-      resolveApproval: (id, status) =>
+      resolveApproval: (id, status, rawAutomatic) =>
         db.transaction(() => {
           const approval = methods.approval(id)
           if (approval.status !== 'pending') return null
-          db.query('UPDATE approvals SET status=? WHERE id=?').run(status, id)
+          const automatic = rawAutomatic === undefined ? undefined : automaticToolApprovalDecisionSchema.parse(rawAutomatic)
+          if (automatic) {
+            const run = methods.run(approval.runId)
+            if (
+              status !== 'allowed' ||
+              approval.tool === 'exit_plan_mode' ||
+              run.sessionId !== approval.sessionId ||
+              run.status !== 'waiting_approval' ||
+              run.input.approval !== 'ask'
+            )
+              throw new HbarError(
+                'AUTOMATIC_APPROVAL_INVALID',
+                'Automatic tool approval requires its original ask-mode Run',
+              )
+            if (methods.cancelRequested(run.id)) throw new HbarError('USER_CANCELLED', 'The source Run was cancelled')
+            const principal = executionPrincipals.run(run.id)
+            if (!principal)
+              throw new HbarError('EXECUTION_PRINCIPAL_UNAVAILABLE', 'Automatic approval requires its actual source actor')
+            assertAutomaticDecisionPolicy(db, approval.sessionId, automatic.policy)
+            approval.decidedBy = principal.actorId
+          }
+          db.query('UPDATE approvals SET status=?,decidedBy=? WHERE id=?').run(status, approval.decidedBy ?? null, id)
           approval.status = status
-          return { approval, event: appendEvent(approval.sessionId, 'approval.resolved', approval, approval.runId) }
+          return {
+            approval,
+            event: appendEvent(
+              approval.sessionId,
+              'approval.resolved',
+              {
+                ...approval,
+                ...(automatic ? { automatic } : {}),
+              },
+              approval.runId,
+            ),
+          }
         })(),
       resolvePlanExit: (id, sessionId, runId, callId, decision, feedback, actorId, rawAutomatic) =>
         db.transaction(() => {

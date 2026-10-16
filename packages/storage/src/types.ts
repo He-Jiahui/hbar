@@ -4,7 +4,7 @@ import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
 import type { createAutonomyRetryStorage } from './autonomy-retries'
 import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
-import type { AutomaticPlanExitDecision } from '@hbar/contracts/autonomy'
+import type { AutomaticPlanExitDecision, AutomaticToolApprovalDecision } from '@hbar/contracts/autonomy'
 import type {
   Approval,
   ArtifactRef,
@@ -596,7 +596,11 @@ export interface StorageMethods {
   cancelRequested(id: string): boolean
   queuedSessions(): string[]
   createApproval(approval: Approval): SessionEvent
-  resolveApproval(id: string, status: Approval['status']): { approval: Approval; event: SessionEvent } | null
+  resolveApproval(
+    id: string,
+    status: Approval['status'],
+    automatic?: AutomaticToolApprovalDecision,
+  ): { approval: Approval; event: SessionEvent } | null
   resolvePlanExit(
     id: string,
     sessionId: string,

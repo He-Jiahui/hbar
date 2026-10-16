@@ -31,3 +31,15 @@ export const automaticPlanExitDecisionSchema = z.strictObject({
   policy: autonomyPolicyResolutionSchema,
 })
 export type AutomaticPlanExitDecision = z.infer<typeof automaticPlanExitDecisionSchema>
+
+/** Captured from the final trusted tool admission, never from model arguments. */
+export const automaticToolApprovalAdmissionSchema = z.strictObject({
+  mode: z.literal('ask'),
+  decision: z.literal('ask'),
+  humanApproval: z.literal(false),
+})
+export type AutomaticToolApprovalAdmission = z.infer<typeof automaticToolApprovalAdmissionSchema>
+export const automaticToolApprovalDecisionSchema = automaticPlanExitDecisionSchema.extend({
+  admission: automaticToolApprovalAdmissionSchema,
+})
+export type AutomaticToolApprovalDecision = z.infer<typeof automaticToolApprovalDecisionSchema>
