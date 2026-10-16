@@ -26,6 +26,12 @@ export function summaryThinkingLevel(model: ModelRequest['model'], requested?: T
   )
 }
 
+export interface CompactionAdmissionBudget {
+  readonly additionalInputTokens: number
+  readonly contextWindow: number
+  readonly maxOutput: number
+}
+
 /** A retained-message preference is subordinate to capacity. Cut only after
  * completed assistant/tool groups, never across undelivered Run guidance. */
 export function compactionBoundary(
@@ -33,6 +39,7 @@ export function compactionBoundary(
   retainMessages: number,
   percent: number,
   steering?: RunSteeringContext,
+  admission?: CompactionAdmissionBudget,
 ): number {
   const messages = request.messages
   const delivered = new Set(steering?.deliveries.map((delivery) => delivery.message.id))
@@ -53,7 +60,15 @@ export function compactionBoundary(
       if (block.type === 'tool_call') pendingCalls.add(block.callId)
       if (block.type === 'tool_result') pendingCalls.delete(block.callId)
     }
-    if (message.role === 'user' || pendingCalls.size) continue
+    if (pendingCalls.size) continue
+    if (message.role === 'user') {
+      const next = messages[index + 1]
+      const currentRunId = steering?.runId ?? request.context?.runId
+      // A user-only historical turn may precede the current Run's first user
+      // message. Summarize that history, never the current input or guidance.
+      if (!currentRunId || message.runId === currentRunId || next?.role !== 'user' || next.runId !== currentRunId)
+        continue
+    }
     if (
       steering?.deliveries.some(
         (delivery) => delivery.message.seq <= message.seq && delivery.insertionAfterSeq > message.seq,
@@ -69,7 +84,11 @@ export function compactionBoundary(
   )
   const preferred = turnBoundary ?? boundaries.findLast((boundary) => boundary <= preferredLimit) ?? boundaries[0]!
   const target =
-    compactionInputThreshold(request, percent) -
+    Math.min(
+      compactionInputThreshold(request, percent),
+      admission ? admission.contextWindow - admission.maxOutput : Infinity,
+    ) -
+    (admission?.additionalInputTokens ?? 0) -
     summaryOutputBudget(request, percent) -
     estimateContextTokens({ ...request, messages: [] })
   const suffixSizes = new Array<number>(messages.length + 1)

@@ -533,3 +533,110 @@ test('chunks cover escaped and Unicode history exactly and stay within the input
   }
   expect(covered).toBe(document)
 })
+
+test('final advertisement reservation preserves raw history and admits only the actual bounded request', async () => {
+  const admitted: ModelRequest[] = []
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    admitted.push(await input.beforeRequest(input.request, 'advertisement-capacity'))
+  })
+  for (let index = 0; index < 5; index++)
+    await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
+      { type: 'text', text: `History ${index} ${'h'.repeat(2600)}` },
+    ])
+  const before = (await kernel.storage.call('snapshot', session.id)).messages
+  kernel.hooks.on('tools.advertise', (event) => ({
+    ...event,
+    instructions: `${event.instructions ?? ''}\n${'advertisement '.repeat(350)}`,
+  }))
+  const run = await kernel.submit(
+    session.id,
+    'advertisement-capacity',
+    { text: 'Continue.', images: [] },
+    'context-overflow',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(admitted).toHaveLength(1)
+  expect(estimateContextTokens(admitted[0]!) + admitted[0]!.model.maxOutput).toBeLessThanOrEqual(4096)
+  expect(summaries.length).toBeGreaterThan(0)
+  const after = (await kernel.storage.call('snapshot', session.id)).messages
+  for (const message of before) expect(after.find((candidate) => candidate.id === message.id)).toEqual(message)
+})
+
+test('impossible fixed advertisement overhead refuses inference without discarding canonical history', async () => {
+  let admitted = 0
+  const { kernel, session } = await fixture(async (input) => {
+    await input.beforeRequest(input.request, 'impossible-advertisement')
+    admitted++
+  })
+  await kernel.storage.call('commit', session.id, 'seed', 'assistant', [
+    { type: 'text', text: 'Keep this canonical fact.' },
+  ])
+  const before = (await kernel.storage.call('snapshot', session.id)).messages
+  kernel.hooks.on('tools.advertise', (event) => ({ ...event, instructions: 'x'.repeat(15_000) }))
+  const run = await kernel.submit(
+    session.id,
+    'impossible-advertisement',
+    { text: 'Continue.', images: [] },
+    'context-overflow',
+  )
+  await kernel.waitForIdle()
+  expect(admitted).toBe(0)
+  const settled = await kernel.storage.call('run', run.id)
+  expect(settled.status).toBe('failed')
+  expect(settled.failure?.code).toBe('CONTEXT_WINDOW_EXCEEDED')
+  const after = (await kernel.storage.call('snapshot', session.id)).messages
+  for (const message of before) expect(after.find((candidate) => candidate.id === message.id)).toEqual(message)
+})
+
+test('final admission uses the registered hook-reduced window and output reservation', async () => {
+  const admitted: ModelRequest[] = []
+  const { kernel, session } = await fixture(async (input) => {
+    admitted.push(await input.beforeRequest(input.request, 'reduced-capacity'))
+  })
+  for (let index = 0; index < 5; index++)
+    await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
+      { type: 'text', text: `History ${index} ${'h'.repeat(2600)}` },
+    ])
+  kernel.hooks.on('model.request', (request) => ({
+    ...request,
+    model: { ...request.model, contextWindow: 3072, maxOutput: 512 },
+  }))
+  kernel.hooks.on('tools.advertise', (event) => ({
+    ...event,
+    instructions: `${event.instructions ?? ''}\n${'budget '.repeat(300)}`,
+  }))
+  const run = await kernel.submit(session.id, 'reduced-capacity', { text: 'Continue.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(admitted).toHaveLength(1)
+  const actual = admitted[0]
+  if (!actual) throw new Error('Expected admitted provider request')
+  expect(actual.model.contextWindow).toBe(3072)
+  expect(actual.model.maxOutput).toBe(512)
+  expect(estimateContextTokens(actual) + actual.model.maxOutput).toBeLessThanOrEqual(3072)
+})
+
+test('stricter admission can summarize a user-only historical tail while preserving current input and pending tools', () => {
+  const historical = {
+    ...planMessage('historical-user', 1, 'user', [{ type: 'text', text: 'h'.repeat(2600) }]),
+    runId: 'historical-run',
+  }
+  const current = {
+    ...planMessage('current-user', 2, 'user', [{ type: 'text', text: 'Latest protected input' }]),
+    runId: 'current-run',
+  }
+  const request = boundaryRequest([historical, current])
+  const steering = { runId: 'current-run', initialUserMessageId: current.id, deliveries: [] }
+  expect(
+    compactionBoundary(request, 8, 80, steering, { additionalInputTokens: 1800, contextWindow: 4096, maxOutput: 1024 }),
+  ).toBe(1)
+  expect(compactionBoundary(boundaryRequest([current]), 8, 80, steering)).toBe(0)
+  const unfinished = {
+    ...planMessage('pending-call', 1, 'assistant', [
+      { type: 'tool_call', callId: 'unfinished', name: 'read', args: {} },
+    ]),
+    runId: 'historical-run',
+  }
+  expect(compactionBoundary(boundaryRequest([unfinished, historical, current]), 8, 80, steering)).toBe(0)
+})
