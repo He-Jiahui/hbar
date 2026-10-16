@@ -305,6 +305,14 @@ import { captureToolPresentations, enrichToolCallPresentations } from './tool-pr
 import { createContextCompactionJournal } from './context-compaction-journal'
 import { persistToolResultImages } from './tool-result-images'
 import { SessionWakeups } from './session-wakeups.ts'
+import {
+  goalWakeReplySchema,
+  sessionWakeAckSchema,
+  sessionWakeDeliverySchema,
+  type SessionWakeAck,
+  type SessionWakeEntry,
+} from '@hbar/contracts/session-wake'
+import type { RuntimeOwner } from '@hbar/contracts/runtime'
 import { createToolSequenceExecutor } from './tool-sequence'
 import { createToolExecutionReporter } from './tool-execution'
 import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
@@ -561,7 +569,131 @@ export class Kernel {
   private streamPublished = new Map<string, { text: string; thinking: string; version: number }>()
   readonly active = new Map<string, ActiveRun>()
   private drains = new Map<string, Promise<void>>()
+  private restoredSessionWakeAck: string | undefined
+  private sessionWakePhase: 'open' | 'sealing' | 'quiesced' | 'committed' | 'unknown' = 'open'
+  private sessionWakeBlocked(): boolean {
+    return !['open', 'committed'].includes(this.sessionWakePhase)
+  }
+  private sealSessionWakes(): void {
+    if (this.sessionWakeBlocked() || this.active.size || this.drains.size || this.admissions || this.wakeups.size)
+      throw new HbarError('BUSY', 'Kernel has real work or a wake transfer pending')
+    this.sessionWakePhase = 'sealing'
+  }
   private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
+  private async goalWake(action: 'validate' | 'commit' | 'abort' | 'deliver', token: string, entry: SessionWakeEntry) {
+    const service = this.plugins.get<import('@hbar/plugin-sdk').GoalService>('goal')
+    if (!service.continuationWake)
+      throw new HbarError('SESSION_WAKE_UNSUPPORTED', 'Goal deadline transfer is unavailable')
+    return goalWakeReplySchema.parse(
+      await service.continuationWake({ action, token, entry, sessionId: entry.sessionId }),
+    )
+  }
+  async sessionWakesCoverage(entries: readonly SessionWakeEntry[]): Promise<number> {
+    const service = this.plugins.get<import('@hbar/plugin-sdk').GoalService>('goal')
+    if (!service.continuationWake)
+      throw new HbarError('SESSION_WAKE_UNSUPPORTED', 'Goal transfer coverage is unavailable')
+    const result = goalWakeReplySchema.parse(
+      await service.continuationWake({ action: 'coverage', sessionId: 'session-wake-coverage', entries: [...entries] }),
+    )
+    if (!result.accepted || result.resources === undefined)
+      throw new HbarError('BUSY', 'Goal has work outside the transferable future deadlines')
+    return result.resources
+  }
+  async sessionWakesPreview(owner: RuntimeOwner, facts: { queuedRuns: boolean | null }) {
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer checkpoint is fenced')
+    const manifest = this.scheduledWakeups.preview(owner)
+    const checkpoint = this.runtimeIdleCheckpoint(facts)
+    if (facts.queuedRuns !== false || Object.values(checkpoint.counts).some((value) => value !== 0))
+      throw new HbarError('BUSY', 'Kernel has nontransferable work')
+    await this.sessionWakesCoverage(manifest.entries)
+    if (JSON.stringify(this.scheduledWakeups.preview(owner)) !== JSON.stringify(manifest))
+      throw new HbarError('BUSY', 'Wake checkpoint changed during preview')
+    return manifest
+  }
+  async sessionWakesQuiesce(ack: SessionWakeAck, owner: RuntimeOwner) {
+    const parsed = sessionWakeAckSchema.parse(ack)
+    this.sealSessionWakes()
+    try {
+      // Freeze absolute timers synchronously before the first Goal RPC can yield.
+      this.scheduledWakeups.quiesce(parsed, owner)
+      await this.sessionWakesCoverage(parsed.manifest.entries)
+      for (const entry of parsed.manifest.entries) {
+        if (!(await this.goalWake('validate', parsed.token, entry)).accepted)
+          throw new HbarError('SESSION_WAKE_STALE', 'Goal deadline changed before quiescence')
+      }
+      this.sessionWakePhase = 'quiesced'
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'quiesced' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesCommit(ack: SessionWakeAck) {
+    const parsed = sessionWakeAckSchema.parse(ack)
+    if (this.sessionWakePhase !== 'quiesced')
+      throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer is not quiesced')
+    this.sessionWakePhase = 'sealing'
+    try {
+      for (const entry of parsed.manifest.entries) {
+        if (!(await this.goalWake('commit', parsed.token, entry)).accepted)
+          throw new HbarError('SESSION_WAKE_STALE', 'Goal deadline changed before transfer commit')
+      }
+      this.scheduledWakeups.commit(parsed)
+      this.sessionWakePhase = 'committed'
+      this.pumpWakeups()
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'committed' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesAbort(ack: SessionWakeAck) {
+    const parsed = sessionWakeAckSchema.parse(ack)
+    if (this.sessionWakePhase !== 'quiesced')
+      throw new HbarError('SESSION_WAKE_FENCED', 'Unknown transfer cannot be aborted')
+    this.sessionWakePhase = 'sealing'
+    try {
+      for (const entry of parsed.manifest.entries) await this.goalWake('abort', parsed.token, entry)
+      this.scheduledWakeups.abort(parsed)
+      this.sessionWakePhase = 'open'
+      this.pumpWakeups()
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'aborted' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesRestore(ack: SessionWakeAck) {
+    const parsed = sessionWakeAckSchema.parse(ack),
+      entries: SessionWakeEntry[] = []
+    if (this.restoredSessionWakeAck === JSON.stringify(parsed))
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'restored' as const }
+    this.sealSessionWakes()
+    try {
+      // Restore every still-current entry, not merely the first deadline that woke this generation.
+      for (const entry of parsed.manifest.entries) {
+        if ((await this.goalWake('commit', parsed.token, entry)).accepted) entries.push(entry)
+      }
+      this.scheduledWakeups.restore(parsed, entries)
+      this.restoredSessionWakeAck = JSON.stringify(parsed)
+      this.sessionWakePhase = 'committed'
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'restored' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesDeliver(raw: { token: string; entry: SessionWakeEntry }) {
+    const input = sessionWakeDeliverySchema.parse(raw)
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer is not settled')
+    if (!this.scheduledWakeups.matches(input.token, input.entry)) return { status: 'stale' as const }
+    if (input.entry.dueAt > Date.now()) throw new HbarError('SESSION_WAKE_NOT_DUE', 'Wake deadline has not arrived')
+    const result = await this.goalWake('deliver', input.token, input.entry)
+    if (!this.scheduledWakeups.delivered(input.token, input.entry)) return { status: 'stale' as const }
+    if (!result.accepted) return { status: 'stale' as const }
+    this.kick(input.entry.sessionId)
+    return { status: 'notified' as const }
+  }
   private wakeups = new Set<string>()
   private listeners = new Set<(event: WireNotification) => unknown>()
   private approvals = new Map<string, (resolution: ApprovalResolution) => void>()
@@ -1017,6 +1149,7 @@ export class Kernel {
       physicalTools: this.toolExecutions.idleCounts().active,
       toolsClosed: Number(this.toolExecutions.idleCounts().closed),
       boundaryStops: this.boundaryStops.size,
+      sessionWakeTransfer: Number(this.sessionWakeBlocked()),
       activeRuns: this.active.size,
       drains: this.drains.size,
       admissions: this.admissions,
@@ -2039,6 +2172,7 @@ export class Kernel {
     signal?: AbortSignal,
     expectedLaunchTargetRevision?: number,
   ) {
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer prevents admission')
     input = inputSchema.parse(input)
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
@@ -2073,6 +2207,7 @@ export class Kernel {
       ...(input.source === undefined ? { source: 'user' as const } : {}),
     }
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer began during admission')
     this.admissions++
     try {
       if (
@@ -2166,12 +2301,16 @@ export class Kernel {
     }
   }
   private kick(sessionId: string) {
+    if (this.sessionWakeBlocked()) {
+      this.wakeups.add(sessionId)
+      return
+    }
     this.scheduledWakeups.cancel(sessionId)
     this.wakeups.add(sessionId)
     this.pumpWakeups()
   }
   private pumpWakeups(): void {
-    if (this.closing || this.maintenance || !this.readyForRuns) return
+    if (this.closing || this.maintenance || !this.readyForRuns || this.sessionWakeBlocked()) return
     // Shared by startup, submissions and idle continuations. Keep thirty-way
     // execution possible while bounding the claim/idle RPC fanout per owner.
     for (const sessionId of this.wakeups) {
@@ -2222,7 +2361,7 @@ export class Kernel {
         const idle = await this.hooks.dispatch('session.idle', { sessionId })
         if (this.closing) return
         if (!idle.submission) {
-          if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt)
+          if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt, idle.continuationWake)
           return
         }
         let submitted: Run

@@ -558,6 +558,10 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
+  /** Parent-owned deadline transfer; metadata and notification only, never model submission. */
+  continuationWake?(
+    input: import('@hbar/contracts/session-wake').GoalWakeRequest,
+  ): Promise<import('@hbar/contracts/session-wake').GoalWakeReply>
   /** Read the canonical Session journal without accounting, continuation or external effects. */
   refreshSession?(sessionId: string): Promise<void>
   reconcileRun?(run: Run): Promise<void>
@@ -971,6 +975,7 @@ export interface HookEvents {
   'session.idle': {
     sessionId: string
     wakeAt?: number
+    continuationWake?: import('@hbar/contracts/session-wake').SessionWakeEntry
     submission?: { requestId: string; input: UserInput; modelId: string }
   }
   'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean }
