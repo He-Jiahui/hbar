@@ -48,6 +48,7 @@ import {
   type TransportFailureObserver,
 } from './provider-http-diagnostics'
 import { ProviderStreamObservation } from './provider-stream-diagnostics'
+import { VisibleStreamProjection } from './visible-stream'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -621,6 +622,7 @@ export class PiDriver implements HarnessDriver {
     let modelTerminalEmitted = false
     let attemptHostContext: ModelHostContextSnapshot | undefined
     const completedTools = new Set<string>()
+    const visibleStream = new VisibleStreamProjection()
     const turnState = new ProviderTurnState()
     let goalStopped = false
     let toolExecutedInStep = false
@@ -679,6 +681,7 @@ export class PiDriver implements HarnessDriver {
         await input.emit('step.started', { step: stepCount }, stepId)
       } else if (event.type === 'message_start' && event.message.role === 'assistant') {
         streamId = crypto.randomUUID()
+        visibleStream.reset()
         await input.emit('attempt.providerStarted', { attemptId: stepId }, stepId)
       } else if (event.type === 'message_update' && event.message.role === 'assistant') {
         const content = event.message.content
@@ -690,17 +693,8 @@ export class PiDriver implements HarnessDriver {
           firstText = true
           await input.emit('attempt.firstText', { attemptId: stepId }, stepId)
         }
-        input.stream(
-          streamId,
-          content
-            .filter((c) => c.type === 'text')
-            .map((c) => c.text)
-            .join(''),
-          content
-            .filter((c) => c.type === 'thinking')
-            .map((c) => c.thinking)
-            .join(''),
-        )
+        const visible = visibleStream.update(content)
+        if (visible) input.stream(streamId, visible.text, visible.thinking)
       } else if (event.type === 'message_end') {
         if (event.message.role === 'assistant') {
           const message = event.message
