@@ -16,6 +16,8 @@ export type RuntimeOwner = z.infer<typeof runtimeOwnerSchema>
 
 /** Local supervision ports. Native handles and functions never cross the IPC boundary. */
 export interface RuntimeProcessTree {
+  /** Pure native job/group active count. Missing capability means unknown, never zero. */
+  active?(): number
   terminate(): void
   join(timeoutMs: number): Promise<void>
   close(): void
