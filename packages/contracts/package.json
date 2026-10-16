@@ -8,6 +8,7 @@
     "./errors": "./src/errors.ts",
     "./image-preflight": "./src/image-preflight.ts",
     "./runtime": "./src/runtime.ts",
+    "./session-wake": "./src/session-wake.ts",
     "./node": "./src/node.ts",
     "./node-operation": "./src/node-operation.ts",
     "./node-confirmations": "./src/node-confirmations.ts",
