@@ -38,6 +38,7 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
   const peer = new IpcPeer({
     owner,
     remote,
+    acceptRemoteDeadlineControl: true,
     controlMethods: z.array(z.string().min(1).max(128)).max(128).parse(JSON.parse(process.env.HBAR_RUNTIME_CONTROL_METHODS ?? JSON.stringify(RUNTIME_CONTROL_METHODS))),
     transport: {
       send(frame) {

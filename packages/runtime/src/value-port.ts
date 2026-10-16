@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { HbarError } from '@hbar/contracts'
-import { procedure, type IpcPeer, type IpcCallOptions, type IpcCallTicket } from './ipc'
+import { procedure, type IpcPeer, type IpcCallOptions, type IpcCallTicket, type IpcProcedureContext } from './ipc'
 
 type Value =
   | { kind: 'scalar'; value: string | number | boolean | null }
@@ -55,14 +55,16 @@ export interface RuntimeValuePortOptions {
   /** Trusted, owner-local callback deadline. Omission preserves the peer's configured default timeout. */
   readonly callbackTimeoutMs?: CallbackTimeout
   /** Enter the captured local application scope when a named callback returns to its owner. */
-  readonly callbackScope?: <Result>(operation: () => Result) => Result
+  readonly callbackScope?: <Result>(operation: () => Result, context: IpcProcedureContext) => Result
+  /** Trusted composition binds an original outgoing physical callback before awaiting its result. */
+  readonly callbackTracked?: <Output>(dispatch: () => IpcCallTicket<Output>) => Promise<Output>
   /** Owned effect chains can wait for callbacks already running when logical cancellation arrives. */
   readonly callbackSettlement?: 'physical'
 }
 
 /** Plain, bounded argument descriptions. Functions and signals remain local and use authenticated named callbacks. */
 export class RuntimeValuePort {
-  private readonly callbacks = new Map<string, (...args: unknown[]) => unknown>()
+  private readonly callbacks = new Map<string, (args: readonly unknown[], call: IpcProcedureContext) => unknown>()
   private readonly operations = new Map<string, Operation>()
   private readonly disposers: Array<() => void>
   private closed = false
@@ -90,8 +92,7 @@ export class RuntimeValuePort {
           const callback = this.callbacks.get(input.id)
           if (!callback)
             throw new HbarError('RUNTIME_CALLBACK_EXPIRED', 'The original application callback is no longer owned')
-          const invoke = () => callback(...input.args.map((value) => this.decode(value, call.signal)))
-          const result = this.options.callbackScope ? await this.options.callbackScope(invoke) : await invoke()
+          const result = await callback(input.args.map((value) => this.decode(value, call.signal)), call)
           return this.encode(result, this.encoding())
         }),
       ),
@@ -217,10 +218,10 @@ export class RuntimeValuePort {
         throw new HbarError('RUNTIME_CALLBACK_CAPACITY', 'Local callback capacity is exhausted')
       const id = crypto.randomUUID()
       const captured = AsyncLocalStorage.snapshot()
-      this.callbacks.set(id, (...args) =>
+      this.callbacks.set(id, (args, call) =>
         captured(() => {
-          const result: unknown = Reflect.apply(value, undefined, args)
-          return result
+          const invoke = (): unknown => Reflect.apply(value, undefined, args)
+          return this.options.callbackScope ? this.options.callbackScope(invoke, call) : invoke()
         }),
       )
       state.callbacks.push(id)
@@ -297,8 +298,11 @@ export class RuntimeValuePort {
             const method = `${this.options.prefix}.callback`
             const input = { id: value.id, args: described }
             const options = { signal: nestedSignal, ...(timeoutMs === undefined ? {} : { timeoutMs }) }
+            const dispatch = () => this.peer.callTracked(method, input, valueSchema, options)
             const result = physical
-              ? await this.peer.callTracked(method, input, valueSchema, options).settled
+              ? this.options.callbackTracked
+                ? await this.options.callbackTracked(dispatch)
+                : await dispatch().settled
               : await this.peer.call(method, input, valueSchema, options)
             return this.decode(result, nestedSignal)
           } finally {

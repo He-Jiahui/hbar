@@ -1,9 +1,22 @@
 import { z } from 'zod'
-import { HbarError, resolveProviderModel, sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
+import { AsyncLocalStorage } from 'node:async_hooks'
+import {
+  HbarError,
+  resolveProviderModel,
+  sessionEventPageInputSchema,
+  sessionEventPageSchema,
+  userInputRequestSchema,
+} from '@hbar/contracts'
 import type { ExecutionOwnership, RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
 import type { RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import type { WorkspaceExecutionScope } from '@hbar/plugin-sdk'
-import { RuntimeValuePort, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
+import {
+  RuntimeValuePort,
+  type IpcPeer,
+  type RuntimeCoordinator,
+  type IpcProcedureContext,
+  type IpcCallTicket,
+} from '@hbar/runtime'
 import type { StableStoragePort } from '@hbar/storage'
 import { runtimePluginAuthoritySchema, runtimePluginInvocationSchema } from './runtime-plugin-contract'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
@@ -26,6 +39,8 @@ interface Pending {
 /** Authentication, version routing and physical capacity live in the stable process. */
 export class RuntimePluginRelay {
   private readonly pending = new Map<string, Pending>()
+  private readonly incomingCallbacks = new AsyncLocalStorage<IpcProcedureContext>()
+  private readonly outgoingCallbacks = new AsyncLocalStorage<{ execution: ExecutionOwnership; callId: string }>()
   constructor(
     private readonly options: {
       readonly storage: StableStoragePort
@@ -39,6 +54,7 @@ export class RuntimePluginRelay {
   attachPlugin(peer: IpcPeer, owner: RuntimeOwner): { application: RuntimeValuePort; dispose(): void } {
     const application = new RuntimeValuePort(peer, {
       prefix: 'plugin.application',
+      callbackScope: (operation, call) => this.incomingCallbacks.run(call, operation),
       callbackTimeoutMs: 1_325_000,
       callbackSettlement: 'physical',
     })
@@ -79,6 +95,10 @@ export class RuntimePluginRelay {
   attachKernel(peer: IpcPeer, owner: RuntimeOwner): () => void {
     const application = new RuntimeValuePort(peer, {
       prefix: 'kernel.plugins',
+      callbackTracked: (dispatch) => {
+        const scope = this.outgoingCallbacks.getStore()
+        return scope ? this.callback(scope.execution, scope.callId, dispatch) : dispatch().settled
+      },
       callbackTimeoutMs: 1_325_000,
       callbackSettlement: 'physical',
     })
@@ -118,8 +138,27 @@ export class RuntimePluginRelay {
         this.options.coordinator.assertCanWrite(owner, execution)
         this.options.coordinator.assertCanWrite(endpoint.owner, execution)
         if (method === 'execution.nodeCall') return this.nodeCall(parameters, workspaceScope, execution, signal)
-        const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
-        return result
+        const forward = async (): Promise<unknown> => {
+          const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
+          return result
+        }
+        if (method !== 'userInput.request' || !execution || !callId) return forward()
+        const request = userInputRequestSchema.parse(parameters[0])
+        if (
+          request.sessionId !== execution.sessionId ||
+          request.runId !== execution.runId ||
+          request.callId !== callId
+        )
+          throw new HbarError('EXECUTION_OWNER_MISMATCH', 'A questionnaire callback must retain its original tool execution')
+        const incoming = this.incomingCallbacks.getStore()?.callerDeadline
+        const untrack = incoming
+          ? this.options.humanWaits?.track(execution, callId, { suspendDeadline: () => incoming.suspend() })
+          : undefined
+        try {
+          return await this.outgoingCallbacks.run({ execution, callId }, forward)
+        } finally {
+          untrack?.()
+        }
       }
       const invocationId = crypto.randomUUID()
       let callId: string | undefined
@@ -188,6 +227,25 @@ export class RuntimePluginRelay {
       }
     })
     return () => application.dispose()
+  }
+  private async callback<Result>(
+    execution: ExecutionOwnership,
+    callId: string,
+    dispatch: () => IpcCallTicket<Result>,
+  ): Promise<Result> {
+    const ticket = dispatch()
+    void ticket.result.catch(() => {})
+    let untrack: (() => void) | undefined
+    try {
+      untrack = this.options.humanWaits?.track(execution, callId, ticket)
+      return await ticket.settled
+    } finally {
+      try {
+        await ticket.settled
+      } finally {
+        untrack?.()
+      }
+    }
   }
   exited(owner: RuntimeOwner): void {
     for (const [id, pending] of this.pending)

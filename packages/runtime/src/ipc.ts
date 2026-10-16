@@ -16,6 +16,12 @@ const methodName = z
   .min(1)
   .max(128)
   .regex(/^[a-zA-Z][a-zA-Z0-9_.:-]*$/)
+const deadlineControlMethod = 'runtime.deadline.control'
+const deadlineControlSchema = z.strictObject({
+  id: z.string().uuid(),
+  token: z.string().uuid(),
+  phase: z.enum(['pause', 'resume']),
+})
 const frameSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('fragment'),
@@ -73,6 +79,8 @@ export interface IpcProcedureContext {
   readonly requestId: string
   readonly signal: AbortSignal
   readonly ownership?: ExecutionOwnership | undefined
+  /** Present only in the stable Host's authenticated child-process peer. */
+  readonly callerDeadline?: { suspend(): () => void }
 }
 export interface IpcProcedure {
   invoke(input: unknown, context: IpcProcedureContext): Promise<unknown>
@@ -122,6 +130,10 @@ export interface IpcPeerOptions {
   /** Reserve physical slots for named control ports so approval/cancel cannot queue behind blocked work. */
   readonly controlMethods?: readonly string[]
   readonly reservedControl?: number
+  /** Stable Host peers may pause an original child's caller deadline after business validation. */
+  readonly controlRemoteDeadlines?: boolean
+  /** Child bootstrap trusts only its authenticated stable parent to control caller deadlines. */
+  readonly acceptRemoteDeadlineControl?: boolean
 }
 
 interface Pending {
@@ -137,12 +149,14 @@ interface Pending {
   deadline: RpcDeadline | undefined
   started: boolean
   settled: boolean
+  remoteWaits?: Map<string, () => void>
 }
 interface Incoming {
   readonly message: CallMessage
   readonly bytes: number
   readonly controller: AbortController
   started: boolean
+  deadlineWaits?: Set<string>
 }
 interface Assembly {
   readonly total: number
@@ -548,6 +562,7 @@ export class IpcPeer {
   private settle(pending: Pending): void {
     pending.settled = true
     pending.deadline?.dispose()
+    pending.remoteWaits?.clear()
     pending.signal?.removeEventListener('abort', pending.abort)
   }
 
@@ -611,6 +626,10 @@ export class IpcPeer {
         return
       }
       case 'event': {
+        if (message.method === deadlineControlMethod) {
+          this.controlDeadline(message.input)
+          return
+        }
         for (const listener of [...(this.events.get(message.method) ?? [])]) {
           try {
             listener(message.input)
@@ -663,6 +682,7 @@ export class IpcPeer {
       void this.invoke(request)
         .catch(() => this.close())
         .finally(() => {
+          request.deadlineWaits?.clear()
           if (!this.incoming.delete(callId)) return
           this.incomingBytes -= request.bytes
           this.incomingRunning--
@@ -682,11 +702,65 @@ export class IpcPeer {
         requestId: request.message.requestId,
         signal: request.controller.signal,
         ...(request.message.ownership ? { ownership: request.message.ownership } : {}),
+        ...(this.options.controlRemoteDeadlines
+          ? { callerDeadline: { suspend: () => this.suspendCaller(request) } }
+          : {}),
       })
       await this.sendMessage({ kind: 'reply', id: request.message.id, ok: true, result })
     } catch (error) {
       await this.sendError(request.message.id, error)
     }
+  }
+
+  private suspendCaller(request: Incoming): () => void {
+    if (this.incoming.get(request.message.id) !== request || !request.started)
+      throw new HbarError('IPC_REQUEST_EXPIRED', 'The original caller deadline is unavailable')
+    request.controller.signal.throwIfAborted()
+    const waits = (request.deadlineWaits ??= new Set<string>())
+    if (waits.size >= 64) throw new HbarError('BUSY', 'Remote caller wait capacity is full')
+    const token = crypto.randomUUID()
+    waits.add(token)
+    const send = (phase: 'pause' | 'resume') =>
+      this.notify(deadlineControlMethod, { id: request.message.id, token, phase })
+    const paused = send('pause').catch(() => this.close())
+    let active = true
+    return () => {
+      if (!active) return
+      active = false
+      if (!waits.delete(token)) return
+      void paused.then(() => send('resume')).catch(() => this.close())
+    }
+  }
+
+  private controlDeadline(value: unknown): void {
+    if (!this.options.acceptRemoteDeadlineControl) {
+      this.close(new HbarError('IPC_FORBIDDEN', 'This peer cannot control the original caller deadline'))
+      return
+    }
+    const parsed = deadlineControlSchema.safeParse(value)
+    if (!parsed.success) {
+      this.close(new HbarError('IPC_PROTOCOL', 'Invalid caller deadline control'))
+      return
+    }
+    const { id, token, phase } = parsed.data
+    const pending = this.pending.get(id)
+    if (!pending || pending.settled) return
+    if (!pending.started) {
+      this.close(new HbarError('IPC_PROTOCOL', 'Queued caller deadlines cannot be suspended remotely'))
+      return
+    }
+    if (phase === 'resume') {
+      pending.remoteWaits?.get(token)?.()
+      pending.remoteWaits?.delete(token)
+      return
+    }
+    const waits = (pending.remoteWaits ??= new Map<string, () => void>())
+    if (waits.has(token)) return
+    if (waits.size >= 64) {
+      this.close(new HbarError('IPC_PROTOCOL', 'Caller deadline control exceeds its bound'))
+      return
+    }
+    if (pending.deadline) waits.set(token, pending.deadline.suspend())
   }
 
   private sendError(callId: string, error: unknown): Promise<void> {

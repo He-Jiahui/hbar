@@ -325,6 +325,7 @@ export class ManagedProcess {
     const peer = new IpcPeer({
       owner: this.options.parent,
       remote: owner,
+      controlRemoteDeadlines: true,
       controlMethods: [...RUNTIME_CONTROL_METHODS, ...(this.options.controlMethods ?? [])],
       transport: { send: (frame) => child.send(frame) },
       onFailure: () => this.fault('RUNTIME_IPC_FAILED'),

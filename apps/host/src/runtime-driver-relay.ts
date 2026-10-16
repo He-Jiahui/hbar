@@ -138,9 +138,16 @@ export class RuntimeDriverRelay {
         })
         void tracked.result.catch(() => {})
         let untrack: (() => void) | undefined
+        let untrackCaller: (() => void) | undefined
         try {
-          if (input.method === 'execute')
+          if (input.method === 'execute') {
             untrack = this.options.humanWaits?.track(invocation.execution, input.callId, tracked)
+            const caller = call.callerDeadline
+            if (caller)
+              untrackCaller = this.options.humanWaits?.track(invocation.execution, input.callId, {
+                suspendDeadline: () => caller.suspend(),
+              })
+          }
           return await tracked.settled
         } finally {
           // Even a failed wait registration must drain the original physical callback.
@@ -148,6 +155,7 @@ export class RuntimeDriverRelay {
             await tracked.settled
           } finally {
             untrack?.()
+            untrackCaller?.()
           }
         }
       })),
