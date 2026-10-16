@@ -121,6 +121,7 @@ test('disabling during a running turn preserves that Run and resumes the same Go
     await configure(f.kernel, true)
     const originalGoal = (await f.goals().create(f.session.id, 'Preserve the current task and remaining budget', 100))
       .goal
+    if (!originalGoal?.goalId) throw new Error('Expected the original durable Goal identity')
     const run = await f.kernel.submit(f.session.id, 'manual-start', { text: 'Start', images: [] }, 'local-fixture')
     await Promise.race([
       started.promise,
@@ -140,20 +141,55 @@ test('disabling during a running turn preserves that Run and resumes the same Go
       tokensUsed: 1,
       continuation: { phase: 'waiting', reason: 'disabled' },
     })
+    const intentId = waiting?.continuation?.intentId
+    if (!intentId) throw new Error('Expected the retained continuation intent')
     await f.restart()
     await f.kernel.waitForIdle()
     expect(f.turns()).toBe(1)
-    expect((await f.goals().get(f.session.id)).goal?.goalId).toEqual(originalGoal?.goalId)
+    expect((await f.goals().get(f.session.id)).goal).toMatchObject({
+      goalId: originalGoal.goalId,
+      tokenBudget: originalGoal.tokenBudget,
+      tokensUsed: 1,
+      continuation: { intentId, phase: 'waiting', reason: 'disabled' },
+    })
     await configure(f.kernel, true)
     await f.kernel.activate()
     await f.kernel.waitForIdle()
     expect(f.turns()).toBe(2)
     expect((await f.goals().get(f.session.id)).goal).toMatchObject({
-      goalId: originalGoal?.goalId,
+      goalId: originalGoal.goalId,
+      tokenBudget: originalGoal.tokenBudget,
       status: 'complete',
       tokensUsed: 2,
-      continuationCount: 1,
+      continuation: { intentId, phase: 'stopped', reason: 'complete' },
     })
+    const snapshot = await f.kernel.storage.call('snapshot', f.session.id)
+    expect(snapshot.runs).toHaveLength(2)
+    const continuations = snapshot.runs.filter((candidate) => candidate.input.source === 'goal')
+    expect(continuations).toHaveLength(1)
+    const continued = continuations[0]
+    if (!continued) throw new Error('Expected exactly one accepted Goal continuation')
+    expect(continued).toMatchObject({
+      requestId: `goal-${intentId}`,
+      status: 'completed',
+      input: { continuation: { goalId: originalGoal.goalId, intentId } },
+    })
+    const journal = await f.kernel.storage.call('readEventPage', {
+      sessionId: f.session.id,
+      afterSeq: 0,
+      types: ['goal.created', 'run.queued'],
+      headerOnlyTypes: ['goal.created', 'run.queued'],
+      limit: 8,
+      maxReplyBytes: 16 * 1_024,
+    })
+    expect(journal.hasMore).toBe(false)
+    expect(journal.items.filter((item) => item.event.type === 'goal.created')).toHaveLength(1)
+    expect(
+      journal.items
+        .filter((item) => item.event.type === 'run.queued')
+        .map((item) => item.event.runId)
+        .sort(),
+    ).toEqual([run.id, continued.id].sort())
   } finally {
     release.resolve()
     await f.close()
@@ -212,14 +248,17 @@ test('a disable between Goal idle selection and enqueue leaves a recoverable int
       status: 'active',
       continuation: { phase: 'waiting', reason: 'disabled' },
     })
-    dispose()
+    await dispose()
     await configure(f.kernel, true)
     await f.kernel.activate()
     await f.kernel.waitForIdle()
     expect(f.turns()).toBe(2)
     expect((await f.goals().get(f.session.id)).goal?.status).toBe('complete')
   } finally {
-    dispose()
-    await f.close()
+    try {
+      await dispose()
+    } finally {
+      await f.close()
+    }
   }
 }, 20_000)
