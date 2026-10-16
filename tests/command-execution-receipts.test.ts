@@ -107,6 +107,145 @@ async function fixture() {
   }
 }
 
+test('pending reads use latest canonical facts, ignore confirmed and read-only commands, and survive projection rebuild', async () => {
+  const f = await fixture()
+  try {
+    await f.claim()
+    let receipt = (await f.storage.call('commandExecutionAccept', f.intent)).receipt
+    expect(await f.storage.call('commandExecutionPending', f.session.id)).toMatchObject({
+      sessionId: f.session.id,
+      hasMore: false,
+      items: [{ ...f.identity, runId: f.run.id, commandId: 'fixture.write', revision: 1, reason: 'pending' }],
+    })
+    receipt = await f.update(receipt, { kind: 'bind', owner })
+    receipt = await f.update(receipt, {
+      kind: 'uncertain',
+      error: { code: 'RESULT_UNKNOWN', message: 'Read original owner' },
+    })
+    expect((await f.storage.call('commandExecutionPending', f.session.id)).items).toHaveLength(1)
+    await f.storage.call('commandExecutionAccept', {
+      ...f.intent,
+      operationKey: 'read-only',
+      invocation: { ...f.intent.invocation, idempotencyKey: 'read-only' },
+      expectation: {
+        ...f.intent.expectation,
+        descriptor: {
+          ...f.intent.expectation.descriptor,
+          metadata: { ...f.intent.expectation.descriptor.metadata, kind: 'query', stateEffect: 'none' },
+        },
+      },
+    })
+    await f.rebuild()
+    expect((await f.storage.call('commandExecutionPending', f.session.id)).items).toMatchObject([
+      { revision: receipt.revision },
+    ])
+    await f.update(receipt, {
+      kind: 'settled',
+      physical: { status: 'succeeded', executionStarted: true, payload: inline({ result: 'confirmed' }) },
+    })
+    expect(await f.storage.call('commandExecutionPending', f.session.id)).toEqual({
+      sessionId: f.session.id,
+      items: [],
+      hasMore: false,
+    })
+  } finally {
+    await f.close()
+  }
+})
+
+test('pending metadata stays bounded and omits large argument bodies even when canonical history is rebuilt', async () => {
+  const f = await fixture()
+  try {
+    await f.claim()
+    const input = { sessionId: f.session.id, path: 'SENSITIVE-ARGUMENT-'.repeat(1_000) }
+    for (let index = 0; index < 65; index++) {
+      await f.storage.call('commandExecutionAccept', {
+        ...f.intent,
+        operationKey: `pending-${index}`,
+        callId: `call-${index}`,
+        invocation: {
+          ...f.intent.invocation,
+          requestId: `request-${index}`,
+          idempotencyKey: `pending-${index}`,
+          input,
+        },
+        expectation: { ...f.intent.expectation, input },
+      })
+    }
+    for (let index = 0; index < 200; index++)
+      await f.storage.call('append', f.session.id, 'fixture.unrelated', { index }, f.run.id)
+    const observed = []
+    for (let index = 0; index < 16; index++) {
+      const started = performance.now()
+      const pending = await f.storage.call('commandExecutionPending', f.session.id)
+      observed.push(performance.now() - started)
+      expect(pending.items).toHaveLength(64)
+      expect(pending.hasMore).toBe(true)
+      expect(JSON.stringify(pending)).not.toContain('SENSITIVE-ARGUMENT')
+    }
+    observed.sort((left, right) => left - right)
+    console.log(
+      JSON.stringify({
+        event: 'pending-command-read-latency',
+        samples: observed.length,
+        unconfirmed: 65,
+        unrelatedEvents: 200,
+        p95Ms: observed[Math.ceil(observed.length * 0.95) - 1],
+        maxMs: observed.at(-1),
+      }),
+    )
+    await f.rebuild()
+    const pending = await f.storage.call('commandExecutionPending', f.session.id)
+    expect(pending.items).toHaveLength(64)
+    expect(pending.hasMore).toBe(true)
+  } finally {
+    await f.close()
+  }
+})
+
+test('nested transport failures remain unconfirmed after owner settlement while proven unstarted failures permit recovery', async () => {
+  const f = await fixture()
+  try {
+    await f.claim()
+    for (const [key, executionStarted, code] of [
+      ['unstarted', false, 'IPC_DISCONNECTED'],
+      ['business-failure', true, 'REVISION_CONFLICT'],
+      ['nested-loss', true, 'IPC_DISCONNECTED'],
+    ] as const) {
+      let receipt = (
+        await f.storage.call('commandExecutionAccept', {
+          ...f.intent,
+          operationKey: key,
+          invocation: { ...f.intent.invocation, idempotencyKey: key },
+        })
+      ).receipt
+      const update = async (change: CommandExecutionUpdate['change']) => {
+        receipt = await f.storage.call('commandExecutionUpdate', {
+          sessionId: receipt.sessionId,
+          actorId: receipt.actorId,
+          operationKey: receipt.operationKey,
+          expectedRevision: receipt.revision,
+          change,
+        })
+      }
+      await update({ kind: 'bind', owner })
+      await update({
+        kind: 'settled',
+        physical: {
+          status: 'failed',
+          executionStarted,
+          payload: inline({ status: 'failed', executionStarted, error: { code, message: 'Original outcome' } }),
+        },
+      })
+    }
+    expect((await f.storage.call('commandExecutionPending', f.session.id)).items).toMatchObject([
+      { operationKey: 'nested-loss', reason: 'unconfirmed_failure' },
+    ])
+  } finally {
+    await f.close()
+  }
+})
+
 test('command intents require an authenticated active Run and atomically deduplicate canonical inputs', async () => {
   const f = await fixture()
   try {

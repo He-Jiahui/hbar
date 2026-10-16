@@ -4,12 +4,18 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { CommandError, CommandRegistry, createCommandRouter, defineCommand } from '@hbar/commands'
+import {
+  CommandError,
+  CommandRegistry,
+  createCommandExpectation,
+  createCommandRouter,
+  defineCommand,
+} from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { HbarError } from '@hbar/contracts'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import type { ArtifactRef } from '@hbar/contracts'
-import { Storage } from '@hbar/storage'
+import { Storage, type StoragePort, type StorageMethods } from '@hbar/storage'
 import { HostCommandExecutionScopes } from '../apps/host/src/command-execution-scopes'
 import { LocalCommandJobs } from '../apps/host/src/local-command-jobs'
 import { CommandResultPayloads } from '../apps/host/src/command-result-payloads'
@@ -211,9 +217,9 @@ async function fixture(
       released.push(`${source.channel}:${artifact.id}`)
     },
   })
-  const createService = () =>
+  const createService = (port: StoragePort = storage) =>
     new SessionCommandExecution({
-      storage,
+      storage: port,
       routing,
       scopes,
       payloads,
@@ -301,6 +307,189 @@ test('persistent session commands bind before effects, coalesce duplicate calls,
         }),
       ),
     ).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+  } finally {
+    await f.close()
+  }
+})
+
+test('an unconfirmed write blocks fresh operation keys while read-only inspection and the original late result remain available', async () => {
+  const f = await fixture({ timeoutMs: 10 })
+  try {
+    const original = f.service.execute(f.request)
+    await f.entered.promise
+    await original
+    const fresh = {
+      ...f.request,
+      operationKey: 'fresh-key',
+      callId: 'fresh-call',
+      prepared: {
+        ...f.request.prepared,
+        invocation: { ...f.request.prepared.invocation, requestId: 'fresh-request', idempotencyKey: 'fresh-key' },
+      },
+    }
+    expect(await failure(f.service.execute(fresh))).toMatchObject({ code: 'COMMAND_RESULT_UNCONFIRMED' })
+    expect(
+      await f.storage.call('commandExecutionRead', {
+        sessionId: f.session.id,
+        actorId: f.device.id,
+        operationKey: 'fresh-key',
+      }),
+    ).toBeNull()
+    expect(f.counts()).toEqual({ writes: 0, resources: 1, acknowledged: 0 })
+    const prepared = await f.routing.prepare({
+      protocol: 1,
+      requestId: 'inspect',
+      commandId: 'workspace.list',
+      commandVersion: 1,
+      input: {},
+    })
+    await f.service.execute({ ...f.request, operationKey: 'inspect', prepared })
+    expect((await f.service.wait(f.session.id, f.run.id, 'inspect'))?.physical?.status).toBe('succeeded')
+    f.gate.resolve()
+    await f.service.wait(f.session.id, f.run.id, 'write-once')
+    expect((await f.storage.call('commandExecutionPending', f.session.id)).items).toEqual([])
+    await f.service.execute(fresh)
+    expect((await f.service.wait(f.session.id, f.run.id, 'fresh-key'))?.physical?.status).toBe('succeeded')
+    expect(f.counts().writes).toBe(2)
+  } finally {
+    await f.close()
+  }
+})
+
+test('a replacement service and later Run cannot bypass a durable unconfirmed predecessor with a fresh key', async () => {
+  const f = await fixture()
+  try {
+    const intent = {
+      sessionId: f.session.id,
+      actorId: f.device.id,
+      runId: f.run.id,
+      callId: f.request.callId,
+      operationKey: f.request.operationKey,
+      invocation: f.request.prepared.invocation,
+      expectation: createCommandExpectation(f.request.prepared),
+    }
+    await f.storage.call('commandExecutionAccept', intent)
+    const replacement = f.createService()
+    const old = await replacement.execute(f.request)
+    expect(old.physical).toBeNull()
+    const fresh = {
+      ...f.request,
+      operationKey: 'new-key',
+      prepared: {
+        ...f.request.prepared,
+        invocation: { ...f.request.prepared.invocation, requestId: 'new-request', idempotencyKey: 'new-key' },
+      },
+    }
+    expect(await failure(replacement.execute(fresh))).toMatchObject({ code: 'COMMAND_RESULT_UNCONFIRMED' })
+    await f.storage.call('setRun', f.run.id, 'failed', 'Interrupted predecessor')
+    const next = await f.storage.call(
+      'enqueue',
+      f.session.id,
+      'later-run',
+      { text: 'continue task', images: [] },
+      'fixture',
+    )
+    await f.storage.call('claim', f.session.id)
+    expect(await failure(replacement.execute({ ...fresh, source: { ...f.source, runId: next.id } }))).toMatchObject({
+      code: 'COMMAND_RESULT_UNCONFIRMED',
+    })
+    expect(f.counts()).toEqual({ writes: 0, resources: 0, acknowledged: 0 })
+    expect((await f.storage.call('commandExecutionPending', f.session.id)).items).toMatchObject([
+      { runId: f.run.id, operationKey: 'write-once', reason: 'pending' },
+    ])
+    replacement.assertCanClose()
+  } finally {
+    await f.close()
+  }
+})
+
+test('an existing saved outcome can still be read idempotently when another command requires reconciliation', async () => {
+  const f = await fixture()
+  try {
+    f.gate.resolve()
+    await f.service.execute(f.request)
+    const complete = await f.service.wait(f.session.id, f.run.id, 'write-once')
+    await f.storage.call('commandExecutionAccept', {
+      sessionId: f.session.id,
+      actorId: f.device.id,
+      runId: f.run.id,
+      callId: 'other-call',
+      operationKey: 'unconfirmed-other',
+      invocation: { ...f.request.prepared.invocation, requestId: 'other-request', idempotencyKey: 'unconfirmed-other' },
+      expectation: createCommandExpectation(f.request.prepared),
+    })
+    expect((await f.service.execute(f.request)).physical).toEqual(complete?.physical ?? null)
+    expect((await f.createService().execute(f.request)).physical).toEqual(complete?.physical ?? null)
+    expect(f.counts()).toEqual({ writes: 1, resources: 0, acknowledged: 1 })
+  } finally {
+    await f.close()
+  }
+})
+
+test('the final start check rejects a newly discovered unconfirmed command before effects and records proven nonexecution', async () => {
+  const f = await fixture()
+  let checks = 0
+  const intercepted: StoragePort = {
+    async call<K extends keyof StorageMethods>(
+      method: K,
+      ...args: Parameters<StorageMethods[K]>
+    ): Promise<ReturnType<StorageMethods[K]>> {
+      if (method === 'commandExecutionPending' && ++checks === 2)
+        await f.storage.call('commandExecutionAccept', {
+          sessionId: f.session.id,
+          actorId: f.device.id,
+          runId: f.run.id,
+          callId: 'old-call',
+          operationKey: 'unconfirmed-other',
+          invocation: {
+            ...f.request.prepared.invocation,
+            requestId: 'old-request',
+            idempotencyKey: 'unconfirmed-other',
+          },
+          expectation: createCommandExpectation(f.request.prepared),
+        })
+      return f.storage.call(method, ...args)
+    },
+    close: async () => {},
+  }
+  const service = f.createService(intercepted)
+  try {
+    const receipt = await service.execute(f.request)
+    expect(receipt.logical && (await f.payloads.read(receipt.logical))).toMatchObject({
+      ok: false,
+      error: { code: 'COMMAND_RESULT_UNCONFIRMED' },
+    })
+    const complete = await service.wait(f.session.id, f.run.id, 'write-once')
+    expect(complete?.physical).toMatchObject({ status: 'failed', executionStarted: false })
+    expect(complete?.acknowledgedAt).not.toBeNull()
+    expect(f.counts()).toEqual({ writes: 0, resources: 0, acknowledged: 1 })
+    service.assertCanClose()
+  } finally {
+    await f.close()
+  }
+})
+
+test('known active commands in the same Run can execute concurrently before either logical result ends', async () => {
+  const f = await fixture()
+  try {
+    const first = f.service.execute(f.request)
+    await f.entered.promise
+    const second = f.service.execute({
+      ...f.request,
+      operationKey: 'parallel',
+      prepared: {
+        ...f.request.prepared,
+        invocation: { ...f.request.prepared.invocation, requestId: 'parallel', idempotencyKey: 'parallel' },
+      },
+    })
+    const deadline = Date.now() + 3_000
+    while (f.counts().resources < 2 && Date.now() < deadline) await Bun.sleep(1)
+    expect(f.counts().resources).toBe(2)
+    f.gate.resolve()
+    await Promise.all([first, second])
+    await f.service.wait(f.session.id, f.run.id, 'write-once')
+    await f.service.wait(f.session.id, f.run.id, 'parallel')
+    expect(f.counts()).toEqual({ writes: 2, resources: 0, acknowledged: 2 })
   } finally {
     await f.close()
   }

@@ -111,6 +111,34 @@ export const commandExecutionReceiptSchema = commandExecutionIntentSchema.extend
   acknowledgedAt: timestamp.nullable(),
 })
 export type CommandExecutionReceipt = z.infer<typeof commandExecutionReceiptSchema>
+/** These failures cannot prove the outcome of a nested side effect merely because its caller has returned. */
+export const COMMAND_UNCONFIRMED_ERROR_CODES = [
+  'RESULT_UNKNOWN',
+  'COMMAND_SOURCE_RESULT_UNKNOWN',
+  'IPC_DISCONNECTED',
+  'IPC_TIMEOUT',
+  'IPC_CANCELLED',
+  'IPC_PROTOCOL',
+  'IPC_OWNER_CHANGED',
+  'IPC_FRAGMENT_TIMEOUT',
+  'RUNTIME_OWNER_REVOKED',
+  'RUNTIME_PROCESS_EXITED',
+  'NODE_RESULT_UNKNOWN',
+  'NODE_RECEIPT_UNKNOWN',
+] as const
+export const commandExecutionPendingItemSchema = commandExecutionIdentitySchema.extend({
+  runId: idSchema,
+  commandId: z.string().min(1).max(128),
+  revision: z.number().int().positive().safe(),
+  reason: z.enum(['pending', 'unconfirmed_failure']),
+})
+/** Metadata only. Receipt bodies, command arguments and results are never included in this reconciliation read. */
+export const commandExecutionPendingSchema = z.strictObject({
+  sessionId: idSchema,
+  items: z.array(commandExecutionPendingItemSchema).max(64),
+  hasMore: z.boolean(),
+})
+export type CommandExecutionPending = z.infer<typeof commandExecutionPendingSchema>
 export const commandExecutionUpdateSchema = commandExecutionIdentitySchema.extend({
   expectedRevision: z.number().int().positive().safe(),
   change: z.discriminatedUnion('kind', [

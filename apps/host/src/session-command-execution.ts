@@ -6,6 +6,7 @@ import { commandJobLogicalResultSchema } from '@hbar/commands/jobs'
 import {
   commandExecutionIntentSchema,
   type CommandExecutionIdentity,
+  type CommandExecutionIntent,
   type CommandExecutionReceipt,
   type CommandExecutionUpdate,
   type CommandReceiptPayload,
@@ -121,6 +122,12 @@ export class SessionCommandExecution {
     void entry.delivered.promise.catch(() => undefined)
     this.active.set(key, entry)
     try {
+      const prior = await this.options.storage.call('commandExecutionRead', {
+        sessionId: intent.sessionId,
+        actorId: intent.actorId,
+        operationKey: intent.operationKey,
+      })
+      if (!prior) await this.assertReconciled(intent)
       const accepted = await this.options.storage.call('commandExecutionAccept', intent)
       entry.receipt = accepted.receipt
       if (!accepted.created) {
@@ -145,6 +152,7 @@ export class SessionCommandExecution {
               entry.owner = owner
               signal.throwIfAborted()
               this.options.assertSource(source)
+              await this.assertReconciled(intent)
               await this.authorization.authorize(
                 source.sessionId,
                 source.runId,
@@ -328,6 +336,32 @@ export class SessionCommandExecution {
       throw new HbarError(
         'HOST_COMMANDS_ACTIVE',
         'Session command outcomes still require saved acknowledgment or reconciliation',
+      )
+  }
+  private async assertReconciled(intent: CommandExecutionIntent): Promise<void> {
+    if (intent.expectation.descriptor.metadata.stateEffect === 'none') return
+    const pending = await this.options.storage.call('commandExecutionPending', intent.sessionId)
+    const current = keyOf(intent)
+    for (const item of pending.items) {
+      if (keyOf(item) === current) continue
+      const active = this.active.get(keyOf(item))
+      if (
+        item.reason === 'pending' &&
+        active?.receipt?.runId === intent.runId &&
+        !active.receipt.logical &&
+        !active.receipt.uncertainty &&
+        !active.ownerTrackingFailed
+      )
+        continue
+      throw new HbarError(
+        'COMMAND_RESULT_UNCONFIRMED',
+        'An earlier command in this session requires result reconciliation before new mutations',
+      )
+    }
+    if (pending.hasMore)
+      throw new HbarError(
+        'COMMAND_RESULT_UNCONFIRMED',
+        'Additional unconfirmed commands require reconciliation before new mutations',
       )
   }
   private async deliver(

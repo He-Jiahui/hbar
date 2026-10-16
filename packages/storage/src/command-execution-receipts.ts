@@ -4,15 +4,19 @@ import { HbarError, artifactSchema, type SessionEvent } from '@hbar/contracts'
 import {
   COMMAND_RECEIPT_RECORD_BYTES,
   COMMAND_RECEIPT_INTENT_BYTES,
+  COMMAND_UNCONFIRMED_ERROR_CODES,
   commandExecutionIdentitySchema,
   commandExecutionIntentSchema,
   commandExecutionReceiptSchema,
   commandExecutionUpdateSchema,
+  commandExecutionPendingSchema,
+  commandExecutionPendingItemSchema,
   type CommandExecutionIdentity,
   type CommandExecutionIntent,
   type CommandExecutionReceipt,
   type CommandExecutionUpdate,
   type CommandReceiptPayload,
+  type CommandExecutionPending,
 } from '@hbar/contracts/command-execution'
 import { createCommandExpectation } from '@hbar/commands'
 import { createExecutionPrincipalStorage } from './execution-principals'
@@ -31,6 +35,40 @@ export function createCommandExecutionReceiptStorage(db: Database, append: Appen
   const latest = db.query<{ sessionId: string; runId: string; data: string }, [string, string]>(
     'SELECT sessionId,runId,data FROM events WHERE sessionId=? AND type=? ORDER BY seq DESC LIMIT 1',
   )
+  const unknownFailure = `json_extract(e.data,'$.physical.status')='failed'
+    AND json_extract(e.data,'$.physical.executionStarted')=1
+    AND (json_extract(e.data,'$.physical.payload.kind')<>'inline'
+      OR json_extract(json_extract(e.data,'$.physical.payload.json'),'$.error.code') IN (${COMMAND_UNCONFIRMED_ERROR_CODES.map((code) => `'${code}'`).join(',')}))`
+  const pendingRows = () =>
+    db.query<
+      {
+        type: string
+        sessionId: string
+        runId: string
+        version: number
+        physicalType: string | null
+        recordedSessionId: string
+        recordedRunId: string
+        actorId: string
+        operationKey: string
+        commandId: string
+        revision: number
+        reason: string
+      },
+      [string]
+    >(`SELECT e.type,e.sessionId,e.runId,
+      json_extract(e.data,'$.version') AS version,json_type(e.data,'$.physical') AS physicalType,
+      json_extract(e.data,'$.sessionId') AS recordedSessionId,json_extract(e.data,'$.runId') AS recordedRunId,
+      json_extract(e.data,'$.actorId') AS actorId,json_extract(e.data,'$.operationKey') AS operationKey,
+      json_extract(e.data,'$.invocation.commandId') AS commandId,json_extract(e.data,'$.revision') AS revision,
+      CASE WHEN json_extract(e.data,'$.physical') IS NULL THEN 'pending' ELSE 'unconfirmed_failure' END AS reason
+    FROM events e INDEXED BY events_session_type_seq
+    WHERE e.sessionId=? AND e.type>='run.commandExecution.' AND e.type<'run.commandExecution/'
+      AND CASE WHEN EXISTS(SELECT 1 FROM events newer INDEXED BY events_session_type_seq
+        WHERE newer.sessionId=e.sessionId AND newer.type=e.type AND newer.seq>e.seq) THEN 0
+        ELSE coalesce(json_extract(e.data,'$.expectation.descriptor.metadata.stateEffect'),'unknown')<>'none'
+          AND (json_extract(e.data,'$.physical') IS NULL OR (${unknownFailure})) END
+    LIMIT 65`)
   function read(raw: CommandExecutionIdentity): CommandExecutionReceipt | null {
     const identity = commandExecutionIdentitySchema.parse(raw)
     const row = latest.get(identity.sessionId, eventType(identity))
@@ -85,6 +123,31 @@ export function createCommandExecutionReceiptStorage(db: Database, append: Appen
   }
   return {
     read,
+    pending(rawSessionId: string): CommandExecutionPending {
+      const sessionId = commandExecutionIdentitySchema.shape.sessionId.parse(rawSessionId)
+      const rows = pendingRows().all(sessionId)
+      const items = rows.map((row) => {
+        const item = commandExecutionPendingItemSchema.parse({
+          sessionId: row.sessionId,
+          actorId: row.actorId,
+          operationKey: row.operationKey,
+          runId: row.runId,
+          commandId: row.commandId,
+          revision: row.revision,
+          reason: row.reason,
+        })
+        if (
+          row.version !== 1 ||
+          !['null', 'object'].includes(row.physicalType ?? '') ||
+          row.recordedSessionId !== row.sessionId ||
+          row.recordedRunId !== row.runId ||
+          row.type !== eventType(item)
+        )
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Pending command metadata differs from its canonical identity')
+        return item
+      })
+      return commandExecutionPendingSchema.parse({ sessionId, items: items.slice(0, 64), hasMore: items.length > 64 })
+    },
     accept(raw: CommandExecutionIntent): { created: boolean; receipt: CommandExecutionReceipt } {
       const input = normalized(raw)
       if (Buffer.byteLength(JSON.stringify(input)) > COMMAND_RECEIPT_INTENT_BYTES)

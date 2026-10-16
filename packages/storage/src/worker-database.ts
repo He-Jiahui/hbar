@@ -1432,7 +1432,12 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             run,
             ...(manual ? { manual } : {}),
             executionPrincipal: manual
-              ? executionPrincipalSchema.parse({ version: 1, actorId: manual.command.actorId, originSessionId: run.sessionId, originRunId: run.id })
+              ? executionPrincipalSchema.parse({
+                  version: 1,
+                  actorId: manual.command.actorId,
+                  originSessionId: run.sessionId,
+                  originRunId: run.id,
+                })
               : executionPrincipals.run(original.id),
             launchTarget,
           },
@@ -1682,6 +1687,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       runExecutionPrincipal: executionPrincipals.run,
       commandExecutionAccept: commandExecutionReceipts.accept,
       commandExecutionRead: commandExecutionReceipts.read,
+      commandExecutionPending: commandExecutionReceipts.pending,
       commandExecutionUpdate: commandExecutionReceipts.update,
       createSession(workspaceId, title = 'New session', parentId, source) {
         return db.transaction(() => {
@@ -1701,9 +1707,19 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const sourceRun = origin?.kind === 'run' ? methods.run(origin.runId) : undefined
           if (sourceRun && sourceRun.sessionId !== parentId)
             throw new HbarError('EXECUTION_PRINCIPAL_SOURCE', 'A child session must inherit from its actual parent Run')
-          const executionPrincipal = origin?.kind === 'command'
-            ? executionPrincipalSchema.parse({ version: 1, actorId: origin.actorId, originSessionId: session.id, originRunId: null })
-            : sourceRun ? executionPrincipals.run(sourceRun.id) : parentId ? executionPrincipals.session(parentId) : null
+          const executionPrincipal =
+            origin?.kind === 'command'
+              ? executionPrincipalSchema.parse({
+                  version: 1,
+                  actorId: origin.actorId,
+                  originSessionId: session.id,
+                  originRunId: null,
+                })
+              : sourceRun
+                ? executionPrincipals.run(sourceRun.id)
+                : parentId
+                  ? executionPrincipals.session(parentId)
+                  : null
           db.query('INSERT INTO sessions VALUES(?,?,?,?,?,?,?,?)').run(
             session.id,
             workspaceId,
@@ -1727,7 +1743,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           })
           const prior = entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
           if (prior) return prior
-          const session = methods.createSession(input.workspaceId, input.title, undefined, { kind: 'command', actorId: input.actorId })
+          const session = methods.createSession(input.workspaceId, input.title, undefined, {
+            kind: 'command',
+            actorId: input.actorId,
+          })
           storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
           return session
         })()
@@ -2807,7 +2826,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const parent = methods.session(input.sessionId)
           const { target, prefix } = messageForkPrefix(parent.id, input.messageId)
 
-          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id, { kind: 'command', actorId: input.actorId })
+          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id, {
+            kind: 'command',
+            actorId: input.actorId,
+          })
           appendEvent(child.id, 'session.forked', {
             parentId: parent.id,
             sourceMessageId: target.id,
@@ -2909,7 +2931,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id was already used with different input')
             const accepted = z.object({ command: runCommandRecordSchema.optional() }).parse(parseJson(queued.data))
             if (submittedCommand && stableJson(accepted.command) !== stableJson(submittedCommand))
-              throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id already belongs to a different authenticated submission')
+              throw new HbarError(
+                'IDEMPOTENCY_CONFLICT',
+                'This request id already belongs to a different authenticated submission',
+              )
             return prior
           }
           const owner = methods.session(sessionId)
@@ -2927,12 +2952,23 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             endedAt: null,
             error: null,
           }
-          const sourceRun = submittedCommand || sourceRunId === undefined ? undefined : methods.run(idSchema.parse(sourceRunId))
+          const sourceRun =
+            submittedCommand || sourceRunId === undefined ? undefined : methods.run(idSchema.parse(sourceRunId))
           if (sourceRun && sourceRun.sessionId !== owner.id && sourceRun.sessionId !== owner.parentId)
-            throw new HbarError('EXECUTION_PRINCIPAL_SOURCE', 'A Run can inherit only from its session or its parent session')
+            throw new HbarError(
+              'EXECUTION_PRINCIPAL_SOURCE',
+              'A Run can inherit only from its session or its parent session',
+            )
           const executionPrincipal = submittedCommand
-            ? executionPrincipalSchema.parse({ version: 1, actorId: submittedCommand.actorId, originSessionId: sessionId, originRunId: run.id })
-            : sourceRun ? executionPrincipals.run(sourceRun.id) : executionPrincipals.session(sessionId)
+            ? executionPrincipalSchema.parse({
+                version: 1,
+                actorId: submittedCommand.actorId,
+                originSessionId: sessionId,
+                originRunId: run.id,
+              })
+            : sourceRun
+              ? executionPrincipals.run(sourceRun.id)
+              : executionPrincipals.session(sessionId)
           const retainedLaunchTarget = sessionLaunchTarget.bindToRun(sessionId, run.id, workspace.path, launchTarget)
           db.query(
             'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
