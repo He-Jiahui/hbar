@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, userInputAnswerSchema } from '../index'
+import { decisionCommands } from './decisions'
 
 const commandMetadata = (id: string) => ({
   id,
@@ -17,6 +18,7 @@ const commandMetadata = (id: string) => ({
 })
 
 export const interactionCommands = {
+  ...decisionCommands,
   'planExit.get': defineCommand(
     { ...commandMetadata('planExit.get'), kind: 'query', stateEffect: 'none' },
     z.strictObject({ sessionId: idSchema, approvalId: idSchema, runId: idSchema, callId: idSchema }),

@@ -441,6 +441,24 @@ Kernel 在自动判断期间也保留可人工接管的 pending 投影。人工�
 Windows／Bun 1.4.0 的 24 次真实 Worker 接纳加答复提交测量，p95 9.34 ms、max 10.43 ms；包含日志持久化，不含模型或 UI 时间，不保证其他环境性能。
 此项保留持久问答记录；跨重启重建待决投影、审批／Plan Exit、公开 decision 目录、等待 deadline 和模式三委派仍需整合。
 
+## 统一决策目录与命令接口
+
+`decision.list/get/resolve` 在 CLI、API 和命令面板使用同一组类型契约，覆盖问答、普通审批和 Plan Exit。
+目录按 session 和 kind 分页，默认只读 pending，每页最多 50 条，仅返回身份、状态、版本和来源 Run 状态；正文通过 get 单独读取。
+问答复用规范事件的 session/type/seq 索引，审批按 session/kind/id 建立表达式索引；已有数据不增加新的可变日志表。
+审批版本以 pending 为 1、终态为 2；问答使用持久状态 revision。
+
+resolve 要求认证操作人、幂等键和已读取版本，调用原 Kernel 问答、审批或 Plan Exit 用例。
+Plan Exit 保留原 Run/call 与模式切换、当前许可和反馈限制；普通审批不能冒充 Plan Exit。
+命令边界保持设备、角色与 workspace/session 授权，observer 只可读取。
+同 session、actor 和幂等键的意图及结果写入 `decision.operation` 规范持久记录，每条最多 512 KiB，并在确认前 fsync。
+已确认结果可跨重启原样读取；不同输入复用原键返回冲突。只有意图而缺少确认回执时返回 RESULT_UNKNOWN，要求 get 核对原决定，不重放。
+这不是决定状态与外层命令回执的跨事务原子保证：两者之间若中断，保留未知结果并停止自动重试。
+
+所有 session 可以通过 hbar_command_execute 执行 decision.list/get，沿用来源 actor 和完整命令准入；decision.resolve 的模型调用仍等待显式委派授权链，尚未开放。
+命令面板的名称、说明和选项由宿主中英文文案提供。真实网络测试覆盖原请求答复、拒绝审批、同 Run 退出 Plan、跨会话与权限拒绝和重复请求；真实 Worker 验证索引分页、重启回执、确认丢失和未知意图不重放。
+决策目录在重启后可读取持久请求，但中断 Run 的交互执行器恢复仍需后续调度接入。
+
 ## 完整目标的后续交付
 
 以下仍属本次后台模式目标，不能把原生托盘入口的交付当作它们已经完成：

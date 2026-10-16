@@ -71,6 +71,7 @@
     "./commands/goal-plan-workspace": "./src/commands/goal-plan-workspace.ts",
     "./commands/workflow-workspace": "./src/commands/workflow-workspace.ts",
     "./commands/interaction": "./src/commands/interaction.ts",
+    "./commands/decisions": "./src/commands/decisions.ts",
     "./commands/interaction-draft": "./src/commands/interaction-draft.ts",
     "./commands/metrics": "./src/commands/metrics.ts",
     "./commands/models": "./src/commands/models.ts",

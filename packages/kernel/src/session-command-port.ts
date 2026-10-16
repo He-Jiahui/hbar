@@ -10,6 +10,7 @@ export const SESSION_COMMAND_DIRECTORY_QUERY_IDS = [
   'session.get',
 ] as const
 export const SESSION_COMMAND_FILE_IDS = ['file.find', 'file.list', 'file.read', 'file.write'] as const
+export const SESSION_COMMAND_DECISION_READ_IDS = ['decision.list', 'decision.get'] as const
 
 export const sessionCommandSourceSchema = z.strictObject({
   prefix: z.string().regex(/^kernel\.command\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),

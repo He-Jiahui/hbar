@@ -3,6 +3,7 @@ import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import { createUserInputStateStorage } from './user-input-state'
+import { createDecisionStorage, DECISION_PAGE_INDEX } from './decisions'
 import { userInputAcceptSchema, userInputCommitSchema } from '@hbar/contracts/user-input-state'
 import { executionPrincipalSchema, sessionCreationSourceSchema } from '@hbar/contracts/execution-principal'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
@@ -639,6 +640,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const executionPrincipals = createExecutionPrincipalStorage(db)
     const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
     const userInputState = createUserInputStateStorage(db, appendEvent)
+    const decisions = createDecisionStorage(db, appendEvent)
     const nodeRegistryStorage = createNodeRegistryStorage(db)
     const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
     const nodeExecutionIntentStorage = createNodeExecutionIntentStorage(db)
@@ -656,6 +658,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
     if (!preflight || shadowMemory) {
+      db.exec(DECISION_PAGE_INDEX)
       db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
       db.exec('CREATE INDEX IF NOT EXISTS events_session_type_seq ON events(sessionId,type,seq);')
       db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
@@ -1690,6 +1693,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       runExecutionPrincipal: executionPrincipals.run,
       commandExecutionAccept: commandExecutionReceipts.accept,
       userInputAccept: userInputState.accept,
+      decisionPage: decisions.page,
+      decisionOperationRead: decisions.operationRead,
+      decisionOperationBegin: decisions.operationBegin,
+      decisionOperationComplete: decisions.operationComplete,
       userInputRead: userInputState.read,
       userInputCommit: userInputState.commit,
       commandExecutionRead: commandExecutionReceipts.read,

@@ -11,6 +11,7 @@ import {
   sessionCommandToolResultSchema,
   SESSION_COMMAND_DIRECTORY_QUERY_IDS,
   SESSION_COMMAND_FILE_IDS,
+  SESSION_COMMAND_DECISION_READ_IDS,
   type SessionCommandCall,
   type SessionCommandPreparation,
   type SessionCommandToolResult,
@@ -23,6 +24,7 @@ import type { HostSourceApplication } from './command-execution-scopes'
 
 const readCommands = new Set<string>(SESSION_COMMAND_DIRECTORY_QUERY_IDS)
 const fileCommands = new Set<string>(SESSION_COMMAND_FILE_IDS)
+const decisionQueries = new Set<string>(SESSION_COMMAND_DECISION_READ_IDS)
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength
 type ExecutionPort = Pick<SessionCommandExecution, 'execute' | 'wait'>
 
@@ -58,8 +60,9 @@ export class SessionCommandGateway {
         'Client and platform execution admission is not available on this gateway yet',
       )
     const file = fileCommands.has(call.commandId)
+    const decision = decisionQueries.has(call.commandId)
     const write = call.commandId === 'file.write'
-    if (!readCommands.has(call.commandId) && !file)
+    if (!readCommands.has(call.commandId) && !file && !decision)
       throw new HbarError(
         'COMMAND_ADMISSION_UNAVAILABLE',
         'This command needs a concrete admission rule before a session can execute it',
@@ -105,7 +108,7 @@ export class SessionCommandGateway {
     if (
       metadata.id !== call.commandId ||
       metadata.version !== call.commandVersion ||
-      metadata.owner !== (file ? 'hbar.files' : 'hbar.core') ||
+      metadata.owner !== (file ? 'hbar.files' : decision ? 'hbar.decisions' : 'hbar.core') ||
       metadata.kind !== (write ? 'command' : 'query') ||
       metadata.stateEffect !== (write ? 'persistent' : 'none') ||
       metadata.execution !== 'host' ||

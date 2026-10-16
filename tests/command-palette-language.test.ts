@@ -1,9 +1,29 @@
 import { expect, test } from 'bun:test'
-import { describeCommand } from '@hbar/commands'
+import { describeCommand, compileCommandParameterForm } from '@hbar/commands'
+import { decisionCommands } from '@hbar/contracts/commands/decisions'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { createWebRuntimeCopy } from '../apps/web/src/runtime-copy'
 import type { ShellLocale } from '../apps/web/src/shell-copy'
+import { getShellCopy } from '../apps/web/src/shell-copy'
+
+test('decision commands and their kind/status choices have host-owned copy in both locales', () => {
+  const fields = compileCommandParameterForm(describeCommand(decisionCommands['decision.list'])).fields
+  const kind = fields.find((field) => field.name === 'kind')
+  const status = fields.find((field) => field.name === 'status')
+  if (!kind || !status) throw new Error('Decision list fields must be available to the palette')
+  for (const locale of ['zh-CN', 'en-US'] as const) {
+    const copy = getShellCopy(locale).commandPalette
+    for (const id of ['decision.list', 'decision.get', 'decision.resolve']) {
+      expect(copy.resolve(`commands.${id}.title`)).not.toContain('commands.')
+      expect(copy.resolve(`commands.${id}.description`)).not.toContain('commands.')
+    }
+    expect(copy.category('run.decisions')).toBe(locale === 'zh-CN' ? '待决事项' : 'Decisions')
+    expect(copy.option(kind, 'questionnaire')).toBe(locale === 'zh-CN' ? '问答' : 'Question')
+    expect(copy.option(kind, 'plan_exit')).toBe(locale === 'zh-CN' ? '计划决定' : 'Plan decision')
+    expect(copy.option(status, 'pending')).toBe(locale === 'zh-CN' ? '待处理' : 'Pending')
+  }
+})
 
 test('localized search reindexes in place without querying a catalog or choosing a different command', async () => {
   let locale: ShellLocale = 'zh-CN'

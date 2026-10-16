@@ -9,6 +9,9 @@ import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import { userInputSettlementSchema } from '@hbar/contracts/user-input-state'
 import { Storage, isDurableSessionEvent } from '@hbar/storage'
 import { createUserInputStateStorage } from '../packages/storage/src/user-input-state'
+import { executeDecisionOperation } from '../packages/kernel/src/decision-command-operation'
+import { decisionDetailSchema } from '@hbar/contracts/commands/decisions'
+import type { StoragePort } from '@hbar/storage'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 
 async function failure(operation: Promise<unknown>): Promise<unknown> {
@@ -113,6 +116,137 @@ async function fixture(managed = false) {
     },
   }
 }
+
+test('decision receipts survive restart and lost acknowledgements without replaying unknown intents', async () => {
+  const f = await fixture()
+  try {
+    await f.storage.call('userInputAccept', { request: f.request, policy: f.policy })
+    const identity = {
+      actorId: 'decision-actor',
+      idempotencyKey: 'answer-once',
+      input: {
+        sessionId: f.request.sessionId,
+        id: f.request.requestId,
+        expectedRevision: 1,
+        resolution: { kind: 'questionnaire' as const, response: { answers: { scope: { answers: ['API'] } } } },
+      },
+    }
+    let calls = 0
+    const action = async () => {
+      calls++
+      const committed = await f.storage.call('userInputCommit', {
+        ...f.identity,
+        expectedRevision: 1,
+        settlement: f.manual,
+      })
+      return {
+        accepted: committed.accepted,
+        decision: decisionDetailSchema.parse({
+          sessionId: f.request.sessionId,
+          kind: 'questionnaire',
+          id: f.request.requestId,
+          runId: f.request.runId,
+          callId: f.request.callId,
+          revision: committed.state.revision,
+          status: 'answered',
+          sourceRunStatus: 'running',
+          createdAt: committed.state.createdAt,
+          state: committed.state,
+        }),
+      }
+    }
+    const original = await executeDecisionOperation(f.storage, identity, action)
+    expect(await executeDecisionOperation(f.storage, identity, action)).toEqual(original)
+    expect(calls).toBe(1)
+    expect(
+      await failure(
+        executeDecisionOperation(
+          f.storage,
+          {
+            ...identity,
+            input: {
+              ...identity.input,
+              resolution: { kind: 'questionnaire', response: { answers: { scope: { answers: ['App'] } } } },
+            },
+          },
+          action,
+        ),
+      ),
+    ).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+    const events = await f.storage.call('events', f.request.sessionId, 0, 100)
+    expect(
+      events
+        .filter((event) => event.type.startsWith('decision.operation.'))
+        .every((event) => isDurableSessionEvent(event.type)),
+    ).toBe(true)
+    await f.reopen()
+    expect(await executeDecisionOperation(f.storage, identity, action)).toEqual(original)
+    expect(calls).toBe(1)
+    let lost = false
+    const ackLoss: StoragePort = {
+      close: () => f.storage.close(),
+      call: async (method, ...args) => {
+        const result = await f.storage.call(method, ...args)
+        if (method === 'decisionOperationComplete' && !lost) {
+          lost = true
+          throw new HbarError('DISCONNECTED', 'Committed receipt acknowledgement was lost')
+        }
+        return result
+      },
+    }
+    const lostIdentity = { ...identity, idempotencyKey: 'lost-ack' }
+    const known = await executeDecisionOperation(ackLoss, lostIdentity, action)
+    expect(known.accepted).toBe(false)
+    expect(await executeDecisionOperation(f.storage, lostIdentity, action)).toEqual(known)
+    expect(calls).toBe(2)
+    const interrupted = { ...identity, idempotencyKey: 'interrupted' }
+    await f.storage.call('decisionOperationBegin', interrupted)
+    await f.reopen()
+    expect(await failure(executeDecisionOperation(f.storage, interrupted, action))).toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    expect(calls).toBe(2)
+    let failures = 0
+    const reject = async () => {
+      failures++
+      throw new HbarError('DECISION_CONFLICT', 'Stale decision')
+    }
+    const rejected = { ...identity, idempotencyKey: 'rejected' }
+    expect(await failure(executeDecisionOperation(f.storage, rejected, reject))).toMatchObject({
+      code: 'DECISION_CONFLICT',
+    })
+    expect(await failure(executeDecisionOperation(f.storage, rejected, reject))).toMatchObject({
+      code: 'DECISION_CONFLICT',
+    })
+    expect(failures).toBe(1)
+    const unknown = { ...identity, idempotencyKey: 'unknown' }
+    const crash = async () => {
+      failures++
+      throw new Error('Executor was interrupted')
+    }
+    expect(await failure(executeDecisionOperation(f.storage, unknown, crash))).toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(await failure(executeDecisionOperation(f.storage, unknown, action))).toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    expect(failures).toBe(2)
+    expect(calls).toBe(2)
+    const invalid = { ...identity, idempotencyKey: 'wrong-target' }
+    await f.storage.call('decisionOperationBegin', invalid)
+    expect(
+      await failure(
+        f.storage.call('decisionOperationComplete', {
+          ...invalid,
+          outcome: {
+            status: 'succeeded',
+            result: { ...original, decision: { ...original.decision, id: 'some-other-question' } },
+          },
+        }),
+      ),
+    ).toMatchObject({ code: 'DECISION_RECEIPT_INVALID' })
+  } finally {
+    await f.close()
+  }
+})
 
 test('the real Worker keeps one durable answer across concurrent manual/automatic submissions, lost retries and reopening', async () => {
   const f = await fixture()
@@ -277,6 +411,96 @@ test('bounded question commits report real Worker persistence latency without mo
         maxMs: samples.at(-1),
       }),
     )
+  } finally {
+    await f.close()
+  }
+})
+
+test('decision pages use canonical latest questions and separate indexed approval kinds without loading bodies', async () => {
+  const f = await fixture()
+  try {
+    for (let index = 0; index < 6; index++) {
+      const request = { ...f.request, requestId: `page-${index}` }
+      await f.storage.call('userInputAccept', { request, policy: f.policy })
+      if (index === 2)
+        await f.storage.call('userInputCommit', {
+          sessionId: request.sessionId,
+          requestId: request.requestId,
+          expectedRevision: 1,
+          settlement: f.manual,
+        })
+    }
+    const seen: string[] = []
+    let after: string | undefined
+    do {
+      const page = await f.storage.call('decisionPage', {
+        sessionId: f.request.sessionId,
+        kind: 'questionnaire',
+        limit: 2,
+        ...(after ? { after } : {}),
+      })
+      expect(page.items.length).toBeLessThanOrEqual(2)
+      expect(page.items.every((item) => item.status === 'pending' && !('state' in item) && !('response' in item))).toBe(
+        true,
+      )
+      seen.push(...page.items.map((item) => item.id))
+      after = page.nextCursor ?? undefined
+    } while (after)
+    expect(seen.sort()).toEqual(['page-0', 'page-1', 'page-3', 'page-4', 'page-5'])
+    expect(
+      (await f.storage.call('decisionPage', { sessionId: f.request.sessionId, kind: 'questionnaire', status: 'all' }))
+        .items,
+    ).toHaveLength(6)
+    for (let index = 0; index < 6; index++)
+      await f.storage.call('createApproval', {
+        id: `approval-${index}`,
+        sessionId: f.request.sessionId,
+        runId: f.request.runId,
+        callId: `call-${index}`,
+        tool: index >= 4 ? 'exit_plan_mode' : 'write_file',
+        args: { text: 'Approval body stays out of list pages' },
+        status: 'pending',
+        createdAt: Date.now(),
+      })
+    await f.storage.call('resolveApproval', 'approval-0', 'denied')
+    expect(
+      (await f.storage.call('decisionPage', { sessionId: f.request.sessionId, kind: 'approval' })).items.map(
+        (item) => item.id,
+      ),
+    ).toEqual(['approval-1', 'approval-2', 'approval-3'])
+    expect(
+      (await f.storage.call('decisionPage', { sessionId: f.request.sessionId, kind: 'plan_exit' })).items.map(
+        (item) => item.id,
+      ),
+    ).toEqual(['approval-4', 'approval-5'])
+    expect(
+      (
+        await f.storage.call('decisionPage', {
+          sessionId: f.request.sessionId,
+          kind: 'approval',
+          status: 'all',
+          after: 'approval-1',
+          limit: 1,
+        })
+      ).nextCursor,
+    ).toBe('approval-2')
+    expect(
+      await failure(
+        f.storage.call('decisionPage', { sessionId: f.request.sessionId, kind: 'questionnaire', after: 'approval-2' }),
+      ),
+    ).toMatchObject({ code: 'INVALID_CURSOR' })
+    const db = new Database(f.path, { readonly: true })
+    try {
+      const plan = db
+        .query<{ detail: string }, [string, string, string]>(
+          "EXPLAIN QUERY PLAN SELECT id FROM approvals INDEXED BY approvals_decision_page WHERE sessionId=? AND (CASE WHEN tool='exit_plan_mode' THEN 'plan_exit' ELSE 'approval' END)=? AND id>? ORDER BY id LIMIT 2",
+        )
+        .all(f.request.sessionId, 'approval', '')
+      expect(plan.some((row) => row.detail.includes('approvals_decision_page'))).toBe(true)
+      expect(plan.some((row) => row.detail.includes('TEMP B-TREE'))).toBe(false)
+    } finally {
+      db.close()
+    }
   } finally {
     await f.close()
   }

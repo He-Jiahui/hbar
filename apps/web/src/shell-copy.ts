@@ -263,6 +263,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'app.navigation': '应用与导航',
         'workspace.session': '工程与会话',
         'run.approval': '运行与审批',
+        'run.decisions': '待决事项',
         'model.budget': '模型与预算',
         'model.configuration': '模型配置',
         'agent.goal.plan': '代理、目标与计划',
@@ -277,6 +278,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'app.navigation': 'App and navigation',
         'workspace.session': 'Projects and sessions',
         'run.approval': 'Runs and approvals',
+        'run.decisions': 'Decisions',
         'model.budget': 'Models and budgets',
         'model.configuration': 'Model configuration',
         'agent.goal.plan': 'Agents, goals, and plans',
@@ -290,6 +292,12 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
   const messages: Readonly<Record<string, string>> = zh
     ? {
         'commands.app.openPanel.title': '打开子界面',
+        'commands.decision.list.title': '列出待决事项',
+        'commands.decision.list.description': '按会话和类型分页读取问答、审批或计划决定。',
+        'commands.decision.get.title': '读取待决事项',
+        'commands.decision.get.description': '读取原请求、当前版本和处理结果。',
+        'commands.decision.resolve.title': '处理待决事项',
+        'commands.decision.resolve.description': '按已读取的版本提交答复、审批或计划决定。',
         'commands.app.openPanel.description': '在当前工作台打开指定子界面。',
         'commands.app.closePanel.title': '关闭子界面',
         'commands.app.closePanel.description': '关闭指定的工作台子界面。',
@@ -342,6 +350,13 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
       }
     : {
         'commands.app.openPanel.title': 'Open panel',
+        'commands.decision.list.title': 'List decisions',
+        'commands.decision.list.description': 'Read paged questions, approvals, or Plan decisions for a session.',
+        'commands.decision.get.title': 'Read a decision',
+        'commands.decision.get.description': 'Read the original request, current revision, and resolution.',
+        'commands.decision.resolve.title': 'Resolve a decision',
+        'commands.decision.resolve.description':
+          'Submit an answer, approval, or Plan decision using its observed revision.',
         'commands.app.openPanel.description': 'Open a named panel in the current workbench.',
         'commands.app.closePanel.title': 'Close panel',
         'commands.app.closePanel.description': 'Close a workbench panel instance.',
@@ -399,6 +414,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
   const fields: Readonly<Record<string, string>> = zh
     ? {
         sessionId: '会话 ID',
+        kind: '类型',
+        id: '标识符',
+        status: '状态',
+        resolution: '处理内容',
         workspaceId: '工作区 ID',
         session: '会话 ID 或名称',
         sessionName: '会话名称',
@@ -432,6 +451,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
       }
     : {
         sessionId: 'Session ID',
+        kind: 'Kind',
+        id: 'Identifier',
+        status: 'Status',
+        resolution: 'Resolution',
         workspaceId: 'Workspace ID',
         session: 'Session ID or name',
         sessionName: 'Session name',
@@ -505,7 +528,18 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
     workspaceOption: (name, path) => `${name} · ${path}`,
     sessionOption: (title, workspace) => `${title} · ${workspace}`,
     fieldFallback: (name) => fields[name] ?? name,
-    option: (_field, value) => String(value),
+    option: (field, value) => {
+      if (field.name === 'kind') {
+        if (value === 'questionnaire') return choose('问答', 'Question')
+        if (value === 'approval') return choose('审批', 'Approval')
+        if (value === 'plan_exit') return choose('计划决定', 'Plan decision')
+      }
+      if (field.name === 'status') {
+        if (value === 'pending') return choose('待处理', 'Pending')
+        if (value === 'all') return choose('全部', 'All')
+      }
+      return String(value)
+    },
     issue: (issue) => {
       const codes = zh
         ? {

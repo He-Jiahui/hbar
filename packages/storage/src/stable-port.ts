@@ -22,6 +22,8 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'runExecutionPrincipal',
   'commandExecutionRead',
   'userInputRead',
+  'decisionPage',
+  'decisionOperationRead',
   'commandExecutionPending',
   'deviceById',
   'snapshot',

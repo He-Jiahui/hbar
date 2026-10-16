@@ -151,6 +151,41 @@ test('independent real managed sessions discover command mode and read schemas i
         })
       )?.actorId,
     ).toBe(secondDevice.device.id)
+    const decisionList = await call(second.id, 'hbar_command_execute', {
+      commandId: 'decision.list',
+      commandVersion: 1,
+      operationKey: 'inspect-decisions',
+      input: { sessionId: second.id, kind: 'questionnaire' },
+    })
+    expect(
+      z
+        .object({ status: z.literal('succeeded'), result: z.object({ items: z.array(z.unknown()).length(0) }) })
+        .parse(JSON.parse(decisionList) as unknown).status,
+    ).toBe('succeeded')
+    const missingDecision = await call(
+      second.id,
+      'hbar_command_execute',
+      {
+        commandId: 'decision.get',
+        commandVersion: 1,
+        operationKey: 'inspect-missing-decision',
+        input: { sessionId: second.id, kind: 'questionnaire', id: 'missing' },
+      },
+      true,
+    )
+    expect(
+      z
+        .object({ status: z.literal('failed'), error: z.object({ code: z.literal('COMMAND_NOT_FOUND') }) })
+        .parse(JSON.parse(missingDecision) as unknown).status,
+    ).toBe('failed')
+    expect(
+      await call(
+        second.id,
+        'hbar_command_execute',
+        { commandId: 'decision.resolve', commandVersion: 1, operationKey: 'no-implicit-delegation', input: {} },
+        true,
+      ),
+    ).toContain('concrete admission rule')
     expect(
       await call(
         first.id,

@@ -13,6 +13,7 @@ export function createInteractionCommandClient(client: ClientTransport) {
           commandId,
           commandVersion: options?.version ?? 1,
           input,
+          ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
         })
       } catch (error) {
         if (error instanceof HbarError && ['DISCONNECTED', 'TIMEOUT'].includes(error.code))

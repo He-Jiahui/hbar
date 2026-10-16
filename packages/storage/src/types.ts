@@ -1,6 +1,7 @@
 import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/execution-principal'
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type { createUserInputStateStorage } from './user-input-state'
+import type { createDecisionStorage } from './decisions'
 import type {
   Approval,
   ArtifactRef,
@@ -295,6 +296,10 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
+  decisionPage: ReturnType<typeof createDecisionStorage>['page']
+  decisionOperationRead: ReturnType<typeof createDecisionStorage>['operationRead']
+  decisionOperationBegin: ReturnType<typeof createDecisionStorage>['operationBegin']
+  decisionOperationComplete: ReturnType<typeof createDecisionStorage>['operationComplete']
   userInputAccept: ReturnType<typeof createUserInputStateStorage>['accept']
   userInputRead: ReturnType<typeof createUserInputStateStorage>['read']
   userInputCommit: ReturnType<typeof createUserInputStateStorage>['commit']
