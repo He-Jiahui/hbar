@@ -129,6 +129,15 @@ export const runtimeUnitSnapshotSchema = z.strictObject({
   descriptor: runtimeUnitDescriptorSchema,
   generations: z.array(runtimeGenerationSchema).max(3),
   queuedArtifactId: runtimeArtifactIdSchema.nullable(),
+  idle: z
+    .strictObject({
+      checkpointPending: z.boolean(),
+      enabled: z.boolean(),
+      phase: z.enum(['active', 'sleeping', 'retiring', 'waking', 'unknown']),
+      demandHolds: z.number().int().nonnegative().max(256),
+      selectedArtifactId: runtimeArtifactIdSchema.nullable(),
+    })
+    .optional(),
 })
 export type RuntimeUnitSnapshot = z.infer<typeof runtimeUnitSnapshotSchema>
 export const runtimeSourceReloadSchema = z.strictObject({

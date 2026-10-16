@@ -78,6 +78,14 @@ export {
 export {
   RuntimeManager,
   type RuntimeManagerOptions,
+  type RuntimeDemandHold,
+  type RuntimeDemandSettlement,
+  type RuntimeDemandUnitSettlement,
+  type RuntimeDemandReleaseProof,
+  type RuntimeIdleCheckpoint,
+  type RuntimeManagerRetirement,
+  type RuntimeManagerRetirementState,
+  type RuntimeManagerIdleResult,
   type RuntimeArtifactRegistry,
   type ManagedGenerationPort,
 } from './manager'
