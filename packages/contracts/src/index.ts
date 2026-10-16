@@ -274,15 +274,29 @@ export const userInputResponseSchema = z.object({
   answers: z.record(userInputIdSchema, userInputAnswerSchema),
 })
 export type UserInputResponse = z.infer<typeof userInputResponseSchema>
-export const userInputAutomaticDecisionSchema = z.strictObject({
-  version: z.literal(1),
-  source: z.enum(['recommended', 'model']),
-  request: userInputRequestSchema,
-  response: userInputResponseSchema,
-  policy: autonomyPolicyResolutionSchema.optional(),
-  attemptIds: z.array(idSchema).min(1).max(2).optional(),
-  modelId: idSchema.optional(),
-})
+export const userInputAutomaticDecisionSchema = z
+  .strictObject({
+    version: z.literal(1),
+    source: z.enum(['recommended', 'model', 'delegate']),
+    request: userInputRequestSchema,
+    response: userInputResponseSchema,
+    policy: autonomyPolicyResolutionSchema.optional(),
+    attemptIds: z.array(idSchema).min(1).max(2).optional(),
+    modelId: idSchema.optional(),
+    delegation: z
+      .strictObject({
+        delegationId: idSchema,
+        targetSessionId: idSchema,
+        targetRunId: idSchema,
+        replyRevision: z.number().int().positive().safe(),
+      })
+      .optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.source === 'delegate' ? !value.delegation || value.modelId || value.attemptIds : value.delegation)
+      context.addIssue({ code: 'custom', message: 'A delegated answer requires only its original target receipt' })
+  })
+export type UserInputAutomaticDecision = z.output<typeof userInputAutomaticDecisionSchema>
 /** Internal transport envelope; Codex responses themselves contain answers only. */
 export const userInputResolutionSchema = userInputResponseSchema.extend({ requestId: idSchema })
 export type UserInputResolution = z.infer<typeof userInputResolutionSchema>

@@ -10,8 +10,10 @@ import { userInputRequestSchema, type Run, type SessionEvent } from '@hbar/contr
 import type { Session } from '@hbar/contracts/directory'
 import { AUTONOMY_DECISION_MODE_SETTING, AUTONOMY_DECISION_TARGET_SETTING } from '@hbar/contracts/autonomy'
 import type { DelegatedInputIdentity, DelegatedInputRecord } from '@hbar/contracts/delegated-user-input'
+import { userInputSettlementSchema } from '@hbar/contracts/user-input-state'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 import { createDelegatedUserInputStorage } from '../packages/storage/src/delegated-user-input'
+import { createUserInputStateStorage } from '../packages/storage/src/user-input-state'
 
 async function failure(operation: Promise<unknown>): Promise<unknown> {
   try {
@@ -37,6 +39,24 @@ const mutation = (state: DelegatedInputRecord) => ({
   delegationId: state.delegationId,
   expectedRevision: state.revision,
 })
+const delegatedAnswer = (state: DelegatedInputRecord, label = 'API') =>
+  userInputSettlementSchema.parse({
+    kind: 'answered',
+    response: { answers: { scope: { answers: [label] } } },
+    automatic: {
+      version: 1,
+      source: 'delegate',
+      request: state.request,
+      policy: state.policy,
+      response: { answers: { scope: { answers: [label] } } },
+      delegation: {
+        delegationId: state.delegationId,
+        targetSessionId: state.targetSessionId,
+        targetRunId: state.targetRunId,
+        replyRevision: state.revision,
+      },
+    },
+  })
 
 async function fixture(managed = false) {
   const prefix = 'hbar-delegated-input-'
@@ -228,12 +248,170 @@ test('delegations retain original questions, target binding, reply proof and fiv
       expectedRevision: 1,
       settlement: { kind: 'answered', response: { answers: { scope: { answers: ['API'] } } } },
     })
-    expect(
-      (await f.storage.call('delegatedInputFinish', { ...mutation(answer.state), reason: 'source_resolved' })).state
-        .status,
-    ).toBe('closed')
+    expect(await f.storage.call('delegatedInputRead', identity(answer.state))).toMatchObject({
+      status: 'closed',
+      reason: 'source_resolved',
+      revision: answer.state.revision + 1,
+    })
   } finally {
     await f.close()
+  }
+})
+
+test('an exact delegated receipt settles the source once, survives target completion and retains its origin after restart', async () => {
+  const f = await fixture()
+  try {
+    const delivered = await f.delivered()
+    const answered = await f.complete(delivered.state)
+    await f.storage.call('setRun', f.runs[1]!.id, 'completed')
+    await f.restart()
+    const input = { ...identity(answered.state), expectedRevision: 1, settlement: delegatedAnswer(answered.state) }
+    const accepted = await f.storage.call('userInputCommit', input)
+    expect(accepted.accepted).toBe(true)
+    expect(accepted.state.settlement).toEqual(input.settlement)
+    expect(accepted.events[0]?.type).toMatch(/^user_input\.state\./)
+    expect(
+      accepted.events.findIndex((event) => /^decision\.delegation\.[a-f0-9]{64}$/.test(event.type)),
+    ).toBeGreaterThan(0)
+    expect(await f.storage.call('delegatedInputRead', identity(answered.state))).toMatchObject({
+      status: 'closed',
+      reason: 'source_resolved',
+      repliedBy: answered.state.repliedBy,
+    })
+    expect((await f.storage.call('run', f.runs[1]!.id)).status).toBe('completed')
+    await f.restart()
+    const duplicate = await f.storage.call('userInputCommit', input)
+    expect(duplicate.accepted).toBe(false)
+    expect(duplicate.state).toEqual(accepted.state)
+    expect(duplicate.events).toEqual([])
+    const manual = await f.storage.call('userInputCommit', {
+      ...input,
+      settlement: { kind: 'answered', response: { answers: { scope: { answers: ['App'] } } } },
+    })
+    expect(manual.accepted).toBe(false)
+    expect(manual.state.settlement).toEqual(input.settlement)
+    expect(
+      (await f.storage.call('events', f.sessions[0]!.id, 0, 256)).filter(
+        (event) => event.type === 'user_input.autoDecided',
+      ),
+    ).toHaveLength(1)
+  } finally {
+    await f.close()
+  }
+})
+
+test('forged receipt identity, revision, answer and a delivered-but-unanswered grant cannot settle a source', async () => {
+  const f = await fixture()
+  try {
+    const delivered = await f.delivered()
+    const commit = (state: DelegatedInputRecord, label = 'API') =>
+      f.storage.call('userInputCommit', {
+        ...identity(state),
+        expectedRevision: 1,
+        settlement: delegatedAnswer(state, label),
+      })
+    expect(await failure(commit(delivered.state))).toMatchObject({ code: 'DELEGATION_RECEIPT_INVALID' })
+    const { state } = await f.complete(delivered.state)
+    for (const changed of [
+      { delegationId: 'forged-receipt' },
+      { targetSessionId: f.sessions[2]!.id },
+      { targetRunId: f.runs[2]!.id },
+      { revision: state.revision + 1 },
+    ])
+      expect(await failure(commit({ ...state, ...changed }))).toMatchObject({ code: 'DELEGATION_RECEIPT_INVALID' })
+    expect(await failure(commit(state, 'App'))).toMatchObject({ code: 'DELEGATION_RECEIPT_INVALID' })
+    expect((await f.storage.call('userInputRead', identity(state)))?.settlement).toBeNull()
+    expect(await f.storage.call('delegatedInputRead', identity(state))).toEqual(state)
+  } finally {
+    await f.close()
+  }
+})
+
+test('manual takeover and source cancellation close a grant without claiming delegated answer provenance', async () => {
+  for (const kind of ['answered', 'cancelled'] as const) {
+    const f = await fixture()
+    try {
+      const { state } = await f.complete((await f.delivered()).state)
+      const settlement =
+        kind === 'answered'
+          ? { kind, response: { answers: { scope: { answers: ['API'] } } } }
+          : { kind, reason: 'user_stopped' }
+      const manual = await f.storage.call('userInputCommit', {
+        ...identity(state),
+        expectedRevision: 1,
+        settlement,
+      })
+      expect(manual.state.settlement).toEqual(settlement)
+      expect(await f.storage.call('delegatedInputRead', identity(state))).toMatchObject({
+        status: kind === 'answered' ? 'closed' : 'cancelled',
+      })
+      const late = await f.storage.call('userInputCommit', {
+        ...identity(state),
+        expectedRevision: 1,
+        settlement: delegatedAnswer(state),
+      })
+      expect(late.accepted).toBe(false)
+      expect(late.state.settlement).toEqual(settlement)
+      expect((await f.storage.call('run', f.runs[1]!.id)).status).toBe('running')
+      expect(
+        (await f.storage.call('events', f.sessions[0]!.id, 0, 256)).some(
+          (event) => event.type === 'user_input.autoDecided',
+        ),
+      ).toBe(false)
+    } finally {
+      await f.close()
+    }
+  }
+})
+
+test('a saved target answer is checked again against source policy, permission, cancellation and availability', async () => {
+  for (const boundary of ['permission', 'cancel', 'policy', 'archived', 'timeout'] as const) {
+    const f = await fixture()
+    try {
+      const input = await f.acceptQuestion()
+      const accepted = await f.storage.call('delegatedInputAccept', {
+        ...input,
+        ...(boundary === 'timeout' ? { timeoutMs: 1_000 } : {}),
+      })
+      const bound = await f.storage.call('delegatedInputBind', {
+        ...mutation(accepted.state),
+        targetSessionId: f.sessions[1]!.id,
+        targetRunId: f.runs[1]!.id,
+        delivery: 'guidance',
+      })
+      const { state } = await f.complete(bound.state)
+      if (boundary === 'permission') {
+        await f.storage.call('revokeDevice', f.actor.id)
+        await f.storage.call('putDevice', { ...f.actor, workspaceIds: [f.workspace.id] }, 'narrowed-token')
+      } else if (boundary === 'cancel') await f.storage.call('setRun', f.runs[0]!.id, 'cancelled')
+      else if (boundary === 'policy') await f.policy(0, 2)
+      else if (boundary === 'archived') await f.storage.call('updateSession', f.sessions[1]!.id, { archived: true })
+      else await Bun.sleep(Math.max(0, state.expiresAt - Date.now()) + 20)
+      expect(
+        await failure(
+          f.storage.call('userInputCommit', {
+            ...identity(state),
+            expectedRevision: 1,
+            settlement: delegatedAnswer(state),
+          }),
+        ),
+      ).toMatchObject({
+        code:
+          boundary === 'permission'
+            ? 'FORBIDDEN'
+            : boundary === 'cancel'
+              ? 'USER_INPUT_INACTIVE'
+              : boundary === 'policy'
+                ? 'DECISION_POLICY_CHANGED'
+                : boundary === 'archived'
+                  ? 'DELEGATION_TARGET_UNAVAILABLE'
+                  : 'DELEGATION_EXPIRED',
+      })
+      expect((await f.storage.call('userInputRead', identity(state)))?.settlement).toBeNull()
+      expect(await f.storage.call('delegatedInputRead', identity(state))).toEqual(state)
+    } finally {
+      await f.close()
+    }
   }
 })
 
@@ -343,9 +521,10 @@ test('only the bound target Run can answer exact original options and manual dec
       settlement: { kind: 'answered', response: { answers: { scope: { answers: ['App'] } } } },
     })
     expect(await failure(f.complete(state))).toMatchObject({ code: 'DECISION_CONFLICT' })
-    expect(
-      (await f.storage.call('delegatedInputFinish', { ...mutation(state), reason: 'manual_takeover' })).state,
-    ).toMatchObject({ status: 'human', reason: 'manual_takeover' })
+    expect(await f.storage.call('delegatedInputRead', identity(state))).toMatchObject({
+      status: 'closed',
+      reason: 'source_resolved',
+    })
     expect((await f.storage.call('userInputRead', identity(state)))?.settlement).toMatchObject({
       kind: 'answered',
       response: { answers: { scope: { answers: ['App'] } } },
@@ -475,7 +654,30 @@ test('the target Run needs its own current authority for both workspaces and rev
         }),
       ),
     ).toMatchObject({ code: 'FORBIDDEN' })
-    await f.storage.call('delegatedInputFinish', { ...mutation(bound.state), reason: 'cancelled' })
+    await f.storage.call(
+      'putDevice',
+      { ...targetActor, workspaceIds: [f.remote.id, f.workspace.id] },
+      'restored-target-token',
+    )
+    const answered = await f.storage.call('delegatedInputComplete', {
+      ...mutation(bound.state),
+      targetSessionId: f.sessions[1]!.id,
+      targetRunId: target.id,
+      targetCallId: 'target-owned-call',
+      reply: { kind: 'answered', response: { answers: { scope: { answers: ['API'] } } } },
+    })
+    await f.storage.call('revokeDevice', targetActor.id)
+    expect(
+      await failure(
+        f.storage.call('userInputCommit', {
+          ...identity(answered.state),
+          expectedRevision: 1,
+          settlement: delegatedAnswer(answered.state),
+        }),
+      ),
+    ).toMatchObject({ code: 'FORBIDDEN' })
+    expect((await f.storage.call('userInputRead', identity(answered.state)))?.settlement).toBeNull()
+    await f.storage.call('delegatedInputFinish', { ...mutation(answered.state), reason: 'cancelled' })
     expect((await f.storage.call('run', target.id)).status).toBe('running')
     expect((await f.storage.call('run', target.id)).input.text).toBe('Preserve target task')
   } finally {
@@ -606,6 +808,102 @@ test('replaying a partial multi-Session journal never publishes a missing edge o
         } else expect(known?.status).toBe('pending')
         expect(() => replayed.accept(b)).toThrow('waiting cycle')
         expect(replayed.inbox({ sessionId: f.sessions[1]!.id, runId: f.runs[1]!.id }).items).toHaveLength(1)
+      } finally {
+        database.close()
+      }
+    }
+  } finally {
+    await f.close()
+  }
+})
+
+test('replaying a crash around source consumption never closes a grant before its canonical answer is durable', async () => {
+  const f = await fixture()
+  try {
+    const { state } = await f.complete((await f.delivered()).state)
+    const initial = (
+      await Promise.all(f.sessions.map((session) => f.storage.call('events', session.id, 0, 256)))
+    ).flat()
+    const runs = new Map(
+      (await Promise.all(f.runs.map((run) => f.storage.call('run', run.id)))).map((run) => [run.id, run]),
+    )
+    for (const crash of ['before_answer', 'after_answer', 'before_close'] as const) {
+      const database = new Database(':memory:')
+      database.exec(
+        'CREATE TABLE events(sessionId TEXT,type TEXT,data TEXT,seq INTEGER,runId TEXT); CREATE TABLE runs(id TEXT,sessionId TEXT,status TEXT); CREATE TABLE settings_layers(id TEXT PRIMARY KEY,revision INTEGER);',
+      )
+      for (const run of runs.values())
+        database.query('INSERT INTO runs VALUES(?,?,?)').run(run.id, run.sessionId, run.status)
+      for (const [id, revision] of Object.entries(state.policy.revisions))
+        database.query('INSERT INTO settings_layers VALUES(?,?)').run(id, revision)
+      const journal = structuredClone(initial)
+      const insert = (event: SessionEvent) =>
+        database
+          .query('INSERT INTO events VALUES(?,?,?,?,?)')
+          .run(event.sessionId, event.type, JSON.stringify(event.data), event.seq, event.runId)
+      for (const event of initial) insert(event)
+      let injecting = true
+      const append = (sessionId: string, type: string, data: unknown, runId?: string): SessionEvent => {
+        const answer = /^user_input\.state\.[a-f0-9]{64}$/.test(type)
+        const close = /^decision\.delegation\.[a-f0-9]{64}$/.test(type)
+        if (injecting && ((crash === 'before_answer' && answer) || (crash === 'before_close' && close)))
+          throw new Error('Simulated process loss')
+        const seq =
+          (database
+            .query<{ last: number }, [string]>('SELECT COALESCE(MAX(seq),0) AS last FROM events WHERE sessionId=?')
+            .get(sessionId)?.last ?? 0) + 1
+        const event: SessionEvent = {
+          eventId: crypto.randomUUID(),
+          sessionId,
+          type,
+          data: structuredClone(data),
+          seq,
+          runId: runId ?? null,
+          stepId: null,
+          version: 1,
+          time: Date.now(),
+        }
+        journal.push(event)
+        insert(event)
+        if (injecting && crash === 'after_answer' && answer) throw new Error('Simulated process loss')
+        return event
+      }
+      const source: ReturnType<typeof createUserInputStateStorage> = createUserInputStateStorage(database, append, {
+        prepareDelegatedSettlement: (question, settlement) => delegated.prepareSettlement(question, settlement),
+      })
+      const delegated = createDelegatedUserInputStorage(database, append, {
+        question: source.read,
+        run: (id) => {
+          const run = runs.get(id)
+          if (!run) throw new Error('Unknown fixture Run')
+          return run
+        },
+        principal: (id) => {
+          const run = runs.get(id)
+          return run ? { version: 1, actorId: f.actor.id, originSessionId: run.sessionId, originRunId: id } : null
+        },
+        authorize: () => true,
+        available: () => true,
+        exists: () => true,
+      })
+      try {
+        const input = { ...identity(state), expectedRevision: 1, settlement: delegatedAnswer(state) }
+        expect(() => source.commit(input)).toThrow('process loss')
+        injecting = false
+        database.exec('DELETE FROM events')
+        for (const event of journal) insert(event)
+        const replayed = source.read(identity(state))
+        expect(replayed?.settlement === null).toBe(crash === 'before_answer')
+        expect(delegated.read(identity(state))?.status).toBe('answered')
+        const retried = source.commit(input)
+        expect(retried.accepted).toBe(crash === 'before_answer')
+        expect(retried.state.settlement).toEqual(input.settlement)
+        const grant = delegated.read(identity(state))
+        if (!grant) throw new Error('Missing replayed grant')
+        delegated.finish({ ...mutation(grant), reason: 'source_resolved' })
+        expect(delegated.read(identity(state))?.status).toBe('closed')
+        expect(source.read(identity(state))?.settlement).toEqual(input.settlement)
+        expect(journal.filter((event) => /^user_input\.state\./.test(event.type))).toHaveLength(2)
       } finally {
         database.close()
       }

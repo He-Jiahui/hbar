@@ -645,7 +645,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const deviceStorage = createDeviceStorage(db, (id) => chatDatabaseArtifacts.unknownDevice(id, false))
     const executionPrincipals = createExecutionPrincipalStorage(db)
     const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
-    const userInputState = createUserInputStateStorage(db, appendEvent)
+    const userInputState: ReturnType<typeof createUserInputStateStorage> = createUserInputStateStorage(db, appendEvent, {
+      prepareDelegatedSettlement: (state, settlement) => delegatedInputs.prepareSettlement(state, settlement),
+    })
     const delegatedInputs = createDelegatedUserInputStorage(db, appendEvent, {
       question: userInputState.read,
       run: (id) => methods.run(id),

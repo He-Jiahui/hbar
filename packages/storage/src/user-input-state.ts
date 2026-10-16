@@ -11,6 +11,7 @@ import {
   type UserInputAccept,
   type UserInputCommit,
   type UserInputState,
+  type UserInputSettlement,
 } from '@hbar/contracts/user-input-state'
 
 type Append = (sessionId: string, type: string, data: unknown, runId?: string) => SessionEvent
@@ -18,7 +19,11 @@ const typeOf = (requestId: string) => `user_input.state.${createHash('sha256').u
 const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right)
 
 /** One indexed canonical record per request. The single writer arbitrates every answer and cancellation. */
-export function createUserInputStateStorage(db: Database, append: Append) {
+export function createUserInputStateStorage(
+  db: Database,
+  append: Append,
+  ports?: { prepareDelegatedSettlement(state: UserInputState, settlement: UserInputSettlement): () => SessionEvent[] },
+) {
   const latest = db.query<{ data: string; runId: string }, [string, string]>(
     'SELECT data,runId FROM events WHERE sessionId=? AND type=? ORDER BY seq DESC LIMIT 1',
   )
@@ -108,7 +113,8 @@ export function createUserInputStateStorage(db: Database, append: Append) {
               throw new HbarError('USER_INPUT_INVALID', 'Answer contains an unknown question')
             if (settlement.automatic) {
               if (
-                prior.policy.policy.mode !== 'recommended' ||
+                prior.policy.policy.mode !==
+                  (settlement.automatic.source === 'delegate' ? 'delegate' : 'recommended') ||
                 request.questions.some((question) => question.isSecret || question.purpose !== 'decision')
               )
                 throw new HbarError(
@@ -146,6 +152,11 @@ export function createUserInputStateStorage(db: Database, append: Append) {
                   if (!usage.get(request.sessionId, request.runId, attemptId))
                     throw new HbarError('USER_INPUT_INVALID', 'Decision usage must be recorded before the answer')
               }
+              if (settlement.automatic.source === 'delegate' && !ports)
+                throw new HbarError(
+                  'USER_INPUT_INVALID',
+                  'Delegated answers require the original durable target receipt',
+                )
               const revisions = Object.entries(prior.policy.revisions)
               if (revisions.length > 16) throw new HbarError('USER_INPUT_INVALID', 'Too many policy layers')
               for (const [id, expected] of revisions) {
@@ -160,6 +171,7 @@ export function createUserInputStateStorage(db: Database, append: Append) {
               }
             }
           }
+          const finishDelegation = ports?.prepareDelegatedSettlement(prior, settlement)
           const state = userInputStateSchema.parse({
             ...prior,
             revision: prior.revision + 1,
@@ -167,6 +179,8 @@ export function createUserInputStateStorage(db: Database, append: Append) {
             updatedAt: Date.now(),
           })
           const events = [write(state)]
+          // Publish the canonical answer before closing its grant: replay must never lose an accepted answer.
+          if (finishDelegation) events.push(...finishDelegation())
           if (settlement.kind === 'answered' && settlement.automatic)
             events.push(append(request.sessionId, 'user_input.autoDecided', settlement.automatic, request.runId))
           events.push(

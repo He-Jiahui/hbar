@@ -21,7 +21,7 @@ import {
   type DelegatedInputFinish,
   type DelegatedInputInbox,
 } from '@hbar/contracts/delegated-user-input'
-import type { UserInputState } from '@hbar/contracts/user-input-state'
+import type { UserInputState, UserInputSettlement } from '@hbar/contracts/user-input-state'
 import type { ExecutionPrincipal } from '@hbar/contracts/execution-principal'
 
 type Append = (sessionId: string, type: string, data: unknown, runId?: string) => SessionEvent
@@ -92,7 +92,7 @@ export function createDelegatedUserInputStorage(
       return state !== null && state.delegationId === item.delegationId && open(state)
     })
   }
-  function save(state: DelegatedInputRecord): SessionEvent[] {
+  function prepareSave(state: DelegatedInputRecord): () => SessionEvent[] {
     const value = delegatedInputRecordSchema.parse(state)
     if (Buffer.byteLength(JSON.stringify(value), 'utf8') > DELEGATED_INPUT_MAX_STATE_BYTES)
       throw new HbarError('DELEGATION_CAPACITY', 'The delegated decision exceeds its durable byte capacity')
@@ -120,10 +120,13 @@ export function createDelegatedUserInputStorage(
       })
     }
     // Each append fsyncs its own canonical Session log; this final record is the publication point across those logs.
-    const events = staged.map((item) => append(item.sessionId, item.type, item.data))
-    events.push(append(value.sessionId, keyOf(value), value, value.sourceRunId))
-    return events
+    return () => {
+      const events = staged.map((item) => append(item.sessionId, item.type, item.data))
+      events.push(append(value.sessionId, keyOf(value), value, value.sourceRunId))
+      return events
+    }
   }
+  const save = (state: DelegatedInputRecord) => prepareSave(state)()
   function revisions(policy: AutonomyPolicyResolution): void {
     if (
       policy.policy.mode !== 'delegate' ||
@@ -220,6 +223,52 @@ export function createDelegatedUserInputStorage(
   }
   return {
     read,
+    /** Private composition port: validate everything before the source writer publishes its first durable event. */
+    prepareSettlement(question: UserInputState, settlement: UserInputSettlement): () => SessionEvent[] {
+      const state = read({ sessionId: question.request.sessionId, requestId: question.request.requestId })
+      const automatic = settlement.kind === 'answered' ? settlement.automatic : undefined
+      if (automatic?.source === 'delegate') {
+        const proof = automatic.delegation
+        if (
+          !state ||
+          !proof ||
+          state.status !== 'answered' ||
+          state.reply?.kind !== 'answered' ||
+          !state.repliedBy ||
+          state.delegationId !== proof.delegationId ||
+          state.revision !== proof.replyRevision ||
+          state.targetSessionId !== proof.targetSessionId ||
+          state.targetRunId !== proof.targetRunId ||
+          !same(state.reply.response, automatic.response)
+        )
+          throw new HbarError(
+            'DELEGATION_RECEIPT_INVALID',
+            'The answer requires its exact original structured target receipt',
+          )
+        current(state)
+        // A valid reply survives normal target completion; current device access still governs consumption.
+        const run = ports.run(proof.targetRunId)
+        const principal = ports.principal(run.id)
+        if (
+          run.sessionId !== state.targetSessionId ||
+          state.repliedBy.runId !== run.id ||
+          !principal ||
+          principal.actorId !== state.repliedBy.actorId ||
+          !ports.authorize(principal.actorId, [state.sessionId, state.targetSessionId, principal.originSessionId])
+        )
+          throw new HbarError('FORBIDDEN', 'The original target device no longer has access to both Sessions')
+      }
+      if (!state || !open(state)) return () => []
+      if (state.questionRevision !== question.revision || !same(state.request, question.request))
+        throw new HbarError('DECISION_CONFLICT', 'The delegation belongs to another original question')
+      return prepareSave({
+        ...state,
+        revision: state.revision + 1,
+        status: settlement.kind === 'cancelled' ? 'cancelled' : 'closed',
+        reason: settlement.kind === 'cancelled' ? 'source_cancelled' : 'source_resolved',
+        updatedAt: Date.now(),
+      })
+    },
     accept(raw: DelegatedInputAccept) {
       const input = delegatedInputAcceptSchema.parse(raw)
       return db
