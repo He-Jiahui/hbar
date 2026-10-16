@@ -2,6 +2,8 @@ import { HbarError } from '@hbar/contracts'
 import {
   AUTONOMY_DECISION_MODE_SETTING,
   AUTONOMY_DECISION_TARGET_SETTING,
+  AUTONOMY_DECISION_TIMEOUT_SETTING,
+  AUTONOMY_DECISION_DEFAULT_TIMEOUT_SECONDS,
   autonomyDecisionModeSchema,
   autonomyDecisionPolicySchema,
   type AutonomyDecisionPolicy,
@@ -26,9 +28,20 @@ export function resolveAutonomyDecisionPolicy(resolution: SettingsResolution): {
   const parsedMode = autonomyDecisionModeSchema.safeParse(modeReport.effectiveValue)
   if (!parsedMode.success) throw new HbarError('INVALID_AUTONOMY_POLICY', 'The saved decision mode is invalid')
   const mode = parsedMode.data
+  const timeout =
+    resolution.reports[field(AUTONOMY_DECISION_TIMEOUT_SETTING)]?.effectiveValue ??
+    AUTONOMY_DECISION_DEFAULT_TIMEOUT_SECONDS
   const policy = autonomyDecisionPolicySchema.safeParse(
     mode === 'delegate'
-      ? { mode, targetSessionId: resolution.reports[field(AUTONOMY_DECISION_TARGET_SETTING)]?.effectiveValue }
+      ? {
+          mode,
+          targetSessionId: resolution.reports[field(AUTONOMY_DECISION_TARGET_SETTING)]?.effectiveValue,
+          ...(timeout === AUTONOMY_DECISION_DEFAULT_TIMEOUT_SECONDS
+            ? {}
+            : {
+                timeoutMs: typeof timeout === 'number' ? timeout * 1_000 : timeout,
+              }),
+        }
       : { mode },
   )
   if (!policy.success) throw new HbarError('AUTONOMY_TARGET_REQUIRED', 'Delegation requires an explicit target session')

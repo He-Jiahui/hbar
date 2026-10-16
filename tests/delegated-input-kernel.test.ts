@@ -12,9 +12,12 @@ import {
   type UserInputResponse,
   type RunMode,
 } from '@hbar/contracts'
-import { AUTONOMY_DECISION_MODE_SETTING, AUTONOMY_DECISION_TARGET_SETTING } from '@hbar/contracts/autonomy'
+import {
+  AUTONOMY_DECISION_MODE_SETTING,
+  AUTONOMY_DECISION_TARGET_SETTING,
+  AUTONOMY_DECISION_TIMEOUT_SETTING,
+} from '@hbar/contracts/autonomy'
 import { delegatedInputEnvelopeSchema } from '@hbar/contracts/delegated-user-input'
-import { userInputStateSchema } from '@hbar/contracts/user-input-state'
 import {
   definePlugin,
   provide,
@@ -245,27 +248,16 @@ async function fixture(
       changes: [
         { op: 'set', path: [{ kind: 'field', name: AUTONOMY_DECISION_MODE_SETTING }], value: 'delegate' },
         { op: 'set', path: [{ kind: 'field', name: AUTONOMY_DECISION_TARGET_SETTING }], value: target.id },
+        {
+          op: 'set',
+          path: [{ kind: 'field', name: AUTONOMY_DECISION_TIMEOUT_SETTING }],
+          value: options.shortDeadline ? 1 : 300,
+        },
       ],
     })
     const human: string[] = []
-    const unsubscribe = kernel.subscribe(async (event) => {
+    const unsubscribe = kernel.subscribe((event) => {
       if (event.method === 'user_input.requested') human.push(event.params.requestId)
-      if (
-        options.shortDeadline &&
-        event.method === 'session.event' &&
-        event.params.sessionId === source.id &&
-        event.params.type.startsWith('user_input.state.')
-      ) {
-        const state = userInputStateSchema.parse(event.params.data)
-        if (state.revision === 1)
-          await kernel.storage.call('delegatedInputAccept', {
-            sessionId: source.id,
-            requestId: state.request.requestId,
-            expectedQuestionRevision: state.revision,
-            policy: state.policy,
-            timeoutMs: 1_000,
-          })
-      }
     })
     return {
       kernel,
@@ -752,6 +744,9 @@ test('a dedicated model Run stops at its original grant deadline even while it k
   try {
     const { run } = await f.start()
     const id = await until(async () => f.human[0])
+    const grant = await f.kernel.storage.call('delegatedInputRead', { sessionId: f.source.id, requestId: id })
+    expect(grant?.policy.policy).toMatchObject({ timeoutMs: 1_000 })
+    expect(grant ? grant.expiresAt - grant.createdAt : undefined).toBe(1_000)
     const target = await until(async () => {
       const current = (await f.kernel.snapshot(f.target.id)).runs[0]
       return current && ['failed', 'cancelled'].includes(current.status) ? current : undefined

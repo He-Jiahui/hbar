@@ -1,9 +1,9 @@
 import { z } from 'zod'
 import { userInputRequestSchema, userInputResponseSchema, approvalModeSchema } from './index'
-import { autonomyPolicyResolutionSchema } from './autonomy'
+import { autonomyPolicyResolutionSchema, AUTONOMY_DECISION_DEFAULT_TIMEOUT_SECONDS } from './autonomy'
 import { delegatedApprovalSubjectSchema, delegatedApprovalRequest } from './delegated-approval'
 
-export const DELEGATED_INPUT_DEFAULT_TIMEOUT_MS = 300_000
+export const DELEGATED_INPUT_DEFAULT_TIMEOUT_MS = AUTONOMY_DECISION_DEFAULT_TIMEOUT_SECONDS * 1_000
 export const DELEGATED_INPUT_MAX_PENDING = 128
 export const DELEGATED_INPUT_MAX_STATE_BYTES = 262_144
 const id = z.string().min(1).max(160).regex(/\S/)

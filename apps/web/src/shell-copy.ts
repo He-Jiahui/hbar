@@ -603,6 +603,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.backend.decisionMode.help':
           '为后台任务选择交互方式；会话可覆盖全局默认。事实、秘密和授权仍需要人工。',
         'i18n:settings.backend.decisionTarget.label': '决策目标会话',
+        'i18n:settings.backend.decisionTimeout.label': '委派等待时限（秒）',
+        'i18n:settings.backend.decisionTimeout.help':
+          '等待目标会话的时间，可设为 1–3600 秒，默认 300 秒。超时后保留原问题并等待人工处理。',
         'i18n:settings.backend.decisionTarget.help':
           '填写同一宿主上目标会话的 ID；执行时仍按来源设备权限检查两个会话。',
         'i18n:settings.desktop.startupMode.label': '桌面启动方式',
@@ -648,6 +651,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.backend.decisionMode.help':
           'Choose how background tasks handle input. Sessions can override the global default. Facts, secrets and authorization still require a human.',
         'i18n:settings.backend.decisionTarget.label': 'Decision target session',
+        'i18n:settings.backend.decisionTimeout.label': 'Delegation wait time (seconds)',
+        'i18n:settings.backend.decisionTimeout.help':
+          'Wait 1–3600 seconds for the target session, with a default of 300 seconds. On timeout, keep the original decision for a person to handle.',
         'i18n:settings.backend.decisionTarget.help':
           'Enter a session ID on this Host. Execution still checks access to both sessions using the source device.',
         'i18n:settings.desktop.startupMode.label': 'Desktop startup',

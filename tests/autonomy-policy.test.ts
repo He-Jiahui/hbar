@@ -8,6 +8,7 @@ import { SettingsService } from '@hbar/kernel/controller'
 import {
   AUTONOMY_DECISION_MODE_SETTING,
   AUTONOMY_DECISION_TARGET_SETTING,
+  AUTONOMY_DECISION_TIMEOUT_SETTING,
   AUTONOMY_LEGACY_MIGRATED_SETTING,
   AUTONOMY_DECISION_MODES,
   autonomyDecisionPolicySchema,
@@ -283,6 +284,19 @@ test('policy configuration is exclusive and carries localized bounded form choic
     const target = description.fields.find(
       (field) => encodePath(field.path) === encodePath(path(AUTONOMY_DECISION_TARGET_SETTING)),
     )
+    const timeout = description.fields.find(
+      (field) => encodePath(field.path) === encodePath(path(AUTONOMY_DECISION_TIMEOUT_SETTING)),
+    )
+    expect(timeout).toMatchObject({
+      component: 'NumberField',
+      type: 'integer',
+      defaultValue: 300,
+      minimum: 1,
+      maximum: 3600,
+      allowedScopes: ['global', 'session'],
+      applyMode: 'nextRequest',
+      visibleWhen: target?.visibleWhen,
+    })
     expect(mode).toMatchObject({
       choices: [...AUTONOMY_DECISION_MODES],
       allowedScopes: ['global', 'session'],
@@ -298,6 +312,8 @@ test('policy configuration is exclusive and carries localized bounded form choic
     for (const locale of ['zh-CN', 'en-US'] as const) {
       const copy = getShellCopy(locale).settings
       expect(copy.resolve('i18n:settings.backend.decisionMode.label')).not.toStartWith('i18n:')
+      expect(copy.resolve('i18n:settings.backend.decisionTimeout.label')).not.toStartWith('i18n:')
+      expect(copy.resolve('i18n:settings.backend.decisionTimeout.help')).toContain('300')
       const labels =
         locale === 'zh-CN'
           ? ([
@@ -312,6 +328,83 @@ test('policy configuration is exclusive and carries localized bounded form choic
             ] as const)
       for (const [value, label] of labels) expect(copy.form.selectedInvalid(value)).toContain(label)
     }
+  } finally {
+    await f.close()
+  }
+})
+
+test('delegation wait time inherits globally, supports session overrides and persists across restart', async () => {
+  const f = await fixture()
+  try {
+    await f.apply({ kind: 'global' }, [set(AUTONOMY_DECISION_TIMEOUT_SETTING, 120)])
+    const scope: Scope = { kind: 'session', targetId: f.source.id }
+    await f.apply(scope, [
+      set(AUTONOMY_DECISION_MODE_SETTING, 'delegate'),
+      set(AUTONOMY_DECISION_TARGET_SETTING, f.target.id),
+    ])
+    expect((await f.service.decisionPolicy(f.source.id)).policy).toEqual({
+      mode: 'delegate',
+      targetSessionId: f.target.id,
+      timeoutMs: 120_000,
+    })
+    await f.apply(scope, [set(AUTONOMY_DECISION_TIMEOUT_SETTING, 1)])
+    expect((await f.service.decisionPolicy(f.source.id)).policy).toEqual({
+      mode: 'delegate',
+      targetSessionId: f.target.id,
+      timeoutMs: 1_000,
+    })
+    await f.restart()
+    expect((await f.service.decisionPolicy(f.source.id)).policy).toMatchObject({ timeoutMs: 1_000 })
+    await f.apply(scope, [{ op: 'unset', path: path(AUTONOMY_DECISION_TIMEOUT_SETTING) }])
+    expect((await f.service.decisionPolicy(f.source.id)).policy).toMatchObject({ timeoutMs: 120_000 })
+    await f.apply({ kind: 'global' }, [{ op: 'unset', path: path(AUTONOMY_DECISION_TIMEOUT_SETTING) }])
+    expect((await f.service.decisionPolicy(f.source.id)).policy).toEqual({
+      mode: 'delegate',
+      targetSessionId: f.target.id,
+    })
+  } finally {
+    await f.close()
+  }
+})
+
+test('invalid wait times never commit or change the policy revisions', async () => {
+  const f = await fixture()
+  try {
+    const scope: Scope = { kind: 'session', targetId: f.source.id }
+    const before = await f.service.get(scope)
+    for (const value of [0, 3601, 1.5, '2', null]) {
+      await failure(f.apply(scope, [set(AUTONOMY_DECISION_TIMEOUT_SETTING, value)]))
+      expect((await f.service.get(scope)).revisions).toEqual(before.revisions)
+    }
+    expect(
+      autonomyDecisionPolicySchema.safeParse({ mode: 'delegate', targetSessionId: f.target.id, timeoutMs: 999 })
+        .success,
+    ).toBe(false)
+    expect(
+      autonomyDecisionPolicySchema.safeParse({ mode: 'delegate', targetSessionId: f.target.id, timeoutMs: 3_600_001 })
+        .success,
+    ).toBe(false)
+  } finally {
+    await f.close()
+  }
+})
+
+test('changing only the wait time preserves migration of the original legacy decision mode', async () => {
+  const f = await fixture()
+  try {
+    const scope: Scope = { kind: 'session', targetId: f.source.id }
+    await f.apply(scope, [set(AUTONOMY_DECISION_TIMEOUT_SETTING, 10)])
+    await f.service.migrateLegacyDecisionPolicy(f.source.id, true)
+    expect((await f.service.decisionPolicy(f.source.id)).policy).toEqual({ mode: 'recommended' })
+    await f.apply(scope, [
+      set(AUTONOMY_DECISION_MODE_SETTING, 'delegate'),
+      set(AUTONOMY_DECISION_TARGET_SETTING, f.target.id),
+    ])
+    expect((await f.service.decisionPolicy(f.source.id)).policy).toEqual({
+      mode: 'delegate',
+      targetSessionId: f.target.id,
+      timeoutMs: 10_000,
+    })
   } finally {
     await f.close()
   }

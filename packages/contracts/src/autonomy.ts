@@ -4,6 +4,9 @@ const id = z.string().min(1).max(160)
 
 export const AUTONOMY_DECISION_MODE_SETTING = 'backend.decisionMode'
 export const AUTONOMY_DECISION_TARGET_SETTING = 'backend.decisionTargetSessionId'
+export const AUTONOMY_DECISION_TIMEOUT_SETTING = 'backend.decisionTimeoutSeconds'
+export const AUTONOMY_DECISION_DEFAULT_TIMEOUT_SECONDS = 300
+export const AUTONOMY_DECISION_MAX_TIMEOUT_SECONDS = 3_600
 /** Internal one-time migration marker, committed with the session policy. */
 export const AUTONOMY_LEGACY_MIGRATED_SETTING = 'backend.legacyDecisionMigrated'
 export const AUTONOMY_DECISION_MODES = ['wait_user', 'recommended', 'delegate'] as const
@@ -12,7 +15,17 @@ export type AutonomyDecisionMode = z.infer<typeof autonomyDecisionModeSchema>
 export const autonomyDecisionPolicySchema = z.discriminatedUnion('mode', [
   z.strictObject({ mode: z.literal('wait_user') }),
   z.strictObject({ mode: z.literal('recommended') }),
-  z.strictObject({ mode: z.literal('delegate'), targetSessionId: id }),
+  z.strictObject({
+    mode: z.literal('delegate'),
+    targetSessionId: id,
+    /** Absent on historical policies and when the default five minutes is selected. */
+    timeoutMs: z
+      .number()
+      .int()
+      .min(1_000)
+      .max(AUTONOMY_DECISION_MAX_TIMEOUT_SECONDS * 1_000)
+      .optional(),
+  }),
 ])
 export type AutonomyDecisionPolicy = z.infer<typeof autonomyDecisionPolicySchema>
 export const autonomyPolicySourceSchema = z.enum(['default', 'global', 'session', 'legacy'])

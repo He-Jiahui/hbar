@@ -9,10 +9,11 @@ import {
   type UserInputAutomaticDecision,
 } from '@hbar/contracts'
 import type { AutonomyPolicyResolution } from '@hbar/contracts/autonomy'
-import type {
-  DelegatedInputRecord,
-  DelegatedInputWake,
-  DelegatedInputFinish,
+import {
+  DELEGATED_INPUT_DEFAULT_TIMEOUT_MS,
+  type DelegatedInputRecord,
+  type DelegatedInputWake,
+  type DelegatedInputFinish,
 } from '@hbar/contracts/delegated-user-input'
 import type { StoragePort } from '@hbar/storage'
 
@@ -94,6 +95,10 @@ export async function coordinateDelegatedInput(
         kind: input.kind ?? 'questionnaire',
         expectedQuestionRevision: input.revision,
         policy,
+        timeoutMs:
+          policy.policy.mode === 'delegate'
+            ? (policy.policy.timeoutMs ?? DELEGATED_INPUT_DEFAULT_TIMEOUT_MS)
+            : DELEGATED_INPUT_DEFAULT_TIMEOUT_MS,
       })
       .catch(async (error: unknown) => {
         const known = await storage.call('delegatedInputRead', source)

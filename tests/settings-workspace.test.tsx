@@ -16,6 +16,11 @@ import { encodePath, type FieldIssue, type FieldValue } from '@hbar/schema-core'
 import { resolveSettings } from '@hbar/settings-core'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { WEB_SETTINGS_GROUP_PRESENTATION, WEB_SETTINGS_LAYOUT } from '../apps/web/src/settings-group-presentation'
+import {
+  AUTONOMY_DECISION_MODE_SETTING,
+  AUTONOMY_DECISION_TARGET_SETTING,
+  AUTONOMY_DECISION_TIMEOUT_SETTING,
+} from '@hbar/contracts/autonomy'
 
 const workspace: Workspace = { id: 'workspace-settings', name: 'Schema 工程', path: 'D:/schema', createdAt: 1 }
 const session: Session = {
@@ -29,6 +34,7 @@ const session: Session = {
   seq: 1,
 }
 const model = encodePath([{ kind: 'field', name: 'provider.model' }])
+const decisionPath = (name: string) => encodePath([{ kind: 'field', name }])
 const PendingSettingsGroup = lazy(() => new Promise<{ readonly default: ComponentType }>(() => undefined))
 
 const directory: CommandExecutor = {
@@ -905,3 +911,64 @@ test('pending navigation preserves supplied categories and selection without inv
     runtime.dispose()
   }
 })
+
+test.each(['zh-CN', 'en-US'] as const)(
+  'the delegated wait setting renders the Host value and localized labels in %s',
+  async (locale) => {
+    const delegated: CommandExecutor = {
+      execute(name, raw, options) {
+        if (name !== 'settings.get') return settings.execute(name, raw, options)
+        const input = settingsCommands['settings.get'].input.parse(raw)
+        const layers = [
+          {
+            id: 'settings:global',
+            kind: 'global' as const,
+            revision: 1,
+            values: {
+              [decisionPath(AUTONOMY_DECISION_MODE_SETTING)]: 'delegate',
+              [decisionPath(AUTONOMY_DECISION_TARGET_SETTING)]: 'authorized-target',
+              [decisionPath(AUTONOMY_DECISION_TIMEOUT_SETTING)]: 300,
+            },
+          },
+        ]
+        return Promise.resolve(
+          settingsCommands['settings.get'].output.parse({
+            schemaVersion: 1,
+            scope: input.scope,
+            revisions: { 'settings:global': 1 },
+            resolution: resolveSettings(HBAR_SETTINGS_DEFINITIONS, layers),
+          }),
+        )
+      },
+    }
+    const runtime = createAppRuntime({
+      instanceId: `delegation-timeout-${locale}`,
+      hostId: 'host',
+      directory,
+      settings: delegated,
+      surfaces: { canRender: (id) => id === 'settings' },
+    })
+    try {
+      await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'session' })
+      await waitForReady(runtime)
+      const copy = getShellCopy(locale).settings
+      const timeoutLabel = copy.resolve('i18n:settings.backend.decisionTimeout.label')
+      const visibleLabel = locale === 'zh-CN' ? timeoutLabel.repeat(6) : timeoutLabel
+      const localized = {
+        ...copy,
+        resolve: (key: string) =>
+          key === 'i18n:settings.backend.decisionTimeout.label' ? visibleLabel : copy.resolve(key),
+      }
+      const html = renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarSettingsWorkspace labels={localized} connected />
+        </HbarRuntimeProvider>,
+      )
+      expect(html).toContain(visibleLabel)
+      expect(html).toContain(copy.resolve('i18n:settings.backend.decisionTimeout.help'))
+      expect(html).toContain('value="300"')
+    } finally {
+      runtime.dispose()
+    }
+  },
+)
