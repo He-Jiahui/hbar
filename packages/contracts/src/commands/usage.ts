@@ -50,6 +50,20 @@ export const usageMetricSchema = z.strictObject({
   estimated: z.boolean(),
   sampleCount: z.number().int().nonnegative(),
 })
+export const INPUT_CACHE_MINIMUM = 0.9
+export const INPUT_CACHE_TARGET = 0.95
+export const INPUT_CACHE_STABILITY_SAMPLES = 10
+export const inputCacheQualitySchema = z.strictObject({
+  minimum: z.literal(INPUT_CACHE_MINIMUM),
+  target: z.literal(INPUT_CACHE_TARGET),
+  windowSize: z.literal(INPUT_CACHE_STABILITY_SAMPLES),
+  sampleCount: z.number().int().nonnegative(),
+  belowMinimum: z.number().int().nonnegative(),
+  belowTarget: z.number().int().nonnegative(),
+  recentMinimum: z.number().min(0).max(1).nullable(),
+  recentRate: usageMetricSchema,
+  status: z.enum(['empty', 'unavailable', 'insufficient', 'below-minimum', 'below-target', 'healthy']),
+})
 export const usageLatencySchema = z.strictObject({
   p50: z.number().nonnegative().nullable(),
   p95: z.number().nonnegative().nullable(),
@@ -141,6 +155,8 @@ export const usageQueryResultSchema = z.strictObject({
   totals: usageTotalsSchema,
   cost: usageMetricSchema,
   cacheHitRate: usageMetricSchema,
+  // Optional for compatibility with older Hosts. Current Hosts always return it.
+  cacheQuality: inputCacheQualitySchema.optional(),
   rates: z.strictObject({ input: usageMetricSchema, output: usageMetricSchema, total: usageMetricSchema }),
   latency: z.strictObject({
     firstProviderEvent: usageLatencySchema,
@@ -189,6 +205,7 @@ export type UsageExportInput = z.output<typeof usageExportInputSchema>
 export type UsageExportResult = z.output<typeof usageExportResultSchema>
 export type UsageAttemptExport = z.output<typeof usageAttemptExportSchema>
 export type UsageMetric = z.output<typeof usageMetricSchema>
+export type InputCacheQuality = z.output<typeof inputCacheQualitySchema>
 export type UsageLatency = z.output<typeof usageLatencySchema>
 export type ExecutionMetric = z.output<typeof executionMetricSchema>
 export type ExecutionSummary = z.output<typeof executionSummarySchema>

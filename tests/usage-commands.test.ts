@@ -61,7 +61,8 @@ test('usage commands query session descendants, run scope, filters, and paged ex
     expect(direct.totals.attempts).toBe(1)
     expect(direct.totals.runs).toBe(1)
     expect(direct.cost).toMatchObject({ value: 0, availability: 'available', source: 'fixture' })
-    expect(direct.cacheHitRate).toMatchObject({ value: null, availability: 'unavailable' })
+    expect(direct.cacheHitRate).toMatchObject({ value: 0, availability: 'available', sampleCount: 1 })
+    expect(direct.cacheQuality).toMatchObject({ status: 'insufficient', sampleCount: 1 })
     expect(direct.latency.firstText).toMatchObject({ availability: 'available', sampleCount: 1 })
     expect(direct.latency.firstThinking).toMatchObject({ availability: 'unavailable', sampleCount: 0 })
 

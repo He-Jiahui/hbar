@@ -11,6 +11,7 @@ import type { ProviderConfig, Usage } from '@hbar/contracts'
 import { configuredContextCost, contextPricing } from './context-pricing'
 
 export * from './service'
+export * from './input-cache'
 
 export function describeUsageAttempt(
   attemptId: string,

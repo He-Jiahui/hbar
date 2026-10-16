@@ -1,4 +1,5 @@
 import { usageSchema, type Run, type SessionEvent } from '@hbar/contracts'
+import { assessInputCache, inputCacheHitRate } from './input-cache'
 import {
   USAGE_ACCOUNTING_VERSION,
   usageAttemptDescriptorSchema,
@@ -550,21 +551,7 @@ export class UsageService {
     const gap = collected.gap || normalized.length > limited.length || execution.gap
     const totals = total(items)
     const seconds = Math.max(0.001, (to - from) / 1_000)
-    const eligible = limited.filter((item) => item.cacheEligibleInput !== null)
-    const eligibleInput = eligible.reduce((sum, item) => sum + (item.cacheEligibleInput ?? 0), 0)
-    const cacheHitRate: UsageMetric = !items.length
-      ? emptyMetric('ratio', 'provider-usage')
-      : !eligible.length || eligibleInput <= 0
-        ? unavailableMetric('ratio', 'CACHE_ELIGIBLE_INPUT_UNAVAILABLE', 'provider-usage', eligible.length)
-        : {
-            value: eligible.reduce((sum, item) => sum + item.item.cacheRead, 0) / eligibleInput,
-            unit: 'ratio',
-            availability: 'available',
-            reason: null,
-            source: 'provider-usage',
-            estimated: false,
-            sampleCount: eligible.length,
-          }
+    const cacheHitRate = inputCacheHitRate(items)
     const modelGroups = new Map<string, UsageAttemptExport[]>()
     for (const item of items) {
       const key = `${item.providerId}\u0000${item.modelId}\u0000${item.modelSelectionId}`
@@ -590,6 +577,7 @@ export class UsageService {
       totals,
       cost: aggregateCost(items),
       cacheHitRate,
+      cacheQuality: assessInputCache(items, gap),
       rates: {
         input: tokenRate(Math.max(0, totals.input - totals.cacheRead), seconds, totals.attempts),
         output: tokenRate(totals.output, seconds, totals.attempts),
