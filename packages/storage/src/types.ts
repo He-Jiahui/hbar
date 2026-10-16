@@ -333,6 +333,7 @@ export interface StorageMethods {
   chatDatabaseRetainedChild: ReturnType<typeof createChatDatabaseJournal>['retainedChild']
   chatDatabaseHistory: ReturnType<typeof createChatDatabaseJournal>['history']
   chatDatabasePending: ReturnType<typeof createChatDatabaseJournal>['pending']
+  chatDatabaseActiveJournalProof(): import('./chat-database-active-proof').ChatDatabaseActiveJournalProof
   chatDatabasePreviewReset: ReturnType<typeof createChatDatabaseJournal>['resetPreview']
   chatDatabaseAutomaticPlanStep: ReturnType<typeof createChatDatabaseAutomaticPlan>['step']
   chatDatabaseAutomaticPlanRead: ReturnType<typeof createChatDatabaseAutomaticPlan>['read']
@@ -370,6 +371,7 @@ export interface StorageMethods {
   scheduleOccurrences: ReturnType<typeof createScheduleStorage>['occurrences']
   claimScheduleOccurrence: ReturnType<typeof createScheduleStorage>['claim']
   transitionScheduleOccurrence: ReturnType<typeof createScheduleStorage>['transition']
+  scheduleIdleCheckpoint(input?: import('./schedule-idle-checkpoint').ScheduleIdleCheckpointInput): import('./schedule-idle-checkpoint').ScheduleIdleCheckpoint
   enabledSchedules: ReturnType<typeof createScheduleStorage>['enabledSchedules']
   activeScheduleOccurrences: ReturnType<typeof createScheduleStorage>['activeScheduleOccurrences']
   scheduleRuntime: ReturnType<typeof createScheduleStorage>['scheduleRuntime']
@@ -377,6 +379,7 @@ export interface StorageMethods {
   runBoard(input: RunBoardInput): RunBoardPage
   ready(): { version: number }
   searchIndexStatus(): { complete: boolean }
+  searchIdleCheckpoint(): import('./search-idle-checkpoint').SearchIdleCheckpoint
   searchIndexStep(): { complete: boolean }
   recentSessions(input: SessionRecentInput): SessionRecentPage
   searchSessions(input: SessionSearchInput): SessionSearchPage
@@ -572,6 +575,8 @@ export interface StorageMethods {
   reorderQueued(sessionId: string, runIds: string[]): SessionEvent[]
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
   cancelRequested(id: string): boolean
+  /** Pure bounded existence probe; never claims or advances scheduler cursors. */
+  hasQueuedRuns(): boolean
   queuedSessions(): string[]
   createApproval(approval: Approval): SessionEvent
   resolveApproval(id: string, status: Approval['status']): { approval: Approval; event: SessionEvent } | null

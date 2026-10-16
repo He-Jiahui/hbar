@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite'
+import type {} from './bun-sqlite-query-cache'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
@@ -13,6 +14,8 @@ import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { readContextCompactionMarkers } from './context-compaction-markers'
 import { readSessionFacts } from './session-read-facts'
+import { readScheduleIdleCheckpoint } from './schedule-idle-checkpoint'
+import { readSearchIdleCheckpoint } from './search-idle-checkpoint'
 import {
   RUN_FILE_CHANGES_SQL,
   projectRunFileChanges,
@@ -23,6 +26,7 @@ import {
   readRunFileChangeVersions,
 } from './run-file-changes'
 import { createHash } from 'node:crypto'
+import { storageSourceDatabaseId } from './activated-catalog'
 import { dirname, join } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import {
@@ -125,6 +129,7 @@ import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search
 import { CHAT_DATABASE_SQL } from './chat-database-schema'
 import { createChatDatabaseProjection } from './chat-database-projection'
 import { createChatDatabaseJournal } from './chat-database-journal'
+import { readChatDatabaseActiveJournalProof } from './chat-database-active-proof'
 import { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
 import { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import { createChatDatabaseDeletionStorage } from './chat-database-deletion'
@@ -1508,6 +1513,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       chatDatabaseRetainedChild: chatDatabaseJournal.retainedChild,
       chatDatabaseHistory: chatDatabaseJournal.history,
       chatDatabasePending: chatDatabaseJournal.pending,
+      chatDatabaseActiveJournalProof: () => readChatDatabaseActiveJournalProof(db, storageSourceDatabaseId(options.path)),
       chatDatabasePreviewReset: chatDatabaseJournal.resetPreview,
       chatDatabaseAutomaticPlanStep: chatDatabaseAutomaticPlan.step,
       chatDatabaseAutomaticPlanRead: chatDatabaseAutomaticPlan.read,
@@ -1556,6 +1562,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           if (notification) notifications.insert(notification)
           return occurrence
         })(),
+      scheduleIdleCheckpoint: (input) => readScheduleIdleCheckpoint(db, storageSourceDatabaseId(options.path), input),
+      searchIdleCheckpoint: () => readSearchIdleCheckpoint(db, storageSourceDatabaseId(options.path)),
       enabledSchedules: (after, limit) => schedules.enabledSchedules(after, limit),
       activeScheduleOccurrences: (limit, after) => schedules.activeScheduleOccurrences(limit, after),
       scheduleRuntime: (id) => schedules.scheduleRuntime(id),
@@ -3152,6 +3160,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           }
           return events
         })(),
+      hasQueuedRuns: () => db.query("SELECT 1 FROM runs WHERE status='queued' LIMIT 1").get() !== null,
       queuedSessions: () =>
         (db.query("SELECT DISTINCT sessionId FROM runs WHERE status='queued'").all() as { sessionId: string }[]).map(
           (row) => row.sessionId,
