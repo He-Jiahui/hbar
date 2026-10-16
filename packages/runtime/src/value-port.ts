@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { HbarError } from '@hbar/contracts'
-import { procedure, type IpcPeer, type IpcCallOptions } from './ipc'
+import { procedure, type IpcPeer, type IpcCallOptions, type IpcCallTicket } from './ipc'
 
 type Value =
   | { kind: 'scalar'; value: string | number | boolean | null }
@@ -141,6 +141,39 @@ export class RuntimeValuePort {
       return this.decode(result, signal ?? new AbortController().signal) as Result
     } finally {
       for (const id of callbacks) this.callbacks.delete(id)
+    }
+  }
+  callTracked<Result>(method: string, args: readonly unknown[], options: IpcCallOptions = {}): IpcCallTicket<Result> {
+    const callbacks: string[] = []
+    const signals: AbortSignal[] = []
+    const release = () => {
+      for (const id of callbacks) this.callbacks.delete(id)
+    }
+    try {
+      if (this.closed) throw new HbarError('IPC_DISCONNECTED', 'Application port owner has exited')
+      const encoding = this.encoding(callbacks, signals)
+      const input = invocationSchema.parse({ method, args: args.map((value) => this.encode(value, encoding)) })
+      if (options.signal) signals.push(options.signal)
+      const signal = signals.length ? AbortSignal.any(signals) : undefined
+      const kind = this.options.controlMethods?.includes(method) ? 'control' : 'invoke'
+      const ticket = this.peer.callTracked(`${this.options.prefix}.${kind}`, input, valueSchema, {
+        ...options,
+        ...(signal ? { signal } : {}),
+      })
+      // Decode the owner's result once, including late replies; the logical promise retains its original deadline.
+      const settled = ticket.settled.then(
+        (value) => this.decode(value, signal ?? new AbortController().signal) as Result,
+      )
+      const result = ticket.result.then(() => settled)
+      // No new callback can start after logical completion. Already running callbacks own their captured operation.
+      void result.then(release, release)
+      void settled.catch(() => undefined)
+      return { result, settled }
+    } catch (error) {
+      release()
+      const rejected: Promise<Result> = Promise.reject(error)
+      void rejected.catch(() => undefined)
+      return { result: rejected, settled: rejected }
     }
   }
   snapshot() {

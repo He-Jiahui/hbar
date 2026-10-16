@@ -93,6 +93,16 @@ export interface IpcCallOptions {
   readonly requestId?: string | undefined
   readonly ownership?: ExecutionOwnership | undefined
 }
+export interface IpcCallTicket<Output> {
+  /** Caller cancellation or deadline can reject this before the owner finishes. */
+  readonly result: Promise<Output>
+  /** The original owner's reply, or an explicit transport loss; cancellation is not settlement. */
+  readonly settled: Promise<Output>
+}
+interface Settlement<Output> {
+  resolve(value: Output): void
+  reject(error: unknown): void
+}
 export interface IpcPeerOptions {
   readonly owner: RuntimeOwner
   readonly remote: RuntimeOwner
@@ -117,6 +127,7 @@ interface Pending {
   readonly bytes: number
   readonly resolve: (value: unknown) => void
   readonly reject: (error: Error) => void
+  readonly rejectSettlement?: ((error: unknown) => void) | undefined
   readonly signal: AbortSignal | undefined
   readonly abort: () => void
   timer: ReturnType<typeof setTimeout> | undefined
@@ -255,7 +266,12 @@ export class IpcPeer {
     this.remote = Object.freeze(runtimeOwnerSchema.parse(options.remote))
     // Each owner can serve and initiate calls simultaneously; split the default unit budget across directions.
     this.maximumInFlight = limit(options.inFlight, RUNTIME_LIMITS.inFlight / 2)
-    this.controlMethods = new Set(z.array(methodName).max(128).parse(options.controlMethods ?? []))
+    this.controlMethods = new Set(
+      z
+        .array(methodName)
+        .max(128)
+        .parse(options.controlMethods ?? []),
+    )
     const reserved = options.reservedControl ?? (this.controlMethods.size ? Math.min(8, this.maximumInFlight - 1) : 0)
     if (!Number.isSafeInteger(reserved) || reserved < 0 || reserved >= this.maximumInFlight)
       throw new RangeError('Invalid IPC reserved control capacity')
@@ -307,8 +323,36 @@ export class IpcPeer {
     output: z.ZodType<Output>,
     options: IpcCallOptions = {},
   ): Promise<Output> {
-    if (this.failure) return Promise.reject(this.failure)
-    if (options.signal?.aborted) return Promise.reject(new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'))
+    return this.request(method, input, output, options)
+  }
+
+  callTracked<Output>(
+    method: string,
+    input: unknown,
+    output: z.ZodType<Output>,
+    options: IpcCallOptions = {},
+  ): IpcCallTicket<Output> {
+    const settlement = Promise.withResolvers<Output>()
+    const result = this.request<Output>(method, input, output, options, settlement)
+    // Both observations are optional for callers; retaining one must not cause an unhandled rejection of the other.
+    void result.catch(() => undefined)
+    void settlement.promise.catch(() => undefined)
+    return { result, settled: settlement.promise }
+  }
+
+  private request<Output>(
+    method: string,
+    input: unknown,
+    output: z.ZodType<Output>,
+    options: IpcCallOptions,
+    settlement?: Settlement<Output>,
+  ): Promise<Output> {
+    const refuse = (error: unknown): Promise<Output> => {
+      settlement?.reject(error)
+      return Promise.reject(error)
+    }
+    if (this.failure) return refuse(this.failure)
+    if (options.signal?.aborted) return refuse(new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'))
     const callId = crypto.randomUUID()
     const requestId = options.requestId ?? callId
     let message: CallMessage
@@ -327,13 +371,16 @@ export class IpcPeer {
       bytes = new TextEncoder().encode(encoded).byteLength
       limit(options.timeoutMs, this.timeoutMs)
     } catch (error) {
-      return Promise.reject(error)
+      return refuse(error)
     }
     if (
-      ((this.controlMethods.has(method) ? this.running >= this.maximumInFlight : this.runningNormal >= this.normalCapacity) && this.queue.length >= this.maximumQueued) ||
+      ((this.controlMethods.has(method)
+        ? this.running >= this.maximumInFlight
+        : this.runningNormal >= this.normalCapacity) &&
+        this.queue.length >= this.maximumQueued) ||
       this.queuedBytes + bytes > this.maximumBytes
     )
-      return Promise.reject(new HbarError('IPC_BUSY', 'Runtime request capacity is exhausted'))
+      return refuse(new HbarError('IPC_BUSY', 'Runtime request capacity is exhausted'))
     return new Promise<Output>((resolve, reject) => {
       const pending: Pending = {
         id: callId,
@@ -342,12 +389,16 @@ export class IpcPeer {
         bytes,
         resolve(value) {
           try {
-            resolve(output.parse(value))
+            const parsed = output.parse(value)
+            resolve(parsed)
+            settlement?.resolve(parsed)
           } catch (error) {
             reject(error)
+            settlement?.reject(error)
           }
         },
         reject,
+        rejectSettlement: settlement?.reject,
         signal: options.signal,
         timer: undefined,
         started: false,
@@ -444,6 +495,7 @@ export class IpcPeer {
     for (const pending of this.pending.values()) {
       this.settle(pending)
       pending.reject(error)
+      pending.rejectSettlement?.(error)
     }
     this.pending.clear()
     this.queue = []
@@ -485,6 +537,7 @@ export class IpcPeer {
     this.settle(pending)
     pending.reject(error)
     if (!pending.started) {
+      pending.rejectSettlement?.(error)
       this.pending.delete(callId)
       this.queue = this.queue.filter((id) => id !== callId)
       this.queuedBytes -= pending.bytes
@@ -493,7 +546,7 @@ export class IpcPeer {
 
   private drain(): void {
     while (!this.failure && this.running < this.maximumInFlight && this.queue.length) {
-      const controlIndex = this.queue.findIndex(id => this.pending.get(id)?.control)
+      const controlIndex = this.queue.findIndex((id) => this.pending.get(id)?.control)
       if (controlIndex < 0 && this.runningNormal >= this.normalCapacity) break
       const callId = this.queue.splice(controlIndex < 0 ? 0 : controlIndex, 1)[0]!
       const pending = this.pending.get(callId)
@@ -520,10 +573,14 @@ export class IpcPeer {
         this.pending.delete(message.id)
         this.running--
         if (!pending.control) this.runningNormal--
-        if (!pending.settled) {
-          this.settle(pending)
+        if (!pending.settled || pending.rejectSettlement) {
+          if (!pending.settled) this.settle(pending)
           if (message.ok) pending.resolve(message.result)
-          else pending.reject(new HbarError(message.code, message.message))
+          else {
+            const error = new HbarError(message.code, message.message)
+            pending.reject(error)
+            pending.rejectSettlement?.(error)
+          }
         }
         this.drain()
         return
@@ -549,7 +606,10 @@ export class IpcPeer {
           return
         }
         if (
-          ((this.controlMethods.has(message.method) ? this.incomingRunning >= this.maximumInFlight : this.incomingRunningNormal >= this.normalCapacity) && this.incomingQueue.length >= this.maximumQueued) ||
+          ((this.controlMethods.has(message.method)
+            ? this.incomingRunning >= this.maximumInFlight
+            : this.incomingRunningNormal >= this.normalCapacity) &&
+            this.incomingQueue.length >= this.maximumQueued) ||
           this.incomingBytes + bytes > this.maximumBytes
         ) {
           void this.sendError(message.id, new HbarError('IPC_BUSY', 'Runtime execution capacity is exhausted')).catch(
@@ -568,7 +628,7 @@ export class IpcPeer {
 
   private drainIncoming(): void {
     while (!this.failure && this.incomingRunning < this.maximumInFlight && this.incomingQueue.length) {
-      const controlIndex = this.incomingQueue.findIndex(id => {
+      const controlIndex = this.incomingQueue.findIndex((id) => {
         const method = this.incoming.get(id)?.message.method
         return method !== undefined && this.controlMethods.has(method)
       })

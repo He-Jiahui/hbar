@@ -2,6 +2,7 @@ export {
   IpcPeer,
   procedure,
   type IpcCallOptions,
+  type IpcCallTicket,
   type IpcFrame,
   type IpcProcedure,
   type IpcProcedureContext,

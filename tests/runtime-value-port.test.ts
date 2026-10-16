@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
 import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
 
 function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number | (() => number) } = {}) {
@@ -63,6 +66,59 @@ test('named application ports transfer a full 10 MiB attachment without regex en
     expect(Buffer.from(result).equals(Buffer.from(bytes))).toBe(true)
   } finally {
     f.close()
+  }
+})
+
+test('tracked application calls preserve actual late writes after cancellation and close new callback admission', async () => {
+  const f = fixture()
+  const root = await mkdtemp(join(tmpdir(), 'hbar-tracked-value-'))
+  const gate = Promise.withResolvers<void>()
+  const entered = Promise.withResolvers<void>()
+  let callbacks = 0,
+    writes = 0,
+    ownerCancelled = false,
+    finished = false
+  f.remote.register('write', async ([callback, signal]) => {
+    if (typeof callback !== 'function' || !(signal instanceof AbortSignal)) throw new Error('Expected owned arguments')
+    entered.resolve()
+    await gate.promise
+    ownerCancelled = signal.aborted
+    let rejected = false
+    try {
+      await Reflect.apply(callback, undefined, [])
+    } catch {
+      rejected = true
+    }
+    await writeFile(join(root, 'result.txt'), 'late physical result: 你好')
+    writes++
+    return { text: 'late physical result: 你好', rejected }
+  })
+  const controller = new AbortController()
+  try {
+    const ticket = f.local.callTracked<{ text: string; rejected: boolean }>('write', [
+      () => {
+        callbacks++
+      },
+      controller.signal,
+    ])
+    void ticket.settled.then(() => {
+      finished = true
+    })
+    await entered.promise
+    controller.abort()
+    await expect(ticket.result).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    expect(finished).toBe(false)
+    expect(f.local.snapshot().callbacks).toBe(0)
+    gate.resolve()
+    expect(await ticket.settled).toEqual({ text: 'late physical result: 你好', rejected: true })
+    expect(await readFile(join(root, 'result.txt'), 'utf8')).toBe('late physical result: 你好')
+    expect(ownerCancelled).toBe(true)
+    expect(callbacks).toBe(0)
+    expect(writes).toBe(1)
+  } finally {
+    gate.resolve()
+    f.close()
+    await rm(root, { recursive: true, force: true })
   }
 })
 

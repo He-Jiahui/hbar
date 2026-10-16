@@ -40,9 +40,22 @@ function deferred() {
 }
 
 test('default duplex IPC remains within 64 physical calls and 256 queued calls per unit', async () => {
-  const peers = paired(), gate = deferred()
-  peers.left.register('duplex', procedure(z.number(), z.number(), async value => { await gate.promise; return value }))
-  peers.right.register('duplex', procedure(z.number(), z.number(), async value => { await gate.promise; return value }))
+  const peers = paired(),
+    gate = deferred()
+  peers.left.register(
+    'duplex',
+    procedure(z.number(), z.number(), async (value) => {
+      await gate.promise
+      return value
+    }),
+  )
+  peers.right.register(
+    'duplex',
+    procedure(z.number(), z.number(), async (value) => {
+      await gate.promise
+      return value
+    }),
+  )
   const pending = Promise.allSettled([
     ...Array.from({ length: 160 }, (_, index) => peers.left.call('duplex', index, z.number())),
     ...Array.from({ length: 160 }, (_, index) => peers.right.call('duplex', index, z.number())),
@@ -51,10 +64,16 @@ test('default duplex IPC remains within 64 physical calls and 256 queued calls p
     await until(() => peers.left.snapshot().inFlight === 32 && peers.left.snapshot().incoming === 32)
     expect(peers.left.snapshot().inFlight + peers.left.snapshot().incoming).toBe(64)
     expect(peers.left.snapshot().queued + peers.right.snapshot().queued).toBe(256)
-    expect(await peers.left.call('duplex', 161, z.number()).catch((error: unknown) => error)).toMatchObject({ code: 'IPC_BUSY' })
+    expect(await peers.left.call('duplex', 161, z.number()).catch((error: unknown) => error)).toMatchObject({
+      code: 'IPC_BUSY',
+    })
     gate.release()
-    expect((await pending).filter(result => result.status === 'fulfilled')).toHaveLength(320)
-  } finally { gate.release(); await pending; peers.close() }
+    expect((await pending).filter((result) => result.status === 'fulfilled')).toHaveLength(320)
+  } finally {
+    gate.release()
+    await pending
+    peers.close()
+  }
 })
 async function until(check: () => boolean) {
   const deadline = Date.now() + 3_000
@@ -169,6 +188,101 @@ test('cancellation does not release a noncooperating physical slot or publish it
     await until(() => peers.left.snapshot().inFlight === 0)
   } finally {
     held.release()
+    peers.close()
+  }
+})
+
+test('tracked cancellation retains the original reply and validates it once while physical capacity stays occupied', async () => {
+  const peers = paired({ inFlight: 1, queued: 1 })
+  const held = deferred()
+  let started = 0,
+    validations = 0,
+    physicallyDone = false
+  peers.right.register(
+    'tracked',
+    procedure(z.string(), z.string(), async (value) => {
+      started++
+      await held.promise
+      return value
+    }),
+  )
+  const controller = new AbortController()
+  const output = z.string().transform((value) => {
+    validations++
+    return value + ':validated'
+  })
+  try {
+    const first = peers.left.callTracked('tracked', 'original', output, { signal: controller.signal })
+    void first.settled.then(() => {
+      physicallyDone = true
+    })
+    const next = peers.left.call('tracked', 'next', z.string())
+    await until(() => started === 1)
+    controller.abort()
+    await expect(first.result).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    expect(physicallyDone).toBe(false)
+    expect(peers.left.snapshot()).toMatchObject({ inFlight: 1, queued: 1 })
+    held.release()
+    expect(await first.settled).toBe('original:validated')
+    expect(await next).toBe('next')
+    expect(validations).toBe(1)
+    expect(started).toBe(2)
+  } finally {
+    held.release()
+    peers.close()
+  }
+})
+
+test('tracked deadlines keep late owner errors while queued cancellation and transport loss settle explicitly', async () => {
+  const peers = paired({ inFlight: 1, queued: 1 })
+  const held = deferred()
+  let executions = 0
+  peers.right.register(
+    'tracked',
+    procedure(z.undefined(), z.string(), async () => {
+      executions++
+      await held.promise
+      throw new HbarError('ACTUAL_WRITE_FAILED', 'The original owner finished with an error')
+    }),
+  )
+  try {
+    const first = peers.left.callTracked('tracked', undefined, z.string(), { timeoutMs: 20 })
+    const controller = new AbortController()
+    const queued = peers.left.callTracked('tracked', undefined, z.string(), { signal: controller.signal })
+    controller.abort()
+    await expect(queued.result).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    await expect(queued.settled).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    await expect(first.result).rejects.toMatchObject({ code: 'IPC_TIMEOUT' })
+    expect(executions).toBe(1)
+    held.release()
+    await expect(first.settled).rejects.toMatchObject({ code: 'ACTUAL_WRITE_FAILED' })
+    const lost = peers.left.callTracked('tracked', undefined, z.string())
+    peers.left.close()
+    await expect(lost.result).rejects.toMatchObject({ code: 'IPC_DISCONNECTED' })
+    await expect(lost.settled).rejects.toMatchObject({ code: 'IPC_DISCONNECTED' })
+    const invalid = peers.left.callTracked('tracked', undefined, z.string())
+    await expect(invalid.settled).rejects.toMatchObject({ code: 'IPC_DISCONNECTED' })
+  } finally {
+    held.release()
+    peers.close()
+  }
+})
+
+test('tracked calls validate late output and refuse invalid input without a fabricated successful settlement', async () => {
+  const peers = paired()
+  try {
+    peers.right.register(
+      'invalid',
+      procedure(z.undefined(), z.string(), () => 'not a number'),
+    )
+    const invalid = peers.left.callTracked('invalid', undefined, z.number())
+    await expect(invalid.result).rejects.toBeInstanceOf(z.ZodError)
+    await expect(invalid.settled).rejects.toBeInstanceOf(z.ZodError)
+    const refused = peers.left.callTracked('invalid', () => {}, z.number())
+    await expect(refused.result).rejects.toMatchObject({ code: 'IPC_SERIALIZATION' })
+    await expect(refused.settled).rejects.toMatchObject({ code: 'IPC_SERIALIZATION' })
+    expect(peers.left.snapshot()).toMatchObject({ inFlight: 0, queued: 0 })
+  } finally {
     peers.close()
   }
 })
@@ -305,7 +419,9 @@ test('real Bun IPC carries a fragmented round trip and settles pending calls on 
   try {
     const text = 'actual IPC 😀'.repeat(10_000)
     expect(await active.call('echo', text, z.string())).toBe(text)
-    await expect(active.call('crash', undefined, z.undefined())).rejects.toMatchObject({ code: 'IPC_DISCONNECTED' })
+    const crashed = active.callTracked('crash', undefined, z.undefined())
+    await expect(crashed.result).rejects.toMatchObject({ code: 'IPC_DISCONNECTED' })
+    await expect(crashed.settled).rejects.toMatchObject({ code: 'IPC_DISCONNECTED' })
     expect(await child.exited).toBe(23)
     expect(active.snapshot()).toMatchObject({ inFlight: 0, queued: 0, failed: true })
   } finally {
