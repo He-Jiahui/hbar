@@ -312,7 +312,8 @@ export type {
 } from './sandbox-policy'
 export { createNotificationService } from './notification-service'
 export { createScheduleRunner, ScheduleRunFailure } from './schedule-runner'
-export type { ScheduleExecutionPort } from './schedule-runner'
+export type { ScheduleExecutionPort, SchedulePrepareInput, ScheduleSubmitInput } from './schedule-runner'
+export { createScheduleAdmission } from './schedule-admission'
 export {
   SettingsService,
   HBAR_SETTINGS_DEFINITIONS,

@@ -1,5 +1,6 @@
 import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/execution-principal'
 import type { ScheduleExecution } from '@hbar/contracts/schedule-execution'
+import type { ScheduleOccurrence } from '@hbar/contracts/commands/schedules'
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
@@ -396,6 +397,7 @@ export interface StorageMethods {
   schedulePage: ReturnType<typeof createScheduleStorage>['list']
   schedule: ReturnType<typeof createScheduleStorage>['get']
   scheduleExecution(occurrenceId: string): ScheduleExecution | null
+  scheduleOccurrence(occurrenceId: string): ScheduleOccurrence | null
   createSchedule: ReturnType<typeof createScheduleStorage>['create']
   updateSchedule: ReturnType<typeof createScheduleStorage>['update']
   deleteSchedule: ReturnType<typeof createScheduleStorage>['delete']

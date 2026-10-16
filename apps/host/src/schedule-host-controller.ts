@@ -4,6 +4,8 @@ import {
   ScheduleRunFailure,
   type ScheduleExecutionPort,
   type ScheduleService,
+  type SchedulePrepareInput,
+  type ScheduleSubmitInput,
 } from '@hbar/kernel/controller'
 import { operationSnapshotSchema, runAcceptedSchema, submitRunInputSchema } from '@hbar/contracts/commands/run'
 
@@ -36,14 +38,8 @@ export interface ScheduleHostControllerOptions {
   service: ScheduleService
   reader: ScheduleHostReader
   runCommands: ScheduleRunCommands
-  actorId: string
-  prepareSession(input: {
-    scheduleId: string
-    workspaceId: string
-    target: 'new-session' | 'existing-session'
-    sessionId?: string
-    occurrenceId: string
-  }): Promise<{ sessionId: string }>
+  prepareSession(input: SchedulePrepareInput): Promise<{ sessionId: string }>
+  authorizeSubmission(input: ScheduleSubmitInput): Promise<void>
   intervalMs?: number
   now?: () => number
   onFailure?: (input: { scheduleId: string; occurrenceId: string; error: string }) => Promise<void> | void
@@ -53,11 +49,11 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
   const now = options.now ?? Date.now
   const getReceipt = options.runCommands.getReceipt
   const execution: ScheduleExecutionPort = {
-    actorId: options.actorId,
     async prepare(input) {
       return options.prepareSession(input)
     },
     async submit(input) {
+      await options.authorizeSubmission(input)
       const runInput = submitRunInputSchema.parse({
         sessionId: input.sessionId,
         modelId: input.modelId,
@@ -65,7 +61,7 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
       })
       const result = runAcceptedSchema.parse(
         await options.runCommands.execute('run.submit', runInput, {
-          actorId: options.actorId,
+          actorId: input.actorId,
           idempotencyKey: input.idempotencyKey,
         }),
       )

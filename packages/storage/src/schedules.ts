@@ -34,6 +34,10 @@ export function createScheduleStorage(db: Database) {
     scheduleDefinitionSchema.parse(JSON.parse(String((row as { data: string }).data)))
   return {
     execution: executions.read,
+    occurrence(occurrenceId: string): ScheduleOccurrence | null {
+      const raw = db.query('SELECT * FROM schedule_occurrences WHERE id=?').get(occurrenceId)
+      return raw ? scheduleOccurrenceSchema.parse(raw) : null
+    },
     enabledSchedules(after: string | null, limit: number) {
       const rows = db
         .query(
