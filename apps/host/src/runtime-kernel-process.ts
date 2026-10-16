@@ -207,6 +207,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         capabilities: () => ({
           execution: application().plugins.get<import('@hbar/plugin-sdk').ExecutionProvider>('execution'),
           git: application().plugins.get<import('@hbar/plugin-sdk').GitService>('git'),
+          get browser() {
+            return application().plugins.get<import('@hbar/plugin-sdk').BrowserUseService>('browser')
+          },
+          get computer() {
+            return application().plugins.get<import('@hbar/plugin-sdk').ComputerUseService>('computer')
+          },
         }),
       }),
       mutationAdmission: {

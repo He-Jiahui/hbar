@@ -19,6 +19,7 @@ import {
 import type { StoragePort } from '@hbar/storage'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import { bindSessionGitInput, sessionGitCommand } from './session-command-git'
+import { bindInteractionSession, sessionInteractionCommand } from './session-command-interaction'
 import type { SessionCommandDiscovery } from './session-command-discovery'
 import type { SessionCommandExecution } from './session-command-execution'
 import type { HostSourceApplication } from './command-execution-scopes'
@@ -63,8 +64,9 @@ export class SessionCommandGateway {
     const file = fileCommands.has(call.commandId)
     const decision = decisionQueries.has(call.commandId)
     const git = sessionGitCommand(call.commandId, call.input)
+    const interaction = sessionInteractionCommand(call.commandId, call.input)
     const fileWrite = call.commandId === 'file.write'
-    if (!readCommands.has(call.commandId) && !file && !decision && !git)
+    if (!readCommands.has(call.commandId) && !file && !decision && !git && !interaction)
       throw new HbarError(
         'COMMAND_ADMISSION_UNAVAILABLE',
         'This command needs a concrete admission rule before a session can execute it',
@@ -72,6 +74,7 @@ export class SessionCommandGateway {
     const identity = await this.authorization.source(source.sessionId, source.runId)
     let input = call.input
     if (git) input = sessionCommandCallSchema.shape.input.parse(bindSessionGitInput(source, call.commandId, input))
+    if (interaction) input = sessionCommandCallSchema.shape.input.parse(bindInteractionSession(source.sessionId, input))
     if (file) {
       const session = await this.options.storage.call('session', source.sessionId)
       if (input.workspaceId !== session.workspaceId)
@@ -111,14 +114,20 @@ export class SessionCommandGateway {
     const finalInput = sessionCommandCallSchema.shape.input.parse(prepared.invocation.input)
     const finalGit = sessionGitCommand(call.commandId, finalInput)
     if (finalGit) bindSessionGitInput(source, call.commandId, finalInput)
+    const finalInteraction = sessionInteractionCommand(call.commandId, finalInput)
+    if (finalInteraction) bindInteractionSession(source.sessionId, finalInput)
     const write = fileWrite || finalGit?.write === true
     const mutatingDefinition = fileWrite || finalGit?.mutation === true
     if (
       metadata.id !== call.commandId ||
       metadata.version !== call.commandVersion ||
-      metadata.owner !== (file ? 'hbar.files' : decision ? 'hbar.decisions' : git ? 'hbar.git' : 'hbar.core') ||
-      metadata.kind !== (mutatingDefinition ? 'command' : 'query') ||
-      metadata.stateEffect !== (mutatingDefinition ? (git ? 'external' : 'persistent') : 'none') ||
+      (interaction !== undefined && metadata.version !== interaction.metadata.version) ||
+      metadata.owner !==
+        (interaction?.metadata.owner ??
+          (file ? 'hbar.files' : decision ? 'hbar.decisions' : git ? 'hbar.git' : 'hbar.core')) ||
+      metadata.kind !== (interaction?.metadata.kind ?? (mutatingDefinition ? 'command' : 'query')) ||
+      metadata.stateEffect !==
+        (interaction?.metadata.stateEffect ?? (mutatingDefinition ? (git ? 'external' : 'persistent') : 'none')) ||
       metadata.execution !== 'host' ||
       metadata.visibility === 'internal'
     )
@@ -150,9 +159,11 @@ export class SessionCommandGateway {
           ]
         : finalGit
           ? [finalGit.method]
-          : [],
+          : finalInteraction
+            ? [call.commandId]
+            : [],
       admission: {
-        effect: write ? 'write' : 'read',
+        effect: finalInteraction?.effect ?? (write ? 'write' : 'read'),
         workspaceAccess: file
           ? {
               kind: 'paths',
@@ -165,6 +176,11 @@ export class SessionCommandGateway {
           ? {
               requiresProcess: true,
               permissionAliases: [{ name: finalGit.alias, arguments: finalInput }],
+            }
+          : {}),
+        ...(finalInteraction
+          ? {
+              permissionAliases: [{ name: finalInteraction.alias, arguments: finalInteraction.arguments }],
             }
           : {}),
         timeoutMs: metadata.timeoutMs,

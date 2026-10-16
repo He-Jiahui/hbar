@@ -5,13 +5,20 @@ import { toolFileChangeSchema, MAX_RUN_CHANGE_BYTES, type ToolFileChange } from 
 import { nodeCallAuthoritySchema } from '@hbar/contracts/node-authority'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
 import { RUNTIME_APPLICATION_METHODS } from '@hbar/kernel/runtime-application'
-import { osConfinementOptionsSchema, type ExecutionProvider, type GitService, type ToolContext } from '@hbar/plugin-sdk'
+import {
+  osConfinementOptionsSchema,
+  type ExecutionProvider,
+  type GitService,
+  type ToolContext,
+  type BrowserUseService,
+  type ComputerUseService,
+} from '@hbar/plugin-sdk'
 import { RuntimeValuePort, type IpcPeer } from '@hbar/runtime'
 import type { HostSourceApplication } from './command-execution-scopes'
 import { sessionCommandSourceSchema } from '@hbar/kernel/session-command-port'
 import { createRuntimeGitSource } from './runtime-git-source'
 
-type Target = 'execution' | 'workspaceQuery' | 'git' | 'launchTarget' | 'workspaceSandbox'
+type Target = 'execution' | 'workspaceQuery' | 'git' | 'launchTarget' | 'workspaceSandbox' | 'browser' | 'computer'
 export type RuntimeCommandSourceMethod = Exclude<
   {
     [Name in Target]: `${Name}.${(typeof RUNTIME_APPLICATION_METHODS)[Name][number]}`
@@ -19,7 +26,7 @@ export type RuntimeCommandSourceMethod = Exclude<
   'git.forRun'
 >
 const declared = new Set<string>(
-  (['execution', 'workspaceQuery', 'git', 'launchTarget', 'workspaceSandbox'] as const)
+  (['execution', 'workspaceQuery', 'git', 'launchTarget', 'workspaceSandbox', 'browser', 'computer'] as const)
     .flatMap((target) => RUNTIME_APPLICATION_METHODS[target].map((method) => `${target}.${method}`))
     .filter((method) => method !== 'git.forRun'),
 )
@@ -31,6 +38,8 @@ export type RuntimeCommandSource = z.output<typeof runtimeCommandSourceSchema>
 export interface RuntimeCommandSourceCapabilities {
   readonly execution: ExecutionProvider
   readonly git?: GitService
+  readonly browser?: BrowserUseService
+  readonly computer?: ComputerUseService
 }
 export interface OpenCommandSource {
   readonly descriptor: RuntimeCommandSource
@@ -60,6 +69,26 @@ const signalArgument: Readonly<Record<string, number>> = {
   'git.worktree': 2,
   'git.launchBranchSnapshot': 1,
   'git.diffToRemote': 1,
+  'browser.status': 1,
+  'browser.navigate': 4,
+  'browser.snapshot': 3,
+  'browser.click': 4,
+  'browser.type': 5,
+  'browser.press': 5,
+  'browser.screenshot': 4,
+  'browser.evaluate': 4,
+  'browser.close': 3,
+  'browser.history': 2,
+  'computer.status': 1,
+  'computer.screenshot': 2,
+  'computer.click': 4,
+  'computer.doubleClick': 4,
+  'computer.type': 3,
+  'computer.key': 3,
+  'computer.scroll': 4,
+  'computer.move': 4,
+  'computer.wait': 3,
+  'computer.launch': 2,
 }
 
 /** Kernel composition: open only inside the admitted tool executor, never during read-only preparation. */
@@ -147,6 +176,14 @@ export class RuntimeCommandSources {
         if (pending.size >= 16 || accepted >= 128) throw new HbarError('BUSY', 'Source command call capacity is full')
         const [target, method] = name.split('.')
         const fileCapability = target === 'execution' || target === 'workspaceQuery' || target === 'git'
+        const interaction = target === 'browser' || target === 'computer'
+        if (interaction && args[0] !== sourceSessionId)
+          throw new HbarError('COMMAND_SOURCE_MISMATCH', 'Interaction capability belongs to the admitted Session')
+        if (interaction && (osConfinement || (environment && Object.keys(environment).length)))
+          throw new HbarError(
+            'COMMAND_SOURCE_CONFINEMENT_UNAVAILABLE',
+            'The interaction provider cannot enforce the admitted process environment or OS confinement',
+          )
         if (name === 'execution.write' && (changes.size >= 16 || changeBytes >= MAX_RUN_CHANGE_BYTES))
           throw new HbarError('FILE_LIMIT', 'This source command has reached its file change capacity')
         if (fileCapability && args[0] !== undefined && args[0] !== workspace)
@@ -161,7 +198,11 @@ export class RuntimeCommandSources {
               ? capabilities.execution.workspaceQuery
               : target === 'git'
                 ? git
-                : resolution
+                : target === 'browser'
+                  ? capabilities.browser
+                  : target === 'computer'
+                    ? capabilities.computer
+                    : resolution
         const implementation: unknown = object && method ? Reflect.get(object, method) : undefined
         if (typeof implementation !== 'function')
           throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'The source capability is unavailable')

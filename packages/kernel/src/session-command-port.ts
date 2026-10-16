@@ -22,6 +22,30 @@ export const SESSION_COMMAND_GIT_IDS = [
   'git.worktree',
   'git.diffToRemote',
 ] as const
+export const SESSION_COMMAND_BROWSER_IDS = [
+  'browser.status',
+  'browser.navigate',
+  'browser.snapshot',
+  'browser.click',
+  'browser.type',
+  'browser.press',
+  'browser.screenshot',
+  'browser.evaluate',
+  'browser.close',
+  'browser.history',
+] as const
+export const SESSION_COMMAND_COMPUTER_IDS = [
+  'computer.status',
+  'computer.screenshot',
+  'computer.click',
+  'computer.doubleClick',
+  'computer.type',
+  'computer.key',
+  'computer.scroll',
+  'computer.move',
+  'computer.wait',
+  'computer.launch',
+] as const
 
 export const sessionCommandSourceSchema = z.strictObject({
   prefix: z.string().regex(/^kernel\.command\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),

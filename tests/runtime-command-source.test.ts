@@ -6,7 +6,14 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
-import type { ExecutionProvider, ExecOptions, GitService, ToolContext } from '@hbar/plugin-sdk'
+import type {
+  ExecutionProvider,
+  ExecOptions,
+  GitService,
+  ToolContext,
+  BrowserUseService,
+  ComputerUseService,
+} from '@hbar/plugin-sdk'
 import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
 import {
   RuntimeCommandSources,
@@ -160,6 +167,139 @@ function peers() {
     },
   }
 }
+
+function interactionProviders(observe: (name: string, sessionId: string, signal?: AbortSignal) => void) {
+  const unexpected = async (): Promise<never> => {
+    throw new Error('Unexpected interaction capability')
+  }
+  const browser: BrowserUseService = {
+    status: unexpected,
+    go: unexpected,
+    snapshot: unexpected,
+    click: unexpected,
+    type: unexpected,
+    press: unexpected,
+    screenshot: unexpected,
+    evaluate: unexpected,
+    close: unexpected,
+    history: unexpected,
+    navigate: async (sessionId, _url, _contextId, _pageId, signal) => {
+      observe('browser.navigate', sessionId, signal)
+      return { contextId: 'context', pageId: 'page', url: 'https://fixture.invalid/', title: sessionId }
+    },
+  }
+  const computer: ComputerUseService = {
+    status: unexpected,
+    screenshot: unexpected,
+    doubleClick: unexpected,
+    type: unexpected,
+    key: unexpected,
+    scroll: unexpected,
+    move: unexpected,
+    wait: unexpected,
+    launch: unexpected,
+    click: async (sessionId, _x, _y, _appId, signal) => {
+      observe('computer.click', sessionId, signal)
+      return { action: 'click', accepted: true }
+    },
+  }
+  return { browser, computer }
+}
+
+test('interaction source capabilities bind the original Session and cancellation signal across the real framed port', async () => {
+  const f = peers()
+  const controller = new AbortController()
+  const tool = context('C:/source-workspace', controller.signal)
+  const seen: Array<{ name: string; sessionId: string; signal?: AbortSignal }> = []
+  const capabilities = interactionProviders((name, sessionId, signal) =>
+    seen.push({ name, sessionId, ...(signal ? { signal } : {}) }),
+  )
+  const opened = f.sources.open(tool, ['browser.navigate', 'computer.click'], {
+    execution: provider(),
+    ...capabilities,
+  })
+  const connection = connectRuntimeCommandSource(
+    f.host,
+    opened.descriptor,
+    execution(tool),
+    tool.callId,
+    tool.signal,
+    1_000,
+  )
+  try {
+    for (const [name, args] of [
+      ['browser.navigate', ['source-session', 'https://fixture.invalid/']],
+      ['computer.click', ['source-session', 1, 2]],
+    ] as const) {
+      let rejected: unknown
+      try {
+        await connection.application.port.call(name, ['another-session', ...args.slice(1)])
+      } catch (error) {
+        rejected = error
+      }
+      expect(rejected).toMatchObject({ code: 'COMMAND_SOURCE_MISMATCH' })
+      await connection.application.port.call(name, [...args])
+    }
+    expect(seen.map((item) => [item.name, item.sessionId, item.signal?.aborted])).toEqual([
+      ['browser.navigate', 'source-session', false],
+      ['computer.click', 'source-session', false],
+    ])
+    controller.abort()
+    expect(seen.every((item) => item.signal?.aborted)).toBe(true)
+  } finally {
+    await connection.close()
+    await opened.close()
+    f.close()
+  }
+})
+
+test('interaction sources refuse process environment and OS confinement they cannot enforce', async () => {
+  for (const boundary of ['environment', 'os'] as const) {
+    const f = peers()
+    const tool = context('C:/source-workspace')
+    if (boundary === 'environment') tool.environment = { LANG: 'pinned' }
+    else
+      tool.osConfinement = {
+        level: 'unelevated',
+        networkEnabled: false,
+        readableRoots: ['C:/source-workspace'],
+        writableRoots: [],
+        envOverrides: {},
+      }
+    let executions = 0
+    const opened = f.sources.open(tool, ['browser.navigate', 'computer.click'], {
+      execution: provider(),
+      ...interactionProviders(() => executions++),
+    })
+    const connection = connectRuntimeCommandSource(
+      f.host,
+      opened.descriptor,
+      execution(tool),
+      tool.callId,
+      tool.signal,
+      1_000,
+    )
+    try {
+      for (const [name, args] of [
+        ['browser.navigate', ['source-session', 'https://fixture.invalid/']],
+        ['computer.click', ['source-session', 1, 2]],
+      ] as const) {
+        let rejected: unknown
+        try {
+          await connection.application.port.call(name, [...args])
+        } catch (error) {
+          rejected = error
+        }
+        expect(rejected).toMatchObject({ code: 'COMMAND_SOURCE_CONFINEMENT_UNAVAILABLE' })
+      }
+      expect(executions).toBe(0)
+    } finally {
+      await connection.close()
+      await opened.close()
+      f.close()
+    }
+  }
+})
 function provider(overrides: Partial<ExecutionProvider> = {}): ExecutionProvider {
   const unexpected = async (): Promise<never> => {
     throw new Error('Unexpected source operation')

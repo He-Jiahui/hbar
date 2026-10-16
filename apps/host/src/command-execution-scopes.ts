@@ -89,6 +89,8 @@ export class HostCommandExecutionScopes {
       (target !== 'execution' &&
         target !== 'workspaceQuery' &&
         target !== 'git' &&
+        target !== 'browser' &&
+        target !== 'computer' &&
         target !== 'launchTarget' &&
         target !== 'workspaceSandbox')
     )

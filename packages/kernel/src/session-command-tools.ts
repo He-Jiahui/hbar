@@ -14,6 +14,8 @@ import {
   SESSION_COMMAND_FILE_IDS,
   SESSION_COMMAND_DECISION_READ_IDS,
   SESSION_COMMAND_GIT_IDS,
+  SESSION_COMMAND_BROWSER_IDS,
+  SESSION_COMMAND_COMPUTER_IDS,
 } from './session-command-port'
 
 export const SESSION_COMMAND_LIST_BYTES = 32_768
@@ -33,7 +35,7 @@ export function createSessionCommandTools(port: SessionCommandDiscoveryPort): re
       effect: 'write',
       workspaceAccess: { kind: 'none' },
       timeoutMs: 120_000,
-      description: `Execute one hbar command after hbar_command_describe supplies its exact version and input schema. Currently admitted commands: ${[...SESSION_COMMAND_DIRECTORY_QUERY_IDS, ...SESSION_COMMAND_FILE_IDS, ...SESSION_COMMAND_DECISION_READ_IDS, ...SESSION_COMMAND_GIT_IDS].join(', ')}. File and Git commands use the current Session execution workspace; omit Git cwd. File workspaceId must match it and sessionTarget is Host-bound. Git reads require process permission; mutations also require write permission, including branch/worktree operations other than list. Decision queries inspect an authorized Session; decision.resolve requires a human or an explicit delegation grant and is not admitted here yet. Supply a stable operationKey for the intended operation and reuse it when checking an uncertain result; a new key is a new operation. The Host binds the current Session, Run, actor, permissions and durable receipt. Returns JSON with operationKey, commandId, revision, logical status, physical status, acknowledgment, and result or error/reference. Unknown outcomes require reconciliation before replay. Client/platform commands require an explicit connected clientId and numeric generation in target. Unsupported admission rules are rejected before execution.`,
+      description: `Execute one hbar command after hbar_command_describe supplies its exact version and input schema. Currently admitted commands: ${[...SESSION_COMMAND_DIRECTORY_QUERY_IDS, ...SESSION_COMMAND_FILE_IDS, ...SESSION_COMMAND_DECISION_READ_IDS, ...SESSION_COMMAND_GIT_IDS, ...SESSION_COMMAND_BROWSER_IDS, ...SESSION_COMMAND_COMPUTER_IDS].join(', ')}. File and Git commands use the current Session execution workspace; omit Git cwd. File workspaceId must match it and sessionTarget is Host-bound. Browser commands are network operations; computer commands require process permission except computer.status. They use the current Session and preserve native policy. Git reads require process permission; mutations also require write permission, including branch/worktree operations other than list. Decision queries inspect an authorized Session; decision.resolve requires a human or an explicit delegation grant and is not admitted here yet. Supply a stable operationKey for the intended operation and reuse it when checking an uncertain result; a new key is a new operation. The Host binds the current Session, Run, actor, permissions and durable receipt. Returns JSON with operationKey, commandId, revision, logical status, physical status, acknowledgment, and result or error/reference. Unknown outcomes require reconciliation before replay. Client/platform commands require an explicit connected clientId and numeric generation in target. Unsupported admission rules are rejected before execution.`,
       inputSchema: sessionCommandCallSchema,
       execute() {
         throw new HbarError(
