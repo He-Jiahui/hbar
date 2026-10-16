@@ -8,12 +8,13 @@ import { providerSchema } from '@hbar/contracts'
 import type { PlanService, WorkflowService } from '@hbar/plugin-sdk'
 
 for (const compact of [false, true])
-  test(`model tool advertisement changes within a Run while journal and transport agree (${compact})`, async () => {
+  test(`model tool definitions stay stable through Plan and focus changes (${compact})`, async () => {
     const root = await mkdtemp(join(tmpdir(), 'hbar-tool-advertisement-'))
     const received: string[][] = []
     const systemMessages: string[][] = []
+    const definitions: unknown[] = []
     const bodySchema = z.object({
-      tools: z.array(z.object({ function: z.object({ name: z.string() }) })),
+      tools: z.array(z.object({ function: z.object({ name: z.string() }).passthrough() }).passthrough()),
       messages: z.array(z.object({ role: z.string(), content: z.unknown() })),
     })
     const item = {
@@ -28,6 +29,7 @@ for (const compact of [false, true])
       async fetch(request) {
         const body = bodySchema.parse(await request.json())
         received.push(body.tools.map((tool) => tool.function.name))
+        definitions.push(body.tools)
         systemMessages.push(
           body.messages
             .filter((message) => ['system', 'developer'].includes(message.role))
@@ -105,7 +107,10 @@ for (const compact of [false, true])
           .filter((block) => block.type === 'tool_result' && block.isError),
       ).toEqual([])
       expect(received).toHaveLength(3)
-      expect(received.map((names) => names.includes('workflow_focus'))).toEqual([false, true, false])
+      expect(received.map((names) => names.includes('workflow_focus'))).toEqual([true, true, true])
+      expect(definitions[1]).toEqual(definitions[0])
+      expect(definitions[2]).toEqual(definitions[0])
+      expect(systemMessages.every((messages) => messages[0] === systemMessages[0]?.[0])).toBe(true)
       expect(received.every((names) => !names.includes('write_file'))).toBe(true)
       expect((await workflows.get(session.id)).workflow?.focus?.title).toBe('Revised proof')
       const journalSchema = z.object({
@@ -121,9 +126,9 @@ for (const compact of [false, true])
       expect(systemMessages.every((messages) => messages.length === 2)).toBe(true)
       expect(systemMessages.every((messages) => !messages[0]?.includes('<focus_workflow>'))).toBe(true)
       expect(systemMessages[1]?.at(-1)).toContain('Focus validity: stale')
-      expect(journal.map((event) => event.request.system.split('<workflow_sequence_controls>').length - 1)).toEqual(
-        compact ? [1, 0, 1] : [0, 0, 0],
-      )
+      expect(journal.map((event) => event.request.system.split('<workflow_sequence_controls>').length - 1)).toEqual([
+        0, 0, 0,
+      ])
       expect(journal.every((event) => !event.request.system.includes('get_goal({})'))).toBe(true)
       expect(journal.every((event) => !event.request.system.includes('"write_file"'))).toBe(true)
       expect(journal[1]?.request.system).toContain('Current Agent Plan revision: 2')

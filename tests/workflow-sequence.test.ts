@@ -298,7 +298,7 @@ for (const failure of ['spoof', 'started', 'unknown', 'policy', 'image'] as cons
     )
   })
 
-test('deferred capabilities regain complete HTTP schemas in the same Run only after authorized scope expansion', async () => {
+test('complete HTTP schemas stay stable while scope expansion controls execution in the same Run', async () => {
   const { kernel, session, workflows } = await fixture()
   let executions = 0
   kernel.tools.register({
@@ -375,15 +375,13 @@ test('deferred capabilities regain complete HTTP schemas in the same Run only af
     await kernel.waitForIdle()
     expect(requests).toHaveLength(4)
     expect(requests.map((request) => request.tools.some((tool) => tool.function.name === 'deferred_fixture'))).toEqual([
-      false,
-      false,
+      true,
+      true,
       true,
       true,
     ])
-    expect(JSON.stringify(requests[0]!.messages)).toContain('workflow_deferred_tools')
-    expect(JSON.stringify(requests[0]!.messages)).toContain(
-      'Read a bounded fixture; mode must be exact and revision is at most seven.',
-    )
+    expect(requests.every((request) => JSON.stringify(request.tools) === JSON.stringify(requests[0]!.tools))).toBe(true)
+    expect(JSON.stringify(requests[0]!.messages)).not.toContain('<workflow_deferred_tools>')
     // The transport adapter adds Standard Schema metadata, which is not a JSON Schema constraint.
     const constraints = (value: unknown) =>
       Object.fromEntries(
@@ -420,7 +418,7 @@ test('deferred capabilities regain complete HTTP schemas in the same Run only af
   }
 })
 
-test('scope-gated catalog tools stay denied until expansion and then regain standalone inspection', async () => {
+test('stable advertised tools stay denied until authorized scope expansion', async () => {
   const { kernel, session, workflows, run } = await fixture()
   await run([{ name: 'list_directory', arguments: { path: '.' } }])
   const rejected = (await workflows.get(session.id)).workflow!
@@ -434,9 +432,7 @@ test('scope-gated catalog tools stay denied until expansion and then regain stan
             .request,
       )
   const before = (await journal())[0]!
-  expect(before.toolNames).not.toContain('list_directory')
-  expect(before.system).toContain('list_directory(')
-  expect(before.system).toContain('require explicit authorized scope expansion')
+  expect(before.toolNames).toContain('list_directory')
   const expanded = await run([
     {
       name: 'workflow_expand_scope',
@@ -465,7 +461,7 @@ test('scope-gated catalog tools stay denied until expansion and then regain stan
   await kernel.waitForIdle()
   const after = (await journal()).at(-1)!
   expect(after.toolNames).toContain('list_directory')
-  expect(after.system).not.toContain('list_directory(')
+  expect(after.toolNames).toEqual(before.toolNames)
 })
 
 test('scope-expanded large reads keep the standalone escape hatch after bounded sequence output', async () => {
@@ -611,7 +607,7 @@ test('large Plan and Workflow queries remain available without the sequence text
     .request.toolNames
   expect(names).toContain('get_plan')
   expect(names).toContain('get_workflow')
-  expect(names).not.toContain('workflow_checkpoint')
+  expect(names).toContain('workflow_checkpoint')
   expect(
     (await kernel.snapshot(session.id)).messages
       .flatMap((message) => message.content)
@@ -1067,10 +1063,9 @@ for (const scenario of ['normal', 'verification-retry', 'scope-repair'] as const
       for (const request of requests) {
         const names = request.tools.map((tool) => tool.name)
         expect(names).toContain('workflow_execute')
-        expect(names).not.toContain('workflow_checkpoint')
-        expect(names).not.toContain('get_plan')
-        expect(JSON.stringify(request.input)).toContain('workflow_sequence_controls')
-        expect(JSON.stringify(request.input)).toContain('workflow_checkpoint(')
+        expect(names).toContain('workflow_checkpoint')
+        expect(names).toContain('get_plan')
+        expect(JSON.stringify(request.input)).not.toContain('<workflow_sequence_controls>')
       }
       expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('verified proof')
       // Host input includes cache; the established budget unit excludes cache reads exactly once.

@@ -37,14 +37,7 @@ import type {
 } from '@hbar/contracts'
 import type { PeerMessageReceipt } from '@hbar/contracts/commands/run'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
-import {
-  appendModelContext,
-  definePlugin,
-  provide,
-  readSessionEventPages,
-  SKILL_TOOL_NAMES,
-  TOOL_SEQUENCE_RESULT_CHARACTERS,
-} from '@hbar/plugin-sdk'
+import { appendModelContext, definePlugin, provide, readSessionEventPages, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   HookEvents,
@@ -65,8 +58,6 @@ import {
   workflowExpandScopeToolSchema as legacyExpandScopeToolSchema,
 } from './update-tool-schema'
 import { workflowModelResult } from './model-view'
-import { sequenceControlCatalog } from './sequence-catalog'
-import { scopeToolInventory } from './scope-tool-inventory'
 
 // Model tools expose one complete CAS identity. Keep numeric revision support
 // on the public command and legacy workflow_update, never choose between both.
@@ -2726,69 +2717,6 @@ export class WorkflowRuntime implements WorkflowService {
       : event
   }
 
-  async advertiseTools(event: HookEvents['tools.advertise']): Promise<HookEvents['tools.advertise']> {
-    const workflow = this.workflows.get(event.sessionId)
-    if (!workflow || !['active', 'verifying'].includes(workflow.status))
-      event = { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_execute') }
-    const focusTools =
-      workflow?.executionModel === 'focus_v2' &&
-      workflow.focusRevision !== undefined &&
-      [...FOCUS_TOOLS].every((name) => event.tools.some((tool) => tool.name === name))
-    event = {
-      ...event,
-      tools: event.tools.filter((tool) => (focusTools ? tool.name !== 'workflow_update' : !FOCUS_TOOLS.has(tool.name))),
-    }
-    if (!workflow || ['blocked', 'needs_revision', 'cancelled'].includes(workflow.status)) return event
-    const plan = await this.agentPlans.get(event.sessionId)
-    const step = workflow.activeStepIndex === null ? undefined : plan?.plan[workflow.activeStepIndex]
-    const currentFocus =
-      step && plan?.revision === workflow.planRevision && hashValue(step.step) === workflow.activeStepTextHash
-    // The large focus-creation schema is unnecessary until the Plan/focus changes.
-    // Re-evaluate each request, including after update_plan within the same Run.
-    const completedPlan =
-      workflow.status === 'completed' &&
-      plan?.revision === workflow.planRevision &&
-      plan.plan.every((step) => step.status === 'completed')
-    if (currentFocus || completedPlan)
-      event = { ...event, tools: event.tools.filter((tool) => tool.name !== 'workflow_focus') }
-    if (currentFocus && focusTools && event.tools.some((tool) => tool.name === 'workflow_execute')) {
-      // Keep the standalone escape hatch when a full query would not fit a sequence result.
-      const oversizedQueries = new Set<string>()
-      if (JSON.stringify(plan).length > TOOL_SEQUENCE_RESULT_CHARACTERS) oversizedQueries.add('get_plan')
-      if (
-        event.tools.some((tool) => tool.name === 'get_workflow') &&
-        workflowModelResult(await this.get(event.sessionId)).text.length > TOOL_SEQUENCE_RESULT_CHARACTERS
-      )
-        oversizedQueries.add('get_workflow')
-      if (
-        event.tools.some((tool) => tool.name === 'get_goal') &&
-        JSON.stringify(await this.goals.get(event.sessionId)).length > TOOL_SEQUENCE_RESULT_CHARACTERS
-      )
-        oversizedQueries.add('get_goal')
-      const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
-      const scopedTools = new Set(item?.scope.tools ?? [])
-      const scopeGatedNames = new Set(
-        event.tools
-          .filter((tool) => !CONTROL_TOOLS.has(tool.name) && !scopedTools.has(tool.name))
-          .map((tool) => tool.name),
-      )
-      const inventory = scopeToolInventory(event.tools, scopeGatedNames)
-      const catalog = sequenceControlCatalog(
-        event.tools.filter((tool) => !oversizedQueries.has(tool.name) && !inventory.names.has(tool.name)),
-        scopeGatedNames,
-      )
-      if (catalog.names.size || inventory.names.size)
-        event = {
-          ...event,
-          tools: event.tools.filter((tool) => !catalog.names.has(tool.name) && !inventory.names.has(tool.name)),
-          instructions: [event.instructions, catalog.names.size ? catalog.text : '', inventory.text]
-            .filter(Boolean)
-            .join('\n'),
-        }
-    }
-    return event
-  }
-
   async prepareTargetDispatch(
     sessionId: string,
     planId: string,
@@ -4238,7 +4166,8 @@ export const workflowPlugin = definePlugin({
       return { ...event, ...policy, allowed: event.allowed && policy.allowed }
     })
     api.hooks.on('tools.select', (event) => runtime.selectTools(event))
-    api.hooks.on('tools.advertise', (event) => runtime.advertiseTools(event))
+    // Keep the selected Run manifest stable across focus/scope changes. Current
+    // authority is carried by the Host context and enforced by tool.before.
     api.hooks.on('goal.replaced', (event) =>
       runtime.cancelForGoal(event.sessionId, event.previous.goalId ?? event.previous.threadId),
     )
