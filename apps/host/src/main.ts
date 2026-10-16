@@ -1,13 +1,20 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { runtimeDomainError, type RuntimeArtifactPackage } from '@hbar/runtime'
 import { getStorageLocations, resolvePathLayout, readStartupSettingsLayer } from '@hbar/storage'
-import { resolveStartupWebConfiguration, SettingsService } from '@hbar/kernel/controller'
-import { BACKEND_UNATTENDED_SETTING, BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
+import {
+  resolveStartupWebConfiguration,
+  resolveStartupDesktopMode,
+  SettingsService,
+  createSettingsCommands,
+} from '@hbar/kernel/controller'
+import { desktopStartupModeSchema } from '@hbar/contracts/desktop'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
-import { desktopConnection, desktopConnectionToken, resolveDesktopDevice } from './desktop-connection.ts'
+import { desktopConnection, loadDesktopDevice } from './desktop-connection.ts'
+import { enableDesktopBackground } from './desktop-startup'
+import { Auth } from './auth'
 import { ensureHostDataRootId } from './host-data-identity.ts'
 import { FAILURE_EXIT_CODE, installHostShutdown, registerHostProcessHandlers } from './process-shutdown'
 import { sendHostSupervisorMessage } from './supervisor-protocol'
@@ -36,6 +43,7 @@ export async function runHost(
       origin: { type: 'string', multiple: true },
       demo: { type: 'boolean' },
       desktop: { type: 'boolean' },
+      'desktop-startup': { type: 'string' },
       service: { type: 'boolean' },
       unattended: { type: 'boolean' },
       cert: { type: 'string' },
@@ -108,9 +116,13 @@ export async function runHost(
   registerHostProcessHandlers(requestShutdown, diagnostics)
   try {
     const workerPath = hostMaintenanceWorkerPath()
-    const web = resolveStartupWebConfiguration(
-      await readStartupSettingsLayer(layout.database, workerPath ? { workerPath } : {}),
+    const startupLayer = await readStartupSettingsLayer(layout.database, workerPath ? { workerPath } : {})
+    const web = resolveStartupWebConfiguration(startupLayer)
+    const desktopMode = desktopStartupModeSchema.parse(
+      values['desktop-startup'] ?? resolveStartupDesktopMode(startupLayer),
     )
+    const enableOnStartup = values.unattended === true || (values.desktop === true && desktopMode === 'background')
+    let startupDevice: Awaited<ReturnType<typeof loadDesktopDevice>> | undefined
     const dataRootId = await ensureHostDataRootId(layout.settings)
     const artifactPackage = await loadArtifactPackage()
     runtime = await ProcessHostRuntime.open({
@@ -123,7 +135,15 @@ export async function runHost(
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(values.profile ? { profileModule: resolve(values.profile) } : {}),
       ...(values['no-local-exec'] === true ? { noLocalExec: true } : {}),
-      ...(values.unattended === true ? { unattended: true } : {}),
+      ...(enableOnStartup
+        ? {
+            unattended: true,
+            prepareInitialExecution: async (storage) => {
+              startupDevice ??= await loadDesktopDevice(new Auth(storage), layout.connectionFile)
+              await enableDesktopBackground(createSettingsCommands(new SettingsService(storage)), startupDevice.device.id)
+            },
+          }
+        : {}),
       ...(['1', 'prepare'].includes(process.env.HBAR_RUNTIME_WATCH ?? '') ? {
         watchSource: true, autoApplySource: process.env.HBAR_RUNTIME_WATCH !== 'prepare',
       } : {}),
@@ -168,30 +188,10 @@ export async function runHost(
     if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
     heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
     heartbeat.unref()
-    if (values.desktop || values.service || values.unattended) {
+    if (values.desktop || values.service || enableOnStartup) {
       await runtime.authenticationReady()
-      let persistedToken: string | undefined
-      try {
-        persistedToken = desktopConnectionToken(JSON.parse(await readFile(layout.connectionFile, 'utf8')) as unknown)
-      } catch (error) {
-        const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
-        if (code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
-      }
-      const device = await resolveDesktopDevice(host.auth, persistedToken)
-      if (values.unattended) {
-        await runtime.ready()
-        const settings = new SettingsService(runtime.storage, undefined, () => runtime?.kernel.changed('settings'))
-        const before = await settings.get({ kind: 'global' })
-        if (before.resolution.reports[BACKEND_UNATTENDED_VALUE_KEY]?.effectiveValue !== true)
-          await settings.apply({
-            schemaVersion: before.schemaVersion,
-            scope: before.scope,
-            baselineRevisions: before.revisions,
-            actorId: device.device.id,
-            idempotencyKey: `startup-unattended:${runtime.instanceId}`,
-            changes: [{ op: 'set', path: [{ kind: 'field', name: BACKEND_UNATTENDED_SETTING }], value: true }],
-          })
-      }
+      if (enableOnStartup) await runtime.ready()
+      const device = startupDevice ?? (await loadDesktopDevice(host.auth, layout.connectionFile))
       await writeFile(
         layout.connectionFile,
         JSON.stringify(

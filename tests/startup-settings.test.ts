@@ -4,7 +4,7 @@ import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readStartupSettingsLayer, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
-import { resolveStartupWebConfiguration } from '@hbar/kernel/controller'
+import { resolveStartupWebConfiguration, resolveStartupDesktopMode } from '@hbar/kernel/controller'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 
 test('fresh startup inherits a local 4317 listener without creating storage files', async () => {
@@ -13,6 +13,7 @@ test('fresh startup inherits a local 4317 listener without creating storage file
     const layer = await readStartupSettingsLayer(join(root, 'absent.sqlite'))
     expect(layer).toBeNull()
     expect(resolveStartupWebConfiguration(layer)).toEqual({ access: 'local', port: 4317 })
+    expect(resolveStartupDesktopMode(layer)).toBe('client')
     expect(await readdir(root)).toEqual([])
   } finally {
     await removeOwnedTestDirectory(root, 'hbar-startup-settings-')
@@ -27,7 +28,7 @@ test('startup reads the committed global WAL layer without a writer, checkpoint 
     database.exec(`PRAGMA journal_mode=WAL;
       PRAGMA user_version=3;
       CREATE TABLE settings_layers(id TEXT PRIMARY KEY, kind TEXT, targetId TEXT, schemaVersion INTEGER, revision INTEGER, valuesJson TEXT);`)
-    const values = { 'f:backend.webAccess': 'lan', 'f:backend.webPort': 46377 }
+    const values = { 'f:backend.webAccess': 'lan', 'f:backend.webPort': 46377, 'f:desktop.startupMode': 'background' }
     database
       .query('INSERT INTO settings_layers VALUES (?, ?, ?, ?, ?, ?)')
       .run('settings:global', 'global', null, 1, 7, JSON.stringify(values))
@@ -35,6 +36,7 @@ test('startup reads the committed global WAL layer without a writer, checkpoint 
     const layer = await readStartupSettingsLayer(path)
     expect(layer).toMatchObject({ revision: 7, values })
     expect(resolveStartupWebConfiguration(layer)).toEqual({ access: 'lan', port: 46377 })
+    expect(resolveStartupDesktopMode(layer)).toBe('background')
     expect(await readFile(path)).toEqual(before[0])
     expect(await readFile(path + '-wal')).toEqual(before[1])
     expect(database.query('PRAGMA user_version').get()).toEqual({ user_version: 3 })

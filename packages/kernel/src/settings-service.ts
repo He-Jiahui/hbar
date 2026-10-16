@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import { DEFAULT_SANDBOX_PROFILE_ID } from '@hbar/contracts/sandbox'
 import { chatDatabaseSettingsFields } from '@hbar/contracts/commands/chat-database'
-import { DESKTOP_STARTUP_MODE_SETTING } from '@hbar/contracts/desktop'
+import { DESKTOP_STARTUP_MODE_SETTING, desktopStartupModeSchema } from '@hbar/contracts/desktop'
 import {
   AUTONOMY_DECISION_MODE_SETTING,
   AUTONOMY_DECISION_TARGET_SETTING,
@@ -425,6 +425,15 @@ function translate(error: unknown): never {
 }
 
 /** Startup can resolve listener policy before executable runtime units are ready. */
+export function resolveStartupDesktopMode(layer: StoredSettingsLayer | null) {
+  if (layer && layer.schemaVersion !== HBAR_SETTINGS_SCHEMA_VERSION)
+    throw new HbarError('VERSION_MISMATCH', 'Startup settings layer requires migration')
+  const resolved = resolveSettings(HBAR_SETTINGS_DEFINITIONS, layer ? [layer] : [])
+  return desktopStartupModeSchema.parse(
+    resolved.reports[encodePath(path(DESKTOP_STARTUP_MODE_SETTING))]?.effectiveValue,
+  )
+}
+
 export function resolveStartupWebConfiguration(layer: StoredSettingsLayer | null): BackendWebConfiguration {
   if (layer && layer.schemaVersion !== HBAR_SETTINGS_SCHEMA_VERSION)
     throw new HbarError('VERSION_MISMATCH', 'Startup settings layer requires migration')

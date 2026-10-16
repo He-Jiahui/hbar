@@ -1,4 +1,5 @@
 import { HbarError } from '@hbar/contracts'
+import { readFile } from 'node:fs/promises'
 import type { Device } from '@hbar/contracts'
 
 export interface DesktopConnection {
@@ -24,6 +25,17 @@ export function desktopConnectionToken(value: unknown): string | undefined {
 export interface DesktopDeviceAuth {
   authenticate(token: string): Promise<Device>
   createDevice(name: string): Promise<{ token: string; device: Device }>
+}
+
+export async function loadDesktopDevice(auth: DesktopDeviceAuth, connectionFile: string) {
+  let persistedToken: string | undefined
+  try {
+    persistedToken = desktopConnectionToken(JSON.parse(await readFile(connectionFile, 'utf8')) as unknown)
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
+    if (code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
+  }
+  return resolveDesktopDevice(auth, persistedToken)
 }
 
 /** Reuse a persisted local device only after the Host authenticates it. */

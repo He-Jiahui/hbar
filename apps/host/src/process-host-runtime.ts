@@ -78,6 +78,7 @@ import {
   storageRpcCallSchema,
   assertStoragePreflightMethod,
   type PathLayout,
+  type StoragePort,
 } from '@hbar/storage'
 import { acquireHostProcessLock } from './process-lock'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
@@ -125,6 +126,8 @@ export interface ProcessHostRuntimeOptions {
   readonly noLocalExec?: boolean
   /** Bound startup claims before the entry point persists its authenticated unattended setting. */
   readonly unattended?: boolean
+  /** Trusted entry-point settings must commit before any Kernel can resume durable work. */
+  readonly prepareInitialExecution?: (storage: StoragePort) => Promise<void>
   readonly secrets?: SecretStore
   readonly sourceRoot?: string
   readonly processCommand?: readonly [string, ...string[]]
@@ -275,6 +278,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private settingsSchedulingRefresh: Promise<void> | undefined
   private settingsSchedulingRequested = false
   private unattendedStartupPending = false
+  private initialExecutionPrepared = false
   private reasonCode: string | null = null
   private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
   private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[]; cause?: RuntimeOwner }> = []
@@ -686,7 +690,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         }
         this.completeStartupPhase()
       }
-      for (const id of ['storage', 'driver.pi', 'controller']) await this.initializeUnit(prepared, id)
+      await this.initializeUnit(prepared, 'storage')
+      if (!this.initialExecutionPrepared) {
+        await options.prepareInitialExecution?.(this.storage)
+        this.initialExecutionPrepared = true
+      }
+      for (const id of ['driver.pi', 'controller']) await this.initializeUnit(prepared, id)
       if (this.buildUnits.some((unit) => unit.descriptor.id === 'node-link'))
         await this.initializeUnit(prepared, 'node-link')
       if (!this.configurationLoaded) {

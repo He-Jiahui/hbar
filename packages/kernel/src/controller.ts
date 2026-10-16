@@ -1,5 +1,5 @@
 /** Controller composition has a runtime entry independent of the executable Kernel and built-in plugins. */
-export { SettingsService, resolveStartupWebConfiguration } from './settings-service'
+export { SettingsService, resolveStartupWebConfiguration, resolveStartupDesktopMode } from './settings-service'
 export { createAgentCommands } from './agent-commands'
 export { createBrowserCommands } from './browser-commands'
 export { createComputerCommands } from './computer-commands'

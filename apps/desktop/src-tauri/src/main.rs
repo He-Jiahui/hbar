@@ -1031,6 +1031,12 @@ fn launch(app: &tauri::AppHandle, selected: Option<StartupMode>) -> Result<(Conn
     if selected == Some(StartupMode::Background) {
         command.arg("--unattended");
     }
+    if let Some(mode) = selected {
+        command.arg("--desktop-startup").arg(match mode {
+            StartupMode::Client => "client",
+            StartupMode::Background => "background",
+        });
+    }
     if let Some(url) = development_url {
         command
             .arg("--origin")
