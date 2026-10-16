@@ -2,8 +2,17 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import type { ExecutionOwnership, RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
-import { runtimeDriverStartSchema, runtimeDriverCallbackSchema, runtimeDriverCancelSchema, runtimeDriverStreamSchema,
-  runtimeDriverTerminalSchema, runtimeDriverSummarySchema, runtimeDriverSummaryResultSchema } from '@hbar/plugin-sdk/runtime-driver'
+import {
+  runtimeDriverStartSchema,
+  runtimeDriverCallbackSchema,
+  runtimeDriverCancelSchema,
+  runtimeDriverStreamSchema,
+  runtimeDriverTerminalSchema,
+  runtimeDriverSummarySchema,
+  runtimeDriverSummaryResultSchema,
+  runtimeDriverDecisionSchema,
+  runtimeDriverDecisionResultSchema,
+} from '@hbar/plugin-sdk/runtime-driver'
 import { procedure, runtimeDomainError, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
 
 export interface RuntimeDriverEndpoint { readonly peer: IpcPeer; readonly owner: RuntimeOwner; readonly version: RuntimeVersion }
@@ -14,6 +23,12 @@ interface Invocation {
   readonly signature: string
   readonly acknowledgement: Promise<{ invocationId: string }>
 }
+interface DecisionInvocation {
+  readonly kernel: IpcPeer
+  readonly driver: RuntimeDriverEndpoint
+  readonly execution: ExecutionOwnership
+  readonly controller: AbortController
+}
 export interface RuntimeDriverRelayOptions {
   readonly coordinator: RuntimeCoordinator
   readonly resolve: (version?: RuntimeVersion) => RuntimeDriverEndpoint
@@ -21,6 +36,7 @@ export interface RuntimeDriverRelayOptions {
 /** The base routes plain descriptors between owners. Kernel callbacks and driver functions never leave their processes. */
 export class RuntimeDriverRelay {
   private readonly invocations = new Map<string, Invocation>()
+  private readonly decisions = new Set<DecisionInvocation>()
   constructor(private readonly options: RuntimeDriverRelayOptions) {}
   attachKernel(peer: IpcPeer): () => void {
     const disposers = [
@@ -61,6 +77,40 @@ export class RuntimeDriverRelay {
         this.options.coordinator.assertCanWrite(driver.owner, execution ?? undefined)
         return driver.peer.call('driver.summarize', input, runtimeDriverSummaryResultSchema, { signal: call.signal, timeoutMs: 120_000 })
       })),
+      peer.register(
+        'driver.completeDecision',
+        procedure(runtimeDriverDecisionSchema, runtimeDriverDecisionResultSchema, async (input, call) => {
+          const runId = input.request.context?.runId
+          const execution = runId ? this.options.coordinator.execution(runId) : null
+          if (
+            !execution ||
+            execution.sessionId !== input.request.context?.sessionId ||
+            execution.owner.incarnation !== peer.remote.incarnation ||
+            execution.owner.unitId !== peer.remote.unitId ||
+            execution.owner.generation !== peer.remote.generation
+          )
+            throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Decision completion requires its authenticated source Run')
+          this.options.coordinator.assertCanWrite(peer.remote, execution)
+          const driver = this.options.resolve(execution.versions.driver)
+          this.options.coordinator.assertCanWrite(driver.owner, execution)
+          if (this.decisions.size >= 16) throw new HbarError('DRIVER_CAPACITY', 'Bound decision capacity is exhausted')
+          const controller = new AbortController()
+          const invocation: DecisionInvocation = { kernel: peer, driver, execution, controller }
+          this.decisions.add(invocation)
+          try {
+            const tracked = driver.peer.callTracked(
+              'driver.completeDecision',
+              input,
+              runtimeDriverDecisionResultSchema,
+              { signal: AbortSignal.any([call.signal, controller.signal]), timeoutMs: 95_000, ownership: execution },
+            )
+            void tracked.result.catch(() => {})
+            return await tracked.settled
+          } finally {
+            this.decisions.delete(invocation)
+          }
+        }),
+      ),
       peer.onEvent('driver.cancel', runtimeDriverCancelSchema, input => {
         const invocation = this.invocations.get(input.invocationId)
         if (invocation?.kernel !== peer) return
@@ -102,9 +152,14 @@ export class RuntimeDriverRelay {
     return () => { for (const dispose of disposers) dispose() }
   }
   kernelExited(owner: RuntimeOwner): void {
+    for (const invocation of this.decisions)
+      if (invocation.kernel.remote.incarnation === owner.incarnation)
+        invocation.controller.abort(new HbarError('EXECUTION_OWNER_REVOKED', 'The source Kernel exited'))
     for (const [invocationId, invocation] of this.invocations)
       if (invocation.kernel.remote.incarnation === owner.incarnation)
-        void invocation.driver.peer.notify('driver.cancel', { invocationId, reasonCode: 'EXECUTION_OWNER_REVOKED' }).catch(() => {})
+        void invocation.driver.peer
+          .notify('driver.cancel', { invocationId, reasonCode: 'EXECUTION_OWNER_REVOKED' })
+          .catch(() => {})
   }
   driverExited(owner: RuntimeOwner): void {
     for (const [invocationId, invocation] of this.invocations) {
@@ -113,6 +168,10 @@ export class RuntimeDriverRelay {
       void invocation.kernel.notify('driver.terminal', { invocationId, ok: false, reasonCode: 'EXECUTION_OWNER_REVOKED' }).catch(() => {})
     }
   }
-  snapshot() { return { invocations: this.invocations.size } }
-  hasRun(runId: string): boolean { return [...this.invocations.values()].some(value => value.execution.runId === runId) }
+  snapshot() {
+    return { invocations: this.invocations.size + this.decisions.size }
+  }
+  hasRun(runId: string): boolean {
+    return [...this.invocations.values(), ...this.decisions.values()].some((value) => value.execution.runId === runId)
+  }
 }

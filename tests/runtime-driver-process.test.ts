@@ -1,6 +1,6 @@
 import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -11,13 +11,15 @@ import { ManagedProcess, RuntimeArtifactStore } from '@hbar/runtime'
 import { DRIVER_RUNTIME_FINGERPRINT } from '../apps/host/src/runtime-driver-process'
 import { RuntimeDriverAdapter } from '../apps/host/src/runtime-driver-adapter'
 import type { RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
+import { removeOwnedTestDirectory } from './owned-temp-directory'
+import type { DecisionCompletionRequest, ModelDiagnosticEvent } from '@hbar/plugin-sdk'
 
 const resources: { root: string; process: ManagedProcess; adapter(): RuntimeDriverAdapter }[] = []
 afterEach(async () => {
   for (const entry of resources.splice(0)) {
     await entry.process.dispose()
     entry.adapter().dispose()
-    await rm(entry.root, { recursive: true, force: true })
+    await removeOwnedTestDirectory(entry.root, 'hbar-runtime-driver-')
   }
 })
 const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
@@ -119,4 +121,141 @@ test('a hung tool callback does not retain a start RPC slot, and cancellation pr
     f.controller.abort(new HbarError('USER_CANCELLED', 'Cancel held callback'))
     expect(await running).toMatchObject({ code: 'USER_CANCELLED' })
   } finally { release() }
+})
+
+function completionFor(input: DriverInput, text = 'Choose the safe task preference.'): DecisionCompletionRequest {
+  return {
+    maxOutputTokens: 256,
+    request: {
+      system: 'Complete a decision without calling any tools.',
+      model: input.request.model,
+      toolNames: [],
+      context: { sessionId: input.session.id, runId: input.run.id, selectedToolNames: [] },
+      messages: [
+        {
+          id: 'decision',
+          sessionId: input.session.id,
+          runId: input.run.id,
+          role: 'user',
+          seq: 0,
+          createdAt: 0,
+          content: [{ type: 'text', text }],
+        },
+      ],
+    },
+  }
+}
+
+test('owned decision completion rejects candidates, inactive sources and model changes, while a draining original Run can finish', async () => {
+  const f = await fixture()
+  const completion = completionFor(f.input)
+  expect(await outcome(f.adapter.completeDecision(completion, null, new AbortController().signal))).toMatchObject({
+    code: 'DRIVER_NOT_SERVING',
+  })
+  await f.process.activate()
+  expect(await outcome(f.adapter.completeDecision(completion, null, new AbortController().signal))).toMatchObject({
+    code: 'DRIVER_DECISION_SOURCE',
+  })
+  const message = f.input.request.messages[0]
+  if (!message) throw new Error('Expected original Run message')
+  message.content = [{ type: 'text', text: '/tool hold {}' }]
+  f.input.tools = [
+    {
+      name: 'hold',
+      description: 'Hold the source Run',
+      effect: 'read',
+      inputSchema: z.object({}),
+      execute: async () => ({ text: '' }),
+    },
+  ]
+  let entered!: () => void, release!: () => void
+  const started = new Promise<void>((resolve) => {
+    entered = resolve
+  })
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  f.input.execute = async () => {
+    entered()
+    await gate
+    return { text: 'Source task continues.' }
+  }
+  const running = outcome(f.adapter.run(f.input))
+  try {
+    await started
+    const changed = {
+      ...completion,
+      request: { ...completion.request, model: { ...completion.request.model, id: 'different-model' } },
+    }
+    expect(await outcome(f.adapter.completeDecision(changed, null, new AbortController().signal))).toMatchObject({
+      code: 'DRIVER_DECISION_MODEL',
+    })
+    await f.process.drain()
+    const diagnostics: ModelDiagnosticEvent[] = []
+    const result = await f.adapter.completeDecision(completion, null, new AbortController().signal, (event) =>
+      diagnostics.push(event),
+    )
+    expect(result.text).toContain('Choose the safe task preference.')
+    expect(result.usage.input + result.usage.output).toBeGreaterThan(0)
+    expect(new Set(diagnostics.map((event) => event.purpose))).toEqual(new Set(['decision']))
+    expect(f.process.snapshot().references.requests).toBe(0)
+  } finally {
+    release()
+    await running
+  }
+})
+
+test('the actual driver bounds sixteen decision requests and releases their physical slots after cancellation', async () => {
+  const f = await fixture()
+  const message = f.input.request.messages[0]
+  if (!message) throw new Error('Expected source Run message')
+  message.content = [{ type: 'text', text: '/tool hold {}' }]
+  f.input.tools = [
+    {
+      name: 'hold',
+      description: 'Hold the source Run',
+      effect: 'read',
+      inputSchema: z.object({}),
+      execute: async () => ({ text: '' }),
+    },
+  ]
+  let entered!: () => void, release!: () => void
+  const started = new Promise<void>((resolve) => {
+    entered = resolve
+  })
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  f.input.execute = async () => {
+    entered()
+    await gate
+    return { text: 'Source task continues.' }
+  }
+  await f.process.activate()
+  const running = outcome(f.adapter.run(f.input))
+  const controller = new AbortController()
+  const requests: Promise<unknown>[] = []
+  try {
+    await started
+    const completion = completionFor(f.input, '/slow bounded decision')
+    for (let index = 0; index < 16; index++)
+      requests.push(outcome(f.adapter.completeDecision(completion, null, controller.signal)))
+    const deadline = Date.now() + 10_000
+    while (f.process.snapshot().references.requests < 16) {
+      if (Date.now() >= deadline) throw new Error('Owned decision requests did not occupy their physical slots')
+      await Bun.sleep(5)
+    }
+    expect(await outcome(f.adapter.completeDecision(completion, null, new AbortController().signal))).toMatchObject({
+      code: 'DRIVER_CAPACITY',
+    })
+    f.controller.abort(new HbarError('USER_CANCELLED', 'Cancel the source Run and its owned decision completions'))
+    expect(controller.signal.aborted).toBe(false)
+    expect((await Promise.all(requests)).every((result) => result instanceof Error)).toBe(true)
+    expect(f.process.snapshot().references.requests).toBe(0)
+  } finally {
+    controller.abort()
+    await Promise.all(requests)
+    release()
+    await running
+  }
 })

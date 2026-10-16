@@ -20,10 +20,12 @@ import { z } from 'zod'
 import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import { providerFailure } from './provider-failure'
 import { definePlugin, describeToolTimeout, provide, RunControlSignal } from '@hbar/plugin-sdk'
+import { runtimeDriverDecisionSchema } from '@hbar/plugin-sdk/runtime-driver'
 import { createUsageFact } from '@hbar/usage'
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
 import type {
   DriverInput,
+  DecisionCompletionRequest,
   HarnessDriver,
   ModelDiagnosticEvent,
   ModelRequest,
@@ -302,7 +304,7 @@ function responseDiagnostic(
   request: ModelRequest,
   response: ProviderResponse,
   modelRequestId: string,
-  purpose: 'model' | 'compaction',
+  purpose: ModelDiagnosticEvent['purpose'],
 ): void {
   const id = response.headers['x-request-id']
   const upstreamRequestIdSha256 =
@@ -330,7 +332,7 @@ function transportFailureDiagnostic(
   modelRequestId: string,
   kind: TransportFailureKind,
   code: TransportFailureCode | undefined,
-  purpose: 'model' | 'compaction',
+  purpose: ModelDiagnosticEvent['purpose'],
   failurePhase: 'fetch' | 'stream' = 'fetch',
 ): void {
   emitModelDiagnostic(callback, {
@@ -987,17 +989,51 @@ export class PiDriver implements HarnessDriver {
       await input.closeSteeringAdmission?.()
     }
   }
-  async summarize(
+  summarize(
     request: ModelRequest,
     apiKey: string | null,
     signal: AbortSignal,
     onDiagnostic?: (event: ModelDiagnosticEvent) => void,
   ) {
+    return this.completeText(request, apiKey, signal, 'compaction', onDiagnostic)
+  }
+  completeDecision(
+    completion: DecisionCompletionRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ) {
+    const input = runtimeDriverDecisionSchema.parse({ ...completion, apiKey })
+    const request = { ...input.request, model: { ...input.request.model, maxOutput: input.maxOutputTokens } }
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () => controller.abort(new HbarError('DECISION_TIMEOUT', 'Decision completion timed out')),
+      90_000,
+    )
+    return this.completeText(
+      request,
+      input.apiKey,
+      AbortSignal.any([signal, controller.signal]),
+      'decision',
+      onDiagnostic,
+      controller,
+    ).finally(() => {
+      clearTimeout(timeout)
+      controller.abort()
+    })
+  }
+  private async completeText(
+    request: ModelRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    purpose: 'compaction' | 'decision',
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+    decisionControl?: AbortController,
+  ) {
     let preparedContext: PiContext | undefined
     let retryCount = 0
     for (;;) {
-      // Each provider try gets its own request ID. The Kernel associates these
-      // ordered lifecycle events with the same compaction chunk attempt ID.
+      // Every provider try has its own ID under the same source operation.
       const startedAt = performance.now()
       const modelRequestId = crypto.randomUUID()
       let terminalEmitted = false
@@ -1006,9 +1042,11 @@ export class PiDriver implements HarnessDriver {
       let latestTransportCode: TransportFailureCode | undefined
       let latestTransportPhase: 'fetch' | 'stream' | undefined
       const streamState = new ProviderStreamObservation()
+      let completionStream: ReturnType<typeof streamProvider> | undefined
+      let observedCharacters = 0
       emitModelDiagnostic(onDiagnostic, {
         phase: 'started',
-        purpose: 'compaction',
+        purpose,
         providerId: diagnosticProviderId(request.model.id),
         modelSelectionId: request.model.id,
         modelRequestId,
@@ -1038,20 +1076,25 @@ export class PiDriver implements HarnessDriver {
           request.context?.sessionId,
           (response) => {
             latestResponse = response
-            responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction')
+            responseDiagnostic(onDiagnostic, request, response, modelRequestId, purpose)
           },
           (kind, code, phase) => {
             latestTransportKind = kind
             latestTransportCode = code
             latestTransportPhase = phase
-            transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction', phase)
+            transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, purpose, phase)
           },
           (event) => streamState.observe(event),
           (errorCode) => streamState.markProviderError(errorCode),
           () => streamState.markEof(),
         )
+        completionStream = stream
         for await (const event of stream) {
-          void event
+          if (purpose === 'decision' && (event.type === 'text_delta' || event.type === 'thinking_delta')) {
+            observedCharacters += event.delta.length
+            if (observedCharacters > 65_536)
+              throw new HbarError('DECISION_OUTPUT_LIMIT', 'Decision output exceeds the bounded completion size')
+          }
           signal.throwIfAborted()
         }
         const message = await stream.result()
@@ -1060,7 +1103,7 @@ export class PiDriver implements HarnessDriver {
           terminalEmitted = true
           emitModelDiagnostic(onDiagnostic, {
             phase: message.stopReason === 'aborted' ? 'cancelled' : 'failed',
-            purpose: 'compaction',
+            purpose,
             providerId: diagnosticProviderId(request.model.id),
             modelSelectionId: request.model.id,
             modelRequestId,
@@ -1076,13 +1119,17 @@ export class PiDriver implements HarnessDriver {
               streamState,
               diagnosticStopReason(message.stopReason),
             ),
-            ...(incomplete ? { errorCode: 'COMPACTION_INCOMPLETE' } : {}),
+            ...(incomplete
+              ? { errorCode: purpose === 'compaction' ? 'COMPACTION_INCOMPLETE' : 'DECISION_INCOMPLETE' }
+              : {}),
             durationMs: Math.max(0, performance.now() - startedAt),
           })
-          if (incomplete)
+          if (incomplete && purpose === 'compaction')
             throw new HbarError('COMPACTION_INCOMPLETE', 'Provider summary stopped before completion (length)')
+          if (incomplete) return { text: '', usage: normalizeUsage(message.usage) }
           if (
             message.stopReason === 'error' &&
+            purpose === 'compaction' &&
             !signal.aborted &&
             retryCount < 2 &&
             latestResponse !== undefined &&
@@ -1100,7 +1147,7 @@ export class PiDriver implements HarnessDriver {
         }
         emitModelDiagnostic(onDiagnostic, {
           phase: 'settled',
-          purpose: 'compaction',
+          purpose,
           providerId: diagnosticProviderId(request.model.id),
           modelSelectionId: request.model.id,
           modelRequestId,
@@ -1119,23 +1166,33 @@ export class PiDriver implements HarnessDriver {
           durationMs: Math.max(0, performance.now() - startedAt),
         })
         return {
-          text: message.content
-            .filter((c) => c.type === 'text')
-            .map((c) => c.text)
-            .join('\n'),
+          text:
+            purpose === 'decision' &&
+            (message.stopReason !== 'stop' || message.content.some((c) => c.type === 'toolCall'))
+              ? ''
+              : message.content
+                  .filter((c) => c.type === 'text')
+                  .map((c) => c.text)
+                  .join('\n'),
           usage: normalizeUsage(message.usage),
         }
       } catch (error) {
+        if (purpose === 'decision') {
+          decisionControl?.abort(error)
+          // Retain the actual provider operation until its stream has acknowledged cancellation.
+          await completionStream?.result().catch(() => {})
+        }
         if (!terminalEmitted)
           emitModelDiagnostic(onDiagnostic, {
             phase: signal.aborted ? 'cancelled' : 'failed',
-            purpose: 'compaction',
+            purpose,
             providerId: diagnosticProviderId(request.model.id),
             modelSelectionId: request.model.id,
             modelRequestId,
             model: request.model.model,
             protocol: request.model.protocol,
             stopReason: signal.aborted ? 'aborted' : 'error',
+            ...(error instanceof HbarError ? { errorCode: error.code } : {}),
             ...terminalProviderFacts(
               latestResponse,
               latestTransportKind,

@@ -78,6 +78,53 @@ async function removeFixture(root: string) {
   await rm(resolved, { recursive: true, force: true })
 }
 
+test('decision completion retains usage but discards an incomplete answer without a provider retry', async () => {
+  let requestCount = 0
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request) {
+      requestCount++
+      return incompleteResponse(request)
+    },
+  })
+  try {
+    const selected = provider(`http://127.0.0.1:${server.port}/v1`)
+    const events: ModelDiagnosticEvent[] = []
+    const result = await new PiDriver().completeDecision(
+      {
+        maxOutputTokens: 256,
+        request: {
+          system: 'Return a complete decision answer.',
+          model: selected.model,
+          toolNames: [],
+          context: { sessionId: 'session', runId: 'run', selectedToolNames: [] },
+          messages: [
+            {
+              id: 'decision',
+              sessionId: 'session',
+              runId: 'run',
+              seq: 0,
+              createdAt: 0,
+              role: 'user',
+              content: [{ type: 'text', text: 'Choose a preference.' }],
+            },
+          ],
+        },
+      },
+      API_KEY,
+      new AbortController().signal,
+      (event) => events.push(event),
+    )
+    expect(result.text).toBe('')
+    expect(result.usage.input + result.usage.output).toBeGreaterThan(0)
+    expect(requestCount).toBe(1)
+    expect(events.at(-1)).toMatchObject({ purpose: 'decision', stopReason: 'length', errorCode: 'DECISION_INCOMPLETE' })
+  } finally {
+    await server.stop(true)
+  }
+})
+
 test('PiDriver rejects a max-output-token incomplete response instead of returning its partial summary', async () => {
   let requestCount = 0
   const server = Bun.serve({

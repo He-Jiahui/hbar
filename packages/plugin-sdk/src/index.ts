@@ -335,6 +335,11 @@ export interface DriverInput {
    * already accepted messages or start a replacement Run. */
   closeSteeringAdmission?(): Promise<void>
 }
+export interface DecisionCompletionRequest {
+  readonly request: ModelRequest
+  /** A per-call budget, separate from the self-normalizing provider configuration. */
+  readonly maxOutputTokens: number
+}
 export interface HarnessDriver {
   /** Explicit opt-in; a Host must not admit live steering to a legacy driver
    * merely because DriverInput has an optional source callback. */
@@ -349,11 +354,19 @@ export interface HarnessDriver {
     signal: AbortSignal,
     onDiagnostic?: (event: ModelDiagnosticEvent) => void,
   ): Promise<{ text: string; usage: Usage }>
+  /** Toolless, bounded decision completion under the current Run's pinned model and ownership.
+   * Older drivers can omit it; callers must then retain the human input request. */
+  completeDecision?(
+    completion: DecisionCompletionRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ): Promise<{ text: string; usage: Usage }>
 }
 
 export interface ModelDiagnosticEvent {
   readonly phase: 'started' | 'response' | 'transport_failure' | 'settled' | 'failed' | 'cancelled'
-  readonly purpose: 'model' | 'compaction'
+  readonly purpose: 'model' | 'compaction' | 'decision'
   readonly providerId: string
   readonly modelSelectionId: string
   readonly modelRequestId?: string | undefined
