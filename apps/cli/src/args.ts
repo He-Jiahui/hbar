@@ -7,6 +7,7 @@ export interface CliArgs {
   commandArgs: string[]
   message?: string | undefined
   headless: boolean
+  unattended?: boolean | undefined
   help: boolean
   connectOnly?: boolean | undefined
   dataRoot?: string | undefined
@@ -98,6 +99,7 @@ Usage:
   hbar --headless --message <text> Run one request without a UI
   hbar --connect-only ...           Use a healthy existing Host; do not create anything implicitly
   hbar serve                        Start or attach to a backend service
+  hbar serve --unattended            Enable persistent unattended execution on that backend
   hbar serve --role conversation --host <address> --port <port> --cert <pem> --key <pem>
   hbar serve --role conversation --no-local-exec
   hbar serve --role workspace --home <node-data> --join <A-url> --code <8-digits> --fingerprint <A-fingerprint>
@@ -231,6 +233,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     noLocalExec: Boolean(values['no-local-exec']),
     message: (values.message as string | undefined) ?? freeMessage,
     headless: Boolean(values.headless),
+    unattended: Boolean(values.unattended),
     help: Boolean(values.help),
     connectOnly: Boolean(values['connect-only']),
     dataRoot: values['data-root'] as string | undefined,

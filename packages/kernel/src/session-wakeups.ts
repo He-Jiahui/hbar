@@ -32,6 +32,9 @@ export class SessionWakeups {
   get waiting() {
     return [...this.pending.values()].map(({ done }) => done)
   }
+  get sessionIds(): readonly string[] {
+    return [...this.pending.keys()]
+  }
 
   has(sessionId: string): boolean {
     return this.pending.has(sessionId)

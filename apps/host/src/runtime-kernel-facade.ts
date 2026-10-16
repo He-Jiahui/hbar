@@ -48,6 +48,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly configurePlugin?: KernelControllerPort['changePlugin']
   readonly openScope?: (id: string) => Promise<KernelClientScopePort>
   readonly resourceSessions?: () => readonly string[]
+  readonly settingsChanged?: () => void
 }
 type Methods<Target extends keyof RuntimeApplicationTargets> = Extract<
   (typeof RUNTIME_APPLICATION_METHODS)[Target][number],
@@ -139,7 +140,10 @@ export class RuntimeKernelFacade {
       },
       streams: this.streams,
       permissionMode: () => this.selected().state.permission,
-      changed: (kind) => this.publish({ method: 'host.changed', params: { kind } }),
+      changed: (kind) => {
+        this.publish({ method: 'host.changed', params: { kind } })
+        if (kind === 'settings') options.settingsChanged?.()
+      },
       subscribe: (listener) => {
         this.listeners.add(listener)
         return () => {

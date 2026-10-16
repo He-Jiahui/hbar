@@ -265,6 +265,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private initializing = true
   private maintaining = false
   private scheduled = false
+  private settingsSchedulingRefresh: Promise<void> | undefined
+  private settingsSchedulingRequested = false
   private reasonCode: string | null = null
   private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
   private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[]; cause?: RuntimeOwner }> = []
@@ -351,6 +353,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       cancel: (runId) => this.cancelRun(runId),
       configurePlugin: (...args) => this.configurePlugin(...args),
       resourceSessions: () => this.resources.sessions(),
+      settingsChanged: () => this.refreshSettingsScheduling(),
     })
     this.nodeLink = new RuntimeNodeLinkRelay({
       current: () => {
@@ -902,6 +905,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         !queued.length &&
         !this.leases.size &&
         !this.scheduled &&
+        !this.settingsSchedulingRefresh &&
         this.coordinator.snapshot().sessions === 0 &&
         !this.interrupted.size &&
         this.endpoints().every((endpoint) => endpoint.state.idle)
@@ -930,6 +934,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.statusFeed.close()
     this.disposeSource()
     this.sourceAbort.abort()
+    await this.settingsSchedulingRefresh
     await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
     await this.sourceTask
     clearInterval(this.sweep)
@@ -2162,6 +2167,26 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     await kernel.process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
     this.resumed.add(kernel.owner.incarnation)
   }
+  private refreshSettingsScheduling(): void {
+    this.settingsSchedulingRequested = true
+    if (this.settingsSchedulingRefresh || this.closing || this.initializing) return
+    this.settingsSchedulingRefresh = (async () => {
+      while (this.settingsSchedulingRequested && !this.closing) {
+        this.settingsSchedulingRequested = false
+        if (!this.executionReady() || this.storage.snapshot().phase !== 'serving') return
+        await this.currentKernel().process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
+      }
+    })()
+      .catch((error: unknown) => {
+        console.error(
+          '[hbar] Settings scheduling refresh failed',
+          runtimeDomainError(error)?.code ?? 'AUTONOMY_REFRESH_FAILED',
+        )
+      })
+      .finally(() => {
+        this.settingsSchedulingRefresh = undefined
+      })
+  }
   private async wake(sessionId: string): Promise<void> {
     if (!this.canAdmit(sessionId)) return
     await this.currentKernel().process.call('kernel.wake', { sessionId }, z.undefined())
@@ -2238,7 +2263,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const lease = this.coordinator.execution(result.run.id)
     const endpoint = lease
       ? this.endpoints().find((value) => value.owner.incarnation === lease.owner.incarnation)
-      : null
+      : result.run.status === 'failed' && result.events.some((event) => event.type === 'run.cancelRequested')
+        ? this.currentKernel()
+        : null
     if (endpoint && ['serving', 'draining'].includes(endpoint.process.snapshot().phase)) {
       try {
         await endpoint.process.call('kernel.cancel', { runId: result.run.id, persisted: true }, z.undefined())

@@ -2,6 +2,8 @@ import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
+import type { createAutonomyRetryStorage } from './autonomy-retries'
+import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type {
   Approval,
   ArtifactRef,
@@ -297,6 +299,7 @@ export interface StoredSettings {
 
 export interface StorageMethods {
   decisionPage: ReturnType<typeof createDecisionStorage>['page']
+  autonomyRetryPlan: ReturnType<typeof createAutonomyRetryStorage>['plan']
   decisionOperationRead: ReturnType<typeof createDecisionStorage>['operationRead']
   decisionOperationBegin: ReturnType<typeof createDecisionStorage>['operationBegin']
   decisionOperationComplete: ReturnType<typeof createDecisionStorage>['operationComplete']
@@ -562,6 +565,7 @@ export interface StorageMethods {
     command?: RunCommandRecord,
     launchTarget?: SessionLaunchTargetBindingInput,
     sourceRunId?: string,
+    autonomyRetry?: AutonomyRetryAdmission,
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   runByRequestInWorkspace(

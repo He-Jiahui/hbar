@@ -44,6 +44,7 @@ export function conversationHostArguments(args: CliArgs): readonly string[] {
   return [
     '--supervisor',
     '--service',
+    ...(args.unattended ? ['--unattended'] : []),
     ...(args.role ? ['--role', args.role] : []),
     ...(args.home ? ['--home', args.home] : []),
     ...(args.dataRoot ? ['--data-root', args.dataRoot] : []),

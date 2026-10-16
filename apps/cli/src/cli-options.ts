@@ -2,6 +2,7 @@
 export const CLI_OPTIONS = {
   help: { type: 'boolean', short: 'h' },
   headless: { type: 'boolean' },
+  unattended: { type: 'boolean' },
   'connect-only': { type: 'boolean' },
   message: { type: 'string' },
   model: { type: 'string' },

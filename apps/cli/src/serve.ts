@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { createSystemCommandClient } from '@hbar/client'
+import { createSystemCommandClient, createSettingsCommandClient } from '@hbar/client'
+import { BACKEND_UNATTENDED_SETTING, BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
 import { resolvePathLayout } from '@hbar/storage'
 import type { CliArgs } from './args'
 import { hostProcessCommand } from './host-process'
@@ -16,7 +17,10 @@ function connectionMissing(error: unknown): boolean {
   )
 }
 
-async function attachService(layout: Awaited<ReturnType<typeof resolvePathLayout>>): Promise<boolean> {
+async function attachService(
+  layout: Awaited<ReturnType<typeof resolvePathLayout>>,
+  unattended: boolean,
+): Promise<boolean> {
   let attached: Awaited<ReturnType<typeof openCatalogClient>>
   try {
     attached = await openCatalogClient({
@@ -30,6 +34,21 @@ async function attachService(layout: Awaited<ReturnType<typeof resolvePathLayout
     throw error
   }
   try {
+    if (unattended) {
+      const settings = createSettingsCommandClient(attached.client)
+      const before = await settings.execute('settings.get', { scope: { kind: 'global' } })
+      if (before.resolution.reports[BACKEND_UNATTENDED_VALUE_KEY]?.effectiveValue !== true)
+        await settings.execute(
+          'settings.apply',
+          {
+            schemaVersion: before.schemaVersion,
+            scope: before.scope,
+            baselineRevisions: before.revisions,
+            changes: [{ op: 'set', path: [{ kind: 'field', name: BACKEND_UNATTENDED_SETTING }], value: true }],
+          },
+          { idempotencyKey: crypto.randomUUID() },
+        )
+    }
     const info = attached.client.connectionHost()
     if (!info) throw new Error('Host connection disappeared before service attachment')
     console.log(`hbar ${info.version} | ${layout.dataRoot} | existing Host`)
@@ -56,12 +75,12 @@ export async function serve(args: CliArgs): Promise<number> {
     dataRoot: args.dataRoot ?? process.env.HBAR_DATA_ROOT,
     cacheRoot: args.cacheRoot ?? process.env.HBAR_CACHE_ROOT,
   })
-  if (await attachService(layout)) return 0
+  if (await attachService(layout, args.unattended === true)) return 0
   if (await hasLiveHostOwner(layout.hostLock)) {
     const deadline = Date.now() + 120_000
     do {
       await Bun.sleep(100)
-      if (await attachService(layout)) return 0
+      if (await attachService(layout, args.unattended === true)) return 0
     } while (Date.now() < deadline)
     throw new Error('The managed Host is recovering; inspect its diagnostics before starting another owner')
   }

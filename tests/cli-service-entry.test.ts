@@ -109,3 +109,13 @@ test('conversation service carries no-local-exec and workspace.create parses nod
   expect(definition.input.safeParse({ node: 'build-box' }).success).toBe(false)
   expect(definition.input.safeParse({ path: 'C:/repo', rootId: 'engine' }).success).toBe(false)
 })
+
+test('the explicit unattended service option is parsed and forwarded without changing ordinary service startup', () => {
+  expect(parseCli(['serve', '--unattended']).unattended).toBe(true)
+  expect(conversationHostArguments(parseCli(['serve', '--unattended']))).toEqual([
+    '--supervisor',
+    '--service',
+    '--unattended',
+  ])
+  expect(conversationHostArguments(parseCli(['serve']))).toEqual(['--supervisor', '--service'])
+})

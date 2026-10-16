@@ -1,6 +1,8 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
+import { planAutonomyRetry } from './autonomy-retry'
+import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 import type { NodeWorktreePort } from './node-worktree-port'
@@ -585,6 +587,8 @@ export class Kernel {
   private drains = new Map<string, Promise<void>>()
   private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
   private wakeups = new Set<string>()
+  private schedulingRefresh: Promise<void> | undefined
+  private schedulingRefreshRequested = false
   private listeners = new Set<(event: WireNotification) => unknown>()
   private approvals = new Map<string, (resolution: ApprovalResolution) => void>()
   private boundaryStops = new Map<string, RunControlSignal>()
@@ -1357,6 +1361,24 @@ export class Kernel {
   }
   changed(kind: string) {
     this.publish({ method: 'host.changed', params: { kind } })
+    if (kind === 'settings' && this.readyForRuns && !this.closing) {
+      this.schedulingRefreshRequested = true
+      this.schedulingRefresh ??= (async () => {
+        while (this.schedulingRefreshRequested && !this.closing) {
+          this.schedulingRefreshRequested = false
+          await this.activate()
+        }
+      })()
+        .catch((error: unknown) => {
+          console.error(
+            '[hbar kernel] Settings scheduling refresh failed',
+            error instanceof HbarError ? error.code : 'AUTONOMY_REFRESH_FAILED',
+          )
+        })
+        .finally(() => {
+          this.schedulingRefresh = undefined
+        })
+    }
   }
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const recovery = this.executionScope.currentRecovery
@@ -2010,6 +2032,7 @@ export class Kernel {
     command?: RunCommandRecord,
     signal?: AbortSignal,
     expectedLaunchTargetRevision?: number,
+    autonomyRetry?: AutonomyRetryAdmission,
   ) {
     input = inputSchema.parse(input)
     const files = input.files ?? []
@@ -2114,7 +2137,7 @@ export class Kernel {
             }
             signal?.throwIfAborted()
             return this.storage.call(
-              'enqueue', sessionId, requestId, input, modelId, command, binding, this.executionScope.current?.runId,
+              'enqueue', sessionId, requestId, input, modelId, command, binding, this.executionScope.current?.runId, autonomyRetry,
             )
           }
           return remoteWorkspace || noLocalExecution
@@ -2182,27 +2205,34 @@ export class Kernel {
         if (this.options.execution?.canIdle && !(await this.options.execution.canIdle(sessionId))) return
         const idle = await this.hooks.dispatch('session.idle', { sessionId })
         if (this.closing) return
-        if (!idle.submission) {
+        const retry = idle.submission || idle.wakeAt !== undefined ? null : await planAutonomyRetry(this.storage, sessionId)
+        const submission = idle.submission ?? (retry?.kind === 'submit' ? retry.submission : undefined)
+        if (!submission) {
           if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt)
+          else if (retry?.kind === 'wait') this.scheduledWakeups.schedule(sessionId, retry.wakeAt)
           return
         }
         let submitted: Run
         try {
           submitted = await this.submit(
             sessionId,
-            idle.submission.requestId,
-            idle.submission.input,
-            idle.submission.modelId,
+            submission.requestId,
+            submission.input,
+            submission.modelId,
+            undefined,
+            undefined,
+            undefined,
+            retry?.kind === 'submit' ? retry.admission : undefined,
           )
         } catch (error) {
           // Admission may have committed before its acknowledgement was lost.
           // Reconcile the same request identity, never generate a replacement.
-          const found = await this.storage.call('runByRequest', sessionId, idle.submission.requestId)
+          const found = await this.storage.call('runByRequest', sessionId, submission.requestId)
           if (found) submitted = found.run
           else {
             await this.hooks.dispatch('session.continuationFailed', {
               sessionId,
-              requestId: idle.submission.requestId,
+              requestId: submission.requestId,
               unknown: !(error instanceof HbarError) || error.code === 'RESULT_UNKNOWN',
             })
             return
@@ -4086,11 +4116,12 @@ export class Kernel {
       ...this.active.keys(),
       ...this.drains.keys(),
       ...this.wakeups,
+      ...this.scheduledWakeups.sessionIds,
       ...userInputs.map((request) => request.sessionId),
     ])
     return {
       userInputs,
-      idle: this.chatDatabaseIsIdle(),
+      idle: this.chatDatabaseIsIdle() && !this.scheduledWakeups.waiting.length && !this.schedulingRefresh,
       protectedRoots: this.plugins.protectedResourceRoots(),
       protection: [...sessionIds].flatMap((sessionId) => {
         const reason = this.chatDatabaseSessionProtection(sessionId)
@@ -4198,6 +4229,7 @@ export class Kernel {
     const activeRun = [...this.active.values()].find((active) => active.run.id === runId)
     const { run, event } = await this.storage.call('requestCancel', runId)
     if (event) this.publishEvent(event)
+    if (run.status === 'failed' && (event || persisted)) this.scheduledWakeups.cancel(run.sessionId)
     if (['running', 'waiting_approval'].includes(run.status)) {
       this.cancelled.add(runId)
       for (const active of this.active.values())
@@ -4820,13 +4852,18 @@ export class Kernel {
     }
   }
   async waitForIdle() {
-    while (this.drains.size || this.scheduledWakeups.waiting.length)
-      await Promise.all([...this.drains.values(), ...this.scheduledWakeups.waiting])
+    while (this.drains.size || this.scheduledWakeups.waiting.length || this.schedulingRefresh)
+      await Promise.all([
+        ...this.drains.values(),
+        ...this.scheduledWakeups.waiting,
+        ...(this.schedulingRefresh ? [this.schedulingRefresh] : []),
+      ])
   }
   async close() {
     this.runtimeRecovery.close()
     this.closing = true
     this.continuationDiagnosticKeys.clear()
+    await this.schedulingRefresh
     this.removeStorageFatalListener?.()
     this.removeStorageFatalListener = undefined
     this.sessionSummaryCoordinator.close()

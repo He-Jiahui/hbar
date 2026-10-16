@@ -4,6 +4,7 @@ import { createExecutionPrincipalStorage } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import { createUserInputStateStorage } from './user-input-state'
 import { createDecisionStorage, DECISION_PAGE_INDEX } from './decisions'
+import { createAutonomyRetryStorage, AUTONOMY_RETRY_INDEX } from './autonomy-retries'
 import { userInputAcceptSchema, userInputCommitSchema } from '@hbar/contracts/user-input-state'
 import { executionPrincipalSchema, sessionCreationSourceSchema } from '@hbar/contracts/execution-principal'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
@@ -641,6 +642,18 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
     const userInputState = createUserInputStateStorage(db, appendEvent)
     const decisions = createDecisionStorage(db, appendEvent)
+    const autonomyRetries = createAutonomyRetryStorage(db, appendEvent, {
+      run: (id) => methods.run(id),
+      hasPendingCommands: (sessionId) => commandExecutionReceipts.pending(sessionId).items.length > 0,
+      authorized: (principal, sessionId) => {
+        const device = methods.deviceById(principal.actorId)
+        if (!device || device.role === 'observer') return false
+        const workspaceIds = device.workspaceIds
+        return workspaceIds == null || [sessionId, principal.originSessionId].every(
+          (id) => workspaceIds.includes(methods.session(id).workspaceId),
+        )
+      },
+    })
     const nodeRegistryStorage = createNodeRegistryStorage(db)
     const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
     const nodeExecutionIntentStorage = createNodeExecutionIntentStorage(db)
@@ -659,6 +672,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
 
     if (!preflight || shadowMemory) {
       db.exec(DECISION_PAGE_INDEX)
+      db.exec(AUTONOMY_RETRY_INDEX)
       db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
       db.exec('CREATE INDEX IF NOT EXISTS events_session_type_seq ON events(sessionId,type,seq);')
       db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
@@ -1694,6 +1708,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       commandExecutionAccept: commandExecutionReceipts.accept,
       userInputAccept: userInputState.accept,
       decisionPage: decisions.page,
+      autonomyRetryPlan: autonomyRetries.plan,
       decisionOperationRead: decisions.operationRead,
       decisionOperationBegin: decisions.operationBegin,
       decisionOperationComplete: decisions.operationComplete,
@@ -2924,7 +2939,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           return { sessionId: parsed.sessionId, items: parsed.messageIds.map((id) => unique.get(id)!) }
         })()
       },
-      enqueue: (sessionId, requestId, input, modelId, command, launchTarget, sourceRunId) =>
+      enqueue: (sessionId, requestId, input, modelId, command, launchTarget, sourceRunId, autonomyRetry) =>
         db.transaction(() => {
           const submittedCommand = command === undefined ? undefined : runCommandRecordSchema.parse(command)
           const existing = db
@@ -2950,6 +2965,11 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               )
             return prior
           }
+          const retrySource = autonomyRetry === undefined
+            ? undefined
+            : autonomyRetries.validate(autonomyRetry, sessionId, requestId, input, modelId)
+          if (autonomyRetry && (submittedCommand || sourceRunId !== undefined))
+            throw new HbarError('AUTONOMY_RETRY_INVALID', 'An automatic successor inherits only from its original Run')
           const owner = methods.session(sessionId)
           if (owner.archived) throw new HbarError('ARCHIVED', 'Unarchive the session before running')
           const workspace = methods.workspace(owner.workspaceId)
@@ -2966,7 +2986,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             error: null,
           }
           const sourceRun =
-            submittedCommand || sourceRunId === undefined ? undefined : methods.run(idSchema.parse(sourceRunId))
+            submittedCommand || (sourceRunId === undefined && retrySource === undefined)
+              ? undefined
+              : methods.run(idSchema.parse(retrySource ?? sourceRunId))
           if (sourceRun && sourceRun.sessionId !== owner.id && sourceRun.sessionId !== owner.parentId)
             throw new HbarError(
               'EXECUTION_PRINCIPAL_SOURCE',
@@ -2993,6 +3015,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               run,
               executionPrincipal,
               launchTarget: retainedLaunchTarget,
+              ...(autonomyRetry ? { autonomyRetry: autonomyRetry.plan } : {}),
               workspaceId: owner.workspaceId,
               ...(workspace.location?.kind === 'node'
                 ? {
@@ -3158,7 +3181,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       requestCancel: (id) =>
         db.transaction(() => {
           const run = methods.run(id)
-          if (['guided', 'completed', 'cancelled', 'failed'].includes(run.status)) return { run, event: null }
+          if (run.status === 'failed') return { run, event: autonomyRetries.cancel(id) }
+          if (['guided', 'completed', 'cancelled'].includes(run.status)) return { run, event: null }
           runSteering.close(run.sessionId, run.id)
           if (run.status === 'queued') {
             const event = methods.setRun(id, 'cancelled', 'Cancelled by user', {

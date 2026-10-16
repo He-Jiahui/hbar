@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarClient } from '@hbar/client'
+import { createSettingsCommandClient } from '@hbar/client'
+import { BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
 import { hasLiveHostOwner } from '../apps/cli/src/host-owner'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 
@@ -53,13 +55,16 @@ test('service entry reuses its real managed Host, advertises pairing and preserv
   const home = join(root, 'data')
   const logPath = join(root, 'service.log')
   const log = openSync(logPath, 'a')
-  const owner = Bun.spawn([...cliCommand(), 'serve', '--home', home, '--port', '0', '--demo', '--project', root], {
-    stdin: 'ignore',
-    stdout: log,
-    stderr: log,
-    windowsHide: true,
-    env: { ...process.env, HBAR_RUNTIME_WATCH: '0' },
-  })
+  const owner = Bun.spawn(
+    [...cliCommand(), 'serve', '--unattended', '--home', home, '--port', '0', '--demo', '--project', root],
+    {
+      stdin: 'ignore',
+      stdout: log,
+      stderr: log,
+      windowsHide: true,
+      env: { ...process.env, HBAR_RUNTIME_WATCH: '0' },
+    },
+  )
   let client: HbarClient | undefined
   const attachments: ReturnType<typeof Bun.spawn>[] = []
   try {
@@ -74,6 +79,19 @@ test('service entry reuses its real managed Host, advertises pairing and preserv
     client = new HbarClient(initial.url, initial.token)
     await client.connect()
     const before = await client.call('system.bootstrap', {})
+    const settings = createSettingsCommandClient(client)
+    const enabled = await settings.execute('settings.get', { scope: { kind: 'global' } })
+    expect(enabled.resolution.reports[BACKEND_UNATTENDED_VALUE_KEY]?.effectiveValue).toBe(true)
+    await settings.execute(
+      'settings.apply',
+      {
+        schemaVersion: enabled.schemaVersion,
+        scope: enabled.scope,
+        baselineRevisions: enabled.revisions,
+        changes: [{ op: 'set', path: [{ kind: 'field', name: 'backend.unattended' }], value: false }],
+      },
+      { idempotencyKey: 'pause-background-retries' },
+    )
     const runAttachment = (extra: string[] = []) => {
       const child = Bun.spawn([...cliCommand(), '--home', home, 'serve', '--port', '1', ...extra], {
         stdin: 'ignore',
@@ -89,13 +107,21 @@ test('service entry reuses its real managed Host, advertises pairing and preserv
     const [invalidCode, invalidError] = await Promise.all([invalid.exited, new Response(invalid.stderr).text()])
     expect(invalidCode).not.toBe(0)
     expect(invalidError).toContain('Invalid --port')
-    const attached = runAttachment()
+    expect(
+      (await createSettingsCommandClient(client).execute('settings.get', { scope: { kind: 'global' } })).resolution
+        .reports[BACKEND_UNATTENDED_VALUE_KEY]?.effectiveValue,
+    ).toBe(false)
+    const attached = runAttachment(['--unattended'])
     const [code, output, errors] = await Promise.all([
       attached.exited,
       new Response(attached.stdout).text(),
       new Response(attached.stderr).text(),
     ])
     expect(code, errors).toBe(0)
+    expect(
+      (await createSettingsCommandClient(client).execute('settings.get', { scope: { kind: 'global' } })).resolution
+        .reports[BACKEND_UNATTENDED_VALUE_KEY]?.effectiveValue,
+    ).toBe(true)
     expect(output).toContain('existing Host')
     expect(output).toContain(initial.url)
     expect(output).not.toContain(initial.token)

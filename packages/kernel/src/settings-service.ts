@@ -15,6 +15,7 @@ import { resolveAutonomyDecisionPolicy } from './autonomy-policy'
 import {
   BACKEND_WEB_ACCESS_SETTING,
   BACKEND_WEB_PORT_SETTING,
+  BACKEND_UNATTENDED_SETTING,
   backendWebConfigurationSchema,
   type BackendWebConfiguration,
 } from '@hbar/contracts/backend'
@@ -71,6 +72,20 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
       { id: 'chatDatabase', labelKey: 'i18n:settings.groups.chatDatabase', order: 38 },
     ],
     fields: [
+      {
+        path: path(BACKEND_UNATTENDED_SETTING),
+        type: 'boolean',
+        nullable: false,
+        defaultValue: false,
+        allowedScopes: ['global'],
+        applyMode: 'immediate',
+        labelKey: 'i18n:settings.backend.unattended.label',
+        helpKey: 'i18n:settings.backend.unattended.help',
+        group: 'general',
+        order: 44,
+        component: 'CheckBox',
+        multiple: false,
+      },
       {
         path: path(AUTONOMY_DECISION_MODE_SETTING),
         type: 'string',

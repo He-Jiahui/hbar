@@ -3,7 +3,8 @@ import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { runtimeDomainError, type RuntimeArtifactPackage } from '@hbar/runtime'
 import { getStorageLocations, resolvePathLayout, readStartupSettingsLayer } from '@hbar/storage'
-import { resolveStartupWebConfiguration } from '@hbar/kernel/controller'
+import { resolveStartupWebConfiguration, SettingsService } from '@hbar/kernel/controller'
+import { BACKEND_UNATTENDED_SETTING, BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
 import { desktopConnection, desktopConnectionToken, resolveDesktopDevice } from './desktop-connection.ts'
@@ -36,6 +37,7 @@ export async function runHost(
       demo: { type: 'boolean' },
       desktop: { type: 'boolean' },
       service: { type: 'boolean' },
+      unattended: { type: 'boolean' },
       cert: { type: 'string' },
       key: { type: 'string' },
       'web-root': { type: 'string' },
@@ -165,7 +167,7 @@ export async function runHost(
     if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
     heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
     heartbeat.unref()
-    if (values.desktop || values.service) {
+    if (values.desktop || values.service || values.unattended) {
       await runtime.authenticationReady()
       let persistedToken: string | undefined
       try {
@@ -175,6 +177,20 @@ export async function runHost(
         if (code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
       }
       const device = await resolveDesktopDevice(host.auth, persistedToken)
+      if (values.unattended) {
+        await runtime.ready()
+        const settings = new SettingsService(runtime.storage, undefined, () => runtime?.kernel.changed('settings'))
+        const before = await settings.get({ kind: 'global' })
+        if (before.resolution.reports[BACKEND_UNATTENDED_VALUE_KEY]?.effectiveValue !== true)
+          await settings.apply({
+            schemaVersion: before.schemaVersion,
+            scope: before.scope,
+            baselineRevisions: before.revisions,
+            actorId: device.device.id,
+            idempotencyKey: `startup-unattended:${runtime.instanceId}`,
+            changes: [{ op: 'set', path: [{ kind: 'field', name: BACKEND_UNATTENDED_SETTING }], value: true }],
+          })
+      }
       await writeFile(
         layout.connectionFile,
         JSON.stringify(
