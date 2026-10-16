@@ -16,6 +16,10 @@ export interface InputCacheWireSample {
   sessionAffinityMatches: boolean
   upstreamStatus: number | null
   upstreamRequestId: string | null
+  clientRequestId: string | null
+  turnStateSent: boolean
+  turnStateReceived: boolean
+  turnStateReplayMatches: boolean | null
 }
 
 /** Verification-only transparent proxy: inspect final wire bodies without retaining prompts or credentials. */
@@ -27,6 +31,7 @@ export function startInputCacheWireProxy(options: {
   const samples: InputCacheWireSample[] = []
   let previousInput: string[] | undefined
   let firstConfiguration: string | undefined
+  let firstTurnStateHash: string | undefined
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -42,6 +47,7 @@ export function startInputCacheWireProxy(options: {
       const configurationHash = hash(configuration)
       const reasoning = z.object({ effort: z.string() }).safeParse(configuration.reasoning)
       const expectedSession = options.sessionId()
+      const sentTurnState = request.headers.get('x-codex-turn-state')
       const sample: InputCacheWireSample = {
         request: samples.length + 1,
         inputItems: input.length,
@@ -59,6 +65,14 @@ export function startInputCacheWireProxy(options: {
           request.headers.get('session_id') === expectedSession,
         upstreamStatus: null,
         upstreamRequestId: null,
+        clientRequestId: request.headers.get('x-client-request-id'),
+        turnStateSent: !!sentTurnState,
+        turnStateReceived: false,
+        turnStateReplayMatches: firstTurnStateHash
+          ? !!sentTurnState && hash(sentTurnState) === firstTurnStateHash
+          : sentTurnState
+            ? false
+            : null,
       }
       samples.push(sample)
       previousInput = items
@@ -75,6 +89,9 @@ export function startInputCacheWireProxy(options: {
       })
       sample.upstreamStatus = response.status
       sample.upstreamRequestId = response.headers.get('x-request-id')
+      const receivedTurnState = response.headers.get('x-codex-turn-state')
+      sample.turnStateReceived = !!receivedTurnState
+      if (response.ok && receivedTurnState) firstTurnStateHash ??= hash(receivedTurnState)
       const responseHeaders = new Headers(response.headers)
       // fetch exposes decoded bytes; do not advertise the upstream compressed length/encoding twice.
       for (const name of ['content-encoding', 'content-length', 'transfer-encoding', 'connection'])

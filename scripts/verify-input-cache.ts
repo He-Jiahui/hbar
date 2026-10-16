@@ -174,6 +174,7 @@ export async function verifyInputCache(): Promise<void> {
           sample.model === model &&
           sample.reasoningEffort === 'xhigh' &&
           sample.sessionAffinityMatches &&
+          sample.turnStateReplayMatches !== false &&
           sample.upstreamStatus === 200,
       ) &&
       quality.status === 'healthy' &&

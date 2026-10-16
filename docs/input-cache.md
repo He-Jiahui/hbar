@@ -37,6 +37,10 @@ bun run verify:input-cache --live
 
 验收使用仅绑定回环地址的透明代理，检查 PiDriver 最终发送的载荷。代理原样转发请求正文与流式响应，只记录输入及配置的 SHA-256、上一轮输入是否为精确前缀、会话亲和字段是否正确、HTTP 状态和上游 request ID。配置包括工具、模型、reasoning 与缓存参数。前缀、配置或亲和字段不一致也会使验收失败；报告不会把客户端前缀稳定误写成服务端必然命中。
 
+Responses 服务返回 `x-codex-turn-state` 时，PiDriver 在同一 Run 内回带首次收到的有效状态，后续响应不会覆盖它。provider、模型、端点、凭据、会话或协议改变后状态退役，新 Run 也不继承；状态只存在内存中。验收代理记录请求和响应是否携带状态，以及是否与首次收到的状态一致，不保留原值。错误回带同样导致验收失败。该字段遵循 [Codex 客户端的每轮路由状态语义](https://github.com/openai/codex/blob/main/codex-rs/core/src/client.rs)，不能保证网关实际保持相同上游账号或缓存实例。
+
+报告还分别记录请求的 `x-client-request-id` 和响应的 `x-request-id`。当前牛马用量接口的 `request_id` 使用 `client:<x-client-request-id>`，与响应 ID 不同；排查后台日志时须区分这两种关联值。用户用量接口中的账号值和会话字段不能作为实际选路记录使用。
+
 2026-10-16 实测的通过与失败结果见[验收记录](input-cache-verification.md)。目前串行测试达到目标，三会话并发仍有上游返回零缓存的请求，整体目标尚未完成。
 
 当前牛马 `gpt-6.1-sol` 实测拒绝 `prompt_cache_breakpoint`。因此修复不向该网关发送显式断点或把一次兼容性失败自动转为第二次付费重试。后续能力接入必须通过 provider 契约及真实兼容性验证。
