@@ -1,3 +1,4 @@
+import { localReadBoundary } from './read-errors'
 import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'node:fs/promises'
 import { resolve, relative, dirname, join, basename, posix } from 'node:path'
 import { createHash } from 'node:crypto'
@@ -270,6 +271,12 @@ export class LocalExecution implements ExecutionProvider {
   }
 
   async list(workspace: string, requested: string): Promise<Awaited<ReturnType<ExecutionProvider['list']>>> {
+    return localReadBoundary(() => this.listLocal(workspace, requested))
+  }
+  private async listLocal(
+    workspace: string,
+    requested: string,
+  ): Promise<Awaited<ReturnType<ExecutionProvider['list']>>> {
     this.assertLocalExecution('Local workspace directory listing')
     assertLocalWorkspace(workspace)
     const mount = this.mounts?.get(workspace)
@@ -292,6 +299,9 @@ export class LocalExecution implements ExecutionProvider {
       .sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name))
   }
   async resolveDirectory(workspace: string, requested: string) {
+    return localReadBoundary(() => this.resolveDirectoryLocal(workspace, requested))
+  }
+  private async resolveDirectoryLocal(workspace: string, requested: string) {
     this.assertLocalExecution('Local workspace directory resolution')
     const path = await this.workspacePath(workspace, requested)
     if (!(await stat(path)).isDirectory()) throw new HbarError('INVALID_WORKSPACE', 'Working directory is unavailable')
@@ -301,6 +311,9 @@ export class LocalExecution implements ExecutionProvider {
     return decodeUtf8(await this.readBytes(workspace, requested))
   }
   async readBytes(workspace: string, requested: string) {
+    return localReadBoundary(() => this.readBytesLocal(workspace, requested))
+  }
+  private async readBytesLocal(workspace: string, requested: string) {
     this.assertLocalExecution('Local workspace file read')
     const path = await this.workspacePath(workspace, requested)
     const info = await stat(path)
@@ -324,7 +337,7 @@ export class LocalExecution implements ExecutionProvider {
     let before = ''
     let created = false
     try {
-      before = await this.read(workspace, requested)
+      before = decodeUtf8(await this.readBytesLocal(workspace, requested))
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       created = true
@@ -361,7 +374,7 @@ export class LocalExecution implements ExecutionProvider {
         {
           read: async (path) => {
             try {
-              return await this.read(workspace, path)
+              return decodeUtf8(await this.readBytesLocal(workspace, path))
             } catch (error) {
               if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null
               throw error
