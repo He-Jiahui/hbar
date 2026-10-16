@@ -15,6 +15,7 @@ import type { StableStoragePort } from '@hbar/storage'
 import { runtimePluginAuthoritySchema, runtimePluginInvocationSchema } from './runtime-plugin-contract'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import { invokeRuntimeNodeExecution } from './runtime-node-execution-call'
+import { assertRuntimePublicObservationCallback, runtimePublicObservation } from './runtime-public-observation'
 
 export interface RuntimePluginEndpoint {
   readonly owner: RuntimeOwner
@@ -85,20 +86,29 @@ export class RuntimePluginRelay {
     })
     application.register('invoke', async ([unitValue, authorityValue, description, rawArgs, callback], signal) => {
       const unitId = z.string().min(1).max(160).parse(unitValue),
-        authority = runtimePluginAuthoritySchema.parse(authorityValue)
+        authority = runtimePluginAuthoritySchema.parse(authorityValue),
+        request = runtimePluginInvocationSchema.parse(description),
+        args = z.array(z.unknown()).max(32).parse(rawArgs)
       const explicit = authority.execution
       if (explicit && explicit.owner.incarnation !== owner.incarnation)
         throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Plugin dispatch belongs to another Kernel')
-      const execution =
+      if (explicit && authority.sessionId && explicit.sessionId !== authority.sessionId)
+        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Plugin dispatch belongs to another Session')
+      const routedExecution =
         explicit ??
         (authority.sessionId
           ? (this.options.coordinator.executionForSession(authority.sessionId) ?? undefined)
           : undefined)
-      if (execution && execution.owner.incarnation !== owner.incarnation)
+      if (routedExecution && routedExecution.owner.incarnation !== owner.incarnation)
         throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Session capability belongs to another Kernel')
+      const observation = runtimePublicObservation(unitId, authority, request, args)
+      const execution = observation ? undefined : routedExecution
       this.options.coordinator.assertCanWrite(owner, execution)
-      const endpoint = this.options.resolve(unitId, execution, authority.sessionId),
-        request = runtimePluginInvocationSchema.parse(description)
+      // Observation changes authorization only; retain the Session's pinned plugin version.
+      const endpoint = this.options.resolve(unitId, routedExecution, authority.sessionId)
+      this.options.coordinator.assertCanWrite(endpoint.owner, execution)
+      if (observation && !endpoint.state.capabilities[observation.capability]?.includes(observation.method))
+        throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'The bound plugin does not provide this observation')
       const workspaceScope = request.workspaceExecutionScope
         ? {
             workspace: structuredClone(request.workspaceExecutionScope.workspace),
@@ -108,12 +118,12 @@ export class RuntimePluginRelay {
             signal: request.workspaceExecutionScope.signal,
           }
         : undefined
-      const args = z.array(z.unknown()).max(32).parse(rawArgs)
       if (typeof callback !== 'function')
         throw new HbarError('RUNTIME_HOST_REQUIRED', 'Plugin dispatch needs its owned host callback')
       const invokeHost = async (method: string, parameters: readonly unknown[]): Promise<unknown> => {
         this.options.coordinator.assertCanWrite(owner, execution)
         this.options.coordinator.assertCanWrite(endpoint.owner, execution)
+        if (observation) assertRuntimePublicObservationCallback(observation, method, parameters)
         if (method === 'execution.nodeCall') return this.nodeCall(parameters, workspaceScope, execution, signal)
         const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
         return result
