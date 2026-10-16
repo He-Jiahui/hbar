@@ -16,7 +16,9 @@ import {
   SESSION_COMMAND_GIT_IDS,
   SESSION_COMMAND_BROWSER_IDS,
   SESSION_COMMAND_COMPUTER_IDS,
+  SESSION_COMMAND_CLIENT_IDS,
 } from './session-command-port'
+import { clientCommandDirectoryQuerySchema, clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
 
 export const SESSION_COMMAND_LIST_BYTES = 32_768
 const listInput = commandCatalogQuerySchema.extend({ limit: z.number().int().min(1).max(50).default(30) })
@@ -31,11 +33,34 @@ const identity = (context: ToolContext): SessionCommandContext => ({
 export function createSessionCommandTools(port: SessionCommandDiscoveryPort): readonly ToolDefinition[] {
   return [
     {
+      name: 'hbar_command_clients',
+      effect: 'read',
+      workspaceAccess: { kind: 'none' },
+      timeoutMs: 20_000,
+      description:
+        'List connected command clients authorized for this Run, with their explicit clientId, current numeric generation and published command IDs. Returns a bounded page and cursor. Select a target from this directory before executing a client or platform command; a disconnected client is unavailable.',
+      inputSchema: clientCommandDirectoryQuerySchema,
+      async execute(args, context) {
+        if (!port.clients)
+          throw new HbarError('COMMAND_TARGET_UNAVAILABLE', 'This Host has no client command directory')
+        const query = clientCommandDirectoryQuerySchema.parse(args)
+        const page = clientCommandDirectorySchema.parse(await port.clients(query, identity(context)))
+        context.signal.throwIfAborted()
+        if (
+          page.items.length > query.limit ||
+          page.items.some((item, index) => item.clientId <= (page.items[index - 1]?.clientId ?? query.after ?? '')) ||
+          (page.nextCursor !== undefined && page.nextCursor !== page.items.at(-1)?.clientId)
+        )
+          throw new HbarError('COMMAND_DIRECTORY_INVALID', 'The client directory cursor did not advance in order')
+        return { text: JSON.stringify(page) }
+      },
+    },
+    {
       name: 'hbar_command_execute',
       effect: 'write',
       workspaceAccess: { kind: 'none' },
       timeoutMs: 120_000,
-      description: `Execute one hbar command after hbar_command_describe supplies its exact version and input schema. Currently admitted commands: ${[...SESSION_COMMAND_DIRECTORY_QUERY_IDS, ...SESSION_COMMAND_FILE_IDS, ...SESSION_COMMAND_DECISION_READ_IDS, ...SESSION_COMMAND_GIT_IDS, ...SESSION_COMMAND_BROWSER_IDS, ...SESSION_COMMAND_COMPUTER_IDS].join(', ')}. File and Git commands use the current Session execution workspace; omit Git cwd. File workspaceId must match it and sessionTarget is Host-bound. Browser commands are network operations; computer commands require process permission except computer.status. They use the current Session and preserve native policy. Git reads require process permission; mutations also require write permission, including branch/worktree operations other than list. Decision queries inspect an authorized Session; decision.resolve requires a human or an explicit delegation grant and is not admitted here yet. Supply a stable operationKey for the intended operation and reuse it when checking an uncertain result; a new key is a new operation. The Host binds the current Session, Run, actor, permissions and durable receipt. Returns JSON with operationKey, commandId, revision, logical status, physical status, acknowledgment, and result or error/reference. Unknown outcomes require reconciliation before replay. Client/platform commands require an explicit connected clientId and numeric generation in target. Unsupported admission rules are rejected before execution.`,
+      description: `Execute one hbar command after hbar_command_describe supplies its exact version and input schema. Currently admitted commands: ${[...SESSION_COMMAND_DIRECTORY_QUERY_IDS, ...SESSION_COMMAND_FILE_IDS, ...SESSION_COMMAND_DECISION_READ_IDS, ...SESSION_COMMAND_GIT_IDS, ...SESSION_COMMAND_BROWSER_IDS, ...SESSION_COMMAND_COMPUTER_IDS, ...SESSION_COMMAND_CLIENT_IDS].join(', ')}. File and Git commands use the current Session execution workspace; omit Git cwd. File workspaceId must match it and sessionTarget is Host-bound. Browser commands are network operations; computer commands require process permission except computer.status. They use the current Session and preserve native policy. Git reads require process permission; mutations also require write permission, including branch/worktree operations other than list. Decision queries inspect an authorized Session; decision.resolve requires a human or an explicit delegation grant and is not admitted here yet. Supply a stable operationKey for the intended operation and reuse it when checking an uncertain result; a new key is a new operation. The Host binds the current Session, Run, actor, permissions and durable receipt. Returns JSON with operationKey, commandId, revision, logical status, physical status, acknowledgment, and result or error/reference. Unknown outcomes require reconciliation before replay. Application client/platform commands require process permission and an explicit connected clientId and numeric generation from hbar_command_clients in target. Their client must support the admitted execution constraints. Unsupported admission rules are rejected before execution.`,
       inputSchema: sessionCommandCallSchema,
       execute() {
         throw new HbarError(

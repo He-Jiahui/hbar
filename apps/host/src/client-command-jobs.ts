@@ -11,6 +11,8 @@ import {
   clientCommandPreparationSchema,
   clientCommandTargetSchema,
   type ClientCommandTarget,
+  type ClientCommandDirectoryQuery,
+  type ClientCommandDirectory,
 } from '@hbar/contracts/client-commands'
 import { surfaceCommands } from '@hbar/contracts/commands/surfaces'
 import type { IpcPeer } from '@hbar/runtime'
@@ -55,6 +57,11 @@ export class ClientCommandJobs {
   private readonly lifetime = new AbortController()
   private readonly retained = new Map<string, () => void>()
   constructor(private readonly options: ClientCommandJobsOptions) {}
+
+  directory(actorId: string, query: ClientCommandDirectoryQuery): ClientCommandDirectory {
+    this.lifetime.signal.throwIfAborted()
+    return this.options.relay.directory(actorId, query)
+  }
 
   assertAvailable(target: ClientCommandTarget, actorId: string, prepared: CommandPreparation): void {
     this.lifetime.signal.throwIfAborted()
@@ -120,7 +127,10 @@ export class ClientCommandJobs {
           signal: options.signal,
           lifetime: this.lifetime.signal,
           maxTrackingMs: this.options.maxTrackingMs,
-          beforeStart: this.options.scopes.beforeStart({ kind: 'client', ...target, jobId: input.jobId }),
+          beforeStart: async (signal) => {
+            await this.options.scopes.assertClientExecution(signal)
+            await this.options.scopes.beforeStart({ kind: 'client', ...target, jobId: input.jobId })?.(signal)
+          },
           onAcknowledged: () => {
             const retained = this.retained.get(input.jobId)
             this.retained.delete(input.jobId)

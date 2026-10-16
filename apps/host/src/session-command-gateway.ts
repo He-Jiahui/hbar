@@ -12,6 +12,8 @@ import {
   SESSION_COMMAND_DIRECTORY_QUERY_IDS,
   SESSION_COMMAND_FILE_IDS,
   SESSION_COMMAND_DECISION_READ_IDS,
+  SESSION_COMMAND_CLIENT_IDS,
+  SESSION_COMMAND_CLIENT_SOURCE_METHOD,
   type SessionCommandCall,
   type SessionCommandPreparation,
   type SessionCommandToolResult,
@@ -23,12 +25,15 @@ import { bindInteractionSession, sessionInteractionCommand } from './session-com
 import type { SessionCommandDiscovery } from './session-command-discovery'
 import type { SessionCommandExecution } from './session-command-execution'
 import type { HostSourceApplication } from './command-execution-scopes'
+import { captureClientCommandPreparation } from './client-command-jobs'
 
 const readCommands = new Set<string>(SESSION_COMMAND_DIRECTORY_QUERY_IDS)
 const fileCommands = new Set<string>(SESSION_COMMAND_FILE_IDS)
 const decisionQueries = new Set<string>(SESSION_COMMAND_DECISION_READ_IDS)
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength
-type ExecutionPort = Pick<SessionCommandExecution, 'execute' | 'wait'>
+type ExecutionPort = Pick<SessionCommandExecution, 'execute' | 'wait'> &
+  Partial<Pick<SessionCommandExecution, 'prepareClient'>>
+const clientCommands = new Set<string>(SESSION_COMMAND_CLIENT_IDS)
 
 /** Host use case. Preparation has no execution effects; its signature fixes all final admission facts. */
 export class SessionCommandGateway {
@@ -56,10 +61,11 @@ export class SessionCommandGateway {
     const call = sessionCommandCallSchema.parse(raw)
     if (bytes(call) > 262_144)
       throw new HbarError('INPUT_TOO_LARGE', 'The session command exceeds its tool input capacity')
-    if (call.target)
+    if (call.target) return this.prepareClient(source, callId, call, signal)
+    if (clientCommands.has(call.commandId))
       throw new HbarError(
         'COMMAND_TARGET_UNAVAILABLE',
-        'Client and platform execution admission is not available on this gateway yet',
+        'Choose an explicit connected client and generation with hbar_command_clients',
       )
     const file = fileCommands.has(call.commandId)
     const decision = decisionQueries.has(call.commandId)
@@ -226,11 +232,64 @@ export class SessionCommandGateway {
       callId,
       operationKey: signed.arguments.operationKey,
       prepared: signed,
+      ...(signed.arguments.target ? { target: signed.arguments.target } : {}),
       signal,
       ...(application ? { application } : {}),
     })
     const settled = await execution.wait(source.sessionId, source.runId, signed.arguments.operationKey)
     return this.result(settled ?? receipt)
+  }
+
+  private async prepareClient(
+    source: ExecutionOwnership,
+    callId: string,
+    call: SessionCommandCall,
+    signal: AbortSignal,
+  ): Promise<SessionCommandPreparation> {
+    if (!clientCommands.has(call.commandId) || !call.target)
+      throw new HbarError('COMMAND_ADMISSION_UNAVAILABLE', 'This command has no reviewed client execution rule')
+    const execution = this.options.execution()
+    if (!execution?.prepareClient)
+      throw new HbarError('COMMAND_TARGET_UNAVAILABLE', 'The Host listener has no client command adapter')
+    const actor = await this.authorization.source(source.sessionId, source.runId)
+    const prepared = captureClientCommandPreparation(
+      await execution.prepareClient(
+        source,
+        call.target,
+        {
+          protocol: 1,
+          requestId: `session-command-${createHash('sha256')
+            .update(JSON.stringify([source.runId, callId]))
+            .digest('hex')}`,
+          commandId: call.commandId,
+          commandVersion: call.commandVersion,
+          idempotencyKey: `session-command-${createHash('sha256')
+            .update(JSON.stringify([source.sessionId, actor.principal.actorId, call.operationKey]))
+            .digest('hex')}`,
+          input: call.input,
+        },
+        signal,
+      ),
+    )
+    if (prepared.invocation.commandId !== call.commandId || prepared.invocation.commandVersion !== call.commandVersion)
+      throw new HbarError('COMMAND_PREPARATION_INVALID', 'The client changed the requested command identity')
+    await this.authorization.authorize(source.sessionId, source.runId, prepared.descriptor, prepared.invocation)
+    signal.throwIfAborted()
+    this.options.assertSource(source)
+    const unsigned = sessionCommandPreparationSchema.omit({ signature: true }).parse({
+      ...prepared,
+      arguments: { ...call, input: sessionCommandCallSchema.shape.input.parse(prepared.invocation.input) },
+      sourceMethods: [SESSION_COMMAND_CLIENT_SOURCE_METHOD],
+      admission: {
+        effect: 'process',
+        requiresProcess: true,
+        workspaceAccess: { kind: 'none' },
+        timeoutMs: prepared.descriptor.metadata.timeoutMs,
+      },
+    })
+    if (bytes(unsigned) > 524_288)
+      throw new HbarError('INPUT_TOO_LARGE', 'The prepared client command exceeds its capacity')
+    return { ...unsigned, signature: this.signature(source, callId, unsigned) }
   }
 
   private signature(

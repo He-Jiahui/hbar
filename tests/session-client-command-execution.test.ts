@@ -8,6 +8,9 @@ import { HbarError } from '@hbar/contracts'
 import { surfaceCommands } from '@hbar/contracts/commands/surfaces'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import { Storage } from '@hbar/storage'
+import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
+import { SESSION_COMMAND_CLIENT_SOURCE_METHOD } from '@hbar/kernel/session-command-port'
+import { SessionCommandGateway } from '../apps/host/src/session-command-gateway'
 import { ClientCommandRelay } from '../apps/host/src/client-command-relay'
 import { ClientCommandJobs, captureClientCommandPreparation } from '../apps/host/src/client-command-jobs'
 import { HostCommandExecutionScopes } from '../apps/host/src/command-execution-scopes'
@@ -131,6 +134,30 @@ async function fixture() {
     relay.register(connectionId, actorId, { ...target, commands: ['app.setSidebarVisible'] })
   register('original-connection')
   const scopes = new HostCommandExecutionScopes()
+  let remote!: IpcPeer
+  const local = new IpcPeer({
+    owner: { unitId: 'base', generation: 1, incarnation: 'client-source-host' },
+    remote: source.owner,
+    transport: { send: (frame) => queueMicrotask(() => remote.receive(JSON.parse(JSON.stringify(frame)))) },
+  })
+  remote = new IpcPeer({
+    owner: local.remote,
+    remote: local.owner,
+    transport: { send: (frame) => queueMicrotask(() => local.receive(JSON.parse(JSON.stringify(frame)))) },
+  })
+  const prefixPort = `kernel.command.${crypto.randomUUID()}`
+  const sourcePort = new RuntimeValuePort(remote, { prefix: prefixPort })
+  const applicationPort = new RuntimeValuePort(local, { prefix: prefixPort })
+  sourcePort.register(SESSION_COMMAND_CLIENT_SOURCE_METHOD, (args) => {
+    expect(args).toEqual([source.sessionId, source.runId, 'client-source-call'])
+  })
+  const application = {
+    owner: source.owner,
+    callId: 'client-source-call',
+    signal: new AbortController().signal,
+    timeoutMs: 5_000,
+    port: applicationPort,
+  }
   const jobs = new ClientCommandJobs({
     relay,
     scopes,
@@ -158,6 +185,14 @@ async function fixture() {
       },
     }),
   })
+  const gateway = new SessionCommandGateway({
+    storage,
+    discovery: { prepare: routing.prepare.bind(routing) },
+    execution: () => service,
+    assertSource: (actual) => {
+      expect(actual).toEqual(source)
+    },
+  })
   const prepared = await jobs.prepare(
     target,
     actorId,
@@ -171,7 +206,14 @@ async function fixture() {
     },
     new AbortController().signal,
   )
-  const request = { source, callId: 'client-source-call', operationKey: identity.operationKey, prepared, target }
+  const request = {
+    source,
+    callId: 'client-source-call',
+    operationKey: identity.operationKey,
+    prepared,
+    target,
+    application,
+  }
   return {
     storage,
     actorId,
@@ -187,6 +229,9 @@ async function fixture() {
     entered,
     prepared,
     request,
+    source,
+    gateway,
+    application,
     executions: () => executions,
     resources: () => resources,
     cancelled: () => cancelled,
@@ -198,6 +243,10 @@ async function fixture() {
       endpoint.dispose()
       relay.close()
       registry.dispose()
+      applicationPort.dispose()
+      sourcePort.dispose()
+      local.close()
+      remote.close()
       await storage.close()
       await removeOwnedTestDirectory(root, prefix)
     },
@@ -227,6 +276,87 @@ test('client commands bind durable owner and target before one physical executio
     expect(f.executions()).toBe(1)
     await f.service.execute(f.request)
     expect(f.executions()).toBe(1)
+  } finally {
+    await f.dispose()
+  }
+})
+
+test('model client preparation signs the exact target and process admission before real client execution', async () => {
+  const f = await fixture()
+  try {
+    const call = {
+      commandId: 'app.setSidebarVisible',
+      commandVersion: 1,
+      operationKey: f.identity.operationKey,
+      input: { visible: true },
+      target: f.target,
+    }
+    const prepared = await f.gateway.prepare(f.source, 'client-source-call', call, f.application.signal)
+    expect(prepared.admission).toMatchObject({
+      effect: 'process',
+      requiresProcess: true,
+      workspaceAccess: { kind: 'none' },
+    })
+    expect(prepared.sourceMethods).toEqual([SESSION_COMMAND_CLIENT_SOURCE_METHOD])
+    expect(f.executions()).toBe(0)
+    expect(
+      await failure(
+        f.gateway.execute(
+          f.source,
+          'client-source-call',
+          { ...prepared, arguments: { ...prepared.arguments, target: { ...f.target, generation: 10 } } },
+          f.application.signal,
+          f.application,
+        ),
+      ),
+    ).toMatchObject({ code: 'COMMAND_PREPARATION_INVALID' })
+    expect(
+      await failure(f.gateway.execute(f.source, 'client-source-call', prepared, f.application.signal)),
+    ).toMatchObject({ code: 'COMMAND_SOURCE_APPLICATION_REQUIRED' })
+    expect(await f.storage.call('commandExecutionRead', f.identity)).toBeNull()
+    const running = f.gateway.execute(f.source, 'client-source-call', prepared, f.application.signal, f.application)
+    await f.entered.promise
+    f.gate.resolve()
+    expect(await running).toMatchObject({ isError: false })
+    expect(f.executions()).toBe(1)
+    expect(f.resources()).toBe(0)
+  } finally {
+    await f.dispose()
+  }
+})
+
+test('model client directory pages only the original actor and rejects missing or unsupported targets before execution', async () => {
+  const f = await fixture()
+  try {
+    f.relay.register('a', f.actorId, { clientId: 'a-client', generation: 1, commands: ['app.back'] })
+    f.relay.register('z', f.actorId, { clientId: 'z-client', generation: 2, commands: ['app.back'] })
+    f.relay.register('outsider', 'another-actor', { clientId: 'private-client', generation: 8, commands: ['app.back'] })
+    const first = await f.service.clientDirectory(f.source, { limit: 1 }, f.application.signal)
+    expect(first).toMatchObject({ items: [{ clientId: 'a-client', generation: 1 }], nextCursor: 'a-client' })
+    const rest = await f.service.clientDirectory(f.source, { after: first.nextCursor, limit: 2 }, f.application.signal)
+    expect(rest.items.map((item) => item.clientId)).toEqual(['selected-client', 'z-client'])
+    expect(rest.nextCursor).toBeUndefined()
+    const call = {
+      commandId: 'app.setSidebarVisible',
+      commandVersion: 1,
+      operationKey: f.identity.operationKey,
+      input: { visible: true },
+    }
+    expect(await failure(f.gateway.prepare(f.source, 'client-source-call', call, f.application.signal))).toMatchObject({
+      code: 'COMMAND_TARGET_UNAVAILABLE',
+    })
+    expect(
+      await failure(
+        f.gateway.prepare(
+          f.source,
+          'client-source-call',
+          { ...call, commandId: 'workspace.list', target: f.target },
+          f.application.signal,
+        ),
+      ),
+    ).toMatchObject({ code: 'COMMAND_ADMISSION_UNAVAILABLE' })
+    expect(f.executions()).toBe(0)
+    expect(await f.storage.call('commandExecutionRead', f.identity)).toBeNull()
   } finally {
     await f.dispose()
   }

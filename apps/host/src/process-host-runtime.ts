@@ -47,6 +47,7 @@ import {
   runtimeKernelRunSchema,
   runtimeKernelMutationAdmissionSchema,
   runtimeKernelCommandCatalogSchema,
+  runtimeKernelCommandClientsSchema,
   runtimeKernelCommandDescribeSchema,
   runtimeKernelCommandPrepareSchema,
   runtimeKernelCommandExecuteSchema,
@@ -114,6 +115,7 @@ import { SessionCommandDiscovery } from './session-command-discovery'
 import { commandCatalogPageSchema, commandDescriptorSchema, type CommandRoutingPort } from '@hbar/commands'
 import { sessionCommandPreparationSchema, sessionCommandToolResultSchema } from '@hbar/kernel/session-command-port'
 import { SessionCommandGateway } from './session-command-gateway'
+import { clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
 import type { SessionCommandExecution } from './session-command-execution'
 
 export interface ProcessHostRuntimeOptions {
@@ -1697,6 +1699,17 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             signal: call.signal,
           })
           assertCommandCaller(input)
+        }),
+      ),
+      peer.register(
+        'kernel.commands.clients',
+        procedure(runtimeKernelCommandClientsSchema, clientCommandDirectorySchema, async (input, call) => {
+          const source = assertCommandCaller(input)
+          const execution = this.commandExecution
+          if (!execution) throw new HbarError('COMMAND_TARGET_UNAVAILABLE', 'The Host listener has no client command directory')
+          const result = await execution.clientDirectory(source, input.query, call.signal)
+          assertCommandCaller(input)
+          return result
         }),
       ),
       peer.register(

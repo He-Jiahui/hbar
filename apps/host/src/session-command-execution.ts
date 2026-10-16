@@ -27,7 +27,12 @@ import { CommandResultPayloads } from './command-result-payloads'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import { CommandJobPayloadUnavailable } from './runtime-command-jobs'
 import { CommandMutationAdmission, type PendingCommandMutation } from './command-mutation-admission'
-import { clientCommandTargetSchema, type ClientCommandTarget } from '@hbar/contracts/client-commands'
+import {
+  clientCommandTargetSchema,
+  type ClientCommandTarget,
+  type ClientCommandDirectoryQuery,
+  type ClientCommandDirectory,
+} from '@hbar/contracts/client-commands'
 import type { ClientCommandJobs } from './client-command-jobs'
 
 export interface SessionCommandExecutionRequest {
@@ -85,6 +90,37 @@ export class SessionCommandExecution {
   ) {
     this.authorization = new SessionCommandAuthorization(options.storage)
     this.mutations = new CommandMutationAdmission(options.storage, (item, runId) => this.isKnownPending(item, runId))
+  }
+
+  async clientDirectory(
+    source: ExecutionOwnership,
+    query: ClientCommandDirectoryQuery,
+    signal: AbortSignal,
+  ): Promise<ClientCommandDirectory> {
+    signal.throwIfAborted()
+    this.options.assertSource(source)
+    const principal = await this.authorization.source(source.sessionId, source.runId)
+    signal.throwIfAborted()
+    this.options.assertSource(source)
+    return this.options.clients?.directory(principal.principal.actorId, query) ?? { items: [] }
+  }
+
+  async prepareClient(
+    source: ExecutionOwnership,
+    target: ClientCommandTarget,
+    invocation: unknown,
+    signal: AbortSignal,
+  ): Promise<CommandPreparation> {
+    signal.throwIfAborted()
+    this.options.assertSource(source)
+    if (!this.options.clients)
+      throw new HbarError('COMMAND_TARGET_UNAVAILABLE', 'The Host has no client command adapter')
+    const principal = await this.authorization.source(source.sessionId, source.runId)
+    const prepared = await this.options.clients.prepare(target, principal.principal.actorId, invocation, signal)
+    await this.authorization.authorize(source.sessionId, source.runId, prepared.descriptor, prepared.invocation)
+    signal.throwIfAborted()
+    this.options.assertSource(source)
+    return prepared
   }
 
   async execute(request: SessionCommandExecutionRequest): Promise<CommandExecutionReceipt> {

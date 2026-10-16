@@ -10,6 +10,7 @@ import type {
   RuntimeValuePort,
 } from '@hbar/runtime'
 import { RUNTIME_APPLICATION_METHODS } from '@hbar/kernel/runtime-application'
+import { SESSION_COMMAND_CLIENT_SOURCE_METHOD } from '@hbar/kernel/session-command-port'
 
 export interface HostSourceApplication {
   readonly owner: RuntimeOwner
@@ -67,6 +68,26 @@ export class HostCommandExecutionScopes {
   }
   hasSource(): boolean {
     return this.context.getStore() !== undefined
+  }
+  async assertClientExecution(signal: AbortSignal): Promise<void> {
+    const scope = this.context.getStore()
+    const application = scope?.application
+    if (!scope || !application || !scope.callId)
+      throw new HbarError(
+        'COMMAND_SOURCE_APPLICATION_REQUIRED',
+        'Client commands require their admitted source context',
+      )
+    signal.throwIfAborted()
+    application.signal.throwIfAborted()
+    await application.port.call(
+      SESSION_COMMAND_CLIENT_SOURCE_METHOD,
+      [scope.source.sessionId, scope.source.runId, scope.callId],
+      {
+        signal: AbortSignal.any([signal, application.signal]),
+        timeoutMs: application.timeoutMs,
+        requestId: scope.callId,
+      },
+    )
   }
   execution(): ExecutionOwnership | undefined {
     const source = this.context.getStore()?.source

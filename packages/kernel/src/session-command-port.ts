@@ -2,6 +2,24 @@ import type { CommandCatalogPage, CommandCatalogQuery, CommandDescriptor } from 
 import { commandIdSchema, commandDescriptorSchema, invocationSchema } from '@hbar/commands'
 import { z } from 'zod'
 import { toolCallAdmissionSchema } from './tool-call-binding'
+import {
+  clientCommandTargetSchema,
+  type ClientCommandDirectoryQuery,
+  type ClientCommandDirectory,
+} from '@hbar/contracts/client-commands'
+
+export const SESSION_COMMAND_CLIENT_SOURCE_METHOD = 'commandClient.assertExecutionContext'
+export const SESSION_COMMAND_CLIENT_IDS = [
+  'app.openPanel',
+  'app.closePanel',
+  'app.back',
+  'app.setSidebarVisible',
+  'app.openSettings',
+  'app.openStatus',
+  'app.openSettingsEditor',
+  'app.openWindow',
+  'app.closeWindow',
+] as const
 
 export const SESSION_COMMAND_DIRECTORY_QUERY_IDS = [
   'workspace.list',
@@ -59,9 +77,7 @@ export const sessionCommandCallSchema = z.strictObject({
   commandVersion: z.number().int().positive(),
   operationKey: z.string().min(1).max(128).regex(/\S/),
   input: z.record(z.string().max(256), z.json()),
-  target: z
-    .strictObject({ clientId: z.string().min(1).max(160), generation: z.number().int().positive().safe() })
-    .optional(),
+  target: clientCommandTargetSchema.optional(),
 })
 export type SessionCommandCall = z.output<typeof sessionCommandCallSchema>
 
@@ -90,4 +106,5 @@ export interface SessionCommandContext {
 export interface SessionCommandDiscoveryPort {
   list(query: CommandCatalogQuery, context: SessionCommandContext): Promise<CommandCatalogPage>
   describe(commandId: string, context: SessionCommandContext): Promise<CommandDescriptor>
+  clients?(query: ClientCommandDirectoryQuery, context: SessionCommandContext): Promise<ClientCommandDirectory>
 }

@@ -13,6 +13,22 @@ export const clientCommandTargetSchema = z.strictObject({
   generation: z.number().int().positive().safe(),
 })
 export type ClientCommandTarget = z.infer<typeof clientCommandTargetSchema>
+export const CLIENT_COMMAND_DIRECTORY_BYTES = 65_536
+export const clientCommandDirectoryQuerySchema = z.strictObject({
+  after: id.optional(),
+  limit: z.number().int().min(1).max(32).default(16),
+})
+export type ClientCommandDirectoryQuery = z.input<typeof clientCommandDirectoryQuerySchema>
+export const clientCommandDirectorySchema = z
+  .strictObject({
+    items: z.array(clientCommandTargetSchema.extend({ commands: z.array(commandIdSchema).max(256) })).max(32),
+    nextCursor: id.optional(),
+  })
+  .refine(
+    (page) => new TextEncoder().encode(JSON.stringify(page)).byteLength <= CLIENT_COMMAND_DIRECTORY_BYTES,
+    'The client directory exceeds its byte capacity',
+  )
+export type ClientCommandDirectory = z.output<typeof clientCommandDirectorySchema>
 export const clientCommandRegistrationSchema = clientCommandTargetSchema.extend({
   commands: z.array(commandIdSchema).max(256),
 })

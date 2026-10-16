@@ -29,6 +29,31 @@ function descriptor(id: string): CommandDescriptor {
   )
 }
 
+test('client discovery remains a bounded read and binds its original source without accepting model identity', async () => {
+  const seen: SessionCommandContext[] = []
+  const f = await fixture({
+    list: async () => ({ revision: 1, items: [] }),
+    describe: async () => descriptor('fixture.description'),
+    clients: async (_query, source) => {
+      seen.push(source)
+      return { items: [{ clientId: 'chosen-client', generation: 7, commands: ['app.back'] }] }
+    },
+  })
+  try {
+    const { run, result } = await f.call('hbar_command_clients', { limit: 1 })
+    expect(result.isError).toBe(false)
+    expect(JSON.parse(result.text)).toEqual({
+      items: [{ clientId: 'chosen-client', generation: 7, commands: ['app.back'] }],
+    })
+    expect(seen[0]).toMatchObject({ sessionId: f.session.id, runId: run.id })
+    expect((await f.call('hbar_command_clients', { actorId: 'another-actor' })).result.isError).toBe(true)
+    expect((await f.call('hbar_command_clients', { limit: 33 })).result.isError).toBe(true)
+    expect(seen).toHaveLength(1)
+  } finally {
+    await f.close()
+  }
+})
+
 async function fixture(port: SessionCommandDiscoveryPort) {
   const prefix = 'hbar-session-command-boundary-'
   const root = await mkdtemp(join(tmpdir(), prefix))

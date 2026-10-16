@@ -38,6 +38,7 @@ import {
 } from '@hbar/commands/jobs'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
 import { RUNTIME_APPLICATION_METHODS } from './runtime-application'
+import { clientCommandDirectoryQuerySchema, clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
 import {
   sessionCommandCallSchema,
   sessionCommandPreparationSchema,
@@ -49,6 +50,9 @@ const id = z.string().min(1).max(160)
 export const runtimeKernelCommandIdentitySchema = z.strictObject({ sessionId: id, runId: id, callId: id })
 export const runtimeKernelCommandCatalogSchema = runtimeKernelCommandIdentitySchema.extend({
   query: commandCatalogQuerySchema,
+})
+export const runtimeKernelCommandClientsSchema = runtimeKernelCommandIdentitySchema.extend({
+  query: clientCommandDirectoryQuerySchema,
 })
 export const runtimeKernelCommandDescribeSchema = runtimeKernelCommandIdentitySchema.extend({
   commandId: z.string().min(1).max(128),
@@ -172,6 +176,7 @@ export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).
 /** Kernel-initiated callbacks to the stable Host, never exposed as Kernel services or operator RPC. */
 export const RUNTIME_KERNEL_HOST_METHODS = [
   'kernel.commands.list',
+  'kernel.commands.clients',
   'kernel.commands.describe',
   'kernel.commands.prepare',
   'kernel.commands.execute',
@@ -210,6 +215,8 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
       RUNTIME_KERNEL_CONTROL_METHODS,
       RUNTIME_KERNEL_HOST_METHODS,
       z.toJSONSchema(runtimeKernelCommandCatalogSchema),
+      z.toJSONSchema(runtimeKernelCommandClientsSchema),
+      z.toJSONSchema(clientCommandDirectorySchema),
       z.toJSONSchema(runtimeKernelCommandDescribeSchema),
       [
         runtimeKernelCommandPrepareSchema,

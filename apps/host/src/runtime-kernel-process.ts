@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { withRuntimeHumanWait } from './runtime-human-wait-client'
 import { commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
+import { clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
 import { CommandExecutionJobs, commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { pathToFileURL } from 'node:url'
@@ -29,6 +30,7 @@ import {
   runtimeKernelNodeWorktreeSchema,
   runtimeKernelCancelSchema,
   runtimeKernelCommandCatalogSchema,
+  runtimeKernelCommandClientsSchema,
   runtimeKernelCommandDescribeSchema,
   runtimeKernelMutationAdmissionSchema,
 } from '@hbar/kernel/runtime-port'
@@ -231,6 +233,9 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           ),
       },
       sessionCommands: {
+        clients: (query, identity) => context.peer.call('kernel.commands.clients',
+          runtimeKernelCommandClientsSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),
+          clientCommandDirectorySchema, { signal: identity.signal, timeoutMs: 15_000 }),
         list: (query, identity) => context.peer.call('kernel.commands.list',
           runtimeKernelCommandCatalogSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),
           commandCatalogPageSchema, { signal: identity.signal, timeoutMs: 15_000 }),

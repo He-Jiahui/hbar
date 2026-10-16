@@ -266,7 +266,7 @@ test('current device authorization, cancellation and unsupported concrete effect
         { ...f.call, target: { clientId: 'connected-client', generation: 1 } },
         f.signal,
       ),
-    ).rejects.toMatchObject({ code: 'COMMAND_TARGET_UNAVAILABLE' })
+    ).rejects.toMatchObject({ code: 'COMMAND_ADMISSION_UNAVAILABLE' })
     const controller = new AbortController()
     controller.abort(new Error('Source stopped'))
     await expect(f.gateway.execute(f.source, 'bound-call', prepared, controller.signal)).rejects.toThrow(

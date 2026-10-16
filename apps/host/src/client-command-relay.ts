@@ -7,6 +7,11 @@ import {
   clientCommandTargetSchema,
   type ClientCommandTarget,
   type ClientCommandRequest,
+  clientCommandDirectoryQuerySchema,
+  clientCommandDirectorySchema,
+  CLIENT_COMMAND_DIRECTORY_BYTES,
+  type ClientCommandDirectoryQuery,
+  type ClientCommandDirectory,
 } from '@hbar/contracts/client-commands'
 import { surfaceCommands } from '@hbar/contracts/commands/surfaces'
 import type { IpcCallOptions } from '@hbar/runtime'
@@ -34,6 +39,29 @@ export class ClientCommandRelay {
   private readonly pending = new Map<string, Pending>()
   private closed = false
   constructor(private readonly send: (connectionId: string, request: ClientCommandRequest) => void) {}
+
+  directory(actorId: string, raw: ClientCommandDirectoryQuery): ClientCommandDirectory {
+    if (this.closed) throw new HbarError('CANCELLED', 'The Host command relay is closed')
+    const query = clientCommandDirectoryQuerySchema.parse(raw)
+    const candidates = this.list(actorId)
+      .items.filter((item) => query.after === undefined || item.clientId > query.after)
+      .sort((left, right) => (left.clientId < right.clientId ? -1 : left.clientId > right.clientId ? 1 : 0))
+    const items: ClientCommandDirectory['items'] = []
+    let bytes = 512
+    for (const item of candidates) {
+      const size = new TextEncoder().encode(JSON.stringify(item)).byteLength + 1
+      if (items.length >= query.limit || bytes + size > CLIENT_COMMAND_DIRECTORY_BYTES) break
+      items.push(item)
+      bytes += size
+    }
+    if (candidates.length && !items.length)
+      throw new HbarError('COMMAND_DIRECTORY_INVALID', 'A command client exceeds the directory byte capacity')
+    const last = items.at(-1)
+    return clientCommandDirectorySchema.parse({
+      items,
+      ...(last && candidates.length > items.length ? { nextCursor: last.clientId } : {}),
+    })
+  }
 
   register(connectionId: string, actorId: string, raw: unknown) {
     if (this.closed) throw new HbarError('CANCELLED', 'The Host command relay is closed')

@@ -15,21 +15,24 @@ import {
 } from '@hbar/plugin-sdk'
 import { RuntimeValuePort, type IpcPeer } from '@hbar/runtime'
 import type { HostSourceApplication } from './command-execution-scopes'
-import { sessionCommandSourceSchema } from '@hbar/kernel/session-command-port'
+import { sessionCommandSourceSchema, SESSION_COMMAND_CLIENT_SOURCE_METHOD } from '@hbar/kernel/session-command-port'
 import { createRuntimeGitSource } from './runtime-git-source'
 
 type Target = 'execution' | 'workspaceQuery' | 'git' | 'launchTarget' | 'workspaceSandbox' | 'browser' | 'computer'
-export type RuntimeCommandSourceMethod = Exclude<
-  {
-    [Name in Target]: `${Name}.${(typeof RUNTIME_APPLICATION_METHODS)[Name][number]}`
-  }[Target],
-  'git.forRun'
->
+export type RuntimeCommandSourceMethod =
+  | Exclude<
+      {
+        [Name in Target]: `${Name}.${(typeof RUNTIME_APPLICATION_METHODS)[Name][number]}`
+      }[Target],
+      'git.forRun'
+    >
+  | typeof SESSION_COMMAND_CLIENT_SOURCE_METHOD
 const declared = new Set<string>(
   (['execution', 'workspaceQuery', 'git', 'launchTarget', 'workspaceSandbox', 'browser', 'computer'] as const)
     .flatMap((target) => RUNTIME_APPLICATION_METHODS[target].map((method) => `${target}.${method}`))
     .filter((method) => method !== 'git.forRun'),
 )
+declared.add(SESSION_COMMAND_CLIENT_SOURCE_METHOD)
 export const runtimeCommandSourceSchema = sessionCommandSourceSchema
 export function isRuntimeCommandSourceMethod(value: unknown): value is RuntimeCommandSourceMethod {
   return typeof value === 'string' && declared.has(value)
@@ -130,8 +133,19 @@ export class RuntimeCommandSources {
     const git = capabilities.git ? createRuntimeGitSource(capabilities.git, context) : undefined
     const captured = AsyncLocalStorage.snapshot()
     const sourceSessionId = context.session.id,
-      sourceWorkspaceId = context.workspace.id
+      sourceWorkspaceId = context.workspace.id,
+      sourceRunId = context.run.id,
+      sourceCallId = context.callId
     const resolution = {
+      assertExecutionContext: async (sessionId: unknown, runId: unknown, callId: unknown) => {
+        if (sessionId !== sourceSessionId || runId !== sourceRunId || callId !== sourceCallId)
+          throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Client admission belongs to another source tool call')
+        if (osConfinement || (environment && Object.keys(environment).length))
+          throw new HbarError(
+            'COMMAND_SOURCE_CONFINEMENT_UNAVAILABLE',
+            'This client cannot enforce the admitted process environment or OS confinement',
+          )
+      },
       workspaceForRun: async (sessionId: unknown) => {
         if (sessionId !== sourceSessionId)
           throw new HbarError(

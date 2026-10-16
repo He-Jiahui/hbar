@@ -23,8 +23,68 @@ import {
 } from '../apps/host/src/runtime-command-source'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 import { createRuntimeGitSource } from '../apps/host/src/runtime-git-source'
+import { SESSION_COMMAND_CLIENT_SOURCE_METHOD } from '@hbar/kernel/session-command-port'
 
 const owner = { unitId: 'kernel', generation: 1, incarnation: 'source-kernel' }
+
+test('client context proof captures the original Run and refuses unsupported environment or OS confinement over framed IPC', async () => {
+  for (const boundary of ['none', 'environment', 'os'] as const) {
+    const f = peers()
+    const tool = context('C:/source-workspace')
+    if (boundary === 'environment') tool.environment = { LANG: 'pinned' }
+    if (boundary === 'os')
+      tool.osConfinement = {
+        level: 'unelevated',
+        networkEnabled: false,
+        readableRoots: ['C:/source-workspace'],
+        writableRoots: [],
+        envOverrides: {},
+      }
+    const opened = f.sources.open(tool, [SESSION_COMMAND_CLIENT_SOURCE_METHOD], { execution: provider() })
+    const connection = connectRuntimeCommandSource(
+      f.host,
+      opened.descriptor,
+      execution(tool),
+      tool.callId,
+      tool.signal,
+      1_000,
+    )
+    try {
+      tool.session.id = 'caller-mutated-session'
+      tool.run.id = 'caller-mutated-run'
+      tool.callId = 'caller-mutated-call'
+      delete tool.environment
+      delete tool.osConfinement
+      let rejected: unknown
+      try {
+        await connection.application.port.call(SESSION_COMMAND_CLIENT_SOURCE_METHOD, [
+          'source-session',
+          'source-run',
+          'source-call',
+        ])
+      } catch (error) {
+        rejected = error
+      }
+      if (boundary === 'none') expect(rejected).toBeUndefined()
+      else expect(rejected).toMatchObject({ code: 'COMMAND_SOURCE_CONFINEMENT_UNAVAILABLE' })
+      rejected = undefined
+      try {
+        await connection.application.port.call(SESSION_COMMAND_CLIENT_SOURCE_METHOD, [
+          'source-session',
+          'borrowed-run',
+          'source-call',
+        ])
+      } catch (error) {
+        rejected = error
+      }
+      expect(rejected).toMatchObject({ code: 'EXECUTION_OWNER_MISMATCH' })
+    } finally {
+      await connection.close()
+      await opened.close()
+      f.close()
+    }
+  }
+})
 
 test('Git source scope is captured before caller mutation, cancellation, or another workspace can replace it', async () => {
   const controller = new AbortController()
