@@ -63,6 +63,43 @@ export const commandReceiptPayloadSchema = z.discriminatedUnion('kind', [
 ])
 export type CommandReceiptPayload = z.infer<typeof commandReceiptPayloadSchema>
 
+export const COMMAND_RESULT_PAGE_BYTES = 8192
+export const commandResultPageRequestSchema = z
+  .strictObject({
+    offset: z.number().int().nonnegative().safe().max(COMMAND_RECEIPT_RESULT_BYTES).default(0),
+    limit: z.number().int().min(4).max(COMMAND_RESULT_PAGE_BYTES).default(4096),
+    expectedSha256: hash.optional(),
+  })
+  .refine(
+    (value) => value.offset === 0 || value.expectedSha256 !== undefined,
+    'A continued page requires its view hash',
+  )
+export type CommandResultPageRequest = z.input<typeof commandResultPageRequestSchema>
+export type CommandResultPageInput = z.output<typeof commandResultPageRequestSchema>
+export const commandResultPageSchema = z
+  .strictObject({
+    encoding: z.literal('utf8'),
+    integrity: z.enum(['inline', 'selected_chunks']),
+    offset: z.number().int().nonnegative().safe().max(COMMAND_RECEIPT_RESULT_BYTES),
+    nextOffset: z.number().int().positive().safe().max(COMMAND_RECEIPT_RESULT_BYTES).nullable(),
+    totalBytes: z.number().int().positive().max(COMMAND_RECEIPT_RESULT_BYTES),
+    sha256: hash,
+    content: z.string().max(COMMAND_RESULT_PAGE_BYTES),
+  })
+  .superRefine((value, context) => {
+    const end = value.nextOffset ?? value.totalBytes
+    const contentBytes = new TextEncoder().encode(value.content).byteLength
+    if (
+      contentBytes > COMMAND_RESULT_PAGE_BYTES ||
+      value.offset > end ||
+      end > value.totalBytes ||
+      (value.nextOffset !== null && (value.nextOffset <= value.offset || value.nextOffset >= value.totalBytes)) ||
+      contentBytes !== end - value.offset
+    )
+      context.addIssue({ code: 'custom', message: 'Result page text and cursor do not describe the same byte range' })
+  })
+export type CommandResultPage = z.output<typeof commandResultPageSchema>
+
 /** A model never provides this identity. The Host derives it from its authenticated source Run. */
 export const commandExecutionIdentitySchema = z.strictObject({
   sessionId: idSchema,

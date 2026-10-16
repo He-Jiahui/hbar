@@ -3,10 +3,14 @@ import { HbarError, artifactSchema, type ArtifactRef } from '@hbar/contracts'
 import {
   COMMAND_RECEIPT_INLINE_BYTES,
   commandReceiptPayloadSchema,
+  commandResultPageRequestSchema,
   type CommandReceiptPayload,
+  type CommandResultPage,
+  type CommandResultPageRequest,
   type CommandExecutionIdentity,
 } from '@hbar/contracts/command-execution'
 import { encodeCommandResult } from '@hbar/commands/jobs'
+import { readValidatedCommandResultPage } from './command-result-page'
 
 export interface CommandPayloadSource extends CommandExecutionIdentity {
   readonly channel?: 'logical' | 'physical'
@@ -100,26 +104,56 @@ export class CommandResultPayloads {
       }
     })
   }
-  private async withCapacity<Result>(action: () => Promise<Result>): Promise<Result> {
+  async readPage(
+    raw: CommandReceiptPayload,
+    request: CommandResultPageRequest,
+    signal?: AbortSignal,
+  ): Promise<CommandResultPage> {
+    signal?.throwIfAborted()
+    const payload = commandReceiptPayloadSchema.parse(raw)
+    const input = commandResultPageRequestSchema.parse(request)
+    return this.withCapacity(
+      () => readValidatedCommandResultPage(payload, input, (artifact) => this.artifacts.read(artifact), signal),
+      signal,
+    )
+  }
+  private async withCapacity<Result>(action: () => Promise<Result>, signal?: AbortSignal): Promise<Result> {
+    signal?.throwIfAborted()
     if (this.active >= 2) {
       if (this.waiting.size >= 128) throw new HbarError('BUSY', 'Command result persistence queue is full')
       await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => {
+        let finished = false
+        const cleanup = () => {
+          clearTimeout(timer)
           this.waiting.delete(waiter)
-          reject(new HbarError('BUSY', 'Command result persistence queue timed out'))
+          signal?.removeEventListener('abort', onAbort)
+        }
+        const fail = (error: unknown) => {
+          if (finished) return
+          finished = true
+          cleanup()
+          reject(error)
+        }
+        const onAbort = () => fail(signal?.reason ?? new HbarError('USER_CANCELLED', 'Command result read cancelled'))
+        const timer = setTimeout(() => {
+          fail(new HbarError('BUSY', 'Command result persistence queue timed out'))
         }, 30_000)
         const waiter = {
           start: () => {
-            clearTimeout(timer)
-            this.waiting.delete(waiter)
+            if (finished) return
+            finished = true
+            cleanup()
             this.active++
             resolve()
           },
         }
         this.waiting.add(waiter)
+        signal?.addEventListener('abort', onAbort, { once: true })
+        if (signal?.aborted) onAbort()
       })
     } else this.active++
     try {
+      signal?.throwIfAborted()
       return await action()
     } finally {
       this.active--
