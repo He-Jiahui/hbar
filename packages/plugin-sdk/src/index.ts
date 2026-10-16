@@ -997,6 +997,8 @@ export interface HookEvents {
     runId: string
     goal: ThreadGoal
     allowed: boolean
+    /** Omitted checks new acceptance; recovery/accepted check controls without granting authority. */
+    purpose?: 'recovery' | 'accepted'
     /** Disabled keeps the intent waiting; it must not clear the Goal or its remaining budgets. */
     reason?: 'workflow_wait' | 'repair' | 'disabled'
     recoveryKey?: string

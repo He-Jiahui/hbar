@@ -817,9 +817,13 @@ export class Kernel {
       ...event,
       allowed: event.allowed && !(await backendOwnsOrdinaryCompletion(this.storage)),
     }))
-    this.hooks.on('goal.beforeContinue', async (event) =>
-      (await backendAllowsGoalContinuation(this.storage)) ? event : { ...event, allowed: false, reason: 'disabled' },
-    )
+    this.hooks.on('goal.beforeContinue', async (event) => {
+      // Storage owns new recovery acceptance; starting an accepted Run does not acquire another acceptance.
+      if (event.purpose === 'recovery' || event.purpose === 'accepted') return event
+      return (await backendAllowsGoalContinuation(this.storage))
+        ? event
+        : { ...event, allowed: false, reason: 'disabled' }
+    })
     this.hooks.on('goal.replaced', async ({ sessionId, previous, goal, supersededRunIds = [] }) => {
       if (!previous.goalId || !goal.goalId) return
       const stop = new RunControlSignal({ stop: 'goal_replaced', previousGoalId: previous.goalId, goalId: goal.goalId })

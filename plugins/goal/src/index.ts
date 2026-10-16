@@ -538,6 +538,7 @@ class GoalRuntime implements GoalService {
           runId: event.runId,
           goal: publicGoal(goal),
           allowed: true,
+          purpose: 'accepted',
         })
         if (!admission.allowed || mode.mode === 'plan' || goal.status !== 'active') {
           const waiting = this.withContinuation(
@@ -1078,7 +1079,13 @@ class GoalRuntime implements GoalService {
     if (!this.config.autoContinue) return 'GOAL_CONTINUATION_DISABLED'
     if (goal.status !== 'active') return `GOAL_${goal.status.toUpperCase()}`
     if (this.config.maxContinuations !== null && goal.continuationCount >= this.config.maxContinuations) return 'GOAL_CONTINUATION_LIMIT'
-    const admission = await this.api.hooks.dispatch('goal.beforeContinue', { sessionId: run.sessionId, runId: run.id, goal: publicGoal(goal), allowed: true })
+    const admission = await this.api.hooks.dispatch('goal.beforeContinue', {
+      sessionId: run.sessionId,
+      runId: run.id,
+      goal: publicGoal(goal),
+      allowed: true,
+      purpose: 'recovery',
+    })
     return admission.allowed
       ? null
       : admission.reason === 'disabled'
