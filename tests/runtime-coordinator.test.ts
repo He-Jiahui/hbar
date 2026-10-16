@@ -706,3 +706,141 @@ test('changing capacity preserves active claims while admitting existing queues 
   await f.coordinator.releaseExecution(second)
   expect(await f.coordinator.claim(f.kernel, 'third', 'third-run', f.bindings())).not.toBeNull()
 })
+
+test('a confirmed waiting tool yields capacity, retains its Session and physical resources, then rejoins FIFO', async () => {
+  const f = fixture({}, { executionCapacity: 1 }),
+    waiting = await f.claim('waiting', 'waiting-run')
+  const permit = f.coordinator.reserveTool(waiting, 'question', f.plugin)
+  const resource = f.coordinator.acquireResource(f.plugin, 'question-resource', waiting)
+  if (!resource) throw new Error('Missing question resource')
+  f.coordinator.bindToolResource(f.plugin, resource.id, waiting, 'question')
+  expect(await f.coordinator.claim(f.kernel, 'target', 'target-run', f.bindings())).toBeNull()
+  expect(f.coordinator.suspendWaitingExecution(waiting, ['question'])).toBe(true)
+  expect(f.coordinator.suspendWaitingExecution(waiting, ['question'])).toBe(true)
+  const target = await f.claim('target', 'target-run')
+  expect(f.coordinator.snapshot()).toMatchObject({ sessions: 2, resources: 1, physicalTools: 1 })
+  expect(f.coordinator.executionForSession('waiting')).toEqual(waiting)
+  expect(await f.coordinator.claim(f.kernel, 'waiting', 'another-run', f.bindings())).toBeNull()
+  expect(f.coordinator.resumeExecutionCapacity(waiting)).toBe(false)
+  expect(() => f.coordinator.assertExecutionCapacity(waiting)).toThrow('reacquire')
+  expect(() => f.coordinator.acquireResource(f.plugin, 'early-resource', waiting)).toThrow('reacquire')
+  expect(() => f.coordinator.reserveTool(waiting, 'early-tool', f.plugin)).toThrow('reacquire')
+  expect(() => f.coordinator.retainHostSourceResource('stable-host', 'early-command', waiting)).toThrow('reacquire')
+  await f.coordinator.releaseExecution(target)
+  expect(f.coordinator.resumeExecutionCapacity(waiting)).toBe(true)
+  expect(f.coordinator.resumeExecutionCapacity(waiting)).toBe(true)
+  f.coordinator.assertExecutionCapacity(waiting)
+  f.coordinator.releaseTool(f.plugin, permit.id)
+  f.coordinator.releaseResource(f.plugin, resource.id)
+  await f.coordinator.releaseExecution(waiting)
+  expect(f.coordinator.executionCapacity()).toMatchObject({
+    activeExecutions: 0,
+    queuedExecutions: 0,
+    suspendedExecutions: 0,
+  })
+})
+
+test('an unknown model resource, stable Host work or another active tool prevents execution suspension', async () => {
+  const f = fixture({}, { executionCapacity: 1 }),
+    lease = await f.claim()
+  const question = f.coordinator.reserveTool(lease, 'question', f.plugin)
+  const resource = f.coordinator.acquireResource(f.plugin, 'question', lease)
+  if (!resource) throw new Error('Missing original resource')
+  expect(f.coordinator.suspendWaitingExecution(lease, ['question'])).toBe(false)
+  expect(() => f.coordinator.bindToolResource(f.driver, resource.id, lease, 'question')).toThrow('must own')
+  expect(() => f.coordinator.bindToolResource(f.plugin, resource.id, lease, 'other')).toThrow('must own')
+  f.coordinator.bindToolResource(f.plugin, resource.id, lease, 'question')
+  const competing = f.coordinator.reserveTool(lease, 'different-question', f.plugin)
+  expect(() => f.coordinator.bindToolResource(f.plugin, resource.id, lease, 'different-question')).toThrow(
+    'cannot change',
+  )
+  f.coordinator.releaseTool(f.plugin, competing.id)
+  const model = f.coordinator.acquireResource(f.driver, 'actual-model', lease)
+  if (!model) throw new Error('Missing original model')
+  expect(f.coordinator.suspendWaitingExecution(lease, ['question'])).toBe(false)
+  f.coordinator.releaseResource(f.driver, model.id)
+  const other = f.coordinator.reserveTool(lease, 'other', f.kernel)
+  expect(f.coordinator.suspendWaitingExecution(lease, ['question'])).toBe(false)
+  f.coordinator.releaseTool(f.kernel, other.id)
+  const host = f.coordinator.retainHostSourceResource('stable-host', 'actual-command', lease)
+  expect(f.coordinator.suspendWaitingExecution(lease, ['question'])).toBe(false)
+  f.coordinator.releaseHostResource('stable-host', host.id)
+  expect(f.coordinator.suspendWaitingExecution(lease, ['question'])).toBe(true)
+  f.coordinator.releaseTool(f.plugin, question.id)
+  f.coordinator.releaseResource(f.plugin, resource.id)
+  await f.coordinator.releaseExecution(lease)
+})
+
+test('logical cancellation of a parked Run retains its claim until the last original tool and resource settle', async () => {
+  const f = fixture({}, { executionCapacity: 1 }),
+    lease = await f.claim()
+  const permit = f.coordinator.reserveTool(lease, 'question', f.plugin)
+  const resource = f.coordinator.acquireResource(f.plugin, 'question', lease)
+  if (!resource) throw new Error('Missing question resource')
+  f.coordinator.bindToolResource(f.plugin, resource.id, lease, 'question')
+  f.coordinator.suspendWaitingExecution(lease, ['question'])
+  let released = false
+  await f.coordinator.requestRelease(lease, async () => {
+    released = true
+  })
+  expect(released).toBe(false)
+  expect(f.coordinator.suspendWaitingExecution(lease, ['question'])).toBe(false)
+  f.coordinator.releaseTool(f.plugin, permit.id)
+  expect(released).toBe(false)
+  f.coordinator.releaseResource(f.plugin, resource.id)
+  await Bun.sleep(5)
+  expect(released).toBe(true)
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 0, suspendedExecutions: 0 })
+})
+
+test('four waiting claims let their decision targets run and resumed sources preserve FIFO ahead of later work', async () => {
+  const f = fixture({}, { executionCapacity: 4 })
+  const sources = []
+  for (let index = 0; index < 4; index++) {
+    const lease = await f.claim(`source-${index}`, `source-run-${index}`)
+    const permit = f.coordinator.reserveTool(lease, 'question', f.plugin)
+    const resource = f.coordinator.acquireResource(f.plugin, `question-${index}`, lease)
+    if (!resource) throw new Error('Missing source question resource')
+    f.coordinator.bindToolResource(f.plugin, resource.id, lease, 'question')
+    sources.push({ lease, permit, resource })
+  }
+  expect(await f.coordinator.claim(f.kernel, 'target-0', 'target-run-0', f.bindings())).toBeNull()
+  for (const source of sources) expect(f.coordinator.suspendWaitingExecution(source.lease, ['question'])).toBe(true)
+  const targets = []
+  for (let index = 0; index < 4; index++) targets.push(await f.claim(`target-${index}`, `target-run-${index}`))
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 4, suspendedExecutions: 4 })
+  expect(f.coordinator.snapshot()).toMatchObject({ sessions: 8, resources: 4, physicalTools: 4 })
+  const order = [3, 0, 2, 1]
+  for (const index of order) {
+    const source = sources[index]
+    if (!source) throw new Error('Missing source execution')
+    expect(f.coordinator.resumeExecutionCapacity(source.lease)).toBe(false)
+    expect(f.coordinator.executionForSession(source.lease.sessionId)).toEqual(source.lease)
+  }
+  expect(await f.coordinator.claim(f.kernel, 'later', 'later-run', f.bindings())).toBeNull()
+  const firstTarget = targets[0]
+  if (!firstTarget) throw new Error('Missing first target')
+  await f.coordinator.releaseExecution(firstTarget)
+  for (let position = 0; position < order.length; position++) {
+    const source = sources[order[position] ?? -1]
+    if (!source) throw new Error('Missing queued source')
+    expect(f.coordinator.resumeExecutionCapacity(source.lease)).toBe(true)
+    for (const index of order.slice(position + 1)) {
+      const remaining = sources[index]
+      if (!remaining) throw new Error('Missing remaining source')
+      expect(() => f.coordinator.assertExecutionCapacity(remaining.lease)).toThrow('reacquire')
+    }
+    f.coordinator.releaseTool(f.plugin, source.permit.id)
+    f.coordinator.releaseResource(f.plugin, source.resource.id)
+    await f.coordinator.releaseExecution(source.lease)
+  }
+  const later = await f.claim('later', 'later-run')
+  await f.coordinator.releaseExecution(later)
+  for (const target of targets.slice(1)) await f.coordinator.releaseExecution(target)
+  expect(f.coordinator.executionCapacity()).toMatchObject({
+    activeExecutions: 0,
+    queuedExecutions: 0,
+    suspendedExecutions: 0,
+  })
+  expect(f.coordinator.snapshot()).toMatchObject({ sessions: 0, resources: 0, physicalTools: 0 })
+})

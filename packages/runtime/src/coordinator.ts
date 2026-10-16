@@ -90,6 +90,7 @@ export class RuntimeCoordinator {
   private readonly resourceKeys = new Map<string, string>()
   private fence = 0
   private readonly executionSlots: ExecutionSlots
+  private readonly toolResources = new Map<string, { leaseId: string; callId: string }>()
   private readonly capacitySessions = new Map<string, string>()
   private readonly capacityReservations = new Map<
     string,
@@ -111,6 +112,75 @@ export class RuntimeCoordinator {
   }
   executionCapacity(): ExecutionSlotsSnapshot {
     return this.executionSlots.snapshot()
+  }
+  /** Stable composition supplies only canonical waiting calls after all model I/O is physically quiescent. */
+  suspendWaitingExecution(lease: ExecutionOwnership, waitingCalls: readonly string[]): boolean {
+    this.assertExecution(lease)
+    if (
+      !waitingCalls.length ||
+      waitingCalls.length > 64 ||
+      waitingCalls.some((callId) => typeof callId !== 'string' || !callId || callId.length > 160)
+    )
+      throw new HbarError('INVALID_INPUT', 'Execution suspension requires 1 to 64 original waiting calls')
+    const waiting = new Set(waitingCalls)
+    if (this.pendingReleases.has(lease.runId)) return false
+    if (
+      [...this.tools.values()].some((tool) => tool.leaseId === lease.leaseId && !waiting.has(tool.callId)) ||
+      [...this.resources.values()].some(
+        (resource) =>
+          resource.executionLeaseId === lease.leaseId &&
+          !waiting.has(this.toolResources.get(resource.id)?.callId ?? ''),
+      ) ||
+      [...this.hostResources.values()].some((resource) => resource.executionLeaseId === lease.leaseId)
+    )
+      return false
+    const reservation = this.capacityReservations.get(lease.sessionId)
+    if (!reservation || reservation.runId !== lease.runId)
+      throw new HbarError('EXECUTION_OWNER_MISMATCH', 'The original execution capacity reservation is unavailable')
+    this.executionSlots.suspend(lease.runId, reservation.activity.id)
+    this.notifyCapacityReady()
+    return true
+  }
+  resumeExecutionCapacity(lease: ExecutionOwnership): boolean {
+    this.assertExecution(lease)
+    const reservation = this.capacityReservations.get(lease.sessionId)
+    if (!reservation || reservation.runId !== lease.runId)
+      throw new HbarError('EXECUTION_OWNER_MISMATCH', 'The original execution capacity reservation is unavailable')
+    const active = this.executionSlots.resume(lease.runId, reservation.activity.id).state === 'active'
+    this.notifyCapacityReady()
+    return active
+  }
+  assertExecutionCapacity(lease: ExecutionOwnership): void {
+    this.assertExecution(lease)
+    const reservation = this.capacityReservations.get(lease.sessionId)
+    if (
+      !reservation ||
+      reservation.runId !== lease.runId ||
+      this.executionSlots.get(lease.runId, reservation.activity.id)?.state !== 'active'
+    )
+      throw new HbarError(
+        'EXECUTION_CAPACITY_WAITING',
+        'The original Run must reacquire execution capacity before starting work',
+      )
+  }
+  /** A tool resource may wait only with the exact physical permit that owns this original call. */
+  bindToolResource(owner: RuntimeOwner, resourceId: string, lease: ExecutionOwnership, callId: string): void {
+    this.assertCanWrite(owner, lease)
+    const prior = this.toolResources.get(resourceId)
+    if (prior && (prior.leaseId !== lease.leaseId || prior.callId !== callId))
+      throw new HbarError('EXECUTION_OWNER_MISMATCH', 'A physical resource cannot change its original tool call')
+    const resource = this.resources.get(resourceId)
+    const permitId = this.toolKeys.get(`${lease.leaseId}:${callId}`)
+    const permit = permitId ? this.tools.get(permitId) : undefined
+    if (
+      !resource ||
+      !sameOwner(resource.owner, owner) ||
+      resource.executionLeaseId !== lease.leaseId ||
+      !permit ||
+      !sameOwner(permit.owner, owner)
+    )
+      throw new HbarError('EXECUTION_OWNER_MISMATCH', 'The original physical tool permit must own its waiting resource')
+    this.toolResources.set(resourceId, { leaseId: lease.leaseId, callId })
   }
   capacityReadyQueue(limit = 16): readonly { readonly sessionId: string; readonly runId: string }[] {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
@@ -554,6 +624,7 @@ export class RuntimeCoordinator {
   }
 
   reserveTool(lease: ExecutionOwnership, callId: string, physicalOwner: RuntimeOwner): RuntimeToolPermit {
+    this.assertExecutionCapacity(lease)
     this.assertExecution(lease)
     if (this.pendingReleases.has(lease.runId))
       throw new HbarError('EXECUTION_FINISHED', 'A finished Run cannot start another tool')
@@ -598,6 +669,7 @@ export class RuntimeCoordinator {
 
   acquireResource(owner: RuntimeOwner, key: string, execution?: ExecutionOwnership): RuntimeResourceLease | null {
     this.assertCanWrite(owner, execution)
+    if (execution) this.assertExecutionCapacity(execution)
     if (!key || key.length > 4_000) throw new HbarError('INVALID_INPUT', 'Runtime resource key is invalid')
     if (this.resourceKeys.has(key)) return null
     if (this.resources.size + this.hostResources.size >= 4_096)
@@ -625,6 +697,7 @@ export class RuntimeCoordinator {
   /** Stable Host composition only: retain a command executor on behalf of an already authenticated source Run.
    * This does not add the executor to the Run's capability bindings or grant it storage/tool authority. */
   retainSourceResource(owner: RuntimeOwner, key: string, source: ExecutionOwnership): RuntimeResourceLease {
+    this.assertExecutionCapacity(source)
     this.assertExecution(source)
     if (this.pendingReleases.has(source.runId))
       throw new HbarError('EXECUTION_FINISHED', 'A finished Run cannot admit another command executor')
@@ -637,6 +710,7 @@ export class RuntimeCoordinator {
 
   /** Stable Host only; it has no reloadable child generation. Child exit never releases this physical work. */
   retainHostSourceResource(instanceId: string, key: string, source: ExecutionOwnership): StableHostResourceLease {
+    this.assertExecutionCapacity(source)
     this.assertExecution(source)
     if (this.pendingReleases.has(source.runId))
       throw new HbarError('EXECUTION_FINISHED', 'A finished Run cannot admit another Host command')
@@ -670,6 +744,7 @@ export class RuntimeCoordinator {
     if (!sameOwner(resource.owner, owner))
       throw new HbarError('RUNTIME_RESOURCE_OWNER_MISMATCH', 'Only the resource owner may release its lease')
     this.resources.delete(resourceId)
+    this.toolResources.delete(resourceId)
     this.retainedSessions.delete(resourceId)
     this.resourceKeys.delete(resource.key)
     this.releaseSettled()

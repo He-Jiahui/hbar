@@ -181,7 +181,9 @@ export class RuntimePluginRelay {
       if (callId && execution) {
         try {
           permitId = this.options.coordinator.reserveTool(execution, callId, endpoint.owner).id
+          if (resource) this.options.coordinator.bindToolResource(endpoint.owner, resource.id, execution, callId)
         } catch (error) {
+          if (permitId) this.options.coordinator.releaseTool(endpoint.owner, permitId)
           if (resource) this.options.coordinator.releaseResource(endpoint.owner, resource.id)
           throw error
         }
