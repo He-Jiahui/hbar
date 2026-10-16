@@ -39,6 +39,7 @@
     "./desktop": "./src/desktop.ts",
     "./backend": "./src/backend.ts",
     "./autonomy": "./src/autonomy.ts",
+    "./tool-arguments": "./src/tool-arguments.ts",
     "./sandbox": "./src/sandbox.ts",
     "./commands": "./src/commands/index.ts",
     "./commands/cli-catalog": "./src/commands/cli-catalog.ts",

@@ -35,6 +35,7 @@ import type {
   WorkflowWorkItem,
 } from '@hbar/contracts'
 import type { PeerMessageReceipt } from '@hbar/contracts/commands/run'
+import { toolArgumentValue } from '@hbar/contracts/tool-arguments'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
 import {
   appendModelContext,
@@ -239,7 +240,7 @@ function workspaceAccessPaths(
   if (tool.workspaceAccess.kind === 'workspace')
     return [{ path: '.', access: tool.effect === 'read' ? 'read' : 'write' }]
   return tool.workspaceAccess.arguments.flatMap((argument) => {
-    const value = args[argument.field]
+    const value = toolArgumentValue(args, argument)
     const values = value === undefined ? ['.'] : Array.isArray(value) ? value : [value]
     return values.flatMap((entry) =>
       typeof entry === 'string' ? [{ path: relativeToolPath(workspace, entry), access: argument.access }] : [],

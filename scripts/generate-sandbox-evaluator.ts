@@ -6,6 +6,7 @@ export const SANDBOX_EVALUATOR_SOURCES = [
   'packages/sandbox/src/gate.ts',
   'packages/sandbox/src/snapshot.ts',
   'packages/contracts/src/sandbox.ts',
+  'packages/contracts/src/tool-arguments.ts',
 ] as const
 export async function sandboxEvaluatorSourceFingerprint(root: string): Promise<string> {
   const hash = createHash('sha256').update('hbar.sandbox.evaluator.v1\0')

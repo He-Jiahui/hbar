@@ -411,7 +411,16 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
       ]),
     )
     expect(admitted).toMatchObject({ kind: 'value', value: { args: { count: 99 } } })
-    const resolvedTool = { ...state.tools[0], effect: 'process', commandArgument: 'command' }
+    const nestedAccess = {
+      kind: 'paths' as const,
+      arguments: [{ field: 'input.path', fieldPath: ['input', 'path'], access: 'write' as const }],
+    }
+    const resolvedTool = {
+      ...state.tools[0],
+      effect: 'process',
+      commandArgument: 'command',
+      workspaceAccess: nestedAccess,
+    }
     const resolvedAdmission = runtimePluginResultSchema.parse(
       await port.call('invoke', [
         { operation: 'hook', name: 'tool.admitting', catalog: [resolvedTool] },
@@ -428,7 +437,7 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
     )
     expect(resolvedAdmission).toMatchObject({
       kind: 'value',
-      value: { tool: { effect: 'process', commandArgument: 'command' } },
+      value: { tool: { effect: 'process', commandArgument: 'command', workspaceAccess: nestedAccess } },
     })
     const admissionDenied = runtimePluginResultSchema.parse(
       await port.call('invoke', [

@@ -389,6 +389,17 @@ Kernel 继续通过正常选择工具、Run 权限、Plan、Workflow、策略／
 一次 Windows／Bun 1.4.0、32 次真实 Storage Worker 授权与命令规范化的本机测量，准备阶段 p95 1.37 ms、max 2.08 ms；不包含模型、受管 IPC 执行或用户等待，也不保证其他环境性能。
 文件／Git／进程、Workflow 特殊语义、系统变更和 client/platform 执行仍需后续具体准入规则。
 
+## 命令参数的嵌套路径准入
+
+路径声明可显式提供 `fieldPath`，例如 `{ field: 'input.path', fieldPath: ['input', 'path'], access: 'write' }`。
+沙箱和 Workflow 通过同一 contracts 读取函数检查最终 JSON；省略 fieldPath 时，field 仍是原有的顶层字面键，含点号也不会被重新解释。
+声明最多 16 层，每段最多 128 字符；路径数组中的每个目标分别检查。读取不跟随原型或调用 getter，缺失及非法参数继续采用原有保守范围。
+
+已绑定声明连同嵌套 fieldPath 数组一起冻结，受管插件描述和 Hook 目录保留这些字段。
+共享 sandbox evaluator fingerprint 包含读取函数与 schema 源文件，Host 和 Node 继续按指纹确认相同语义。
+本项通过 83 项相关测试、严格变更范围 lint、全仓类型检查及 Web／Host 构建；测试覆盖 Windows／POSIX 的顶层伪装、数组中单个受限路径、真实 Workflow 放行／拒绝和实际插件 IPC 元数据。
+这提供文件命令所需的准入路径表达，源文件能力工厂和具体文件执行仍待下项接入。
+
 ## 完整目标的后续交付
 
 以下仍属本次后台模式目标，不能把原生托盘入口的交付当作它们已经完成：

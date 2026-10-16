@@ -7,6 +7,7 @@ export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
 import type { OsConfinementOptions } from './execution-options'
+import type { ToolPathArgument } from '@hbar/contracts/tool-arguments'
 import type { NodeCallAuthority, nodeWorkspaceMethods } from '@hbar/contracts/node'
 export { osConfinementOptionsSchema, type OsConfinementOptions } from './execution-options'
 import type { z } from 'zod'
@@ -168,7 +169,7 @@ export type ToolWorkspaceAccess =
   | { kind: 'none' }
   | {
       kind: 'paths'
-      arguments: readonly { field: string; access: 'read' | 'write' }[]
+      arguments: readonly ToolPathArgument[]
     }
   | { kind: 'workspace' }
 export interface ToolDefinition extends ToolTimeoutPolicy {

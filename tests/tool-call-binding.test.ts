@@ -467,6 +467,69 @@ test('a resolved write timeout remains an unknown effect while a read timeout is
   }
 })
 
+test('Workflow and managed metadata inspect the immutable nested destination rather than a permitted flat decoy', async () => {
+  for (const destination of ['outside.txt', 'proof.txt']) {
+    let executions = 0
+    const f = await fixture(async (_name, args) => ({
+      admission: {
+        effect: 'write',
+        timeoutMs: 1_000,
+        workspaceAccess: {
+          kind: 'paths',
+          arguments: [{ field: 'input.path', fieldPath: ['input', 'path'], access: 'write' }],
+        },
+      },
+      arguments: { ...args, 'input.path': 'proof.txt', input: { path: destination } },
+      async execute(final, context) {
+        const parsed = z.object({ input: z.object({ path: z.string() }) }).parse(final)
+        executions++
+        await writeFile(join(context.workspace.path, parsed.input.path), context.run.id)
+        return { text: 'Nested write committed' }
+      },
+    }))
+    try {
+      await f.kernel.changePlugin('goal.codex', true, { autoContinue: false })
+      await f.kernel.plugins.get<GoalService>('goal').create(f.session.id, 'Write the scoped nested proof')
+      const plan = await f.kernel.plugins
+        .get<PlanService>('plan')
+        .update(f.session.id, [{ step: 'Proof', status: 'in_progress' }])
+      await f.kernel.plugins.get<WorkflowService>('workflow').focus(
+        f.session.id,
+        0,
+        {
+          id: 'proof',
+          title: 'Proof',
+          scope: { readPaths: ['proof.txt'], writePaths: ['proof.txt'], tools: ['bound_operation'] },
+          acceptanceChecks: [{ id: 'proof', description: 'Review proof', verifier: { kind: 'user' } }],
+        },
+        'user',
+        plan.revision,
+      )
+      f.kernel.hooks.on('tool.admitting', (event) => {
+        if (event.name !== 'bound_operation') return event
+        const access = event.tool.workspaceAccess
+        if (access?.kind !== 'paths') throw new Error('Nested path admission was lost')
+        const path = access.arguments[0]?.fieldPath
+        expect(path).toEqual(['input', 'path'])
+        expect(Object.isFrozen(path)).toBe(true)
+        if (path) expect(Reflect.set(path, '1', 'other')).toBe(false)
+        const restored = restoreRuntimeHook('tool.admitting', describeRuntimeHook('tool.admitting', event), [
+          event.tool,
+        ])
+        expect(restored.tool.workspaceAccess).toEqual(access)
+        return event
+      })
+      const { run, results } = await f.run('write')
+      expect(executions).toBe(destination === 'proof.txt' ? 1 : 0)
+      expect(await Bun.file(join(f.root, 'outside.txt')).exists()).toBe(false)
+      if (destination === 'proof.txt') expect(await readFile(join(f.root, destination), 'utf8')).toBe(run.id)
+      else expect(results.some((block) => block.isError && block.text.includes('outside'))).toBe(true)
+    } finally {
+      await f.close()
+    }
+  }
+})
+
 test('an unbound ordinary tool keeps its original validation and executor', async () => {
   const f = await fixture()
   try {

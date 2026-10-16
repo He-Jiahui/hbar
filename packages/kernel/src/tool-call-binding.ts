@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import type { Run, Session, Workspace } from '@hbar/contracts'
 import type { ToolContext, ToolDefinition, ToolResult } from '@hbar/plugin-sdk'
+import { toolPathArgumentSchema } from '@hbar/contracts/tool-arguments'
 
 /** Host composition only. Preparation is read-only, bounded and cancellable; effects belong to execute. */
 export interface ToolCallPreparationPort {
@@ -34,15 +35,7 @@ export const toolCallAdmissionSchema = z.strictObject({
     z.strictObject({ kind: z.literal('workspace') }),
     z.strictObject({
       kind: z.literal('paths'),
-      arguments: z
-        .array(
-          z.strictObject({
-            field: z.string().min(1).max(128),
-            access: z.enum(['read', 'write']),
-          }),
-        )
-        .min(1)
-        .max(64),
+      arguments: z.array(toolPathArgumentSchema).min(1).max(64),
     }),
   ]),
   requiresProcess: z.boolean().optional(),
@@ -81,7 +74,10 @@ export function bindToolCall(original: ToolDefinition, binding: ToolCallBinding)
   const execute = binding.execute
   const argumentsValue = structuredClone(args)
   if (admission.workspaceAccess.kind === 'paths') {
-    for (const argument of admission.workspaceAccess.arguments) Object.freeze(argument)
+    for (const argument of admission.workspaceAccess.arguments) {
+      if (argument.fieldPath) Object.freeze(argument.fieldPath)
+      Object.freeze(argument)
+    }
     Object.freeze(admission.workspaceAccess.arguments)
   }
   Object.freeze(admission.workspaceAccess)
