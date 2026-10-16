@@ -2,6 +2,7 @@ import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
+import type { createDelegatedUserInputStorage } from './delegated-user-input'
 import type { createAutonomyRetryStorage } from './autonomy-retries'
 import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type { AutomaticPlanExitDecision, AutomaticToolApprovalDecision } from '@hbar/contracts/autonomy'
@@ -299,6 +300,12 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
+  delegatedInputAccept: ReturnType<typeof createDelegatedUserInputStorage>['accept']
+  delegatedInputRead: ReturnType<typeof createDelegatedUserInputStorage>['read']
+  delegatedInputBind: ReturnType<typeof createDelegatedUserInputStorage>['bind']
+  delegatedInputComplete: ReturnType<typeof createDelegatedUserInputStorage>['complete']
+  delegatedInputFinish: ReturnType<typeof createDelegatedUserInputStorage>['finish']
+  delegatedInputInbox: ReturnType<typeof createDelegatedUserInputStorage>['inbox']
   decisionPage: ReturnType<typeof createDecisionStorage>['page']
   autonomyRetryPlan: ReturnType<typeof createAutonomyRetryStorage>['plan']
   decisionOperationRead: ReturnType<typeof createDecisionStorage>['operationRead']

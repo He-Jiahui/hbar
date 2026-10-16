@@ -3,6 +3,8 @@ import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import { createUserInputStateStorage } from './user-input-state'
+import { createDelegatedUserInputStorage } from './delegated-user-input'
+import { delegatedInputAcceptSchema, delegatedInputBindSchema, delegatedInputCompleteSchema, delegatedInputFinishSchema } from '@hbar/contracts/delegated-user-input'
 import { assertAutomaticPlanExit } from './automatic-plan-exit'
 import { assertAutomaticDecisionPolicy } from './automatic-decision-policy'
 import { automaticToolApprovalDecisionSchema } from '@hbar/contracts/autonomy'
@@ -644,6 +646,22 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const executionPrincipals = createExecutionPrincipalStorage(db)
     const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
     const userInputState = createUserInputStateStorage(db, appendEvent)
+    const delegatedInputs = createDelegatedUserInputStorage(db, appendEvent, {
+      question: userInputState.read,
+      run: (id) => methods.run(id),
+      principal: executionPrincipals.run,
+      available: (id) => { const session = methods.findSession(id); return session !== null && !session.archived },
+      exists: (id) => methods.findSession(id) !== null,
+      authorize: (actorId, sessionIds) => {
+        const device = methods.deviceById(actorId)
+        if (!device || device.role === 'observer') return false
+        const workspaceIds = device.workspaceIds
+        return workspaceIds == null || sessionIds.every((id) => {
+          const session = methods.findSession(id)
+          return session !== null && workspaceIds.includes(session.workspaceId)
+        })
+      },
+    })
     const decisions = createDecisionStorage(db, appendEvent)
     const autonomyRetries = createAutonomyRetryStorage(db, appendEvent, {
       run: (id) => methods.run(id),
@@ -1711,6 +1729,12 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       runExecutionPrincipal: executionPrincipals.run,
       commandExecutionAccept: commandExecutionReceipts.accept,
       userInputAccept: userInputState.accept,
+      delegatedInputAccept: delegatedInputs.accept,
+      delegatedInputRead: delegatedInputs.read,
+      delegatedInputBind: delegatedInputs.bind,
+      delegatedInputComplete: delegatedInputs.complete,
+      delegatedInputFinish: delegatedInputs.finish,
+      delegatedInputInbox: delegatedInputs.inbox,
       decisionPage: decisions.page,
       autonomyRetryPlan: autonomyRetries.plan,
       decisionOperationRead: decisions.operationRead,
@@ -4522,6 +4546,12 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       }
     }
     function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
+      if (method === 'delegatedInputComplete') return delegatedInputCompleteSchema.parse(args[0]).targetRunId
+      if (method === 'delegatedInputAccept' || method === 'delegatedInputBind' || method === 'delegatedInputFinish') {
+        const input = method === 'delegatedInputAccept' ? delegatedInputAcceptSchema.parse(args[0])
+          : method === 'delegatedInputBind' ? delegatedInputBindSchema.parse(args[0]) : delegatedInputFinishSchema.parse(args[0])
+        return userInputState.read({ sessionId: input.sessionId, requestId: input.requestId })?.request.runId
+      }
       if (method === 'userInputAccept') return userInputAcceptSchema.parse(args[0]).request.runId
       if (method === 'userInputCommit') {
         const input = userInputCommitSchema.parse(args[0])
