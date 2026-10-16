@@ -14,6 +14,12 @@ export const RUNTIME_COORDINATION_CONTROL_METHODS = [
 ] as const
 export interface RuntimeCoordinatorPortOptions {
   readonly owner: RuntimeOwner
+  /** Trusted parent dependency hold; spans final admission, bindings and durable claim publication. */
+  readonly withClaimDependencies?: <Result>(
+    sessionId: string,
+    signal: AbortSignal,
+    operation: () => Promise<Result>,
+  ) => Promise<Result>
   readonly bindings: (owner: RuntimeOwner, sessionId: string) => RuntimeVersionSet
   readonly canAdmit?: (sessionId: string) => boolean
   readonly admitted?: (execution: ExecutionOwnership) => void
@@ -33,14 +39,27 @@ export function registerRuntimeCoordinatorPort(peer: IpcPeer, coordinator: Runti
   if (JSON.stringify(owner) !== JSON.stringify(peer.remote))
     throw new HbarError('RUNTIME_OWNER_MISMATCH', 'Coordination authority must match the authenticated IPC incarnation')
   const disposers = [
-    peer.register('execution.claim', procedure(claimSchema, executionOwnershipSchema.nullable(), async input => {
-      if (coordinator.role(owner) === 'draining') return null
-      if (coordinator.role(owner) === 'default' && options.canAdmit && !options.canAdmit(input.sessionId)) return null
-      let lease: ExecutionOwnership | null
-      try { lease = await coordinator.claim(owner, input.sessionId, input.runId, options.bindings(owner, input.sessionId)) }
-      catch (error) { options.claimFailed?.(owner, input.sessionId, input.runId); throw error }
-      if (lease) options.admitted?.(lease)
-      return lease
+    peer.register('execution.claim', procedure(claimSchema, executionOwnershipSchema.nullable(), async (input, call) => {
+      const claim = async (): Promise<ExecutionOwnership | null> => {
+        // Dependency preparation may have yielded to cancellation, replacement or revocation.
+        if (options.withClaimDependencies) call.signal.throwIfAborted()
+        if (coordinator.role(owner) === 'draining') return null
+        if (options.withClaimDependencies) coordinator.assertCanWrite(owner)
+        if (coordinator.role(owner) === 'default' && options.canAdmit && !options.canAdmit(input.sessionId))
+          return null
+        let lease: ExecutionOwnership | null
+        try {
+          lease = await coordinator.claim(owner, input.sessionId, input.runId, options.bindings(owner, input.sessionId))
+        } catch (error) {
+          options.claimFailed?.(owner, input.sessionId, input.runId)
+          throw error
+        }
+        if (lease) options.admitted?.(lease)
+        return lease
+      }
+      return options.withClaimDependencies
+        ? options.withClaimDependencies(input.sessionId, call.signal, claim)
+        : claim()
     })),
     peer.register('execution.canIdle', procedure(z.strictObject({ sessionId: id }), z.boolean(), input =>
       (!options.canAdmit || options.canAdmit(input.sessionId)) && coordinator.canIdle(owner, input.sessionId))),
