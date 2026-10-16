@@ -15,17 +15,15 @@ async function mount(page: Page) {
           .find(existsSync)
       : 'bun'
   if (!executable) throw new Error('Bun is unavailable for the cache fixture')
-  bundle ??= z
-    .object({ code: z.string().min(1), css: z.string().min(1) })
-    .parse(
-      JSON.parse(
-        execFileSync(executable, ['tests/fixtures/build-input-cache.ts'], {
-          encoding: 'utf8',
-          timeout: 60_000,
-          maxBuffer: 16 * 1024 * 1024,
-        }),
-      ),
-    )
+  bundle ??= z.object({ code: z.string().min(1), css: z.string().min(1) }).parse(
+    JSON.parse(
+      execFileSync(executable, ['tests/fixtures/build-input-cache.ts'], {
+        encoding: 'utf8',
+        timeout: 60_000,
+        maxBuffer: 16 * 1024 * 1024,
+      }),
+    ),
+  )
   await page.setContent('<html><head></head><body><div id="fixture-root"></div></body></html>')
   await page.addStyleTag({ content: `${bundle.css}\n*{box-sizing:border-box}body{margin:0;font:14px system-ui}` })
   await page.addScriptTag({ content: bundle.code })
