@@ -7,6 +7,8 @@ import type { RuntimeSnapshot, RuntimeReload, RuntimeDelta, RuntimeWatchResult }
 export interface RuntimeSystemPort {
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean
+  /** Stable shallow projection. Reading this must not acquire business demand. */
+  metricsSnapshot?(): { readonly queuedRuns: number | null }
   subscribe?(listener: (delta: RuntimeDelta) => void): () => void
   watch?(cursor?: number): RuntimeWatchResult
   snapshot(): RuntimeSnapshot

@@ -166,6 +166,8 @@ export const runtimeAdmissionSchema = z.strictObject({
     queued: z.number().int().min(0).max(256),
     bufferedBytes: z.number().int().nonnegative(),
     reasonCode: z.string().min(1).max(128).nullable(),
+    /** Missing/invalidated shallow facts remain unknown, rather than triggering I/O. */
+    queuedSessionCount: z.number().int().nonnegative().nullable().optional(),
   }),
 })
 export const runtimeSnapshotSchema = z.strictObject({
