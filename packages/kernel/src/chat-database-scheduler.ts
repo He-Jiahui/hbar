@@ -13,6 +13,10 @@ import { latestDueSchedule, previewSchedule } from './schedule-service'
 import type { SettingsService } from './settings-service'
 import type { ChatDatabaseStatisticsService } from './chat-database-statistics'
 import type { ChatDatabaseMaintenanceService } from './chat-database-maintenance'
+import {
+  chatDatabaseInspectionCheckpointSchema,
+  type ChatDatabaseInspectionCheckpoint,
+} from './chat-database-inspection'
 
 const spec = (policy: ChatDatabasePolicy) => ({
   timezone: policy.timezone,
@@ -61,6 +65,9 @@ export function createChatDatabaseScheduler(
   let cursor: string | null = null
   let current: Promise<void> | null = null
   let closed = false
+  let paused = false
+  let nextDueAt: number | null = null
+  let quiescing: Promise<ChatDatabaseInspectionCheckpoint> | null = null
   async function tick(now: number): Promise<void> {
     for (let pages = 0; pages < 4 && !closed; pages++) {
       const page = await storage.call('chatDatabaseTaskScopes', cursor, 50)
@@ -161,7 +168,7 @@ export function createChatDatabaseScheduler(
     }
   }
   function check(now = clock()): Promise<void> {
-    if (closed) return Promise.resolve()
+    if (closed || paused) return Promise.resolve()
     if (current) return current
     const task = tick(now).finally(() => {
       if (current === task) current = null
@@ -170,13 +177,15 @@ export function createChatDatabaseScheduler(
     return task
   }
   function run(): void {
+    nextDueAt = clock() + 60_000
     void check().catch((reason: unknown) => {
       if (!closed) console.error('Chat database scheduler check failed', reason)
     })
   }
   let timer: ReturnType<typeof setInterval> | null = null
   function start(): void {
-    if (closed || timer) return
+    if (closed || timer || quiescing) return
+    paused = false
     timer = setInterval(run, 60_000)
     timer.unref()
     run()
@@ -209,12 +218,69 @@ export function createChatDatabaseScheduler(
     }
   }
   return {
+    inspectionCheckpoint(): ChatDatabaseInspectionCheckpoint {
+      return chatDatabaseInspectionCheckpointSchema.parse({ version: 1, cursor, nextCheckAt: nextDueAt })
+    },
+    /** Fences new checks synchronously; admitted work drains with its original identity. */
+    quiesceInspection(): Promise<ChatDatabaseInspectionCheckpoint> {
+      if (closed) return Promise.reject(new HbarError('DISPOSED', 'Scheduler is closed'))
+      if (quiescing) return quiescing
+      paused = true
+      if (timer) clearInterval(timer)
+      timer = null
+      const admitted = current
+      quiescing = Promise.resolve(admitted).then(() =>
+        chatDatabaseInspectionCheckpointSchema.parse({ version: 1, cursor, nextCheckAt: nextDueAt }),
+      )
+      return quiescing
+    },
+    /** Pure restore: deliberately does not start/run/check or call storage/settings. */
+    idleRestore(raw: ChatDatabaseInspectionCheckpoint): void {
+      if (closed || timer || current) throw new HbarError('BUSY', 'Scheduler restore requires a quiet unarmed instance')
+      const checkpoint = chatDatabaseInspectionCheckpointSchema.parse(raw)
+      if (checkpoint.nextCheckAt !== null && checkpoint.nextCheckAt > clock() + 60_000)
+        throw new HbarError('INVALID_INPUT', 'Inspection checkpoint exceeds the polling horizon')
+      paused = true
+      cursor = checkpoint.cursor
+      nextDueAt = checkpoint.nextCheckAt
+      quiescing = null
+    },
+    /** Rearm the exact inspection slot asynchronously; no immediate startup replay. */
+    armInspection(): void {
+      if (closed || timer || current || !paused || nextDueAt === null)
+        throw new HbarError('BUSY', 'Scheduler inspection cannot be armed')
+      quiescing = null
+      paused = false
+      timer = setTimeout(
+        () => {
+          timer = null
+          if (closed || paused) return
+          timer = setInterval(run, 60_000)
+          timer.unref()
+          run()
+        },
+        Math.max(0, Math.min(2_147_483_647, nextDueAt - clock())),
+      )
+      timer.unref()
+    },
+    idleSnapshot() {
+      return { closed, paused, cursor, current: current !== null, timer: timer !== null, nextDueAt }
+    },
     start,
     check,
     get,
+    async pause(): Promise<void> {
+      paused = true
+      if (timer) clearInterval(timer)
+      timer = null
+      nextDueAt = null
+      await current
+    },
     async close(): Promise<void> {
       closed = true
       if (timer) clearInterval(timer)
+      timer = null
+      nextDueAt = null
       controller.abort(new HbarError('DISPOSED', 'Chat database scheduler is closing'))
       await current?.catch(() => undefined)
     },

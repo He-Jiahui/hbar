@@ -79,6 +79,9 @@ export function createChatDatabaseArtifactReferenceService(storage: StoragePort,
   const ready = options.recover === false ? Promise.resolve() : ensure()
   void ready.catch((reason: unknown) => console.error('Attachment reference recovery failed', reason))
   return {
+    idleSnapshot() {
+      return { closed, recovering: task !== null }
+    },
     ensure,
     ready,
     async sync(input: ChatDatabaseDraftSyncInput, identity: WriteIdentity) {

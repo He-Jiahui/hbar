@@ -98,6 +98,7 @@ export function createChatDatabaseMaintenanceService(
 ) {
   let closed = false
   let current: { id: string; controller: AbortController; task: Promise<void> } | null = null
+  let queuedHandoffs = 0
   const automaticPlan = createChatDatabaseAutomaticPlanner(storage, settings, statistics, domain.protection, resources)
   async function cancelled(id: string, signal: AbortSignal): Promise<boolean> {
     signal.throwIfAborted()
@@ -490,9 +491,13 @@ export function createChatDatabaseMaintenanceService(
   function launch(state: ChatDatabaseOperation): void {
     if (closed || ['completed', 'cancelled', 'failed'].includes(state.status)) return
     if (current) {
+      queuedHandoffs++
       void current.task
         .then(async () => launch(await storage.call('chatDatabaseOperationRead', state.operationId)))
         .catch((error: unknown) => console.error('Chat database job handoff failed', error))
+        .finally(() => {
+          queuedHandoffs--
+        })
       return
     }
     const controller = new AbortController()
@@ -553,6 +558,15 @@ export function createChatDatabaseMaintenanceService(
     await cleanup(state.operationId, signal)
   }
   return {
+    idleSnapshot() {
+      return {
+        closed,
+        recovered,
+        currentOperationId: current?.id ?? null,
+        recoveryPending: recoveryTask !== undefined,
+        queuedHandoffs,
+      }
+    },
     resume,
     currentOperationId: () => current?.id ?? null,
     async automatic(

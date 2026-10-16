@@ -150,6 +150,13 @@ export function createChatDatabaseStatisticsService(
     })
   }
   return {
+    idleSnapshot() {
+      return {
+        disposed,
+        backfill: backfill !== null,
+        scans: [...scans.values()].filter((entry) => entry.task !== null).length,
+      }
+    },
     get,
     async readComplete(scope: ChatDatabaseScope, signal?: AbortSignal): Promise<ChatDatabaseStatistics> {
       await get(scope, true)
