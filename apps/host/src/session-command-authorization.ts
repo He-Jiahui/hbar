@@ -48,4 +48,18 @@ export class SessionCommandAuthorization {
     await authorization.authorize(source.device, 'command.execute', invocation)
     return source
   }
+  async projectResult(
+    sessionId: string,
+    runId: string,
+    descriptor: CommandDescriptor,
+    invocation: CommandInvocation,
+    result: unknown,
+  ): Promise<unknown> {
+    const source = await this.authorize(sessionId, runId, descriptor, invocation)
+    if (invocation.commandId !== 'workspace.list') return result
+    return (
+      (await new DeviceAuthorization(this.storage, () => descriptor).workspacePage(source.device, invocation.input)) ??
+      result
+    )
+  }
 }

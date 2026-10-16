@@ -78,13 +78,15 @@ const commandDescriptorWireSchema = z.strictObject({
 })
 export const commandDescriptorSchema = commandDescriptorWireSchema.transform((value): CommandDescriptor => value)
 
-export const commandCatalogPageSchema = z.strictObject({
-  revision: z.number().int().nonnegative().safe(),
-  items: z.array(commandDescriptorSchema).max(200),
-  nextCursor: z.string().min(1).max(128).optional(),
-}).transform(({ nextCursor, ...page }): CommandCatalogPage =>
-  nextCursor === undefined ? page : { ...page, nextCursor },
-)
+export const commandCatalogPageSchema = z
+  .strictObject({
+    revision: z.number().int().nonnegative().safe(),
+    items: z.array(commandDescriptorSchema).max(200),
+    nextCursor: z.string().min(1).max(128).optional(),
+  })
+  .transform(({ nextCursor, ...page }): CommandCatalogPage =>
+    nextCursor === undefined ? page : { ...page, nextCursor },
+  )
 
 export const commandCatalogQuerySchema = z.strictObject({
   category: z.string().min(1).max(128).optional(),
@@ -114,7 +116,10 @@ export interface CommandPreparation {
 }
 
 /** Trusted admission facts, carried separately from an invocation and its authenticated actor. */
-export const commandExecutionExpectationSchema = z.strictObject({ descriptor: commandDescriptorSchema, input: z.unknown() })
+export const commandExecutionExpectationSchema = z.strictObject({
+  descriptor: commandDescriptorSchema,
+  input: z.unknown(),
+})
 export type CommandExecutionExpectation = z.output<typeof commandExecutionExpectationSchema>
 export interface CommandPreparedOptions {
   readonly signal?: AbortSignal
@@ -122,9 +127,14 @@ export interface CommandPreparedOptions {
 /** Physical completion is distinct from an earlier logical timeout/cancellation response. */
 export const commandPhysicalSettlementSchema = z.discriminatedUnion('status', [
   z.strictObject({ status: z.literal('succeeded'), executionStarted: z.literal(true), result: z.unknown() }),
-  z.strictObject({ status: z.literal('failed'), executionStarted: z.boolean(), error: z.strictObject({
-    code: z.string().min(1).max(128), message: z.string().min(1).max(8_192),
-  }) }),
+  z.strictObject({
+    status: z.literal('failed'),
+    executionStarted: z.boolean(),
+    error: z.strictObject({
+      code: z.string().min(1).max(128),
+      message: z.string().min(1).max(8_192),
+    }),
+  }),
 ])
 export type CommandPhysicalSettlement = z.output<typeof commandPhysicalSettlementSchema>
 /** Owner-local promises. Managed owners publish named data receipts instead of serializing this object. */
@@ -133,12 +143,24 @@ export interface CommandExecutionTicket {
   readonly settled: Promise<CommandPhysicalSettlement>
   /** Managed owners retain receipts until the caller has saved them. Absent for an ordinary owner-local ticket. */
   readonly acknowledge?: () => Promise<void>
+  /** Read the exact original owner/job again after tracking stops. This must never execute the command again. */
+  readonly follow?: (options?: CommandPreparedOptions) => CommandExecutionTicket
 }
 export interface PreparedCommandRoutingPort extends CommandRoutingPort {
-  executePrepared(invocation: unknown, actorId: string, expectation: CommandExecutionExpectation, options?: CommandPreparedOptions): Promise<unknown>
+  executePrepared(
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ): Promise<unknown>
 }
 export interface TrackedCommandRoutingPort extends PreparedCommandRoutingPort {
-  executePreparedTracked(invocation: unknown, actorId: string, expectation: CommandExecutionExpectation, options?: CommandPreparedOptions): CommandExecutionTicket
+  executePreparedTracked(
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ): CommandExecutionTicket
 }
 
 export const invocationSchema = z.strictObject({

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { Database } from 'bun:sqlite'
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -14,6 +15,7 @@ import { createPathLayout } from '@hbar/storage'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
 import { hostRuntimeBuildUnits } from '../apps/host/src/runtime-build'
 import { startServer } from '../apps/host/src/server'
+import { createHostCommandResultPayloads } from '../apps/host/src/host-command-result-payloads'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 
 async function failure(action: Promise<unknown>): Promise<unknown> {
@@ -249,6 +251,96 @@ test('managed command owners bind their durable identity before dispatch and ret
       { ownerId: 'maintenance', commandId: 'chatDatabase.statistics', input: { scope: { kind: 'global' } } },
       { ownerId: 'base', commandId: 'system.paths.get', input: {} },
     ]
+    const execution = host.sessionCommandExecution
+    if (!execution) throw new Error('Managed Host has no persistent session command execution service')
+    for (const [index, testCase] of cases.entries()) {
+      const prepared = await host.commands.prepare({
+        protocol: 1,
+        commandId: testCase.commandId,
+        commandVersion: 1,
+        requestId: `persistent-source-${index}`,
+        input: testCase.input,
+      })
+      const receipt = await execution.execute({
+        source,
+        callId: `persistent-call-${index}`,
+        operationKey: `persistent-source-${index}`,
+        prepared,
+      })
+      expect(receipt.owner).toMatchObject(
+        testCase.ownerId === 'base'
+          ? { kind: 'host', instanceId: runtime.instanceId }
+          : { kind: 'runtime', owner: runtime.manager.defaultOwner(testCase.ownerId) },
+      )
+      const completed = await execution.wait(session.id, run.id, receipt.operationKey)
+      expect(completed?.physical).toMatchObject({ status: 'succeeded', executionStarted: true })
+      expect(completed?.acknowledgedAt).not.toBeNull()
+    }
+    const payloads = createHostCommandResultPayloads(runtime.kernel)
+    const largeResult = { text: '中文🎯'.repeat(1_100_000) }
+    const gaps: number[] = []
+    let previous = performance.now()
+    const sample = setInterval(() => {
+      const now = performance.now()
+      gaps.push(now - previous)
+      previous = now
+    }, 5)
+    try {
+      const manifest = await payloads.save(largeResult, {
+        sessionId: session.id,
+        actorId: operator.device.id,
+        operationKey: 'payload-proof',
+      })
+      if (manifest.kind !== 'artifacts') throw new Error('Large real Host result did not use attachment chunks')
+      expect(manifest.chunks).toHaveLength(2)
+      expect(await payloads.read(manifest)).toEqual(largeResult)
+      const chunk = manifest.chunks[0]
+      if (!chunk) throw new Error('Large result manifest has no first chunk')
+      await runtime.storage.call('chatDatabaseArtifactReserve', {
+        artifactId: chunk.id,
+        deviceId: operator.device.id,
+        ownerId: `session:${session.id}`,
+        clientRevision: 1,
+      })
+      await runtime.storage.callOwned(source, 'append', session.id, 'run.commandPayloadProof', { manifest }, run.id)
+      await payloads.release(manifest, {
+        sessionId: session.id,
+        actorId: operator.device.id,
+        operationKey: 'payload-proof',
+      })
+      const inspection = new Database(runtime.kernel.options.layout.database, { readonly: true })
+      try {
+        expect(
+          inspection
+            .query<{ ownerId: string }, [string]>(
+              "SELECT ownerId FROM chat_database_artifact_refs WHERE artifactId=? AND source='upload'",
+            )
+            .all(chunk.id),
+        ).toEqual([{ ownerId: `${operator.device.id}/session:${session.id}` }])
+        expect(
+          inspection
+            .query<{ count: number }, [string]>(
+              "SELECT COUNT(*) AS count FROM chat_database_artifact_refs WHERE artifactId=? AND source='event'",
+            )
+            .get(chunk.id)?.count,
+        ).toBeGreaterThan(0)
+      } finally {
+        inspection.close()
+      }
+    } finally {
+      clearInterval(sample)
+    }
+    const ordered = gaps.sort((left, right) => left - right)
+    console.info(
+      JSON.stringify({
+        event: 'command-result-persistence-latency',
+        bytes: 11_000_011,
+        samples: gaps.length,
+        intervalMs: 5,
+        p95GapMs: ordered[Math.min(ordered.length - 1, Math.ceil(ordered.length * 0.95) - 1)],
+        maxGapMs: ordered.at(-1),
+      }),
+    )
     for (const [index, testCase] of cases.entries()) {
       const prepared = await host.commands.prepare({
         protocol: 1,

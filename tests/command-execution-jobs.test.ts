@@ -315,6 +315,7 @@ test('oversized or non-JSON output keeps the true physical success and exposes e
     },
   })
   const values: unknown[] = [
+    undefined,
     { text: 'x'.repeat(512) },
     cyclic,
     { fn: () => {} },

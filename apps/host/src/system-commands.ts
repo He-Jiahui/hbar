@@ -8,6 +8,7 @@ export interface RuntimeSystemPort {
   readonly commandScopes?: import('./command-execution-scopes').HostCommandExecutionScopes
   readonly instanceId?: string
   retainHostCommand?(jobId: string): () => void
+  assertCommandSource?(source: import('@hbar/contracts/runtime').ExecutionOwnership): void
   attachCommandRouting?(port: import('@hbar/commands').CommandRoutingPort): () => void
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean

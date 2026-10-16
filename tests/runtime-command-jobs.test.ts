@@ -424,3 +424,38 @@ test('explicit unavailable data retains physical completion and can be acknowled
     f.dispose()
   }
 })
+
+test('following a retained job after a tracking deadline reads the original owner without repeating preparation or effects', async () => {
+  const physical = deferred<CommandPhysicalSettlement>()
+  let starts = 0,
+    preparations = 0,
+    acknowledged = 0
+  const f = fixture(() => {
+    starts++
+    return { result: Promise.resolve({ accepted: true }), settled: physical.promise }
+  })
+  try {
+    const ticket = trackRuntimeCommandJob(f.peer, identity, (signal) => f.start(identity, signal), {
+      maxTrackingMs: 20,
+      beforeStart: async () => {
+        preparations++
+      },
+      onAcknowledged: () => {
+        acknowledged++
+      },
+    })
+    expect(await ticket.result).toEqual({ accepted: true })
+    expect(await failure(ticket.settled)).toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(f.jobs.stats()).toMatchObject({ jobs: 1, active: 1 })
+    physical.resolve({ status: 'succeeded', executionStarted: true, result: { final: true } })
+    const followed = ticket.follow()
+    expect(followed.jobId).toBe(ticket.jobId)
+    expect(await followed.result).toEqual({ accepted: true })
+    expect(await followed.settled).toEqual({ status: 'succeeded', executionStarted: true, result: { final: true } })
+    await followed.acknowledge()
+    expect({ starts, preparations, acknowledged }).toEqual({ starts: 1, preparations: 1, acknowledged: 1 })
+    expect(f.jobs.stats().jobs).toBe(0)
+  } finally {
+    f.dispose()
+  }
+})

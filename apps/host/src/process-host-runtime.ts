@@ -145,6 +145,10 @@ const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${versi
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly commandScopes = new HostCommandExecutionScopes()
+  assertCommandSource(source: ExecutionOwnership): void {
+    if (this.closing) throw new HbarError('RUNTIME_STOPPED', 'The Host is closing')
+    this.coordinator.assertExecution(source)
+  }
   retainHostCommand(jobId: string): () => void {
     if (this.closing) throw new HbarError('RUNTIME_STOPPED', 'The Host is closing')
     const resource = this.commandScopes.retainHost(this.coordinator, this.instanceId, `host.command.job:${jobId}`)

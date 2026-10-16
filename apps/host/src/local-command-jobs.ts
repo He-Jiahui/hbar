@@ -16,6 +16,7 @@ export interface LocalCommandJobsOptions extends CommandExecutionJobsOptions {
   readonly scopes?: HostCommandExecutionScopes
   /** Must retain the actual stable Host lifetime against the authenticated source Run. */
   readonly retainSource?: (jobId: string) => () => void
+  readonly maxTrackingMs?: number
 }
 
 /** The stable Host uses the same bounded job protocol as child owners, without a second transport. */
@@ -52,6 +53,7 @@ export class LocalCommandJobs {
       return trackRuntimeCommandJob(this, identity, () => Promise.resolve(this.jobs.start(identity, factory)), {
         signal: options.signal,
         lifetime: this.lifetime.signal,
+        maxTrackingMs: this.options.maxTrackingMs,
         beforeStart: this.options.scopes?.beforeStart({
           kind: 'host',
           instanceId: this.instanceId,
@@ -77,6 +79,7 @@ export class LocalCommandJobs {
     return trackRuntimeCommandJob(this, identity, () => Promise.resolve(this.jobs.get(identity)), {
       signal: options.signal,
       lifetime: this.lifetime.signal,
+      maxTrackingMs: this.options.maxTrackingMs,
       onAcknowledged: () => this.release(identity.jobId),
     })
   }

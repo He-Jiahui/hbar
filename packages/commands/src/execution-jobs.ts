@@ -326,13 +326,13 @@ export class CommandExecutionJobs {
   }
   private logical(job: Job, result: CommandJobLogicalResult): void {
     if (!this.jobs.has(job.state.jobId) || job.logical !== null) return
-    job.logical = this.capture(result)
+    job.logical = this.capture(result.ok && result.result === undefined ? undefined : result)
     job.state.logical = job.logical.description
     this.changed(job)
   }
   private physical(job: Job, result: CommandPhysicalSettlement): void {
     if (!this.jobs.has(job.state.jobId) || job.physical !== null) return
-    job.physical = this.capture(result)
+    job.physical = this.capture(result.status === 'succeeded' && result.result === undefined ? undefined : result)
     job.state.physical = {
       phase: 'settled',
       status: result.status,

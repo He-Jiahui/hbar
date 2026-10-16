@@ -55,6 +55,14 @@ export function attachRuntimeCommandJobs(peer: IpcPeer, jobs: CommandExecutionJo
 export interface RuntimeCommandJobTicket extends CommandExecutionTicket {
   readonly jobId: string
   acknowledge(): Promise<void>
+  follow(options?: { readonly signal?: AbortSignal }): RuntimeCommandJobTicket
+}
+/** A validated owner header proves physical completion even when its bounded payload was explicitly unavailable. */
+export class CommandJobPayloadUnavailable extends CommandError {
+  constructor(readonly physical: Readonly<{ status: 'succeeded' | 'failed'; executionStarted: boolean }>) {
+    super('RESULT_UNKNOWN', 'The command physically settled but its complete result could not be retained')
+    Object.freeze(physical)
+  }
 }
 export interface RuntimeCommandJobTrackingOptions {
   /** Bounded persistence only; wait for accepted writes to settle, and check cancellation before starting new work. */
@@ -230,7 +238,18 @@ export function trackRuntimeCommandJob(
         } catch {
           receiptValid = receiptValid && state.physical.payload.kind === 'unavailable'
           if (state.physical.payload.kind !== 'unavailable') confirmed = false
-          settled.reject(uncertain())
+          if (state.physical.status === 'succeeded' && !state.physical.executionStarted) {
+            receiptValid = false
+            confirmed = false
+          }
+          settled.reject(
+            confirmed
+              ? new CommandJobPayloadUnavailable({
+                  status: state.physical.status,
+                  executionStarted: state.physical.executionStarted,
+                })
+              : uncertain(),
+          )
         }
       } else if (state.physical.phase === 'unconfirmed') throw uncertain()
       if (logicalKnown && physicalKnown) break
@@ -255,6 +274,17 @@ export function trackRuntimeCommandJob(
     jobId: source.jobId,
     result: result.promise,
     settled: settled.promise,
+    follow: (followOptions) =>
+      trackRuntimeCommandJob(
+        peer,
+        source,
+        (signal) => peer.call('command.jobs.get', source, commandJobSnapshotSchema, { signal, timeoutMs: 30_000 }),
+        {
+          ...options,
+          beforeStart: undefined,
+          signal: followOptions?.signal,
+        },
+      ),
     acknowledge: () => {
       if (acknowledged) return Promise.resolve()
       if (!confirmed || !physicalKnown || !logicalKnown)

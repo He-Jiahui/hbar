@@ -48,6 +48,8 @@ import { NodeSocketSurface, nodeRequestAllowed } from './node-sockets'
 import { resourceReadInputSchema } from '@hbar/contracts/commands/resources'
 import { createSystemCommands } from './system-commands.ts'
 import { LocalCommandJobs } from './local-command-jobs'
+import { createHostCommandResultPayloads } from './host-command-result-payloads'
+import { SessionCommandExecution } from './session-command-execution'
 
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
@@ -529,6 +531,17 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       }
     },
   })
+  const assertCommandSource = options.runtime?.assertCommandSource?.bind(options.runtime)
+  const sessionCommandExecution =
+    options.runtime?.commandScopes && assertCommandSource
+      ? new SessionCommandExecution({
+          storage: kernel.storage,
+          routing: commandRouter,
+          scopes: options.runtime.commandScopes,
+          payloads: createHostCommandResultPayloads(kernel),
+          assertSource: assertCommandSource,
+        })
+      : undefined
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
     if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
     clearTimeout(pending.timer)
@@ -1839,10 +1852,12 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     /** Trusted in-process adapters share the same route as authenticated RPC. */
     commands: commandRouter,
     commandJobs: localCommandJobs,
+    sessionCommandExecution,
     auth,
     pairing,
     info: hostInfo,
     async close() {
+      sessionCommandExecution?.assertCanClose()
       localCommandJobs.assertCanClose()
       closing = true
       detachCommandRouting?.()
