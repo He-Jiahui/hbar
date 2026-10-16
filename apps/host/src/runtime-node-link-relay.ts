@@ -6,6 +6,8 @@ import type { RuntimeOwner } from '@hbar/contracts/runtime'
 import type { NodeListInput } from '@hbar/contracts/node-management'
 import { procedure, type IpcPeer } from '@hbar/runtime'
 import type { NodeWireTransport, NodeObservationSource } from '@hbar/node-link'
+import type { HostRuntimeDemandPort } from './runtime-host-demand'
+import { RelayDemandRetention } from './runtime-relay-demand-retention'
 import {
   runtimeNodeOpenSchema,
   runtimeNodeFrameSchema,
@@ -25,14 +27,17 @@ interface SocketBinding {
   readonly transport: NodeWireTransport
   opening: Promise<void>
   pending: number
+  readonly demand: RelayDemandRetention
 }
 /** Stable bounded socket adapter. It cannot decode node methods, make pairing decisions or own a network peer. */
 export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
   private readonly sockets = new Map<string, SocketBinding>()
   private pending = 0
+  private readonly retained = new Map<symbol, { readonly owner: RuntimeOwner; readonly demand: RelayDemandRetention }>()
   constructor(
     private readonly options: {
       current(): RuntimeNodeLinkEndpoint
+      readonly demand: HostRuntimeDemandPort
       authorized(owner: RuntimeOwner): boolean
       state: NodeRegistryStatePort
       observations: NodeObservationSource
@@ -49,6 +54,7 @@ export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
         if (!binding || binding.endpoint.owner.incarnation !== owner.incarnation) return
         if (event.kind === 'close') {
           this.sockets.delete(event.connectionId)
+          binding.demand.releaseResource()
           binding.transport.close(event.code, event.reason)
         } else if (!this.options.authorized(owner) || !binding.transport.send(event.text))
           this.closeConnection(event.connectionId)
@@ -130,18 +136,26 @@ export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
     )
     return () => {
       for (const remove of cleanup) remove()
-      this.exited(owner)
+      // Detaching registrations is not proof that the native owner has exited.
     }
   }
   async open(connectionId: string, source: string, transport: NodeWireTransport): Promise<void> {
     if (this.sockets.has(connectionId) || this.sockets.size >= 1_000)
       throw new HbarError('NODE_BUSY', 'Stable node socket capacity reached')
-    const endpoint = this.options.current()
-    this.assert(endpoint.owner)
     const input = runtimeNodeOpenSchema.parse({ connectionId, source })
-    const binding: SocketBinding = { endpoint, transport, opening: Promise.resolve(), pending: 0 }
+    const { endpoint, demand } = await this.defaultDemand(new AbortController().signal)
+    // Capacity and connection identity must be checked again after asynchronous wake.
+    if (this.sockets.has(connectionId) || this.sockets.size >= 1_000) {
+      demand.releaseResource()
+      throw new HbarError('NODE_BUSY', 'Stable node socket capacity reached')
+    }
+    const binding: SocketBinding = { endpoint, demand, transport, opening: Promise.resolve(), pending: 0 }
     this.sockets.set(connectionId, binding)
-    binding.opening = endpoint.peer.call('nodeLink.open', input, z.undefined(), { timeoutMs: 10_000 })
+    const settled = demand.retain()
+    binding.opening = endpoint.peer.call('nodeLink.open', input, z.undefined(), {
+      timeoutMs: 10_000,
+      onDispatchSettled: settled,
+    })
     try {
       await binding.opening
     } catch (error) {
@@ -162,20 +176,23 @@ export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
     }
     binding.pending++
     this.pending++
+    let submitted = false
+    const settled = binding.demand.retain()
     try {
       await binding.opening
       this.assert(binding.endpoint.owner)
       if (this.sockets.get(connectionId) !== binding) throw new HbarError('NODE_OFFLINE', 'Node socket was superseded')
-      await binding.endpoint.peer.call(
-        'nodeLink.frame',
-        runtimeNodeFrameSchema.parse({ connectionId, text }),
-        z.undefined(),
-        { timeoutMs: 30_000 },
-      )
+      const input = runtimeNodeFrameSchema.parse({ connectionId, text })
+      submitted = true
+      await binding.endpoint.peer.call('nodeLink.frame', input, z.undefined(), {
+        timeoutMs: 30_000,
+        onDispatchSettled: settled,
+      })
     } catch (error) {
       this.closeConnection(connectionId)
       throw error
     } finally {
+      if (!submitted) settled()
       binding.pending--
       this.pending--
     }
@@ -188,13 +205,17 @@ export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
       binding.transport.close(4000, 'Node link closed; reconnect to authenticate')
     } finally {
       void binding.endpoint.peer
-        .call('nodeLink.close', runtimeNodeCloseSchema.parse({ connectionId }), z.undefined(), { timeoutMs: 5_000 })
+        .call('nodeLink.close', runtimeNodeCloseSchema.parse({ connectionId }), z.undefined(), {
+          timeoutMs: 5_000,
+          onDispatchSettled: () => binding.demand.releaseResource(),
+        })
         .catch(() => {})
     }
   }
-  exited(owner: RuntimeOwner): void {
+  /** Fence sockets on a logical fault, retaining physical pins until native join. */
+  faulted(owner: RuntimeOwner): void {
     for (const [id, binding] of this.sockets) {
-      if (binding.endpoint.owner.incarnation !== owner.incarnation) continue
+      if (!this.sameOwner(binding.endpoint.owner, owner)) continue
       this.sockets.delete(id)
       try {
         binding.transport.close(4000, 'Node link owner was replaced; authenticate again')
@@ -203,28 +224,68 @@ export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
       }
     }
   }
+  /** Exact-owner native join only; never call from a logical fault or attach dispose. */
+  exited(owner: RuntimeOwner): void {
+    this.faulted(owner)
+    for (const entry of this.retained.values()) if (this.sameOwner(entry.owner, owner)) entry.demand.joined()
+  }
+  private sameOwner(left: RuntimeOwner, right: RuntimeOwner): boolean {
+    return (
+      left.unitId === right.unitId && left.generation === right.generation && left.incarnation === right.incarnation
+    )
+  }
+  private async defaultDemand(
+    signal: AbortSignal,
+  ): Promise<{ endpoint: RuntimeNodeLinkEndpoint; demand: RelayDemandRetention }> {
+    const hold = await this.options.demand.acquire(['node-link'], signal)
+    try {
+      const endpoint = this.options.current()
+      this.assert(endpoint.owner)
+      if (!hold.owners.some((owner) => this.sameOwner(owner, endpoint.owner)))
+        throw new HbarError('RUNTIME_DEMAND_OWNER_CHANGED', 'Node default changed during demand admission')
+      const key = Symbol()
+      const demand = new RelayDemandRetention(hold, () => {
+        this.retained.delete(key)
+      })
+      this.retained.set(key, { owner: endpoint.owner, demand })
+      return { endpoint, demand }
+    } catch (error) {
+      hold.release()
+      throw error
+    }
+  }
+  private async management<Output>(
+    method: string,
+    input: unknown,
+    output: z.ZodType<Output>,
+    signal = new AbortController().signal,
+    timeoutMs?: number,
+  ): Promise<Output> {
+    const { endpoint, demand } = await this.defaultDemand(signal)
+    const settled = demand.retain()
+    demand.releaseResource()
+    return endpoint.peer.call(method, input, output, {
+      signal,
+      onDispatchSettled: settled,
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    })
+  }
   async invite(name: string) {
-    const endpoint = this.options.current()
-    this.assert(endpoint.owner)
-    return endpoint.peer.call(
+    return this.management(
       'nodeLink.invite',
       runtimeNodeManagementMethods.invite.input.parse({ name }),
       runtimeNodeManagementMethods.invite.output,
     )
   }
   async list(input: NodeListInput = {}) {
-    const endpoint = this.options.current()
-    this.assert(endpoint.owner)
-    return endpoint.peer.call(
+    return this.management(
       'nodeLink.list',
       runtimeNodeManagementMethods.list.input.parse(input),
       runtimeNodeManagementMethods.list.output,
     )
   }
   async revoke(selector: string) {
-    const endpoint = this.options.current()
-    this.assert(endpoint.owner)
-    return endpoint.peer.call(
+    return this.management(
       'nodeLink.revoke',
       runtimeNodeManagementMethods.revoke.input.parse({ selector }),
       runtimeNodeManagementMethods.revoke.output,
@@ -236,13 +297,14 @@ export class RuntimeNodeLinkRelay implements RuntimeNodeLinkPort {
     input: z.input<(typeof nodeWorkspaceMethods)[Method]['input']>,
     signal?: AbortSignal,
   ) {
-    const endpoint = this.options.current()
-    this.assert(endpoint.owner)
     const output = nodeWorkspaceMethods[method].output
-    const result: unknown = await endpoint.peer.call<unknown>('nodeLink.call', { nodeId, method, input }, output, {
-      ...(signal ? { signal } : {}),
-      timeoutMs: nodeRequestTimeoutMs(method, input) + 15_000,
-    })
+    const result: unknown = await this.management<unknown>(
+      'nodeLink.call',
+      { nodeId, method, input },
+      output,
+      signal,
+      nodeRequestTimeoutMs(method, input) + 15_000,
+    )
     // The selected node-method schema validates this associated generic output.
     return output.parse(result) as z.output<(typeof nodeWorkspaceMethods)[Method]['output']>
   }
