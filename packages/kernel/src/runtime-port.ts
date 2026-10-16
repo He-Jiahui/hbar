@@ -183,6 +183,7 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
     JSON.stringify([
       'hbar.kernel.runtime.v1',
       'owned-invocation-physical-reply.v1',
+      'kernel.application.physical-callbacks.v1',
       'kernel.directory.tracked-commands.v1',
       z.toJSONSchema(commandJobStartSchema, { unrepresentable: 'any' }),
       [commandJobSnapshotSchema, commandJobWatchSchema, commandJobReadSchema, commandJobChunkSchema].map((schema) =>

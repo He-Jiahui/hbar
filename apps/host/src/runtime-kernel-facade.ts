@@ -318,7 +318,26 @@ export class RuntimeKernelFacade {
     return true
   }
   private selected(): RuntimeKernelEndpoint {
-    return this.context.getStore() ?? this.options.current()
+    return this.sourceKernel() ?? this.context.getStore() ?? this.options.current()
+  }
+  private sourceKernel(): RuntimeKernelEndpoint | undefined {
+    const source = this.options.commandScopes?.execution()
+    if (!source) return undefined
+    this.options.coordinator.assertExecution(source)
+    const endpoint = this.options
+      .endpoints()
+      .find(
+        (value) =>
+          value.owner.unitId === source.owner.unitId &&
+          value.owner.generation === source.owner.generation &&
+          value.owner.incarnation === source.owner.incarnation,
+      )
+    if (!endpoint || !['serving', 'draining'].includes(endpoint.process.snapshot().phase))
+      throw new HbarError(
+        'COMMAND_SOURCE_KERNEL_UNAVAILABLE',
+        'The command source Kernel is unavailable; reconcile its original execution',
+      )
+    return endpoint
   }
   private idle(): boolean {
     return (
@@ -345,12 +364,22 @@ export class RuntimeKernelFacade {
     try {
       const source = this.options.commandScopes?.invokeApplication<Result>(target, method, args)
       if (source) return await source
-      const endpoint = await this.options.resolve(target, method, args, this.context.getStore())
+      const captured = this.sourceKernel()
+      const endpoint = await this.options.resolve(target, method, args, captured ?? this.context.getStore())
+      if (captured) this.sourceKernel()
       if (!['serving', 'draining'].includes(endpoint.process.snapshot().phase))
         throw new HbarError('RUNTIME_RECOVERING', 'The requested Kernel owner is recovering')
-      return await this.pin(endpoint, () =>
-        endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 }),
-      )
+      return await this.pin(endpoint, async () => {
+        const callOptions = this.options.commandScopes?.applicationOptions()
+        if (!captured) return endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 })
+        const ticket = endpoint.application.callTracked<Result>(
+          `${target}.${method}`,
+          args,
+          callOptions ?? { timeoutMs: 120_000 },
+        )
+        void ticket.result.catch(() => undefined)
+        return ticket.settled
+      })
     } catch (error) {
       const known = runtimeDomainError(error)
       if (known) throw new HbarError(known.code, known.message)

@@ -1547,6 +1547,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     record.application = new RuntimeValuePort(peer, {
       prefix: 'kernel.application',
       controlMethods: RUNTIME_APPLICATION_CONTROLS,
+      callbackSettlement: 'physical',
     })
     const assertCommandCaller = (input: { sessionId: string; runId: string }) => {
       const lease = this.leases.get(input.runId)
@@ -2170,7 +2171,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       if (!endpoint) throw new HbarError('RUNTIME_RECOVERING', 'The execution owner is recovering')
       return endpoint
     }
-    return sessionId ? this.currentKernel() : (captured ?? this.currentKernel())
+    return captured ?? this.currentKernel()
   }
   private async cancelRun(runId: string): Promise<void> {
     const result = await this.storage.call('runtimeRecoveryCancel', runId)

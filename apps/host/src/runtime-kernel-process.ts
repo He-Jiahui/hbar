@@ -119,6 +119,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const values = new RuntimeValuePort(context.peer, {
     prefix: 'kernel.application',
     controlMethods: RUNTIME_APPLICATION_CONTROLS,
+    callbackSettlement: 'physical',
   })
   const capabilities = new Set([
     'goal',

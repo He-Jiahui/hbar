@@ -21,6 +21,47 @@ import { HbarClient, createRunCommandClient } from '@hbar/client'
 const resources: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of resources.splice(0)) await cleanup() })
 const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
+
+test('the real Kernel application waits for an admitted commit callback after logical cancellation', async () => {
+  const f = await fixture()
+  const { kernel, application } = await f.make()
+  await f.activate(kernel)
+  const entered = Promise.withResolvers<void>()
+  const release = Promise.withResolvers<void>()
+  const controller = new AbortController()
+  let callbackFinished = false
+  let physicallySettled = false
+  const ticket = application.callTracked(
+    'mode.commitExit',
+    [
+      f.session.id,
+      async () => {
+        entered.resolve()
+        await release.promise
+        callbackFinished = true
+        return { modeEvent: null }
+      },
+    ],
+    { signal: controller.signal },
+  )
+  void ticket.result.catch(() => undefined)
+  const settled = outcome(ticket.settled).finally(() => {
+    physicallySettled = true
+  })
+  try {
+    await entered.promise
+    controller.abort(new Error('Cancel admitted callback'))
+    await expect(ticket.result).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    expect(callbackFinished).toBe(false)
+    expect(physicallySettled).toBe(false)
+    release.resolve()
+    expect(await settled).toMatchObject({ code: 'PLAN_EXIT_INVALID' })
+    expect(callbackFinished).toBe(true)
+  } finally {
+    release.resolve()
+    await settled
+  }
+}, 120_000)
 async function until(check: () => boolean | Promise<boolean>) {
   const deadline = Date.now() + 15_000
   while (!await check()) { if (Date.now() >= deadline) throw new Error('Isolated Kernel did not settle'); await Bun.sleep(10) }

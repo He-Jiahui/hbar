@@ -2,7 +2,13 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { commandExecutionOwnerSchema, type CommandExecutionOwner } from '@hbar/contracts/command-execution'
 import { executionOwnershipSchema, type ExecutionOwnership, type RuntimeOwner } from '@hbar/contracts/runtime'
 import { HbarError } from '@hbar/contracts'
-import type { RuntimeCoordinator, RuntimeResourceLease, StableHostResourceLease, RuntimeValuePort } from '@hbar/runtime'
+import type {
+  IpcCallOptions,
+  RuntimeCoordinator,
+  RuntimeResourceLease,
+  StableHostResourceLease,
+  RuntimeValuePort,
+} from '@hbar/runtime'
 import { RUNTIME_APPLICATION_METHODS } from '@hbar/kernel/runtime-application'
 
 export interface HostSourceApplication {
@@ -61,6 +67,20 @@ export class HostCommandExecutionScopes {
   }
   hasSource(): boolean {
     return this.context.getStore() !== undefined
+  }
+  execution(): ExecutionOwnership | undefined {
+    const source = this.context.getStore()?.source
+    return source ? executionOwnershipSchema.parse(source) : undefined
+  }
+  applicationOptions(): IpcCallOptions | undefined {
+    const application = this.context.getStore()?.application
+    if (!application) return undefined
+    application.signal.throwIfAborted()
+    return {
+      signal: application.signal,
+      timeoutMs: application.timeoutMs,
+      requestId: application.callId,
+    }
   }
   invokeApplication<Result>(target: string, method: string, args: readonly unknown[]): Promise<Result> | undefined {
     const scope = this.context.getStore()
