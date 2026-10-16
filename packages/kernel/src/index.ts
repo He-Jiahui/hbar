@@ -590,8 +590,16 @@ export class Kernel {
   private boundaryStops = new Map<string, RunControlSignal>()
   private userInputs = new Map<
     string,
-    { request: UserInputRequest; settle: (response?: UserInputResponse, error?: unknown) => Promise<boolean> }
+    {
+      request: UserInputRequest
+      settle: (
+        response?: UserInputResponse,
+        error?: unknown,
+        automatic?: z.output<typeof userInputAutomaticDecisionSchema>,
+      ) => Promise<boolean>
+    }
   >()
+  private readonly userInputAdmissions = new Set<string>()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private maintenance = false
@@ -3770,6 +3778,7 @@ export class Kernel {
     signal: AbortSignal,
   ): Promise<boolean> {
     signal.throwIfAborted()
+    if (!this.userInputs.has(request.requestId)) return false
     const stopped = this.boundaryStops.get(request.runId)
     if (stopped) throw stopped
     if (await this.storage.call('cancelRequested', request.runId))
@@ -3851,6 +3860,62 @@ export class Kernel {
       },
     })
   }
+  private async automateUserInput(
+    request: UserInputRequest,
+    policy: AutonomyPolicyResolution,
+    signal: AbortSignal,
+    settle: (
+      response?: UserInputResponse,
+      error?: unknown,
+      automatic?: z.output<typeof userInputAutomaticDecisionSchema>,
+    ) => Promise<boolean>,
+  ): Promise<void> {
+    const automatic = policy.policy.mode === 'recommended' ? recommendedInputDecision(request) : null
+    const completed =
+      automatic?.kind === 'human' && automatic.reason === 'recommendation_required'
+        ? await this.completeUserInputDecision(request, policy, signal)
+        : null
+    const response =
+      automatic?.kind === 'recommended' ? automatic.response : completed?.kind === 'model' ? completed.response : null
+    if (!this.userInputs.has(request.requestId)) return
+    if (response && (await this.inputDecisionIsCurrent(request, policy, signal))) {
+      try {
+        await settle(
+          response,
+          undefined,
+          userInputAutomaticDecisionSchema.parse({
+            version: 1,
+            source: completed?.kind === 'model' ? 'model' : 'recommended',
+            request,
+            response,
+            policy,
+            ...(completed?.kind === 'model'
+              ? {
+                  attemptIds: completed.attemptIds,
+                  modelId: this.active.get(request.sessionId)?.decisionContext?.model.id,
+                }
+              : {}),
+          }),
+        )
+        return
+      } catch (error) {
+        if (!(error instanceof HbarError) || error.code !== 'DECISION_POLICY_CHANGED') throw error
+      }
+    }
+    if (completed?.kind === 'human' || response)
+      await this.append(
+        request.sessionId,
+        'user_input.automationWaiting',
+        {
+          version: 1,
+          requestId: request.requestId,
+          policy,
+          reason: completed?.kind === 'human' ? completed.reason : 'policy_changed',
+        },
+        request.runId,
+      )
+  }
+
   async requestUserInput(raw: UserInputRequest, signal: AbortSignal): Promise<UserInputResponse> {
     signal.throwIfAborted()
     const parsed = userInputRequestSchema.parse(raw)
@@ -3862,10 +3927,6 @@ export class Kernel {
         isSecret: question.isSecret ?? false,
       })),
     })
-    await this.storage.call('session', request.sessionId)
-    const run = await this.storage.call('run', request.runId)
-    if (run.sessionId !== request.sessionId)
-      throw new HbarError('USER_INPUT_INVALID', 'User input request does not belong to the current session')
     if (
       request.questions.some(
         (question, index) => request.questions.findIndex((item) => item.id === question.id) !== index,
@@ -3883,111 +3944,125 @@ export class Kernel {
       request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1)
     )
       throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
-    const decisionPolicy = await this.permissionSettings.decisionPolicy(request.sessionId)
-    signal.throwIfAborted()
-    const stop = this.boundaryStops.get(request.runId)
-    if (stop) throw stop
-    const automatic = decisionPolicy.policy.mode === 'recommended' ? recommendedInputDecision(request) : null
-    const completed =
-      automatic?.kind === 'human' && automatic.reason === 'recommendation_required'
-        ? await this.completeUserInputDecision(request, decisionPolicy, signal)
-        : null
-    const response =
-      automatic?.kind === 'recommended' ? automatic.response : completed?.kind === 'model' ? completed.response : null
-    if (response && (await this.inputDecisionIsCurrent(request, decisionPolicy, signal))) {
-      await this.append(
-        request.sessionId,
-        'user_input.autoDecided',
-        userInputAutomaticDecisionSchema.parse({
-          version: 1,
-          source: completed?.kind === 'model' ? 'model' : 'recommended',
-          request,
-          response,
-          policy: decisionPolicy,
-          ...(completed?.kind === 'model'
-            ? {
-                attemptIds: completed.attemptIds,
-                modelId: this.active.get(request.sessionId)?.decisionContext?.model.id,
-              }
-            : {}),
-        }),
-        request.runId,
-      )
-      signal.throwIfAborted()
-      const stopped = this.boundaryStops.get(request.runId)
-      if (stopped) throw stopped
-      return response
-    }
-    if (completed?.kind === 'human')
-      await this.append(
-        request.sessionId,
-        'user_input.automationWaiting',
-        { version: 1, requestId: request.requestId, policy: decisionPolicy, reason: completed.reason },
-        request.runId,
-      )
-    if (this.userInputs.has(request.requestId))
+    if (this.userInputs.has(request.requestId) || this.userInputAdmissions.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
-    signal.throwIfAborted()
-    const boundaryStop = this.boundaryStops.get(request.runId)
-    if (boundaryStop) throw boundaryStop
-
-    let settled = false
-    let resolve!: (response: UserInputResponse) => void
-    let reject!: (error: unknown) => void
-    const outcome = new Promise<UserInputResponse>((done, fail) => {
-      resolve = done
-      reject = fail
-    })
-    const settle = this.executionScope.bind(async (response?: UserInputResponse, error?: unknown) => {
-      if (settled) return false
-      settled = true
-      this.userInputs.delete(request.requestId)
-      const data = {
-        requestId: request.requestId,
-        sessionId: request.sessionId,
-        cancelled: response === undefined,
-        ...(response === undefined ? {} : { response }),
-      }
-      try {
-        await this.append(request.sessionId, 'user_input.resolved', data, request.runId)
-      } catch (appendError) {
-        console.error('Failed to persist user input resolution:', appendError)
-      }
-      this.publish({ method: 'user_input.resolved', params: data })
-      if (response === undefined)
-        reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
-      else resolve(response)
-      return true
-    })
-    this.userInputs.set(request.requestId, { request, settle })
-    const onAbort = () => {
-      void settle(undefined, signal.reason ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
-    }
-    signal.addEventListener('abort', onAbort, { once: true })
+    if (this.userInputs.size + this.userInputAdmissions.size >= 128)
+      throw new HbarError('BUSY', 'Pending user input capacity is full')
+    this.userInputAdmissions.add(request.requestId)
     try {
-      await this.append(request.sessionId, 'user_input.requested', request, request.runId)
+      const policy = await this.permissionSettings.decisionPolicy(request.sessionId)
+      signal.throwIfAborted()
       const stop = this.boundaryStops.get(request.runId)
-      if (stop && !settled) await settle(undefined, stop)
-      if (!settled) {
-        this.publish({ method: 'user_input.requested', params: request })
-        void this.taskNotification(
-          'user_input',
-          request.sessionId,
-          request.runId,
-          '需要你的回答',
-          `${request.questions.length} 个问题正在等待处理。`,
-        ).catch((error) => console.error('Task notification failed:', error))
+      if (stop) throw stop
+      const accepted = await this.storage
+        .call('userInputAccept', { request, policy })
+        .catch(async (acceptError: unknown) => {
+          const known = await this.storage.call('userInputRead', {
+            sessionId: request.sessionId,
+            requestId: request.requestId,
+          })
+          if (!known || JSON.stringify(known.request) !== JSON.stringify(request)) throw acceptError
+          return { created: false, state: known, events: [] }
+        })
+      if (accepted.state.settlement?.kind === 'answered') {
+        signal.throwIfAborted()
+        return accepted.state.settlement.response
       }
-      if (signal.aborted) onAbort()
-      return await outcome
-    } catch (error) {
-      if (!settled) await settle(undefined, error)
-      throw error
+      if (accepted.state.settlement?.kind === 'cancelled')
+        throw new HbarError('USER_INPUT_CANCELLED', 'This question was already cancelled')
+      let settled = false
+      const outcome = Promise.withResolvers<UserInputResponse>()
+      void outcome.promise.catch(() => undefined)
+      const settle = this.executionScope.bind(
+        async (
+          response?: UserInputResponse,
+          error?: unknown,
+          automatic?: z.output<typeof userInputAutomaticDecisionSchema>,
+        ) => {
+          if (settled) return false
+          const settlement =
+            response === undefined
+              ? {
+                  kind: 'cancelled' as const,
+                  reason: error instanceof HbarError ? error.code.slice(0, 128) : 'USER_INPUT_CANCELLED',
+                }
+              : { kind: 'answered' as const, response, ...(automatic ? { automatic } : {}) }
+          const result = await this.storage
+            .call('userInputCommit', {
+              sessionId: request.sessionId,
+              requestId: request.requestId,
+              expectedRevision: accepted.state.revision,
+              settlement,
+            })
+            .catch(async (commitError: unknown) => {
+              // A lost acknowledgement can already have a winner. Read that identity once; never submit another answer.
+              const known = await this.storage.call('userInputRead', {
+                sessionId: request.sessionId,
+                requestId: request.requestId,
+              })
+              if (!known?.settlement) throw commitError
+              return {
+                accepted: JSON.stringify(known.settlement) === JSON.stringify(settlement),
+                state: known,
+                events: [],
+              }
+            })
+          if (!result.state.settlement) return false
+          if (settled) return result.accepted
+          settled = true
+          this.userInputs.delete(request.requestId)
+          for (const event of result.events) this.publishEvent(event)
+          const winner = result.state.settlement
+          const data = {
+            requestId: request.requestId,
+            sessionId: request.sessionId,
+            cancelled: winner.kind === 'cancelled',
+            ...(winner.kind === 'answered' ? { response: winner.response } : {}),
+          }
+          this.publish({ method: 'user_input.resolved', params: data })
+          if (winner.kind === 'answered') outcome.resolve(winner.response)
+          else outcome.reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+          return result.accepted
+        },
+      )
+      this.userInputs.set(request.requestId, { request, settle })
+      this.userInputAdmissions.delete(request.requestId)
+      const onAbort = () => {
+        void settle(
+          undefined,
+          signal.reason ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'),
+        ).catch((error: unknown) => outcome.reject(error))
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+      try {
+        for (const event of accepted.events) this.publishEvent(event)
+        const boundaryStop = this.boundaryStops.get(request.runId)
+        if (signal.aborted) onAbort()
+        else if (boundaryStop) await settle(undefined, boundaryStop)
+        else await this.automateUserInput(request, accepted.state.policy, signal, settle)
+        if (!settled) {
+          this.publish({ method: 'user_input.requested', params: request })
+          void this.taskNotification(
+            'user_input',
+            request.sessionId,
+            request.runId,
+            '需要你的回答',
+            `${request.questions.length} 个问题正在等待处理。`,
+          ).catch((error: unknown) => console.error('Task notification failed:', error))
+        }
+        return await outcome.promise
+      } catch (error) {
+        if (!settled) await settle(undefined, error)
+        throw error
+      } finally {
+        signal.removeEventListener('abort', onAbort)
+        this.userInputs.delete(request.requestId)
+      }
     } finally {
-      signal.removeEventListener('abort', onAbort)
-      this.userInputs.delete(request.requestId)
+      this.userInputAdmissions.delete(request.requestId)
     }
   }
+
   async resolveUserInput(requestId: string, rawAnswers: Record<string, { answers: string[] }>) {
     const entry = this.userInputs.get(requestId)
     if (!entry) return false
@@ -3995,8 +4070,7 @@ export class Kernel {
     const questionIds = new Set(entry.request.questions.map((question) => question.id))
     if (Object.keys(response.answers).some((id) => !questionIds.has(id)))
       throw new HbarError('USER_INPUT_INVALID', 'Answers contain an unknown question id')
-    await entry.settle(response)
-    return true
+    return entry.settle(response)
   }
 
   pendingUserInput(requestId: string) {

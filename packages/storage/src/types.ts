@@ -1,5 +1,6 @@
 import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/execution-principal'
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
+import type { createUserInputStateStorage } from './user-input-state'
 import type {
   Approval,
   ArtifactRef,
@@ -294,6 +295,9 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
+  userInputAccept: ReturnType<typeof createUserInputStateStorage>['accept']
+  userInputRead: ReturnType<typeof createUserInputStateStorage>['read']
+  userInputCommit: ReturnType<typeof createUserInputStateStorage>['commit']
   commandExecutionAccept: ReturnType<typeof createCommandExecutionReceiptStorage>['accept']
   commandExecutionRead: ReturnType<typeof createCommandExecutionReceiptStorage>['read']
   commandExecutionPending: ReturnType<typeof createCommandExecutionReceiptStorage>['pending']

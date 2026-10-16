@@ -7,6 +7,7 @@ import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { DecisionCompletionRequest, HarnessDriver, BudgetService } from '@hbar/plugin-sdk'
 import type { StorageMethods } from '@hbar/storage'
 import { usageRecordedDataSchema } from '@hbar/contracts/usage'
+import { userInputCommitSchema } from '@hbar/contracts/user-input-state'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 
 const question = {
@@ -185,5 +186,144 @@ test('uncertain decision usage stops the source Run before another model request
   } finally {
     f.kernel.storage.call = original
     await f.close()
+  }
+})
+
+test('a lost request acceptance acknowledgment resumes the same durable question without duplicate publication or another model decision', async () => {
+  const f = await fixture()
+  const original = f.kernel.storage.call.bind(f.kernel.storage)
+  let injected = false
+  try {
+    f.kernel.storage.call = async <Name extends keyof StorageMethods>(
+      method: Name,
+      ...args: Parameters<StorageMethods[Name]>
+    ): Promise<ReturnType<StorageMethods[Name]>> => {
+      const result = await original(method, ...args)
+      if (method === 'userInputAccept' && !injected) {
+        injected = true
+        throw new HbarError('STORAGE_RESULT_UNKNOWN', 'Injected request acknowledgment loss')
+      }
+      return result
+    }
+    const { snapshot, events } = await f.run()
+    expect(injected).toBe(true)
+    expect(f.requests).toHaveLength(1)
+    expect(events.filter((event) => event.type === 'user_input.requested')).toHaveLength(1)
+    expect(events.filter((event) => event.type === 'user_input.autoDecided')).toHaveLength(1)
+    expect(snapshot.userInputs).toHaveLength(0)
+  } finally {
+    f.kernel.storage.call = original
+    await f.close()
+  }
+})
+
+test('a human can take over during model computation and concurrent answers keep one durable winner and actual model usage', async () => {
+  const f = await fixture()
+  let requestId = ''
+  try {
+    f.setOutput(async () => {
+      const pending = (await f.kernel.snapshot(f.session.id)).userInputs[0]
+      if (!pending) throw new Error('The automatic question was not registered before model computation')
+      requestId = pending.requestId
+      const competing = await Promise.all([
+        f.kernel.resolveUserInput(requestId, { scope: { answers: ['App'] } }),
+        f.kernel.resolveUserInput(requestId, { scope: { answers: ['API'] } }),
+      ])
+      expect(competing.filter(Boolean)).toHaveLength(1)
+      return answer('API')
+    })
+    const { run, snapshot, events } = await f.run()
+    expect(snapshot.runs.find((item) => item.id === run.id)?.status).toBe('completed')
+    const result = snapshot.messages
+      .flatMap((message) => message.content)
+      .find((block) => block.type === 'tool_result' && block.name === 'request_user_input')
+    expect(result?.type === 'tool_result' ? JSON.parse(result.text) : null).toEqual({
+      answers: { scope: { answers: ['App'] } },
+    })
+    expect(f.requests).toHaveLength(1)
+    expect(events.filter((event) => event.type === 'user_input.resolved')).toHaveLength(1)
+    expect(events.some((event) => event.type === 'user_input.autoDecided')).toBe(false)
+    const decisionAttempt = events.find(
+      (event) =>
+        event.type === 'request.started' &&
+        event.data !== null &&
+        typeof event.data === 'object' &&
+        'purpose' in event.data &&
+        event.data.purpose === 'decision',
+    )?.stepId
+    expect(decisionAttempt).toBeString()
+    const usages = events
+      .filter((event) => event.type === 'usage.recorded')
+      .map((event) => usageRecordedDataSchema.parse(event.data))
+    expect(usages.filter((fact) => fact.attemptId === decisionAttempt)).toHaveLength(1)
+    expect(usages.find((fact) => fact.attemptId === decisionAttempt)).toMatchObject({ input: 70, output: 20 })
+    expect(await f.kernel.storage.call('userInputRead', { sessionId: f.session.id, requestId })).toMatchObject({
+      revision: 2,
+      settlement: { kind: 'answered', response: { answers: { scope: { answers: ['App'] } } } },
+    })
+  } finally {
+    await f.close()
+  }
+})
+
+test('manual answers do not continue after a failed durable write, while a lost acknowledgment is read from the same canonical request', async () => {
+  for (const lostAck of [false, true]) {
+    const f = await fixture()
+    const original = f.kernel.storage.call.bind(f.kernel.storage)
+    let injected = false
+    try {
+      f.kernel.storage.call = async <Name extends keyof StorageMethods>(
+        method: Name,
+        ...args: Parameters<StorageMethods[Name]>
+      ): Promise<ReturnType<StorageMethods[Name]>> => {
+        if (
+          method === 'userInputCommit' &&
+          !injected &&
+          userInputCommitSchema.safeParse(args[0]).data?.settlement.kind === 'answered'
+        ) {
+          injected = true
+          if (lostAck) await original(method, ...args)
+          throw new HbarError(
+            'STORAGE_RESULT_UNKNOWN',
+            lostAck ? 'Injected lost answer acknowledgment' : 'Injected answer write failure',
+          )
+        }
+        return original(method, ...args)
+      }
+      f.setOutput(async () => {
+        const pending = (await f.kernel.snapshot(f.session.id)).userInputs[0]
+        if (!pending) throw new Error('Expected a pending automatic question')
+        let resolved: boolean | undefined, error: unknown
+        try {
+          resolved = await f.kernel.resolveUserInput(pending.requestId, { scope: { answers: ['App'] } })
+        } catch (caught) {
+          error = caught
+        }
+        if (lostAck) expect(resolved).toBe(true)
+        else {
+          expect(error).toMatchObject({ code: 'STORAGE_RESULT_UNKNOWN' })
+          expect(f.kernel.pendingUserInput(pending.requestId)).not.toBeNull()
+          expect(
+            (await f.kernel.storage.call('userInputRead', { sessionId: f.session.id, requestId: pending.requestId }))
+              ?.settlement,
+          ).toBeNull()
+          expect(await f.kernel.resolveUserInput(pending.requestId, { scope: { answers: ['App'] } })).toBe(true)
+        }
+        return answer('API')
+      })
+      const { snapshot, events } = await f.run()
+      const result = snapshot.messages
+        .flatMap((message) => message.content)
+        .find((block) => block.type === 'tool_result' && block.name === 'request_user_input')
+      expect(result?.type === 'tool_result' ? JSON.parse(result.text) : null).toEqual({
+        answers: { scope: { answers: ['App'] } },
+      })
+      expect(injected).toBe(true)
+      expect(events.filter((event) => event.type === 'user_input.resolved')).toHaveLength(1)
+      expect(events.some((event) => event.type === 'user_input.autoDecided')).toBe(false)
+    } finally {
+      f.kernel.storage.call = original
+      await f.close()
+    }
   }
 })

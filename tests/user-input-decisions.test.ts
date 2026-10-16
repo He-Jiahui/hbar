@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { HbarError, userInputRequestSchema, userInputAutomaticDecisionSchema } from '@hbar/contracts'
 import { Kernel, MemorySecrets, SettingsService } from '@hbar/kernel'
 import { AUTONOMY_DECISION_MODE_SETTING } from '@hbar/contracts/autonomy'
+import { userInputCommitSchema } from '@hbar/contracts/user-input-state'
 import type { StorageMethods } from '@hbar/storage'
 import { recommendedInputDecision } from '../packages/kernel/src/user-input-decisions'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
@@ -152,7 +153,7 @@ test('a recommended choice is durably auditable and storage failure cannot fabri
       method: Name,
       ...args: Parameters<StorageMethods[Name]>
     ): Promise<ReturnType<StorageMethods[Name]>> => {
-      if (method === 'append' && args[1] === 'user_input.autoDecided')
+      if (method === 'userInputCommit' && userInputCommitSchema.safeParse(args[0]).data?.settlement.kind === 'answered')
         throw new HbarError('DECISION_AUDIT_FAILED', 'Injected audit write failure')
       return original(method, ...args)
     }

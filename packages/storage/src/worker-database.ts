@@ -2,6 +2,8 @@ import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
+import { createUserInputStateStorage } from './user-input-state'
+import { userInputAcceptSchema, userInputCommitSchema } from '@hbar/contracts/user-input-state'
 import { executionPrincipalSchema, sessionCreationSourceSchema } from '@hbar/contracts/execution-principal'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
@@ -636,6 +638,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const deviceStorage = createDeviceStorage(db, (id) => chatDatabaseArtifacts.unknownDevice(id, false))
     const executionPrincipals = createExecutionPrincipalStorage(db)
     const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
+    const userInputState = createUserInputStateStorage(db, appendEvent)
     const nodeRegistryStorage = createNodeRegistryStorage(db)
     const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
     const nodeExecutionIntentStorage = createNodeExecutionIntentStorage(db)
@@ -1686,6 +1689,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       sessionExecutionPrincipal: executionPrincipals.session,
       runExecutionPrincipal: executionPrincipals.run,
       commandExecutionAccept: commandExecutionReceipts.accept,
+      userInputAccept: userInputState.accept,
+      userInputRead: userInputState.read,
+      userInputCommit: userInputState.commit,
       commandExecutionRead: commandExecutionReceipts.read,
       commandExecutionPending: commandExecutionReceipts.pending,
       commandExecutionUpdate: commandExecutionReceipts.update,
@@ -4439,6 +4445,11 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       }
     }
     function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
+      if (method === 'userInputAccept') return userInputAcceptSchema.parse(args[0]).request.runId
+      if (method === 'userInputCommit') {
+        const input = userInputCommitSchema.parse(args[0])
+        return userInputState.read({ sessionId: input.sessionId, requestId: input.requestId })?.request.runId
+      }
       if (method === 'setRun') return z.string().parse(args[0])
       if (method === 'commit' || method === 'toolStart' || method === 'toolEnd') return z.string().parse(args[1])
       if (method === 'append') return args[3] === undefined ? undefined : z.string().parse(args[3])

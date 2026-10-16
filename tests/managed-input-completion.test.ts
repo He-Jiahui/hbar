@@ -136,9 +136,10 @@ test('an actual Host uses the original model for automatic decisions, records so
       const snapshot = await host.kernel.snapshot(session.id)
       if (snapshot.userInputs.length) {
         const events = await host.storage.call('events', session.id, 0, 2000)
-        throw new Error(
-          `Automatic source unexpectedly waits: ${JSON.stringify(events.filter((item) => item.type === 'user_input.automationWaiting'))}`,
-        )
+        if (events.some((item) => item.type === 'user_input.automationWaiting'))
+          throw new Error(
+            `Automatic source unexpectedly waits: ${JSON.stringify(events.filter((item) => item.type === 'user_input.automationWaiting'))}`,
+          )
       }
       return snapshot.runs.find((run) => run.id === first.id)?.status === 'completed' ? snapshot : undefined
     })
@@ -165,9 +166,12 @@ test('an actual Host uses the original model for automatic decisions, records so
       'decision-source',
     )
     pendingRunId = second.id
-    const pending = await until(async () =>
-      (await host.kernel.snapshot(session.id)).userInputs.find((item) => item.runId === second.id),
-    )
+    const pending = await until(async () => {
+      const events = await host.storage.call('events', session.id, 0, 2000)
+      if (!events.some((item) => item.runId === second.id && item.type === 'user_input.automationWaiting'))
+        return undefined
+      return (await host.kernel.snapshot(session.id)).userInputs.find((item) => item.runId === second.id)
+    })
     expect(await host.kernel.resolveUserInput(pending.requestId, { scope: { answers: ['App'] } })).toBe(true)
     await host.waitForIdle()
     pendingRunId = undefined

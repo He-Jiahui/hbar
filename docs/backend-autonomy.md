@@ -424,6 +424,23 @@ Controller 组合层按每个命令所有者的真实 describe 构建完整私�
 组合层和远程适配层现在遵守 includeInternal；普通公开目录仍排除内部命令。
 真实配对设备的文件集成改为通过网络设置隔离目标，并验证目标命令仍不出现在公开目录，随后完成源会话文件读写流程。
 
+## 持久问答与人工接管
+
+问答在任何自动补全之前登记到规范日志，每个 request ID 使用原 session／Run／call 身份和策略快照，记录容量上限 128 KiB。
+StoragePort 新增 userInputAccept／userInputRead／userInputCommit，使用已有 session/type/seq 索引读取最新状态，不增加第二份可变数据库或表。
+单写者事务通过 expectedRevision 判定答复与取消；兼容 requested、resolved 和 autoDecided 审计与规范状态在同一事务内提交。
+规范类型使用 user_input.state 前缀，沿用 fsync 的持久日志规则；Storage RPC 握手覆盖新增端口。
+
+Kernel 在自动判断期间也保留可人工接管的 pending 投影。人工与自动答复竞争时仅采用持久赢家，失去竞争的模型答案不返回给来源任务。
+已发生的模型补全等待实际结算并保留原 Run 用量；不会因为人工提前回答而丢失费用。
+答复写入失败后保持等待并向调用方返回错误；接纳或答复确认丢失时只读取同一原记录一次，不提交第二个答案或新问题。
+自动提交额外核对原策略、当前 settings layer revisions、已声明的选项、非秘密 decision 用途和模型用量证据。
+
+真实 Worker 测试覆盖手动／自动并发、取消、重开读取、索引查询计划以及事务内审计失败回滚；Kernel 测试覆盖计算期间人工接管、并发答复、写入失败后再次处理和丢失确认。
+真实受管 Host 继续验证源模型、用途跨 IPC 保留、自动判断用量和人工事实回答，普通 Run 正常完成且不创建 Goal。
+Windows／Bun 1.4.0 的 24 次真实 Worker 接纳加答复提交测量，p95 9.34 ms、max 10.43 ms；包含日志持久化，不含模型或 UI 时间，不保证其他环境性能。
+此项保留持久问答记录；跨重启重建待决投影、审批／Plan Exit、公开 decision 目录、等待 deadline 和模式三委派仍需整合。
+
 ## 完整目标的后续交付
 
 以下仍属本次后台模式目标，不能把原生托盘入口的交付当作它们已经完成：
