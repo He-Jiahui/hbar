@@ -91,6 +91,7 @@
     "test:lumen": "vitest run --config vitest.lumen.config.ts",
     "test:app-react": "vitest run --config vitest.app-react.config.ts",
     "bench": "bun scripts/benchmark.ts",
+    "verify:input-cache": "bun scripts/verify-input-cache.ts",
     "bench:workspace-query": "bun run native:build && bun scripts/benchmark-workspace-query.ts",
     "desktop": "bun scripts/desktop.ts dev",
     "desktop:dev": "bun scripts/desktop.ts dev",
