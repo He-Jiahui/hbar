@@ -280,7 +280,33 @@ Host 的命令执行服务与普通工具共享 `CommandMutationAdmission`。当
 
 现有 `unattended` 推荐逻辑只自动处理整组明确的非秘密 `decision` 问题，且每题必须有唯一推荐项。一组中任何题需要人工时，整组继续沿用用户输入流程，不填充或编造缺失的事实。自动选择在返回前持久保存 `user_input.autoDecided`，包含原请求、选择来源和回答；保存失败不返回自动答案。来源取消或停止边界同样会阻止返回。
 
-真实 Kernel 与受管 Host 验证普通推荐选择、人工选择覆盖推荐、秘密／事实／授权／旧问题、审计写入失败、来源取消及资源释放。这一步仍使用原有 `unattended` 开关；三种模式的分层设置、无推荐项时的同模型补全和目标 session 委派继续在后续范围内。
+真实 Kernel 与受管 Host 验证普通推荐选择、人工选择覆盖推荐、秘密／事实／授权／旧问题、审计写入失败、来源取消及资源释放。初始实现使用原有 `unattended` 开关，随后接入下述分层策略；无推荐项时的同模型补全和目标 session 委派仍待实施。
+
+## 分层决策策略与兼容迁移
+
+`backend.decisionMode` 在全局默认和 session 层保存互斥的 `wait_user`、`recommended`、`delegate`；
+工作区层不接受这些字段，首次默认等待用户。`backend.decisionTargetSessionId` 只在委派模式显示，
+保存时要求同一 Host 中存在且未归档的目标，并拒绝 session 自委派。这里的目录校验不代表已经获得跨工作区执行授权，
+实际委派仍须检查源、目标两端的当前权限。
+
+Kernel 的提问流程现在直接读取分层策略，模式二的唯一推荐项选择不再依赖旧内存开关；
+持久自动选择记录包含当时生效的策略、来源和 revision。会话覆盖、继承、保存冲突及幂等回执沿用现有 Settings 契约。
+普通 Run 选择完成后正常结束，不创建 Goal。没有唯一推荐项的判断、委派转发、审批和 Plan Exit 的自动处理仍属后续范围。
+
+旧 `automation.changed` 在实际 Kernel 初始化或候选激活时一次性迁入 session 设置：
+`true` 对应推荐模式，`false` 对应等待用户，已有显式 session 策略优先。
+模式与内部迁移标记使用同一 Settings CAS 提交，候选准备阶段不写入。
+新设置的保存和取消覆盖也同步保存标记，重启不会重新激活旧值。
+兼容的 `automationGet` 从有效策略投影布尔值，`automationSet` 写同一分层策略；
+Goal+Plan 接续仅清除自己的组合开关，保留当前三模式策略。
+迁移提交丢失响应时明确报告未知，后续按已保存标记核对，不用新请求重复写入。
+
+设置继续复用已有描述文件表单和 Lumen 选择器：
+结构参考 [Settings Form](https://pro.reactbits.dev/docs/app-ui/settings-form)，
+选择器和浮层沿用 [Forms](https://pro.reactbits.dev/docs/app-ui/forms) 的字段、保存和错误层级，
+没有新增定位布局、颜色或图标尺寸。
+真实浏览器验证中英文、全局与 session 覆盖、委派目标保存、刷新、320／1440 宽度及三项菜单的边界和键盘关闭。
+当前目标字段为 ID 输入，最终真实分页目标选择器仍待实现。
 
 ## 完整目标的后续交付
 
@@ -289,6 +315,6 @@ Host 的命令执行服务与普通工具共享 `CommandMutationAdmission`。当
 - `hbar serve --unattended`。
 - 所有 session 的 `hbar_command_execute`，Host/client/platform 执行路由及相同权限准入。
 - 无 UI 的有界自动调度、普通 Run 重试与修复、Goal 唯一接管、持久次数及未知副作用核对。
-- 全局默认与 session 覆盖的三种决策模式，以及决策记录、人工接管和重启恢复。
+- 三种决策模式的完整执行链，以及决策目录、人工接管和重启恢复。
 - 推荐项与模型补全；跨 workspace 的结构化委派、运行中目标引导、循环检测、过期答复拒绝及五分钟默认等待。
 - 决策和重试的会话内展示、全部工程门禁及完整端到端验收。

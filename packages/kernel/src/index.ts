@@ -947,6 +947,7 @@ export class Kernel {
       const automatic = !options.lifecycle || options.lifecycle === 'automatic'
       if (automatic) kernel.recovered = await kernel.storage.call('recover')
       await kernel.restoreAutomation()
+      if (options.lifecycle !== 'candidate') await kernel.migrateAutomation()
       kernel.registerDefaults()
       const defaultPluginIds = new Set(kernel.plugins.list().map((plugin) => plugin.id))
       const profilePlugins = options.profile?.plugins ?? []
@@ -1008,6 +1009,7 @@ export class Kernel {
     const stored = approvalModeSchema.safeParse(await this.storage.call('getSetting', 'permission.mode'))
     this.permissionModeValue = stored.success ? stored.data : 'ask'
     await this.restoreAutomation()
+    await this.migrateAutomation()
     this.preparing = false
   }
   beginDrain(): void {
@@ -1142,6 +1144,12 @@ export class Kernel {
         }
         if (page.hasMore) await Bun.sleep(0)
       }
+    }
+  }
+  private async migrateAutomation(): Promise<void> {
+    for (const [sessionId, legacy] of this.automation) {
+      await this.permissionSettings.migrateLegacyDecisionPolicy(sessionId, legacy.unattended)
+      if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel closed during settings migration')
     }
   }
   private registerDefaults() {
@@ -1607,11 +1615,13 @@ export class Kernel {
   async automationGet(sessionId: string): Promise<AutomationState> {
     await this.storage.call('session', sessionId)
     const current = this.automation.get(sessionId) ?? { unattended: false, goalEnabled: false }
-    return { sessionId, ...current }
+    const decision = await this.permissionSettings.decisionPolicy(sessionId)
+    return { sessionId, goalEnabled: current.goalEnabled, unattended: decision.policy.mode !== 'wait_user' }
   }
   async automationSet(sessionId: string, unattended?: boolean, goalEnabled?: boolean): Promise<AutomationState> {
     await this.storage.call('session', sessionId)
-    const current = this.automation.get(sessionId) ?? { unattended: false, goalEnabled: false }
+    const current = await this.automationGet(sessionId)
+    if (unattended !== undefined) await this.permissionSettings.setLegacyDecisionPolicy(sessionId, unattended)
     const next = automationStateSchema.parse({
       sessionId,
       unattended: unattended ?? current.unattended,
@@ -3773,11 +3783,11 @@ export class Kernel {
       request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1)
     )
       throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
-    const unattended = this.automation.get(request.sessionId)?.unattended ?? false
+    const decisionPolicy = await this.permissionSettings.decisionPolicy(request.sessionId)
     signal.throwIfAborted()
     const stop = this.boundaryStops.get(request.runId)
     if (stop) throw stop
-    const automatic = unattended ? recommendedInputDecision(request) : null
+    const automatic = decisionPolicy.policy.mode === 'recommended' ? recommendedInputDecision(request) : null
     if (automatic?.kind === 'recommended') {
       await this.append(
         request.sessionId,
@@ -3787,6 +3797,7 @@ export class Kernel {
           source: 'recommended',
           request,
           response: automatic.response,
+          policy: decisionPolicy,
         }),
         request.runId,
       )

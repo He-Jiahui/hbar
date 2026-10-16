@@ -91,6 +91,9 @@ function settingsChoiceLabel(locale: ShellLocale, value: unknown): string {
   if (value === 'background') return locale === 'zh-CN' ? '仅托盘后台' : 'Tray backend only'
   if (value === 'local') return locale === 'zh-CN' ? '仅本机' : 'This device only'
   if (value === 'lan') return locale === 'zh-CN' ? '允许局域网' : 'Local network'
+  if (value === 'wait_user') return locale === 'zh-CN' ? '需要输入时等待用户' : 'Wait when user input is needed'
+  if (value === 'recommended') return locale === 'zh-CN' ? '自动选择推荐项' : 'Choose recommended options'
+  if (value === 'delegate') return locale === 'zh-CN' ? '交给另一个会话抉择' : 'Delegate to another session'
   return approval[String(value)] ?? thinkingLevelLabel(locale, value)
 }
 
@@ -562,6 +565,12 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     ? {
         'i18n:settings.groups.model': '模型',
         'i18n:settings.groups.general': '通用',
+        'i18n:settings.backend.decisionMode.label': '后台交互模式',
+        'i18n:settings.backend.decisionMode.help':
+          '为后台任务选择交互方式；会话可覆盖全局默认。事实、秘密和授权仍需要人工。',
+        'i18n:settings.backend.decisionTarget.label': '决策目标会话',
+        'i18n:settings.backend.decisionTarget.help':
+          '填写同一宿主上目标会话的 ID；执行时仍按来源设备权限检查两个会话。',
         'i18n:settings.desktop.startupMode.label': '桌面启动方式',
         'i18n:settings.desktop.startupMode.help': '下次启动时打开客户端，或仅在托盘运行后台。',
         'i18n:settings.backend.webAccess.label': '网页访问范围',
@@ -598,6 +607,12 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     : {
         'i18n:settings.groups.model': 'Model',
         'i18n:settings.groups.general': 'General',
+        'i18n:settings.backend.decisionMode.label': 'Backend interaction mode',
+        'i18n:settings.backend.decisionMode.help':
+          'Choose how background tasks handle input. Sessions can override the global default. Facts, secrets and authorization still require a human.',
+        'i18n:settings.backend.decisionTarget.label': 'Decision target session',
+        'i18n:settings.backend.decisionTarget.help':
+          'Enter a session ID on this Host. Execution still checks access to both sessions using the source device.',
         'i18n:settings.desktop.startupMode.label': 'Desktop startup',
         'i18n:settings.desktop.startupMode.help': 'On the next launch, open the client or run the backend in the tray.',
         'i18n:settings.backend.webAccess.label': 'Web access',

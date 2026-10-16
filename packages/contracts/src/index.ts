@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { autonomyPolicyResolutionSchema } from './autonomy'
 export { HbarError } from './errors'
 import { runRecoverySchema, runtimeWatchInputSchema } from './runtime'
 import { toolActivitySchema } from './tool-activity'
@@ -272,6 +273,7 @@ export const userInputAutomaticDecisionSchema = z.strictObject({
   source: z.literal('recommended'),
   request: userInputRequestSchema,
   response: userInputResponseSchema,
+  policy: autonomyPolicyResolutionSchema.optional(),
 })
 /** Internal transport envelope; Codex responses themselves contain answers only. */
 export const userInputResolutionSchema = userInputResponseSchema.extend({ requestId: idSchema })

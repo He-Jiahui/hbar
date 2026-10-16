@@ -781,7 +781,7 @@ class GoalRuntime implements GoalService {
     const existing = (await this.get(event.sessionId)).goal
     if (existing) await this.set(event.sessionId, { objective: event.objective, expectedGoalId: existing.goalId })
     else await this.create(event.sessionId, event.objective)
-    await this.api.automationSet?.(event.sessionId, event.unattended, false)
+    await this.api.automationSet?.(event.sessionId, undefined, false)
     await this.api.service<ModeService>('mode').set(event.sessionId, 'default')
     await this.api.sessions.submit(
       event.sessionId,
