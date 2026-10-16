@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts/errors'
 import { runtimeDomainError } from './errors'
+import { RpcDeadline } from './rpc-deadline'
 import {
   executionOwnershipSchema,
   RUNTIME_LIMITS,
@@ -98,10 +99,13 @@ export interface IpcCallTicket<Output> {
   readonly result: Promise<Output>
   /** The original owner's reply, or an explicit transport loss; cancellation is not settlement. */
   readonly settled: Promise<Output>
+  /** The trusted composition pauses only a confirmed wait on this sent call; resources stay retained. */
+  suspendDeadline(): () => void
 }
 interface Settlement<Output> {
   resolve(value: Output): void
   reject(error: unknown): void
+  bindDeadline?(suspend: () => () => void): void
 }
 export interface IpcPeerOptions {
   readonly owner: RuntimeOwner
@@ -130,7 +134,7 @@ interface Pending {
   readonly rejectSettlement?: ((error: unknown) => void) | undefined
   readonly signal: AbortSignal | undefined
   readonly abort: () => void
-  timer: ReturnType<typeof setTimeout> | undefined
+  deadline: RpcDeadline | undefined
   started: boolean
   settled: boolean
 }
@@ -333,11 +337,18 @@ export class IpcPeer {
     options: IpcCallOptions = {},
   ): IpcCallTicket<Output> {
     const settlement = Promise.withResolvers<Output>()
-    const result = this.request<Output>(method, input, output, options, settlement)
+    let suspendDeadline: () => () => void = () => () => {}
+    const result = this.request<Output>(method, input, output, options, {
+      resolve: settlement.resolve,
+      reject: settlement.reject,
+      bindDeadline: (suspend) => {
+        suspendDeadline = suspend
+      },
+    })
     // Both observations are optional for callers; retaining one must not cause an unhandled rejection of the other.
     void result.catch(() => undefined)
     void settlement.promise.catch(() => undefined)
-    return { result, settled: settlement.promise }
+    return { result, settled: settlement.promise, suspendDeadline: () => suspendDeadline() }
   }
 
   private request<Output>(
@@ -353,6 +364,9 @@ export class IpcPeer {
     }
     if (this.failure) return refuse(this.failure)
     if (options.signal?.aborted) return refuse(new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'))
+    const deadlineMs = options.timeoutMs ?? this.timeoutMs
+    if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 2_147_483_647)
+      return refuse(new HbarError('INVALID_INPUT', 'Runtime request deadlines require a positive timer-safe integer'))
     const callId = crypto.randomUUID()
     const requestId = options.requestId ?? callId
     let message: CallMessage
@@ -400,7 +414,7 @@ export class IpcPeer {
         reject,
         rejectSettlement: settlement?.reject,
         signal: options.signal,
-        timer: undefined,
+        deadline: undefined,
         started: false,
         settled: false,
         abort: () => this.cancel(callId, new HbarError('IPC_CANCELLED', 'Runtime request was cancelled')),
@@ -408,7 +422,7 @@ export class IpcPeer {
       this.pending.set(callId, pending)
       this.queue.push(callId)
       this.queuedBytes += bytes
-      pending.timer = setTimeout(() => {
+      pending.deadline = new RpcDeadline(deadlineMs, () => {
         this.cancel(callId, new HbarError('IPC_TIMEOUT', 'Runtime request deadline exceeded; reconcile its outcome'))
         if (pending.started) {
           try {
@@ -417,7 +431,13 @@ export class IpcPeer {
             console.error('[hbar runtime] timeout observer failed')
           }
         }
-      }, options.timeoutMs ?? this.timeoutMs)
+      })
+      settlement?.bindDeadline?.(() => {
+        if (pending.settled) return () => {}
+        if (!pending.started)
+          throw new HbarError('IPC_REQUEST_NOT_STARTED', 'Only a sent request can enter a confirmed wait')
+        return pending.deadline?.suspend() ?? (() => {})
+      })
       options.signal?.addEventListener('abort', pending.abort, { once: true })
       if (options.signal?.aborted) pending.abort()
       this.drain()
@@ -527,7 +547,7 @@ export class IpcPeer {
 
   private settle(pending: Pending): void {
     pending.settled = true
-    clearTimeout(pending.timer)
+    pending.deadline?.dispose()
     pending.signal?.removeEventListener('abort', pending.abort)
   }
 

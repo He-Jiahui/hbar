@@ -170,12 +170,12 @@ export class RuntimeValuePort {
       // No new callback can start after logical completion. Already running callbacks own their captured operation.
       void result.then(release, release)
       void settled.catch(() => undefined)
-      return { result, settled }
+      return { result, settled, suspendDeadline: () => ticket.suspendDeadline() }
     } catch (error) {
       release()
       const rejected: Promise<Result> = Promise.reject(error)
       void rejected.catch(() => undefined)
-      return { result: rejected, settled: rejected }
+      return { result: rejected, settled: rejected, suspendDeadline: () => () => {} }
     }
   }
   snapshot() {
