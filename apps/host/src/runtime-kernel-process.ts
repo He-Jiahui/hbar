@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { withRuntimeHumanWait } from './runtime-human-wait-client'
 import { commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
 import { CommandExecutionJobs, commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { directoryCommands } from '@hbar/contracts/commands'
@@ -342,6 +343,8 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         canIdle: (sessionId) => domain(() => coordinator.canIdle(sessionId)),
         reserveTool: (lease, callId) => domain(() => coordinator.reserveTool(lease, callId)),
         releaseTool: (id) => domain(() => coordinator.releaseTool(id)),
+        withHumanWait: (lease, callId, decision, operation) =>
+          domain(() => withRuntimeHumanWait(context.peer, lease, callId, decision, operation)),
         withResource: (key, execution, operation, signal) =>
           domain(() =>
             coordinator.withResource(key, operation, {

@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import type { Run } from '@hbar/contracts'
+import type { ExecutionWaitDecision } from '@hbar/contracts/execution-waits'
 import type { StorageFatalListener, StorageMethods, StoragePort } from '@hbar/storage'
 
 /** Local composition ports; callbacks remain in the Kernel process, never on the IPC wire. */
@@ -12,6 +13,7 @@ export interface KernelExecutionPort {
   interrupted?(lease: ExecutionOwnership, reasonCode: string): Promise<void>
   reserveTool?(lease: ExecutionOwnership, callId: string): Promise<{ readonly id: string }>
   releaseTool?(permitId: string): Promise<void>
+  withHumanWait?<Result>(lease: ExecutionOwnership, callId: string, decision: ExecutionWaitDecision, operation: () => Promise<Result>): Promise<Result>
   withResource?<Result>(key: string, execution: ExecutionOwnership | undefined, operation: () => Promise<Result>, signal?: AbortSignal): Promise<Result>
   call<K extends keyof StorageMethods>(
     lease: ExecutionOwnership, method: K, ...args: Parameters<StorageMethods[K]>

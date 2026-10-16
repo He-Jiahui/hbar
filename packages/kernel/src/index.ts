@@ -3,6 +3,7 @@ import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execut
 import { RuntimeRecoveryService } from './runtime-recovery'
 import { planAutonomyRetry } from './autonomy-retry'
 import { backendOwnsOrdinaryCompletion } from './backend-completion'
+import type { ExecutionWaitDecision } from '@hbar/contracts/execution-waits'
 import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
@@ -3804,13 +3805,36 @@ export class Kernel {
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
-      return { ...(await outcome), approvalId: approval.id }
+      return {
+        ...(await this.withHumanWait(
+          context.run.id,
+          context.callId,
+          {
+            kind: tool === 'exit_plan_mode' ? 'plan_exit' : 'approval',
+            id: approval.id,
+            revision: 1,
+          },
+          () => outcome,
+        )),
+        approvalId: approval.id,
+      }
     } finally {
       resumeIdle?.()
       hostSignal.removeEventListener('abort', onAbort)
       this.approvals.delete(approval.id)
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'running'))
     }
+  }
+  private withHumanWait<Result>(
+    runId: string,
+    callId: string,
+    decision: ExecutionWaitDecision,
+    operation: () => Promise<Result>,
+  ): Promise<Result> {
+    const execution = this.executionScope.current
+    return execution?.runId === runId && this.options.execution?.withHumanWait
+      ? this.options.execution.withHumanWait(execution, callId, decision, operation)
+      : operation()
   }
   private async inputDecisionIsCurrent(
     request: UserInputRequest,
@@ -4100,7 +4124,18 @@ export class Kernel {
             `${request.questions.length} 个问题正在等待处理。`,
           ).catch((error: unknown) => console.error('Task notification failed:', error))
         }
-        return await outcome.promise
+        return request.isBlocking && !settled
+          ? await this.withHumanWait(
+              request.runId,
+              request.callId,
+              {
+                kind: 'questionnaire',
+                id: request.requestId,
+                revision: accepted.state.revision,
+              },
+              () => outcome.promise,
+            )
+          : await outcome.promise
       } catch (error) {
         if (!settled) await settle(undefined, error)
         throw error

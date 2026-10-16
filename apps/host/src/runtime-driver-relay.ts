@@ -14,6 +14,7 @@ import {
   runtimeDriverDecisionResultSchema,
 } from '@hbar/plugin-sdk/runtime-driver'
 import { procedure, runtimeDomainError, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
+import type { RuntimeHumanWaits } from './runtime-human-waits'
 
 export interface RuntimeDriverEndpoint { readonly peer: IpcPeer; readonly owner: RuntimeOwner; readonly version: RuntimeVersion }
 interface Invocation {
@@ -31,6 +32,7 @@ interface DecisionInvocation {
 }
 export interface RuntimeDriverRelayOptions {
   readonly coordinator: RuntimeCoordinator
+  readonly humanWaits?: Pick<RuntimeHumanWaits, 'track'>
   readonly resolve: (version?: RuntimeVersion) => RuntimeDriverEndpoint
 }
 /** The base routes plain descriptors between owners. Kernel callbacks and driver functions never leave their processes. */
@@ -127,13 +129,27 @@ export class RuntimeDriverRelay {
       return invocation
     }
     const disposers = [
-      peer.register('driver.callback', procedure(runtimeDriverCallbackSchema, z.unknown(), (input, call) => {
+      peer.register('driver.callback', procedure(runtimeDriverCallbackSchema, z.unknown(), async (input, call) => {
         const invocation = owned(input.invocationId)
         this.options.coordinator.assertCanWrite(peer.remote, invocation.execution)
-        return invocation.kernel.call('driver.callback', input, z.unknown(), { signal: call.signal,
+        const tracked = invocation.kernel.callTracked('driver.callback', input, z.unknown(), { signal: call.signal,
           timeoutMs: input.method === 'execute' ? 2_147_483_647 : input.method === 'beforeRequest' ? 120_000 : 30_000,
           ownership: invocation.execution,
         })
+        void tracked.result.catch(() => {})
+        let untrack: (() => void) | undefined
+        try {
+          if (input.method === 'execute')
+            untrack = this.options.humanWaits?.track(invocation.execution, input.callId, tracked)
+          return await tracked.settled
+        } finally {
+          // Even a failed wait registration must drain the original physical callback.
+          try {
+            await tracked.settled
+          } finally {
+            untrack?.()
+          }
+        }
       })),
       peer.onEvent('driver.stream', runtimeDriverStreamSchema, input => {
         if (!this.invocations.has(input.invocationId)) return

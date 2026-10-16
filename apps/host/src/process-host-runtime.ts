@@ -91,6 +91,7 @@ import { connectRuntimeCommandSource } from './runtime-command-source'
 import { CommandMutationAdmission, type CommandMutationState } from './command-mutation-admission'
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
+import { RuntimeHumanWaits } from './runtime-human-waits'
 import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
 import { RuntimeResourceRegistry } from './runtime-resource-registry'
 import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runtime-maintenance-relay'
@@ -257,6 +258,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private readonly stopped = new Set<string>()
   private readonly resumed = new Set<string>()
   private readonly relay: RuntimeDriverRelay
+  private readonly humanWaits: RuntimeHumanWaits
   private readonly pluginRelay: RuntimePluginRelay
   private readonly resources: RuntimeResourceRegistry
   private readonly pluginConfigs = new Map<string, Record<string, unknown>>()
@@ -335,11 +337,23 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         },
       },
     )
-    this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: (version) => this.driver(version) })
+    this.humanWaits = new RuntimeHumanWaits({
+      coordinator: this.coordinator,
+      decisions: {
+        question: (sessionId, requestId) => this.storage.call('userInputRead', { sessionId, requestId }),
+        approval: (id) => this.storage.call('approval', id),
+      },
+    })
+    this.relay = new RuntimeDriverRelay({
+      coordinator: this.coordinator,
+      humanWaits: this.humanWaits,
+      resolve: (version) => this.driver(version),
+    })
     this.resources = new RuntimeResourceRegistry(this.coordinator, this.storage)
     this.pluginRelay = new RuntimePluginRelay({
       storage: this.storage,
       coordinator: this.coordinator,
+      humanWaits: this.humanWaits,
       current: () => this.pluginEndpoints(),
       resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId),
       nodeLink: () => this.nodeLink,
@@ -1532,6 +1546,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'node-link') this.nodeLink.exited(owner)
         if (artifact.unitId === 'kernel') {
           this.relay.kernelExited(owner)
+          this.humanWaits.exited(owner)
           for (const lease of this.leases.values())
             if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId)
         }
@@ -1668,6 +1683,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     record.cleanup.push(
       this.relay.attachKernel(peer),
       this.pluginRelay.attachKernel(peer, owner),
+      this.humanWaits.attachKernel(peer, owner),
       registerRuntimeCoordinatorPort(peer, this.coordinator, {
         owner,
         bindings: (caller, sessionId) => this.bindings(caller, sessionId),
@@ -1685,7 +1701,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             this.schedule()
           }
         },
-        released: (lease) => this.handoff(lease),
+        released: (lease) => {
+          this.humanWaits.release(lease)
+          return this.handoff(lease)
+        },
         stopped: (_owner, runId) => {
           this.stopped.add(runId)
           this.schedule()

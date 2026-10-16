@@ -8,6 +8,7 @@ import type { StableStoragePort } from '@hbar/storage'
 import { runtimePluginAuthoritySchema, runtimePluginInvocationSchema } from './runtime-plugin-contract'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import { invokeRuntimeNodeExecution } from './runtime-node-execution-call'
+import type { RuntimeHumanWaits } from './runtime-human-waits'
 
 export interface RuntimePluginEndpoint {
   readonly owner: RuntimeOwner
@@ -29,6 +30,7 @@ export class RuntimePluginRelay {
     private readonly options: {
       readonly storage: StableStoragePort
       readonly coordinator: RuntimeCoordinator
+      readonly humanWaits?: Pick<RuntimeHumanWaits, 'track'>
       readonly current: () => readonly RuntimePluginEndpoint[]
       readonly resolve: (unitId: string, execution?: ExecutionOwnership, sessionId?: string) => RuntimePluginEndpoint
       readonly nodeLink?: () => RuntimeNodeLinkPort
@@ -153,11 +155,23 @@ export class RuntimePluginRelay {
         ...(workspaceScope ? { workspaceScope } : {}),
       })
       try {
-        return await endpoint.application.callTracked('invoke', [{ ...request, invocationId }, args, invokeHost], {
+        const tracked = endpoint.application.callTracked('invoke', [{ ...request, invocationId }, args, invokeHost], {
           signal,
           timeoutMs:
             request.toolTimeoutMs === undefined ? 120_000 : Math.min(1_325_000, request.toolTimeoutMs + 125_000),
-        }).settled
+        })
+        void tracked.result.catch(() => {})
+        let untrack: (() => void) | undefined
+        try {
+          if (execution && callId) untrack = this.options.humanWaits?.track(execution, callId, tracked)
+          return await tracked.settled
+        } finally {
+          try {
+            await tracked.settled
+          } finally {
+            untrack?.()
+          }
+        }
       } catch (error) {
         // Cancellation/transport failure is not physical completion. The owner's finally notification or actual exit releases its permit.
         if (
