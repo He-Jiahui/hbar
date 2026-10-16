@@ -16,6 +16,7 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'plugins',
   'events',
   'readEventPage',
+  'readSessionFacts',
   'run',
   'runByRequest',
   'snapshot',
@@ -155,7 +156,12 @@ export class StableStoragePort implements StoragePort {
   executeRpc(raw: StorageRpcCall): Promise<unknown> {
     const input = storageRpcCallSchema.parse(raw)
     // The receiving Worker validates the concrete method's arguments. This is the same boundary as Storage.executeRpc.
-    return this.admit(input.method, input.args as Parameters<StorageMethods[typeof input.method]>, input.authority, input.diagnostic)
+    return this.admit(
+      input.method,
+      input.args as Parameters<StorageMethods[typeof input.method]>,
+      input.authority,
+      input.diagnostic,
+    )
   }
   private admit<K extends keyof StorageMethods>(
     method: K,
@@ -171,7 +177,9 @@ export class StableStoragePort implements StoragePort {
     try {
       captured = structuredClone(args)
       lease = authority ? structuredClone(authority) : undefined
-      bytes = new TextEncoder().encode(JSON.stringify({ method, args: captured, authority: lease, diagnostic })).byteLength
+      bytes = new TextEncoder().encode(
+        JSON.stringify({ method, args: captured, authority: lease, diagnostic }),
+      ).byteLength
     } catch {
       return Promise.reject(new HbarError('INVALID_STORAGE_INPUT', 'Storage request must be serializable data'))
     }

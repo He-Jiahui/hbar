@@ -48,7 +48,7 @@ function reader() {
 }
 test('catalog exactly covers the current public port; adding a method cannot compile without a route', () => {
   expect(Object.keys(partitionRouteCatalog).sort()).toEqual([...STORAGE_RPC_METHODS].sort())
-  expect(Object.keys(partitionRouteCatalog)).toHaveLength(245)
+  expect(Object.keys(partitionRouteCatalog)).toHaveLength(246)
   type ExpandedMethods = StorageMethods & { deliberatelyUnrouted(): void }
   // @ts-expect-error A new public method must make the exhaustive route catalog fail compilation.
   const incomplete: { readonly [K in keyof ExpandedMethods]: PartitionRouteDefinition } = partitionRouteCatalog
@@ -77,6 +77,11 @@ test('every enabled read selects the actual signature owner without opening a da
     { id: 15, method: 'runFileChanges', args: ['session', 'run-id', undefined, 5] },
     { id: 16, method: 'runFileChangeDiff', args: ['session', 'run-id', 'src/file.ts', 0] },
     { id: 17, method: 'runFileChangeVersions', args: ['session', 'run-id'] },
+    {
+      id: 18,
+      method: 'readSessionFacts',
+      args: [{ sessionId: 'session', requestId: 'request', includeRuns: true, eventLimit: 100_000 }],
+    },
   ]
   const enabled = Object.entries(partitionRouteCatalog)
     .filter(([, value]) => value.route === 'session-read')
@@ -85,8 +90,9 @@ test('every enabled read selects the actual signature owner without opening a da
   const actualMethods: string[] = calls.map((call) => call.method).sort()
   expect(actualMethods).toEqual(enabled)
   for (const call of calls) {
-    const { context } = reader()
+    const { context, lookups } = reader()
     expect(resolvePartitionRoute(call, context)).toEqual({ status: 'resolved', session, call })
+    if (call.method === 'readSessionFacts') expect(lookups).toEqual(['session:session', 'session:session'])
   }
   const { context, lookups } = reader()
   resolvePartitionRoute({ id: 1, method: 'runtimeRecoveryChain', args: ['recoveryChain-id'] }, context)
@@ -108,6 +114,11 @@ test('unsupported and coordination routes reject before any locator access; miss
   expect(lookups).toEqual([])
   expect(resolvePartitionRoute({ id: 5, method: 'run', args: ['missing'] }, context)).toEqual({ status: 'missing' })
   expect(resolvePartitionRoute({ id: 6, method: 'session', args: ['missing'] }, context)).toEqual({ status: 'missing' })
+  expect(
+    resolvePartitionRoute({ id: 8, method: 'readSessionFacts', args: [{ sessionId: 'missing' }] }, context),
+  ).toEqual({
+    status: 'missing',
+  })
   expect(
     resolvePartitionRoute(
       { id: 7, method: 'session', args: ['session'] },
@@ -171,6 +182,20 @@ test('cross-Session Run arguments and forged authority cannot cross the locator 
       context,
     ).status,
   ).toBe('resolved')
+  const factsCall: StorageCall = {
+    id: 5,
+    method: 'readSessionFacts',
+    args: [{ sessionId: 'session', requestId: 'request', includeRuns: true, eventLimit: 100_000 }],
+    authority: { ...authority, sessionId: 'session' },
+  }
+  expect(resolvePartitionRoute(factsCall, context)).toEqual({ status: 'resolved', session, call: factsCall })
+  expect(() => resolvePartitionRoute({ ...factsCall, authority }, context)).toThrow('AUTHORITY_MISMATCH')
+  expect(() => resolvePartitionRoute(factsCall, { manifest, locators })).toThrow('AUTHORITY_MISMATCH')
+  const movedRun: PartitionLocatorReader = {
+    ...context.locators,
+    resolveEntity: () => ({ status: 'active', session: { ...session, address: foreign.address } }),
+  }
+  expect(() => resolvePartitionRoute(factsCall, { manifest, locators: movedRun })).toThrow('AUTHORITY_MISMATCH')
   const changed: PartitionLocatorReader = {
     ...context.locators,
     resolveSession: () => ({ status: 'active', session: { ...session, revision: 2 } }),

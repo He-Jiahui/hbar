@@ -469,6 +469,7 @@ export interface StorageMethods {
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
   readEventPage(input: SessionEventPageInput): SessionEventPage
+  readSessionFacts(input: import('@hbar/contracts').SessionReadFactsInput): import('@hbar/contracts').SessionReadFacts
   goalHistory(input: GoalHistoryInput): GoalHistoryPage
   usageEvents(input: UsageReadInput): UsageReadPage
   commit(
@@ -481,9 +482,14 @@ export interface StorageMethods {
   ): { message: Message; event: SessionEvent }
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
   contextHistory(input: ContextHistoryInput): ContextHistoryPage
-  sessionObservability(input: import('@hbar/contracts/session-observability').SessionObservabilityInput): import('@hbar/contracts/session-observability').SessionObservabilityReport
+  sessionObservability(
+    input: import('@hbar/contracts/session-observability').SessionObservabilityInput,
+  ): import('@hbar/contracts/session-observability').SessionObservabilityReport
   compactionStart(
-    input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'> & {
+    input: Pick<
+      ContextCompactionRecord,
+      'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'
+    > & {
       trigger: NonNullable<ContextCompactionRecord['trigger']>
     },
   ): SessionEvent
@@ -549,8 +555,18 @@ export interface StorageMethods {
   nextQueuedRun(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string, failure?: RunFailure): SessionEvent
-  runFileChanges(sessionId: string, runId: string, after?: string, limit?: number): import('@hbar/contracts/run-file-changes').RunFileChangesPage
-  runFileChangeDiff(sessionId: string, runId: string, path: string, offset: number): import('@hbar/contracts/run-file-changes').RunFileChangeDiff
+  runFileChanges(
+    sessionId: string,
+    runId: string,
+    after?: string,
+    limit?: number,
+  ): import('@hbar/contracts/run-file-changes').RunFileChangesPage
+  runFileChangeDiff(
+    sessionId: string,
+    runId: string,
+    path: string,
+    offset: number,
+  ): import('@hbar/contracts/run-file-changes').RunFileChangeDiff
   runFileChangeVersions(sessionId: string, runId: string): import('./run-file-changes').RunFileChangeVersion[]
   undoRunFileChanges(sessionId: string, runId: string): SessionEvent
   reorderQueued(sessionId: string, runIds: string[]): SessionEvent[]
@@ -616,11 +632,19 @@ export interface StorageMethods {
   deviceByHash(hash: string): Device | null
   devices(): Device[]
   revokeDevice(id: string): void
-  nodeIdentityEnsure(identity: import('@hbar/contracts/node-registry').NodeRegistryInput<'identity.ensure'>): import('@hbar/contracts/node-registry').NodeRegistryOutput<'identity.ensure'>
+  nodeIdentityEnsure(
+    identity: import('@hbar/contracts/node-registry').NodeRegistryInput<'identity.ensure'>,
+  ): import('@hbar/contracts/node-registry').NodeRegistryOutput<'identity.ensure'>
   nodes(): import('@hbar/contracts/node-registry').RegisteredNode[]
   node(nodeId: string): import('@hbar/contracts/node-registry').RegisteredNode | null
-  nodeRegister(node: import('@hbar/contracts/node-registry').NodeRegistryInput<'node.register'>): import('@hbar/contracts/node-registry').RegisteredNode
-  nodeTouch(nodeId: string, time: number, capabilities: import('@hbar/contracts/node').NodeCapabilities): import('@hbar/contracts/node-registry').RegisteredNode | null
+  nodeRegister(
+    node: import('@hbar/contracts/node-registry').NodeRegistryInput<'node.register'>,
+  ): import('@hbar/contracts/node-registry').RegisteredNode
+  nodeTouch(
+    nodeId: string,
+    time: number,
+    capabilities: import('@hbar/contracts/node').NodeCapabilities,
+  ): import('@hbar/contracts/node-registry').RegisteredNode | null
   nodeRevoke(nodeId: string, time: number): import('@hbar/contracts/node-registry').RegisteredNode | null
   setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string, projectId?: string): void
   setPlugins(

@@ -62,7 +62,14 @@ import { MAX_PLAN_STEPS, planStepSchema } from './plan'
 import type { PlanState } from './plan'
 export * from './state/directory'
 export * from './node-address'
-export { deviceSchema, deviceAccessSchema, deviceRoleSchema, type Device, type DeviceRole, type DeviceAccess } from './device'
+export {
+  deviceSchema,
+  deviceAccessSchema,
+  deviceRoleSchema,
+  type Device,
+  type DeviceRole,
+  type DeviceAccess,
+} from './device'
 export {
   assertLocalExecutionAllowed,
   createLocalExecutionPolicy,
@@ -636,6 +643,47 @@ export const runSchema = z.object({
   fileChanges: runFileChangesSummarySchema.optional(),
 })
 export type Run = z.infer<typeof runSchema>
+/** Bounded read facts for status/configuration consumers; never includes admitted text or attachments. */
+export const sessionRunFactSchema = runSchema
+  .pick({
+    id: true,
+    sessionId: true,
+    requestId: true,
+    modelId: true,
+    status: true,
+    createdAt: true,
+    startedAt: true,
+    endedAt: true,
+    error: true,
+  })
+  .extend({
+    error: z.string().max(4_001).nullable(),
+    input: inputSchema.pick({ thinking: true, approval: true, sandbox: true }),
+  })
+export type SessionRunFact = z.infer<typeof sessionRunFactSchema>
+export const sessionReadFactsInputSchema = z.strictObject({
+  sessionId: idSchema,
+  requestId: idSchema.optional(),
+  includeRuns: z.boolean().default(true),
+  /** The horizon of the first N persisted events, before filtering by event type. */
+  eventLimit: z.number().int().min(1).max(100_000).default(100_000),
+})
+export type SessionReadFactsInput = z.input<typeof sessionReadFactsInputSchema>
+export const sessionReadFactsSchema = z
+  .strictObject({
+    sessionId: idSchema,
+    cursor: z.number().int().nonnegative(),
+    eventThroughSeq: z.number().int().nonnegative(),
+    /** Same newest-first 40-Run window as the ordinary Session snapshot. */
+    runs: z.array(sessionRunFactSchema).max(40),
+    /** Text from the selected request within the ordinary latest-60-message window, joined then sliced. */
+    resultSummary: z.string().max(4_000),
+  })
+  .superRefine((facts, context) => {
+    if (facts.eventThroughSeq > facts.cursor || facts.runs.some((run) => run.sessionId !== facts.sessionId))
+      context.addIssue({ code: 'custom', message: 'Session read facts have an inconsistent identity or horizon' })
+  })
+export type SessionReadFacts = z.infer<typeof sessionReadFactsSchema>
 export interface Message {
   id: string
   sessionId: string
@@ -1311,7 +1359,10 @@ export type WireNotification =
   | { method: 'tool.output'; params: import('./tool-execution').ToolOutputNotification }
   | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
-  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number | undefined } }
+  | {
+      method: 'goal.updated'
+      params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number | undefined }
+    }
   | { method: 'goal.cleared'; params: { sessionId: string; seq?: number | undefined } }
   | { method: 'plan.updated'; params: PlanState & { seq?: number | undefined } }
   | { method: 'plan.cleared'; params: { sessionId: string; seq?: number | undefined } }
@@ -1452,17 +1503,27 @@ export const rpcSchemas = {
     targetId: idSchema.optional(),
     id: idSchema,
     value: z.unknown(),
-    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+    expectedRevision: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/i)
+      .optional(),
   }),
   'settings.reset': z.object({
     scope: settingScopeSchema,
     targetId: idSchema.optional(),
     id: idSchema,
-    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+    expectedRevision: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/i)
+      .optional(),
   }),
   'settings.search': z.object({ query: z.string().trim().max(200) }),
   'automation.get': z.object({ sessionId: idSchema }),
-  'automation.set': z.object({ sessionId: idSchema, unattended: z.boolean().optional(), goalEnabled: z.boolean().optional() }),
+  'automation.set': z.object({
+    sessionId: idSchema,
+    unattended: z.boolean().optional(),
+    goalEnabled: z.boolean().optional(),
+  }),
   'goal.get': z.object({ sessionId: idSchema }),
   'goal.create': z.object({
     sessionId: idSchema,
@@ -1627,7 +1688,10 @@ export const rpcSchemas = {
     appId: z.string().max(1_000).optional(),
   }),
   'computer.launch': z.object({ sessionId: idSchema, appId: z.string().min(1).max(1_000) }),
-  'workspace.create': z.object({ path: z.string().min(1).max(4000), name: z.string().trim().min(1).max(160).optional() }),
+  'workspace.create': z.object({
+    path: z.string().min(1).max(4000),
+    name: z.string().trim().min(1).max(160).optional(),
+  }),
   'session.create': z.object({ workspaceId: idSchema, title: z.string().max(160).optional() }),
   'session.move': z.object({ sessionId: idSchema, workspaceId: idSchema }),
   'session.summaries': z.object({ sessionIds: z.array(idSchema).max(200) }),
@@ -1658,7 +1722,12 @@ export const rpcSchemas = {
   'context.compact': z.object({ sessionId: idSchema, modelId: idSchema }),
   'provider.save': z.object({ provider: providerSchema, apiKey: z.string().max(8192).optional() }),
   'provider.delete': z.object({ id: idSchema }),
-  'plugin.set': z.object({ id: idSchema, enabled: z.boolean(), config: z.record(z.string(), z.unknown()).optional(), projectId: idSchema.optional() }),
+  'plugin.set': z.object({
+    id: idSchema,
+    enabled: z.boolean(),
+    config: z.record(z.string(), z.unknown()).optional(),
+    projectId: idSchema.optional(),
+  }),
   'plugin.install': z.object({ path: z.string().min(1).max(4000), projectId: idSchema.optional() }),
   'plugin.scan': z.object({}),
   'plugin.remove': z.object({ id: idSchema, projectId: idSchema.optional() }),
@@ -1677,7 +1746,10 @@ export const rpcSchemas = {
     workspaceId: idSchema,
     path: z.string().min(1).max(4000),
     text: z.string().max(2 * 1024 * 1024),
-    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+    expectedRevision: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/i)
+      .optional(),
   }),
   'file.list': z.object({ workspaceId: idSchema, path: z.string().max(4000).default('.') }),
 } satisfies Record<string, z.ZodType>

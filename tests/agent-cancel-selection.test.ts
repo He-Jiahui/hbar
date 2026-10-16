@@ -12,7 +12,7 @@ test('cancel selects one direct child before full records among thirty real sibl
   const target = resolve(root)
   if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-agent-cancel-selection-'))
     throw new Error('Refusing to remove an unowned Agent cancellation fixture directory')
-  const snapshots: string[] = []
+  const hydrations: string[] = []
   const fullEvents: string[] = []
   const cancelled: string[] = []
   const observedAgent = definePlugin({
@@ -21,13 +21,20 @@ test('cancel selects one direct child before full records among thirty real sibl
       const api = ctx.hbar.api
       const sessions: SessionService = {
         ...api.sessions,
-        snapshot: (id) => {
-          snapshots.push(id)
-          return api.sessions.snapshot(id)
+        readFacts: (input) => {
+          if (input.includeRuns !== false) hydrations.push(input.sessionId)
+          if (!api.sessions.readFacts) throw new Error('Missing bounded Session facts')
+          return api.sessions.readFacts(input)
         },
-        events: (id, after, limit) => {
-          if (limit === 100_000) fullEvents.push(id)
-          return api.sessions.events(id, after, limit)
+        snapshot: () => {
+          throw new Error('Agent reads must not hydrate a full snapshot')
+        },
+        events: () => {
+          throw new Error('Agent reads must not hydrate raw event history')
+        },
+        readEventPage: (input) => {
+          if (!input.types.includes('agent.created')) fullEvents.push(input.sessionId)
+          return api.sessions.readEventPage(input)
         },
         cancel: (id) => {
           cancelled.push(id)
@@ -82,16 +89,16 @@ test('cancel selects one direct child before full records among thirty real sibl
     if (!target) throw new Error('Missing target')
     const descendant = await seed(target.child.id, 'descendant')
     const leaf = await seed(descendant.child.id, 'leaf')
-    snapshots.length = 0
+    hydrations.length = 0
     fullEvents.length = 0
     const agent = kernel.plugins.get<AgentService>('agent')
     const result = await agent.cancel(parent.id, target.child.id)
     expect(result.agentId).toBe(target.child.id)
     expect(cancelled).toEqual([leaf.run.id, descendant.run.id, target.run.id])
     const unrelated = new Set(siblings.slice(1).map((entry) => entry.child.id))
-    expect(snapshots.filter((id) => unrelated.has(id))).toEqual([])
+    expect(hydrations.filter((id) => unrelated.has(id))).toEqual([])
     expect(fullEvents.filter((id) => unrelated.has(id))).toEqual([])
-    snapshots.length = 0
+    hydrations.length = 0
     fullEvents.length = 0
     let refused: unknown
     try {
@@ -100,7 +107,7 @@ test('cancel selects one direct child before full records among thirty real sibl
       refused = error
     }
     expect(refused).toMatchObject({ code: 'AGENT_NOT_FOUND' })
-    expect(snapshots).toEqual([])
+    expect(hydrations).toEqual([])
     expect(fullEvents).toEqual([])
     const parentEvents = await kernel.storage.call('events', parent.id, 0, 100)
     expect(parentEvents.some((event) => event.type === 'agent.cancelRequested')).toBe(true)

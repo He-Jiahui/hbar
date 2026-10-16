@@ -726,7 +726,7 @@ export class Kernel {
           agentConfiguration: createAgentSessionConfiguration({
             settings: this.permissionSettings,
             model: (id) => this.plugins.get<ModelRegistry>('models').get(id),
-            runs: async (id) => (await this.snapshot(id)).runs,
+            runs: async (id) => (await this.storage.call('readSessionFacts', { sessionId: id })).runs,
             permission: (sessionId) => this.sessionPermissionMode(sessionId),
           }),
           get: (id) => this.storage.call('session', id),
@@ -737,6 +737,7 @@ export class Kernel {
           children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
           readEventPage: (input) => this.storage.call('readEventPage', input),
+          readFacts: (input) => this.storage.call('readSessionFacts', input),
           create: (id, title, parentId) => this.createSession(id, title, parentId),
           submit: (...args) => this.submit(...args),
           wake: (id) => this.kick(id),

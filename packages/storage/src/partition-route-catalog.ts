@@ -150,6 +150,7 @@ export const partitionRouteCatalog = {
   queuedSessions: { route: 'unsupported' },
   queuedUserRuns: { route: 'unsupported' },
   readEventPage: { route: 'session-read' },
+  readSessionFacts: { route: 'session-read' },
   readRunSteering: { route: 'unsupported' },
   ready: { route: 'lifecycle-reserved' },
   recentSessions: { route: 'unsupported' },

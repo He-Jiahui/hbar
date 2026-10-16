@@ -8,7 +8,7 @@ import {
 import { sandboxProfileIdSchema } from '@hbar/contracts/sandbox'
 import { encodePath } from '@hbar/schema-core'
 import type { SessionService } from '@hbar/plugin-sdk'
-import type { Run, ApprovalMode } from '@hbar/contracts'
+import type { Run, SessionRunFact, ApprovalMode } from '@hbar/contracts'
 import type { ModelRegistry } from '@hbar/plugin-sdk'
 import { SettingsService, HBAR_SETTINGS_SCHEMA_VERSION, type SettingsSnapshot } from './settings-service'
 
@@ -35,7 +35,7 @@ function policySnapshot(
 export function createAgentSessionConfiguration(options: {
   readonly settings: SettingsService
   readonly model: ModelRegistry['get']
-  readonly runs: (sessionId: string) => Promise<readonly Run[]>
+  readonly runs: (sessionId: string) => Promise<readonly SessionRunFact[]>
   readonly permission: (sessionId: string) => ApprovalMode | Promise<ApprovalMode>
 }): NonNullable<SessionService['agentConfiguration']> {
   return {
@@ -81,7 +81,8 @@ export function createAgentSessionConfiguration(options: {
       const modelValue = value('provider.model')
       let modelId = typeof modelValue === 'string' ? modelValue : null
       let thinkingLevel = thinkingLevelSchema.nullable().parse(value('provider.thinkingLevel'))
-      let approval = approvalModeSchema.nullable().parse(value('session.approval')) ?? await options.permission(sessionId)
+      let approval =
+        approvalModeSchema.nullable().parse(value('session.approval')) ?? (await options.permission(sessionId))
       let sandboxProfileId = sandboxProfileIdSchema.parse(value('session.sandboxProfile'))
       let sandbox: Run['input']['sandbox']
       // Automated dispatch inherits its admitted parent Run, not mutable defaults.

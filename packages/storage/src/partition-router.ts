@@ -26,6 +26,7 @@ const sessionReadSelectors = {
   runFileChangeDiff: true,
   runFileChangeVersions: true,
   readEventPage: true,
+  readSessionFacts: true,
   run: true,
   runtimeExecutionRead: true,
   runtimeRecoveryRead: true,
@@ -78,6 +79,7 @@ export function resolvePartitionRoute(call: StorageCall, context: PartitionRouti
       resolution = context.locators.resolveSession(locatorEntityIdSchema.parse(call.args[0]))
       break
     case 'readEventPage':
+    case 'readSessionFacts':
       resolution = context.locators.resolveSession(locatorEntityIdSchema.parse(call.args[0].sessionId))
       break
     case 'run':

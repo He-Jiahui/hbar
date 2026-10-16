@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { agentPatchSchema, HbarError } from '@hbar/contracts'
+import { agentPatchSchema, HbarError, sessionReadFactsSchema } from '@hbar/contracts'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
-import type { AgentPatch, Run, WorkflowScope } from '@hbar/contracts'
+import type { AgentPatch, Run, SessionEvent, SessionReadFactsInput, WorkflowScope } from '@hbar/contracts'
 import {
   agentCreateInputSchema,
   agentDispatchConfigurationSchema,
@@ -19,7 +19,7 @@ import type {
   AgentRecord,
   AgentPolicySetInput,
 } from '@hbar/contracts/commands/agents'
-import { definePlugin, provide, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
+import { definePlugin, provide, readSessionEventPages, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   BudgetService,
@@ -45,6 +45,9 @@ import { advertiseAgentTool, createAgentTool } from './agent-tool'
 const MAX_CHILDREN = 128
 const MAX_SCANNED_CHILD_SESSIONS = 2_000
 const MAX_AGENT_EVENTS = 100_000
+// Reserve room for the managed value-description envelope as well as the public DTO.
+const MAX_AGENT_PAGE_BYTES = 4 * 1024 * 1024
+const MAX_AGENT_PAGE_NODES = 16_000
 const PROFILE_DEFINITIONS = {
   explore: {
     instructions:
@@ -124,16 +127,6 @@ const inputHash = (input: AgentCreateInput): string =>
     .update(JSON.stringify(agentCreateInputSchema.parse(input)))
     .digest('hex')
 
-function summaryForRun(snapshot: Awaited<ReturnType<SessionService['snapshot']>>, runId: string) {
-  return snapshot.messages
-    .filter((message) => message.runId === runId && message.role === 'assistant')
-    .flatMap((message) => message.content)
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n')
-    .slice(0, 4_000)
-}
-
 function mergedScope(scope: WorkflowScope) {
   return [...new Set([...scope.readPaths, ...scope.writePaths])]
 }
@@ -167,33 +160,52 @@ export class AgentRuntime implements AgentService {
     return port.setPolicy(input, context)
   }
 
-  private async events(sessionId: string) {
-    return this.sessions.events(sessionId, 0, MAX_AGENT_EVENTS)
+  private async facts(input: SessionReadFactsInput) {
+    if (!this.sessions.readFacts)
+      throw new HbarError('CAPABILITY_UNAVAILABLE', 'Bounded Session read facts are unavailable')
+    const facts = sessionReadFactsSchema.parse(await this.sessions.readFacts(input))
+    if (facts.sessionId !== input.sessionId || facts.runs.some((run) => run.sessionId !== input.sessionId))
+      throw new HbarError('INVALID_STATE', 'Session read facts belong to another session')
+    return facts
+  }
+
+  private async *events(
+    sessionId: string,
+    types: readonly string[],
+    throughSeq?: number,
+  ): AsyncGenerator<SessionEvent> {
+    const horizon = throughSeq ?? (await this.facts({ sessionId, includeRuns: false })).eventThroughSeq
+    for await (const page of readSessionEventPages(this.sessions, {
+      sessionId,
+      types,
+      throughSeq: horizon,
+      // One selected fact can contain a maximum-size patch. Its schema bounds the
+      // structure; unrelated tool/message data never crosses this read boundary.
+      limit: 1,
+      maxReplyBytes: 8 * 1024 * 1024,
+    })) {
+      for (const item of page.items) if (item.kind === 'event') yield item.event
+    }
   }
 
   private async created(sessionId: string): Promise<CreatedAgent | null> {
-    // Current children persist their seed second; retain the original first-100
-    // event window for older histories without reading later payloads normally.
-    let events = await this.sessions.events(sessionId, 0, 2)
-    for (let page = 0; page < 2; page++) {
-      for (const event of events) {
-        if (event.type !== 'agent.created') continue
-        const parsed = createdSchema.safeParse(event.data)
-        if (parsed.success) return parsed.data
-      }
-      const last = events.at(-1)
-      if (page === 1 || events.length < 2 || !last) return null
-      events = await this.sessions.events(sessionId, last.seq, 98)
+    // Capture the original first-100-event window before filtering. This also
+    // preserves that window for imported histories with gaps in their sequences.
+    const facts = await this.facts({ sessionId, includeRuns: false, eventLimit: 100 })
+    for await (const event of this.events(sessionId, ['agent.created'], facts.eventThroughSeq)) {
+      const parsed = createdSchema.safeParse(event.data)
+      if (parsed.success) return parsed.data
     }
     return null
   }
 
-  private async patchState(sessionId: string) {
-    const events = await this.events(sessionId)
+  private async patchState(sessionId: string, throughSeq?: number, includeCommands = true) {
     let patch: AgentPatch | null = null
     let rejection: z.output<typeof patchRejectedEventSchema> | null = null
     const commands: PatchCommand[] = []
-    for (const event of events) {
+    const types = ['agent.patch.updated', 'agent.patch.rejected']
+    if (includeCommands) types.push('agent.patch.command')
+    for await (const event of this.events(sessionId, types, throughSeq)) {
       if (event.type === 'agent.patch.updated') {
         const parsed = patchEventSchema.safeParse(event.data)
         if (parsed.success) patch = parsed.data.patch
@@ -209,16 +221,25 @@ export class AgentRuntime implements AgentService {
   }
 
   private async record(seed: CreatedAgent): Promise<AgentRecord> {
-    const snapshot = await this.sessions.snapshot(seed.sessionId)
-    const run = snapshot.runs.find((candidate) => candidate.requestId === seed.requestId) ?? null
-    const events = snapshot.session.seq ? await this.events(seed.sessionId) : []
-    const cancelRequested = run
-      ? events.some((event) => event.runId === run.id && event.type === 'run.cancelRequested')
-      : false
-    const failed = events.find((event) => event.type === 'agent.failed')
+    const facts = await this.facts({
+      sessionId: seed.sessionId,
+      requestId: seed.requestId,
+      eventLimit: MAX_AGENT_EVENTS,
+    })
+    const run = facts.runs.find((candidate) => candidate.requestId === seed.requestId) ?? null
+    let cancelRequested = false
+    let failed: SessionEvent | undefined
+    for await (const event of this.events(
+      seed.sessionId,
+      ['run.cancelRequested', 'agent.failed'],
+      facts.eventThroughSeq,
+    )) {
+      if (run && event.type === 'run.cancelRequested' && event.runId === run.id) cancelRequested = true
+      if (event.type === 'agent.failed' && !failed) failed = event
+    }
     const failedData = z.object({ error: z.string().max(4_000) }).safeParse(failed?.data)
-    const { patch, rejection } = await this.patchState(seed.sessionId)
-    const resultSummary = run ? summaryForRun(snapshot, run.id) : ''
+    const { patch, rejection } = await this.patchState(seed.sessionId, facts.eventThroughSeq, false)
+    const resultSummary = run ? facts.resultSummary : ''
     return agentRecordSchema.parse({
       agentId: seed.agentId,
       parentSessionId: seed.parentSessionId,
@@ -558,11 +579,11 @@ export class AgentRuntime implements AgentService {
       return
     }
     if (!seed?.patchTask || !seed.isolation) return
-    const snapshot = await this.sessions.snapshot(event.sessionId)
-    if (seed.requestId !== snapshot.runs.find((run) => run.id === event.runId)?.requestId) return
-    const state = await this.patchState(seed.sessionId)
+    const facts = await this.facts({ sessionId: event.sessionId, requestId: seed.requestId })
+    if (seed.requestId !== facts.runs.find((run) => run.id === event.runId)?.requestId) return
+    const state = await this.patchState(seed.sessionId, facts.eventThroughSeq)
     if (state.patch || state.rejection) return
-    const summary = summaryForRun(snapshot, event.runId)
+    const summary = facts.resultSummary
     if (event.status !== 'completed') {
       await this.rejectPatch(seed, new HbarError('AGENT_PATCH_REJECTED', `Agent run ended as ${event.status}`), summary)
       return
@@ -610,8 +631,8 @@ export class AgentRuntime implements AgentService {
     if (!event.allowed) return event
     const seed = await this.created(event.sessionId)
     if (!seed) return event
-    const snapshot = await this.sessions.snapshot(event.sessionId)
-    const owningRun = snapshot.runs.find((run) => run.requestId === seed.requestId)
+    const facts = await this.facts({ sessionId: event.sessionId })
+    const owningRun = facts.runs.find((run) => run.requestId === seed.requestId)
     if (owningRun?.status === 'completed') return { ...event, allowed: false }
     return event
   }
@@ -690,8 +711,27 @@ export class AgentRuntime implements AgentService {
     const filtered = after ? seeds.filter((seed) => seed.agentId > after) : seeds
     const page = filtered.slice(0, limit)
     const items: AgentRecord[] = []
-    for (const seed of page) items.push(await this.record(seed))
-    return { items, nextCursor: filtered.length > limit ? (page.at(-1)?.agentId ?? null) : null }
+    let nodes = 0
+    let bytes = 0
+    for (const seed of page) {
+      const record = await this.record(seed)
+      let recordNodes = 0
+      const count = (value: unknown): void => {
+        recordNodes++
+        if (Array.isArray(value)) for (const item of value) count(item)
+        else if (value !== null && typeof value === 'object') for (const item of Object.values(value)) count(item)
+      }
+      count(record)
+      const recordBytes = Buffer.byteLength(JSON.stringify(record), 'utf8')
+      if (items.length && (nodes + recordNodes > MAX_AGENT_PAGE_NODES || bytes + recordBytes > MAX_AGENT_PAGE_BYTES))
+        break
+      if (recordNodes > MAX_AGENT_PAGE_NODES || recordBytes > MAX_AGENT_PAGE_BYTES)
+        throw new HbarError('AGENT_RECORD_LIMIT', 'Agent record exceeds the bounded response budget')
+      items.push(record)
+      nodes += recordNodes
+      bytes += recordBytes
+    }
+    return { items, nextCursor: filtered.length > items.length ? (items.at(-1)?.agentId ?? null) : null }
   }
 
   async result(parentSessionId: string, agentId: string) {

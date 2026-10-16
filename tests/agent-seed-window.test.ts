@@ -17,7 +17,7 @@ test('creation seed lookup preserves its first-100-event window across old and m
   const fixture: { sessions?: SessionService } = {}
   const histories = new Map<string, SessionEvent[]>()
   const reads: { id: string; after: number; limit: number | undefined; seqs: number[] }[] = []
-  const snapshots: string[] = []
+  const hydrations: string[] = []
   const observedAgent = definePlugin({
     manifest: agentPlugin.manifest,
     apply(ctx) {
@@ -25,18 +25,42 @@ test('creation seed lookup preserves its first-100-event window across old and m
       fixture.sessions = api.sessions
       const sessions: SessionService = {
         ...api.sessions,
-        snapshot: (id) => {
-          snapshots.push(id)
-          return api.sessions.snapshot(id)
+        snapshot: () => {
+          throw new Error('Agent reads must not hydrate a full snapshot')
         },
-        events: async (id, after, limit) => {
-          const history = histories.get(id)
-          // Only adapt the seed scan. Full record hydration still reads the real
-          // queued Run and its actual persisted event history.
-          if (!history || limit === 100_000) return api.sessions.events(id, after, limit)
-          const events = history.filter((event) => event.seq > (after ?? 0)).slice(0, limit)
-          reads.push({ id, after: after ?? 0, limit, seqs: events.map((event) => event.seq) })
-          return events
+        readFacts: async (input) => {
+          if (!api.sessions.readFacts) throw new Error('Missing bounded Session facts')
+          const facts = await api.sessions.readFacts(input)
+          const history = histories.get(input.sessionId)
+          if (input.includeRuns !== false) hydrations.push(input.sessionId)
+          if (!history || input.includeRuns !== false || input.eventLimit !== 100) return facts
+          return { ...facts, cursor: history.at(-1)?.seq ?? 0, eventThroughSeq: history.slice(0, 100).at(-1)?.seq ?? 0 }
+        },
+        readEventPage: async (input) => {
+          const history = histories.get(input.sessionId)
+          if (!history || !input.types.includes('agent.created')) return api.sessions.readEventPage(input)
+          const throughSeq = input.throughSeq ?? history.at(-1)?.seq ?? 0
+          const selected = history.filter((event) => event.seq > input.afterSeq && event.seq <= throughSeq)
+          const matching = selected.filter((event) => input.types.includes(event.type))
+          const events = matching.slice(0, input.limit)
+          const hasMore = matching.length > events.length
+          reads.push({
+            id: input.sessionId,
+            after: input.afterSeq,
+            limit: input.limit,
+            seqs: events.map((event) => event.seq),
+          })
+          return {
+            sessionId: input.sessionId,
+            afterSeq: input.afterSeq,
+            throughSeq,
+            totalEventCount: history.filter((event) => event.seq <= throughSeq).length,
+            remainingEventCount: selected.length,
+            matchingEventCount: matching.length,
+            items: events.map((event) => ({ kind: 'event' as const, event })),
+            nextAfterSeq: hasMore ? (events.at(-1)?.seq ?? input.afterSeq) : throughSeq,
+            hasMore,
+          }
         },
       }
       provide<AgentService>(
@@ -87,8 +111,7 @@ test('creation seed lookup preserves its first-100-event window across old and m
         delete seedData.configuration
         delete seedData.profileId
       }
-      // Sparse sequences make the continuation cursor observable: the second
-      // page must begin after seq 6, rather than after the number of events 2.
+      // Sparse sequences distinguish the original 100-row window from seq <=100.
       const history = Array.from({ length: scenario.count }, (_, index): SessionEvent => ({
         ...seed,
         eventId: `seed-window-${original.sessionId}-${index}`,
@@ -98,29 +121,28 @@ test('creation seed lookup preserves its first-100-event window across old and m
       }))
       histories.set(original.sessionId, history)
       reads.length = 0
-      snapshots.length = 0
+      hydrations.length = 0
       const repeated = await agents.create(input, { ...context, requestId: 'repeat' })
       const found = scenario.seedIndex >= 0 && scenario.seedIndex < 100
       if (found) {
         expect(repeated.agentId).toBe(original.agentId)
         expect(repeated.runId).toBe(original.runId)
-        expect(snapshots).toEqual([original.sessionId])
+        expect(hydrations).toEqual([original.sessionId])
       } else {
         expect(repeated.agentId).not.toBe(original.agentId)
         expect(repeated.runId).not.toBe(original.runId)
-        expect(snapshots).not.toContain(original.sessionId)
+        expect(hydrations).not.toContain(original.sessionId)
       }
       expect((await kernel.snapshot(original.sessionId)).runs).toHaveLength(1)
-      const expected = [
-        { id: original.sessionId, after: 0, limit: 2, seqs: history.slice(0, 2).map((event) => event.seq) },
-      ]
-      if (scenario.count >= 2 && !(found && scenario.seedIndex < 2))
-        expected.push({
-          id: original.sessionId,
-          after: 6,
-          limit: 98,
-          seqs: history.slice(2, 100).map((event) => event.seq),
-        })
+      const expected: typeof reads = []
+      const candidates = history.slice(0, 100).filter((event) => event.type === 'agent.created')
+      let after = 0
+      for (const event of candidates) {
+        expected.push({ id: original.sessionId, after, limit: 1, seqs: [event.seq] })
+        after = event.seq
+        if (event.seq === history[scenario.seedIndex]?.seq) break
+      }
+      if (!candidates.length) expected.push({ id: original.sessionId, after: 0, limit: 1, seqs: [] })
       expect(reads).toEqual(expected)
       expect(reads.flatMap((read) => read.seqs)).not.toContain(303)
     }
