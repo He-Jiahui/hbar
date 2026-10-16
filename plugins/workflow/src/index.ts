@@ -62,11 +62,23 @@ import {
   workflowUpdateActionSchema,
   workflowUpdateToolSchema,
   workflowCheckpointToolSchema,
-  workflowExpandScopeToolSchema,
+  workflowExpandScopeToolSchema as legacyExpandScopeToolSchema,
 } from './update-tool-schema'
 import { workflowModelResult } from './model-view'
 import { sequenceControlCatalog } from './sequence-catalog'
 import { scopeToolInventory } from './scope-tool-inventory'
+
+// Model tools expose one complete CAS identity. Keep numeric revision support
+// on the public command and legacy workflow_update, never choose between both.
+export const workflowExpandScopeToolSchema = z
+  .strictObject({
+    itemId: legacyExpandScopeToolSchema.shape.itemId,
+    scope: legacyExpandScopeToolSchema.shape.scope,
+    reason: legacyExpandScopeToolSchema.shape.reason,
+    expectedFocusRevision: legacyExpandScopeToolSchema.shape.expectedFocusRevision.unwrap(),
+    expectedPlanRevision: legacyExpandScopeToolSchema.shape.expectedPlanRevision.unwrap(),
+  })
+  .describe('Do not supply expectedRevision. Use current focus+plan revisions; refresh stale state.')
 
 const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
@@ -4125,16 +4137,12 @@ function toolsFor(runtime: WorkflowRuntime): ToolDefinition[] {
     {
       name: 'workflow_expand_scope',
       description:
-        'Correct the current focus scope within the authorized task. Provide bounded paths/tools and a reason. Does not grant new user permission.',
+        'Correct the current focus scope within the authorized task. Provide bounded paths/tools, a reason, and current expectedFocusRevision plus expectedPlanRevision. Do not supply expectedRevision; refresh workflow state when stale. Does not grant new user permission.',
       inputSchema: workflowExpandScopeToolSchema,
       effect: 'read',
       execute: async (args, context) => {
         const parsed = workflowExpandScopeToolSchema.parse(args)
-        let revision: CheckpointRevision
-        if (parsed.expectedRevision !== undefined) revision = parsed.expectedRevision
-        else if (parsed.expectedFocusRevision !== undefined && parsed.expectedPlanRevision !== undefined)
-          revision = { focusRevision: parsed.expectedFocusRevision, planRevision: parsed.expectedPlanRevision }
-        else throw new HbarError('WORKFLOW_REVISION_REQUIRED', 'Scope expansion requires a complete version identity')
+        const revision = { focusRevision: parsed.expectedFocusRevision, planRevision: parsed.expectedPlanRevision }
         return workflowModelResult(
           await runtime.expandScope(context.session.id, parsed.itemId, parsed.scope, parsed.reason, revision),
         )

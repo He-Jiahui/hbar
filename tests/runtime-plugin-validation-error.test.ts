@@ -42,7 +42,7 @@ test('actual owned validation reports workflow preconditions without echoing inv
     source,
     `
     import { definePlugin } from '@hbar/plugin-sdk'
-    import { workflowExpandScopeToolSchema } from '../../plugins/workflow/src/update-tool-schema'
+    import { workflowExpandScopeToolSchema } from '../../plugins/workflow/src'
     import { createRuntimePlugin } from '../../apps/host/src/runtime-plugin-process'
     const plugin = definePlugin({ manifest: { id: 'validation.fixture', name: 'Validation fixture',
       description: 'Real workflow validation boundary', version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', permissions: [] },
@@ -104,7 +104,8 @@ test('actual owned validation reports workflow preconditions without echoing inv
     const missing = await validate(input)
     expect(missing).toMatchObject({ kind: 'error', code: 'INVALID_TOOL_INPUT' })
     if (missing.kind !== 'error') throw new Error('Missing precondition was accepted')
-    expect(missing.message).toContain('expectedRevision alone OR both expectedFocusRevision and expectedPlanRevision')
+    expect(missing.message).toContain('Provide both expectedFocusRevision and expectedPlanRevision')
+    expect(missing.message).toContain('do not supply expectedRevision')
     const mixed = await validate({ ...input, expectedRevision: 1, expectedFocusRevision: 1, expectedPlanRevision: 1 })
     expect(mixed).toMatchObject({ kind: 'error', code: 'INVALID_TOOL_INPUT' })
     const invalid = await validate({
@@ -118,7 +119,10 @@ test('actual owned validation reports workflow preconditions without echoing inv
     expect(invalid.message).toContain('scope.readPaths.0')
     expect(JSON.stringify(invalid)).not.toContain(secretMarker)
     expect(invalid.message.length).toBeLessThanOrEqual(1_600)
-    expect(await validate({ ...input, expectedRevision: 1 })).toMatchObject({ kind: 'value' })
+    expect(await validate({ ...input, expectedRevision: 1 })).toMatchObject({
+      kind: 'error',
+      code: 'INVALID_TOOL_INPUT',
+    })
     expect(await validate({ ...input, expectedFocusRevision: 1, expectedPlanRevision: 1 })).toMatchObject({
       kind: 'value',
     })

@@ -5,8 +5,43 @@ import {
   workflowUpdateActionSchema,
   workflowUpdateToolSchema,
   workflowCheckpointToolSchema,
-  workflowExpandScopeToolSchema,
 } from '../plugins/workflow/src/update-tool-schema'
+import { workflowExpandScopeToolSchema } from '../plugins/workflow/src'
+import { workflowExpandScopeInputSchema } from '@hbar/contracts/commands/workflows'
+
+test('model scope repair advertises one required pair and rejects legacy numeric identity without stripping', () => {
+  const input = {
+    itemId: 'proof',
+    scope: {},
+    reason: 'Authorized repair',
+    expectedFocusRevision: 1,
+    expectedPlanRevision: 1,
+  }
+  const schema = z.toJSONSchema(workflowExpandScopeToolSchema)
+  expect(schema.properties).not.toHaveProperty('expectedRevision')
+  expect(schema.required).toContain('expectedFocusRevision')
+  expect(schema.required).toContain('expectedPlanRevision')
+  expect(schema.additionalProperties).toBe(false)
+  expect(schema.description).toContain('Do not supply expectedRevision')
+  expect(workflowExpandScopeToolSchema.safeParse(input).success).toBe(true)
+  for (const value of [
+    { ...input, expectedRevision: 32 },
+    { ...input, expectedFocusRevision: undefined },
+    { ...input, expectedPlanRevision: undefined },
+    { ...input, expectedFocusRevision: null },
+    { itemId: input.itemId, scope: {}, reason: input.reason, expectedRevision: 32 },
+  ])
+    expect(workflowExpandScopeToolSchema.safeParse(value).success).toBe(false)
+  expect(
+    workflowExpandScopeInputSchema.safeParse({
+      sessionId: 's',
+      itemId: 'proof',
+      scope: {},
+      reason: input.reason,
+      expectedRevision: 32,
+    }).success,
+  ).toBe(true)
+})
 
 test('scope path restrictions are advertised to the model without weakening Host validation', () => {
   const schema = JSON.stringify(z.toJSONSchema(workflowExpandScopeToolSchema))
@@ -60,7 +95,8 @@ test('deduplicated scope descriptions preserve canonical path validation, defaul
       itemId: 'proof',
       scope,
       reason: 'Authorized task',
-      expectedRevision: 1,
+      expectedFocusRevision: 1,
+      expectedPlanRevision: 1,
     })
     expect(compact.success).toBe(canonical.success)
     if (canonical.success && compact.success) expect(compact.data.scope).toEqual(canonical.data)

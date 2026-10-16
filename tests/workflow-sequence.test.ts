@@ -75,6 +75,11 @@ async function fixture(initialFocus?: WorkflowFocusPlanItemInput, completionPoli
   return { resource, root, kernel, session, goals, workflows, run }
 }
 
+async function scopePrecondition(workflows: WorkflowService, sessionId: string) {
+  const current = (await workflows.get(sessionId)).workflow
+  if (!current || current.focusRevision === undefined) throw new Error('Expected current workflow focus identity')
+  return { expectedFocusRevision: current.focusRevision, expectedPlanRevision: current.planRevision }
+}
 const successfulCalls = [
   { name: 'write_file', arguments: { path: 'proof.txt', text: 'verified proof' } },
   { name: 'read_file', arguments: { path: 'proof.txt' } },
@@ -196,10 +201,18 @@ for (const conflict of ['stale-plan', 'replaced-focus', 'explicit-revision'] as 
             )
         }
       })
+    const stalePair = await scopePrecondition(workflows, session.id)
     await run(
       scopeRepairCalls.map((call) =>
         conflict === 'explicit-revision' && call.name === 'workflow_expand_scope'
-          ? { ...call, arguments: { ...call.arguments, expectedRevision: 99 } }
+          ? {
+              ...call,
+              arguments: {
+                ...call.arguments,
+                ...stalePair,
+                expectedFocusRevision: stalePair.expectedFocusRevision + 99,
+              },
+            }
           : call,
       ),
     )
@@ -322,7 +335,7 @@ test('deferred capabilities regain complete HTTP schemas in the same Run only af
                       name: 'workflow_expand_scope',
                       arguments: {
                         itemId: 'proof',
-                        expectedRevision: (await workflows.get(session.id)).workflow!.revision,
+                        ...(await scopePrecondition(workflows, session.id)),
                         reason: 'Inspect the authorized test fixture',
                         scope: { tools: ['deferred_fixture'], readPaths: [], writePaths: [] },
                       },
@@ -429,7 +442,7 @@ test('scope-gated catalog tools stay denied until expansion and then regain stan
       name: 'workflow_expand_scope',
       arguments: {
         itemId: 'proof',
-        expectedRevision: rejected.revision,
+        ...(await scopePrecondition(workflows, session.id)),
         reason: 'Inspect the authorized temporary repository',
         scope: { readPaths: ['.'], writePaths: [], tools: ['list_directory'] },
       },
@@ -463,13 +476,12 @@ test('scope-expanded large reads keep the standalone escape hatch after bounded 
     acceptanceChecks: [],
   })
   await writeFile(join(root, 'proof.txt'), 'large proof '.repeat(900))
-  const focused = await workflows.get(session.id)
   const snapshot = await run([
     {
       name: 'workflow_expand_scope',
       arguments: {
         itemId: 'proof',
-        expectedRevision: focused.workflow!.revision,
+        ...(await scopePrecondition(workflows, session.id)),
         reason: 'Read back the authorized proof',
         scope: { readPaths: ['proof.txt'], writePaths: [], tools: ['read_file'] },
       },
@@ -505,13 +517,12 @@ test('scope-expanded large reads keep the standalone escape hatch after bounded 
 
 test('Host binds omitted checkpoint versions before scope expansion and bookkeeping', async () => {
   const { run, workflows, goals, session } = await fixture()
-  const current = (await workflows.get(session.id)).workflow!
   await run([
     {
       name: 'workflow_expand_scope',
       arguments: {
         itemId: 'proof',
-        expectedRevision: current.revision,
+        ...(await scopePrecondition(workflows, session.id)),
         scope: { tools: [], readPaths: ['another.txt'], writePaths: [] },
         reason: 'Expand a bounded read path',
       },

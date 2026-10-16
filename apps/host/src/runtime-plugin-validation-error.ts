@@ -39,7 +39,7 @@ export function runtimePluginValidationError(error: unknown, toolName: string): 
   })
   const revisionHelp =
     toolName === 'workflow_expand_scope'
-      ? ' Provide expectedRevision alone OR both expectedFocusRevision and expectedPlanRevision; omit the other revision fields. Scope paths must be workspace-relative prefixes without globs or parent traversal.'
+      ? ' Provide both expectedFocusRevision and expectedPlanRevision from the current workflow state; do not supply expectedRevision. Refresh stale workflow state before retrying. Scope paths must be workspace-relative prefixes without globs or parent traversal.'
       : ''
   return `Invalid tool arguments: ${issues.join('; ')}.${revisionHelp}`.slice(0, 1_600)
 }
