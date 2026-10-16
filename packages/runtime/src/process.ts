@@ -12,7 +12,58 @@ import {
   type RuntimeUnitDescriptor,
 } from '@hbar/contracts/runtime'
 import { IpcPeer, type IpcCallOptions, type IpcCallTimeout } from './ipc'
-import { RUNTIME_CONTROL_METHODS, runtimeDrainSchema, runtimeReadySchema, type RuntimeDrain } from './lifecycle'
+import {
+  RUNTIME_CONTROL_METHODS,
+  runtimeDrainSchema,
+  runtimeReadySchema,
+  runtimeIdleProbeSchema,
+  runtimeIdleIpcSchema,
+  runtimeIdleIpcIsEmpty,
+  runtimeIdleProbeIsEmpty,
+  type RuntimeDrain,
+  type RuntimeIdleProbe,
+  type RuntimeIdleIpc,
+} from './lifecycle'
+
+export interface ManagedIdleSnapshot {
+  readonly owner: RuntimeOwner
+  readonly phase: RuntimeGeneration['phase']
+  readonly runs: number
+  readonly resources: number
+  readonly parent: RuntimeIdleIpc | null
+  readonly child: RuntimeIdleProbe | null
+  readonly eligible: boolean
+}
+export type RuntimeIdleRetirement =
+  | {
+      readonly status: 'busy'
+      readonly owner: RuntimeOwner
+      readonly reasonCode: 'RUNTIME_IDLE_BUSY' | 'RUNTIME_IDLE_UNSUPPORTED'
+    }
+  | {
+      readonly status: 'unknown'
+      readonly owner: RuntimeOwner
+      readonly reasonCode: 'RUNTIME_IDLE_OWNER_CHANGED' | 'RUNTIME_IDLE_BOUNDARY_UNKNOWN'
+    }
+  | {
+      readonly status: 'confirmed-physical-exit'
+      readonly owner: RuntimeOwner
+      readonly childPid: number
+      readonly exitCode: number
+      readonly disposalAcknowledged: true
+      readonly nativeJoined: true
+    }
+
+/** Physical absence only; Manager afterDispose is a separate ownership checkpoint. */
+export interface RuntimePhysicalRetirementReceipt {
+  readonly owner: RuntimeOwner
+  readonly childPid: number
+  readonly exitCode: number
+  readonly nativeJoined: true
+  readonly onExitCompleted: true
+  readonly forced: boolean
+  readonly cleanDisposeAck: boolean
+}
 
 export interface ManagedProcessOptions {
   readonly descriptor: RuntimeUnitDescriptor
@@ -20,7 +71,7 @@ export interface ManagedProcessOptions {
   readonly modulePath: string
   readonly generation: number
   /** A retry before any generation has served is still a cold startup. */
-  readonly purpose?: 'startup' | 'candidate'
+  readonly purpose?: 'startup' | 'candidate' | 'idle-wake'
   readonly parent: RuntimeOwner
   readonly configuration?: Readonly<Record<string, unknown>>
   /** Verify registered bytes again before every candidate import and recovery incarnation. */
@@ -44,6 +95,8 @@ export interface ManagedProcessOptions {
   readonly onFault?: (owner: RuntimeOwner, reasonCode: string, childPid: number) => Promise<void>
   readonly onCallTimeout?: (owner: RuntimeOwner, childPid: number, event: IpcCallTimeout) => void
   readonly onExit?: (owner: RuntimeOwner, exit: RuntimeProcessExit) => Promise<void>
+  /** Observation only, after native join + successful ownership onExit; not a write receipt. */
+  readonly onPhysicalRetirement?: (receipt: RuntimePhysicalRetirementReceipt) => void
   readonly retryDelaysMs?: readonly [number, number, number]
   readonly retrySlowMs?: number
   readonly healthyResetMs?: number
@@ -67,6 +120,7 @@ interface Retirement {
   fence: Promise<void> | undefined
   release: Promise<void> | undefined
   joined: boolean
+  forced: boolean
 }
 
 function duration(value: number | undefined, fallback: number): number {
@@ -93,6 +147,13 @@ export class ManagedProcess {
   private healthySince: number | null = null
   private recovering: Promise<void> | undefined
   private disposal: Promise<void> | undefined
+  private idleAdmission: 'open' | 'checking' | 'draining' | 'unknown' | 'retired' = 'open'
+  private idleRetirement: { readonly owner: RuntimeOwner; readonly promise: Promise<RuntimeIdleRetirement> } | undefined
+  private idleDisposalAcknowledged = false
+  private idleForcedTermination = false
+  private readonly physicalRetirements = new Map<string, RuntimePhysicalRetirementReceipt>()
+  private readonly forcedChildPids = new Set<number>()
+  private disposalAcknowledgedChildPid: number | undefined
   private launching: Promise<void> | undefined
   private exitHandling: Promise<void> = Promise.resolve()
   private fencing: Promise<void> | undefined
@@ -129,6 +190,21 @@ export class ManagedProcess {
     })
   }
 
+  /** Does not query a process, wake a generation, or release Manager ownership. */
+  retirementReceipt(expectedOwner: RuntimeOwner): RuntimePhysicalRetirementReceipt | null {
+    const receipt = this.physicalRetirements.get(
+      JSON.stringify([expectedOwner.unitId, expectedOwner.generation, expectedOwner.incarnation]),
+    )
+    return receipt ? { ...receipt, owner: { ...receipt.owner } } : null
+  }
+
+  /** Explicit consumption only; never evict an unacknowledged old-owner receipt. */
+  acknowledgeRetirement(expectedOwner: RuntimeOwner): boolean {
+    return this.physicalRetirements.delete(
+      JSON.stringify([expectedOwner.unitId, expectedOwner.generation, expectedOwner.incarnation]),
+    )
+  }
+
   owner(): RuntimeOwner {
     return { unitId: this.state.unitId, generation: this.state.generation, incarnation: this.state.incarnation }
   }
@@ -147,6 +223,10 @@ export class ManagedProcess {
     this.publish()
   }
   prepare(): Promise<void> {
+    if (this.physicalRetirements.size >= 16)
+      return Promise.reject(new HbarError('RUNTIME_RETIREMENT_CAPACITY', 'Retirement reconciliation is required'))
+    if (this.idleAdmission !== 'open')
+      return Promise.reject(new HbarError('RUNTIME_IDLE_FENCED', 'Runtime idle retirement requires reconciliation'))
     if (this.launching) return this.launching
     if (this.child) {
       if (this.state.phase === 'ready' || this.state.phase === 'serving' || this.state.phase === 'draining')
@@ -159,6 +239,8 @@ export class ManagedProcess {
     return this.launching
   }
   async activate(role: 'default' | 'draining' = 'default'): Promise<void> {
+    if (this.idleAdmission !== 'open')
+      throw new HbarError('RUNTIME_IDLE_FENCED', 'Runtime idle retirement requires reconciliation')
     if (this.stopped || this.state.phase !== 'ready' || !this.peer)
       throw new HbarError('RUNTIME_NOT_READY', 'Runtime candidate is not ready')
     // Recovery targets this artifact from the point activation is authorized, even if its receipt is lost.
@@ -225,6 +307,8 @@ export class ManagedProcess {
     }
   }
   async drain(): Promise<RuntimeDrain> {
+    if (this.idleAdmission !== 'open')
+      throw new HbarError('RUNTIME_IDLE_FENCED', 'Runtime idle retirement owns admission')
     if (!this.activated || this.stopped) throw new HbarError('RUNTIME_LIFECYCLE', 'Runtime generation cannot drain')
     this.state.role = 'draining'
     if (!this.peer || this.state.phase === 'recovering') {
@@ -241,15 +325,216 @@ export class ManagedProcess {
     schema: z.ZodType<Output>,
     options: IpcCallOptions = {},
   ): Promise<Output> {
-    if (!this.peer || (this.state.phase !== 'serving' && this.state.phase !== 'draining'))
+    // Before entering IpcPeer there can be no dispatch. Report that fact at the source,
+    // not by having an adapter guess from a later rejection/error code.
+    const notDispatched = (): void => {
+      try {
+        options.onDispatchSettled?.('not-dispatched')
+      } catch {
+        console.error('[hbar runtime] dispatch settlement observer failed')
+      }
+    }
+    if (this.idleAdmission !== 'open') {
+      notDispatched()
+      return Promise.reject(new HbarError('RUNTIME_IDLE_FENCED', 'Runtime idle retirement owns admission'))
+    }
+    if (!this.peer || (this.state.phase !== 'serving' && this.state.phase !== 'draining')) {
+      notDispatched()
       return Promise.reject(
         new HbarError('RUNTIME_RECOVERING', 'Runtime unit is recovering; reconcile existing requests'),
       )
+    }
     return this.peer.call(method, input, schema, options)
   }
   dispose(): Promise<void> {
     this.disposal ??= this.disposeProcess()
     return this.disposal
+  }
+
+  /** Snapshot only. It never closes admission, changes phase, drains or refreshes business idle. */
+  async idleSnapshot(): Promise<ManagedIdleSnapshot> {
+    const owner = this.owner()
+    const peer = this.peer
+    const phase = this.state.phase
+    const tree = this.tree
+    const readNativeActive = (): number | undefined => {
+      try {
+        const count = tree?.active?.()
+        return count !== undefined && Number.isSafeInteger(count) && count >= 0 ? count : undefined
+      } catch {
+        return undefined
+      }
+    }
+    const nativeBefore = readNativeActive()
+    const supported =
+      this.activated && !this.stopped && peer !== undefined && (phase === 'serving' || phase === 'draining')
+    const child = supported
+      ? await peer.call(
+          'runtime.idle',
+          nativeBefore === undefined ? undefined : { owner, nativeActive: nativeBefore },
+          runtimeIdleProbeSchema,
+          { timeoutMs: this.shutdownMs },
+        )
+      : null
+    const parent = peer ? runtimeIdleIpcSchema.parse(peer.snapshot()) : null
+    const sameOwner = this.sameOwner(owner) && peer === this.peer && this.state.phase === phase && tree === this.tree
+    const nativeAfter = readNativeActive()
+    const runs = this.state.references.runs
+    const resources = this.state.references.resources
+    return {
+      owner,
+      phase,
+      runs,
+      resources,
+      parent,
+      child,
+      eligible:
+        supported &&
+        sameOwner &&
+        !this.stopped &&
+        runs === 0 &&
+        resources === 0 &&
+        (nativeBefore === undefined || (nativeBefore === 1 && nativeAfter === 1)) &&
+        parent !== null &&
+        runtimeIdleIpcIsEmpty(parent) &&
+        // Parent has no current inbound probe to subtract: every raw inbound byte counts.
+        parent.incomingBytes === 0 &&
+        child !== null &&
+        runtimeIdleProbeIsEmpty(child),
+    }
+  }
+
+  /** A successful return does not remove a manager generation or release its ownership record. */
+  retireIdle(expectedOwner: RuntimeOwner): Promise<RuntimeIdleRetirement> {
+    const captured = { ...expectedOwner }
+    if (!this.sameOwner(captured))
+      return Promise.resolve({ status: 'unknown', owner: captured, reasonCode: 'RUNTIME_IDLE_OWNER_CHANGED' })
+    const previous = this.idleRetirement
+    if (previous) {
+      if (
+        previous.owner.unitId !== captured.unitId ||
+        previous.owner.generation !== captured.generation ||
+        previous.owner.incarnation !== captured.incarnation
+      )
+        return Promise.resolve({ status: 'unknown', owner: captured, reasonCode: 'RUNTIME_IDLE_OWNER_CHANGED' })
+      return previous.promise
+    }
+    // Seal synchronously before creating the async probe. No new call can slip through this gate.
+    if (
+      this.stopped ||
+      this.idleAdmission !== 'open' ||
+      this.disposal ||
+      this.launching ||
+      this.recovering ||
+      this.recoveryTimer ||
+      this.activation
+    )
+      return Promise.resolve({ status: 'unknown', owner: captured, reasonCode: 'RUNTIME_IDLE_BOUNDARY_UNKNOWN' })
+    this.idleAdmission = 'checking'
+    const promise = Promise.resolve().then(() => this.retireIdleProcess(captured))
+    const entry = { owner: captured, promise }
+    this.idleRetirement = entry
+    void promise.then((result) => {
+      // Only a read-only busy probe can be retried. Unknown/confirmed outcomes remain single-use.
+      if (result.status === 'busy' && this.idleRetirement === entry) this.idleRetirement = undefined
+    })
+    return promise
+  }
+
+  private sameOwner(expected: RuntimeOwner): boolean {
+    const current = this.owner()
+    return (
+      current.unitId === expected.unitId &&
+      current.generation === expected.generation &&
+      current.incarnation === expected.incarnation
+    )
+  }
+
+  private idleConfigurationIdentity(): string {
+    const value = JSON.stringify({
+      descriptor: this.options.descriptor,
+      artifactId: this.options.artifactId,
+      modulePath: this.options.modulePath,
+      parent: this.options.parent,
+      configuration: this.options.configuration,
+    })
+    if (value.length > 1_048_576)
+      throw new HbarError('RUNTIME_IDLE_BOUNDARY_UNKNOWN', 'Idle configuration identity is unavailable')
+    return value
+  }
+
+  private async retireIdleProcess(owner: RuntimeOwner): Promise<RuntimeIdleRetirement> {
+    const unknown = (): RuntimeIdleRetirement => {
+      this.idleAdmission = 'unknown'
+      return { status: 'unknown', owner, reasonCode: 'RUNTIME_IDLE_BOUNDARY_UNKNOWN' }
+    }
+    try {
+      const peer = this.peer
+      const child = this.child
+      const tree = this.tree
+      const originalPhase = this.state.phase
+      const configuration = this.idleConfigurationIdentity()
+      const unchanged = (): boolean =>
+        this.sameOwner(owner) &&
+        this.peer === peer &&
+        this.child === child &&
+        this.tree === tree &&
+        !this.stopped &&
+        this.disposal === undefined &&
+        this.idleConfigurationIdentity() === configuration
+      const probe = await this.idleSnapshot()
+      if (!unchanged() || this.state.phase !== originalPhase) return unknown()
+      if (!probe.eligible || !peer || !child || !this.options.processTree || !this.tree) {
+        // No lifecycle side effects have happened. Reopen only this same healthy owner/configuration.
+        this.idleAdmission = 'open'
+        return { status: 'busy', owner, reasonCode: 'RUNTIME_IDLE_BUSY' }
+      }
+      // Once real drain begins, no busy/reopen/recovery branch is allowed, even if drain fails.
+      this.idleAdmission = 'draining'
+      this.state.role = 'draining'
+      this.state.phase = 'draining'
+      this.publish()
+      const drained = await peer.call('runtime.drain', undefined, runtimeDrainSchema, { timeoutMs: this.shutdownMs })
+      if (!unchanged() || drained.requests !== 0 || drained.runs !== 0 || drained.resources !== 0) return unknown()
+      const finalProbe = await this.idleSnapshot()
+      if (!unchanged() || !finalProbe.eligible) return unknown()
+      // Unlike normal shutdown, a lost/failed service.dispose receipt is NOT considered clean.
+      await peer.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: this.shutdownMs })
+      if (!unchanged() || this.state.references.runs !== 0 || this.state.references.resources !== 0) return unknown()
+      this.idleDisposalAcknowledged = true
+      this.disposalAcknowledgedChildPid = child.pid
+      await this.dispose()
+      const receipt = this.retirementReceipt(owner)
+      // dispose includes native join and onExit reconciliation; failed join/callback rejects.
+      if (
+        !this.sameOwner(owner) ||
+        this.idleConfigurationIdentity() !== configuration ||
+        this.child ||
+        this.retirement ||
+        this.snapshot().phase !== 'disposed' ||
+        child.exitCode !== 0 ||
+        this.state.references.runs !== 0 ||
+        this.state.references.resources !== 0 ||
+        this.idleForcedTermination ||
+        !receipt ||
+        receipt.forced ||
+        !receipt.cleanDisposeAck ||
+        receipt.exitCode !== 0
+      )
+        return unknown()
+      this.idleAdmission = 'retired'
+      return {
+        status: 'confirmed-physical-exit',
+        owner,
+        childPid: child.pid,
+        exitCode: child.exitCode,
+        disposalAcknowledged: true,
+        nativeJoined: true,
+      }
+    } catch {
+      // Do not expose arbitrary error text/configuration. No new incarnation is permitted.
+      return unknown()
+    }
   }
 
   private publish(): void {
@@ -447,6 +732,8 @@ export class ManagedProcess {
   }
 
   private terminate(child: Bun.Subprocess): void {
+    this.forcedChildPids.add(child.pid)
+    if (this.idleAdmission === 'draining' || this.idleDisposalAcknowledged) this.idleForcedTermination = true
     try {
       this.tree?.terminate()
     } catch {
@@ -493,7 +780,16 @@ export class ManagedProcess {
       deliberate,
       restartExpected: !deliberate && this.activated,
     }
-    this.retirement = { owner, exit, tree, deliberate, fence: this.fencing, release: undefined, joined: false }
+    this.retirement = {
+      owner,
+      exit,
+      tree,
+      deliberate,
+      fence: this.fencing,
+      release: undefined,
+      joined: false,
+      forced: this.forcedChildPids.has(exit.childPid),
+    }
     try {
       await this.retire()
     } catch (error) {
@@ -540,7 +836,12 @@ export class ManagedProcess {
       deadline,
     )
     if (!retirement.joined) {
-      tree?.terminate()
+      // Clean idle must join naturally. A timeout leaves the owner unknown; never kill descendants
+      // and then label the forced boundary a clean idle retirement. Normal shutdown is unchanged.
+      if (!(retirement.deliberate && this.idleDisposalAcknowledged) && tree) {
+        retirement.forced = true
+        tree.terminate()
+      }
       await tree?.join(Math.max(1, deadline - Date.now()))
       tree?.close()
       retirement.joined = true
@@ -572,11 +873,35 @@ export class ManagedProcess {
       })
       throw error
     }
+    // No tree or no ownership callback means the complete boundary is not observable.
+    if (tree && retirement.joined && this.options.onExit) {
+      const key = JSON.stringify([retirement.owner.unitId, retirement.owner.generation, retirement.owner.incarnation])
+      if (!this.physicalRetirements.has(key) && this.physicalRetirements.size >= 16)
+        throw new HbarError('RUNTIME_RETIREMENT_CAPACITY', 'Retirement reconciliation is required')
+      this.physicalRetirements.set(key, {
+        owner: { ...retirement.owner },
+        childPid: retirement.exit.childPid,
+        exitCode: retirement.exit.exitCode,
+        nativeJoined: true,
+        onExitCompleted: true,
+        forced: retirement.forced || this.forcedChildPids.has(retirement.exit.childPid),
+        cleanDisposeAck: this.disposalAcknowledgedChildPid === retirement.exit.childPid,
+      })
+      const receipt = this.retirementReceipt(retirement.owner)
+      if (receipt) {
+        try {
+          this.options.onPhysicalRetirement?.(receipt)
+        } catch {
+          console.error('[hbar runtime] physical retirement observer failed')
+        }
+      }
+    }
+    this.forcedChildPids.delete(retirement.exit.childPid)
     if (this.retirement === retirement) this.retirement = undefined
   }
 
   private scheduleRecovery(): void {
-    if (this.stopped || this.recoveryTimer) return
+    if (this.stopped || this.recoveryTimer || this.idleAdmission !== 'open') return
     if (this.healthySince !== null && Date.now() - this.healthySince >= this.healthyResetMs) this.state.failures = 0
     this.healthySince = null
     const base = (this.options.retryDelaysMs ?? [250, 1_000, 4_000])[this.state.failures] ?? this.retrySlowMs
@@ -633,7 +958,10 @@ export class ManagedProcess {
         this.terminate(child)
       }, this.shutdownMs)
       try {
-        await peer?.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: Math.max(1, end - Date.now()) })
+        if (!this.idleDisposalAcknowledged) {
+          await peer?.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: Math.max(1, end - Date.now()) })
+          if (peer) this.disposalAcknowledgedChildPid = child.pid
+        }
         await peer?.call('runtime.exit', undefined, z.undefined(), { timeoutMs: Math.max(1, end - Date.now()) })
       } catch {
         /* The deadline is enforced by termination of the owning process. */

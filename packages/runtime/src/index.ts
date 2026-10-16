@@ -15,7 +15,13 @@ export {
   type RuntimeToolPermit,
   type RuntimeResourceLease,
 } from './coordinator'
-export { ManagedProcess, type ManagedProcessOptions } from './process'
+export {
+  ManagedProcess,
+  type ManagedProcessOptions,
+  type ManagedIdleSnapshot,
+  type RuntimeIdleRetirement,
+  type RuntimePhysicalRetirementReceipt,
+} from './process'
 export { acquireProcessLease, processIsAlive } from './process-lease'
 export { runtimeDomainError } from './errors'
 export { RUNTIME_BUNDLE_EXTERNALS } from './bundle-externals'
@@ -50,6 +56,15 @@ export {
   runtimePrepareSchema,
   runtimeReadySchema,
   runtimeDrainSchema,
+  runtimeServiceIdleSchema,
+  runtimeIdleIpcSchema,
+  runtimeIdleProbeSchema,
+  runtimeIdleIpcIsEmpty,
+  runtimeIdleProbeIsEmpty,
+  readRuntimeIdleProbe,
+  type RuntimeServiceIdle,
+  type RuntimeIdleIpc,
+  type RuntimeIdleProbe,
 } from './lifecycle'
 export {
   RuntimeArtifactStore,

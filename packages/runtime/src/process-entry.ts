@@ -4,10 +4,12 @@ import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts/errors'
 import { diagnosticEvent } from '@hbar/contracts/diagnostics'
-import { RUNTIME_LIMITS, runtimeOwnerSchema } from '@hbar/contracts/runtime'
+import { RUNTIME_LIMITS, runtimeOwnerSchema, runtimeIdleAuthoritySchema } from '@hbar/contracts/runtime'
 import { IpcPeer, procedure } from './ipc'
 import {
   runtimeDrainSchema,
+  runtimeIdleProbeSchema,
+  readRuntimeIdleProbe,
   runtimePrepareSchema,
   runtimeReadySchema,
   type RuntimeProcessModule,
@@ -235,7 +237,7 @@ export async function runRuntimeProcess(
       const module = imported as RuntimeProcessModule
       service = await module.create({
         purpose: z
-          .enum(['startup', 'candidate', 'recovery'])
+          .enum(['startup', 'candidate', 'recovery', 'idle-wake'])
           .parse(process.env.HBAR_RUNTIME_PREPARATION ?? 'candidate'),
         peer,
         configuration: input.configuration,
@@ -252,6 +254,25 @@ export async function runRuntimeProcess(
       if (phase !== 'ready' || !service) throw new HbarError('RUNTIME_LIFECYCLE', 'Runtime process is not prepared')
       await service.activate(input.role)
       phase = input.role === 'draining' ? 'draining' : 'serving'
+    }),
+  )
+  peer.register(
+    'runtime.idle',
+    procedure(runtimeIdleAuthoritySchema.optional(), runtimeIdleProbeSchema, (authority) => {
+      if (
+        authority &&
+        (authority.owner.unitId !== owner.unitId ||
+          authority.owner.generation !== owner.generation ||
+          authority.owner.incarnation !== owner.incarnation)
+      )
+        throw new HbarError('RUNTIME_IDLE_BOUNDARY_UNKNOWN', 'Native idle sample belongs to another owner')
+      // This control call is observational. Never drain, dispose, collect or change phase here.
+      return readRuntimeIdleProbe(
+        service,
+        () => phase,
+        () => peer.snapshot(),
+        authority,
+      )
     }),
   )
   peer.register(

@@ -13,6 +13,12 @@ export const runtimeOwnerSchema = z.strictObject({
   incarnation: opaqueId,
 })
 export type RuntimeOwner = z.infer<typeof runtimeOwnerSchema>
+/** Authenticated parent-only native job sample. No PID list or native handle crosses IPC. */
+export const runtimeIdleAuthoritySchema = z.strictObject({
+  owner: runtimeOwnerSchema,
+  nativeActive: z.number().int().nonnegative().safe(),
+})
+export type RuntimeIdleAuthority = z.infer<typeof runtimeIdleAuthoritySchema>
 
 /** Local supervision ports. Native handles and functions never cross the IPC boundary. */
 export interface RuntimeProcessTree {
