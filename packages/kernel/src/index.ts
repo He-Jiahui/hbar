@@ -1070,20 +1070,24 @@ export class Kernel {
     }
     if (predecessor.recovery)
       throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion lineage exceeds its recovery limit')
-    let after = 0
-    while (true) {
-      const events = await this.storage.call('events', run.sessionId, after, 16)
-      if (!events.length) return false
-      for (const event of events)
-        if (event.runId && ids.has(event.runId) && event.type === 'run.driverCompleted') {
-          z.strictObject({ version: z.literal(1) }).parse(event.data)
-          return true
-        }
-      const next = events.at(-1)?.seq
-      if (next === undefined || next <= after)
-        throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion cursor did not advance')
-      after = next
+    // The first matching receipt decides completion; unrelated history never crosses this boundary.
+    for await (const page of readSessionEventPages(
+      { readEventPage: (input) => this.storage.call('readEventPage', input) },
+      {
+        sessionId: run.sessionId,
+        types: ['run.driverCompleted'],
+        runIds: [...ids],
+        limit: 1,
+        maxReplyBytes: 1_048_576,
+      },
+    )) {
+      for (const item of page.items) {
+        if (item.kind !== 'event') throw new HbarError('EVENT_PAGE_ITEM', 'Completion receipt requires its payload')
+        z.strictObject({ version: z.literal(1) }).parse(item.event.data)
+        return true
+      }
     }
+    return false
   }
   private async checkRuntimeRecovery(run: Run): Promise<string | null> {
     try {
