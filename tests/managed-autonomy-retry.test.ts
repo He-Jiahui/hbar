@@ -95,6 +95,32 @@ test('a real managed backend resumes a planned ordinary retry after restart unde
     expect((await runtime.kernel.plugins.get('budget').get(session.id))?.usedTokens).toBe(2)
     expect(runtime.coordinator.snapshot().resources).toBe(0)
     expect(runtime.coordinator.snapshot().physicalTools).toBe(0)
+    const ordinary = await createWorkspaceSessionCommandClient(client).execute(
+      'session.create',
+      { workspaceId: workspace.id },
+      { idempotencyKey: 'default-completion-source' },
+    )
+    await runtime.kernel.plugins.get('budget').set(ordinary.id, 100)
+    await createRunCommandClient(client).execute(
+      'run.submit',
+      {
+        sessionId: ordinary.id,
+        modelId: 'local-fixture',
+        input: {
+          text: 'Complete this ordinary Default task once after retry',
+          images: [],
+          approval: 'deny',
+          mode: 'default',
+        },
+      },
+      { idempotencyKey: 'default-completion-task' },
+    )
+    await runtime.waitForIdle()
+    const normal = await runtime.kernel.snapshot(ordinary.id)
+    expect(normal.runs.map((run) => run.status)).toEqual(['completed', 'failed'])
+    expect(normal.runs.every((run) => run.input.mode === 'default' && run.input.approval === 'deny')).toBe(true)
+    expect((await runtime.kernel.plugins.get('goal').get(ordinary.id)).goal).toBeNull()
+    expect((await runtime.kernel.plugins.get('budget').get(ordinary.id))?.usedTokens).toBe(2)
     const stopped = await createWorkspaceSessionCommandClient(client).execute(
       'session.create',
       { workspaceId: workspace.id },
