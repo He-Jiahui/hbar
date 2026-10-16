@@ -137,6 +137,7 @@ export const RUNTIME_APPLICATION_METHODS = {
   execution: ['list', 'read', 'readBytes', 'write', 'exec', 'restoreFiles'],
   workspaceQuery: ['find', 'search', 'readRange', 'invalidate'],
   git: [
+    'forRun',
     'info',
     'status',
     'diff',

@@ -206,6 +206,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         sources: commandSources,
         capabilities: () => ({
           execution: application().plugins.get<import('@hbar/plugin-sdk').ExecutionProvider>('execution'),
+          git: application().plugins.get<import('@hbar/plugin-sdk').GitService>('git'),
         }),
       }),
       mutationAdmission: {

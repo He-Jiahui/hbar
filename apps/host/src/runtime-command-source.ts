@@ -9,15 +9,19 @@ import { osConfinementOptionsSchema, type ExecutionProvider, type GitService, ty
 import { RuntimeValuePort, type IpcPeer } from '@hbar/runtime'
 import type { HostSourceApplication } from './command-execution-scopes'
 import { sessionCommandSourceSchema } from '@hbar/kernel/session-command-port'
+import { createRuntimeGitSource } from './runtime-git-source'
 
 type Target = 'execution' | 'workspaceQuery' | 'git' | 'launchTarget' | 'workspaceSandbox'
-export type RuntimeCommandSourceMethod = {
-  [Name in Target]: `${Name}.${(typeof RUNTIME_APPLICATION_METHODS)[Name][number]}`
-}[Target]
+export type RuntimeCommandSourceMethod = Exclude<
+  {
+    [Name in Target]: `${Name}.${(typeof RUNTIME_APPLICATION_METHODS)[Name][number]}`
+  }[Target],
+  'git.forRun'
+>
 const declared = new Set<string>(
-  (['execution', 'workspaceQuery', 'git', 'launchTarget', 'workspaceSandbox'] as const).flatMap((target) =>
-    RUNTIME_APPLICATION_METHODS[target].map((method) => `${target}.${method}`),
-  ),
+  (['execution', 'workspaceQuery', 'git', 'launchTarget', 'workspaceSandbox'] as const)
+    .flatMap((target) => RUNTIME_APPLICATION_METHODS[target].map((method) => `${target}.${method}`))
+    .filter((method) => method !== 'git.forRun'),
 )
 export const runtimeCommandSourceSchema = sessionCommandSourceSchema
 export function isRuntimeCommandSourceMethod(value: unknown): value is RuntimeCommandSourceMethod {
@@ -94,6 +98,7 @@ export class RuntimeCommandSources {
     const environment = context.environment ? structuredClone(context.environment) : undefined
     const osConfinement = context.osConfinement ? osConfinementOptionsSchema.parse(context.osConfinement) : undefined
     const signal = context.signal
+    const git = capabilities.git ? createRuntimeGitSource(capabilities.git, context) : undefined
     const captured = AsyncLocalStorage.snapshot()
     const sourceSessionId = context.session.id,
       sourceWorkspaceId = context.workspace.id
@@ -155,7 +160,7 @@ export class RuntimeCommandSources {
             : target === 'workspaceQuery'
               ? capabilities.execution.workspaceQuery
               : target === 'git'
-                ? capabilities.git
+                ? git
                 : resolution
         const implementation: unknown = object && method ? Reflect.get(object, method) : undefined
         if (typeof implementation !== 'function')

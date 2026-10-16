@@ -62,6 +62,33 @@ const worktreeInputSchema = z
 export const sessionGitTargetSchema = sessionFileTargetSchema.extend({ workspaceId: idSchema })
 export type SessionGitTarget = z.infer<typeof sessionGitTargetSchema>
 
+/** Private source capability context, captured by the admitted Kernel rather than model arguments. */
+export const gitRunContextSchema = z.strictObject({
+  workspacePath: pathSchema,
+  sessionId: idSchema,
+  runId: idSchema,
+  callId: idSchema,
+})
+export type GitRunContext = z.infer<typeof gitRunContextSchema>
+export const gitRunOperationSchema = z.strictObject({
+  method: z.enum(['info', 'status', 'diff', 'log', 'stats', 'commit', 'branch', 'worktree', 'diffToRemote']),
+  input: z.record(z.string().min(1).max(256), z.json()),
+})
+export type GitRunOperation = z.infer<typeof gitRunOperationSchema>
+export type GitRunResult =
+  | z.infer<typeof gitInfoSchema>
+  | z.infer<typeof gitStatusSchema>
+  | z.infer<typeof gitDiffSchema>
+  | z.infer<typeof gitCommitInfoSchema>
+  | z.infer<typeof gitCommitInfoSchema>[]
+  | z.infer<typeof gitStatsReportSchema>
+  | z.infer<typeof gitBranchInfoSchema>
+  | z.infer<typeof gitBranchInfoSchema>[]
+  | z.infer<typeof gitWorktreeInfoSchema>
+  | z.infer<typeof gitWorktreeInfoSchema>[]
+  | { sha: string; diff: string; truncated: boolean }
+  | null
+
 const sessionGitRelativePathSchema = z
   .string()
   .min(1)

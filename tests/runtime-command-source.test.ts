@@ -11,11 +11,77 @@ import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
 import {
   RuntimeCommandSources,
   connectRuntimeCommandSource,
+  isRuntimeCommandSourceMethod,
   type OpenCommandSource,
 } from '../apps/host/src/runtime-command-source'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
+import { createRuntimeGitSource } from '../apps/host/src/runtime-git-source'
 
 const owner = { unitId: 'kernel', generation: 1, incarnation: 'source-kernel' }
+
+test('Git source scope is captured before caller mutation, cancellation, or another workspace can replace it', async () => {
+  const controller = new AbortController()
+  const original = context('C:/captured-workspace', controller.signal)
+  const seen: unknown[] = []
+  const source = createRuntimeGitSource(
+    {
+      async forRun(operation, facts, signal) {
+        signal?.throwIfAborted()
+        seen.push({ operation: structuredClone(operation), facts: structuredClone(facts) })
+        return []
+      },
+    },
+    original,
+  )
+  original.workspace.path = 'C:/another-workspace'
+  original.run.id = 'another-run'
+  original.session.id = 'another-session'
+  expect(await source.branch(undefined, { operation: 'list' })).toEqual([])
+  expect(seen).toEqual([
+    {
+      operation: { method: 'branch', input: { operation: 'list' } },
+      facts: {
+        workspacePath: 'C:/captured-workspace',
+        sessionId: 'source-session',
+        runId: 'source-run',
+        callId: 'source-call',
+      },
+    },
+  ])
+  controller.abort()
+  let stopped: unknown
+  try {
+    await source.branch(undefined, { operation: 'list' })
+  } catch (error) {
+    stopped = error
+  }
+  expect(stopped).toMatchObject({ name: 'AbortError' })
+  expect(seen).toHaveLength(1)
+  expect(isRuntimeCommandSourceMethod('git.forRun')).toBe(false)
+})
+
+test('Git source never falls back to an unscoped or local provider when the required capability is unavailable', async () => {
+  for (const remote of [false, true]) {
+    const original = context('C:/captured-workspace')
+    if (remote)
+      original.workspace.location = {
+        kind: 'node',
+        nodeId: 'remote-node',
+        rootId: 'remote-root',
+        nodePath: '/workspace',
+      }
+    const source = createRuntimeGitSource({}, original)
+    let rejected: unknown
+    try {
+      await source.branch(undefined, { operation: 'list' })
+    } catch (error) {
+      rejected = error
+    }
+    expect(rejected).toMatchObject({
+      code: remote ? 'COMMAND_SOURCE_NODE_GIT_UNAVAILABLE' : 'COMMAND_SOURCE_METHOD_UNAVAILABLE',
+    })
+  }
+})
 function execution(context: ToolContext): ExecutionOwnership {
   return {
     leaseId: 'source-lease',

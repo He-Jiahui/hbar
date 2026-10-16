@@ -10,7 +10,7 @@ import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 import type { NodeWorktreePort } from './node-worktree-port'
 export type { NodeWorktreePort } from './node-worktree-port'
 import { ensureNodeRunWorktree } from './node-run-worktree'
-import { bindToolCall, type ToolCallPreparationPort } from './tool-call-binding'
+import { bindToolCall, type PreparedToolCall, type ToolCallPreparationPort } from './tool-call-binding'
 import { createSessionCommandTools } from './session-command-tools'
 import type { SessionCommandDiscoveryPort } from './session-command-port'
 import type { ToolMutationAdmissionPort } from './mutation-admission'
@@ -3183,6 +3183,7 @@ export class Kernel {
       throw new HbarError('TOOL_NOT_FOUND', name)
     }
     let tool: ToolDefinition = registeredTool
+    let permissionAliases: PreparedToolCall['permissionAliases'] = []
     // Hooks may alter their call context, but cannot mutate the active Run or another call's pinned facts.
     context = { ...context, ...structuredClone(executionFacts), signal: controller.signal }
     const sequence = selectedTools
@@ -3243,6 +3244,7 @@ export class Kernel {
           const prepared = bindToolCall(tool, binding)
           tool = prepared.tool
           args = prepared.arguments
+          permissionAliases = prepared.permissionAliases
         }
       }
       const timeoutMs = resolveToolTimeoutMs(tool, args)
@@ -3252,6 +3254,16 @@ export class Kernel {
       // validated execution arguments without receiving a mutable execution payload.
       await scope.hooks.dispatch('tool.admitting', { name, args: structuredClone(args), context, tool })
       restoreExecutionFacts()
+      for (const alias of permissionAliases) {
+        assertBoundary()
+        await scope.hooks.dispatch('tool.admitting', {
+          name: alias.name,
+          args: structuredClone(alias.arguments),
+          context,
+          tool: Object.freeze({ ...tool, name: alias.name }),
+        })
+        restoreExecutionFacts()
+      }
       assertBoundary()
       await this.assertRunPermission(context.run)
       if (tool.effect !== 'read' && this.options.mutationAdmission) {
@@ -3268,8 +3280,20 @@ export class Kernel {
       }
       const mode = requestedMode ?? this.permissionModeValue
       let nodeAdmission: NodeCallAuthority['admission'] = { kind: 'allow' }
-      let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
+      const policy = this.plugins.get<PolicyProvider>('policy')
+      let decision = await policy.decide(tool, args, context)
       restoreExecutionFacts()
+      for (const alias of permissionAliases) {
+        if (decision === 'deny') break
+        assertBoundary()
+        const aliasDecision = await policy.decide(
+          { ...tool, name: alias.name },
+          structuredClone(alias.arguments),
+          context,
+        )
+        restoreExecutionFacts()
+        if (aliasDecision === 'deny' || aliasDecision === 'ask') decision = aliasDecision
+      }
       let denial = 'Tool denied by policy'
       let environment: Readonly<Record<string, string>> | undefined
       let osConfinement: import('@hbar/plugin-sdk').OsConfinementOptions | undefined

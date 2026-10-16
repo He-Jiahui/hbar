@@ -14,6 +14,7 @@ import {
 import { HbarError, type ApprovalMode } from '@hbar/contracts'
 import { describeRuntimeHook, restoreRuntimeHook } from '@hbar/plugin-sdk/runtime-plugin'
 import type { ToolDefinition } from '@hbar/plugin-sdk'
+import { definePlugin, provide, type PolicyProvider } from '@hbar/plugin-sdk'
 import type { GoalService, PlanService, WorkflowService } from '@hbar/plugin-sdk'
 import { bindToolCall } from '../packages/kernel/src/tool-call-binding'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
@@ -28,6 +29,7 @@ async function fixture(
   prepare?: ToolCallPreparationPort['prepare'],
   timeoutMs = 1_000,
   mutationAdmission?: ToolMutationAdmissionPort,
+  policy?: PolicyProvider,
 ) {
   const prefix = 'hbar-tool-call-binding-'
   const root = await mkdtemp(join(tmpdir(), prefix))
@@ -67,6 +69,28 @@ async function fixture(
     secrets: new MemorySecrets(),
     toolCalls: port,
     mutationAdmission,
+    ...(policy
+      ? {
+          profile: {
+            replacements: {
+              'policy.approval': definePlugin({
+                manifest: {
+                  id: 'policy.approval',
+                  name: 'Bound permission fixture',
+                  description: 'Inspect both command entry points',
+                  version: '1.0.0',
+                  apiVersion: '^1.0.0',
+                  scope: 'host',
+                  required: true,
+                  permissions: [],
+                  provides: { policy: '1.0.0' },
+                },
+                apply: (ctx) => provide(ctx, 'policy', policy),
+              }),
+            },
+          },
+        }
+      : {}),
   })
   const workspace = (await kernel.storage.call('workspaces'))[0]
   if (!workspace) throw new Error('Binding fixture has no workspace')
@@ -553,6 +577,138 @@ test('an unbound ordinary tool keeps its original validation and executor', asyn
     ).toBe(true)
     expect(f.executions).toBe(0)
     expect(f.staticExecutions).toBe(0)
+  } finally {
+    await f.close()
+  }
+})
+
+for (const denied of ['generic', 'native', 'neither'] as const)
+  test(`resolved permission aliases preserve ${denied} denial before durable intent`, async () => {
+    let executed = 0
+    const seen: Array<{ name: string; args: Record<string, unknown> }> = []
+    const f = await fixture(
+      async (_name, args) => ({
+        admission: {
+          effect: 'read',
+          workspaceAccess: { kind: 'none' },
+          timeoutMs: 1_000,
+          permissionAliases: [{ name: 'native_operation', arguments: { path: 'host-final.txt' } }],
+        },
+        arguments: args,
+        execute: async () => {
+          executed++
+          return { text: 'permitted native operation' }
+        },
+      }),
+      1_000,
+      undefined,
+      {
+        async decide(tool, args) {
+          seen.push({ name: tool.name, args: structuredClone(args) })
+          return (denied === 'generic' && tool.name === 'bound_operation') ||
+            (denied === 'native' && tool.name === 'native_operation')
+            ? 'deny'
+            : 'allow'
+        },
+      },
+    )
+    try {
+      const result = await f.run('read')
+      expect(executed).toBe(denied === 'neither' ? 1 : 0)
+      expect(seen.map((entry) => entry.name)).toEqual(
+        denied === 'generic' ? ['bound_operation'] : ['bound_operation', 'native_operation'],
+      )
+      if (denied !== 'generic') expect(seen[1]?.args).toEqual({ path: 'host-final.txt' })
+      const events = await f.kernel.storage.call('events', f.session.id, 0)
+      expect(events.some((event) => event.type === 'tool.started')).toBe(denied === 'neither')
+      expect(result.results.some((block) => block.type === 'tool_result' && block.isError)).toBe(denied !== 'neither')
+    } finally {
+      await f.close()
+    }
+  })
+
+for (const ask of ['generic', 'native'] as const)
+  test(`the ${ask} entry point still requires approval when the other entry point allows`, async () => {
+    let executed = 0
+    const f = await fixture(
+      async (_name, args) => ({
+        admission: {
+          effect: 'read',
+          workspaceAccess: { kind: 'none' },
+          timeoutMs: 1_000,
+          permissionAliases: [{ name: 'native_operation', arguments: {} }],
+        },
+        arguments: args,
+        execute: async () => {
+          executed++
+          return { text: 'approved native operation' }
+        },
+      }),
+      1_000,
+      undefined,
+      {
+        async decide(tool) {
+          return tool.name === (ask === 'generic' ? 'bound_operation' : 'native_operation') ? 'ask' : 'allow'
+        },
+      },
+    )
+    const decisions: Promise<unknown>[] = []
+    let approvals = 0
+    const unsubscribe = f.kernel.subscribe((event) => {
+      if (event.method !== 'session.event' || event.params.type !== 'approval.requested') return
+      const approval = z.object({ id: z.string() }).parse(event.params.data)
+      approvals++
+      decisions.push(f.kernel.resolveApproval(approval.id, 'allowed'))
+    })
+    try {
+      await f.run('read', 'ask')
+      await Promise.all(decisions)
+      expect(approvals).toBe(1)
+      expect(executed).toBe(1)
+    } finally {
+      unsubscribe()
+      await Promise.all(decisions)
+      await f.close()
+    }
+  })
+
+test('scope admission checks both entry points against immutable final native arguments before execution', async () => {
+  let executed = 0
+  const f = await fixture(async (_name, args) => ({
+    admission: {
+      effect: 'write',
+      workspaceAccess: { kind: 'none' },
+      timeoutMs: 1_000,
+      permissionAliases: [{ name: 'native_operation', arguments: { destination: 'final-destination' } }],
+    },
+    arguments: args,
+    execute: async () => {
+      executed++
+      return { text: 'Unexpected execution' }
+    },
+  }))
+  const seen: string[] = []
+  f.kernel.hooks.on('tool.admitting', (event) => {
+    seen.push(event.name)
+    if (event.name === 'native_operation') {
+      expect(event.args).toEqual({ destination: 'final-destination' })
+      expect(event.tool.name).toBe('native_operation')
+      throw new HbarError('WORKFLOW_SCOPE_REQUIRED', 'The native operation is outside the authorized scope')
+    }
+    return event
+  })
+  try {
+    const result = await f.run('write')
+    expect(seen).toEqual(['bound_operation', 'native_operation'])
+    expect(executed).toBe(0)
+    expect(
+      result.results.some(
+        (block) => block.type === 'tool_result' && block.text.includes('outside the authorized scope'),
+      ),
+    ).toBe(true)
+    expect(
+      (await f.kernel.storage.call('events', f.session.id, 0)).some((event) => event.type === 'tool.started'),
+    ).toBe(false)
   } finally {
     await f.close()
   }

@@ -41,6 +41,15 @@ export const toolCallAdmissionSchema = z.strictObject({
   requiresProcess: z.boolean().optional(),
   commandArgument: z.string().min(1).max(128).optional(),
   humanApproval: z.literal('required').optional(),
+  permissionAliases: z
+    .array(
+      z.strictObject({
+        name: z.string().min(1).max(128),
+        arguments: z.record(z.string().min(1).max(256), z.json()),
+      }),
+    )
+    .max(8)
+    .optional(),
   timeoutMs: z.number().int().min(1).max(1_200_000),
 })
 export type ToolCallAdmission = z.infer<typeof toolCallAdmissionSchema>
@@ -48,6 +57,7 @@ export type ToolCallAdmission = z.infer<typeof toolCallAdmissionSchema>
 export interface PreparedToolCall {
   readonly tool: ToolDefinition
   readonly arguments: Record<string, unknown>
+  readonly permissionAliases: readonly { readonly name: string; readonly arguments: Record<string, unknown> }[]
 }
 
 /** Validate and detach the Host's resolved call before any policy/approval/intent. */
@@ -56,7 +66,9 @@ export function bindToolCall(original: ToolDefinition, binding: ToolCallBinding)
   const args = z.record(z.string().min(1).max(256), z.json()).parse(binding.arguments)
   let bytes: number
   try {
-    bytes = new TextEncoder().encode(JSON.stringify(args)).byteLength
+    bytes = new TextEncoder().encode(
+      JSON.stringify({ args, permissionAliases: admission.permissionAliases }),
+    ).byteLength
   } catch {
     throw new HbarError('INVALID_TOOL_BINDING', 'Resolved tool arguments must be serializable')
   }
@@ -81,7 +93,7 @@ export function bindToolCall(original: ToolDefinition, binding: ToolCallBinding)
     Object.freeze(admission.workspaceAccess.arguments)
   }
   Object.freeze(admission.workspaceAccess)
-  const { humanApproval, commandArgument, ...declaration } = admission
+  const { humanApproval, commandArgument, permissionAliases, ...declaration } = admission
   const requiredApproval = original.humanApproval ?? humanApproval
   return {
     tool: Object.freeze({
@@ -92,5 +104,6 @@ export function bindToolCall(original: ToolDefinition, binding: ToolCallBinding)
       execute: (finalArgs: Record<string, unknown>, context: ToolContext) => execute(finalArgs, context),
     }),
     arguments: argumentsValue,
+    permissionAliases: Object.freeze((permissionAliases ?? []).map((alias) => Object.freeze(structuredClone(alias)))),
   }
 }

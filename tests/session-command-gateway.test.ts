@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { CommandRegistry, createCommandRouter } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { fileCommands } from '@hbar/contracts/commands/files'
+import { gitCommands } from '@hbar/contracts/commands/git'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import { Storage } from '@hbar/storage'
 import { SessionCommandGateway } from '../apps/host/src/session-command-gateway'
@@ -85,6 +86,15 @@ async function fixture() {
   }
   registry.register(fileCommands['file.read'], unexpectedFile)
   registry.register(fileCommands['file.write'], unexpectedFile)
+  registry.register(gitCommands['git.info'], unexpectedFile)
+  registry.register(gitCommands['git.status'], unexpectedFile)
+  registry.register(gitCommands['git.diff'], unexpectedFile)
+  registry.register(gitCommands['git.log'], unexpectedFile)
+  registry.register(gitCommands['git.stats'], unexpectedFile)
+  registry.register(gitCommands['git.commit'], unexpectedFile)
+  registry.register(gitCommands['git.branch'], unexpectedFile)
+  registry.register(gitCommands['git.worktree'], unexpectedFile)
+  registry.register(gitCommands['git.diffToRemote'], unexpectedFile)
   const jobs = new LocalCommandJobs({
     scopes,
     retainSource: () => {
@@ -146,6 +156,7 @@ async function fixture() {
     signal,
     gateway,
     createGateway,
+    discovery,
     call,
     counts: () => ({ reads, resources }),
     async close() {
@@ -206,6 +217,10 @@ test('signed preparations reject changed source calls, arguments, admission and 
       { ...prepared, arguments: { ...prepared.arguments, operationKey: 'another-operation' } },
       { ...prepared, invocation: { ...prepared.invocation, input: { limit: 1 } } },
       { ...prepared, admission: { ...prepared.admission, effect: 'write' as const } },
+      {
+        ...prepared,
+        admission: { ...prepared.admission, permissionAliases: [{ name: 'different_policy', arguments: {} }] },
+      },
       { ...prepared, sourceMethods: ['execution.write'] },
     ])
       expect(await failure(f.gateway.execute(f.source, 'bound-call', tampered, f.signal))).toMatchObject({
@@ -319,6 +334,127 @@ test('file preparation pins the source target and exact nested path without open
         operationKey: call.operationKey,
       }),
     ).toBeNull()
+    expect(f.counts()).toEqual({ reads: 0, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
+
+test('all public Git commands prepare their actual process, mutation and native permission facts without execution', async () => {
+  const f = await fixture()
+  try {
+    for (const commandId of [
+      'git.info',
+      'git.status',
+      'git.diff',
+      'git.log',
+      'git.stats',
+      'git.diffToRemote',
+      'git.commit',
+      'git.branch',
+      'git.worktree',
+    ]) {
+      const prepared = await f.gateway.prepare(
+        f.source,
+        commandId,
+        {
+          commandId,
+          commandVersion: 1,
+          operationKey: commandId,
+          input: commandId === 'git.commit' ? { message: 'Source task commit' } : {},
+        },
+        f.signal,
+      )
+      expect(prepared.admission).toMatchObject({
+        effect: commandId === 'git.commit' ? 'write' : 'read',
+        requiresProcess: true,
+        workspaceAccess: { kind: 'workspace' },
+      })
+      expect(prepared.sourceMethods).toEqual([commandId])
+      expect(prepared.admission.permissionAliases).toHaveLength(1)
+      expect(prepared.admission.permissionAliases?.[0]?.arguments).toEqual(prepared.arguments.input)
+      if (commandId === 'git.commit')
+        expect(prepared.arguments.input).toMatchObject({ sessionId: f.source.sessionId, runId: f.source.runId })
+    }
+    for (const [commandId, input] of [
+      ['git.branch', { operation: 'create', name: 'task-branch' }],
+      ['git.branch', { operation: 'delete', name: 'task-branch' }],
+      ['git.worktree', { operation: 'add', path: 'task-worktree' }],
+      ['git.worktree', { operation: 'remove', path: 'task-worktree' }],
+    ] as const) {
+      const prepared = await f.gateway.prepare(
+        f.source,
+        commandId,
+        {
+          commandId,
+          commandVersion: 1,
+          operationKey: `${commandId}:${input.operation}`,
+          input,
+        },
+        f.signal,
+      )
+      expect(prepared.admission.effect).toBe('write')
+    }
+    expect(f.counts()).toEqual({ reads: 0, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
+
+test('Git preparation rejects borrowed cwd and attribution and classifies final normalized operation arguments', async () => {
+  const f = await fixture()
+  try {
+    for (const input of [{ cwd: f.workspace.path }, { sessionId: 'another-session' }, { runId: 'another-run' }]) {
+      const error = await failure(
+        f.gateway.prepare(
+          f.source,
+          'spoof',
+          {
+            commandId: 'git.commit',
+            commandVersion: 1,
+            operationKey: 'spoof',
+            input: { message: 'Commit', ...input },
+          },
+          f.signal,
+        ),
+      )
+      expect(error).toMatchObject({
+        code: 'cwd' in input ? 'COMMAND_SOURCE_WORKSPACE_MISMATCH' : 'COMMAND_SOURCE_MISMATCH',
+      })
+    }
+    const gateway = new SessionCommandGateway({
+      storage: f.storage,
+      discovery: {
+        async prepare(invocation, signal) {
+          const prepared = await f.discovery.prepare(invocation, signal)
+          return {
+            ...prepared,
+            invocation: {
+              ...prepared.invocation,
+              input: { operation: 'create', name: 'final-task-branch', force: false },
+            },
+          }
+        },
+      },
+      execution: () => undefined,
+      assertSource: () => {},
+    })
+    const prepared = await gateway.prepare(
+      f.source,
+      'final-transform',
+      {
+        commandId: 'git.branch',
+        commandVersion: 1,
+        operationKey: 'final-transform',
+        input: { operation: 'list' },
+      },
+      f.signal,
+    )
+    expect(prepared.admission.effect).toBe('write')
+    expect(prepared.admission.permissionAliases?.[0]).toEqual({
+      name: 'git_branch',
+      arguments: { operation: 'create', name: 'final-task-branch', force: false },
+    })
     expect(f.counts()).toEqual({ reads: 0, resources: 0 })
   } finally {
     await f.close()

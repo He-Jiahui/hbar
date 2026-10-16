@@ -8,6 +8,7 @@ import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
 import type { OsConfinementOptions } from './execution-options'
 import type { ToolPathArgument } from '@hbar/contracts/tool-arguments'
+import type { GitRunContext, GitRunOperation, GitRunResult } from '@hbar/contracts/commands/git'
 import type { NodeCallAuthority, nodeWorkspaceMethods } from '@hbar/contracts/node'
 export { osConfinementOptionsSchema, type OsConfinementOptions } from './execution-options'
 import type { z } from 'zod'
@@ -828,6 +829,8 @@ export interface GitLaunchBranchCreateResult {
 }
 
 export interface GitService {
+  /** Captured source context pins cwd and automatic commit attribution for a command invocation. */
+  forRun?(operation: GitRunOperation, context: GitRunContext, signal?: AbortSignal): Promise<GitRunResult>
   info(cwd?: string, signal?: AbortSignal): Promise<GitInfo>
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
   diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>

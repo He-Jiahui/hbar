@@ -18,6 +18,7 @@ import {
 } from '@hbar/kernel/session-command-port'
 import type { StoragePort } from '@hbar/storage'
 import { SessionCommandAuthorization } from './session-command-authorization'
+import { bindSessionGitInput, sessionGitCommand } from './session-command-git'
 import type { SessionCommandDiscovery } from './session-command-discovery'
 import type { SessionCommandExecution } from './session-command-execution'
 import type { HostSourceApplication } from './command-execution-scopes'
@@ -61,14 +62,16 @@ export class SessionCommandGateway {
       )
     const file = fileCommands.has(call.commandId)
     const decision = decisionQueries.has(call.commandId)
-    const write = call.commandId === 'file.write'
-    if (!readCommands.has(call.commandId) && !file && !decision)
+    const git = sessionGitCommand(call.commandId, call.input)
+    const fileWrite = call.commandId === 'file.write'
+    if (!readCommands.has(call.commandId) && !file && !decision && !git)
       throw new HbarError(
         'COMMAND_ADMISSION_UNAVAILABLE',
         'This command needs a concrete admission rule before a session can execute it',
       )
     const identity = await this.authorization.source(source.sessionId, source.runId)
     let input = call.input
+    if (git) input = sessionCommandCallSchema.shape.input.parse(bindSessionGitInput(source, call.commandId, input))
     if (file) {
       const session = await this.options.storage.call('session', source.sessionId)
       if (input.workspaceId !== session.workspaceId)
@@ -105,12 +108,17 @@ export class SessionCommandGateway {
       signal,
     )
     const metadata = prepared.descriptor.metadata
+    const finalInput = sessionCommandCallSchema.shape.input.parse(prepared.invocation.input)
+    const finalGit = sessionGitCommand(call.commandId, finalInput)
+    if (finalGit) bindSessionGitInput(source, call.commandId, finalInput)
+    const write = fileWrite || finalGit?.write === true
+    const mutatingDefinition = fileWrite || finalGit?.mutation === true
     if (
       metadata.id !== call.commandId ||
       metadata.version !== call.commandVersion ||
-      metadata.owner !== (file ? 'hbar.files' : decision ? 'hbar.decisions' : 'hbar.core') ||
-      metadata.kind !== (write ? 'command' : 'query') ||
-      metadata.stateEffect !== (write ? 'persistent' : 'none') ||
+      metadata.owner !== (file ? 'hbar.files' : decision ? 'hbar.decisions' : git ? 'hbar.git' : 'hbar.core') ||
+      metadata.kind !== (mutatingDefinition ? 'command' : 'query') ||
+      metadata.stateEffect !== (mutatingDefinition ? (git ? 'external' : 'persistent') : 'none') ||
       metadata.execution !== 'host' ||
       metadata.visibility === 'internal'
     )
@@ -123,7 +131,7 @@ export class SessionCommandGateway {
     this.options.assertSource(source)
     const argumentsValue = sessionCommandCallSchema.parse({
       ...call,
-      input: JSON.parse(JSON.stringify(prepared.invocation.input)) as unknown,
+      input: finalInput,
     })
     const unsigned = sessionCommandPreparationSchema.omit({ signature: true }).parse({
       ...prepared,
@@ -140,7 +148,9 @@ export class SessionCommandGateway {
                   ? ['execution.readBytes', 'execution.write']
                   : ['execution.readBytes']),
           ]
-        : [],
+        : finalGit
+          ? [finalGit.method]
+          : [],
       admission: {
         effect: write ? 'write' : 'read',
         workspaceAccess: file
@@ -148,7 +158,15 @@ export class SessionCommandGateway {
               kind: 'paths',
               arguments: [{ field: 'input.path', fieldPath: ['input', 'path'], access: write ? 'write' : 'read' }],
             }
-          : { kind: 'none' },
+          : finalGit
+            ? { kind: 'workspace' }
+            : { kind: 'none' },
+        ...(finalGit
+          ? {
+              requiresProcess: true,
+              permissionAliases: [{ name: finalGit.alias, arguments: finalInput }],
+            }
+          : {}),
         timeoutMs: metadata.timeoutMs,
       },
     })
