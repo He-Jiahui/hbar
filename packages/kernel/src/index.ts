@@ -2,7 +2,7 @@ import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
 import { planAutonomyRetry } from './autonomy-retry'
-import { backendOwnsOrdinaryCompletion } from './backend-completion'
+import { backendAllowsGoalContinuation, backendOwnsOrdinaryCompletion } from './backend-completion'
 import type { ExecutionWaitDecision } from '@hbar/contracts/execution-waits'
 import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
@@ -817,6 +817,9 @@ export class Kernel {
       ...event,
       allowed: event.allowed && !(await backendOwnsOrdinaryCompletion(this.storage)),
     }))
+    this.hooks.on('goal.beforeContinue', async (event) =>
+      (await backendAllowsGoalContinuation(this.storage)) ? event : { ...event, allowed: false, reason: 'disabled' },
+    )
     this.hooks.on('goal.replaced', async ({ sessionId, previous, goal, supersededRunIds = [] }) => {
       if (!previous.goalId || !goal.goalId) return
       const stop = new RunControlSignal({ stop: 'goal_replaced', previousGoalId: previous.goalId, goalId: goal.goalId })
@@ -2258,6 +2261,7 @@ export class Kernel {
               sessionId,
               requestId: submission.requestId,
               unknown: !(error instanceof HbarError) || error.code === 'RESULT_UNKNOWN',
+              ...(error instanceof HbarError ? { code: error.code } : {}),
             })
             return
           }

@@ -978,7 +978,7 @@ export interface HookEvents {
     wakeAt?: number
     submission?: { requestId: string; input: UserInput; modelId: string }
   }
-  'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean }
+  'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean; code?: string }
   /** Published after the session budget fact has been committed. */
   'budget.committed': { sessionId: string; budget: SessionBudget | null }
   /** Goal or other lifecycle owners may veto budget-only continuation without a reverse service dependency. */
@@ -997,7 +997,8 @@ export interface HookEvents {
     runId: string
     goal: ThreadGoal
     allowed: boolean
-    reason?: 'workflow_wait' | 'repair'
+    /** Disabled keeps the intent waiting; it must not clear the Goal or its remaining budgets. */
+    reason?: 'workflow_wait' | 'repair' | 'disabled'
     recoveryKey?: string
   }
   'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal; supersededRunIds?: readonly string[] }

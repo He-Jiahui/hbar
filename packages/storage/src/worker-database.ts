@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { createContextSummaryReader } from './context-summary'
+import { createBackendContinuationAdmission } from './backend-continuation'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage, EXECUTION_PRINCIPAL_INDEX } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
@@ -675,6 +676,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
     })
     const decisions = createDecisionStorage(db, appendEvent)
+    const admitBackendContinuation = createBackendContinuationAdmission(db)
     const approvalResolutions = createApprovalResolutionStorage(db, (id) => methods.approval(id))
     const autonomyRetries = createAutonomyRetryStorage(db, appendEvent, {
       run: (id) => methods.run(id),
@@ -3025,6 +3027,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               )
             return prior
           }
+          admitBackendContinuation(input)
           const retrySource = autonomyRetry === undefined
             ? undefined
             : autonomyRetries.validate(autonomyRetry, sessionId, requestId, input, modelId)

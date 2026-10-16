@@ -4107,6 +4107,7 @@ export const workflowPlugin = definePlugin({
       commit: await runtime.guardCompletion(event.sessionId, event.goal.goalId, event.commit),
     }))
     api.hooks.on('goal.beforeContinue', (event) => {
+      if (!event.allowed) return event
       const policy = runtime.continuationPolicy(event.sessionId)
       return { ...event, ...policy, allowed: event.allowed && policy.allowed }
     })

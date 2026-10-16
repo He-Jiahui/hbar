@@ -547,7 +547,9 @@ class GoalRuntime implements GoalService {
               ? 'budget_exhausted'
               : mode.mode === 'plan'
                 ? 'plan_mode'
-                : 'workflow_wait',
+                : admission.reason === 'disabled'
+                  ? 'disabled'
+                  : 'workflow_wait',
           )
           await this.persist({
             ...waiting,
@@ -906,6 +908,7 @@ class GoalRuntime implements GoalService {
       const intent = goal?.continuationIntent
       if (!goal || !intent || !['pending', 'waiting', 'queued'].includes(intent.phase)) return event
       let reason: GoalContinuation['reason'] | undefined
+      let backendDisabled = false
       let executionReason: GoalContinuation['reason'] = 'goal_active'
       if (!this.config.autoContinue) reason = 'disabled'
       else if (intent.modelId === null) reason = 'model_unavailable'
@@ -921,8 +924,10 @@ class GoalRuntime implements GoalService {
           goal: publicGoal(goal),
           allowed: true,
         })
-        if (!admission.allowed) reason = 'workflow_wait'
-        else if (admission.reason === 'repair') {
+        if (!admission.allowed) {
+          backendDisabled = admission.reason === 'disabled'
+          reason = backendDisabled ? 'disabled' : 'workflow_wait'
+        } else if (admission.reason === 'repair') {
           if (goal.repairKey === admission.recoveryKey && goal.repairAttempts >= 3) reason = 'repair_exhausted'
           else executionReason = 'repair'
         }
@@ -933,7 +938,7 @@ class GoalRuntime implements GoalService {
         return { ...event, wakeAt: intent.retryAt }
       }
       const next =
-        reason && SESSION_STOP_REASONS.has(reason)
+        reason && SESSION_STOP_REASONS.has(reason) && !backendDisabled
           ? this.pauseContinuation(goal, reason)
           : this.withContinuation(goal, reason ? 'waiting' : 'queued', reason ?? executionReason)
       if (next !== goal) await this.persist(next)
@@ -960,7 +965,11 @@ class GoalRuntime implements GoalService {
     await this.serial(event.sessionId, async () => {
       const goal = this.goals.get(event.sessionId)
       if (goal?.continuationIntent && event.requestId === `goal-${goal.continuationIntent.intentId}`)
-        await this.persist(this.pauseContinuation(goal, event.unknown ? 'result_unknown' : 'run_failed'))
+        await this.persist(
+          event.code === 'BACKEND_AUTOMATION_DISABLED' && !event.unknown
+            ? this.withContinuation(goal, 'waiting', 'disabled')
+            : this.pauseContinuation(goal, event.unknown ? 'result_unknown' : 'run_failed'),
+        )
     })
   }
 
@@ -1070,7 +1079,11 @@ class GoalRuntime implements GoalService {
     if (goal.status !== 'active') return `GOAL_${goal.status.toUpperCase()}`
     if (this.config.maxContinuations !== null && goal.continuationCount >= this.config.maxContinuations) return 'GOAL_CONTINUATION_LIMIT'
     const admission = await this.api.hooks.dispatch('goal.beforeContinue', { sessionId: run.sessionId, runId: run.id, goal: publicGoal(goal), allowed: true })
-    return admission.allowed ? null : 'GOAL_WORKFLOW_WAIT'
+    return admission.allowed
+      ? null
+      : admission.reason === 'disabled'
+        ? 'GOAL_CONTINUATION_DISABLED'
+        : 'GOAL_WORKFLOW_WAIT'
   }
 
   async snapshot(sessionId: string) {
@@ -1530,7 +1543,7 @@ class GoalRuntime implements GoalService {
         await this.stopContinuation(goal, run, 'repair_exhausted')
         return
       }
-      if (!repairing && goal.repairAttempts > 0)
+      if (admission?.allowed !== false && !repairing && goal.repairAttempts > 0)
         goal = await this.persist({ ...goal, repairKey: null, repairAttempts: 0 }, event.runId)
       if (event.status === 'completed' || goal.status === 'budget_limited')
         await this.queueContinuation(goal, { trigger: event.runId, modelId: run.modelId })
