@@ -271,6 +271,13 @@ export class Storage {
       })
     })
   }
+  /** Explicit startup handshake budget; ordinary serving calls keep their configured deadline. */
+  ready(timeoutMs: number): Promise<ReturnType<StorageMethods['ready']>> {
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000)
+      return Promise.reject(new RangeError('Storage startup ready deadline must be from 1 to 120000 milliseconds'))
+    if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
+    return this.request('ready', [], timeoutMs)
+  }
   call<K extends keyof StorageMethods>(
     method: K,
     ...args: Parameters<StorageMethods[K]>

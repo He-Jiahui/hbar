@@ -134,11 +134,11 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
             }
           : {}),
       })
-      await storage.call('ready')
+      await storage.ready(120_000)
     } catch (error) {
       await storage?.close()
       storage = undefined
-      await releaseWriter()
+      await releaseWriter?.()
       releaseWriter = undefined
       throw error
     }
