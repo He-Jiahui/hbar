@@ -21,6 +21,10 @@ import { LocalCommandJobs } from '../apps/host/src/local-command-jobs'
 import { CommandResultPayloads } from '../apps/host/src/command-result-payloads'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 
+const inProcessStorage = process.env.HBAR_TEST_GATEWAY_STORAGE_IN_PROCESS === '1'
+if (inProcessStorage)
+  console.info('[hbar tests] SessionCommandGateway storage=in-process; Worker transport is not exercised')
+
 async function failure(promise: Promise<unknown>): Promise<unknown> {
   try {
     await promise
@@ -33,7 +37,9 @@ async function failure(promise: Promise<unknown>): Promise<unknown> {
 async function fixture() {
   const prefix = 'hbar-command-gateway-'
   const root = await mkdtemp(join(tmpdir(), prefix))
-  const storage = new Storage(join(root, 'state.sqlite'))
+  const storage = inProcessStorage
+    ? (await import('./in-process-storage')).createInProcessStorage(join(root, 'state.sqlite'))
+    : new Storage(join(root, 'state.sqlite'))
   await storage.call('ready')
   const workspace = await storage.call('createWorkspace', root, 'allowed')
   const device = {
