@@ -114,6 +114,7 @@ export type CommandExecutionReceipt = z.infer<typeof commandExecutionReceiptSche
 /** These failures cannot prove the outcome of a nested side effect merely because its caller has returned. */
 export const COMMAND_UNCONFIRMED_ERROR_CODES = [
   'RESULT_UNKNOWN',
+  'EFFECT_UNKNOWN',
   'COMMAND_SOURCE_RESULT_UNKNOWN',
   'IPC_DISCONNECTED',
   'IPC_TIMEOUT',
@@ -123,8 +124,18 @@ export const COMMAND_UNCONFIRMED_ERROR_CODES = [
   'IPC_FRAGMENT_TIMEOUT',
   'RUNTIME_OWNER_REVOKED',
   'RUNTIME_PROCESS_EXITED',
+  'RUNTIME_EXIT_UNKNOWN',
+  'EXECUTION_OWNER_REVOKED',
+  'STORAGE_RESULT_UNKNOWN',
+  'STORAGE_INTEGRITY_UNKNOWN',
+  'STORAGE_TIMEOUT',
+  'STORAGE_WORKER_FAILED',
+  'STORAGE_WORKER_EXITED',
+  'DATABASE_WORKER_EXITED',
   'NODE_RESULT_UNKNOWN',
   'NODE_RECEIPT_UNKNOWN',
+  'NODE_CONFIRMATION_UNKNOWN',
+  'GIT_TIMEOUT',
 ] as const
 export const commandExecutionPendingItemSchema = commandExecutionIdentitySchema.extend({
   runId: idSchema,

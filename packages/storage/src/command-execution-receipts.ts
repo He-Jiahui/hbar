@@ -20,6 +20,7 @@ import {
 } from '@hbar/contracts/command-execution'
 import { createCommandExpectation } from '@hbar/commands'
 import { createExecutionPrincipalStorage } from './execution-principals'
+import { createCommandMutationGuards } from './command-mutation-guards'
 
 type AppendEvent = (sessionId: string, type: string, data: unknown, runId?: string) => SessionEvent
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
@@ -32,6 +33,7 @@ const eventType = (identity: CommandExecutionIdentity): string =>
 /** The indexed canonical log is the receipt store; projection rebuild does not require a second mutable journal. */
 export function createCommandExecutionReceiptStorage(db: Database, append: AppendEvent) {
   const principals = createExecutionPrincipalStorage(db)
+  const guards = createCommandMutationGuards(db, append)
   const latest = db.query<{ sessionId: string; runId: string; data: string }, [string, string]>(
     'SELECT sessionId,runId,data FROM events WHERE sessionId=? AND type=? ORDER BY seq DESC LIMIT 1',
   )
@@ -108,6 +110,7 @@ export function createCommandExecutionReceiptStorage(db: Database, append: Appen
     const encoded = JSON.stringify(value)
     if (Buffer.byteLength(encoded) > COMMAND_RECEIPT_RECORD_BYTES)
       throw new HbarError('COMMAND_RECEIPT_CAPACITY', 'Command receipt exceeds its canonical record capacity')
+    guards.write(value)
     append(value.sessionId, eventType(value), value, value.runId)
     return value
   }
@@ -146,6 +149,7 @@ export function createCommandExecutionReceiptStorage(db: Database, append: Appen
           throw new HbarError('SESSION_LOG_CORRUPTED', 'Pending command metadata differs from its canonical identity')
         return item
       })
+      if (items.length < 65) items.push(...guards.pending(sessionId, 65 - items.length))
       return commandExecutionPendingSchema.parse({ sessionId, items: items.slice(0, 64), hasMore: items.length > 64 })
     },
     accept(raw: CommandExecutionIntent): { created: boolean; receipt: CommandExecutionReceipt } {

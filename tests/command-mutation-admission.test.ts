@@ -98,7 +98,14 @@ test('the Host mutation gate reads durable facts and only exempts a known origin
       (item, runId) => item.runId === runId && item.reason === 'pending',
     )
     await gate.assertAllowed(context)
-    expect(await failure(gate.assertAllowed({ ...context, runId: 'later-run' }))).toMatchObject({
+    const later = await storage.call(
+      'enqueue',
+      f.session.id,
+      'later-run',
+      { text: 'Later task', images: [] },
+      'local-fixture',
+    )
+    expect(await failure(gate.assertAllowed({ ...context, runId: later.id }))).toMatchObject({
       code: 'COMMAND_RESULT_UNCONFIRMED',
     })
     await new CommandMutationAdmission(storage).assertAllowed(context, f.receipt)
@@ -139,11 +146,12 @@ test('a cancelled Host reconciliation read cannot admit a mutation after its sto
     },
   }
   try {
+    const f = await pending(storage, root)
     expect(
       await failure(
         new CommandMutationAdmission(cancellable).assertAllowed({
-          sessionId: 'empty-session',
-          runId: 'cancelled-run',
+          sessionId: f.session.id,
+          runId: f.run.id,
           signal: controller.signal,
         }),
       ),
@@ -167,6 +175,10 @@ test('the production Run gateway blocks builtin writes after an unconfirmed comm
   })
   try {
     const f = await pending(runtime.storage, root)
+    const child = await runtime.storage.call('createSession', f.session.workspaceId, 'Inherited task', f.session.id, {
+      kind: 'run',
+      runId: f.run.id,
+    })
     await runtime.storage.call('setRun', f.run.id, 'failed', 'Fixture intent was accepted without dispatch')
     async function run(requestId: string, text: string) {
       const run = await runtime.kernel.submit(
@@ -191,6 +203,23 @@ test('the production Run gateway blocks builtin writes after an unconfirmed comm
     expect(
       (await runtime.storage.call('events', f.session.id, 0, 2_000)).filter(
         (event) => event.type === 'tool.started' && event.runId === blocked.run.id,
+      ),
+    ).toHaveLength(0)
+    const childRun = await runtime.kernel.submit(
+      child.id,
+      'child-bypass',
+      {
+        text: '/tool write_file {"path":"child-proof.txt","text":"must wait"}',
+        images: [],
+        approval: 'allow',
+      },
+      'local-fixture',
+    )
+    await runtime.waitForIdle()
+    expect(await Bun.file(join(root, 'child-proof.txt')).exists()).toBe(false)
+    expect(
+      (await runtime.storage.call('events', child.id, 0, 2_000)).filter(
+        (event) => event.type === 'tool.started' && event.runId === childRun.id,
       ),
     ).toHaveLength(0)
     await Bun.write(join(root, 'inspection.txt'), 'Inspection remains available')
