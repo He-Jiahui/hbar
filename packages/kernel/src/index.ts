@@ -3540,6 +3540,7 @@ export class Kernel {
           return executed
         },
         permitId ? () => this.options.execution!.releaseTool!(permitId!) : undefined,
+        { runId: executionIdentity.runId },
       )
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
@@ -3763,6 +3764,7 @@ export class Kernel {
       resolve = done
     })
     this.approvals.set(approval.id, resolve)
+    let resumeIdle: (() => void) | undefined
     const onAbort = () => {
       if (hostSignal.reason instanceof HbarError && hostSignal.reason.code === 'EXECUTION_OWNER_REVOKED') {
         resolve({ source: 'abort', reason: hostSignal.reason })
@@ -3792,11 +3794,14 @@ export class Kernel {
     try {
       this.publishEvent(await this.storage.call('createApproval', approval))
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'waiting_approval'))
+      const active = this.active.get(context.session.id)
+      if (active?.run.id === context.run.id) resumeIdle = active.idleTimeout.suspend()
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
       return { ...(await outcome), approvalId: approval.id }
     } finally {
+      resumeIdle?.()
       hostSignal.removeEventListener('abort', onAbort)
       this.approvals.delete(approval.id)
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'running'))
@@ -4064,6 +4069,7 @@ export class Kernel {
         ).catch((error: unknown) => outcome.reject(error))
       }
       signal.addEventListener('abort', onAbort, { once: true })
+      let resumeHumanWait: (() => void) | undefined
       try {
         for (const event of accepted.events) this.publishEvent(event)
         const boundaryStop = this.boundaryStops.get(request.runId)
@@ -4071,6 +4077,15 @@ export class Kernel {
         else if (boundaryStop) await settle(undefined, boundaryStop)
         else await this.automateUserInput(request, accepted.state.policy, signal, settle)
         if (!settled) {
+          const active = this.active.get(request.sessionId)
+          if (request.isBlocking && active?.run.id === request.runId) {
+            const resumeIdle = active.idleTimeout.suspend()
+            const resumeTool = this.toolExecutions.suspend(request.runId, request.callId)
+            resumeHumanWait = () => {
+              resumeTool()
+              resumeIdle()
+            }
+          }
           this.publish({ method: 'user_input.requested', params: request })
           void this.taskNotification(
             'user_input',
@@ -4085,6 +4100,7 @@ export class Kernel {
         if (!settled) await settle(undefined, error)
         throw error
       } finally {
+        resumeHumanWait?.()
         signal.removeEventListener('abort', onAbort)
         this.userInputs.delete(request.requestId)
       }
