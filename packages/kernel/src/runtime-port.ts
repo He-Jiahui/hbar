@@ -141,6 +141,8 @@ export const RUNTIME_KERNEL_HOST_METHODS = [
   'kernel.nodeWorktree.call',
 ] as const
 export const RUNTIME_KERNEL_CONTROL_METHODS = [
+  // Leaf Storage RPC must progress while outer plugin invocations await their Kernel callbacks.
+  'kernel.storage',
   'kernel.resume',
   'kernel.fence',
   'kernel.cancel',

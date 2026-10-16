@@ -14,6 +14,7 @@ import {
 import { procedure, runtimeDomainError, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
 import type { DiagnosticEvent } from '@hbar/contracts/diagnostics'
 import { driverCallbackCorrelation, observeDriverCallback } from './runtime-driver-callback-diagnostics'
+import { RuntimeDriverCallbackAdmission } from './runtime-driver-callback-gate'
 import { driverCallbackTimeoutMs, DRIVER_COMPACTION_RPC_TIMEOUT_MS } from './runtime-driver-timeouts'
 
 export interface RuntimeDriverEndpoint {
@@ -36,6 +37,7 @@ export interface RuntimeDriverRelayOptions {
 /** The base routes plain descriptors between owners. Kernel callbacks and driver functions never leave their processes. */
 export class RuntimeDriverRelay {
   private readonly invocations = new Map<string, Invocation>()
+  private readonly callbackGates = new Map<string, RuntimeDriverCallbackAdmission>()
   constructor(private readonly options: RuntimeDriverRelayOptions) {}
   attachKernel(peer: IpcPeer): () => void {
     const disposers = [
@@ -133,6 +135,7 @@ export class RuntimeDriverRelay {
         procedure(runtimeDriverCallbackSchema, z.unknown(), (input, call) => {
           const invocation = owned(input.invocationId)
           this.options.coordinator.assertCanWrite(peer.remote, invocation.execution)
+          this.options.coordinator.assertCanWrite(invocation.kernel.remote, invocation.execution)
           const rpcId = driverCallbackCorrelation(call.requestId)
           return observeDriverCallback({
             side: 'relay',
@@ -141,13 +144,42 @@ export class RuntimeDriverRelay {
             invocationId: input.invocationId,
             method: input.method,
             emit: (event) => this.options.onDiagnostic?.(event),
-            operation: () =>
-              invocation.kernel.call('driver.callback', input, z.unknown(), {
-                signal: call.signal,
-                requestId: rpcId,
-                timeoutMs: driverCallbackTimeoutMs(input.method),
-                ownership: invocation.execution,
-              }),
+            operation: () => {
+              const incarnation = invocation.kernel.remote.incarnation
+              let gate = this.callbackGates.get(incarnation)
+              if (!gate) {
+                gate = new RuntimeDriverCallbackAdmission()
+                this.callbackGates.set(incarnation, gate)
+              }
+              return gate.run(
+                input.method,
+                call.signal,
+                driverCallbackTimeoutMs(input.method),
+                ({ timeoutMs, onDispatchSettled }) => {
+                  let current: Invocation
+                  try {
+                    current = owned(input.invocationId)
+                    if (current.kernel !== invocation.kernel)
+                      throw new HbarError(
+                        'EXECUTION_OWNER_MISMATCH',
+                        'The callback target changed while awaiting admission',
+                      )
+                    this.options.coordinator.assertCanWrite(peer.remote, current.execution)
+                    this.options.coordinator.assertCanWrite(current.kernel.remote, current.execution)
+                  } catch (error) {
+                    onDispatchSettled('not-dispatched')
+                    throw error
+                  }
+                  return current.kernel.call('driver.callback', input, z.unknown(), {
+                    signal: call.signal,
+                    requestId: rpcId,
+                    timeoutMs,
+                    onDispatchSettled,
+                    ownership: current.execution,
+                  })
+                },
+              )
+            },
           })
         }),
       ),
@@ -181,6 +213,8 @@ export class RuntimeDriverRelay {
     }
   }
   kernelExited(owner: RuntimeOwner): void {
+    this.callbackGates.get(owner.incarnation)?.close()
+    this.callbackGates.delete(owner.incarnation)
     for (const [invocationId, invocation] of this.invocations)
       if (invocation.kernel.remote.incarnation === owner.incarnation)
         void invocation.driver.peer

@@ -19,11 +19,13 @@ import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 import { stopDriverWithDiagnostic, type DriverStopReason } from './runtime-driver-stop-diagnostics'
 import { driverCallbackCorrelation, observeDriverCallback } from './runtime-driver-callback-diagnostics'
+import { RuntimeDriverCallbackAdmission } from './runtime-driver-callback-gate'
 import { driverCallbackTimeoutMs } from './runtime-driver-timeouts'
 export { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const driver = new PiDriver()
+  const callbacks = new RuntimeDriverCallbackAdmission()
   const active = new Map<
     string,
     { controller: AbortController; cancellation: ReturnType<typeof setTimeout> | undefined }
@@ -101,12 +103,19 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
             context.peer.notify('runtime.diagnostic', event).catch(() => {})
           },
           operation: () =>
-            context.peer.call('driver.callback', { invocationId: input.invocationId, ...value }, result, {
-              requestId: rpcId,
-              signal: controller.signal,
-              timeoutMs: driverCallbackTimeoutMs(value.method),
-              ...(input.ownership ? { ownership: input.ownership } : {}),
-            }),
+            callbacks.run(
+              value.method,
+              controller.signal,
+              driverCallbackTimeoutMs(value.method),
+              ({ timeoutMs, onDispatchSettled }) =>
+                context.peer.call('driver.callback', { invocationId: input.invocationId, ...value }, result, {
+                  requestId: rpcId,
+                  signal: controller.signal,
+                  timeoutMs,
+                  onDispatchSettled,
+                  ...(input.ownership ? { ownership: input.ownership } : {}),
+                }),
+            ),
         })
       }
       const tools: ToolDefinition[] = input.tools.map((tool) => ({
@@ -254,6 +263,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       return { runs: active.size, requests: 0, resources: 0 }
     },
     async dispose() {
+      callbacks.close()
       draining = true
       clearTimeout(timer)
       for (const invocation of active.values()) {
