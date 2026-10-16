@@ -16,12 +16,14 @@ test('Responses preserves every transmitted Host snapshot across tool growth and
     tools: z.array(z.record(z.string(), z.unknown())),
   })
   const bodies: z.infer<typeof bodySchema>[] = []
+  const turnStates: (string | null)[] = []
   let revision = 0
   const provider = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
     async fetch(request) {
       bodies.push(bodySchema.parse(await request.json()))
+      turnStates.push(request.headers.get('x-codex-turn-state'))
       const count = bodies.length
       const item =
         count < 3
@@ -54,7 +56,7 @@ test('Responses preserves every transmitted Host snapshot across tool growth and
               usage: { input_tokens: 1000, output_tokens: 10, total_tokens: 1010 },
             },
           }),
-        { headers: { 'Content-Type': 'text/event-stream' } },
+        { headers: { 'Content-Type': 'text/event-stream', 'x-codex-turn-state': `fixture-state-${count}` } },
       )
     },
   })
@@ -92,6 +94,7 @@ test('Responses preserves every transmitted Host snapshot across tool growth and
     await kernel.submit(session.id, 'first', { text: 'Read the bounded fixture twice', images: [] }, 'prefix')
     await kernel.waitForIdle()
     expect(bodies).toHaveLength(3)
+    expect(turnStates).toEqual([null, 'fixture-state-1', 'fixture-state-1'])
     for (let index = 1; index < 3; index++) {
       expect(bodies[index]?.input.slice(0, bodies[index - 1]?.input.length)).toEqual(bodies[index - 1]?.input)
       expect(bodies[index]?.tools).toEqual(bodies[0]?.tools)
@@ -102,6 +105,7 @@ test('Responses preserves every transmitted Host snapshot across tool growth and
     await kernel.submit(session.id, 'restart', { text: 'Continue after restart', images: [] }, 'prefix')
     await kernel.waitForIdle()
     expect(bodies).toHaveLength(4)
+    expect(turnStates[3]).toBeNull()
     expect(bodies[3]?.input.slice(0, bodies[2]?.input.length)).toEqual(bodies[2]?.input)
     const snapshot = await kernel.snapshot(session.id)
     await kernel.storage.call(
@@ -114,6 +118,7 @@ test('Responses preserves every transmitted Host snapshot across tool growth and
     await kernel.submit(session.id, 'compacted', { text: 'Continue after compaction', images: [] }, 'prefix')
     await kernel.waitForIdle()
     expect(bodies).toHaveLength(5)
+    expect(turnStates[4]).toBeNull()
     const contexts = bodies[4]?.input.filter(
       (item) => typeof item.content === 'string' && item.content.includes('<host_context_snapshot>'),
     )

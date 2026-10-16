@@ -39,6 +39,7 @@ import type {
 } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
+import { ProviderTurnState } from './provider-turn-state'
 import { createDriverSteeringReader } from './steering'
 import {
   withProviderResponseDiagnostics,
@@ -236,9 +237,11 @@ function streamProvider(
   onStreamEvent?: (event: unknown) => void,
   onProviderError?: (errorCode?: unknown) => void,
   onBodyEof?: () => void,
+  turnState?: ProviderTurnState,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const reasoning = normalizeThinkingLevel(config, thinking)
+  const providerFetch = turnState?.forProvider(config, globalThis.fetch) ?? globalThis.fetch
   const options: SimpleStreamOptions = {
     apiKey: apiKey ?? 'hbar-keyless-local-provider',
     signal,
@@ -247,7 +250,7 @@ function streamProvider(
     ...(onResponse && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
       ? {
           fetch: withProviderResponseDiagnostics(
-            globalThis.fetch,
+            providerFetch,
             onResponse,
             onTransportFailure,
             onProviderError,
@@ -618,6 +621,7 @@ export class PiDriver implements HarnessDriver {
     let modelTerminalEmitted = false
     let attemptHostContext: ModelHostContextSnapshot | undefined
     const completedTools = new Set<string>()
+    const turnState = new ProviderTurnState()
     let goalStopped = false
     let toolExecutedInStep = false
     let requestFailure: unknown
@@ -859,6 +863,7 @@ export class PiDriver implements HarnessDriver {
           (event) => streamState.observe(event),
           (errorCode) => streamState.markProviderError(errorCode),
           () => streamState.markEof(),
+          turnState,
         )
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error
