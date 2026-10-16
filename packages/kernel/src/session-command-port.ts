@@ -9,6 +9,14 @@ export const SESSION_COMMAND_DIRECTORY_QUERY_IDS = [
   'session.list',
   'session.get',
 ] as const
+export const SESSION_COMMAND_FILE_IDS = ['file.find', 'file.list', 'file.read', 'file.write'] as const
+
+export const sessionCommandSourceSchema = z.strictObject({
+  prefix: z.string().regex(/^kernel\.command\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+  sessionId: z.string().min(1).max(160),
+  runId: z.string().min(1).max(160),
+  callId: z.string().min(1).max(160),
+})
 
 export const sessionCommandCallSchema = z.strictObject({
   commandId: commandIdSchema,
@@ -28,6 +36,7 @@ export const sessionCommandPreparationSchema = z.strictObject({
   invocation: invocationSchema,
   admission: toolCallAdmissionSchema,
   arguments: sessionCommandCallSchema,
+  sourceMethods: z.array(z.string().min(1).max(128)).max(32).default([]),
 })
 export type SessionCommandPreparation = z.output<typeof sessionCommandPreparationSchema>
 export const sessionCommandToolResultSchema = z.strictObject({ text: z.string().max(131_072), isError: z.boolean() })

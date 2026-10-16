@@ -53,10 +53,12 @@ import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 import { RuntimePluginAdapter } from './runtime-plugin-adapter'
 import { attachRuntimeCommandJobs } from './runtime-command-jobs'
 import { createRuntimeSessionCommandBinding } from './runtime-session-command-binding'
+import { RuntimeCommandSources } from './runtime-command-source'
 
 /** Managed candidates construct their actual Kernel with read-only ports; execution waits for explicit activation. */
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const commandJobs = new CommandExecutionJobs()
+  const commandSources = new RuntimeCommandSources(context.peer)
   const detachCommandJobs = attachRuntimeCommandJobs(context.peer, commandJobs)
   const configuration = runtimeKernelConfigurationSchema.parse(context.configuration)
   const layout = createPathLayout(
@@ -199,7 +201,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
-      toolCalls: createRuntimeSessionCommandBinding(context.peer),
+      toolCalls: createRuntimeSessionCommandBinding(context.peer, {
+        sources: commandSources,
+        capabilities: () => ({
+          execution: application().plugins.get<import('@hbar/plugin-sdk').ExecutionProvider>('execution'),
+        }),
+      }),
       mutationAdmission: {
         assertAllowed: (identity) =>
           context.peer.call(
@@ -522,6 +529,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       unsubscribe?.()
       notifications.dispose()
       await kernel?.close()
+      commandSources.assertCanClose()
       plugins.dispose()
       driver.dispose()
       values.dispose()

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { CommandRegistry, createCommandRouter } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
+import { fileCommands } from '@hbar/contracts/commands/files'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import { Storage } from '@hbar/storage'
 import { SessionCommandGateway } from '../apps/host/src/session-command-gateway'
@@ -79,6 +80,11 @@ async function fixture() {
     reads++
     return storage.call('findWorkspace', input.workspaceId)
   })
+  const unexpectedFile = async (): Promise<never> => {
+    throw new Error('Preparation must not execute a file operation')
+  }
+  registry.register(fileCommands['file.read'], unexpectedFile)
+  registry.register(fileCommands['file.write'], unexpectedFile)
   const jobs = new LocalCommandJobs({
     scopes,
     retainSource: () => {
@@ -200,6 +206,7 @@ test('signed preparations reject changed source calls, arguments, admission and 
       { ...prepared, arguments: { ...prepared.arguments, operationKey: 'another-operation' } },
       { ...prepared, invocation: { ...prepared.invocation, input: { limit: 1 } } },
       { ...prepared, admission: { ...prepared.admission, effect: 'write' as const } },
+      { ...prepared, sourceMethods: ['execution.write'] },
     ])
       expect(await failure(f.gateway.execute(f.source, 'bound-call', tampered, f.signal))).toMatchObject({
         code: 'COMMAND_PREPARATION_INVALID',
@@ -235,7 +242,7 @@ test('current device authorization, cancellation and unsupported concrete effect
     await f.storage.call('revokeDevice', f.device.id)
     await f.storage.call('putDevice', f.device, 'restored-hash')
     await expect(
-      f.gateway.prepare(f.source, 'unsupported', { ...f.call, commandId: 'file.write' }, f.signal),
+      f.gateway.prepare(f.source, 'unsupported', { ...f.call, commandId: 'system.restart' }, f.signal),
     ).rejects.toMatchObject({ code: 'COMMAND_ADMISSION_UNAVAILABLE' })
     await expect(
       f.gateway.prepare(
@@ -250,6 +257,68 @@ test('current device authorization, cancellation and unsupported concrete effect
     await expect(f.gateway.execute(f.source, 'bound-call', prepared, controller.signal)).rejects.toThrow(
       'Source stopped',
     )
+    expect(f.counts()).toEqual({ reads: 0, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
+
+test('file preparation pins the source target and exact nested path without opening a source capability or command intent', async () => {
+  const f = await fixture()
+  try {
+    const call = {
+      commandId: 'file.write',
+      commandVersion: 1,
+      operationKey: 'create-proof',
+      input: {
+        workspaceId: f.workspace.id,
+        path: 'proof.txt',
+        text: 'source data',
+        expectedSha256: null,
+      },
+    }
+    const prepared = await f.gateway.prepare(f.source, 'file-call', call, f.signal)
+    expect(prepared.arguments.input.sessionTarget).toEqual({ sessionId: f.source.sessionId, expectedRevision: 0 })
+    expect(prepared.admission).toMatchObject({
+      effect: 'write',
+      workspaceAccess: {
+        kind: 'paths',
+        arguments: [{ field: 'input.path', fieldPath: ['input', 'path'], access: 'write' }],
+      },
+    })
+    expect(prepared.sourceMethods).toEqual([
+      'launchTarget.workspaceForRun',
+      'workspaceSandbox.prepare',
+      'execution.readBytes',
+      'execution.write',
+    ])
+    expect(await failure(f.gateway.execute(f.source, 'file-call', prepared, f.signal))).toMatchObject({
+      code: 'COMMAND_SOURCE_APPLICATION_REQUIRED',
+    })
+    for (const input of [
+      { ...call.input, workspaceId: 'foreign-workspace' },
+      { ...call.input, sessionTarget: { sessionId: 'another-session', expectedRevision: 0 } },
+    ])
+      expect(await failure(f.gateway.prepare(f.source, 'foreign-call', { ...call, input }, f.signal))).toMatchObject({
+        code: 'COMMAND_SOURCE_WORKSPACE_MISMATCH',
+      })
+    expect(
+      await failure(
+        f.gateway.prepare(
+          f.source,
+          'stale-call',
+          { ...call, input: { ...call.input, sessionTarget: { sessionId: f.source.sessionId, expectedRevision: 99 } } },
+          f.signal,
+        ),
+      ),
+    ).toMatchObject({ code: 'COMMAND_CONFLICT' })
+    expect(
+      await f.storage.call('commandExecutionRead', {
+        sessionId: f.source.sessionId,
+        actorId: f.device.id,
+        operationKey: call.operationKey,
+      }),
+    ).toBeNull()
     expect(f.counts()).toEqual({ reads: 0, resources: 0 })
   } finally {
     await f.close()

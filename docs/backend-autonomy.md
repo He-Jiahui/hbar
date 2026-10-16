@@ -368,7 +368,7 @@ Kernel 用例验证一次格式修正、两次失败后人工、策略切换和 
 ## 会话命令的生产工具入口
 
 受管 Host 的所有普通会话现在注册 `hbar_command_execute`，与已有的 `hbar_commands_list`、`hbar_command_describe` 一起使用。
-当前经审查的执行范围是 `workspace.list`、`workspace.get`、`session.list`、`session.get`；发现目录继续包含全部 Host/client/platform 指令，其他执行规则仍待接入，不能视作全指令已经可执行。
+此入口首先开放 `workspace.list`、`workspace.get`、`session.list`、`session.get`，文件命令的扩展见下文；发现目录继续包含全部 Host/client/platform 指令，其他执行规则仍待接入，不能视作全指令已经可执行。
 模型输入只有 command ID、版本、JSON input、稳定 operationKey 与可选显式客户端目标，不接受源 session、Run、actor 或权限参数。
 
 Kernel 完成参数转换后，通过私有 IPC 请求 Host 做只读准备，使用命令实际所有者的 validator 补默认值并核对规范授权来源。
@@ -399,6 +399,23 @@ Kernel 继续通过正常选择工具、Run 权限、Plan、Workflow、策略／
 共享 sandbox evaluator fingerprint 包含读取函数与 schema 源文件，Host 和 Node 继续按指纹确认相同语义。
 本项通过 83 项相关测试、严格变更范围 lint、全仓类型检查及 Web／Host 构建；测试覆盖 Windows／POSIX 的顶层伪装、数组中单个受限路径、真实 Workflow 放行／拒绝和实际插件 IPC 元数据。
 这提供文件命令所需的准入路径表达，源文件能力工厂和具体文件执行仍待下项接入。
+
+## 会话文件命令与执行根
+
+`hbar_command_execute` 增加 `file.find`、`file.list`、`file.read` 和 `file.write`。
+Host 在只读准备中验证当前源 workspace，固定源 session 与执行目标 revision；传入其他 workspace、其他 session 或过期 revision 均拒绝。
+最终 admission 使用真实 read/write effect 与 `input.path` 的显式嵌套路径，继续经过普通 Plan、权限、Workflow 和沙箱准入。
+签名同时绑定允许的源方法清单；缺少源能力端口时，执行在创建持久 intent 前拒绝。
+
+Kernel 只在准入后的 executor 内打开能力端口，捕获实际 Run 的执行根、ALS、节点 authority、环境、OS confinement 和取消信号。
+文件所属 Controller 通过该端口调用源 execution／workspaceQuery，目录解析返回已准备的 Run 目录，不再次选择基础 workspace、创建 worktree 或挂载。
+端口绑定实际 Kernel incarnation 和工具身份；每源最多 16 个在途、128 次调用，最多 64 个源，关闭先封住新调用并等待已接受操作的实际结束。
+执行器实际 write 返回的版本经公开 file-change schema 校验，并交回源 ToolResult，沿用 Kernel 的 Run 变更记录；同键读取旧回执不会将历史写入记录为新 Run 的变更。
+
+真实受管 Host 使用已配对 operator 验证基础与隔离 worktree 的不同内容、缺失文件创建、列表和查找、源 Run 文件变更归属、Plan／deny 写入拒绝、重复 operationKey 返回原回执且保留后续外部编辑，以及资源归零和无自动 Goal。
+网关和端口测试覆盖签名方法篡改、无 capability、跨 workspace／session、版本冲突、取消与实际结算，以及不重新解析远程风格挂载路径。
+这仍不代表 Git、系统、client/platform 和完整目录的其余执行规则已经开放；大结果引用读取及未知结果核对仍属于后续整合。
+此次隔离目录 fixture 通过公开 Host 用例预设 launch target；现有受管 Controller 的内部 launch-target 命令未出现在授权目录中的问题另行处理，不把 fixture 准备当作该网络命令已经验证。
 
 ## 完整目标的后续交付
 

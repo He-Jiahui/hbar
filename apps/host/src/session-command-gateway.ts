@@ -4,11 +4,13 @@ import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import type { CommandExecutionReceipt } from '@hbar/contracts/command-execution'
 import { commandJobLogicalResultSchema } from '@hbar/commands/jobs'
 import { createCommandExpectation } from '@hbar/commands'
+import { sessionFileTargetSchema } from '@hbar/contracts/commands/files'
 import {
   sessionCommandCallSchema,
   sessionCommandPreparationSchema,
   sessionCommandToolResultSchema,
   SESSION_COMMAND_DIRECTORY_QUERY_IDS,
+  SESSION_COMMAND_FILE_IDS,
   type SessionCommandCall,
   type SessionCommandPreparation,
   type SessionCommandToolResult,
@@ -17,8 +19,10 @@ import type { StoragePort } from '@hbar/storage'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import type { SessionCommandDiscovery } from './session-command-discovery'
 import type { SessionCommandExecution } from './session-command-execution'
+import type { HostSourceApplication } from './command-execution-scopes'
 
 const readCommands = new Set<string>(SESSION_COMMAND_DIRECTORY_QUERY_IDS)
+const fileCommands = new Set<string>(SESSION_COMMAND_FILE_IDS)
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength
 type ExecutionPort = Pick<SessionCommandExecution, 'execute' | 'wait'>
 
@@ -53,12 +57,35 @@ export class SessionCommandGateway {
         'COMMAND_TARGET_UNAVAILABLE',
         'Client and platform execution admission is not available on this gateway yet',
       )
-    if (!readCommands.has(call.commandId))
+    const file = fileCommands.has(call.commandId)
+    const write = call.commandId === 'file.write'
+    if (!readCommands.has(call.commandId) && !file)
       throw new HbarError(
         'COMMAND_ADMISSION_UNAVAILABLE',
         'This command needs a concrete admission rule before a session can execute it',
       )
     const identity = await this.authorization.source(source.sessionId, source.runId)
+    let input = call.input
+    if (file) {
+      const session = await this.options.storage.call('session', source.sessionId)
+      if (input.workspaceId !== session.workspaceId)
+        throw new HbarError('COMMAND_SOURCE_WORKSPACE_MISMATCH', 'File commands must use the source Session workspace')
+      const target = await this.options.storage.call('sessionLaunchTarget', session.id)
+      if (input.sessionTarget !== undefined) {
+        const supplied = sessionFileTargetSchema.parse(input.sessionTarget)
+        if (supplied.sessionId !== session.id)
+          throw new HbarError(
+            'COMMAND_SOURCE_WORKSPACE_MISMATCH',
+            'File commands cannot borrow another Session execution root',
+          )
+        if (supplied.expectedRevision !== target.revision)
+          throw new HbarError(
+            'COMMAND_CONFLICT',
+            'The Session execution target changed; inspect it before a new operation',
+          )
+      }
+      input = { ...input, sessionTarget: { sessionId: session.id, expectedRevision: target.revision } }
+    }
     const prepared = await this.options.discovery.prepare(
       {
         protocol: 1,
@@ -70,7 +97,7 @@ export class SessionCommandGateway {
         idempotencyKey: `session-command-${createHash('sha256')
           .update(JSON.stringify([source.sessionId, identity.principal.actorId, call.operationKey]))
           .digest('hex')}`,
-        input: call.input,
+        input,
       },
       signal,
     )
@@ -78,9 +105,9 @@ export class SessionCommandGateway {
     if (
       metadata.id !== call.commandId ||
       metadata.version !== call.commandVersion ||
-      metadata.owner !== 'hbar.core' ||
-      metadata.kind !== 'query' ||
-      metadata.stateEffect !== 'none' ||
+      metadata.owner !== (file ? 'hbar.files' : 'hbar.core') ||
+      metadata.kind !== (write ? 'command' : 'query') ||
+      metadata.stateEffect !== (write ? 'persistent' : 'none') ||
       metadata.execution !== 'host' ||
       metadata.visibility === 'internal'
     )
@@ -98,7 +125,29 @@ export class SessionCommandGateway {
     const unsigned = sessionCommandPreparationSchema.omit({ signature: true }).parse({
       ...prepared,
       arguments: argumentsValue,
-      admission: { effect: 'read', workspaceAccess: { kind: 'none' }, timeoutMs: metadata.timeoutMs },
+      sourceMethods: file
+        ? [
+            'launchTarget.workspaceForRun',
+            'workspaceSandbox.prepare',
+            ...(call.commandId === 'file.find'
+              ? ['workspaceQuery.find']
+              : call.commandId === 'file.list'
+                ? ['execution.list']
+                : write
+                  ? ['execution.readBytes', 'execution.write']
+                  : ['execution.readBytes']),
+          ]
+        : [],
+      admission: {
+        effect: write ? 'write' : 'read',
+        workspaceAccess: file
+          ? {
+              kind: 'paths',
+              arguments: [{ field: 'input.path', fieldPath: ['input', 'path'], access: write ? 'write' : 'read' }],
+            }
+          : { kind: 'none' },
+        timeoutMs: metadata.timeoutMs,
+      },
     })
     if (bytes(unsigned) > 524_288)
       throw new HbarError('INPUT_TOO_LARGE', 'The prepared session command exceeds its capacity')
@@ -110,6 +159,7 @@ export class SessionCommandGateway {
     callId: string,
     raw: SessionCommandPreparation,
     signal: AbortSignal,
+    application?: HostSourceApplication,
   ): Promise<SessionCommandToolResult> {
     signal.throwIfAborted()
     this.options.assertSource(source)
@@ -123,6 +173,11 @@ export class SessionCommandGateway {
         'COMMAND_PREPARATION_INVALID',
         'Command preparation no longer belongs to this Host, source Run and tool call',
       )
+    if (signed.sourceMethods.length && !application)
+      throw new HbarError(
+        'COMMAND_SOURCE_APPLICATION_REQUIRED',
+        'This command needs its admitted source capability port',
+      )
     const execution = this.options.execution()
     if (!execution)
       throw new HbarError(
@@ -135,6 +190,7 @@ export class SessionCommandGateway {
       operationKey: signed.arguments.operationKey,
       prepared: signed,
       signal,
+      ...(application ? { application } : {}),
     })
     const settled = await execution.wait(source.sessionId, source.runId, signed.arguments.operationKey)
     return this.result(settled ?? receipt)
@@ -147,7 +203,13 @@ export class SessionCommandGateway {
   ): string {
     const normalized = createCommandExpectation(value)
     return createHmac('sha256', this.secret)
-      .update(JSON.stringify([source, callId, normalized, value.invocation, value.admission, value.arguments]))
+      .update(
+        JSON.stringify([
+          source,
+          callId,
+          { ...value, descriptor: normalized.descriptor, invocation: { ...value.invocation, input: normalized.input } },
+        ]),
+      )
       .digest('hex')
   }
 

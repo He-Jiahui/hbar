@@ -84,7 +84,15 @@ export class HostCommandExecutionScopes {
   }
   invokeApplication<Result>(target: string, method: string, args: readonly unknown[]): Promise<Result> | undefined {
     const scope = this.context.getStore()
-    if (!scope || (target !== 'execution' && target !== 'workspaceQuery' && target !== 'git')) return undefined
+    if (
+      !scope ||
+      (target !== 'execution' &&
+        target !== 'workspaceQuery' &&
+        target !== 'git' &&
+        target !== 'launchTarget' &&
+        target !== 'workspaceSandbox')
+    )
+      return undefined
     if (!(RUNTIME_APPLICATION_METHODS[target] as readonly string[]).includes(method))
       throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Undeclared source application capability')
     const application = scope.application

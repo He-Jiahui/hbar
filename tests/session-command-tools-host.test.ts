@@ -155,7 +155,7 @@ test('independent real managed sessions discover command mode and read schemas i
       await call(
         first.id,
         'hbar_command_execute',
-        { ...execute, commandId: 'file.write', operationKey: 'blocked-write' },
+        { ...execute, commandId: 'system.restart', operationKey: 'blocked-write' },
         true,
       ),
     ).toContain('concrete admission rule')

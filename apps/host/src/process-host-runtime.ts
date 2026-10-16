@@ -85,6 +85,7 @@ import { RuntimeControllerAdapter } from './runtime-controller-adapter'
 import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
 import { HostCommandExecutionScopes } from './command-execution-scopes'
+import { connectRuntimeCommandSource } from './runtime-command-source'
 import { CommandMutationAdmission, type CommandMutationState } from './command-mutation-admission'
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
@@ -1589,9 +1590,30 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       ),
       peer.register(
         'kernel.commands.execute',
-        procedure(runtimeKernelCommandExecuteSchema, sessionCommandToolResultSchema, (input, call) =>
-          this.commandGateway.execute(assertCommandCaller(input), input.callId, input.preparation, call.signal),
-        ),
+        procedure(runtimeKernelCommandExecuteSchema, sessionCommandToolResultSchema, async (input, call) => {
+          const source = assertCommandCaller(input)
+          const connection = input.source
+            ? connectRuntimeCommandSource(
+                peer,
+                input.source,
+                source,
+                input.callId,
+                call.signal,
+                input.preparation.admission.timeoutMs,
+              )
+            : undefined
+          try {
+            return await this.commandGateway.execute(
+              source,
+              input.callId,
+              input.preparation,
+              call.signal,
+              connection?.application,
+            )
+          } finally {
+            await connection?.close()
+          }
+        }),
       ),
       peer.register(
         'kernel.commands.admitMutation',

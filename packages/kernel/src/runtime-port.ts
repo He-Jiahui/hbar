@@ -42,6 +42,7 @@ import {
   sessionCommandCallSchema,
   sessionCommandPreparationSchema,
   sessionCommandToolResultSchema,
+  sessionCommandSourceSchema,
 } from './session-command-port'
 
 const id = z.string().min(1).max(160)
@@ -57,6 +58,7 @@ export const runtimeKernelCommandPrepareSchema = runtimeKernelCommandIdentitySch
 })
 export const runtimeKernelCommandExecuteSchema = runtimeKernelCommandIdentitySchema.extend({
   preparation: sessionCommandPreparationSchema,
+  source: sessionCommandSourceSchema.optional(),
 })
 export const runtimeKernelMutationAdmissionSchema = runtimeKernelCommandIdentitySchema.extend({
   tool: z.string().min(1).max(256),

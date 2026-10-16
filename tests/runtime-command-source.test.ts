@@ -292,6 +292,55 @@ test('cancellation seals new source calls while both port lifetimes wait for the
   }
 })
 
+test('source workspace resolution reuses the admitted mount without resolving the base workspace again', async () => {
+  const f = peers()
+  const tool = context('source-node:/mounted/worktree')
+  const opened = f.sources.open(tool, ['launchTarget.workspaceForRun', 'workspaceSandbox.prepare'], {
+    execution: provider(),
+  })
+  const connection = connectRuntimeCommandSource(
+    f.host,
+    opened.descriptor,
+    execution(tool),
+    tool.callId,
+    tool.signal,
+    1_000,
+  )
+  try {
+    tool.session.id = 'changed-session'
+    tool.workspace.id = 'changed-workspace'
+    tool.workspace.path = 'base-workspace'
+    expect(
+      await connection.application.port.call<string>('launchTarget.workspaceForRun', [
+        'source-session',
+        'base-workspace',
+      ]),
+    ).toBe('source-node:/mounted/worktree')
+    expect(
+      await connection.application.port.call<string>('workspaceSandbox.prepare', [
+        'source-workspace',
+        'source-node:/mounted/worktree',
+      ]),
+    ).toBe('source-node:/mounted/worktree')
+    await expect(
+      connection.application.port.call('launchTarget.workspaceForRun', ['changed-session', 'base-workspace']),
+    ).rejects.toMatchObject({ code: 'COMMAND_SOURCE_WORKSPACE_MISMATCH' })
+    await expect(
+      connection.application.port.call('workspaceSandbox.prepare', ['source-workspace', 'base-workspace']),
+    ).rejects.toMatchObject({ code: 'COMMAND_SOURCE_WORKSPACE_MISMATCH' })
+    await expect(
+      connection.application.port.call('workspaceSandbox.prepare', [
+        'changed-workspace',
+        'source-node:/mounted/worktree',
+      ]),
+    ).rejects.toMatchObject({ code: 'COMMAND_SOURCE_WORKSPACE_MISMATCH' })
+  } finally {
+    await connection.close()
+    await opened.close()
+    f.close()
+  }
+})
+
 test('source ports fence identity and bound live sources, physical calls and total calls', async () => {
   const f = peers(),
     tool = context(process.cwd()),

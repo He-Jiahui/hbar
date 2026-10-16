@@ -1,36 +1,37 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
+import { toolFileChangeSchema, MAX_RUN_CHANGE_BYTES, type ToolFileChange } from '@hbar/contracts/run-file-changes'
 import { nodeCallAuthoritySchema } from '@hbar/contracts/node-authority'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
 import { RUNTIME_APPLICATION_METHODS } from '@hbar/kernel/runtime-application'
 import { osConfinementOptionsSchema, type ExecutionProvider, type GitService, type ToolContext } from '@hbar/plugin-sdk'
 import { RuntimeValuePort, type IpcPeer } from '@hbar/runtime'
 import type { HostSourceApplication } from './command-execution-scopes'
+import { sessionCommandSourceSchema } from '@hbar/kernel/session-command-port'
 
-type Target = 'execution' | 'workspaceQuery' | 'git'
+type Target = 'execution' | 'workspaceQuery' | 'git' | 'launchTarget' | 'workspaceSandbox'
 export type RuntimeCommandSourceMethod = {
   [Name in Target]: `${Name}.${(typeof RUNTIME_APPLICATION_METHODS)[Name][number]}`
 }[Target]
 const declared = new Set<string>(
-  (['execution', 'workspaceQuery', 'git'] as const).flatMap((target) =>
+  (['execution', 'workspaceQuery', 'git', 'launchTarget', 'workspaceSandbox'] as const).flatMap((target) =>
     RUNTIME_APPLICATION_METHODS[target].map((method) => `${target}.${method}`),
   ),
 )
-const id = z.string().min(1).max(160)
-export const runtimeCommandSourceSchema = z.strictObject({
-  prefix: z.string().regex(/^kernel\.command\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
-  sessionId: id,
-  runId: id,
-  callId: id,
-})
+export const runtimeCommandSourceSchema = sessionCommandSourceSchema
+export function isRuntimeCommandSourceMethod(value: unknown): value is RuntimeCommandSourceMethod {
+  return typeof value === 'string' && declared.has(value)
+}
 export type RuntimeCommandSource = z.output<typeof runtimeCommandSourceSchema>
-interface SourceCapabilities {
+export interface RuntimeCommandSourceCapabilities {
   readonly execution: ExecutionProvider
   readonly git?: GitService
 }
 export interface OpenCommandSource {
   readonly descriptor: RuntimeCommandSource
+  /** Versions returned by actual writes on this source port, never reconstructed from model input. */
+  fileChanges(): readonly ToolFileChange[]
   /** Seal new calls and await at most sixteen already accepted operations before disposing the port. */
   close(): Promise<void>
 }
@@ -40,6 +41,8 @@ const signalArgument: Readonly<Record<string, number>> = {
   'workspaceQuery.find': 2,
   'workspaceQuery.search': 2,
   'workspaceQuery.readRange': 4,
+  'launchTarget.workspaceForRun': 2,
+  'workspaceSandbox.prepare': 2,
   'git.info': 1,
   'git.status': 1,
   'git.diff': 2,
@@ -63,7 +66,7 @@ export class RuntimeCommandSources {
   open(
     context: ToolContext,
     methods: readonly RuntimeCommandSourceMethod[],
-    capabilities: SourceCapabilities,
+    capabilities: RuntimeCommandSourceCapabilities,
   ): OpenCommandSource {
     context.signal.throwIfAborted()
     if (this.peer.snapshot().failed) throw new HbarError('IPC_DISCONNECTED', 'Source Kernel channel is closed')
@@ -92,6 +95,26 @@ export class RuntimeCommandSources {
     const osConfinement = context.osConfinement ? osConfinementOptionsSchema.parse(context.osConfinement) : undefined
     const signal = context.signal
     const captured = AsyncLocalStorage.snapshot()
+    const sourceSessionId = context.session.id,
+      sourceWorkspaceId = context.workspace.id
+    const resolution = {
+      workspaceForRun: async (sessionId: unknown) => {
+        if (sessionId !== sourceSessionId)
+          throw new HbarError(
+            'COMMAND_SOURCE_WORKSPACE_MISMATCH',
+            'Source workspace resolution belongs to another session',
+          )
+        return workspace
+      },
+      prepare: async (workspaceId: unknown, path: unknown) => {
+        if (workspaceId !== sourceWorkspaceId || path !== workspace)
+          throw new HbarError(
+            'COMMAND_SOURCE_WORKSPACE_MISMATCH',
+            'Source workspace mount is already pinned to this Run',
+          )
+        return workspace
+      },
+    }
     const descriptor = Object.freeze(
       runtimeCommandSourceSchema.parse({
         prefix: `kernel.command.${crypto.randomUUID()}`,
@@ -106,6 +129,8 @@ export class RuntimeCommandSources {
       callbackSettlement: 'physical',
     })
     const pending = new Set<Promise<unknown>>()
+    const changes = new Map<string, ToolFileChange>()
+    let changeBytes = 0
     let sealed = false,
       accepted = 0,
       closing: Promise<void> | undefined
@@ -115,18 +140,23 @@ export class RuntimeCommandSources {
         signal.throwIfAborted()
         callSignal.throwIfAborted()
         if (pending.size >= 16 || accepted >= 128) throw new HbarError('BUSY', 'Source command call capacity is full')
-        if (args[0] !== undefined && args[0] !== workspace)
+        const [target, method] = name.split('.')
+        const fileCapability = target === 'execution' || target === 'workspaceQuery' || target === 'git'
+        if (name === 'execution.write' && (changes.size >= 16 || changeBytes >= MAX_RUN_CHANGE_BYTES))
+          throw new HbarError('FILE_LIMIT', 'This source command has reached its file change capacity')
+        if (fileCapability && args[0] !== undefined && args[0] !== workspace)
           throw new HbarError(
             'COMMAND_SOURCE_WORKSPACE_MISMATCH',
             'Command capability belongs to another execution workspace',
           )
-        const [target, method] = name.split('.')
         const object =
           target === 'execution'
             ? capabilities.execution
             : target === 'workspaceQuery'
               ? capabilities.execution.workspaceQuery
-              : capabilities.git
+              : target === 'git'
+                ? capabilities.git
+                : resolution
         const implementation: unknown = object && method ? Reflect.get(object, method) : undefined
         if (typeof implementation !== 'function')
           throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'The source capability is unavailable')
@@ -136,7 +166,7 @@ export class RuntimeCommandSources {
             'This Git backend cannot enforce the admitted process environment or OS confinement',
           )
         const actual = [...args]
-        actual[0] = workspace
+        if (fileCapability) actual[0] = workspace
         const actualSignal = AbortSignal.any([signal, callSignal])
         const position = signalArgument[name]
         if (position !== undefined) actual[position] = actualSignal
@@ -157,6 +187,26 @@ export class RuntimeCommandSources {
             signal.throwIfAborted()
             callSignal.throwIfAborted()
             const result: unknown = await Reflect.apply(implementation, object, actual)
+            if (name === 'execution.write') {
+              const details = z
+                .object({ path: z.string(), before: z.string(), after: z.string(), created: z.boolean().optional() })
+                .safeParse(result)
+              if (details.success && details.data.created !== undefined) {
+                const change = toolFileChangeSchema.safeParse({
+                  path: details.data.path.replaceAll('\\', '/'),
+                  before: details.data.created ? null : details.data.before,
+                  after: details.data.after,
+                })
+                if (change.success) {
+                  const prior = changes.get(change.data.path)
+                  const next = prior ? { ...change.data, before: prior.before } : change.data
+                  const size = (value: ToolFileChange) =>
+                    Buffer.byteLength(value.before ?? '', 'utf8') + Buffer.byteLength(value.after ?? '', 'utf8')
+                  changeBytes += size(next) - (prior ? size(prior) : 0)
+                  changes.set(next.path, next)
+                }
+              }
+            }
             return result
           }),
         )
@@ -165,6 +215,7 @@ export class RuntimeCommandSources {
       })
     const opened: OpenCommandSource = {
       descriptor,
+      fileChanges: () => [...changes.values()].map((change) => ({ ...change })),
       close: () => {
         sealed = true
         closing ??= Promise.allSettled([...pending]).then(() => {
