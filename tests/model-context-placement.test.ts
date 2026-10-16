@@ -1,5 +1,13 @@
 import { expect, test } from 'bun:test'
-import { appendModelContext, prependModelInstructions } from '@hbar/plugin-sdk'
+import {
+  appendModelContext,
+  prependModelInstructions,
+  createModelHostContext,
+  readModelHostContext,
+} from '@hbar/plugin-sdk'
+import { estimateContextTokens } from '../packages/kernel/src/context-usage'
+import { assertContextCapacity } from '../packages/kernel/src/context-compaction'
+import type { Message } from '@hbar/contracts'
 import type { ModelRequest } from '@hbar/plugin-sdk'
 import { providerSchema } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from '../plugins/pi-driver/src/model-context'
@@ -15,6 +23,35 @@ const request: ModelRequest = {
     baseUrl: 'http://localhost',
   }),
 }
+
+test('durable Host snapshots stay session-scoped and their full replay cost participates in capacity', () => {
+  const snapshot = createModelHostContext('parent', 'openai-responses', 'Runtime facts '.repeat(1000))
+  const message: Message = {
+    id: 'assistant',
+    sessionId: 'parent',
+    runId: 'run',
+    seq: 1,
+    createdAt: 0,
+    role: 'assistant',
+    content: [{ type: 'text', text: 'done' }],
+    providerData: { role: 'assistant', hbarHostContext: snapshot },
+  }
+  expect(readModelHostContext(message, 'openai-responses')).toContain('Runtime facts')
+  expect(readModelHostContext({ ...message, sessionId: 'child' }, 'openai-responses')).toBeNull()
+  expect(readModelHostContext(message, 'openai-responses', 'child')).toBeNull()
+  expect(readModelHostContext(message, 'anthropic-messages')).toBeNull()
+  expect(
+    readModelHostContext({ ...message, providerData: { hbarHostContext: { version: 9 } } }, 'openai-responses'),
+  ).toBeNull()
+  const plain = { ...message, providerData: undefined }
+  const model = { ...request.model, protocol: 'openai-responses' as const, maxOutput: 100, contextWindow: 1000 }
+  const current = { ...request, model, messages: [message] }
+  expect(estimateContextTokens(current)).toBeGreaterThan(4000)
+  expect(estimateContextTokens({ ...current, messages: [plain] })).toBeLessThan(100)
+  expect(() => assertContextCapacity(current)).toThrow('exceeding')
+  expect(() => assertContextCapacity({ ...current, messages: [plain] })).not.toThrow()
+  expect(createModelHostContext('parent', 'mock', 'facts')).toBeUndefined()
+})
 
 test('Host snapshots have one explicit suffix boundary and complete legacy text without duplicated journal content', () => {
   const first = appendModelContext(request, 'budget 100')

@@ -2,6 +2,7 @@ import { HbarError, normalizeThinkingLevel } from '@hbar/contracts'
 import type { ThinkingLevel } from '@hbar/contracts'
 import type { Message } from '@hbar/contracts'
 import type { ModelRequest } from '@hbar/plugin-sdk'
+import { modelHostContextCharacters } from '@hbar/plugin-sdk'
 import { compactionInputThreshold, estimateContextTokens } from './context-usage'
 import type { RunSteeringContext } from './run-steering-context'
 
@@ -98,6 +99,7 @@ export function compactionBoundary(
     suffixSizes[index] =
       suffixSizes[index + 1]! +
       JSON.stringify({ role: message.role, content: message.content }).length +
+      modelHostContextCharacters(message, request.model.protocol, request.context?.sessionId) +
       (index + 1 < messages.length ? 1 : 0)
   }
   // Reserve room for the summary and system instructions. The rebuilt request

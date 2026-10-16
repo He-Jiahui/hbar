@@ -13,9 +13,10 @@ for (const compact of [false, true])
     const received: string[][] = []
     const systemMessages: string[][] = []
     const definitions: unknown[] = []
+    const transcripts: unknown[][] = []
     const bodySchema = z.object({
       tools: z.array(z.object({ function: z.object({ name: z.string() }).passthrough() }).passthrough()),
-      messages: z.array(z.object({ role: z.string(), content: z.unknown() })),
+      messages: z.array(z.object({ role: z.string(), content: z.unknown() }).passthrough()),
     })
     const item = {
       id: 'proof',
@@ -30,6 +31,7 @@ for (const compact of [false, true])
         const body = bodySchema.parse(await request.json())
         received.push(body.tools.map((tool) => tool.function.name))
         definitions.push(body.tools)
+        transcripts.push(body.messages)
         systemMessages.push(
           body.messages
             .filter((message) => ['system', 'developer'].includes(message.role))
@@ -60,7 +62,8 @@ for (const compact of [false, true])
         })
       },
     })
-    const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
+    const secrets = new MemorySecrets()
+    let kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets })
     try {
       await kernel.saveProvider(
         providerSchema.parse({
@@ -110,11 +113,13 @@ for (const compact of [false, true])
       expect(received.map((names) => names.includes('workflow_focus'))).toEqual([true, true, true])
       expect(definitions[1]).toEqual(definitions[0])
       expect(definitions[2]).toEqual(definitions[0])
+      expect(transcripts[1]?.slice(0, transcripts[0]?.length)).toEqual(transcripts[0])
+      expect(transcripts[2]?.slice(0, transcripts[1]?.length)).toEqual(transcripts[1])
       expect(systemMessages.every((messages) => messages[0] === systemMessages[0]?.[0])).toBe(true)
       expect(received.every((names) => !names.includes('write_file'))).toBe(true)
       expect((await workflows.get(session.id)).workflow?.focus?.title).toBe('Revised proof')
       const journalSchema = z.object({
-        request: z.object({ toolNames: z.array(z.string()), system: z.string() }),
+        request: z.object({ toolNames: z.array(z.string()), system: z.string(), systemContextOffset: z.number() }),
         tools: z.array(z.object({ name: z.string() })),
       })
       const journal = (await kernel.storage.call('events', session.id, 0))
@@ -122,8 +127,11 @@ for (const compact of [false, true])
         .map((event) => journalSchema.parse(event.data))
       expect(journal.map((event) => event.tools.map((tool) => tool.name))).toEqual(received)
       expect(journal.map((event) => event.request.toolNames)).toEqual(received)
-      expect(systemMessages.map((messages) => messages.join(''))).toEqual(journal.map((event) => event.request.system))
-      expect(systemMessages.every((messages) => messages.length === 2)).toBe(true)
+      for (const [index, event] of journal.entries()) {
+        expect(systemMessages[index]?.[0]).toBe(event.request.system.slice(0, event.request.systemContextOffset))
+        expect(systemMessages[index]?.at(-1)).toContain(event.request.system.slice(event.request.systemContextOffset))
+      }
+      expect(systemMessages.map((messages) => messages.length)).toEqual([2, 3, 4])
       expect(systemMessages.every((messages) => !messages[0]?.includes('<focus_workflow>'))).toBe(true)
       expect(systemMessages[1]?.at(-1)).toContain('Focus validity: stale')
       expect(journal.map((event) => event.request.system.split('<workflow_sequence_controls>').length - 1)).toEqual([
@@ -136,6 +144,21 @@ for (const compact of [false, true])
       expect(journal[1]?.request.system).toContain('Revised proof')
       expect(journal[1]?.request.system).not.toContain('Batch known-input')
       expect(journal[2]?.request.system).toContain('Focus validity: current')
+      await kernel.close()
+      kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets })
+      kernel.hooks.on('tools.select', (event) => ({
+        ...event,
+        tools: event.tools.filter((tool) => received[0]?.includes(tool.name) ?? false),
+      }))
+      await kernel.submit(
+        session.id,
+        'after-restart',
+        { text: 'Continue from the existing verified state', images: [] },
+        'advertise',
+      )
+      await kernel.waitForIdle()
+      expect(transcripts).toHaveLength(4)
+      expect(transcripts[3]?.slice(0, transcripts[2]?.length)).toEqual(transcripts[2])
     } finally {
       await kernel.close()
       await provider.stop(true)

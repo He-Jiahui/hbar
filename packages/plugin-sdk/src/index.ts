@@ -2,6 +2,12 @@ import { Context, Service } from 'cordis'
 import { HbarError, sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
 export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
+export {
+  createModelHostContext,
+  readModelHostContext,
+  modelHostContextCharacters,
+  type ModelHostContextSnapshot,
+} from './model-host-context'
 export { SKILL_TOOL_NAMES } from './skills'
 export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'

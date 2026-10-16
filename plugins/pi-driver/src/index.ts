@@ -19,7 +19,14 @@ import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/ant
 import { z } from 'zod'
 import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import { providerFailure } from './provider-failure'
-import { definePlugin, describeToolTimeout, provide, RunControlSignal } from '@hbar/plugin-sdk'
+import {
+  definePlugin,
+  describeToolTimeout,
+  provide,
+  RunControlSignal,
+  createModelHostContext,
+  readModelHostContext,
+} from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
 import type {
@@ -28,6 +35,7 @@ import type {
   ModelDiagnosticEvent,
   ModelRequest,
   ToolResultContent,
+  ModelHostContextSnapshot,
 } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
@@ -71,6 +79,11 @@ function modelOf(config: ProviderConfig): Model<Api> {
     baseUrl: config.baseUrl,
     reasoning: config.reasoning,
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions' ? { thinkingLevelMap } : {}),
+    // OpenAI Host facts already use developer/system messages after history.
+    // Preserve their original positions when replaying committed snapshots.
+    ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
+      ? { compat: { supportsMidConvoSystemMessages: true } }
+      : {}),
     input: config.imageInput ? ['text', 'image'] : ['text'],
     cost: {
       input: config.inputPrice,
@@ -483,6 +496,8 @@ async function toPiMessages(
   readImage?: DriverInput['readImage'],
   readFile?: DriverInput['readFile'],
   transientToolContent = new Map<string, ToolResultContent[]>(),
+  replayHostContext = true,
+  sessionId?: string,
 ): Promise<PiMessage[]> {
   const output: PiMessage[] = []
   for (const message of messages) {
@@ -516,6 +531,8 @@ async function toPiMessages(
       }
       output.push({ role: 'user', content, timestamp: message.createdAt })
     } else if (message.role === 'assistant') {
+      const hostContext = replayHostContext ? readModelHostContext(message, model.protocol, sessionId) : null
+      if (hostContext) output.push({ role: 'system', content: hostContext, timestamp: message.createdAt })
       if (
         message.providerData &&
         typeof message.providerData === 'object' &&
@@ -599,6 +616,7 @@ export class PiDriver implements HarnessDriver {
     let modelDiagnosticStartedAt = 0
     let modelRequestId = ''
     let modelTerminalEmitted = false
+    let attemptHostContext: ModelHostContextSnapshot | undefined
     const completedTools = new Set<string>()
     let goalStopped = false
     let toolExecutedInStep = false
@@ -737,7 +755,12 @@ export class PiDriver implements HarnessDriver {
             )
           } else {
             recoveryModelRoute = undefined
-            await input.commit('assistant', contentOf(message), streamId, message)
+            await input.commit(
+              'assistant',
+              contentOf(message),
+              streamId,
+              attemptHostContext ? { ...message, hbarHostContext: attemptHostContext } : message,
+            )
           }
         } else if (event.message.role === 'toolResult' && !completedTools.has(event.message.toolCallId)) {
           await input.commit('tool', [
@@ -784,6 +807,7 @@ export class PiDriver implements HarnessDriver {
           request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
             ? splitModelContext(request)
             : { instructions: request.system, context: '' }
+        attemptHostContext = createModelHostContext(input.session.id, request.model.protocol, context.context)
         modelRequestId = stepId
         modelTerminalEmitted = false
         latestResponse = undefined
@@ -812,13 +836,15 @@ export class PiDriver implements HarnessDriver {
               input.readImage,
               input.readFile,
               transientToolContent,
+              true,
+              input.session.id,
             ),
             tools: toolNames ? tools.filter((tool) => toolNames.includes(tool.name)) : tools,
           },
           await input.resolveKey(request.model.id),
           input.signal,
           input.run.input.thinking,
-          context.context,
+          attemptHostContext?.text ?? '',
           input.session.id,
           (response) => {
             latestResponse = response
@@ -868,7 +894,15 @@ export class PiDriver implements HarnessDriver {
       const context = {
         messages: normalizeContext({
           systemPrompt: input.request.system,
-          messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
+          messages: await toPiMessages(
+            input.request.messages,
+            input.request.model,
+            input.readImage,
+            input.readFile,
+            undefined,
+            true,
+            input.session.id,
+          ),
         }).messages,
         tools,
       }
@@ -1026,6 +1060,8 @@ export class PiDriver implements HarnessDriver {
               { ...request.model, imageInput: true },
               undefined,
               undefined,
+              undefined,
+              false,
             ),
           })
         const stream = streamProvider(
