@@ -125,3 +125,34 @@ test('descriptions reject mismatched identity and excessive UTF-8 content withou
     await f.close()
   }
 })
+
+test('an absent concrete execution binding cannot use the discovery port as a command dispatcher', async () => {
+  let reads = 0
+  const f = await fixture({
+    list: async () => {
+      reads++
+      return { revision: 1, items: [] }
+    },
+    describe: async () => {
+      reads++
+      return descriptor('workspace.list')
+    },
+  })
+  try {
+    const { run, result } = await f.call('hbar_command_execute', {
+      commandId: 'workspace.list',
+      commandVersion: 1,
+      operationKey: 'unbound-command',
+      input: {},
+    })
+    expect(result.isError).toBe(true)
+    expect(reads).toBe(0)
+    expect(
+      (await f.kernel.storage.call('events', f.session.id, 0)).some(
+        (event) => event.runId === run.id && event.type.startsWith('run.commandExecution.'),
+      ),
+    ).toBe(false)
+  } finally {
+    await f.close()
+  }
+})

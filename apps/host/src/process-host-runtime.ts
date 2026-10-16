@@ -44,6 +44,10 @@ import {
   runtimeKernelNodeWorktreeSchema,
   runtimeKernelRunSchema,
   runtimeKernelMutationAdmissionSchema,
+  runtimeKernelCommandCatalogSchema,
+  runtimeKernelCommandDescribeSchema,
+  runtimeKernelCommandPrepareSchema,
+  runtimeKernelCommandExecuteSchema,
 } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import {
@@ -102,7 +106,9 @@ import { createRuntimeNodeIntentRecovery } from './runtime-node-intent-recovery'
 import { createRuntimeNodeWorkspaceInspection } from './runtime-node-workspace-inspection'
 import { SessionCommandDiscovery } from './session-command-discovery'
 import { commandCatalogPageSchema, commandDescriptorSchema, type CommandRoutingPort } from '@hbar/commands'
-import { runtimeKernelCommandCatalogSchema, runtimeKernelCommandDescribeSchema } from '@hbar/kernel/runtime-port'
+import { sessionCommandPreparationSchema, sessionCommandToolResultSchema } from '@hbar/kernel/session-command-port'
+import { SessionCommandGateway } from './session-command-gateway'
+import type { SessionCommandExecution } from './session-command-execution'
 
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
@@ -157,11 +163,26 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     return () => this.coordinator.releaseHostResource(this.instanceId, resource.id)
   }
   private readonly commandDiscovery = new SessionCommandDiscovery()
+  readonly storage = new StableStoragePort()
+  private commandExecution: SessionCommandExecution | undefined
+  private readonly commandGateway = new SessionCommandGateway({
+    storage: this.storage,
+    discovery: this.commandDiscovery,
+    execution: () => this.commandExecution,
+    assertSource: (source) => this.assertCommandSource(source),
+  })
+  attachSessionCommandExecution(service: SessionCommandExecution): () => void {
+    if (this.commandExecution && this.commandExecution !== service)
+      throw new HbarError('COMMAND_EXECUTION_ATTACHED', 'The Host already has a session command execution service')
+    this.commandExecution = service
+    return () => {
+      if (this.commandExecution === service) this.commandExecution = undefined
+    }
+  }
   attachCommandRouting(port: CommandRoutingPort): () => void {
     return this.commandDiscovery.attach(port)
   }
   private readonly processTree = createRuntimeProcessTreePort()
-  readonly storage = new StableStoragePort()
   private commandMutationState: CommandMutationState | null = null
   private readonly commandMutationAdmission = new CommandMutationAdmission(
     this.storage,
@@ -1554,8 +1575,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       if (!lease || lease.sessionId !== input.sessionId)
         throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Command access requires this Session Run claim')
       this.coordinator.assertCanWrite(owner, lease)
+      return lease
     }
     record.cleanup.push(
+      peer.register(
+        'kernel.commands.prepare',
+        procedure(runtimeKernelCommandPrepareSchema, sessionCommandPreparationSchema, async (input, call) => {
+          const source = assertCommandCaller(input)
+          const result = await this.commandGateway.prepare(source, input.callId, input.call, call.signal)
+          assertCommandCaller(input)
+          return result
+        }),
+      ),
+      peer.register(
+        'kernel.commands.execute',
+        procedure(runtimeKernelCommandExecuteSchema, sessionCommandToolResultSchema, (input, call) =>
+          this.commandGateway.execute(assertCommandCaller(input), input.callId, input.preparation, call.signal),
+        ),
+      ),
       peer.register(
         'kernel.commands.admitMutation',
         procedure(runtimeKernelMutationAdmissionSchema, z.undefined(), async (input, call) => {

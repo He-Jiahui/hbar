@@ -8,6 +8,7 @@ import {
 } from '@hbar/commands'
 import type { ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 import type { SessionCommandContext, SessionCommandDiscoveryPort } from './session-command-port'
+import { sessionCommandCallSchema, SESSION_COMMAND_DIRECTORY_QUERY_IDS } from './session-command-port'
 
 export const SESSION_COMMAND_LIST_BYTES = 32_768
 const listInput = commandCatalogQuerySchema.extend({ limit: z.number().int().min(1).max(50).default(30) })
@@ -21,6 +22,20 @@ const identity = (context: ToolContext): SessionCommandContext => ({
 /** Core tools remain available without a UI; each call still passes normal selected-tool and Run gates. */
 export function createSessionCommandTools(port: SessionCommandDiscoveryPort): readonly ToolDefinition[] {
   return [
+    {
+      name: 'hbar_command_execute',
+      effect: 'write',
+      workspaceAccess: { kind: 'none' },
+      timeoutMs: 120_000,
+      description: `Execute one hbar command after hbar_command_describe supplies its exact version and input schema. Currently admitted commands: ${SESSION_COMMAND_DIRECTORY_QUERY_IDS.join(', ')}. Supply a stable operationKey for the intended operation and reuse it when checking an uncertain result; a new key is a new operation. The Host binds the current Session, Run, actor, permissions and durable receipt. Returns JSON with operationKey, commandId, revision, logical status, physical status, acknowledgment, and result or error/reference. Unknown outcomes require reconciliation before replay. Client/platform commands require an explicit connected clientId and numeric generation in target. Unsupported admission rules are rejected before execution.`,
+      inputSchema: sessionCommandCallSchema,
+      execute() {
+        throw new HbarError(
+          'COMMAND_PREPARATION_REQUIRED',
+          'This Host must prepare and admit the concrete command before execution',
+        )
+      },
+    },
     {
       name: 'hbar_commands_list',
       effect: 'read',

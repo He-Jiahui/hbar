@@ -11,6 +11,7 @@ export interface RuntimeSystemPort {
   assertCommandSource?(source: import('@hbar/contracts/runtime').ExecutionOwnership): void
   attachCommandRouting?(port: import('@hbar/commands').CommandRoutingPort): () => void
   attachCommandMutationState?(state: import('./command-mutation-admission').CommandMutationState): () => void
+  attachSessionCommandExecution?(service: import('./session-command-execution').SessionCommandExecution): () => void
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean
   subscribe?(listener: (delta: RuntimeDelta) => void): () => void

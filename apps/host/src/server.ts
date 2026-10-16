@@ -1847,6 +1847,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   })
   await scheduleController.start()
   const detachCommandRouting = options.runtime?.attachCommandRouting?.(commandRouter)
+  const detachSessionCommandExecution = sessionCommandExecution
+    ? options.runtime?.attachSessionCommandExecution?.(sessionCommandExecution)
+    : undefined
   const detachCommandMutationState = sessionCommandExecution
     ? options.runtime?.attachCommandMutationState?.(sessionCommandExecution)
     : undefined
@@ -1864,6 +1867,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       localCommandJobs.assertCanClose()
       closing = true
       detachCommandRouting?.()
+      detachSessionCommandExecution?.()
       detachCommandMutationState?.()
       localCommandJobs.dispose()
       nodeSockets?.closeAll()

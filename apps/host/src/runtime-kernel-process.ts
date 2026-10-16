@@ -52,6 +52,7 @@ import {
 import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 import { RuntimePluginAdapter } from './runtime-plugin-adapter'
 import { attachRuntimeCommandJobs } from './runtime-command-jobs'
+import { createRuntimeSessionCommandBinding } from './runtime-session-command-binding'
 
 /** Managed candidates construct their actual Kernel with read-only ports; execution waits for explicit activation. */
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
@@ -198,6 +199,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
+      toolCalls: createRuntimeSessionCommandBinding(context.peer),
       mutationAdmission: {
         assertAllowed: (identity) =>
           context.peer.call(

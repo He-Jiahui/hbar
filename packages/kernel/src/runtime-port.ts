@@ -38,6 +38,11 @@ import {
 } from '@hbar/commands/jobs'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
 import { RUNTIME_APPLICATION_METHODS } from './runtime-application'
+import {
+  sessionCommandCallSchema,
+  sessionCommandPreparationSchema,
+  sessionCommandToolResultSchema,
+} from './session-command-port'
 
 const id = z.string().min(1).max(160)
 export const runtimeKernelCommandIdentitySchema = z.strictObject({ sessionId: id, runId: id, callId: id })
@@ -46,6 +51,12 @@ export const runtimeKernelCommandCatalogSchema = runtimeKernelCommandIdentitySch
 })
 export const runtimeKernelCommandDescribeSchema = runtimeKernelCommandIdentitySchema.extend({
   commandId: z.string().min(1).max(128),
+})
+export const runtimeKernelCommandPrepareSchema = runtimeKernelCommandIdentitySchema.extend({
+  call: sessionCommandCallSchema,
+})
+export const runtimeKernelCommandExecuteSchema = runtimeKernelCommandIdentitySchema.extend({
+  preparation: sessionCommandPreparationSchema,
 })
 export const runtimeKernelMutationAdmissionSchema = runtimeKernelCommandIdentitySchema.extend({
   tool: z.string().min(1).max(256),
@@ -160,6 +171,8 @@ export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).
 export const RUNTIME_KERNEL_HOST_METHODS = [
   'kernel.commands.list',
   'kernel.commands.describe',
+  'kernel.commands.prepare',
+  'kernel.commands.execute',
   'kernel.commands.admitMutation',
   'kernel.nodeIntentRecovery.reconcileRun',
   'kernel.nodeWorkspaceInspection.captureExecutionTarget',
@@ -196,6 +209,12 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
       RUNTIME_KERNEL_HOST_METHODS,
       z.toJSONSchema(runtimeKernelCommandCatalogSchema),
       z.toJSONSchema(runtimeKernelCommandDescribeSchema),
+      [
+        runtimeKernelCommandPrepareSchema,
+        runtimeKernelCommandExecuteSchema,
+        sessionCommandPreparationSchema,
+        sessionCommandToolResultSchema,
+      ].map((schema) => z.toJSONSchema(schema, { unrepresentable: 'any' })),
       z.toJSONSchema(runtimeKernelMutationAdmissionSchema),
       z.toJSONSchema(commandMetadataSchema),
       z.toJSONSchema(commandCatalogPageSchema, { unrepresentable: 'any' }),

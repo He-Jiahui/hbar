@@ -130,6 +130,7 @@ export class RuntimePluginAdapter {
           { operation: 'hook', name: event },
           [describeRuntimeHook(event, value)],
           api,
+          this.hookTools(value, api),
         )
         return restoreRuntimeHook(event, result, this.hookTools(value, api), value)
       })
@@ -143,7 +144,7 @@ export class RuntimePluginAdapter {
       selected.every((tool) => tool && typeof tool === 'object' && typeof Reflect.get(tool, 'execute') === 'function')
       ? (selected as ToolDefinition[])
       : single && typeof single === 'object' && typeof Reflect.get(single, 'execute') === 'function'
-        ? [single as ToolDefinition, ...api.tools.list()]
+        ? [single as ToolDefinition, ...api.tools.list().filter((tool) => tool.name !== Reflect.get(single, 'name'))]
         : api.tools.list()
   }
   private registerTools(unitId: string, state: RuntimePluginState, api: HbarAPI): void {
@@ -197,6 +198,7 @@ export class RuntimePluginAdapter {
     operation: Omit<Invocation, 'catalog'>,
     args: readonly unknown[],
     api: HbarAPI,
+    toolCatalog?: readonly ToolDefinition[],
   ): Promise<Result> {
     const kernel = this.kernel(),
       execution = kernel.runtimeExecution()
@@ -262,7 +264,7 @@ export class RuntimePluginAdapter {
         : undefined)
     const request = runtimePluginInvocationSchema.parse({
       ...operation,
-      catalog: this.hookTools(first, api).map(describeRuntimeTool),
+      catalog: (toolCatalog ?? this.hookTools(first, api)).map(describeRuntimeTool),
       ...(mount ? { mount } : {}),
       ...(workspaceExecutionScope ? { workspaceExecutionScope } : {}),
       ...(toolTimeout?.success ? { toolTimeoutMs: toolTimeout.data } : {}),

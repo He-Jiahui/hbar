@@ -9,6 +9,7 @@ import {
   type CommandCatalogQuery,
   type CommandDescriptor,
   type CommandRoutingPort,
+  type CommandPreparation,
 } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { cliLocalCommands } from '@hbar/contracts/commands/cli-catalog'
@@ -113,7 +114,10 @@ export class SessionCommandDiscovery {
       if (signal.aborted) abort()
     })
   }
-  private async read<Result>(signal: AbortSignal, operation: (source: CommandRoutingPort) => Result): Promise<Result> {
+  private async read<Result>(
+    signal: AbortSignal,
+    operation: (source: CommandRoutingPort) => Result | Promise<Result>,
+  ): Promise<Result> {
     const source = await this.ready(signal)
     signal.throwIfAborted()
     if (this.source !== source || this.closed)
@@ -126,6 +130,9 @@ export class SessionCommandDiscovery {
   describe(commandId: string, signal: AbortSignal): Promise<CommandDescriptor> {
     const { commandId: id } = commandDescriptionQuerySchema.parse({ commandId })
     return this.read(signal, (source) => commandDescriptorSchema.parse(local.get(id) ?? source.describe(id)))
+  }
+  prepare(invocation: unknown, signal: AbortSignal): Promise<CommandPreparation> {
+    return this.read(signal, (source) => source.prepare(invocation))
   }
   close(): void {
     this.closed = true

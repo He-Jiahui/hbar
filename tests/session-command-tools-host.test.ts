@@ -48,7 +48,7 @@ test('independent real managed sessions discover command mode and read schemas i
     )
     expect((await runtime.storage.call('sessionExecutionPrincipal', first.id))?.actorId).toBe(firstDevice.device.id)
     expect((await runtime.storage.call('sessionExecutionPrincipal', second.id))?.actorId).toBe(secondDevice.device.id)
-    async function call(sessionId: string, name: string, args: Record<string, unknown>) {
+    async function call(sessionId: string, name: string, args: Record<string, unknown>, expectedError = false) {
       const client = sessionId === first.id ? firstClient : secondClient
       const accepted = await createRunCommandClient(client).execute(
         'run.submit',
@@ -77,7 +77,7 @@ test('independent real managed sessions discover command mode and read schemas i
         .flatMap((message) => message.content)
         .find((block) => block.type === 'tool_result')
       if (!result || result.type !== 'tool_result') throw new Error('Managed command tool returned no result')
-      expect(result.isError).toBe(false)
+      expect(result.isError).toBe(expectedError)
       return result.text
     }
     const seen: string[] = []
@@ -108,6 +108,69 @@ test('independent real managed sessions discover command mode and read schemas i
       JSON.parse(await call(second.id, 'hbar_command_describe', { commandId: 'app.openPanel' })) as unknown,
     )
     expect(local.metadata.execution).toBe('client')
+    const operationKey = 'model-workspace-list'
+    const execute = { commandId: 'workspace.list', commandVersion: 1, operationKey, input: {} }
+    const commandResult = z.object({
+      operationKey: z.literal(operationKey),
+      commandId: z.literal('workspace.list'),
+      status: z.literal('succeeded'),
+      physical: z.literal('succeeded'),
+      acknowledged: z.literal(true),
+      result: z.object({ items: z.array(z.object({ id: z.string() })) }),
+    })
+    const firstResult = commandResult.parse(
+      JSON.parse(await call(first.id, 'hbar_command_execute', execute)) as unknown,
+    )
+    expect(firstResult.result.items.map((item) => item.id)).toContain(workspace.id)
+    const receipt = await runtime.storage.call('commandExecutionRead', {
+      sessionId: first.id,
+      actorId: firstDevice.device.id,
+      operationKey,
+    })
+    expect(receipt?.actorId).toBe(firstDevice.device.id)
+    expect(receipt?.owner).toMatchObject({ kind: 'runtime', owner: { unitId: 'kernel' } })
+    expect(receipt?.acknowledgedAt).not.toBeNull()
+    const repeated = await call(first.id, 'hbar_command_execute', execute)
+    expect(commandResult.parse(JSON.parse(repeated) as unknown)).toEqual(firstResult)
+    expect(
+      (
+        await runtime.storage.call('commandExecutionRead', {
+          sessionId: first.id,
+          actorId: firstDevice.device.id,
+          operationKey,
+        })
+      )?.revision,
+    ).toBe(receipt?.revision)
+    commandResult.parse(JSON.parse(await call(second.id, 'hbar_command_execute', execute)) as unknown)
+    expect(
+      (
+        await runtime.storage.call('commandExecutionRead', {
+          sessionId: second.id,
+          actorId: secondDevice.device.id,
+          operationKey,
+        })
+      )?.actorId,
+    ).toBe(secondDevice.device.id)
+    expect(
+      await call(
+        first.id,
+        'hbar_command_execute',
+        { ...execute, commandId: 'file.write', operationKey: 'blocked-write' },
+        true,
+      ),
+    ).toContain('concrete admission rule')
+    expect(
+      await runtime.storage.call('commandExecutionRead', {
+        sessionId: first.id,
+        actorId: firstDevice.device.id,
+        operationKey: 'blocked-write',
+      }),
+    ).toBeNull()
+    expect(
+      await call(first.id, 'hbar_command_execute', { ...execute, actorId: secondDevice.device.id }, true),
+    ).toContain('actorId')
+    expect(runtime.coordinator.snapshot().physicalTools).toBe(0)
+    expect(runtime.coordinator.snapshot().resources).toBe(0)
     expect((await runtime.kernel.plugins.get('goal').get(first.id)).goal).toBeNull()
     expect((await runtime.kernel.plugins.get('goal').get(second.id)).goal).toBeNull()
   } finally {
