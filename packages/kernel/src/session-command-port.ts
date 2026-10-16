@@ -29,6 +29,14 @@ export const SESSION_COMMAND_DIRECTORY_QUERY_IDS = [
 ] as const
 export const SESSION_COMMAND_FILE_IDS = ['file.find', 'file.list', 'file.read', 'file.write'] as const
 export const SESSION_COMMAND_DECISION_READ_IDS = ['decision.list', 'decision.get'] as const
+export const SESSION_COMMAND_STATE_QUERY_IDS = [
+  'goal.get',
+  'goal.snapshot',
+  'goal.history',
+  'plan.get',
+  'session.getBudget',
+  'mode.get',
+] as const
 export const SESSION_COMMAND_GIT_IDS = [
   'git.info',
   'git.status',

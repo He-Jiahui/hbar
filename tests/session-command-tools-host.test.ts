@@ -7,6 +7,7 @@ import { MemorySecrets } from '@hbar/kernel/secrets'
 import { HbarClient, createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { createPathLayout } from '@hbar/storage'
 import { commandDescriptorSchema } from '@hbar/commands'
+import { SESSION_COMMAND_STATE_QUERY_IDS } from '@hbar/kernel/session-command-port'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
 import { startServer } from '../apps/host/src/server'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
@@ -109,6 +110,24 @@ test('independent real managed sessions discover command mode and read schemas i
     )
     expect(local.metadata.execution).toBe('client')
     const operationKey = 'model-workspace-list'
+    for (const commandId of SESSION_COMMAND_STATE_QUERY_IDS) {
+      const result = z
+        .object({ commandId: z.literal(commandId), status: z.literal('succeeded'), result: z.unknown() })
+        .parse(
+          JSON.parse(
+            await call(second.id, 'hbar_command_execute', {
+              commandId,
+              commandVersion: 1,
+              operationKey: `inspect-state-${commandId}`,
+              input: {},
+            }),
+          ) as unknown,
+        )
+      expect(result.status).toBe('succeeded')
+      if (commandId === 'goal.get') expect(result.result).toMatchObject({ goal: null })
+      if (commandId === 'plan.get' || commandId === 'session.getBudget') expect(result.result).toBeNull()
+      if (commandId === 'mode.get') expect(result.result).toEqual({ mode: 'plan' })
+    }
     const execute = { commandId: 'workspace.list', commandVersion: 1, operationKey, input: {} }
     const commandResult = z.object({
       operationKey: z.literal(operationKey),

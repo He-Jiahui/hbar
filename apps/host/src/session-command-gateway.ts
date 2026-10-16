@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { HbarError } from '@hbar/contracts'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import type { CommandExecutionReceipt } from '@hbar/contracts/command-execution'
@@ -22,6 +23,7 @@ import type { StoragePort } from '@hbar/storage'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import { bindSessionGitInput, sessionGitCommand } from './session-command-git'
 import { bindInteractionSession, sessionInteractionCommand } from './session-command-interaction'
+import { bindSessionStateQueryInput, sessionStateQueryCommand } from './session-command-state-query'
 import type { SessionCommandDiscovery } from './session-command-discovery'
 import type { SessionCommandExecution } from './session-command-execution'
 import type { HostSourceApplication } from './command-execution-scopes'
@@ -71,14 +73,17 @@ export class SessionCommandGateway {
     const decision = decisionQueries.has(call.commandId)
     const git = sessionGitCommand(call.commandId, call.input)
     const interaction = sessionInteractionCommand(call.commandId, call.input)
+    const stateQuery = sessionStateQueryCommand(call.commandId)
     const fileWrite = call.commandId === 'file.write'
-    if (!readCommands.has(call.commandId) && !file && !decision && !git && !interaction)
+    if (!readCommands.has(call.commandId) && !file && !decision && !git && !interaction && !stateQuery)
       throw new HbarError(
         'COMMAND_ADMISSION_UNAVAILABLE',
         'This command needs a concrete admission rule before a session can execute it',
       )
     const identity = await this.authorization.source(source.sessionId, source.runId)
     let input = call.input
+    if (stateQuery)
+      input = sessionCommandCallSchema.shape.input.parse(bindSessionStateQueryInput(source.sessionId, input))
     if (git) input = sessionCommandCallSchema.shape.input.parse(bindSessionGitInput(source, call.commandId, input))
     if (interaction) input = sessionCommandCallSchema.shape.input.parse(bindInteractionSession(source.sessionId, input))
     if (file) {
@@ -128,8 +133,10 @@ export class SessionCommandGateway {
       metadata.id !== call.commandId ||
       metadata.version !== call.commandVersion ||
       (interaction !== undefined && metadata.version !== interaction.metadata.version) ||
+      (stateQuery !== undefined && !isDeepStrictEqual(prepared.descriptor, stateQuery.descriptor)) ||
       metadata.owner !==
         (interaction?.metadata.owner ??
+          stateQuery?.metadata.owner ??
           (file ? 'hbar.files' : decision ? 'hbar.decisions' : git ? 'hbar.git' : 'hbar.core')) ||
       metadata.kind !== (interaction?.metadata.kind ?? (mutatingDefinition ? 'command' : 'query')) ||
       metadata.stateEffect !==
@@ -188,6 +195,9 @@ export class SessionCommandGateway {
           ? {
               permissionAliases: [{ name: finalInteraction.alias, arguments: finalInteraction.arguments }],
             }
+          : {}),
+        ...(stateQuery && finalInput.sessionId === source.sessionId && stateQuery.aliases.length > 0
+          ? { permissionAliases: stateQuery.aliases.map((name) => ({ name, arguments: {} })) }
           : {}),
         timeoutMs: metadata.timeoutMs,
       },

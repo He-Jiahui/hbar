@@ -7,6 +7,10 @@ import { CommandRegistry, createCommandRouter } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { fileCommands } from '@hbar/contracts/commands/files'
 import { gitCommands } from '@hbar/contracts/commands/git'
+import { goalPlanCommands } from '@hbar/contracts/commands/goals'
+import { budgetCommands } from '@hbar/contracts/commands/budget'
+import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import { SESSION_COMMAND_STATE_QUERY_IDS } from '@hbar/kernel/session-command-port'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import { Storage } from '@hbar/storage'
 import { SessionCommandGateway } from '../apps/host/src/session-command-gateway'
@@ -80,6 +84,30 @@ async function fixture() {
   registry.register(directoryCommands['workspace.get'], async (input) => {
     reads++
     return storage.call('findWorkspace', input.workspaceId)
+  })
+  registry.register(goalPlanCommands['goal.get'], () => {
+    reads++
+    return { goal: null, remainingTokens: null }
+  })
+  registry.register(goalPlanCommands['goal.snapshot'], ({ sessionId }) => {
+    reads++
+    return { sessionId, goal: null, remainingTokens: null, plan: null, goalSeq: 0, planSeq: 0 }
+  })
+  registry.register(goalPlanCommands['goal.history'], ({ sessionId }) => {
+    reads++
+    return { sessionId, anchorSeq: 0, items: [], preceding: { seq: 0, goal: null }, nextBeforeSeq: null }
+  })
+  registry.register(goalPlanCommands['plan.get'], () => {
+    reads++
+    return null
+  })
+  registry.register(budgetCommands['session.getBudget'], () => {
+    reads++
+    return null
+  })
+  registry.register(configurationCommands['mode.get'], () => {
+    reads++
+    return { mode: 'default' as const }
   })
   const unexpectedFile = async (): Promise<never> => {
     throw new Error('Preparation must not execute a file operation')
@@ -170,6 +198,150 @@ async function fixture() {
     },
   }
 }
+
+test('state query commands bind defaults, preserve source aliases and reconcile their original receipt', async () => {
+  const f = await fixture()
+  try {
+    for (const commandId of SESSION_COMMAND_STATE_QUERY_IDS) {
+      const call = { commandId, commandVersion: 1, operationKey: `read-${commandId}`, input: {} }
+      const prepared = await f.gateway.prepare(f.source, `call-${commandId}`, call, f.signal)
+      expect(prepared.arguments.input.sessionId).toBe(f.source.sessionId)
+      expect(prepared.admission.effect).toBe('read')
+      expect(prepared.admission.workspaceAccess).toEqual({ kind: 'none' })
+      if (commandId === 'goal.snapshot')
+        expect(prepared.admission.permissionAliases).toEqual([
+          { name: 'get_goal', arguments: {} },
+          { name: 'get_plan', arguments: {} },
+        ])
+      const first = await f.gateway.execute(f.source, `call-${commandId}`, prepared, f.signal)
+      expect(first.isError).toBe(false)
+      expect(z.object({ status: z.literal('succeeded') }).parse(JSON.parse(first.text) as unknown).status).toBe(
+        'succeeded',
+      )
+      const replay = await f.gateway.prepare(f.source, `again-${commandId}`, call, f.signal)
+      expect(await f.gateway.execute(f.source, `again-${commandId}`, replay, f.signal)).toEqual(first)
+    }
+    expect(f.counts()).toEqual({ reads: SESSION_COMMAND_STATE_QUERY_IDS.length, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
+
+test('explicit state query targets require current workspace access and cannot borrow source-only aliases', async () => {
+  const f = await fixture()
+  try {
+    const otherWorkspace = await f.storage.call('createWorkspace', join(f.workspace.path, 'other'), 'Other workspace')
+    const target = await f.storage.call('createSession', otherWorkspace.id, 'Other state')
+    await f.storage.call('revokeDevice', f.device.id)
+    await f.storage.call('putDevice', { ...f.device, workspaceIds: [f.workspace.id] }, 'scoped-hash')
+    const call = {
+      commandId: 'goal.get',
+      commandVersion: 1,
+      operationKey: 'other-goal',
+      input: { sessionId: target.id },
+    }
+    expect(await failure(f.gateway.prepare(f.source, 'denied-target', call, f.signal))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+    expect(f.counts().reads).toBe(0)
+    await f.storage.call('revokeDevice', f.device.id)
+    await f.storage.call('putDevice', f.device, 'operator-hash')
+    const prepared = await f.gateway.prepare(f.source, 'allowed-target', call, f.signal)
+    expect(prepared.arguments.input.sessionId).toBe(target.id)
+    expect(prepared.admission.permissionAliases).toBeUndefined()
+    await f.storage.call('revokeDevice', f.device.id)
+    expect(await failure(f.gateway.execute(f.source, 'allowed-target', prepared, f.signal))).toMatchObject({
+      code: 'COMMAND_PRINCIPAL_REVOKED',
+    })
+    expect(f.counts().reads).toBe(0)
+    expect(
+      await f.storage.call('commandExecutionRead', {
+        sessionId: f.source.sessionId,
+        actorId: f.device.id,
+        operationKey: call.operationKey,
+      }),
+    ).toBeNull()
+  } finally {
+    await f.close()
+  }
+})
+
+test('state query admission rejects a substituted canonical owner, scope, version or state effect before intent', async () => {
+  const f = await fixture()
+  try {
+    for (const change of [
+      { owner: 'hbar.core' },
+      { scope: 'global' as const },
+      { version: 2 },
+      { stateEffect: 'persistent' as const },
+    ]) {
+      const gateway = new SessionCommandGateway({
+        storage: f.storage,
+        discovery: {
+          async prepare(...args: Parameters<SessionCommandDiscovery['prepare']>) {
+            const prepared = await f.discovery.prepare(...args)
+            return {
+              ...prepared,
+              descriptor: { ...prepared.descriptor, metadata: { ...prepared.descriptor.metadata, ...change } },
+            }
+          },
+        },
+        execution: () => undefined,
+        assertSource: () => {},
+      })
+      expect(
+        await failure(
+          gateway.prepare(
+            f.source,
+            'substituted-query',
+            { commandId: 'goal.get', commandVersion: 1, operationKey: 'substituted-query', input: {} },
+            f.signal,
+          ),
+        ),
+      ).toMatchObject({ code: 'COMMAND_ADMISSION_UNAVAILABLE' })
+    }
+    expect(f.counts()).toEqual({ reads: 0, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
+
+test('state query input and output schemas cannot be substituted under the same owner and version', async () => {
+  const f = await fixture()
+  try {
+    for (const field of ['inputSchema', 'outputSchema'] as const) {
+      const gateway = new SessionCommandGateway({
+        storage: f.storage,
+        discovery: {
+          async prepare(...args: Parameters<SessionCommandDiscovery['prepare']>) {
+            const prepared = await f.discovery.prepare(...args)
+            return { ...prepared, descriptor: { ...prepared.descriptor, [field]: { type: 'null' } } }
+          },
+        },
+        execution: () => undefined,
+        assertSource: () => {},
+      })
+      expect(
+        await failure(
+          gateway.prepare(
+            f.source,
+            'substituted-schema',
+            {
+              commandId: 'goal.get',
+              commandVersion: 1,
+              operationKey: 'substituted-schema',
+              input: {},
+            },
+            f.signal,
+          ),
+        ),
+      ).toMatchObject({ code: 'COMMAND_ADMISSION_UNAVAILABLE' })
+    }
+    expect(f.counts()).toEqual({ reads: 0, resources: 0 })
+  } finally {
+    await f.close()
+  }
+})
 
 test('preparation normalizes without executing and admitted repeated operation keys return the saved original result', async () => {
   const f = await fixture()

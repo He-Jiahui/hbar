@@ -856,6 +856,14 @@ Kernel 的准入用例在准备目标和提交任务前分别核对设备仍存�
 
 当前仅完成代码、回归准备及轻量验证：内存 SQLite 准入测试 **3 项、19 个断言通过**，九个受影响 TypeScript 文件通过语法解析，新增文件与局部格式检查通过。关闭期间手动启动、运行中关闭、重启后保持等待、重新开启、原幂等回执与受理竞态的 Worker／Kernel 回归已准备，按当前资源约束 **NOT RUN**；严格 types／lint 亦 **NOT RUN**。本节不据轻量测试宣称该行为已完成集成验收。
 
+## Session 的 Goal、Plan 与预算查询路由
+
+Session Command 增加六个只读准入规则：`goal.get`、`goal.snapshot`、`goal.history`、`plan.get`、`session.getBudget` 和 `mode.get`。参数中未给 Session 时固定为来源 Session；显式目标保留，并在准备和执行时重新检查原始用户当前的设备、角色与 workspace 权限。Goal 历史继续使用原分页契约，结果沿用 Command 回执和大结果引用链。
+
+新规则核对规范中的完整命令描述，包括输入／输出 schema、owner、版本、作用范围与执行效果。同名版本不能替换读规则的 schema。来源 Session 的查询复用对应 `get_goal`、`get_plan`、`get_budget` 许可；组合快照需要 Goal 和 Plan 两项。查询其他 Session 不借用这些只面向来源的工具别名。
+
+本轮纯规则测试 **4 项、40 个断言通过**。真实网关的规范化、原回执、跨 workspace、设备撤销及描述替换回归已增加四项；受管 Host 测试已准备六个在 Plan／deny 中执行的状态查询。按当前轻量资源约束，上述 Worker／受管 Host 回归、严格 types／lint 与构建均 **NOT RUN**。新增规则还需集成验收，完整 Command 目录的其余准入继续属于本次目标。
+
 ## 完整目标的后续交付
 
 以下仍属本次后台模式目标，不能把原生托盘入口的交付当作它们已经完成：
