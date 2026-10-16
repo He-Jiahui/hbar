@@ -6,10 +6,12 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { createMessageScope } from './messages'
 import { EchartsChart, type EChartsOption } from './echarts-chart'
 import './settings-usage.css'
+import { HbarInputCacheMetrics, type HbarInputCacheLabels } from './input-cache-metrics'
 
 export const SETTINGS_USAGE_MODELS_PER_PAGE = 8
 type Cost = SettingsUsageReport['cost']
 export interface HbarSettingsUsageLabels {
+  readonly inputCache: HbarInputCacheLabels
   readonly title: string
   readonly description: string
   readonly refresh: string
@@ -240,6 +242,7 @@ function HbarSettingsUsageContent({ instanceId, connected }: Omit<HbarSettingsUs
             </LumenContentText>
           )}
           <LumenUsage01 content={usageContent} className="hbar-settings-usage-lumen" />
+          <HbarInputCacheMetrics report={report} labels={t('inputCache')} />
           <LumenFrame as="section" className="hbar-settings-usage-activity" aria-label={t('activity')}>
             <LumenContentText context="section.subtitle">{t('activity')}</LumenContentText>
             {report.series.length > 0 ? (

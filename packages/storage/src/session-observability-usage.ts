@@ -1,5 +1,7 @@
 import type { Database } from 'bun:sqlite'
 import { HbarError } from '@hbar/contracts'
+import { assessInputCache } from '@hbar/usage'
+import { z } from 'zod'
 import {
   sessionObservabilityReportSchema,
   type SessionObservabilityReport,
@@ -13,6 +15,7 @@ type UsageRow = SessionObservabilityReport['usage'] & {
   responseP95Ms: number | null
   responseSamples: number
   seriesJson: string
+  cacheSamplesJson: string
   requestConcurrency: number | null
 }
 
@@ -39,10 +42,22 @@ export function readObservabilityUsageFacts(
     responseP95Ms,
     responseSamples,
     seriesJson,
+    cacheSamplesJson,
     requestConcurrency,
     ...usageRow
   } = row
-  const usage = sessionObservabilityReportSchema.shape.usage.parse(usageRow)
+  const cacheSamples = z
+    .array(z.object({ input: z.number(), cacheRead: z.number() }))
+    .max(10)
+    .parse(JSON.parse(cacheSamplesJson))
+    .reverse()
+  const usage = sessionObservabilityReportSchema.shape.usage.parse({
+    ...usageRow,
+    cacheQuality: assessInputCache(cacheSamples, usageRow.recorded !== usageRow.requests, {
+      input: usageRow.input,
+      cacheRead: usageRow.cacheRead,
+    }),
+  })
   const latency = sessionObservabilityReportSchema.shape.latency.parse({
     firstText: { p95Ms: firstTextP95Ms, samples: firstTextSamples },
     response: { p95Ms: responseP95Ms, samples: responseSamples },

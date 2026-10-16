@@ -3,6 +3,7 @@ import { hostRuntimeStatusCopy } from './host-runtime-status-copy'
 import { extensionSkillCopy } from './extension-skill-copy'
 import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
+import { inputCacheCopy } from './input-cache-copy'
 import { resolveChatDatabaseSettingCopy, resolveChatDatabaseChoiceCopy } from './chat-database-settings-copy'
 import { createSessionRequestLabels } from './session-request-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
@@ -1077,7 +1078,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
   const blockedReasons = {
     disconnected: choose('宿主未连接。', 'The Host is disconnected.'),
     'first-send': choose('正在确认首次发送状态，请稍候。', 'The first-send state is being confirmed. Please wait.'),
-    'workspace-move': choose('工作区正在切换，请等待完成后再发送。', 'The workspace is changing. Wait for it to finish before sending.'),
+    'workspace-move': choose(
+      '工作区正在切换，请等待完成后再发送。',
+      'The workspace is changing. Wait for it to finish before sending.',
+    ),
     history: choose('会话记录尚未加载完成。', 'Session history has not finished loading.'),
     'execution-unavailable': choose('当前连接暂不支持此操作。', 'This connection does not support this action yet.'),
     'draft-pending': choose('草稿正在同步，请稍候。', 'The draft is syncing. Please wait.'),
@@ -1519,8 +1523,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ),
       checking: choose('正在核对原后台代理…', 'Checking the original background Agents…'),
       settled: choose('本次停止目标已结束。', 'The background Agents targeted by this request have settled.'),
-      failed: (code) =>
-        choose(`后台代理停止未完成：${code}`, `Background Agent cancellation did not finish: ${code}`),
+      failed: (code) => choose(`后台代理停止未完成：${code}`, `Background Agent cancellation did not finish: ${code}`),
       readFailed: (code) => choose(`无法读取后台代理：${code}`, `Could not load background Agents: ${code}`),
       reconcile: choose('核对停止结果', 'Check cancellation'),
       retry: choose('重试停止原目标', 'Retry original targets'),
@@ -2344,6 +2347,7 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   const time = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   const at = (timestamp: number) => time.format(timestamp)
   const labels: Omit<HbarSessionMonitoringLabels, 'observability'> = {
+    inputCache: inputCacheCopy(locale),
     title: choose('会话状态', 'Session status'),
     tabs: {
       overview: choose('概览', 'Overview'),
@@ -3440,7 +3444,13 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     refresh: choose('刷新当前分区', 'Refresh current section'),
     loading: choose('正在加载状态数据…', 'Loading status data…'),
     tabs: choose('状态分区', 'Status sections'),
-    sections: { dashboard: choose('系统', 'System'), runs: choose('运行', 'Runs'), usage: choose('用量', 'Usage'), diagnostics: choose('诊断', 'Diagnostics'), git: choose('版本控制', 'Version control') },
+    sections: {
+      dashboard: choose('系统', 'System'),
+      runs: choose('运行', 'Runs'),
+      usage: choose('用量', 'Usage'),
+      diagnostics: choose('诊断', 'Diagnostics'),
+      git: choose('版本控制', 'Version control'),
+    },
     performanceFilters: {
       label: choose('性能查询条件', 'Performance query filters'),
       timeWindow: choose('时间窗', 'Time window'),

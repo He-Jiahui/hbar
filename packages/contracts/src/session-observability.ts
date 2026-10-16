@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { usagePricingSnapshotSchema } from './usage'
+import { inputCacheQualitySchema } from './commands/usage'
 
 const count = z.number().int().nonnegative()
 const tokens = z.number().finite().nonnegative()
@@ -91,6 +92,7 @@ export const sessionObservabilityReportSchema = z.strictObject({
     knownCost: z.number().finite().nonnegative(),
     pricedRequests: count,
     cacheHitRate: measured,
+    cacheQuality: inputCacheQualitySchema.optional(),
     cacheInputShare: measured,
     durationMs: measured,
     tokensPerSecond: measured,

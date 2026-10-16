@@ -29,7 +29,7 @@ function readLegacyUsageFacts(db: Database, args: [string, number, number], rang
           AND e.type='message.committed' AND json_extract(e.data,'$.role')='user'
           AND (json_extract(e.data,'$.queueGuidance') IS NOT NULL OR COALESCE(json_extract(r.input,'$.source'),'user')='user')) turns,
         CASE WHEN COUNT(*)=COUNT(cost) THEN COALESCE(SUM(cost),0) END cost,COALESCE(SUM(cost),0) knownCost,COUNT(cost) pricedRequests,
-        CASE WHEN COUNT(*)=COUNT(eligibleInput) THEN 1.0*SUM(cacheRead)/NULLIF(SUM(eligibleInput),0) END cacheHitRate,
+        CASE WHEN MIN(input>0 AND cacheRead>=0 AND cacheRead<=input)=1 THEN 1.0*SUM(cacheRead)/NULLIF(SUM(input),0) END cacheHitRate,
         1.0*SUM(cacheRead)/NULLIF(SUM(input),0) cacheInputShare,SUM(durationMs) durationMs,COUNT(durationMs) timingSamples,
         CASE WHEN COUNT(*)=COUNT(durationMs) THEN 1000.0*SUM(input+output)/NULLIF(SUM(durationMs),0) END tokensPerSecond,
         CASE WHEN COUNT(*)=COUNT(durationMs) THEN 1000.0*SUM(output)/NULLIF(SUM(durationMs),0) END outputPerSecond
@@ -187,7 +187,11 @@ describe('scoped observability usage facts', () => {
         previous: 5,
         next: 20,
       })
-      expect(facts).toEqual(readLegacyUsageFacts(db, ['session', 9, 19], { startedAt: 1100, endedAt: 1200 }))
+      const { cacheQuality, ...usage } = facts.usage
+      expect({ ...facts, usage }).toEqual(
+        readLegacyUsageFacts(db, ['session', 9, 19], { startedAt: 1100, endedAt: 1200 }),
+      )
+      expect(cacheQuality?.sampleCount).toBeLessThanOrEqual(10)
 
       expect(facts.usage).toMatchObject({
         input: 100,
@@ -314,7 +318,9 @@ describe('scoped observability usage facts', () => {
         }
         const actual = readObservabilityUsageFacts(db, scenario.args, range)
         const expected = readLegacyUsageFacts(db, scenario.args, range)
-        expect(actual).toEqual(expected)
+        const { cacheQuality, ...usage } = actual.usage
+        expect({ ...actual, usage }).toEqual(expected)
+        expect(cacheQuality?.sampleCount).toBeLessThanOrEqual(10)
         if (scenario.scope === 'session') {
           expect(actual.usage).toMatchObject({
             recorded: 3,
@@ -323,7 +329,7 @@ describe('scoped observability usage facts', () => {
             cost: null,
             knownCost: 0.30000000000000004,
             pricedRequests: 2,
-            cacheHitRate: 8 / 60,
+            cacheHitRate: 8 / 80,
           })
         }
         if (scenario.args[1] === 50) {

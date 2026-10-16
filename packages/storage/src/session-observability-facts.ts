@@ -159,7 +159,7 @@ SELECT COALESCE(SUM(input),0) input,COALESCE(SUM(output),0) output,
   AND (json_extract(e.data,'$.queueGuidance') IS NOT NULL OR COALESCE(json_extract(r.input,'$.source'),'user')='user')) turns,
  CASE WHEN COUNT(*)=COUNT(cost) THEN COALESCE(SUM(cost),0) END cost,
  COALESCE(SUM(cost),0) knownCost,COUNT(cost) pricedRequests,
- CASE WHEN COUNT(*)=COUNT(eligibleInput) THEN 1.0*SUM(cacheRead)/NULLIF(SUM(eligibleInput),0) END cacheHitRate,
+ CASE WHEN MIN(input>0 AND cacheRead>=0 AND cacheRead<=input)=1 THEN 1.0*SUM(cacheRead)/NULLIF(SUM(input),0) END cacheHitRate,
  1.0*SUM(cacheRead)/NULLIF(SUM(input),0) cacheInputShare,
  SUM(durationMs) durationMs,COUNT(durationMs) timingSamples,
  CASE WHEN COUNT(*)=COUNT(durationMs) THEN 1000.0*SUM(input+output)/NULLIF(SUM(durationMs),0) END tokensPerSecond,
@@ -169,6 +169,8 @@ SELECT COALESCE(SUM(input),0) input,COALESCE(SUM(output),0) output,
  (SELECT p95Ms FROM response) responseP95Ms,
  (SELECT samples FROM response) responseSamples,
  (SELECT value FROM series) seriesJson,
+ (SELECT json_group_array(json_object('input',input,'cacheRead',cacheRead))
+  FROM (SELECT input,cacheRead FROM usage ORDER BY time DESC,seq DESC LIMIT 10)) cacheSamplesJson,
  (SELECT value FROM request_concurrency) requestConcurrency
 FROM usage`
 

@@ -1,5 +1,6 @@
 import type { HbarSettingsUsageLabels } from '@hbar/app-react'
 import type { ShellLocale } from './shell-copy'
+import { inputCacheCopy } from './input-cache-copy'
 
 export function settingsUsageCopy(locale: ShellLocale): HbarSettingsUsageLabels {
   const zh = locale === 'zh-CN'
@@ -8,6 +9,7 @@ export function settingsUsageCopy(locale: ShellLocale): HbarSettingsUsageLabels 
   const currency = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: 4 })
   const date = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   return {
+    inputCache: inputCacheCopy(locale),
     title: text('词元用量', 'Token usage'),
     description: text(
       '当前服务端的使用记录，包含所有工程与会话。',

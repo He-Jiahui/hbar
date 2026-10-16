@@ -39,12 +39,16 @@ export function inputCacheHitRate(samples: readonly InputCacheSample[]): UsageMe
 }
 
 /** Input is chronological. The latest ten requests must each reach 95%; no outlier is discarded. */
-export function assessInputCache(samples: readonly InputCacheSample[], gap = false): InputCacheQuality {
+export function assessInputCache(
+  samples: readonly InputCacheSample[],
+  gap = false,
+  aggregate?: InputCacheSample,
+): InputCacheQuality {
   const recent = samples.slice(-INPUT_CACHE_STABILITY_SAMPLES)
   const rate = inputCacheHitRate(recent)
   const ratios = recent.filter(valid).map((sample) => sample.cacheRead / sample.input)
   const recentMinimum = ratios.length ? Math.min(...ratios) : null
-  const overall = inputCacheHitRate(samples)
+  const overall = inputCacheHitRate(aggregate ? [aggregate] : samples)
   return {
     minimum: INPUT_CACHE_MINIMUM,
     target: INPUT_CACHE_TARGET,

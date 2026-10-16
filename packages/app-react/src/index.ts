@@ -269,6 +269,7 @@ export {
   type HbarSandboxProfilesViewProps,
 } from './sandbox-profile-settings'
 export { HbarSettingsUsage, SETTINGS_USAGE_MODELS_PER_PAGE, type HbarSettingsUsageLabels } from './settings-usage'
+export { HbarInputCacheMetrics, type HbarInputCacheLabels } from './input-cache-metrics'
 export { HbarUsageFeatures, type HbarUsageFeaturesLabels, type HbarUsageFeaturesProps } from './usage-features'
 export { HbarUsageRequests, type HbarUsageRequestsLabels, type HbarUsageRequestsProps } from './usage-requests'
 export { HbarUsageBudget, type HbarUsageBudgetLabels, type HbarUsageBudgetProps } from './usage-budget'

@@ -57,6 +57,10 @@ export function createSessionRequestLabels(
     error: (code) => choose(`无法加载明细：${code}。请重试。`, `Could not load details: ${code}. Try again.`),
     unavailable,
     number: (value) => number.format(value),
+    cacheRatio: (cached, input) =>
+      input > 0 && cached >= 0 && cached <= input
+        ? new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(cached / input)
+        : unavailable,
     time,
     duration,
     cost,
@@ -83,6 +87,7 @@ export function createSessionRequestLabels(
       input: choose('输入词元', 'Input tokens'),
       output: choose('输出词元', 'Output tokens'),
       cacheRead: choose('缓存读取', 'Cache read'),
+      cacheHitRate: choose('输入缓存命中率', 'Input cache hit rate'),
       cacheWrite: choose('缓存写入', 'Cache write'),
       billable: choose('计费词元', 'Billable tokens'),
       cost: choose('费用', 'Cost'),

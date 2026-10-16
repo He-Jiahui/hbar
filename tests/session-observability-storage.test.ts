@@ -387,8 +387,9 @@ describe('Session SQLite observability', () => {
       cost: 0.125,
       knownCost: 0.125,
       pricedRequests: 1,
-      cacheHitRate: 0.5,
+      cacheHitRate: 0.4,
       cacheInputShare: 0.4,
+      cacheQuality: { status: 'insufficient', sampleCount: 1, recentMinimum: 0.4 },
     })
     expect(all.records[0]?.pricing?.version).toBe('historical-price')
     expect(

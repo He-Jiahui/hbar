@@ -1,0 +1,93 @@
+.hbar-input-cache {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-surface);
+  color: var(--lumen-ink);
+}
+.hbar-input-cache :is(p, span, dt, dd) {
+  overflow-wrap: anywhere;
+}
+.hbar-input-cache-heading,
+.hbar-input-cache-details,
+.hbar-input-cache [data-lumen-part~='metrics.compact'] {
+  display: flex;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  align-items: baseline;
+  gap: var(--lumen-space-8) var(--lumen-space-16);
+}
+.hbar-input-cache-heading {
+  justify-content: space-between;
+}
+.hbar-input-cache [data-lumen-part~='metrics.compact'] > div {
+  display: flex;
+  flex: 1 1 6rem;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lumen-space-4);
+}
+.hbar-input-cache dt {
+  color: var(--lumen-muted);
+}
+.hbar-input-cache dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.hbar-input-cache [data-lumen-part~='metrics.compact'] > div:first-child dd {
+  font-size: calc(var(--lumen-font-size) * 1.6);
+}
+.hbar-input-cache-chart {
+  inline-size: 100%;
+  aspect-ratio: 320 / 104;
+  max-block-size: 14rem;
+  overflow: visible;
+}
+.hbar-input-cache-chart path {
+  fill: none;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.hbar-input-cache-grid {
+  stroke: var(--lumen-line);
+}
+.hbar-input-cache-minimum {
+  stroke: var(--lumen-danger);
+  stroke-dasharray: 4 3;
+}
+.hbar-input-cache-target {
+  stroke: var(--lumen-success);
+  stroke-dasharray: 2 3;
+}
+.hbar-input-cache-line {
+  stroke: var(--lumen-info);
+}
+.hbar-input-cache-chart circle {
+  fill: var(--lumen-info);
+}
+.hbar-input-cache-chart [data-cache-level='low'] circle {
+  fill: var(--lumen-danger);
+}
+.hbar-input-cache-chart [data-cache-level='warning'] circle {
+  fill: var(--lumen-warning);
+}
+.hbar-input-cache-chart g:focus-visible {
+  outline: 0.125rem solid var(--lumen-info);
+}
+.hbar-input-cache-status {
+  color: var(--lumen-muted);
+}
+.hbar-input-cache[data-cache-status='healthy'] .hbar-input-cache-status {
+  color: var(--lumen-success);
+}
+.hbar-input-cache[data-cache-status='below-minimum'] .hbar-input-cache-status {
+  color: var(--lumen-danger);
+}
+.hbar-input-cache[data-cache-status='below-target'] .hbar-input-cache-status {
+  color: var(--lumen-warning);
+}

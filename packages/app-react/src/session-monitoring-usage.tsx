@@ -4,8 +4,10 @@ import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { monitoringModels, monitoringUsageBuckets, SESSION_MONITORING_MODEL_PAGE } from './session-monitoring-model'
 import { createMessageScope } from './messages'
+import { HbarInputCacheMetrics, type HbarInputCacheLabels } from './input-cache-metrics'
 
 export interface HbarSessionMonitoringUsageLabels {
+  readonly inputCache: HbarInputCacheLabels
   readonly unavailable: string
   readonly totals: Readonly<Record<'tokens' | 'runs' | 'attempts' | 'cost' | 'cache' | 'rate', string>>
   readonly composition: {
@@ -57,11 +59,7 @@ function metricValue(
   return metric.availability === 'available' && metric.value !== null ? format(metric.value) : unavailable
 }
 
-function TokenTimeline({
-  report,
-}: {
-  readonly report: UsageQueryResult
-}) {
+function TokenTimeline({ report }: { readonly report: UsageQueryResult }) {
   const { t } = sessionMonitoringUsageMessages.useMessages()
   const buckets = useMemo(() => monitoringUsageBuckets(report.series), [report.series])
   const [focused, setFocused] = useState<number | null>(null)
@@ -136,11 +134,7 @@ function TokenTimeline({
   )
 }
 
-export function SessionMonitoringUsageView({
-  report,
-}: {
-  readonly report: UsageQueryResult
-}) {
+export function SessionMonitoringUsageView({ report }: { readonly report: UsageQueryResult }) {
   const { t } = sessionMonitoringUsageMessages.useMessages()
   const [visibleModels, setVisibleModels] = useState(SESSION_MONITORING_MODEL_PAGE)
   const models = useMemo(() => monitoringModels(report.models), [report.models])
@@ -160,6 +154,7 @@ export function SessionMonitoringUsageView({
   const latencyMaximum = Math.max(report.latency.firstText.p95 ?? 0, report.latency.response.p95 ?? 0)
   return (
     <LumenFrame className="hbar-monitoring-usage">
+      <HbarInputCacheMetrics report={report} labels={t('inputCache')} />
       <LumenFrame className="hbar-monitoring-primary-metrics">
         <LumenCompactMetrics
           label={t('composition').title}

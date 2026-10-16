@@ -34,6 +34,7 @@ export interface HbarSessionRequestLabels {
   readonly error: (code: string) => string
   readonly unavailable: string
   readonly number: (value: number) => string
+  readonly cacheRatio: (cached: number, input: number) => string
   readonly time: (value: number | null) => string
   readonly duration: (value: number | null) => string
   readonly cost: (value: UsageRequestItem['cost']) => string
@@ -54,6 +55,7 @@ export interface HbarSessionRequestLabels {
       | 'output'
       | 'cacheRead'
       | 'cacheWrite'
+      | 'cacheHitRate'
       | 'billable'
       | 'cost'
       | 'pricing'
@@ -86,13 +88,7 @@ export function sessionRequestLatency(item: UsageRequestItem, end: number | null
   return item.startedAt === null || end === null || end < item.startedAt ? null : end - item.startedAt
 }
 
-function RawJson({
-  identity,
-  value,
-}: {
-  readonly identity: readonly string[]
-  readonly value: unknown
-}) {
+function RawJson({ identity, value }: { readonly identity: readonly string[]; readonly value: unknown }) {
   const { t } = sessionRequestMessages.useMessages()
   const text = useMemo(() => JSON.stringify(value, null, 2), [value])
   return (
@@ -134,9 +130,7 @@ export function HbarSessionRawMessages({
                 open={expanded === message.id}
                 onOpenChange={(open) => setExpanded(open ? message.id : null)}
               >
-                {expanded === message.id && (
-                  <RawJson identity={[identity, message.id]} value={message} />
-                )}
+                {expanded === message.id && <RawJson identity={[identity, message.id]} value={message} />}
               </HbarLumenDisclosure>
             </LumenCollectionItem>
           ))}
@@ -187,6 +181,7 @@ export function HbarSessionRequestRecord({
           metric('input', t('number')(item.input)),
           metric('output', t('number')(item.output)),
           metric('cacheRead', t('number')(item.cacheRead)),
+          metric('cacheHitRate', t('cacheRatio')(item.cacheRead, item.input)),
           metric('cacheWrite', t('number')(item.cacheWrite)),
           metric('billable', t('number')(item.billableTokens)),
           metric('cost', t('cost')(item.cost)),
@@ -405,12 +400,7 @@ function SessionRequestDetailsView({
     <>
       {view !== 'messages' &&
         (requests ? (
-          <RequestList
-            requests={requests}
-            connected={connected}
-            messages={messages}
-            revision={revision}
-          />
+          <RequestList requests={requests} connected={connected} messages={messages} revision={revision} />
         ) : (
           <LumenContentText context="feedback.detail" role="status">
             {t('loading')}
@@ -432,7 +422,10 @@ function SessionRequestDetailsView({
   )
 }
 
-export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails({ labels, ...props }: {
+export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails({
+  labels,
+  ...props
+}: {
   readonly sessionId: string
   readonly labels: HbarSessionRequestLabels
   readonly connected: boolean

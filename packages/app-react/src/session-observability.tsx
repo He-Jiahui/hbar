@@ -14,6 +14,7 @@ import {
 import type { HbarSessionObservabilityLabels } from './session-observability-labels'
 import { sessionObservabilityMessages } from './session-observability-messages'
 import './session-observability.css'
+import { HbarInputCacheMetrics } from './input-cache-metrics'
 
 export type { HbarSessionObservabilityLabels } from './session-observability-labels'
 
@@ -37,7 +38,6 @@ function Dashboard({
   }
   const report = state.report
   const number = (value: number | null) => (value === null ? t('unavailable') : t('number')(value))
-  const percent = (value: number | null) => (value === null ? t('unavailable') : t('percent')(value))
   const metric = (label: string, value: string) => ({ label, value })
   useEffect(() => {
     owner.setConnected(connected && active)
@@ -125,6 +125,25 @@ function Dashboard({
       )}
       {report && (
         <>
+          <HbarInputCacheMetrics
+            labels={t('inputCache')}
+            report={{
+              totals: report.usage,
+              cacheHitRate: {
+                value: report.usage.cacheHitRate,
+                availability: report.usage.cacheHitRate === null ? 'unavailable' : 'available',
+              },
+              cacheQuality: report.usage.cacheQuality,
+              window: { from: report.range.startedAt, to: report.range.endedAt },
+              series: report.series.map((bucket) => ({
+                ...bucket,
+                end: Math.min(
+                  bucket.start + Math.max(1, Math.ceil((report.range.endedAt - report.range.startedAt + 1) / 40)),
+                  report.range.endedAt + 1,
+                ),
+              })),
+            }}
+          />
           <LumenFrame className="hbar-monitoring-primary-metrics">
             <ObservabilityMetrics
               entries={[
@@ -146,8 +165,6 @@ function Dashboard({
                 t('fields').outputRate,
                 report.usage.outputPerSecond === null ? t('unavailable') : t('rate')(report.usage.outputPerSecond),
               ),
-              metric(t('totals').cache, percent(report.usage.cacheHitRate)),
-              metric(t('fields').cacheShare, percent(report.usage.cacheInputShare)),
               metric(t('totals').attempts, number(report.usage.requests)),
               metric(t('totals').runs, number(report.usage.runs)),
               metric(t('fields').knownCost, t('currency')(report.usage.knownCost)),
