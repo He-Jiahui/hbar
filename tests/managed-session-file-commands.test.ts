@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { HbarClient, createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
+import { sessionLaunchTargetSetReceiptSchema } from '@hbar/contracts/commands/session-launch-target'
 import { MemorySecrets } from '@hbar/kernel/secrets'
 import { createPathLayout } from '@hbar/storage'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
@@ -59,13 +60,27 @@ test('real managed sessions execute admitted file commands in their own checkout
       { workspaceId: workspace.id },
       { idempotencyKey: 'isolated' },
     )
-    await runtime.kernel.setSessionLaunchTarget({
-      actorId: device.device.id,
-      idempotencyKey: 'source-command-fixture-target',
-      sessionId: isolated.id,
-      expectedRevision: 0,
-      selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'codex/source-command-proof' } },
-    })
+    const target = sessionLaunchTargetSetReceiptSchema.parse(
+      await client.call('command.execute', {
+        protocol: 1,
+        requestId: crypto.randomUUID(),
+        commandId: 'sessionLaunchTarget.set',
+        commandVersion: 3,
+        idempotencyKey: 'source-command-fixture-target',
+        input: {
+          sessionId: isolated.id,
+          expectedRevision: 0,
+          selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'codex/source-command-proof' } },
+        },
+      }),
+    )
+    expect(target.revision).toBe(1)
+    let after: string | undefined
+    do {
+      const page = await client.call('command.catalog', { limit: 200, ...(after ? { after } : {}) })
+      expect(page.items.some((item) => item.metadata.visibility === 'internal')).toBe(false)
+      after = page.nextCursor
+    } while (after)
     async function call(
       sessionId: string,
       commandId: string,

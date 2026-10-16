@@ -18,6 +18,9 @@ describe('runtime controller command visibility', () => {
     })
 
     expect(services.commandServices[0]?.service.list().items.map(({ metadata }) => metadata.id)).toEqual(['git.status'])
+    expect(
+      services.commandServices[0]?.service.list({ includeInternal: true }).items.map(({ metadata }) => metadata.id),
+    ).toEqual(['sessionLaunchBranches.list', 'git.status'])
     expect(services.commandDispatchers.has('sessionLaunchBranches.list')).toBe(true)
     expect(services.commandDescribers.get('sessionLaunchBranches.list')?.().metadata.visibility).toBe('internal')
     expect(services.resolveCommand?.('sessionLaunchBranches.list')).toBeTruthy()

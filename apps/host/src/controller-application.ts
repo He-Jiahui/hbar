@@ -387,7 +387,12 @@ export function createControllerApplication(
       ...(service.dispatchPrepared ? { dispatchPrepared: service.dispatchPrepared } : {}),
       ...(service.dispatchPreparedTracked ? { dispatchPreparedTracked: service.dispatchPreparedTracked } : {}),
       describe: service.describe,
-      list: service.list,
+      list: (filter?: { readonly includeInternal?: boolean }) => {
+        const catalog = service.list()
+        return filter?.includeInternal
+          ? { ...catalog, items: Object.keys(definitions).map((id) => service.describe(id)) }
+          : catalog
+      },
       prepare: (value: unknown) => prepareCommandInvocation(definitions, value),
     },
   }))

@@ -106,7 +106,8 @@ export function createRuntimeControllerServices(
         throw new HbarError('COMMAND_NOT_FOUND', 'Command is absent from the activated Controller catalog')
       return descriptor
     },
-    list: publicCatalog,
+    list: (filter?: { readonly includeInternal?: boolean }) =>
+      filter?.includeInternal ? options.catalog() : publicCatalog(),
   }
   const commandIds = allDescriptors().map((value) => value.metadata.id)
   const commandDispatchers = new Map(commandIds.map((id) => [id, service.dispatch]))

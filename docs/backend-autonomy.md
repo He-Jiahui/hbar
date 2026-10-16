@@ -415,7 +415,14 @@ Kernel 只在准入后的 executor 内打开能力端口，捕获实际 Run 的�
 真实受管 Host 使用已配对 operator 验证基础与隔离 worktree 的不同内容、缺失文件创建、列表和查找、源 Run 文件变更归属、Plan／deny 写入拒绝、重复 operationKey 返回原回执且保留后续外部编辑，以及资源归零和无自动 Goal。
 网关和端口测试覆盖签名方法篡改、无 capability、跨 workspace／session、版本冲突、取消与实际结算，以及不重新解析远程风格挂载路径。
 这仍不代表 Git、系统、client/platform 和完整目录的其余执行规则已经开放；大结果引用读取及未知结果核对仍属于后续整合。
-此次隔离目录 fixture 通过公开 Host 用例预设 launch target；现有受管 Controller 的内部 launch-target 命令未出现在授权目录中的问题另行处理，不把 fixture 准备当作该网络命令已经验证。
+文件命令初次验收发现内部 launch-target 命令遗漏问题，后续修复见下节。
+
+## 受管内部命令目录
+
+Controller 组合层按每个命令所有者的真实 describe 构建完整私有目录，保留内部命令用于稳定 Host 的授权和直接 API 路由。
+此前虽然请求 includeInternal，具体 service 的 list 包装丢失了该选项，实际受管 Host 的 sessionLaunchTarget.set 因目录缺失而返回 FORBIDDEN；公开 Host 用例本身可以执行。
+组合层和远程适配层现在遵守 includeInternal；普通公开目录仍排除内部命令。
+真实配对设备的文件集成改为通过网络设置隔离目标，并验证目标命令仍不出现在公开目录，随后完成源会话文件读写流程。
 
 ## 完整目标的后续交付
 
