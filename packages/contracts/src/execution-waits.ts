@@ -13,6 +13,9 @@ export const executionHumanWaitSchema = z.strictObject({
   execution: executionOwnershipSchema,
   callId: z.string().min(1).max(160),
   decision: executionWaitDecisionSchema,
+  /** Older executors retain their Run slot and use the legacy end operation. */
+  capacity: z.literal(true).optional(),
 })
+export const executionHumanWaitFinishSchema = z.enum(['released', 'waiting_capacity', 'stopped'])
 export type ExecutionWaitDecision = z.output<typeof executionWaitDecisionSchema>
 export type ExecutionHumanWait = z.output<typeof executionHumanWaitSchema>

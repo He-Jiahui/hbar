@@ -345,9 +345,9 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         releaseTool: (id) => domain(() => coordinator.releaseTool(id)),
         withHumanWait: (lease, callId, decision, operation) =>
           domain(() =>
-            withRuntimeHumanWait(context.peer, lease, callId, decision, (confirmed) =>
-              confirmed ? plugins.withHumanWait(lease, callId, operation) : operation(),
-            ),
+            withRuntimeHumanWait(context.peer, lease, callId, decision, () => operation(), {
+              suspendLocal: () => plugins.suspendHumanWait(lease, callId),
+            }),
           ),
         withResource: (key, execution, operation, signal) =>
           domain(() =>

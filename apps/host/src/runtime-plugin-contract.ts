@@ -62,6 +62,34 @@ export const runtimePluginInvocationSchema = z.strictObject({
 export const runtimePluginCatalogSchema = z
   .array(z.strictObject({ unitId: z.string().min(1).max(160), state: runtimePluginStateSchema }))
   .max(128)
+
+const CONTROL_HOOKS = new Set([
+  'run.cancelRequested',
+  'run.end',
+  'step.end',
+  'tool.after',
+  'tool.settled',
+  'budget.committed',
+  'session.idle',
+  'agent.settled',
+])
+const CONTROL_QUERIES: Readonly<Record<string, readonly string[]>> = {
+  goal: ['snapshot', 'get', 'recoveryReason'],
+  plan: ['snapshot', 'get'],
+  mode: ['get', 'effectiveMode'],
+  budget: ['get', 'getCommandReceipt'],
+  workflow: ['get'],
+  agent: ['policy', 'list', 'result'],
+  models: ['list', 'get'],
+}
+/** Host classification of metadata only. Every nested tool, model, command or node execution keeps its own admission. */
+export function isRuntimePluginControl(request: z.infer<typeof runtimePluginInvocationSchema>): boolean {
+  return request.operation === 'hook'
+    ? CONTROL_HOOKS.has(request.name)
+    : request.operation === 'capability' &&
+        request.method !== undefined &&
+        (CONTROL_QUERIES[request.name]?.includes(request.method) ?? false)
+}
 export const runtimePluginConfigurationSchema = z.strictObject({
   dataRoot: z.string().min(1).max(4_000),
   cacheRoot: z.string().min(1).max(4_000),

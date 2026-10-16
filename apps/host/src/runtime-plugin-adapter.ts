@@ -301,17 +301,8 @@ export class RuntimePluginAdapter {
     // The named capability or Hook fixes Result; its plain graph was validated by both application ports.
     return result.value as Result
   }
-  async withHumanWait<Result>(
-    execution: ExecutionOwnership,
-    callId: string,
-    operation: () => Promise<Result>,
-  ): Promise<Result> {
-    const resume = this.deadlines.suspend(execution, callId)
-    try {
-      return await operation()
-    } finally {
-      resume()
-    }
+  suspendHumanWait(execution: ExecutionOwnership, callId: string): () => void {
+    return this.deadlines.suspend(execution, callId)
   }
   private async host(api: HbarAPI, method: string, args: readonly unknown[]): Promise<unknown> {
     if (method === 'notify') {

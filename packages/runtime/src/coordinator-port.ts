@@ -12,6 +12,7 @@ const toolSchema = z.strictObject({ execution: executionOwnershipSchema, callId:
 export const RUNTIME_COORDINATION_CONTROL_METHODS = [
   'execution.claim', 'execution.release', 'execution.stopped', 'resource.release', 'tool.release',
   'execution.humanWait.begin', 'execution.humanWait.end',
+  'execution.humanWait.finish',
 ] as const
 export interface RuntimeCoordinatorPortOptions {
   readonly owner: RuntimeOwner

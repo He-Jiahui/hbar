@@ -670,6 +670,16 @@ export class RuntimeCoordinator {
   acquireResource(owner: RuntimeOwner, key: string, execution?: ExecutionOwnership): RuntimeResourceLease | null {
     this.assertCanWrite(owner, execution)
     if (execution) this.assertExecutionCapacity(execution)
+    return this.acquireControlResource(owner, key, execution)
+  }
+  /** Stable composition only: state queries and settlement retain physical ownership without admitting execution work.
+   * This port is deliberately absent from the child resource.acquire RPC. */
+  acquireControlResource(
+    owner: RuntimeOwner,
+    key: string,
+    execution?: ExecutionOwnership,
+  ): RuntimeResourceLease | null {
+    this.assertCanWrite(owner, execution)
     if (!key || key.length > 4_000) throw new HbarError('INVALID_INPUT', 'Runtime resource key is invalid')
     if (this.resourceKeys.has(key)) return null
     if (this.resources.size + this.hostResources.size >= 4_096)

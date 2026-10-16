@@ -344,10 +344,35 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         question: (sessionId, requestId) => this.storage.call('userInputRead', { sessionId, requestId }),
         approval: (id) => this.storage.call('approval', id),
       },
+      capacity: {
+        suspend: (execution, calls) => {
+          const current = this.coordinator.execution(execution.runId)
+          if (
+            !current ||
+            current.leaseId !== execution.leaseId ||
+            !this.canAdmit(execution.sessionId) ||
+            this.coordinator.role(execution.owner) === 'fenced' ||
+            !this.relay.modelQuiescent(execution)
+          )
+            return
+          this.coordinator.suspendWaitingExecution(execution, calls)
+        },
+        resume: (execution) => this.coordinator.resumeExecutionCapacity(execution),
+        stopped: async (execution) => {
+          const current = this.coordinator.execution(execution.runId)
+          return (
+            !current ||
+            current.leaseId !== execution.leaseId ||
+            this.coordinator.role(execution.owner) === 'fenced' ||
+            (await this.storage.call('cancelRequested', execution.runId))
+          )
+        },
+      },
     })
     this.relay = new RuntimeDriverRelay({
       coordinator: this.coordinator,
       humanWaits: this.humanWaits,
+      activityChanged: (execution) => this.humanWaits.refresh(execution),
       resolve: (version) => this.driver(version),
     })
     this.resources = new RuntimeResourceRegistry(this.coordinator, this.storage)
@@ -2170,6 +2195,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     await this.refreshKernels()
     await this.resume()
     await this.flushCapacityWakeups()
+    this.humanWaits.refreshPending()
   }
   private async reconcileClaim(draft: ExecutionOwnership, kernel: RuntimeKernelEndpoint): Promise<void> {
     const receipt = await this.storage.call('runtimeExecutionRead', draft.runId)

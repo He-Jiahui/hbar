@@ -19,7 +19,7 @@ async function failure(operation: Promise<unknown>): Promise<unknown> {
   }
   throw new Error('Expected a rejected wait')
 }
-function fixture() {
+function fixture(capacity?: ConstructorParameters<typeof RuntimeHumanWaits>[0]['capacity']) {
   const owner: RuntimeOwner = { unitId: 'kernel', generation: 1, incarnation: 'original-kernel' }
   const execution = executionOwnershipSchema.parse({
     owner,
@@ -67,6 +67,7 @@ function fixture() {
   let reads = 0
   let readQuestion = async () => question
   const waits = new RuntimeHumanWaits({
+    ...(capacity ? { capacity } : {}),
     coordinator: {
       assertCanWrite(caller, lease) {
         if (revoked || caller.incarnation !== owner.incarnation || lease?.leaseId !== execution.leaseId)
@@ -371,4 +372,111 @@ test('an already-settled decision does not authorize suspension of a local paren
     detach()
     peers.close()
   }
+})
+
+test('an answered request retains every deadline while queued for capacity and only resumes after admission', async () => {
+  let ready = false,
+    polls = 0
+  const f = fixture({
+      suspend() {},
+      resume() {
+        polls++
+        return ready
+      },
+      stopped: async () => false,
+    }),
+    peers = pair(f.owner)
+  const detach = f.waits.attachKernel(peers.host, f.owner),
+    parent = f.control(),
+    local = f.control(),
+    entered = Promise.withResolvers<void>(),
+    answer = Promise.withResolvers<string>()
+  f.waits.track(f.execution, 'original-call', parent)
+  const pending = withRuntimeHumanWait(
+    peers.unit,
+    f.execution,
+    'original-call',
+    { kind: 'questionnaire', id: 'question', revision: 1 },
+    async () => {
+      entered.resolve()
+      return answer.promise
+    },
+    { suspendLocal: () => local.suspendDeadline(), pollIntervalMs: 10 },
+  )
+  try {
+    await entered.promise
+    answer.resolve('committed answer')
+    await Bun.sleep(60)
+    expect(polls).toBeGreaterThan(0)
+    expect([parent.depth, local.depth]).toEqual([1, 1])
+    expect(f.waits.snapshot().active).toBe(1)
+    ready = true
+    expect(await pending).toBe('committed answer')
+    expect([parent.depth, local.depth]).toEqual([0, 0])
+    expect(f.waits.snapshot().waits).toBe(0)
+  } finally {
+    ready = true
+    answer.resolve('cleanup')
+    await pending.catch(() => {})
+    detach()
+    peers.close()
+  }
+})
+
+test('a stopped source cannot restart after an answer while it waits for capacity', async () => {
+  let stopped = false
+  const f = fixture({ suspend() {}, resume: () => false, stopped: async () => stopped }),
+    peers = pair(f.owner)
+  const detach = f.waits.attachKernel(peers.host, f.owner),
+    local = f.control(),
+    entered = Promise.withResolvers<void>(),
+    answer = Promise.withResolvers<string>()
+  const pending = withRuntimeHumanWait(
+    peers.unit,
+    f.execution,
+    'original-call',
+    { kind: 'questionnaire', id: 'question', revision: 1 },
+    async () => {
+      entered.resolve()
+      return answer.promise
+    },
+    { suspendLocal: () => local.suspendDeadline(), pollIntervalMs: 10 },
+  )
+  void pending.catch(() => {})
+  try {
+    await entered.promise
+    answer.resolve('answer')
+    await Bun.sleep(20)
+    stopped = true
+    expect(await failure(pending)).toMatchObject({ code: 'USER_CANCELLED' })
+    expect(local.depth).toBe(0)
+    expect(f.waits.snapshot().waits).toBe(0)
+  } finally {
+    stopped = true
+    answer.resolve('cleanup')
+    await pending.catch(() => {})
+    detach()
+    peers.close()
+  }
+})
+
+test('legacy waits retain their original slot and cannot end a capacity-aware request', async () => {
+  let suspended = 0
+  const f = fixture({
+    suspend() {
+      suspended++
+    },
+    resume: () => false,
+    stopped: async () => false,
+  })
+  const legacy = f.input()
+  await f.waits.begin(f.owner, legacy)
+  expect(suspended).toBe(0)
+  f.waits.end(f.owner, legacy)
+  const current = f.input({ capacity: true })
+  await f.waits.begin(f.owner, current)
+  expect(suspended).toBe(1)
+  expect(() => f.waits.end(f.owner, current)).toThrow('must reacquire')
+  expect(f.waits.finish(f.owner, current)).toBe('waiting_capacity')
+  expect(f.waits.finish(f.owner, current, true)).toBe('stopped')
 })

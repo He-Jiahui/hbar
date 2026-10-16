@@ -2,7 +2,11 @@ import { z } from 'zod'
 import { HbarError } from '@hbar/contracts/errors'
 import type { Approval } from '@hbar/contracts'
 import type { UserInputState } from '@hbar/contracts/user-input-state'
-import { executionHumanWaitSchema, type ExecutionHumanWait } from '@hbar/contracts/execution-waits'
+import {
+  executionHumanWaitSchema,
+  executionHumanWaitFinishSchema,
+  type ExecutionHumanWait,
+} from '@hbar/contracts/execution-waits'
 import {
   executionOwnershipSchema,
   runtimeOwnerSchema,
@@ -20,6 +24,7 @@ interface Wait {
   readonly signature: string
   readonly ready: Promise<boolean>
   active: boolean
+  ending: boolean
 }
 interface Binding {
   readonly execution: ExecutionOwnership
@@ -37,6 +42,7 @@ export class RuntimeHumanWaits {
   private readonly bindings = new Set<Binding>()
   private readonly executionWaits = new Map<string, Set<Wait>>()
   private readonly executionBindings = new Map<string, Set<Binding>>()
+  private refreshIterator: Iterator<Set<Wait>> | undefined
   constructor(
     private readonly options: {
       readonly decisions: {
@@ -44,6 +50,11 @@ export class RuntimeHumanWaits {
         approval(id: string): Promise<Approval>
       }
       readonly coordinator: Pick<RuntimeCoordinator, 'assertCanWrite'>
+      readonly capacity?: {
+        suspend(execution: ExecutionOwnership, waitingCalls: readonly string[]): void
+        resume(execution: ExecutionOwnership): boolean
+        stopped(execution: ExecutionOwnership): Promise<boolean>
+      }
     },
   ) {}
 
@@ -58,6 +69,15 @@ export class RuntimeHumanWaits {
       peer.register(
         'execution.humanWait.end',
         procedure(executionHumanWaitSchema, z.undefined(), (input) => this.end(owner, input)),
+      ),
+      peer.register(
+        'execution.humanWait.finish',
+        procedure(executionHumanWaitSchema, executionHumanWaitFinishSchema, async (input) => {
+          const wait = this.match(owner, input)
+          if (!wait) return 'released'
+          const stopped = (await this.options.capacity?.stopped(wait.input.execution)) ?? false
+          return this.finish(owner, input, stopped)
+        }),
       ),
     ]
     return () => {
@@ -101,7 +121,7 @@ export class RuntimeHumanWaits {
     if (this.waits.size >= 4096 || owned.size >= 64) throw new HbarError('BUSY', 'Human-wait capacity is full')
     const ready = Promise.withResolvers<boolean>()
     void ready.promise.catch(() => undefined)
-    const wait: Wait = { input, key, signature, ready: ready.promise, active: false }
+    const wait: Wait = { input, key, signature, ready: ready.promise, active: false, ending: false }
     this.waits.set(input.waitId, wait)
     owned.add(wait)
     this.executionWaits.set(key, owned)
@@ -115,6 +135,7 @@ export class RuntimeHumanWaits {
       }
       wait.active = true
       for (const binding of this.executionBindings.get(key) ?? []) this.pause(binding, wait)
+      this.refresh(input.execution)
       ready.resolve(true)
       return true
     } catch (error) {
@@ -125,13 +146,63 @@ export class RuntimeHumanWaits {
   }
 
   end(owner: RuntimeOwner, raw: ExecutionHumanWait): void {
+    if (raw.capacity)
+      throw new HbarError(
+        'EXECUTION_WAIT_FINISH_REQUIRED',
+        'This executor must reacquire capacity through its original finish receipt',
+      )
+    const wait = this.match(owner, raw)
+    if (wait) this.close(wait)
+  }
+  finish(
+    owner: RuntimeOwner,
+    raw: ExecutionHumanWait,
+    stopped = false,
+  ): z.output<typeof executionHumanWaitFinishSchema> {
+    const wait = this.match(owner, raw)
+    if (!wait) return 'released'
+    wait.ending = true
+    if (stopped) {
+      this.close(wait)
+      return 'stopped'
+    }
+    if (wait.input.capacity && this.options.capacity && !this.options.capacity.resume(wait.input.execution))
+      return 'waiting_capacity'
+    this.close(wait)
+    return 'released'
+  }
+  refresh(execution: ExecutionOwnership): void {
+    const waits = this.executionWaits.get(executionKey(execution))
+    if (!waits || [...waits].some((wait) => wait.ending)) return
+    const calls = [...waits].filter((wait) => wait.active && wait.input.capacity).map((wait) => wait.input.callId)
+    if (calls.length) this.options.capacity?.suspend(execution, calls)
+  }
+  refreshPending(limit = 16): void {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
+      throw new HbarError('INVALID_INPUT', 'Wait refresh batches require 1 to 64 executions')
+    const visited = new Set<Set<Wait>>()
+    for (let index = 0; index < limit; index++) {
+      this.refreshIterator ??= this.executionWaits.values()
+      let entry = this.refreshIterator.next()
+      if (entry.done) {
+        this.refreshIterator = this.executionWaits.values()
+        entry = this.refreshIterator.next()
+        if (entry.done) break
+      }
+      if (visited.has(entry.value)) break
+      visited.add(entry.value)
+      const first = entry.value.values().next().value
+      if (first) this.refresh(first.input.execution)
+    }
+  }
+  private match(owner: RuntimeOwner, raw: ExecutionHumanWait): Wait | undefined {
     const input = executionHumanWaitSchema.parse(raw)
     this.assertOwner(owner, input)
     const wait = this.waits.get(input.waitId)
     if (!wait) return
     if (wait.signature !== JSON.stringify(input))
       throw new HbarError('EXECUTION_WAIT_CONFLICT', 'A different decision cannot close this wait')
-    this.close(wait)
+    return wait
   }
 
   release(execution: ExecutionOwnership): void {

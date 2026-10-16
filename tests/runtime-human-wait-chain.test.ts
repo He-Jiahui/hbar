@@ -157,9 +157,12 @@ test('the real plugin relay preserves every parent callback across a confirmed h
   const local = new ExecutionDeadlines()
   actual.register('invoke', async ([description, _args, invoke]) => {
     if (typeof invoke !== 'function') throw new Error('Missing original Host callback')
-    const { invocationId } = runtimePluginInvocationSchema.parse(description)
+    const request = runtimePluginInvocationSchema.parse(description)
+    const { invocationId } = request
     if (!invocationId) throw new Error('Missing invocation identity')
     try {
+      if (request.operation === 'capability') return { kind: 'value', value: 'readable while parked' }
+      if (request.operation === 'hook') return await Reflect.apply(invoke, undefined, ['execution.nodeCall', []])
       const response: unknown = await Reflect.apply(invoke, undefined, ['userInput.request', [state.request]])
       return { kind: 'value', value: response }
     } finally {
@@ -206,6 +209,27 @@ test('the real plugin relay preserves every parent callback across a confirmed h
     expect(local.snapshot().callbacks).toBe(1)
     expect(coordinator.snapshot()).toMatchObject({ sessions: 1, resources: 1, physicalTools: 1 })
     expect(pluginPeers.child.snapshot()).toMatchObject({ inFlight: 1, failed: false })
+    expect(coordinator.suspendWaitingExecution(execution, ['call'])).toBe(true)
+    expect(coordinator.executionCapacity().suspendedExecutions).toBe(1)
+    const dispatch = (operation: string, name: string, method?: string) =>
+      source.call('invoke', [
+        plugin.unitId,
+        { execution },
+        { operation, name, ...(method ? { method } : {}), catalog: [] },
+        [],
+        () => {
+          throw new Error('No execution callback may escape admission')
+        },
+      ])
+    expect(await dispatch('capability', 'budget', 'get')).toEqual({ kind: 'value', value: 'readable while parked' })
+    await expect(dispatch('capability', 'execution', 'exec')).rejects.toHaveProperty(
+      'code',
+      'EXECUTION_CAPACITY_WAITING',
+    )
+    await expect(dispatch('capability', 'custom', 'get')).rejects.toHaveProperty('code', 'EXECUTION_CAPACITY_WAITING')
+    await expect(dispatch('hook', 'run.end')).rejects.toHaveProperty('code', 'EXECUTION_CAPACITY_WAITING')
+    expect(coordinator.snapshot()).toMatchObject({ sessions: 1, resources: 1, physicalTools: 1 })
+    expect(coordinator.resumeExecutionCapacity(execution)).toBe(true)
     const response = { answers: { fact: { answers: ['provided by human'] } } }
     answer.resolve(response)
     expect(await result).toEqual({ kind: 'value', value: response })

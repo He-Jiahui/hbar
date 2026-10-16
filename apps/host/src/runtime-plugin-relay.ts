@@ -18,7 +18,11 @@ import {
   type IpcCallTicket,
 } from '@hbar/runtime'
 import type { StableStoragePort } from '@hbar/storage'
-import { runtimePluginAuthoritySchema, runtimePluginInvocationSchema } from './runtime-plugin-contract'
+import {
+  runtimePluginAuthoritySchema,
+  runtimePluginInvocationSchema,
+  isRuntimePluginControl,
+} from './runtime-plugin-contract'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import { invokeRuntimeNodeExecution } from './runtime-node-execution-call'
 import type { RuntimeHumanWaits } from './runtime-human-waits'
@@ -137,19 +141,21 @@ export class RuntimePluginRelay {
       const invokeHost = async (method: string, parameters: readonly unknown[]): Promise<unknown> => {
         this.options.coordinator.assertCanWrite(owner, execution)
         this.options.coordinator.assertCanWrite(endpoint.owner, execution)
-        if (method === 'execution.nodeCall') return this.nodeCall(parameters, workspaceScope, execution, signal)
+        if (method === 'execution.nodeCall') {
+          if (execution) this.options.coordinator.assertExecutionCapacity(execution)
+          return this.nodeCall(parameters, workspaceScope, execution, signal)
+        }
         const forward = async (): Promise<unknown> => {
           const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
           return result
         }
         if (method !== 'userInput.request' || !execution || !callId) return forward()
         const request = userInputRequestSchema.parse(parameters[0])
-        if (
-          request.sessionId !== execution.sessionId ||
-          request.runId !== execution.runId ||
-          request.callId !== callId
-        )
-          throw new HbarError('EXECUTION_OWNER_MISMATCH', 'A questionnaire callback must retain its original tool execution')
+        if (request.sessionId !== execution.sessionId || request.runId !== execution.runId || request.callId !== callId)
+          throw new HbarError(
+            'EXECUTION_OWNER_MISMATCH',
+            'A questionnaire callback must retain its original tool execution',
+          )
         const incoming = this.incomingCallbacks.getStore()?.callerDeadline
         const untrack = incoming
           ? this.options.humanWaits?.track(execution, callId, { suspendDeadline: () => incoming.suspend() })
@@ -175,7 +181,9 @@ export class RuntimePluginRelay {
         callId = identity.callId
       }
       const resource = execution
-        ? this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
+        ? isRuntimePluginControl(request)
+          ? this.options.coordinator.acquireControlResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
+          : this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
         : null
       let permitId: string | undefined
       if (callId && execution) {
