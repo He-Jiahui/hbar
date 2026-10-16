@@ -17,6 +17,18 @@ const methodName = z
   .max(128)
   .regex(/^[a-zA-Z][a-zA-Z0-9_.:-]*$/)
 const deadlineControlMethod = 'runtime.deadline.control'
+const waitCapacityMethod = 'runtime.wait.capacity'
+const waitAdmissionMethod = 'runtime.wait.admission'
+const waitCapacitySchema = z.strictObject({
+  version: z.literal(1),
+  capacity: z.number().int().min(1).max(2_147_483_647),
+})
+const waitAdmissionSchema = z.strictObject({
+  id: z.string().uuid(),
+  token: z.string().uuid(),
+  target: z.enum(['pending', 'incoming']),
+  phase: z.enum(['pause', 'resume']),
+})
 const deadlineControlSchema = z.strictObject({
   id: z.string().uuid(),
   token: z.string().uuid(),
@@ -121,13 +133,15 @@ export interface IpcPeerOptions {
   readonly transport: IpcTransport
   readonly inFlight?: number
   readonly queued?: number
+  /** Separate bound for physically retained calls in confirmed human waits. */
+  readonly waiting?: number
   readonly bufferedBytes?: number
   readonly messageBytes?: number
   readonly timeoutMs?: number
   readonly fragmentTimeoutMs?: number
   readonly onFailure?: (error: HbarError) => void
   readonly onTimeout?: (requestId: string) => void
-  /** Reserve physical slots for named control ports so approval/cancel cannot queue behind blocked work. */
+  /** Reserve active admission for named control ports; confirmed human waits retain separate physical accounting. */
   readonly controlMethods?: readonly string[]
   readonly reservedControl?: number
   /** Stable Host peers may pause an original child's caller deadline after business validation. */
@@ -150,6 +164,7 @@ interface Pending {
   started: boolean
   settled: boolean
   remoteWaits?: Map<string, () => void>
+  admissionWaits?: Set<string>
 }
 interface Incoming {
   readonly message: CallMessage
@@ -157,6 +172,7 @@ interface Incoming {
   readonly controller: AbortController
   started: boolean
   deadlineWaits?: Set<string>
+  admissionWaits?: Set<string>
 }
 interface Assembly {
   readonly total: number
@@ -259,6 +275,12 @@ export class IpcPeer {
   private queue: string[] = []
   private running = 0
   private runningNormal = 0
+  private waiting = 0
+  private waitingNormal = 0
+  private incomingWaiting = 0
+  private incomingWaitingNormal = 0
+  private readonly maximumWaiting: number
+  private remoteWaitCapacity = 0
   private queuedBytes = 0
   private readonly incoming = new Map<string, Incoming>()
   private incomingQueue: string[] = []
@@ -284,6 +306,7 @@ export class IpcPeer {
     this.remote = Object.freeze(runtimeOwnerSchema.parse(options.remote))
     // Each owner can serve and initiate calls simultaneously; split the default unit budget across directions.
     this.maximumInFlight = limit(options.inFlight, RUNTIME_LIMITS.inFlight / 2)
+    this.maximumWaiting = limit(options.waiting, RUNTIME_LIMITS.queued / 2)
     this.controlMethods = new Set(
       z
         .array(methodName)
@@ -304,14 +327,23 @@ export class IpcPeer {
   snapshot() {
     return {
       inFlight: this.running,
+      waiting: this.waiting,
       queued: this.queue.length,
       queuedBytes: this.queuedBytes,
       incoming: this.incomingRunning,
+      incomingWaiting: this.incomingWaiting,
       incomingQueued: this.incomingQueue.length,
       incomingBytes: this.incomingBytes,
       bufferedBytes: this.assemblyBytes + this.sendingBytes,
       failed: this.failure !== null,
     }
+  }
+
+  /** New child bootstraps advertise support; older peers keep their original physical admission limits. */
+  advertiseWaitCapacity(): Promise<void> {
+    if (!this.options.acceptRemoteDeadlineControl)
+      return Promise.reject(new HbarError('IPC_FORBIDDEN', 'Only a child may advertise trusted-parent wait admission'))
+    return this.notify(waitCapacityMethod, { version: 1, capacity: this.maximumWaiting })
   }
 
   register(method: string, handler: IpcProcedure): () => void {
@@ -403,8 +435,8 @@ export class IpcPeer {
     }
     if (
       ((this.controlMethods.has(method)
-        ? this.running >= this.maximumInFlight
-        : this.runningNormal >= this.normalCapacity) &&
+        ? this.running - this.waiting >= this.maximumInFlight
+        : this.runningNormal - this.waitingNormal >= this.normalCapacity) &&
         this.queue.length >= this.maximumQueued) ||
       this.queuedBytes + bytes > this.maximumBytes
     )
@@ -450,7 +482,18 @@ export class IpcPeer {
         if (pending.settled) return () => {}
         if (!pending.started)
           throw new HbarError('IPC_REQUEST_NOT_STARTED', 'Only a sent request can enter a confirmed wait')
-        return pending.deadline?.suspend() ?? (() => {})
+        const resume = pending.deadline?.suspend() ?? (() => {})
+        let resumeAdmission: (() => void) | undefined
+        try {
+          resumeAdmission = this.suspendAdmission('pending', pending.id)
+        } catch (error) {
+          resume()
+          throw error
+        }
+        return () => {
+          resumeAdmission?.()
+          resume()
+        }
       })
       options.signal?.addEventListener('abort', pending.abort, { once: true })
       if (options.signal?.aborted) pending.abort()
@@ -535,12 +578,16 @@ export class IpcPeer {
     this.queue = []
     this.running = 0
     this.runningNormal = 0
+    this.waiting = 0
+    this.waitingNormal = 0
     this.queuedBytes = 0
     for (const request of this.incoming.values()) request.controller.abort(error)
     this.incoming.clear()
     this.incomingQueue = []
     this.incomingRunning = 0
     this.incomingRunningNormal = 0
+    this.incomingWaiting = 0
+    this.incomingWaitingNormal = 0
     this.incomingBytes = 0
     for (const assembly of this.assemblies.values()) clearTimeout(assembly.timer)
     this.assemblies.clear()
@@ -580,9 +627,9 @@ export class IpcPeer {
   }
 
   private drain(): void {
-    while (!this.failure && this.running < this.maximumInFlight && this.queue.length) {
+    while (!this.failure && this.running - this.waiting < this.maximumInFlight && this.queue.length) {
       const controlIndex = this.queue.findIndex((id) => this.pending.get(id)?.control)
-      if (controlIndex < 0 && this.runningNormal >= this.normalCapacity) break
+      if (controlIndex < 0 && this.runningNormal - this.waitingNormal >= this.normalCapacity) break
       const callId = this.queue.splice(controlIndex < 0 ? 0 : controlIndex, 1)[0]!
       const pending = this.pending.get(callId)
       if (!pending) continue
@@ -606,6 +653,7 @@ export class IpcPeer {
         const pending = this.pending.get(message.id)
         if (!pending || !pending.started) return
         this.pending.delete(message.id)
+        this.clearAdmission('pending', pending)
         this.running--
         if (!pending.control) this.runningNormal--
         if (!pending.settled || pending.rejectSettlement) {
@@ -626,6 +674,28 @@ export class IpcPeer {
         return
       }
       case 'event': {
+        if (message.method === waitCapacityMethod) {
+          const capability = waitCapacitySchema.safeParse(message.input)
+          if (!capability.success) this.close(new HbarError('IPC_PROTOCOL', 'Invalid child wait-admission capability'))
+          else if (this.options.controlRemoteDeadlines) this.remoteWaitCapacity = capability.data.capacity
+          return
+        }
+        if (message.method === waitAdmissionMethod) {
+          if (!this.options.acceptRemoteDeadlineControl) {
+            this.close(new HbarError('IPC_FORBIDDEN', 'Only the stable parent may control wait admission'))
+            return
+          }
+          const parsed = waitAdmissionSchema.safeParse(message.input)
+          if (!parsed.success) this.close(new HbarError('IPC_PROTOCOL', 'Invalid wait-admission control'))
+          else {
+            try {
+              this.changeAdmission(parsed.data.target, parsed.data.id, parsed.data.token, parsed.data.phase)
+            } catch {
+              this.close(new HbarError('IPC_PROTOCOL', 'Wait-admission capacity exceeded'))
+            }
+          }
+          return
+        }
         if (message.method === deadlineControlMethod) {
           this.controlDeadline(message.input)
           return
@@ -646,8 +716,8 @@ export class IpcPeer {
         }
         if (
           ((this.controlMethods.has(message.method)
-            ? this.incomingRunning >= this.maximumInFlight
-            : this.incomingRunningNormal >= this.normalCapacity) &&
+            ? this.incomingRunning - this.incomingWaiting >= this.maximumInFlight
+            : this.incomingRunningNormal - this.incomingWaitingNormal >= this.normalCapacity) &&
             this.incomingQueue.length >= this.maximumQueued) ||
           this.incomingBytes + bytes > this.maximumBytes
         ) {
@@ -666,12 +736,16 @@ export class IpcPeer {
   }
 
   private drainIncoming(): void {
-    while (!this.failure && this.incomingRunning < this.maximumInFlight && this.incomingQueue.length) {
+    while (
+      !this.failure &&
+      this.incomingRunning - this.incomingWaiting < this.maximumInFlight &&
+      this.incomingQueue.length
+    ) {
       const controlIndex = this.incomingQueue.findIndex((id) => {
         const method = this.incoming.get(id)?.message.method
         return method !== undefined && this.controlMethods.has(method)
       })
-      if (controlIndex < 0 && this.incomingRunningNormal >= this.normalCapacity) break
+      if (controlIndex < 0 && this.incomingRunningNormal - this.incomingWaitingNormal >= this.normalCapacity) break
       const callId = this.incomingQueue.splice(controlIndex < 0 ? 0 : controlIndex, 1)[0]!
       const request = this.incoming.get(callId)
       if (!request) continue
@@ -684,6 +758,7 @@ export class IpcPeer {
         .finally(() => {
           request.deadlineWaits?.clear()
           if (!this.incoming.delete(callId)) return
+          this.clearAdmission('incoming', request)
           this.incomingBytes -= request.bytes
           this.incomingRunning--
           if (!control) this.incomingRunningNormal--
@@ -719,6 +794,7 @@ export class IpcPeer {
     const waits = (request.deadlineWaits ??= new Set<string>())
     if (waits.size >= 64) throw new HbarError('BUSY', 'Remote caller wait capacity is full')
     const token = crypto.randomUUID()
+    const resumeAdmission = this.suspendAdmission('incoming', request.message.id)
     waits.add(token)
     const send = (phase: 'pause' | 'resume') =>
       this.notify(deadlineControlMethod, { id: request.message.id, token, phase })
@@ -728,7 +804,65 @@ export class IpcPeer {
       if (!active) return
       active = false
       if (!waits.delete(token)) return
+      resumeAdmission()
       void paused.then(() => send('resume')).catch(() => this.close())
+    }
+  }
+
+  private suspendAdmission(target: 'pending' | 'incoming', id: string): () => void {
+    if (!this.options.controlRemoteDeadlines || !this.remoteWaitCapacity) return () => {}
+    const token = crypto.randomUUID()
+    this.changeAdmission(target, id, token, 'pause')
+    const remoteTarget = target === 'pending' ? 'incoming' : 'pending'
+    const send = (phase: 'pause' | 'resume') =>
+      this.notify(waitAdmissionMethod, { target: remoteTarget, id, token, phase })
+    const paused = send('pause').catch(() => this.close())
+    let active = true
+    return () => {
+      if (!active) return
+      active = false
+      this.changeAdmission(target, id, token, 'resume')
+      void paused.then(() => send('resume')).catch(() => this.close())
+    }
+  }
+
+  private changeAdmission(target: 'pending' | 'incoming', id: string, token: string, phase: 'pause' | 'resume'): void {
+    const call = target === 'pending' ? this.pending.get(id) : this.incoming.get(id)
+    if (!call) return
+    if (!call.started) throw new HbarError('IPC_REQUEST_NOT_STARTED', 'Queued requests cannot claim waiting admission')
+    const waits = (call.admissionWaits ??= new Set<string>())
+    if (phase === 'resume') {
+      if (waits.delete(token) && !waits.size) this.clearAdmission(target, call, true)
+    } else if (!waits.has(token)) {
+      const maximum = this.options.controlRemoteDeadlines
+        ? Math.min(this.maximumWaiting, this.remoteWaitCapacity)
+        : this.maximumWaiting
+      if (waits.size >= 64 || (!waits.size && (target === 'pending' ? this.waiting : this.incomingWaiting) >= maximum))
+        throw new HbarError('BUSY', 'Confirmed waiting-call admission is full')
+      if (!waits.size) {
+        if (target === 'pending') {
+          this.waiting++
+          if ('control' in call && !call.control) this.waitingNormal++
+        } else {
+          this.incomingWaiting++
+          if ('message' in call && !this.controlMethods.has(call.message.method)) this.incomingWaitingNormal++
+        }
+      }
+      waits.add(token)
+    }
+    if (target === 'pending') this.drain()
+    else this.drainIncoming()
+  }
+
+  private clearAdmission(target: 'pending' | 'incoming', call: Pending | Incoming, removedLast = false): void {
+    if (!removedLast && !call.admissionWaits?.size) return
+    call.admissionWaits?.clear()
+    if (target === 'pending') {
+      this.waiting--
+      if ('control' in call && !call.control) this.waitingNormal--
+    } else {
+      this.incomingWaiting--
+      if ('message' in call && !this.controlMethods.has(call.message.method)) this.incomingWaitingNormal--
     }
   }
 

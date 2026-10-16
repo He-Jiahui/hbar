@@ -24,7 +24,8 @@ async function until(check: () => Promise<boolean>, describe: () => Promise<unkn
   }
 }
 
-test('four real HTTP questionnaires release capacity, remain readable, and settle answered and cancelled Runs', async () => {
+test('sixteen real HTTP questionnaires release capacity, remain readable, and settle answered and cancelled Runs', async () => {
+  const sourceCount = 16
   const prefix = 'hbar-managed-human-wait-capacity-'
   const root = await mkdtemp(join(tmpdir(), prefix))
   const gates = new Map<string, ReturnType<typeof Promise.withResolvers<void>>>(
@@ -145,10 +146,10 @@ test('four real HTTP questionnaires release capacity, remain readable, and settl
       accepted.push(item)
       return item
     }
-    for (let index = 0; index < 4; index++) await submit(`question-source ${index}`)
-    await until(async () => current.coordinator.executionCapacity().suspendedExecutions === 4, describe)
+    for (let index = 0; index < sourceCount; index++) await submit(`question-source ${index}`)
+    await until(async () => current.coordinator.executionCapacity().suspendedExecutions === sourceCount, describe)
     expect(current.coordinator.executionCapacity().activeExecutions).toBe(0)
-    expect(current.coordinator.snapshot().sessions).toBe(4)
+    expect(current.coordinator.snapshot().sessions).toBe(sourceCount)
     for (const item of accepted) {
       const snapshot = await current.kernel.snapshot(item.sessionId)
       expect(snapshot.userInputs).toHaveLength(1)
@@ -166,7 +167,7 @@ test('four real HTTP questionnaires release capacity, remain readable, and settl
     expect(await current.kernel.resolveUserInput(pending.requestId, { fact: { answers: ['human fact'] } })).toBe(true)
     await until(async () => current.coordinator.executionCapacity().queuedExecutions === 1, describe)
     expect(resumedSources).toBe(0)
-    expect(current.coordinator.snapshot().physicalTools).toBe(4)
+    expect(current.coordinator.snapshot().physicalTools).toBe(sourceCount)
     await runs.execute('operation.cancel', { operationId: cancelled.runId }, { idempotencyKey: crypto.randomUUID() })
     await until(async () => current.coordinator.execution(cancelled.runId) === null, describe)
     expect((await current.storage.call('run', cancelled.runId)).status).toBe('cancelled')
@@ -174,7 +175,7 @@ test('four real HTTP questionnaires release capacity, remain readable, and settl
     gates.get('gated-target-0')?.resolve()
     await until(async () => (await current.storage.call('run', first.runId)).status === 'completed', describe)
     expect(resumedSources).toBe(1)
-    for (const item of accepted.slice(2, 4)) {
+    for (const item of accepted.slice(2, sourceCount)) {
       await runs.execute('operation.cancel', { operationId: item.runId }, { idempotencyKey: crypto.randomUUID() })
     }
     for (const gate of gates.values()) gate.resolve()

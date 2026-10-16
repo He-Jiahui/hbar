@@ -55,6 +55,7 @@ export async function runRuntimeProcess(options: { readonly exit?: (code: number
   process.on('disconnect', () => stop(0))
   process.on('SIGINT', () => stop(0))
   process.on('SIGTERM', () => stop(0))
+  void peer.advertiseWaitCapacity().catch(() => stop(76))
   peer.register(
     'runtime.prepare',
     procedure(runtimePrepareSchema, runtimeReadySchema, async (input) => {
