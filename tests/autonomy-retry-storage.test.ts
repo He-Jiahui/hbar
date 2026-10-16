@@ -371,6 +371,115 @@ test('durable retry planning reports bounded real Worker latency without model o
   }
 })
 
+test('cancelling a retry root also cancels its second queued successor and survives restart without rewriting failed Runs', async () => {
+  const f = await fixture()
+  try {
+    await f.policy(true)
+    const original = await f.fail()
+    const accepted = [original.id]
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const planned = await f.storage.call('autonomyRetryPlan', f.session.id)
+      if (!planned) throw new Error('Missing retry cancellation plan')
+      await Bun.sleep(Math.max(1, planned.plan.wakeAt - Date.now() + 5))
+      const child = await f.storage.call(
+        'enqueue',
+        f.session.id,
+        planned.plan.requestId,
+        autonomyRetryInput(planned.predecessor),
+        planned.predecessor.modelId,
+        undefined,
+        undefined,
+        undefined,
+        { plan: planned.plan, settingsRevision: planned.settingsRevision },
+      )
+      accepted.push(child.id)
+      if (attempt === 1) {
+        await f.storage.call('claim', f.session.id)
+        await f.storage.call('setRun', child.id, 'failed', 'Temporary failure again', {
+          code: 'PROVIDER_CONNECTION_FAILED',
+          category: 'transient',
+          retryable: true,
+        })
+      }
+    }
+    const cancelled = await f.storage.call('runtimeRecoveryCancel', original.id)
+    expect(cancelled.targets?.map((target) => target.id)).toEqual(accepted)
+    expect(cancelled.targets?.map((target) => target.status)).toEqual(['failed', 'failed', 'cancelled'])
+    await f.reopen()
+    for (const id of accepted.slice(0, -1)) expect(await f.storage.call('cancelRequested', id)).toBe(true)
+    const queuedId = accepted.at(-1)
+    if (!queuedId) throw new Error('Missing cancelled queued successor')
+    expect((await f.storage.call('run', queuedId)).status).toBe('cancelled')
+    expect(await f.storage.call('autonomyRetryPlan', f.session.id)).toBeNull()
+    expect((await f.storage.call('runtimeRecoveryCancel', original.id)).events).toEqual([])
+  } finally {
+    await f.close()
+  }
+})
+
+test('a manually supplied colliding request ID never makes an unrelated queued task a retry descendant', async () => {
+  const f = await fixture()
+  try {
+    await f.policy(true)
+    const original = await f.fail()
+    const planned = await f.storage.call('autonomyRetryPlan', f.session.id)
+    if (!planned) throw new Error('Missing collision fixture plan')
+    const manual = await f.storage.call(
+      'enqueue',
+      f.session.id,
+      planned.plan.requestId,
+      { text: 'An independent user task', images: [], mode: 'plan', approval: 'deny' },
+      original.modelId,
+    )
+    const cancelled = await f.storage.call('runtimeRecoveryCancel', original.id)
+    expect(cancelled.targets?.map((target) => target.id)).toEqual([original.id])
+    expect((await f.storage.call('run', manual.id)).status).toBe('queued')
+    expect(await f.storage.call('cancelRequested', manual.id)).toBe(false)
+  } finally {
+    await f.close()
+  }
+})
+
+test('root cancellation follows an accepted retry through its interrupted-runtime recovery successor', async () => {
+  const f = await fixture()
+  try {
+    await f.policy(true)
+    const original = await f.fail()
+    const planned = await f.storage.call('autonomyRetryPlan', f.session.id)
+    if (!planned) throw new Error('Missing interrupted retry plan')
+    await Bun.sleep(Math.max(1, planned.plan.wakeAt - Date.now() + 5))
+    const retry = await f.storage.call(
+      'enqueue',
+      f.session.id,
+      planned.plan.requestId,
+      autonomyRetryInput(original),
+      original.modelId,
+      undefined,
+      undefined,
+      undefined,
+      { plan: planned.plan, settingsRevision: planned.settingsRevision },
+    )
+    await f.storage.call('claim', f.session.id)
+    await f.storage.call('recover', {
+      runIds: [retry.id],
+      preserveQueued: true,
+      preserveApprovals: true,
+      reconcileInterrupted: true,
+    })
+    const recovery = await f.storage.call('runtimeRecoveryPlan', retry.id)
+    const queued = await f.storage.call('runtimeRecoveryQueue', retry.id, recovery.recoveryId)
+    if (!queued.run) throw new Error('Missing runtime recovery of the accepted retry')
+    const cancelled = await f.storage.call('runtimeRecoveryCancel', original.id)
+    expect(cancelled.targets?.map((target) => target.id)).toEqual([original.id, retry.id, queued.run.id])
+    expect((await f.storage.call('run', queued.run.id)).status).toBe('cancelled')
+    expect((await f.storage.call('run', retry.id)).status).toBe('interrupted')
+    expect(await f.storage.call('cancelRequested', original.id)).toBe(true)
+    expect(await f.storage.call('cancelRequested', retry.id)).toBe(true)
+  } finally {
+    await f.close()
+  }
+})
+
 for (const access of [
   { role: 'observer' as const, workspaceIds: null },
   { role: 'operator' as const, workspaceIds: [] },

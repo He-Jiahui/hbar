@@ -639,7 +639,11 @@ export interface StorageMethods {
   runtimeRecoveryPlan(predecessorRunId: string): RuntimeRecoveryRecord
   runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
   runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
-  runtimeRecoveryCancel(runId: string): { run: Run; events: SessionEvent[] }
+  runtimeRecoveryCancel(runId: string): {
+    run: Run
+    targets?: Array<Pick<Run, 'id' | 'sessionId' | 'status'>>
+    events: SessionEvent[]
+  }
   runtimeRecoveryChain(chainId: string): RecoveryChain | null
   runtimeRecoveryHold(
     predecessorRunId: string,

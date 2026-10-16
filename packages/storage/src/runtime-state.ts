@@ -59,6 +59,7 @@ export interface RuntimeStatePort {
   append(sessionId: string, type: string, data: unknown, runId: string): SessionEvent
   cancelRequested(id: string): boolean
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
+  retrySuccessor?(id: string): Run | null
   archived(sessionId: string): boolean
   /** Called in the same SQLite transaction as the ownership record. */
   start(run: Run, startedAt: number): Run
@@ -245,7 +246,11 @@ export function createRuntimeState(db: Database, port: RuntimeStatePort) {
     },
     readRecovery,
     readChain,
-    cancelRecovery(runId: string): { run: Run; events: SessionEvent[] } {
+    cancelRecovery(runId: string): {
+      run: Run
+      targets: Array<Pick<Run, 'id' | 'sessionId' | 'status'>>
+      events: SessionEvent[]
+    } {
       return db
         .transaction(() => {
           const original = port.run(runId)
@@ -253,13 +258,40 @@ export function createRuntimeState(db: Database, port: RuntimeStatePort) {
           const chainId = original.recovery?.chainId ?? recovery?.chain.chainId
           const chain = chainId ? readChain(chainId) : null
           const ids = new Set([original.id, ...(chain ? [chain.rootRunId, chain.currentRunId] : [])])
+          const add = (id: string) => {
+            if (ids.has(id)) return
+            if (ids.size >= 128)
+              throw new HbarError('RECOVERY_CANCEL_LIMIT', 'Cancellation lineage exceeds its bounded capacity')
+            ids.add(id)
+          }
+          for (const id of ids) {
+            const run = port.run(id)
+            if (run.sessionId !== original.sessionId)
+              throw new HbarError('RECOVERY_CANCEL_SCOPE', 'Cancellation cannot cross the original Session')
+            const record = readRecovery(id)
+            const related = run.recovery?.chainId ?? record?.chain.chainId
+            const current = related ? readChain(related) : null
+            if (current) {
+              add(current.rootRunId)
+              add(current.currentRunId)
+            }
+            const retry = port.retrySuccessor?.(id)
+            if (retry) add(retry.id)
+          }
           const events: SessionEvent[] = []
-          // The chain has at most two continuations. Cancellation and queueing share this writer transaction.
+          // Resolve every bounded canonical link before mutating; cancellation and queueing share this writer transaction.
           for (const id of ids) {
             const cancelled = port.requestCancel(id)
             if (cancelled.event) events.push(cancelled.event)
           }
-          return { run: port.run(chain?.currentRunId ?? original.id), events }
+          return {
+            run: port.run(chain?.currentRunId ?? original.id),
+            targets: [...ids].map((id) => {
+              const run = port.run(id)
+              return { id: run.id, sessionId: run.sessionId, status: run.status }
+            }),
+            events,
+          }
         })
         .immediate()
     },

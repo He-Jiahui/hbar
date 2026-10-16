@@ -1400,6 +1400,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       append: appendEvent,
       cancelRequested: (id) => methods.cancelRequested(id),
       requestCancel: (id) => methods.requestCancel(id),
+      retrySuccessor: (id) => autonomyRetries.successor(id),
       reconcile: (run) => {
         methods.recover({ runIds: [run.id], preserveQueued: true, preserveApprovals: true, reconcileInterrupted: true })
       },

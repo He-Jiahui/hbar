@@ -2359,26 +2359,34 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async cancelRun(runId: string): Promise<void> {
     const result = await this.storage.call('runtimeRecoveryCancel', runId)
     for (const event of result.events) this.facade.replay({ method: 'session.event', params: event })
-    const lease = this.coordinator.execution(result.run.id)
-    if (!lease && result.run.status === 'cancelled')
-      this.coordinator.releaseQueuedSession(result.run.sessionId, result.run.id)
-    const endpoint = lease
-      ? this.endpoints().find((value) => value.owner.incarnation === lease.owner.incarnation)
-      : result.run.status === 'failed' && result.events.some((event) => event.type === 'run.cancelRequested')
-        ? this.currentKernel()
+    const targets = result.targets ?? [result.run]
+    const active = targets.flatMap((run) => {
+      const lease = this.coordinator.execution(run.id)
+      if (!lease && run.status === 'cancelled') this.coordinator.releaseQueuedSession(run.sessionId, run.id)
+      const endpoint = lease
+        ? this.endpoints().find((value) => value.owner.incarnation === lease.owner.incarnation)
         : null
-    if (endpoint && ['serving', 'draining'].includes(endpoint.process.snapshot().phase)) {
-      try {
-        await endpoint.process.call('kernel.cancel', { runId: result.run.id, persisted: true }, z.undefined())
-      } catch (error) {
-        if (
-          !['IPC_DISCONNECTED', 'RUNTIME_RECOVERING', 'RUNTIME_OWNER_REVOKED'].includes(
-            runtimeDomainError(error)?.code ?? '',
+      return endpoint ? [{ endpoint, run }] : []
+    })
+    if (
+      !active.length &&
+      result.run.status === 'failed' &&
+      result.events.some((event) => event.type === 'run.cancelRequested' && event.runId === result.run.id)
+    )
+      active.push({ endpoint: this.currentKernel(), run: result.run })
+    for (const { endpoint, run } of active)
+      if (['serving', 'draining'].includes(endpoint.process.snapshot().phase)) {
+        try {
+          await endpoint.process.call('kernel.cancel', { runId: run.id, persisted: true }, z.undefined())
+        } catch (error) {
+          if (
+            !['IPC_DISCONNECTED', 'RUNTIME_RECOVERING', 'RUNTIME_OWNER_REVOKED'].includes(
+              runtimeDomainError(error)?.code ?? '',
+            )
           )
-        )
-          throw error
+            throw error
+        }
       }
-    }
     this.schedule()
   }
   private async replay(sessionId: string): Promise<void> {

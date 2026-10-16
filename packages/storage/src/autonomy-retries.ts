@@ -153,6 +153,26 @@ export function createAutonomyRetryStorage(
   }
   return {
     plan,
+    successor(runId: string): Run | null {
+      const run = options.run(idSchema.parse(runId))
+      const planned = record.get(run.sessionId, typeOf(run.id))
+      if (!planned) return null
+      const plan = autonomyRetryPlanSchema.parse(JSON.parse(planned.data) as unknown)
+      if (planned.runId !== run.id || plan.predecessorRunId !== run.id || plan.sessionId !== run.sessionId)
+        throw new HbarError('AUTONOMY_RETRY_LINEAGE', 'Retry plan does not belong to its original predecessor')
+      const row = db
+        .query<{ id: string }, [string, string]>('SELECT id FROM runs WHERE sessionId=? AND requestId=?')
+        .get(run.sessionId, plan.requestId)
+      if (!row) return null
+      const accepted = acceptance.get(row.id)
+      const data = accepted ? z.record(z.string(), z.unknown()).parse(JSON.parse(accepted.data) as unknown) : null
+      // A colliding manually supplied request ID does not turn another task into this retry's descendant.
+      if (!data || accepted?.type !== 'run.queued' || data.autonomyRetry === undefined) return null
+      const childPlan = autonomyRetryPlanSchema.parse(data.autonomyRetry)
+      if (JSON.stringify(childPlan) !== JSON.stringify(plan))
+        throw new HbarError('AUTONOMY_RETRY_LINEAGE', 'Accepted retry differs from its durable plan')
+      return options.run(row.id)
+    },
     cancel(runId: string): SessionEvent | null {
       const run = options.run(idSchema.parse(runId))
       if (
