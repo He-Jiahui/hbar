@@ -12,12 +12,19 @@ for (const compact of [false, true])
     test(`focused provider completion: ${mode}, compact=${compact}`, async () => {
       const root = await mkdtemp(join(tmpdir(), 'hbar-focus-transport-'))
       const requests: string[][] = []
-      const bodySchema = z.object({ tools: z.array(z.object({ function: z.object({ name: z.string() }) })) })
+      const bodySchema = z.object({
+        tools: z.array(
+          z.object({ function: z.object({ name: z.string() }).catchall(z.unknown()) }).catchall(z.unknown()),
+        ),
+      })
+      const definitions: z.infer<typeof bodySchema>['tools'][] = []
       const server = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
         async fetch(request) {
-          requests.push(bodySchema.parse(await request.json()).tools.map((tool) => tool.function.name))
+          const body = bodySchema.parse(await request.json())
+          requests.push(body.tools.map((tool) => tool.function.name))
+          definitions.push(body.tools)
           const calls: { name: string; args: Record<string, unknown> }[] =
             requests.length === 1
               ? [
@@ -47,7 +54,8 @@ for (const compact of [false, true])
                   name: 'workflow_expand_scope',
                   args: {
                     itemId: 'proof',
-                    expectedRevision: 2,
+                    expectedFocusRevision: 1,
+                    expectedPlanRevision: 1,
                     reason: 'Correct the authorized proof scope',
                     scope: { readPaths: ['proof.txt'], writePaths: ['proof.txt'], tools: ['read_file', 'write_file'] },
                   },
@@ -177,18 +185,13 @@ for (const compact of [false, true])
             ? 2
             : 1,
         )
-        if (compact) {
-          expect(requests[0]).toContain('workflow_execute')
-          expect(requests[0]).not.toContain('workflow_checkpoint')
-        } else
-          expect(
-            requests.every(
-              (names) =>
-                names.includes('workflow_checkpoint') &&
-                names.includes('workflow_expand_scope') &&
-                !names.includes('workflow_update'),
-            ),
-          ).toBe(true)
+        for (const [index, names] of requests.entries()) {
+          expect(names.includes('workflow_execute')).toBe(compact)
+          expect(names).toContain('workflow_checkpoint')
+          expect(names).toContain('workflow_expand_scope')
+          expect(names).toContain('workflow_update')
+          expect(definitions[index]).toEqual(definitions[0])
+        }
         expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('verified focus')
         expect((await goals.get(session.id)).goal?.status).toBe(mode === 'failed-batch' ? 'active' : 'complete')
         expect((await workflows.get(session.id)).workflow?.status === 'completed').toBe(mode !== 'failed-batch')

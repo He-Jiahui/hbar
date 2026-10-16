@@ -40,6 +40,10 @@ const item: WorkflowPlanItemInput = {
     },
   ],
 }
+const initialItem: WorkflowPlanItemInput = {
+  ...item,
+  scope: { readPaths: ['elsewhere'], writePaths: [], tools: ['read_file'] },
+}
 
 async function invoke(input: DriverInput, name: string, args: Record<string, unknown>, error = false) {
   const callId = crypto.randomUUID()
@@ -93,13 +97,7 @@ async function fixture(script: (input: DriverInput) => Promise<void>) {
   const workflows = kernel.plugins.get<WorkflowService>('workflow')
   await goals.create(session.id, 'Recover focus, verify proof and finish independent review', 1000)
   const plan = await plans.update(session.id, [{ step: 'Verify the bounded proof', status: 'in_progress' }])
-  await workflows.focus(
-    session.id,
-    0,
-    { ...item, scope: { readPaths: ['elsewhere'], writePaths: [], tools: ['read_file'] } },
-    'agent',
-    plan.revision,
-  )
+  await workflows.focus(session.id, 0, initialItem, 'agent', plan.revision)
   await kernel.waitForIdle()
   return { kernel, session, goals, plans, workflows }
 }
@@ -234,7 +232,7 @@ test('identical focus is revalidated while the unfinished Goal continues until a
     const plan = planStateSchema.parse((await invoke(input, 'get_plan', {})).details)
     await invoke(input, 'workflow_focus', {
       stepIndex: 0,
-      item,
+      item: initialItem,
       completionPolicy: 'agent',
       expectedPlanRevision: plan.revision,
     })
