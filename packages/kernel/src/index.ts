@@ -10,6 +10,7 @@ import { bindToolCall, type ToolCallPreparationPort } from './tool-call-binding'
 import { createSessionCommandTools } from './session-command-tools'
 import type { SessionCommandDiscoveryPort } from './session-command-port'
 import type { ToolMutationAdmissionPort } from './mutation-admission'
+import { recommendedInputDecision } from './user-input-decisions'
 export type { ToolMutationAdmissionPort, ToolMutationAdmissionContext } from './mutation-admission'
 export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
 export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
@@ -102,6 +103,7 @@ import {
   resolveModelContextMode,
   userInputRequestSchema,
   userInputResponseSchema,
+  userInputAutomaticDecisionSchema,
   settingScopeSchema,
   automationStateSchema,
   taskNotificationSchema,
@@ -3740,6 +3742,7 @@ export class Kernel {
     }
   }
   async requestUserInput(raw: UserInputRequest, signal: AbortSignal): Promise<UserInputResponse> {
+    signal.throwIfAborted()
     const parsed = userInputRequestSchema.parse(raw)
     const request = userInputRequestSchema.parse({
       ...parsed,
@@ -3771,14 +3774,26 @@ export class Kernel {
     )
       throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
     const unattended = this.automation.get(request.sessionId)?.unattended ?? false
-    const recommended = request.questions.map((question) =>
-      (question.options ?? []).filter((option) => option.recommended),
-    )
-    if (unattended && recommended.every((options) => options.length === 1)) {
-      const answers = Object.fromEntries(
-        request.questions.map((question, index) => [question.id, { answers: [recommended[index]![0]!.label] }]),
+    signal.throwIfAborted()
+    const stop = this.boundaryStops.get(request.runId)
+    if (stop) throw stop
+    const automatic = unattended ? recommendedInputDecision(request) : null
+    if (automatic?.kind === 'recommended') {
+      await this.append(
+        request.sessionId,
+        'user_input.autoDecided',
+        userInputAutomaticDecisionSchema.parse({
+          version: 1,
+          source: 'recommended',
+          request,
+          response: automatic.response,
+        }),
+        request.runId,
       )
-      return { answers }
+      signal.throwIfAborted()
+      const stopped = this.boundaryStops.get(request.runId)
+      if (stopped) throw stopped
+      return automatic.response
     }
     if (this.userInputs.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')

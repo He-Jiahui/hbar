@@ -6,6 +6,7 @@ import {
   planStepSchema,
   runModeSchema,
   userInputOptionSchema,
+  userInputPurposeSchema,
   userInputQuestionSchema,
   userInputRequestSchema,
   automationStateSchema,
@@ -73,6 +74,7 @@ const requestUserInputQuestionSchema = z.object({
   options: z.array(userInputOptionSchema).max(3).optional(),
   isOther: z.boolean().optional(),
   isSecret: z.boolean().optional(),
+  purpose: userInputPurposeSchema.optional(),
 })
 const requestUserInputSchema = z.object({ questions: z.array(requestUserInputQuestionSchema).min(1).max(3) })
 
@@ -121,7 +123,10 @@ class PlanRuntime implements PlanService {
   }
   async refreshSession(sessionId: string): Promise<void> {
     await this.serial(sessionId, async () => {
-      this.plans.delete(sessionId); this.sequences.delete(sessionId); this.revisions.delete(sessionId); this.modes.delete(sessionId)
+      this.plans.delete(sessionId)
+      this.sequences.delete(sessionId)
+      this.revisions.delete(sessionId)
+      this.modes.delete(sessionId)
       for (const [runId, owner] of this.exitedRuns) if (owner === sessionId) this.exitedRuns.delete(runId)
       await this.restoreSession(sessionId)
     })
@@ -352,8 +357,8 @@ class PlanRuntime implements PlanService {
 
   requestUserInputDescription() {
     return this.config.allowDefaultModeRequestUserInput
-      ? 'Request user input for one to three short questions and wait for the response. Mark exactly one preferred option as recommended when applicable. This tool is only available in Default or Plan mode.'
-      : 'Request user input for one to three short questions and wait for the response. Mark exactly one preferred option as recommended when applicable. This tool is only available in Plan mode.'
+      ? 'Request user input for one to three short questions and wait for the response. Set purpose=decision only for task preferences, fact for missing user information, or authorization for permission changes. Mark secrets with isSecret. Facts, secrets, authorization and unclassified legacy questions require a human. Mark exactly one preferred choice recommended when applicable. Available in Default or Plan mode.'
+      : 'Request user input for one to three short questions and wait for the response. Set purpose=decision only for task preferences, fact for missing user information, or authorization for permission changes. Mark secrets with isSecret. Facts, secrets, authorization and unclassified legacy questions require a human. Mark exactly one preferred choice recommended when applicable. Available in Plan mode.'
   }
 
   private async persistPlan(plan: PlanState, runId?: string) {

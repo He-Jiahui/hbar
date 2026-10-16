@@ -237,7 +237,7 @@ test('unattended mode selects the unique recommended option without pausing', as
     session.id,
     'recommended-input',
     {
-      text: '/tool request_user_input {"questions":[{"id":"scope","header":"Scope","question":"Which scope?","options":[{"label":"App","description":"Cover the app.","recommended":true},{"label":"API","description":"Cover the API."}]}]}',
+      text: '/tool request_user_input {"questions":[{"id":"scope","header":"Scope","purpose":"decision","question":"Which scope?","options":[{"label":"App","description":"Cover the app.","recommended":true},{"label":"API","description":"Cover the API."}]}]}',
       images: [],
     },
     'local-fixture',
