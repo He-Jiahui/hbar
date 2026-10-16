@@ -57,6 +57,8 @@ export class RuntimeValuePort {
   private readonly callbacks = new Map<string, (...args: unknown[]) => unknown>()
   private readonly operations = new Map<string, Operation>()
   private readonly disposers: Array<() => void>
+  private physicalOutgoing = 0
+  private physicalIncoming = 0
   private closed = false
   constructor(
     private readonly peer: IpcPeer,
@@ -68,42 +70,48 @@ export class RuntimeValuePort {
     this.disposers = [
       peer.register(
         `${options.prefix}.invoke`,
-        procedure(invocationSchema, valueSchema, async (input, call) => {
-          const operation = this.operations.get(input.method)
-          if (!operation)
-            throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Application method is absent from the declared port')
-          const args = input.args.map((value) => this.decode(value, call.signal))
-          return this.encode(await operation(args, call.signal), this.encoding())
-        }),
+        procedure(invocationSchema, valueSchema, (input, call) =>
+          this.trackIncoming(async () => {
+            const operation = this.operations.get(input.method)
+            if (!operation)
+              throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Application method is absent from the declared port')
+            const args = input.args.map((value) => this.decode(value, call.signal))
+            return this.encode(await operation(args, call.signal), this.encoding())
+          }),
+        ),
       ),
       peer.register(
         `${options.prefix}.callback`,
-        procedure(callbackSchema, valueSchema, async (input, call) => {
-          const callback = this.callbacks.get(input.id)
-          if (!callback)
-            throw new HbarError('RUNTIME_CALLBACK_EXPIRED', 'The original application callback is no longer owned')
-          const invoke = () => callback(...input.args.map((value) => this.decode(value, call.signal)))
-          const result = this.options.callbackScope ? await this.options.callbackScope(invoke) : await invoke()
-          return this.encode(result, this.encoding())
-        }),
+        procedure(callbackSchema, valueSchema, (input, call) =>
+          this.trackIncoming(async () => {
+            const callback = this.callbacks.get(input.id)
+            if (!callback)
+              throw new HbarError('RUNTIME_CALLBACK_EXPIRED', 'The original application callback is no longer owned')
+            const invoke = () => callback(...input.args.map((value) => this.decode(value, call.signal)))
+            const result = this.options.callbackScope ? await this.options.callbackScope(invoke) : await invoke()
+            return this.encode(result, this.encoding())
+          }),
+        ),
       ),
     ]
     this.disposers.push(
       peer.register(
         `${options.prefix}.control`,
-        procedure(invocationSchema, valueSchema, async (input, call) => {
-          if (!options.controlMethods?.includes(input.method))
-            throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Application method is not a declared control port')
-          const operation = this.operations.get(input.method)
-          if (!operation) throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Application control is unavailable')
-          return this.encode(
-            await operation(
-              input.args.map((value) => this.decode(value, call.signal)),
-              call.signal,
-            ),
-            this.encoding(),
-          )
-        }),
+        procedure(invocationSchema, valueSchema, (input, call) =>
+          this.trackIncoming(async () => {
+            if (!options.controlMethods?.includes(input.method))
+              throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Application method is not a declared control port')
+            const operation = this.operations.get(input.method)
+            if (!operation) throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Application control is unavailable')
+            return this.encode(
+              await operation(
+                input.args.map((value) => this.decode(value, call.signal)),
+                call.signal,
+              ),
+              this.encoding(),
+            )
+          }),
+        ),
       ),
     )
   }
@@ -118,24 +126,83 @@ export class RuntimeValuePort {
     }
   }
   async call<Result>(method: string, args: readonly unknown[], options: IpcCallOptions = {}): Promise<Result> {
-    if (this.closed) throw new HbarError('IPC_DISCONNECTED', 'Application port owner has exited')
     const callbacks: string[] = []
+    let enteredPeer = false,
+      notified = false
+    const notify: NonNullable<IpcCallOptions['onDispatchSettled']> = (event) => {
+      if (notified) return
+      notified = true
+      try {
+        options.onDispatchSettled?.(event)
+      } catch {
+        console.error('[hbar runtime] dispatch settlement observer failed')
+      }
+    }
     const signals: AbortSignal[] = []
     const encoding = this.encoding(callbacks, signals)
     try {
+      if (this.closed) throw new HbarError('IPC_DISCONNECTED', 'Application port owner has exited')
       const input = invocationSchema.parse({ method, args: args.map((value) => this.encode(value, encoding)) })
       if (options.signal) signals.push(options.signal)
       const signal = signals.length ? AbortSignal.any(signals) : undefined
       const kind = this.options.controlMethods?.includes(method) ? 'control' : 'invoke'
-      const result = await this.peer.call(`${this.options.prefix}.${kind}`, input, valueSchema, {
+      enteredPeer = true
+      const result = await this.physicalCall(`${this.options.prefix}.${kind}`, input, valueSchema, {
         ...options,
+        onDispatchSettled: notify,
         ...(signal ? { signal } : {}),
       })
       // The declared public method supplies Result; transport values have passed the bounded description schema.
       return this.decode(result, signal ?? new AbortController().signal) as Result
+    } catch (error) {
+      if (!enteredPeer) notify('not-dispatched')
+      throw error
     } finally {
+      // Logical completion revokes unused callback authority immediately. Physical
+      // IPC accounting is independent and remains held until actual settlement.
       for (const id of callbacks) this.callbacks.delete(id)
     }
+  }
+  private async trackIncoming<Result>(operation: () => Promise<Result>): Promise<Result> {
+    this.physicalIncoming++
+    try {
+      return await operation()
+    } finally {
+      this.physicalIncoming--
+    }
+  }
+  private physicalCall<Output>(
+    method: string,
+    input: unknown,
+    output: z.ZodType<Output>,
+    options: IpcCallOptions = {},
+  ): Promise<Output> {
+    this.physicalOutgoing++
+    let retained = true
+    return this.peer.call(method, input, output, {
+      ...options,
+      onDispatchSettled: (event) => {
+        if (retained) {
+          retained = false
+          this.physicalOutgoing--
+        }
+        options.onDispatchSettled?.(event)
+      },
+    })
+  }
+  /** Logical cancel/timeout and dispose never erase physical pending sends/handlers. */
+  idleCounts() {
+    return {
+      incoming: this.physicalIncoming,
+      outgoing: this.physicalOutgoing,
+      callbacks: this.callbacks.size,
+      closed: this.closed,
+    }
+  }
+  /** Alias for module consumers; snapshot() retains its established shape. */
+  idleSnapshot() {
+    const value = this.idleCounts()
+    return { callbacks: value.callbacks, physicalCalls: value.incoming + value.outgoing, closed: value.closed }
   }
   snapshot() {
     return { callbacks: this.callbacks.size, methods: this.operations.size }
@@ -247,7 +314,7 @@ export class RuntimeValuePort {
           try {
             const described = args.map((item) => this.encode(item, state))
             const nestedSignal = AbortSignal.any(signals)
-            const result = await this.peer.call(
+            const result = await this.physicalCall(
               `${this.options.prefix}.callback`,
               { id: value.id, args: described },
               valueSchema,
