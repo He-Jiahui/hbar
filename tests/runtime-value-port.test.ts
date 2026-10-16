@@ -37,6 +37,7 @@ function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number |
     ...(options.callbackTimeoutMs === undefined ? {} : { callbackTimeoutMs: options.callbackTimeoutMs }),
   })
   return {
+    peer: parent,
     local,
     remote,
     entered: () => entered,
@@ -49,6 +50,58 @@ function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number |
     },
   }
 }
+
+test('named application ports transfer a full 10 MiB attachment without regex engine exhaustion', async () => {
+  const f = fixture()
+  try {
+    f.remote.register('attachment.echo', (args) => args[0])
+    const bytes = new Uint8Array(10_485_760)
+    for (let index = 0; index < bytes.byteLength; index++) bytes[index] = index % 251
+    const result = await f.local.call<Uint8Array>('attachment.echo', [bytes])
+    expect(result).toBeInstanceOf(Uint8Array)
+    expect(result.byteLength).toBe(bytes.byteLength)
+    expect(Buffer.from(result).equals(Buffer.from(bytes))).toBe(true)
+  } finally {
+    f.close()
+  }
+})
+
+test('base64 validation rejects malformed length, padding and alphabet before an application handler executes', async () => {
+  const f = fixture()
+  let calls = 0
+  try {
+    f.remote.register('attachment.check', () => {
+      calls++
+      return true
+    })
+    for (const data of [
+      'A',
+      'A===',
+      'AA=A',
+      'AAAA=',
+      'AAA!',
+      '=AAA',
+      'AAA\n',
+      '____',
+      'A'.repeat(2_000_000) + 'AAA!',
+    ]) {
+      const result: unknown = await f.peer
+        .call('application.invoke', { method: 'attachment.check', args: [{ kind: 'bytes', data }] }, z.unknown())
+        .catch((error: unknown) => error)
+      expect(result).toBeInstanceOf(Error)
+    }
+    expect(calls).toBe(0)
+    for (const data of ['', 'AA==', 'AAA=', 'AAAA'])
+      await f.peer.call(
+        'application.invoke',
+        { method: 'attachment.check', args: [{ kind: 'bytes', data }] },
+        z.unknown(),
+      )
+    expect(calls).toBe(4)
+  } finally {
+    f.close()
+  }
+})
 
 test('plain descriptions preserve optional arguments and bytes while named callbacks stay in their owner scope', async () => {
   const f = fixture()

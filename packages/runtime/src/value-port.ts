@@ -11,6 +11,12 @@ type Value =
   | { kind: 'bytes'; data: string }
   | { kind: 'signal' }
   | { kind: 'callback'; id: string }
+/** A repeated-group expression exhausts the regex engine on legal multi-MiB attachments in Bun. */
+function validBase64(value: string): boolean {
+  if (value.length > 24 * 1024 * 1024 || value.length % 4 !== 0) return false
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0
+  return !/[^A-Za-z0-9+/]/.test(value.slice(0, value.length - padding))
+}
 const valueSchema: z.ZodType<Value> = z.lazy(() =>
   z.discriminatedUnion('kind', [
     z.strictObject({
@@ -25,7 +31,7 @@ const valueSchema: z.ZodType<Value> = z.lazy(() =>
       data: z
         .string()
         .max(24 * 1024 * 1024)
-        .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
+        .refine(validBase64, 'Application bytes must contain complete base64 data'),
     }),
     z.strictObject({ kind: z.literal('signal') }),
     z.strictObject({ kind: z.literal('callback'), id: z.string().uuid() }),
