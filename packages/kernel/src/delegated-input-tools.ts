@@ -42,6 +42,7 @@ export function createDelegatedInputTools(
                 revision: state.revision,
                 expiresAt: state.expiresAt,
                 request: state.request,
+                ...(state.context ? { context: state.context } : {}),
                 ...(state.approval ? { approval: state.approval } : {}),
               }),
             ),

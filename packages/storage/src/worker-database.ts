@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite'
+import { createContextSummaryReader } from './context-summary'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage, EXECUTION_PRINCIPAL_INDEX } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
@@ -2798,6 +2799,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to another session')
         return receipt
       },
+      contextSummaryExcerpt: createContextSummaryReader(db),
       context(sessionId) {
         const compacted = db
           .query('SELECT * FROM compactions WHERE sessionId=? ORDER BY eventSeq DESC LIMIT 1')

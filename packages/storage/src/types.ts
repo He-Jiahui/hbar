@@ -1,6 +1,7 @@
 import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/execution-principal'
 import type { ScheduleExecution } from '@hbar/contracts/schedule-execution'
 import type { ScheduleOccurrence } from '@hbar/contracts/commands/schedules'
+import type { ContextSummaryExcerpt } from '@hbar/contracts/delegated-context'
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
@@ -555,6 +556,7 @@ export interface StorageMethods {
   }
   queuedRunRemoveReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunRemoveReceipt | null
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
+  contextSummaryExcerpt(sessionId: string): ContextSummaryExcerpt | null
   compact(
     sessionId: string,
     throughSeq: number,

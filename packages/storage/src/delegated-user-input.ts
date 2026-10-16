@@ -412,6 +412,7 @@ export function createDelegatedUserInputStorage(
               (prior.approval?.kind ?? 'questionnaire') !== input.kind ||
               prior.questionRevision !== input.expectedQuestionRevision ||
               !same(prior.policy, input.policy) ||
+              (input.context !== undefined && !same(prior.context, input.context)) ||
               prior.expiresAt - prior.createdAt !== input.timeoutMs
             )
               throw new HbarError('DECISION_CONFLICT', 'This question already has another delegation')
@@ -444,6 +445,7 @@ export function createDelegatedUserInputStorage(
             sourceActorId: principal.actorId,
             questionRevision: question.revision,
             request: question.request,
+            ...(input.context ? { context: input.context } : {}),
             ...('approval' in question ? { approval: question.approval } : {}),
             policy: question.policy,
             targetSessionId: input.policy.policy.targetSessionId,

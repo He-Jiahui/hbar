@@ -26,6 +26,7 @@ import {
   type GoalService,
   type BudgetService,
   type ModeService,
+  type PlanService,
 } from '@hbar/plugin-sdk'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 import type { StorageMethods } from '@hbar/storage'
@@ -83,6 +84,7 @@ async function fixture(
   const approvalResults: boolean[] = []
   const modes: RunMode[] = []
   const targetReceipts: string[] = []
+  const envelopes: z.output<typeof delegatedInputEnvelopeSchema>[] = []
   const rejectedTools: string[] = []
   const profile = definePlugin({
     manifest: {
@@ -168,6 +170,7 @@ async function fixture(
               await input.stepEnded(stepId)
               return
             }
+            envelopes.push(grant)
             const result = await input.execute(
               'hbar_decision_reply',
               {
@@ -269,6 +272,7 @@ async function fixture(
       modes,
       writePath: join(root, 'approved.txt'),
       targetReceipts,
+      envelopes,
       rejectedTools,
       ready: targetReady.promise,
       releaseReply: () => releaseReply.resolve(),
@@ -306,6 +310,68 @@ async function fixture(
     throw error
   }
 }
+
+test.each([false, true])(
+  'an %s active target receives the original task, Goal, plan and summary context',
+  async (active) => {
+    const f = await fixture({ active, deferReply: true })
+    try {
+      await f.kernel.plugins.get<GoalService>('goal').create(f.source.id, 'Original source objective', 100_000)
+      const plans = f.kernel.plugins.get<PlanService>('plan')
+      const original = await plans.update(
+        f.source.id,
+        [{ step: 'Original source step', status: 'in_progress' }],
+        'Original plan',
+      )
+      await f.kernel.storage.call('compact', f.source.id, 0, 'Necessary source summary', 'fixture')
+      const { run } = await f.start()
+      await f.ready
+      await plans.update(f.source.id, [{ step: 'A later source plan', status: 'pending' }], 'Changed after delegation')
+      f.releaseReply()
+      f.release()
+      await f.kernel.waitForIdle()
+      const context = f.envelopes[0]?.context
+      expect(context).toMatchObject({
+        sessionId: f.source.id,
+        runId: run.id,
+        task: { text: 'source-task', truncated: false },
+        goal: { objective: { text: 'Original source objective' } },
+        plan: { revision: original.revision, steps: [{ index: 0, text: 'Original source step' }] },
+        summary: { text: 'Necessary source summary', throughSeq: 0, truncated: false },
+      })
+      expect((await f.kernel.storage.call('run', run.id)).status).toBe('completed')
+      if (!active) {
+        const dedicated = f.received.find((input) => input.run.input.delegatedDecision)
+        expect(dedicated ? (JSON.parse(dedicated.run.input.text) as unknown) : null).toMatchObject({ context })
+      }
+    } finally {
+      await f.close()
+    }
+  },
+)
+
+test('unavailable source context preserves the original human question without starting a target', async () => {
+  const f = await fixture()
+  const original = f.kernel.storage.call.bind(f.kernel.storage)
+  try {
+    f.kernel.storage.call = async <Name extends keyof StorageMethods>(
+      method: Name,
+      ...args: Parameters<StorageMethods[Name]>
+    ): Promise<ReturnType<StorageMethods[Name]>> => {
+      if (method === 'contextSummaryExcerpt') throw new HbarError('STORAGE_ERROR', 'Source summary is unavailable')
+      return original(method, ...args)
+    }
+    const { run } = await f.start()
+    const requestId = await until(async () => f.human[0])
+    expect(f.received.filter((input) => input.session.id === f.target.id)).toEqual([])
+    await f.kernel.resolveUserInput(requestId, { scope: { answers: ['App'] } })
+    await f.kernel.waitForIdle()
+    expect((await f.kernel.storage.call('run', run.id)).status).toBe('completed')
+  } finally {
+    f.kernel.storage.call = original
+    await f.close()
+  }
+})
 
 test.each(['allowed', 'denied', 'implement', 'continue'] as const)(
   'a delegated %s choice resumes the original tool or Plan decision',

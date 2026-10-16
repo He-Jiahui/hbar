@@ -9,6 +9,7 @@ import {
   type UserInputAutomaticDecision,
 } from '@hbar/contracts'
 import type { AutonomyPolicyResolution } from '@hbar/contracts/autonomy'
+import type { DelegatedSourceContext } from '@hbar/contracts/delegated-context'
 import {
   DELEGATED_INPUT_DEFAULT_TIMEOUT_MS,
   type DelegatedInputRecord,
@@ -30,6 +31,7 @@ const recoverable = new Set([
   'DECISION_CONFLICT',
   'PLAN_EXIT_SETTLED',
   'PLAN_EXIT_UNAVAILABLE',
+  'DELEGATION_CONTEXT_UNAVAILABLE',
 ])
 const identity = (value: DelegatedInputRecord) => ({ sessionId: value.sessionId, requestId: value.requestId })
 const mutation = (value: DelegatedInputRecord) => ({
@@ -47,6 +49,7 @@ export async function coordinateDelegatedInput(
     policy: AutonomyPolicyResolution
     revision: number
     signal: AbortSignal
+    captureContext?(): Promise<DelegatedSourceContext>
     pending(): boolean
     permission(sessionId: string): Promise<ApprovalMode>
     wake(value: DelegatedInputWake, signal: AbortSignal): Promise<void>
@@ -89,12 +92,21 @@ export async function coordinateDelegatedInput(
     if (input.pending()) await input.waiting(reason)
   }
   try {
+    const original = await storage.call('delegatedInputRead', source)
+    let context: DelegatedSourceContext | undefined
+    try {
+      context = original ? original.context : await input.captureContext?.()
+    } catch {
+      signal.throwIfAborted()
+      throw new HbarError('DELEGATION_CONTEXT_UNAVAILABLE', 'The original source context could not be captured')
+    }
     const accepted = await storage
       .call('delegatedInputAccept', {
         ...source,
         kind: input.kind ?? 'questionnaire',
         expectedQuestionRevision: input.revision,
         policy,
+        ...(context ? { context } : {}),
         timeoutMs:
           policy.policy.mode === 'delegate'
             ? (policy.policy.timeoutMs ?? DELEGATED_INPUT_DEFAULT_TIMEOUT_MS)

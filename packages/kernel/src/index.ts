@@ -14,6 +14,8 @@ import { bindToolCall, type PreparedToolCall, type ToolCallPreparationPort } fro
 import { createSessionCommandTools } from './session-command-tools'
 import { createDelegatedInputTools, DELEGATED_INPUT_TOOL_NAMES } from './delegated-input-tools'
 import { coordinateDelegatedInput } from './delegated-input-coordinator'
+import { captureDelegatedContext } from './delegated-context'
+import type { DelegatedSourceContext } from '@hbar/contracts/delegated-context'
 import type { DelegatedInputWake } from '@hbar/contracts/delegated-user-input'
 import { delegatedApprovalRequest, delegatedApprovalSubjectSchema } from '@hbar/contracts/delegated-approval'
 import type { SessionCommandDiscoveryPort } from './session-command-port'
@@ -3902,8 +3904,16 @@ export class Kernel {
         )
       if ((tool === 'exit_plan_mode' || automaticAdmission) && !hostSignal.aborted && !settled) {
         if (policy.policy.mode === 'delegate') {
+          const captureContext = await this.prepareDelegatedContext(approval.sessionId, approval.runId)
           const commit = await wait(async () => {
-            const action = await this.automateApproval(approval, hostSignal, policy, () => !settled, automaticAdmission)
+            const action = await this.automateApproval(
+              approval,
+              hostSignal,
+              policy,
+              () => !settled,
+              automaticAdmission,
+              captureContext,
+            )
             if (!action) await outcome
             return action
           })
@@ -3933,12 +3943,32 @@ export class Kernel {
       ? this.options.execution.withHumanWait(execution, callId, decision, operation)
       : operation()
   }
+  private async prepareDelegatedContext(sessionId: string, runId: string) {
+    try {
+      const value = await captureDelegatedContext(
+        { sessionId, runId },
+        {
+          run: (id) => this.storage.call('run', id),
+          session: (id) => this.storage.call('session', id),
+          goal: async (id) => (await this.plugins.get<GoalService>('goal').get(id)).goal,
+          plan: (id) => this.plugins.get<PlanService>('plan').get(id),
+          summary: (id) => this.storage.call('contextSummaryExcerpt', id),
+        },
+      )
+      return async () => value
+    } catch (error) {
+      return async () => {
+        throw error
+      }
+    }
+  }
   private async automateApproval(
     approval: Approval,
     signal: AbortSignal,
     policy: AutonomyPolicyResolution,
     pending: () => boolean,
     admission?: AutomaticToolApprovalAdmission,
+    captureContext?: () => Promise<DelegatedSourceContext>,
   ): Promise<(() => Promise<void>) | undefined> {
     if (policy.policy.mode === 'wait_user') return undefined
     const principal = await this.storage.call('runExecutionPrincipal', approval.runId)
@@ -3955,6 +3985,7 @@ export class Kernel {
       let answered = false
       const coordinate = (commit: boolean) =>
         coordinateDelegatedInput(this.storage, {
+          ...(captureContext ? { captureContext } : {}),
           kind: subject.kind,
           request: delegatedApprovalRequest(subject),
           policy,
@@ -4337,8 +4368,11 @@ export class Kernel {
         if (signal.aborted) onAbort()
         else if (boundaryStop) await settle(undefined, boundaryStop)
         else if (accepted.state.policy.policy.mode === 'delegate') {
+          suspendWaitTimeouts()
+          const captureContext = await this.prepareDelegatedContext(request.sessionId, request.runId)
           const delegate = async () => {
             await coordinateDelegatedInput(this.storage, {
+              captureContext,
               request,
               policy: accepted.state.policy,
               revision: accepted.state.revision,

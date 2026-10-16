@@ -14,6 +14,7 @@ import { userInputSettlementSchema } from '@hbar/contracts/user-input-state'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 import { createDelegatedUserInputStorage } from '../packages/storage/src/delegated-user-input'
 import { createUserInputStateStorage } from '../packages/storage/src/user-input-state'
+import { delegatedSourceContextSchema } from '@hbar/contracts/delegated-context'
 
 async function failure(operation: Promise<unknown>): Promise<unknown> {
   try {
@@ -200,6 +201,44 @@ async function fixture(managed = false) {
     },
   }
 }
+
+test('source context and bounded summary receipts survive a Worker restart without replacement on repeated admission', async () => {
+  const f = await fixture()
+  try {
+    const input = await f.acceptQuestion()
+    await f.storage.call('compact', input.sessionId, 1, 'Original source summary', 'fixture')
+    const summary = await f.storage.call('contextSummaryExcerpt', input.sessionId)
+    expect(summary).toMatchObject({ text: 'Original source summary', throughSeq: 1, truncated: false })
+    const context = delegatedSourceContextSchema.parse({
+      version: 1,
+      sessionId: input.sessionId,
+      runId: f.runs[0]!.id,
+      capturedAt: Date.now(),
+      sessionTitle: 'Source title',
+      task: { text: 'Original source task', truncated: false },
+      ...(summary ? { summary } : {}),
+    })
+    await failure(f.storage.call('delegatedInputAccept', { ...input, context: { ...context, runId: f.runs[1]!.id } }))
+    expect(await f.storage.call('delegatedInputRead', identity(input))).toBeNull()
+    const accepted = await f.storage.call('delegatedInputAccept', { ...input, context })
+    expect(accepted.state.context).toEqual(context)
+    expect(
+      await failure(
+        f.storage.call('delegatedInputAccept', {
+          ...input,
+          context: { ...context, task: { text: 'Changed after admission', truncated: false } },
+        }),
+      ),
+    ).toMatchObject({ code: 'DECISION_CONFLICT' })
+    await f.restart()
+    const repeated = await f.storage.call('delegatedInputAccept', input)
+    expect(repeated.state.context).toEqual(context)
+    expect(repeated.state.expiresAt).toBe(accepted.state.expiresAt)
+    expect(repeated.created).toBe(false)
+  } finally {
+    await f.close()
+  }
+})
 
 test('delegations retain original questions, target binding, reply proof and five minute deadline across a real Worker restart', async () => {
   const f = await fixture()

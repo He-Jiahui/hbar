@@ -70,11 +70,13 @@ test.each(['questionnaire', 'approval', 'plan_exit'] as const)(
       targetRequests = 0
     let sourceCapacityBeforeQuestion = 0,
       suspendedDuringTarget = 0
+    const contextRuns = new Set<string>()
     const provider = Bun.serve({
       port: 0,
       async fetch(request) {
         const body = bodySchema.parse(await request.json())
-        const source = JSON.stringify(body.messages).includes('delegate-source-')
+        const conversation = JSON.stringify(body.messages)
+        const source = conversation.includes('delegate-source-') && !conversation.includes('hbar.delegated_input')
         const tools = body.messages.filter((message) => message.role === 'tool')
         if (source) {
           if (!tools.length) {
@@ -142,6 +144,7 @@ test.each(['questionnaire', 'approval', 'plan_exit'] as const)(
         const lastName = last?.name ?? names.get(last?.tool_call_id ?? '')
         if (lastName === 'hbar_decisions_inbox' && typeof last?.content === 'string') {
           const page = inboxSchema.parse(JSON.parse(last.content) as unknown)
+          for (const grant of page.items) if (grant.context) contextRuns.add(grant.context.runId)
           return streamReply(
             page.items.map((grant) => ({
               name: 'hbar_decision_reply',
@@ -261,6 +264,7 @@ test.each(['questionnaire', 'approval', 'plan_exit'] as const)(
       expect(sourceCapacityBeforeQuestion).toBe(4)
       expect(suspendedDuringTarget).toBeGreaterThan(0)
       expect(targetRequests).toBeGreaterThan(0)
+      expect(contextRuns).toEqual(new Set(accepted.map((run) => run.id)))
       for (const [index, run] of accepted.entries()) {
         const events = await current.storage.call('events', run.sessionId, 0, 256)
         const audits = events.filter(
