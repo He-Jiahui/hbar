@@ -1,3 +1,4 @@
+import { HeartbeatEvidence, writeHeartbeatEvidence } from './heartbeat-diagnostics'
 import { z } from 'zod'
 import { fileURLToPath } from 'node:url'
 import { HbarError } from '@hbar/contracts'
@@ -76,6 +77,7 @@ function duration(value: number | undefined, fallback: number): number {
 }
 
 export class ManagedProcess {
+  private heartbeatEvidence: HeartbeatEvidence | undefined
   private readonly heartbeatMs: number
   private readonly startupMs: number
   private readonly shutdownMs: number
@@ -211,6 +213,7 @@ export class ManagedProcess {
       signal.throwIfAborted()
       this.state.phase = role === 'draining' ? 'draining' : 'serving'
       this.state.lastHeartbeatAt = Date.now()
+      this.heartbeatEvidence?.received(this.state.lastHeartbeatAt, performance.now())
       this.healthySince = Date.now()
       this.publish()
     } catch (error) {
@@ -261,10 +264,12 @@ export class ManagedProcess {
     if (this.stopped) throw new HbarError('RUNTIME_DISPOSED', 'Runtime generation is disposed')
     await this.retire()
     if (this.stopped) throw new HbarError('RUNTIME_DISPOSED', 'Runtime generation is disposed')
+    this.heartbeatEvidence = new HeartbeatEvidence(this.heartbeatMs, Date.now(), performance.now())
     this.state.incarnation = crypto.randomUUID()
     this.state.phase = 'preparing'
     this.state.nextAttemptAt = null
     this.state.lastHeartbeatAt = Date.now()
+    this.heartbeatEvidence?.received(this.state.lastHeartbeatAt, performance.now())
     this.state.reasonCode = null
     this.fencing = undefined
     this.publish()
@@ -347,6 +352,7 @@ export class ManagedProcess {
     void attachment.catch(() => {})
     peer.onEvent('runtime.heartbeat', z.strictObject({ time: z.number().int().nonnegative() }), () => {
       this.state.lastHeartbeatAt = Date.now()
+      this.heartbeatEvidence?.received(this.state.lastHeartbeatAt, performance.now())
     })
     void child.exited
       .then((exitCode) => {
@@ -370,9 +376,23 @@ export class ManagedProcess {
       this.tree = tree
       this.monitor = setInterval(
         () => {
+          const evidence = this.heartbeatEvidence?.monitor(
+            Date.now(),
+            performance.now(),
+            Math.min(this.heartbeatMs, 500),
+          )
           if (this.stopped || this.child !== child || this.state.phase === 'preparing') return
-          if (Date.now() - (this.state.lastHeartbeatAt ?? 0) >= this.heartbeatMs * RUNTIME_LIMITS.missedHeartbeats)
+          if (Date.now() - (this.state.lastHeartbeatAt ?? 0) >= this.heartbeatMs * RUNTIME_LIMITS.missedHeartbeats) {
+            const counts = peer.snapshot()
+            if (this.heartbeatEvidence?.shouldReport(performance.now(), true))
+              writeHeartbeatEvidence(owner, 'parent_timeout', {
+                ...evidence,
+                pending: counts.inFlight + counts.queued,
+                recordsIn: counts.incoming + counts.incomingQueued,
+                bytesIn: counts.bufferedBytes,
+              })
             this.fault('RUNTIME_HEARTBEAT_TIMEOUT')
+          }
         },
         Math.min(this.heartbeatMs, 500),
       )
@@ -394,6 +414,7 @@ export class ManagedProcess {
         throw new HbarError('RUNTIME_OWNER_REVOKED', 'Runtime owner exited during preparation')
       this.state.phase = 'ready'
       this.state.lastHeartbeatAt = Date.now()
+      this.heartbeatEvidence?.received(this.state.lastHeartbeatAt, performance.now())
       this.publish()
     } catch (error) {
       this.state.reasonCode = error instanceof HbarError ? error.code : 'RUNTIME_PREPARE_FAILED'

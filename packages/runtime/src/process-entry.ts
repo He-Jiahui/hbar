@@ -1,3 +1,4 @@
+import { HeartbeatEvidence, writeHeartbeatEvidence } from './heartbeat-diagnostics'
 import { writeSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
@@ -278,9 +279,26 @@ export async function runRuntimeProcess(
       setTimeout(() => stop(0, 'requested_exit'), 20)
     }),
   )
+  const heartbeatCadence = Number(process.env.HBAR_RUNTIME_HEARTBEAT_MS ?? RUNTIME_LIMITS.heartbeatMs)
+  const heartbeatEvidence = new HeartbeatEvidence(heartbeatCadence, Date.now(), performance.now())
   const heartbeat = setInterval(
     () => {
-      void peer.notify('runtime.heartbeat', { time: Date.now() }).catch(() => stop(76, 'heartbeat_failure'))
+      const started = performance.now()
+      const lateness = heartbeatEvidence.tick(started)
+      if (lateness >= heartbeatCadence && heartbeatEvidence.shouldReport(started))
+        writeHeartbeatEvidence(owner, 'child_tick_delayed', { queueWaitMs: lateness })
+      void peer
+        .notify('runtime.heartbeat', { time: Date.now() })
+        .then(() => {
+          const elapsed = performance.now() - started
+          if (elapsed >= heartbeatCadence && heartbeatEvidence.shouldReport(performance.now()))
+            writeHeartbeatEvidence(owner, 'child_ack_slow', { replyMs: elapsed })
+        })
+        .catch(() => {
+          if (heartbeatEvidence.shouldReport(performance.now(), true))
+            writeHeartbeatEvidence(owner, 'child_send_failed', { replyMs: Math.max(0, performance.now() - started) })
+          stop(76, 'heartbeat_failure')
+        })
     },
     Number(process.env.HBAR_RUNTIME_HEARTBEAT_MS ?? RUNTIME_LIMITS.heartbeatMs),
   )
