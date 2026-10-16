@@ -15,6 +15,7 @@ export function delegatedDecisionText(state: DelegatedInputRecord): string {
     grant: { sessionId: state.sessionId, requestId: state.requestId, delegationId: state.delegationId },
     expiresAt: state.expiresAt,
     request: state.request,
+    ...(state.approval ? { approval: state.approval } : {}),
   })
   if (Buffer.byteLength(text, 'utf8') > 128_000)
     throw new HbarError('DELEGATION_CAPACITY', 'The decision envelope exceeds its delivery capacity')

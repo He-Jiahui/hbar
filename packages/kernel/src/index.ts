@@ -3873,7 +3873,10 @@ export class Kernel {
         .finally(() => resolve({ source: 'abort', reason: hostSignal.reason }))
     }
     try {
-      this.publishEvent(await this.storage.call('createApproval', approval))
+      this.publishEvent(await this.storage.call('createApproval', approval, {
+        policy: await this.permissionSettings.decisionPolicy(approval.sessionId),
+        ...(automaticAdmission ? { admission: automaticAdmission } : {}),
+      }))
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'waiting_approval'))
       const active = this.active.get(context.session.id)
       if (active?.run.id === context.run.id) resumeIdle = active.idleTimeout.suspend()

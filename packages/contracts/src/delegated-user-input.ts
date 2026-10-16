@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { userInputRequestSchema, userInputResponseSchema, approvalModeSchema } from './index'
 import { autonomyPolicyResolutionSchema } from './autonomy'
+import { delegatedApprovalSubjectSchema, delegatedApprovalRequest } from './delegated-approval'
 
 export const DELEGATED_INPUT_DEFAULT_TIMEOUT_MS = 300_000
 export const DELEGATED_INPUT_MAX_PENDING = 128
@@ -10,6 +11,7 @@ const timestamp = z.number().int().nonnegative().safe()
 export const delegatedInputIdentitySchema = z.strictObject({ sessionId: id, requestId: id })
 export type DelegatedInputIdentity = z.output<typeof delegatedInputIdentitySchema>
 export const delegatedInputAcceptSchema = delegatedInputIdentitySchema.extend({
+  kind: z.enum(['questionnaire', 'approval', 'plan_exit']).default('questionnaire'),
   expectedQuestionRevision: z.number().int().positive().safe(),
   policy: autonomyPolicyResolutionSchema,
   timeoutMs: z.number().int().min(1_000).max(3_600_000).default(DELEGATED_INPUT_DEFAULT_TIMEOUT_MS),
@@ -29,6 +31,7 @@ export const delegatedInputRecordSchema = delegatedInputIdentitySchema
     sourceActorId: id,
     questionRevision: z.number().int().positive().safe(),
     request: userInputRequestSchema,
+    approval: delegatedApprovalSubjectSchema.optional(),
     policy: autonomyPolicyResolutionSchema,
     targetSessionId: id,
     targetRunId: id.nullable(),
@@ -42,6 +45,12 @@ export const delegatedInputRecordSchema = delegatedInputIdentitySchema
     updatedAt: timestamp,
   })
   .superRefine((state, context) => {
+    if (
+      state.approval &&
+      (JSON.stringify(state.request) !== JSON.stringify(delegatedApprovalRequest(state.approval)) ||
+        JSON.stringify(state.policy) !== JSON.stringify(state.approval.context.policy))
+    )
+      context.addIssue({ code: 'custom', message: 'Approval delegation must retain its original approval and policy' })
     if (
       state.request.sessionId !== state.sessionId ||
       state.request.requestId !== state.requestId ||
@@ -89,6 +98,7 @@ export const delegatedInputEnvelopeSchema = delegatedInputIdentitySchema.extend(
   revision: z.number().int().positive().safe(),
   expiresAt: timestamp,
   request: userInputRequestSchema,
+  approval: delegatedApprovalSubjectSchema.optional(),
 })
 /** Reply arguments contain only the grant and answer; the actual target comes from the tool context. */
 export const delegatedInputToolReplySchema = mutation.extend({ reply: delegatedInputReplySchema })

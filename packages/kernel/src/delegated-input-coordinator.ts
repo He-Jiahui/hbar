@@ -19,6 +19,7 @@ import type { StoragePort } from '@hbar/storage'
 const recoverable = new Set([
   'DELEGATION_EXPIRED',
   'DELEGATION_TARGET_UNAVAILABLE',
+  'DELEGATION_HUMAN_REQUIRED',
   'DECISION_POLICY_CHANGED',
   'FORBIDDEN',
   'NOT_FOUND',

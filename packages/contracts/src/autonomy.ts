@@ -39,6 +39,12 @@ export const automaticToolApprovalAdmissionSchema = z.strictObject({
   humanApproval: z.literal(false),
 })
 export type AutomaticToolApprovalAdmission = z.infer<typeof automaticToolApprovalAdmissionSchema>
+/** Captured before publishing the original approval; absent on historical requests. */
+export const approvalAutomationContextSchema = z.strictObject({
+  policy: autonomyPolicyResolutionSchema,
+  admission: automaticToolApprovalAdmissionSchema.optional(),
+})
+export type ApprovalAutomationContext = z.output<typeof approvalAutomationContextSchema>
 export const automaticToolApprovalDecisionSchema = automaticPlanExitDecisionSchema.extend({
   admission: automaticToolApprovalAdmissionSchema,
 })

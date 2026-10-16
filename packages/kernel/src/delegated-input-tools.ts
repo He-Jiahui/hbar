@@ -42,6 +42,7 @@ export function createDelegatedInputTools(
                 revision: state.revision,
                 expiresAt: state.expiresAt,
                 request: state.request,
+                ...(state.approval ? { approval: state.approval } : {}),
               }),
             ),
           ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),

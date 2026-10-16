@@ -27,6 +27,7 @@ import {
 } from '@hbar/contracts/delegated-user-input'
 import type { UserInputState, UserInputSettlement } from '@hbar/contracts/user-input-state'
 import type { ExecutionPrincipal } from '@hbar/contracts/execution-principal'
+import { delegatedApprovalRequest, type DelegatedApprovalSubject } from '@hbar/contracts/delegated-approval'
 
 type Append = (sessionId: string, type: string, data: unknown, runId?: string) => SessionEvent
 const keyOf = (input: DelegatedInputIdentity) =>
@@ -45,6 +46,7 @@ const noLongerCurrent = (error: unknown) =>
     'USER_CANCELLED',
     'FORBIDDEN',
     'DELEGATION_TARGET_UNAVAILABLE',
+    'DELEGATION_HUMAN_REQUIRED',
     'DECISION_POLICY_CHANGED',
     'NOT_FOUND',
   ].includes(error.code)
@@ -64,6 +66,7 @@ export function createDelegatedUserInputStorage(
   append: Append,
   ports: {
     question(identity: DelegatedInputIdentity): UserInputState | null
+    approval?(identity: DelegatedInputIdentity, kind: 'approval' | 'plan_exit'): DelegatedApprovalSubject | null
     run(runId: string): Run
     principal(runId: string): ExecutionPrincipal | null
     authorize(actorId: string, sessionIds: readonly string[]): boolean
@@ -151,9 +154,22 @@ export function createDelegatedUserInputStorage(
         throw new HbarError('DECISION_POLICY_CHANGED', 'The delegation policy has changed')
     }
   }
-  function current(state: DelegatedInputRecord): UserInputState {
+  function source(identity: DelegatedInputIdentity, kind: 'questionnaire' | 'approval' | 'plan_exit') {
+    if (kind === 'questionnaire') return ports.question(identity)
+    const approval = ports.approval?.(identity, kind)
+    return approval
+      ? {
+          revision: 1,
+          request: delegatedApprovalRequest(approval),
+          policy: approval.context.policy,
+          settlement: null,
+          approval,
+        }
+      : null
+  }
+  function current(state: DelegatedInputRecord): void {
     if (Date.now() >= state.expiresAt) throw new HbarError('DELEGATION_EXPIRED', 'The original delegation has expired')
-    const question = ports.question(identityOf(state))
+    const question = source(identityOf(state), state.approval?.kind ?? 'questionnaire')
     if (
       !question ||
       question.settlement ||
@@ -161,6 +177,8 @@ export function createDelegatedUserInputStorage(
       !same(question.request, state.request)
     )
       throw new HbarError('DECISION_CONFLICT', 'The source question has already changed or been handled')
+    if (!same('approval' in question ? question.approval : undefined, state.approval))
+      throw new HbarError('DECISION_CONFLICT', 'The original approval or its trusted admission has changed')
     const run = ports.run(state.sourceRunId)
     if (
       run.sessionId !== state.sessionId ||
@@ -168,6 +186,12 @@ export function createDelegatedUserInputStorage(
       cancelled.get(run.id)
     )
       throw new HbarError('USER_CANCELLED', 'The source Run no longer accepts delegated decisions')
+    if (
+      state.approval &&
+      (run.status !== 'waiting_approval' ||
+        (state.approval.kind === 'plan_exit' ? run.input.mode !== 'plan' : run.input.approval !== 'ask'))
+    )
+      throw new HbarError('DELEGATION_HUMAN_REQUIRED', 'The original Run no longer admits this approval decision')
     const principal = ports.principal(run.id)
     if (
       !principal ||
@@ -180,7 +204,6 @@ export function createDelegatedUserInputStorage(
     if (!same(question.policy, state.policy))
       throw new HbarError('DECISION_POLICY_CHANGED', 'The source question has another policy')
     revisions(state.policy)
-    return question
   }
   function mutation(raw: DelegatedInputIdentity & { delegationId: string; expectedRevision: number }) {
     const state = read(identityOf(raw))
@@ -284,6 +307,7 @@ export function createDelegatedUserInputStorage(
     /** Private composition port: validate everything before the source writer publishes its first durable event. */
     prepareSettlement(question: UserInputState, settlement: UserInputSettlement): () => SessionEvent[] {
       const state = read({ sessionId: question.request.sessionId, requestId: question.request.requestId })
+      if (state?.approval) throw new HbarError('DECISION_CONFLICT', 'An approval grant cannot settle a questionnaire')
       const automatic = settlement.kind === 'answered' ? settlement.automatic : undefined
       if (automatic?.source === 'delegate') {
         const proof = automatic.delegation
@@ -334,6 +358,7 @@ export function createDelegatedUserInputStorage(
           const prior = read({ sessionId: input.sessionId, requestId: input.requestId })
           if (prior) {
             if (
+              (prior.approval?.kind ?? 'questionnaire') !== input.kind ||
               prior.questionRevision !== input.expectedQuestionRevision ||
               !same(prior.policy, input.policy) ||
               prior.expiresAt - prior.createdAt !== input.timeoutMs
@@ -341,7 +366,7 @@ export function createDelegatedUserInputStorage(
               throw new HbarError('DECISION_CONFLICT', 'This question already has another delegation')
             return { created: false, state: prior, events: [] as SessionEvent[] }
           }
-          const question = ports.question(identityOf(input))
+          const question = source(identityOf(input), input.kind)
           if (!question || question.revision !== input.expectedQuestionRevision || question.settlement)
             throw new HbarError('DECISION_CONFLICT', 'The original question is no longer pending')
           if (question.request.questions.some((item) => item.isSecret || item.purpose !== 'decision'))
@@ -368,6 +393,7 @@ export function createDelegatedUserInputStorage(
             sourceActorId: principal.actorId,
             questionRevision: question.revision,
             request: question.request,
+            ...('approval' in question ? { approval: question.approval } : {}),
             policy: question.policy,
             targetSessionId: input.policy.policy.targetSessionId,
             targetRunId: null,

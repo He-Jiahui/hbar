@@ -5,10 +5,11 @@ import { createCommandExecutionReceiptStorage } from './command-execution-receip
 import { createUserInputStateStorage } from './user-input-state'
 import { createDelegatedUserInputStorage } from './delegated-user-input'
 import { createDelegatedInputDelivery } from './delegated-input-delivery'
+import { createDelegatedApprovalSource, DELEGATED_APPROVAL_INDEX } from './delegated-approval-source'
 import { delegatedInputAcceptSchema, delegatedInputBindSchema, delegatedInputCompleteSchema, delegatedInputFinishSchema, delegatedInputDeliverSchema, delegatedInputRunSchema } from '@hbar/contracts/delegated-user-input'
 import { assertAutomaticPlanExit } from './automatic-plan-exit'
 import { assertAutomaticDecisionPolicy } from './automatic-decision-policy'
-import { automaticToolApprovalDecisionSchema } from '@hbar/contracts/autonomy'
+import { automaticToolApprovalDecisionSchema, approvalAutomationContextSchema } from '@hbar/contracts/autonomy'
 import { createDecisionStorage, DECISION_PAGE_INDEX } from './decisions'
 import { createAutonomyRetryStorage, AUTONOMY_RETRY_INDEX } from './autonomy-retries'
 import { userInputAcceptSchema, userInputCommitSchema } from '@hbar/contracts/user-input-state'
@@ -656,6 +657,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         indexMessage: (id, sessionId, seq, content) => sessionSearch.queueMessage(id, sessionId, 'user', seq, content),
       }),
       question: userInputState.read,
+      approval: createDelegatedApprovalSource(db, (id) => methods.approval(id)),
       run: (id) => methods.run(id),
       principal: executionPrincipals.run,
       available: (id) => { const session = methods.findSession(id); return session !== null && !session.archived },
@@ -703,6 +705,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       db.exec(DECISION_PAGE_INDEX)
       db.exec(AUTONOMY_RETRY_INDEX)
       db.exec(EXECUTION_PRINCIPAL_INDEX)
+      db.exec(DELEGATED_APPROVAL_INDEX)
       db.exec(`CREATE INDEX IF NOT EXISTS events_live_guidance_run_seq ON events(sessionId,runId,seq)
         WHERE type='message.committed' AND (json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL
           OR json_extract(data,'$.decisionDelegation.targetRunId') IS NOT NULL);`)
@@ -3291,8 +3294,11 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         (db.query("SELECT DISTINCT sessionId FROM runs WHERE status='queued'").all() as { sessionId: string }[]).map(
           (row) => row.sessionId,
         ),
-      createApproval: (raw) => {
+      createApproval: (raw, rawContext) => {
         const approval = approvalSchema.parse(raw)
+        const automationContext = rawContext === undefined ? undefined : approvalAutomationContextSchema.parse(rawContext)
+        if (automationContext && automationContext.policy.sessionId !== approval.sessionId)
+          throw new HbarError('AUTOMATIC_APPROVAL_INVALID', 'The approval context must belong to its source Session')
         return db.transaction(() => {
           db.query(
             'INSERT INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt,executionTarget) VALUES(?,?,?,?,?,?,?,?,?)',
@@ -3307,7 +3313,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             approval.createdAt,
             approval.executionTarget ? JSON.stringify(approval.executionTarget) : null,
           )
-          return appendEvent(approval.sessionId, 'approval.requested', approval, approval.runId)
+          return appendEvent(approval.sessionId, 'approval.requested', {
+            ...approval, ...(automationContext ? { automationContext } : {}),
+          }, approval.runId)
         })()
       },
       approval: (id) => approvalRow(db.query('SELECT * FROM approvals WHERE id=?').get(id) as Row | null),

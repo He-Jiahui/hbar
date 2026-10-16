@@ -8,7 +8,7 @@ import type {
 } from '@hbar/contracts/delegated-user-input'
 import type { createAutonomyRetryStorage } from './autonomy-retries'
 import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
-import type { AutomaticPlanExitDecision, AutomaticToolApprovalDecision } from '@hbar/contracts/autonomy'
+import type { AutomaticPlanExitDecision, AutomaticToolApprovalDecision, ApprovalAutomationContext } from '@hbar/contracts/autonomy'
 import type {
   Approval,
   ArtifactRef,
@@ -607,7 +607,7 @@ export interface StorageMethods {
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
   cancelRequested(id: string): boolean
   queuedSessions(): string[]
-  createApproval(approval: Approval): SessionEvent
+  createApproval(approval: Approval, automationContext?: ApprovalAutomationContext): SessionEvent
   resolveApproval(
     id: string,
     status: Approval['status'],
