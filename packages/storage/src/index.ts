@@ -29,7 +29,17 @@ export type { NodeRunWorktreeAdmission, NodeRunWorktreeBindInput, NodeRunWorktre
 export type { NodeRunWorkspaceMount, NodeRunWorkspaceMountBindInput } from './node-run-workspace-mounts'
 export { runtimeRecoveryRecordSchema, runtimeManualRecoverySchema } from './runtime-state'
 export { StableStoragePort } from './stable-port'
-export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'
+export type {
+  ManagedStorageWriter,
+  StableStorageSnapshot,
+  StorageDemandLease,
+  StorageDemandGate,
+  StoragePhysicalSettlement,
+  StoragePhysicalCall,
+  StorageHibernateCheckpoint,
+  StorageIdleOutcome,
+  StorageDemandReconciliation,
+} from './stable-port'
 export { scheduleIdleCheckpointInputSchema, scheduleIdleCheckpointSchema } from './schedule-idle-checkpoint'
 export type { ScheduleIdleCheckpointInput, ScheduleIdleCheckpoint } from './schedule-idle-checkpoint'
 export { searchIdleCheckpointSchema } from './search-idle-checkpoint'
