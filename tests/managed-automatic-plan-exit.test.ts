@@ -28,10 +28,15 @@ test.each(['deny', 'ask'] as const)(
     const prefix = 'hbar-managed-automatic-plan-exit-'
     const root = await mkdtemp(join(tmpdir(), prefix))
     const steps: number[] = []
+    const toolResults: unknown[] = []
     const provider = Bun.serve({
       port: 0,
       async fetch(request) {
-        const payload = z.object({ messages: z.array(z.object({ role: z.string() })) }).parse(await request.json())
+        const payload = z
+          .object({ messages: z.array(z.object({ role: z.string(), content: z.unknown().optional() })) })
+          .parse(await request.json())
+        const last = payload.messages.filter((message) => message.role === 'tool').at(-1)
+        if (last) toolResults.push(last.content)
         const step = payload.messages.filter((message) => message.role === 'tool').length
         steps.push(step)
         const delta =
@@ -142,6 +147,11 @@ test.each(['deny', 'ask'] as const)(
         await Bun.sleep(20)
       }
       await current.waitForIdle()
+      const exitEvents = (await current.storage.call('events', session.id, 0, 2000)).filter(
+        (event) => event.type === 'plan_exit.resolved',
+      )
+      if (exitEvents.length !== 1)
+        throw new Error(`The original Plan did not settle: ${JSON.stringify(toolResults).slice(0, 3000)}`)
       expect(steps).toEqual([0, 1, 2])
       expect(await Bun.file(join(root, 'permission-probe.txt')).exists()).toBe(permission === 'ask')
       expect((await current.storage.call('run', runId)).input).toMatchObject({ mode: 'plan', approval: permission })

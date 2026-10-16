@@ -10,6 +10,7 @@ import {
   userInputResponseSchema,
   type UserInputQuestion,
   type UserInputResponse,
+  type RunMode,
 } from '@hbar/contracts'
 import { AUTONOMY_DECISION_MODE_SETTING, AUTONOMY_DECISION_TARGET_SETTING } from '@hbar/contracts/autonomy'
 import { delegatedInputEnvelopeSchema } from '@hbar/contracts/delegated-user-input'
@@ -21,6 +22,7 @@ import {
   type HarnessDriver,
   type GoalService,
   type BudgetService,
+  type ModeService,
 } from '@hbar/plugin-sdk'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
 import type { StorageMethods } from '@hbar/storage'
@@ -38,6 +40,13 @@ const question: UserInputQuestion = {
   ],
 }
 const pageSchema = z.object({ items: z.array(delegatedInputEnvelopeSchema) })
+const approvalIdSchema = z.object({ id: z.string() })
+async function originalApproval(kernel: Kernel, sessionId: string) {
+  const event = (await kernel.storage.call('events', sessionId, 0, 256)).find(
+    (item) => item.type === 'approval.requested',
+  )
+  return event ? kernel.storage.call('approval', approvalIdSchema.parse(event.data).id) : undefined
+}
 async function until<Result>(read: () => Promise<Result | undefined>): Promise<Result> {
   const deadline = performance.now() + 10_000
   while (true) {
@@ -56,6 +65,8 @@ async function fixture(
     idleMs?: number
     deferReply?: boolean
     shortDeadline?: boolean
+    approvalChoice?: 'allowed' | 'denied' | 'implement' | 'continue'
+    humanOnly?: boolean
   } = {},
 ) {
   const prefix = 'hbar-delegated-kernel-'
@@ -66,6 +77,8 @@ async function fixture(
   const releaseReply = Promise.withResolvers<void>()
   const received: DriverInput[] = []
   const sourceAnswers: UserInputResponse[] = []
+  const approvalResults: boolean[] = []
+  const modes: RunMode[] = []
   const targetReceipts: string[] = []
   const rejectedTools: string[] = []
   const profile = definePlugin({
@@ -89,12 +102,26 @@ async function fixture(
           await input.beforeRequest(input.request, stepId)
           await input.emit('usage.recorded', { ...emptyUsage(), output: 1 }, stepId)
           if (input.run.input.text === 'source-task') {
-            const result = await input.execute(
-              'request_user_input',
-              { questions: [options.question ?? question] },
-              'source-question',
-            )
-            sourceAnswers.push(userInputResponseSchema.parse(JSON.parse(result.text) as unknown))
+            if (options.approvalChoice) {
+              const plan = ['implement', 'continue'].includes(options.approvalChoice)
+              const name = options.humanOnly ? 'web_search' : plan ? 'exit_plan_mode' : 'write_file'
+              const args = options.humanOnly
+                ? { query: 'A fact requiring human approval' }
+                : plan
+                  ? { plan: '# The original plan\n\nOnly change approved.txt.' }
+                  : { path: 'approved.txt', text: 'The exact delegated change' }
+              await input.commit('assistant', [{ type: 'tool_call', name, args, callId: 'source-approval' }])
+              const result = await input.execute(name, args, 'source-approval')
+              approvalResults.push(result.isError ?? false)
+              modes.push((await input.beforeRequest(input.request, crypto.randomUUID())).context?.mode ?? 'default')
+            } else {
+              const result = await input.execute(
+                'request_user_input',
+                { questions: [options.question ?? question] },
+                'source-question',
+              )
+              sourceAnswers.push(userInputResponseSchema.parse(JSON.parse(result.text) as unknown))
+            }
           } else {
             if (input.run.input.delegatedDecision) {
               try {
@@ -148,7 +175,14 @@ async function fixture(
                 reply:
                   options.reply === 'human'
                     ? { kind: 'human', reason: 'missing_information' }
-                    : { kind: 'answered', response: { answers: { scope: { answers: ['API'] } } } },
+                    : {
+                        kind: 'answered',
+                        response: {
+                          answers: options.approvalChoice
+                            ? { decision: { answers: [options.approvalChoice] } }
+                            : { scope: { answers: ['API'] } },
+                        },
+                      },
               },
               'target-reply',
             )
@@ -196,6 +230,10 @@ async function fixture(
     )
     const source = sessions[0]!,
       target = sessions[1]!
+    if (options.approvalChoice) await kernel.setPermissionMode('ask')
+    if (options.humanOnly) await kernel.changePlugin('web-search.responses', true)
+    const plan = options.approvalChoice === 'implement' || options.approvalChoice === 'continue'
+    if (plan) await kernel.plugins.get<ModeService>('mode').set(source.id, 'plan')
     const settings = new SettingsService(kernel.storage)
     const snapshot = await settings.get({ kind: 'session', targetId: source.id })
     await settings.apply({
@@ -235,6 +273,9 @@ async function fixture(
       target,
       received,
       sourceAnswers,
+      approvalResults,
+      modes,
+      writePath: join(root, 'approved.txt'),
       targetReceipts,
       rejectedTools,
       ready: targetReady.promise,
@@ -248,7 +289,12 @@ async function fixture(
         const run = await kernel.submit(
           source.id,
           'source-original',
-          { text: 'source-task', images: [] },
+          {
+            text: 'source-task',
+            images: [],
+            ...(options.approvalChoice ? { approval: 'ask' as const } : {}),
+            ...(plan ? { mode: 'plan' as const } : {}),
+          },
           'local-fixture',
         )
         return { run, targetRun }
@@ -268,6 +314,234 @@ async function fixture(
     throw error
   }
 }
+
+test.each(['allowed', 'denied', 'implement', 'continue'] as const)(
+  'a delegated %s choice resumes the original tool or Plan decision',
+  async (choice) => {
+    const f = await fixture({ approvalChoice: choice })
+    try {
+      const { run } = await f.start()
+      await until(async () => {
+        const current = await f.kernel.storage.call('run', run.id)
+        if (current.status === 'failed') throw new Error(current.error ?? 'The original source Run failed')
+        return current.status === 'completed' ? true : undefined
+      })
+      await f.kernel.waitForIdle()
+      expect((await originalApproval(f.kernel, f.source.id))?.status).toBe(
+        ['allowed', 'implement'].includes(choice) ? 'allowed' : 'denied',
+      )
+      expect(f.approvalResults).toEqual([choice === 'denied' || choice === 'continue'])
+      expect(f.modes).toEqual([choice === 'continue' ? 'plan' : 'default'])
+      expect(await Bun.file(f.writePath).exists()).toBe(choice === 'allowed')
+      const actual = f.received.find((input) => input.run.input.delegatedDecision)
+      if (!actual) throw new Error('Missing the actual dedicated decision Run')
+      const resolved = (await f.kernel.storage.call('events', f.source.id, 0, 256)).filter((event) =>
+        ['approval.resolved', 'plan_exit.resolved'].includes(event.type),
+      )
+      expect(resolved).toHaveLength(1)
+      expect(resolved[0]?.data).toMatchObject({
+        automatic: { source: 'delegate', delegation: { targetSessionId: f.target.id, targetRunId: actual.run.id } },
+      })
+      expect((await f.kernel.snapshot(f.source.id)).userInputs).toEqual([])
+    } finally {
+      await f.close()
+    }
+  },
+)
+
+test.each(['allowed', 'implement'] as const)(
+  'a lost %s approval acknowledgement reads its canonical result without replay',
+  async (choice) => {
+    const f = await fixture({ approvalChoice: choice })
+    const original = f.kernel.storage.call.bind(f.kernel.storage)
+    let writes = 0
+    try {
+      f.kernel.storage.call = async <Name extends keyof StorageMethods>(
+        method: Name,
+        ...args: Parameters<StorageMethods[Name]>
+      ): Promise<ReturnType<StorageMethods[Name]>> => {
+        const result = await original(method, ...args)
+        if (method === (choice === 'allowed' ? 'resolveApproval' : 'resolvePlanExit')) {
+          writes++
+          if (writes === 1)
+            throw new HbarError('STORAGE_RESULT_UNKNOWN', 'Injected source approval acknowledgement loss')
+        }
+        return result
+      }
+      const { run } = await f.start()
+      await until(async () => {
+        const current = await f.kernel.storage.call('run', run.id)
+        if (current.status === 'failed') throw new Error(current.error ?? 'The original source Run failed')
+        return current.status === 'completed' ? true : undefined
+      })
+      await f.kernel.waitForIdle()
+      expect(writes).toBe(1)
+      expect(f.approvalResults).toEqual([false])
+      expect(f.modes).toEqual(['default'])
+      expect(await Bun.file(f.writePath).exists()).toBe(choice === 'allowed')
+      const events = await f.kernel.storage.call('events', f.source.id, 0, 256)
+      expect(events.filter((event) => ['approval.resolved', 'plan_exit.resolved'].includes(event.type))).toHaveLength(1)
+    } finally {
+      f.kernel.storage.call = original
+      await f.close()
+    }
+  },
+)
+
+test('a human-only tool keeps the original approval and does not create a delegated grant', async () => {
+  const f = await fixture({ approvalChoice: 'allowed', humanOnly: true })
+  try {
+    const { run } = await f.start()
+    const approval = await until(() => originalApproval(f.kernel, f.source.id))
+    expect(approval.status).toBe('pending')
+    expect(
+      await f.kernel.storage.call('delegatedInputRead', { sessionId: f.source.id, requestId: approval.id }),
+    ).toBeNull()
+    expect(f.received.filter((input) => input.session.id === f.target.id)).toHaveLength(0)
+    await f.kernel.resolveApproval(approval.id, 'denied')
+    await until(async () => ((await f.kernel.storage.call('run', run.id)).status === 'completed' ? true : undefined))
+    expect(f.approvalResults).toEqual([true])
+  } finally {
+    await f.close()
+  }
+})
+
+test('manual takeover during delegated approval preserves an active target original task', async () => {
+  const f = await fixture({ approvalChoice: 'allowed', active: true, deferReply: true })
+  try {
+    const { run, targetRun } = await f.start()
+    if (!targetRun) throw new Error('Missing original target task')
+    await f.ready
+    const approval = await until(() => originalApproval(f.kernel, f.source.id))
+    await f.kernel.resolveApproval(approval.id, 'denied')
+    await until(async () => ((await f.kernel.storage.call('run', run.id)).status === 'completed' ? true : undefined))
+    expect(f.approvalResults).toEqual([true])
+    expect(await Bun.file(f.writePath).exists()).toBe(false)
+    expect((await f.kernel.storage.call('run', targetRun.id)).status).toBe('running')
+    f.releaseReply()
+    f.release()
+    await until(async () =>
+      (await f.kernel.storage.call('run', targetRun.id)).status === 'completed' ? true : undefined,
+    )
+    const events = await f.kernel.storage.call('events', f.source.id, 0, 256)
+    expect(events.find((event) => event.type === 'approval.resolved')?.data).not.toHaveProperty('automatic')
+  } finally {
+    await f.close()
+  }
+})
+
+test('an active target approves an exact source write and then continues its original task', async () => {
+  const f = await fixture({ approvalChoice: 'allowed', active: true })
+  try {
+    const { run, targetRun } = await f.start()
+    if (!targetRun) throw new Error('Missing target original task')
+    await until(async () => ((await f.kernel.storage.call('run', run.id)).status === 'completed' ? true : undefined))
+    expect(await Bun.file(f.writePath).text()).toBe('The exact delegated change')
+    expect((await f.kernel.storage.call('run', targetRun.id)).status).toBe('running')
+    expect((await originalApproval(f.kernel, f.source.id))?.status).toBe('allowed')
+    expect(f.received.filter((input) => input.run.input.delegatedDecision)).toHaveLength(0)
+    f.release()
+    await until(async () =>
+      (await f.kernel.storage.call('run', targetRun.id)).status === 'completed' ? true : undefined,
+    )
+  } finally {
+    await f.close()
+  }
+})
+
+test('a declined approval delegation keeps the original approval for a human without fallback', async () => {
+  const f = await fixture({ approvalChoice: 'allowed', reply: 'human' })
+  try {
+    const { run } = await f.start()
+    const approval = await until(() => originalApproval(f.kernel, f.source.id))
+    await until(async () =>
+      (await f.kernel.storage.call('events', f.source.id, 0, 256)).some(
+        (event) => event.type === 'approval.automationWaiting',
+      )
+        ? true
+        : undefined,
+    )
+    expect((await f.kernel.storage.call('approval', approval.id)).status).toBe('pending')
+    expect((await f.kernel.storage.call('run', run.id)).status).toBe('waiting_approval')
+    expect(await Bun.file(f.writePath).exists()).toBe(false)
+    await f.kernel.resolveApproval(approval.id, 'denied')
+    await until(async () => ((await f.kernel.storage.call('run', run.id)).status === 'completed' ? true : undefined))
+    const events = await f.kernel.storage.call('events', f.source.id, 0, 256)
+    expect(events.find((event) => event.type === 'approval.resolved')?.data).not.toHaveProperty('automatic')
+  } finally {
+    await f.close()
+  }
+})
+
+test('an unknown approval without a durable result does not replay or execute the source write', async () => {
+  const f = await fixture({ approvalChoice: 'allowed' })
+  const original = f.kernel.storage.call.bind(f.kernel.storage)
+  let attempts = 0
+  try {
+    f.kernel.storage.call = async <Name extends keyof StorageMethods>(
+      method: Name,
+      ...args: Parameters<StorageMethods[Name]>
+    ): Promise<ReturnType<StorageMethods[Name]>> => {
+      if (method === 'resolveApproval') {
+        attempts++
+        throw new HbarError('STORAGE_RESULT_UNKNOWN', 'No committed source result')
+      }
+      return original(method, ...args)
+    }
+    const { run } = await f.start()
+    await until(async () => ((await f.kernel.storage.call('run', run.id)).status === 'completed' ? true : undefined))
+    expect(attempts).toBe(1)
+    expect(f.approvalResults).toEqual([true])
+    expect(await Bun.file(f.writePath).exists()).toBe(false)
+    const approval = await originalApproval(f.kernel, f.source.id)
+    if (!approval) throw new Error('Missing original approval')
+    expect(await f.kernel.storage.call('approvalResolution', approval.id)).toBeNull()
+  } finally {
+    f.kernel.storage.call = original
+    await f.close()
+  }
+})
+
+test('a concurrent human Plan decision wins after the target reply but before source settlement', async () => {
+  const f = await fixture({ approvalChoice: 'implement' })
+  const original = f.kernel.storage.call.bind(f.kernel.storage)
+  let injected = false
+  try {
+    f.kernel.storage.call = async <Name extends keyof StorageMethods>(
+      method: Name,
+      ...args: Parameters<StorageMethods[Name]>
+    ): Promise<ReturnType<StorageMethods[Name]>> => {
+      if (method === 'resolvePlanExit' && !injected) {
+        injected = true
+        const approval = await originalApproval(f.kernel, f.source.id)
+        if (!approval) throw new Error('Missing original Plan request')
+        await f.kernel.resolvePlanExit({
+          sessionId: f.source.id,
+          approvalId: approval.id,
+          runId: approval.runId,
+          callId: approval.callId,
+          decision: 'continue',
+          actorId: 'manual-owner',
+        })
+      }
+      return original(method, ...args)
+    }
+    const { run } = await f.start()
+    await until(async () => ((await f.kernel.storage.call('run', run.id)).status === 'completed' ? true : undefined))
+    expect(injected).toBe(true)
+    expect(f.approvalResults).toEqual([true])
+    expect(f.modes).toEqual(['plan'])
+    const approval = await originalApproval(f.kernel, f.source.id)
+    expect(approval).toMatchObject({ status: 'denied', decidedBy: 'manual-owner' })
+    const events = await f.kernel.storage.call('events', f.source.id, 0, 256)
+    expect(events.filter((event) => event.type === 'plan_exit.resolved')).toHaveLength(1)
+    expect(events.find((event) => event.type === 'plan_exit.resolved')?.data).not.toHaveProperty('automatic')
+    expect(events.filter((event) => event.type === 'approval.automationWaiting')).toHaveLength(0)
+  } finally {
+    f.kernel.storage.call = original
+    await f.close()
+  }
+})
 
 test('an idle target answers through its actual dedicated Run while source idle timing remains suspended', async () => {
   const f = await fixture({ delayMs: 1_100, idleMs: 700 })

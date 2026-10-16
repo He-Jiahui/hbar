@@ -15,6 +15,7 @@ import { createSessionCommandTools } from './session-command-tools'
 import { createDelegatedInputTools, DELEGATED_INPUT_TOOL_NAMES } from './delegated-input-tools'
 import { coordinateDelegatedInput } from './delegated-input-coordinator'
 import type { DelegatedInputWake } from '@hbar/contracts/delegated-user-input'
+import { delegatedApprovalRequest, delegatedApprovalSubjectSchema } from '@hbar/contracts/delegated-approval'
 import type { SessionCommandDiscoveryPort } from './session-command-port'
 import type { ToolMutationAdmissionPort } from './mutation-admission'
 import { recommendedInputDecision } from './user-input-decisions'
@@ -3841,8 +3842,13 @@ export class Kernel {
       ...(executionTarget ? { executionTarget } : {}),
     }
     let resolve!: (value: ApprovalResolution) => void
+    let settled = false
     const outcome = new Promise<ApprovalResolution>((done) => {
-      resolve = done
+      resolve = (value) => {
+        if (settled) return
+        settled = true
+        done(value)
+      }
     })
     this.approvals.set(approval.id, resolve)
     let resumeIdle: (() => void) | undefined
@@ -3873,29 +3879,39 @@ export class Kernel {
         .finally(() => resolve({ source: 'abort', reason: hostSignal.reason }))
     }
     try {
-      this.publishEvent(await this.storage.call('createApproval', approval, {
-        policy: await this.permissionSettings.decisionPolicy(approval.sessionId),
-        ...(automaticAdmission ? { admission: automaticAdmission } : {}),
-      }))
+      const policy = await this.permissionSettings.decisionPolicy(approval.sessionId)
+      this.publishEvent(
+        await this.storage.call('createApproval', approval, {
+          policy,
+          ...(automaticAdmission ? { admission: automaticAdmission } : {}),
+        }),
+      )
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'waiting_approval'))
       const active = this.active.get(context.session.id)
       if (active?.run.id === context.run.id) resumeIdle = active.idleTimeout.suspend()
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
-      if ((tool === 'exit_plan_mode' || automaticAdmission) && !hostSignal.aborted)
-        await this.automateApproval(approval, hostSignal, automaticAdmission)
-      return {
-        ...(await this.withHumanWait(
+      const wait = <Result,>(operation: () => Promise<Result>) =>
+        this.withHumanWait(
           context.run.id,
           context.callId,
-          {
-            kind: tool === 'exit_plan_mode' ? 'plan_exit' : 'approval',
-            id: approval.id,
-            revision: 1,
-          },
-          () => outcome,
-        )),
+          { kind: tool === 'exit_plan_mode' ? 'plan_exit' : 'approval', id: approval.id, revision: 1 },
+          operation,
+        )
+      if ((tool === 'exit_plan_mode' || automaticAdmission) && !hostSignal.aborted && !settled) {
+        if (policy.policy.mode === 'delegate') {
+          const commit = await wait(async () => {
+            const action = await this.automateApproval(approval, hostSignal, policy, () => !settled, automaticAdmission)
+            if (!action) await outcome
+            return action
+          })
+          // A reply is durable before resuming, but any new work must reacquire real execution capacity first.
+          if (commit && !settled) await commit()
+        } else await this.automateApproval(approval, hostSignal, policy, () => !settled, automaticAdmission)
+      }
+      return {
+        ...(await (settled ? outcome : wait(() => outcome))),
         approvalId: approval.id,
       }
     } finally {
@@ -3919,15 +3935,81 @@ export class Kernel {
   private async automateApproval(
     approval: Approval,
     signal: AbortSignal,
+    policy: AutonomyPolicyResolution,
+    pending: () => boolean,
     admission?: AutomaticToolApprovalAdmission,
-  ): Promise<void> {
-    const policy = await this.permissionSettings.decisionPolicy(approval.sessionId)
-    if (policy.policy.mode !== 'recommended') return
+  ): Promise<(() => Promise<void>) | undefined> {
+    if (policy.policy.mode === 'wait_user') return undefined
     const principal = await this.storage.call('runExecutionPrincipal', approval.runId)
-    if (!principal) return
+    if (!principal) return undefined
     signal.throwIfAborted()
     const run = await this.storage.call('run', approval.runId)
     await this.assertRunPermission(run)
+    if (policy.policy.mode === 'delegate') {
+      const subject = delegatedApprovalSubjectSchema.parse({
+        kind: approval.tool === 'exit_plan_mode' ? 'plan_exit' : 'approval',
+        approval: delegatedApprovalSubjectSchema.shape.approval.strip().parse(approval),
+        context: { policy, ...(admission ? { admission } : {}) },
+      })
+      let answered = false
+      const coordinate = (commit: boolean) =>
+        coordinateDelegatedInput(this.storage, {
+          kind: subject.kind,
+          request: delegatedApprovalRequest(subject),
+          policy,
+          revision: 1,
+          signal,
+          pending,
+          permission: (id) => this.sessionPermissionMode(id),
+          wake: (value, wakeSignal) => this.wakeDelegatedInput(value, wakeSignal),
+          publish: (event) => this.publishEvent(event),
+          settle: async (response, _error, evidence) => {
+            if (!pending()) return false
+            if (!commit) {
+              answered = true
+              return true
+            }
+            signal.throwIfAborted()
+            await this.assertRunPermission(await this.storage.call('run', approval.runId))
+            const choice = response.answers.decision?.answers[0]
+            const automatic = {
+              version: 1 as const,
+              source: 'delegate' as const,
+              policy,
+              delegation: evidence.delegation,
+            }
+            if (subject.kind === 'plan_exit') {
+              if (choice !== 'implement' && choice !== 'continue')
+                throw new HbarError('USER_INPUT_INVALID', 'Invalid Plan decision')
+              await this.resolvePlanExit({
+                sessionId: approval.sessionId,
+                approvalId: approval.id,
+                runId: approval.runId,
+                callId: approval.callId,
+                decision: choice,
+                actorId: principal.actorId,
+                automatic,
+              })
+            } else {
+              if (!admission || (choice !== 'allowed' && choice !== 'denied'))
+                throw new HbarError('USER_INPUT_INVALID', 'Invalid tool approval decision')
+              await this.resolveApproval(approval.id, choice, { ...automatic, admission })
+            }
+            return true
+          },
+          waiting: async (reason) => {
+            if (pending() && (await this.storage.call('approval', approval.id)).status === 'pending')
+              await this.append(
+                approval.sessionId,
+                'approval.automationWaiting',
+                { version: 1, approvalId: approval.id, policy, reason },
+                approval.runId,
+              )
+          },
+        })
+      await coordinate(false)
+      return answered ? () => coordinate(true) : undefined
+    }
     try {
       if (approval.tool === 'exit_plan_mode')
         await this.resolvePlanExit({
@@ -3953,6 +4035,14 @@ export class Kernel {
       )
         throw error
       // A manual decision or a policy change wins; never replace it with an automatic retry.
+    }
+    return undefined
+  }
+  private async wakeDelegatedInput(value: DelegatedInputWake, signal: AbortSignal): Promise<void> {
+    if (this.options.delegationWake) await this.options.delegationWake(value, signal)
+    else {
+      signal.throwIfAborted()
+      this.kick(value.targetSessionId)
     }
   }
   private async inputDecisionIsCurrent(
@@ -4254,10 +4344,7 @@ export class Kernel {
               signal,
               pending: () => !settled,
               permission: (id) => this.sessionPermissionMode(id),
-              wake: async (value, wakeSignal) => {
-                if (this.options.delegationWake) await this.options.delegationWake(value, wakeSignal)
-                else this.kick(value.targetSessionId)
-              },
+              wake: (value, wakeSignal) => this.wakeDelegatedInput(value, wakeSignal),
               publish: (event) => this.publishEvent(event),
               settle,
               waiting: async (reason) => {
@@ -4356,7 +4443,11 @@ export class Kernel {
   async resolveApproval(id: string, decision: Approval['status'], automatic?: AutomaticToolApprovalDecision) {
     if (decision !== 'cancelled' && (await this.storage.call('approval', id)).tool === 'exit_plan_mode')
       throw new HbarError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
-    const result = await this.storage.call('resolveApproval', id, decision, automatic)
+    const result = await this.storage.call('resolveApproval', id, decision, automatic).catch(async (error: unknown) => {
+      const known = await this.storage.call('approvalResolution', id)
+      if (!known) throw error
+      return known
+    })
     if (result) {
       this.publishEvent(result.event)
       for (const event of result.delegationEvents) this.publishEvent(event)
@@ -4413,7 +4504,16 @@ export class Kernel {
         input.feedback,
         input.actorId,
         input.automatic,
-      )
+      ).catch(async (error: unknown) => {
+        const known = await this.storage.call('approvalResolution', input.approvalId)
+        if (!known || known.event.type !== 'plan_exit.resolved' ||
+          known.approval.sessionId !== input.sessionId || known.approval.runId !== input.runId ||
+          known.approval.callId !== input.callId || known.approval.decidedBy !== input.actorId ||
+          known.approval.status !== (input.decision === 'implement' ? 'allowed' : 'denied') ||
+          (known.approval.feedback ?? '') !== (input.feedback?.trim() ?? '')
+        ) throw error
+        return known
+      })
     const resolved =
       input.decision === 'implement'
         ? await this.plugins.get<ModeService>('mode').commitExit(input.sessionId, async () => {

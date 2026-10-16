@@ -27,6 +27,8 @@ const recoverable = new Set([
   'DELEGATION_CAPACITY',
   'DELEGATION_POLICY_INVALID',
   'DECISION_CONFLICT',
+  'PLAN_EXIT_SETTLED',
+  'PLAN_EXIT_UNAVAILABLE',
 ])
 const identity = (value: DelegatedInputRecord) => ({ sessionId: value.sessionId, requestId: value.requestId })
 const mutation = (value: DelegatedInputRecord) => ({
@@ -40,6 +42,7 @@ export async function coordinateDelegatedInput(
   storage: StoragePort,
   input: {
     request: UserInputRequest
+    kind?: 'approval' | 'plan_exit'
     policy: AutonomyPolicyResolution
     revision: number
     signal: AbortSignal
@@ -88,6 +91,7 @@ export async function coordinateDelegatedInput(
     const accepted = await storage
       .call('delegatedInputAccept', {
         ...source,
+        kind: input.kind ?? 'questionnaire',
         expectedQuestionRevision: input.revision,
         policy,
       })
@@ -95,6 +99,7 @@ export async function coordinateDelegatedInput(
         const known = await storage.call('delegatedInputRead', source)
         if (
           !known ||
+          (known.approval?.kind ?? 'questionnaire') !== (input.kind ?? 'questionnaire') ||
           known.questionRevision !== input.revision ||
           JSON.stringify(known.policy) !== JSON.stringify(policy)
         )

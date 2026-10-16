@@ -6,6 +6,7 @@ import { createUserInputStateStorage } from './user-input-state'
 import { createDelegatedUserInputStorage } from './delegated-user-input'
 import { createDelegatedInputDelivery } from './delegated-input-delivery'
 import { createDelegatedApprovalSource, DELEGATED_APPROVAL_INDEX } from './delegated-approval-source'
+import { createApprovalResolutionStorage, APPROVAL_RESOLUTION_INDEX } from './approval-resolutions'
 import { delegatedInputAcceptSchema, delegatedInputBindSchema, delegatedInputCompleteSchema, delegatedInputFinishSchema, delegatedInputDeliverSchema, delegatedInputRunSchema } from '@hbar/contracts/delegated-user-input'
 import { assertAutomaticPlanExit } from './automatic-plan-exit'
 import { assertAutomaticDecisionPolicy } from './automatic-decision-policy'
@@ -673,6 +674,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
     })
     const decisions = createDecisionStorage(db, appendEvent)
+    const approvalResolutions = createApprovalResolutionStorage(db, (id) => methods.approval(id))
     const autonomyRetries = createAutonomyRetryStorage(db, appendEvent, {
       run: (id) => methods.run(id),
       hasPendingCommands: (sessionId) => commandExecutionReceipts.pending(sessionId).items.length > 0,
@@ -706,6 +708,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       db.exec(AUTONOMY_RETRY_INDEX)
       db.exec(EXECUTION_PRINCIPAL_INDEX)
       db.exec(DELEGATED_APPROVAL_INDEX)
+      db.exec(APPROVAL_RESOLUTION_INDEX)
       db.exec(`CREATE INDEX IF NOT EXISTS events_live_guidance_run_seq ON events(sessionId,runId,seq)
         WHERE type='message.committed' AND (json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL
           OR json_extract(data,'$.decisionDelegation.targetRunId') IS NOT NULL);`)
@@ -3319,6 +3322,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         })()
       },
       approval: (id) => approvalRow(db.query('SELECT * FROM approvals WHERE id=?').get(id) as Row | null),
+      approvalResolution: approvalResolutions.read,
       resolveApproval: (id, status, rawAutomatic) =>
         db.transaction(() => {
           const approval = methods.approval(id)

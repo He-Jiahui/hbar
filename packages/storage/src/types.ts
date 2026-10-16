@@ -624,6 +624,7 @@ export interface StorageMethods {
     automatic?: AutomaticPlanExitDecision,
   ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null; delegationEvents: SessionEvent[] }
   approval(id: string): Approval
+  approvalResolution(id: string): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null; delegationEvents: SessionEvent[] } | null
   toolStart(
     sessionId: string,
     runId: string,
