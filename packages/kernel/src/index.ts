@@ -2092,7 +2092,20 @@ export class Kernel {
   private kick(sessionId: string) {
     this.scheduledWakeups.cancel(sessionId)
     this.wakeups.add(sessionId)
-    if (this.drains.has(sessionId) || this.closing || this.maintenance || !this.readyForRuns) return
+    this.pumpWakeups()
+  }
+  private pumpWakeups(): void {
+    if (this.closing || this.maintenance || !this.readyForRuns) return
+    // Shared by startup, submissions and idle continuations. Keep thirty-way
+    // execution possible while bounding the claim/idle RPC fanout per owner.
+    for (const sessionId of this.wakeups) {
+      if (this.drains.size >= 32) return
+      if (this.drains.has(sessionId)) continue
+      this.wakeups.delete(sessionId)
+      this.startDrain(sessionId)
+    }
+  }
+  private startDrain(sessionId: string): void {
     const drain = this.drain(sessionId)
       .catch((error) => {
         const code = error instanceof HbarError ? error.code : 'KERNEL_EXECUTION_FAILED'
@@ -2114,7 +2127,7 @@ export class Kernel {
       })
       .finally(() => {
         this.drains.delete(sessionId)
-        if (this.wakeups.delete(sessionId) && !this.closing) this.kick(sessionId)
+        this.pumpWakeups()
       })
     this.drains.set(sessionId, drain)
   }
@@ -2178,6 +2191,12 @@ export class Kernel {
         throw error
       }
       if (claimed) await this.options.execution?.release(claimed.lease)
+      // Rotate after a Run so a busy Session cannot starve queued Sessions.
+      if (!this.closing && this.readyForRuns) {
+        this.wakeups.delete(sessionId)
+        this.wakeups.add(sessionId)
+      }
+      return
     }
   }
   private async executeClaimed(sessionId: string, run: Run): Promise<void> {
@@ -4591,6 +4610,7 @@ export class Kernel {
     this.removeStorageFatalListener = undefined
     this.sessionSummaryCoordinator.close()
     this.scheduledWakeups.close()
+    this.wakeups.clear()
     this.schemaCallbacks.dispose()
     this.directoryQueries.dispose()
     for (const active of this.active.values())
