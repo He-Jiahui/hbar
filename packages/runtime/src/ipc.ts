@@ -96,6 +96,25 @@ export interface IpcCallOptions {
   readonly ownership?: ExecutionOwnership | undefined
 }
 export interface IpcPeerOptions {
+  /** Fixed protocol metadata only; delivered synchronously before fail-closed cleanup. */
+  readonly onProtocolFailure?: (event: {
+    readonly reason:
+      | 'frame_schema'
+      | 'owner'
+      | 'fragment_sequence'
+      | 'payload'
+      | 'decode'
+      | 'transport_send'
+      | 'dispatch'
+      | 'send_failure'
+    readonly errorCode:
+      | 'IPC_PROTOCOL'
+      | 'IPC_OWNER_CHANGED'
+      | 'IPC_PAYLOAD_LIMIT'
+      | 'IPC_FRAGMENT_TIMEOUT'
+      | 'IPC_BUSY'
+      | 'IPC_TRANSPORT_SEND'
+  }) => void
   readonly owner: RuntimeOwner
   readonly remote: RuntimeOwner
   readonly transport: IpcTransport
@@ -261,6 +280,47 @@ export class IpcPeer {
   private sendingBytes = 0
   private sendingMessages = 0
   private failure: HbarError | null = null
+  private protocolFailureObserved = false
+
+  private protocolFailure(
+    reason: Parameters<NonNullable<IpcPeerOptions['onProtocolFailure']>>[0]['reason'],
+    errorCode: Parameters<NonNullable<IpcPeerOptions['onProtocolFailure']>>[0]['errorCode'],
+  ): void {
+    if (this.failure || this.protocolFailureObserved) return
+    this.protocolFailureObserved = true
+    try {
+      this.options.onProtocolFailure?.({ reason, errorCode })
+    } catch {
+      console.error('[hbar runtime] protocol diagnostic observer failed')
+    }
+  }
+
+  private sendFrame(frame: IpcFrame): void {
+    try {
+      this.options.transport.send(frame)
+    } catch (error) {
+      this.protocolFailure('transport_send', 'IPC_TRANSPORT_SEND')
+      throw error
+    }
+  }
+
+  private closeSendFailure(error: unknown): void {
+    const code =
+      error instanceof HbarError && ['IPC_FRAGMENT_TIMEOUT', 'IPC_BUSY', 'IPC_PAYLOAD_LIMIT'].includes(error.code)
+        ? error.code
+        : 'IPC_PROTOCOL'
+    this.protocolFailure(
+      'send_failure',
+      code === 'IPC_FRAGMENT_TIMEOUT'
+        ? 'IPC_FRAGMENT_TIMEOUT'
+        : code === 'IPC_BUSY'
+          ? 'IPC_BUSY'
+          : code === 'IPC_PAYLOAD_LIMIT'
+            ? 'IPC_PAYLOAD_LIMIT'
+            : 'IPC_PROTOCOL',
+    )
+    this.close()
+  }
 
   constructor(private readonly options: IpcPeerOptions) {
     this.owner = Object.freeze(runtimeOwnerSchema.parse(options.owner))
@@ -431,8 +491,12 @@ export class IpcPeer {
 
   receive(value: unknown): void {
     if (this.failure) return
+    let reason: Parameters<NonNullable<IpcPeerOptions['onProtocolFailure']>>[0]['reason'] = 'frame_schema'
+    let errorCode: Parameters<NonNullable<IpcPeerOptions['onProtocolFailure']>>[0]['errorCode'] = 'IPC_PROTOCOL'
     try {
       const frame = frameSchema.parse(value)
+      reason = 'owner'
+      errorCode = 'IPC_OWNER_CHANGED'
       if (frame.from !== this.remote.incarnation || frame.to !== this.owner.incarnation)
         throw new HbarError('IPC_OWNER_CHANGED', 'IPC process incarnation does not match')
       if (frame.kind === 'ack') {
@@ -445,6 +509,8 @@ export class IpcPeer {
         }
         return
       }
+      reason = 'fragment_sequence'
+      errorCode = 'IPC_PROTOCOL'
       if (frame.index >= frame.total) throw new HbarError('IPC_PROTOCOL', 'Invalid fragment index')
       let assembly = this.assemblies.get(frame.id)
       if (!assembly) {
@@ -454,25 +520,28 @@ export class IpcPeer {
           total: frame.total,
           parts: [],
           bytes: 0,
-          timer: setTimeout(
-            () => this.close(new HbarError('IPC_FRAGMENT_TIMEOUT', 'Runtime transfer stalled')),
-            this.fragmentTimeoutMs,
-          ),
+          timer: setTimeout(() => {
+            this.protocolFailure('fragment_sequence', 'IPC_FRAGMENT_TIMEOUT')
+            this.close(new HbarError('IPC_FRAGMENT_TIMEOUT', 'Runtime transfer stalled'))
+          }, this.fragmentTimeoutMs),
         }
         this.assemblies.set(frame.id, assembly)
       }
       const bytes = new TextEncoder().encode(frame.data).byteLength
-      if (
-        assembly.total !== frame.total ||
-        assembly.parts.length !== frame.index ||
-        assembly.bytes + bytes > this.maximumMessage ||
-        this.assemblyBytes + bytes > this.maximumBytes
-      )
+      if (assembly.total !== frame.total || assembly.parts.length !== frame.index) {
+        errorCode = 'IPC_PAYLOAD_LIMIT'
+        throw new HbarError('IPC_PAYLOAD_LIMIT', 'Runtime transfer exceeds its bound or sequence')
+      }
+      reason = 'payload'
+      errorCode = 'IPC_PAYLOAD_LIMIT'
+      if (assembly.bytes + bytes > this.maximumMessage || this.assemblyBytes + bytes > this.maximumBytes)
         throw new HbarError('IPC_PAYLOAD_LIMIT', 'Runtime transfer exceeds its bound or sequence')
       assembly.parts.push(frame.data)
       assembly.bytes += bytes
       this.assemblyBytes += bytes
-      this.options.transport.send({
+      reason = 'transport_send'
+      errorCode = 'IPC_TRANSPORT_SEND'
+      this.sendFrame({
         kind: 'ack',
         version: 1,
         from: this.owner.incarnation,
@@ -484,9 +553,14 @@ export class IpcPeer {
       clearTimeout(assembly.timer)
       this.assemblies.delete(frame.id)
       this.assemblyBytes -= assembly.bytes
-      this.dispatch(decode(assembly.parts.join('')), assembly.bytes)
-    } catch {
-      this.close(new HbarError('IPC_PROTOCOL', 'Runtime channel failed validation'))
+      reason = 'decode'
+      errorCode = 'IPC_PROTOCOL'
+      const message = decode(assembly.parts.join(''))
+      reason = 'dispatch'
+      this.dispatch(message, assembly.bytes)
+    } catch (error) {
+      this.protocolFailure(reason, errorCode)
+      this.close(new HbarError('IPC_PROTOCOL', 'Runtime channel failed validation', { cause: error }))
     }
   }
 
@@ -542,7 +616,7 @@ export class IpcPeer {
       this.pending.delete(callId)
       this.queue = this.queue.filter((id) => id !== callId)
       this.queuedBytes -= pending.bytes
-    } else void this.sendMessage({ kind: 'cancel', id: callId }).catch(() => this.close())
+    } else void this.sendMessage({ kind: 'cancel', id: callId }).catch((error) => this.closeSendFailure(error))
   }
 
   private drain(): void {
@@ -562,7 +636,7 @@ export class IpcPeer {
         this.close(new HbarError('IPC_PROTOCOL', 'Runtime request lost its captured input'))
         return
       }
-      void this.sendEncoded(encoded).catch(() => this.close())
+      void this.sendEncoded(encoded).catch((error) => this.closeSendFailure(error))
     }
   }
 
@@ -600,6 +674,7 @@ export class IpcPeer {
       }
       case 'call': {
         if (this.incoming.has(message.id)) {
+          this.protocolFailure('dispatch', 'IPC_PROTOCOL')
           this.close(new HbarError('IPC_PROTOCOL', 'Duplicate runtime invocation'))
           return
         }
@@ -611,7 +686,7 @@ export class IpcPeer {
           this.incomingBytes + bytes > this.maximumBytes
         ) {
           void this.sendError(message.id, new HbarError('IPC_BUSY', 'Runtime execution capacity is exhausted')).catch(
-            () => this.close(),
+            (error) => this.closeSendFailure(error),
           )
           return
         }
@@ -639,7 +714,7 @@ export class IpcPeer {
       const control = this.controlMethods.has(request.message.method)
       if (!control) this.incomingRunningNormal++
       void this.invoke(request)
-        .catch(() => this.close())
+        .catch((error) => this.closeSendFailure(error))
         .finally(() => {
           if (!this.incoming.delete(callId)) return
           this.incomingBytes -= request.bytes
@@ -710,7 +785,7 @@ export class IpcPeer {
           }, this.fragmentTimeoutMs)
           this.acknowledgements.set(key, { resolve, reject, timer })
           try {
-            this.options.transport.send({
+            this.sendFrame({
               kind: 'fragment',
               version: 1,
               from: this.owner.incarnation,

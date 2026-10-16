@@ -152,6 +152,21 @@ export async function runRuntimeProcess(
       },
     },
     onFailure: () => stop(76, 'transport_failure'),
+    onProtocolFailure: ({ reason, errorCode }) => {
+      const metadata = diagnosticEvent({
+        component: 'host',
+        level: 'error',
+        event: 'host.runtime_entry_ipc_failure',
+        phase: reason,
+        errorCode,
+        contextId: owner.unitId,
+        requestId: owner.incarnation,
+        processId: process.pid,
+        outcome: 'failure',
+      })
+      // The broken channel cannot acknowledge diagnostics; preserve fixed fields before exit.
+      writeRuntimeExceptionDiagnostic(JSON.stringify(metadata) + '\n', options.write)
+    },
     onTimeout: () => stop(76, 'dispatched_timeout'),
     onCallTimeout: (event) => {
       const snapshot = peer.snapshot()
