@@ -154,6 +154,7 @@ export async function runRuntimeProcess(
     onFailure: () => stop(76, 'transport_failure'),
     onTimeout: () => stop(76, 'dispatched_timeout'),
     onCallTimeout: (event) => {
+      const snapshot = peer.snapshot()
       const metadata = diagnosticEvent({
         component: 'host',
         level: 'error',
@@ -163,11 +164,33 @@ export async function runRuntimeProcess(
         requestId: owner.incarnation,
         processId: process.pid,
         callId: event.callId,
-        method: event.method,
+        method: [
+          'driver.callback',
+          'driver.summarize',
+          'kernel.storage',
+          'kernel.plugins.invoke',
+          'kernel.plugins.callback',
+          'kernel.plugins.control',
+          'plugin.application.invoke',
+          'plugin.application.callback',
+          'plugin.application.control',
+          'controller.application.invoke',
+          'controller.application.callback',
+          'controller.application.control',
+          'execution.claim',
+          'execution.release',
+        ].includes(event.method)
+          ? event.method
+          : 'runtime.other',
+        pending: snapshot.inFlight + snapshot.queued,
+        recordsIn: snapshot.incoming + snapshot.incomingQueued,
+        bytesIn: snapshot.incomingBytes,
+        bytesOut: snapshot.queuedBytes,
         durationMs: event.elapsedMs,
         errorCode: 'RUNTIME_CALL_TIMEOUT',
         outcome: 'failure',
       })
+      writeRuntimeExceptionDiagnostic(JSON.stringify(metadata) + '\n', options.write)
       peer.notify('runtime.diagnostic', metadata).catch(() => {
         console.error('[hbar runtime] timeout diagnostic delivery failed')
       })
