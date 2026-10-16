@@ -563,6 +563,14 @@ export const inputSchema = z.object({
   sandbox: sandboxSnapshotRefSchema.optional(),
   mode: runModeSchema.optional(),
   source: runSourceSchema.optional(),
+  /** Host-owned dedicated decision binding. Public submissions cannot create this provenance. */
+  delegatedDecision: z
+    .strictObject({
+      sessionId: idSchema,
+      requestId: idSchema,
+      delegationId: idSchema,
+    })
+    .optional(),
   /** Host-authored delivery provenance; the public run.submit command strips this field. */
   peerMessage: z
     .strictObject({

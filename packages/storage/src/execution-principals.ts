@@ -12,6 +12,9 @@ const eventSchema = z.object({
   seq: z.number(),
 })
 type PrincipalEvent = z.infer<typeof eventSchema>
+export const EXECUTION_PRINCIPAL_INDEX = `CREATE INDEX IF NOT EXISTS events_original_run_principal
+  ON events(sessionId,type,seq DESC) WHERE type IN ('run.queued','run.recoveryQueued')
+  AND json_extract(data,'$.run.input.delegatedDecision') IS NULL;`
 
 /** Indexed journal reads: at most three candidate records, or 32 legacy recovery predecessors. */
 export function createExecutionPrincipalStorage(db: Database) {
@@ -20,6 +23,9 @@ export function createExecutionPrincipalStorage(db: Database) {
     `SELECT ${columns} FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1`,
   )
   const latest = db.query(`SELECT ${columns} FROM events WHERE sessionId=? AND type=? ORDER BY seq DESC LIMIT 1`)
+  const original = db.query(`SELECT ${columns} FROM events WHERE sessionId=? AND type=?
+    AND type IN ('run.queued','run.recoveryQueued') AND json_extract(data,'$.run.input.delegatedDecision') IS NULL
+    ORDER BY seq DESC LIMIT 1`)
   const owner = db.query<{ sessionId: string }, [string]>('SELECT sessionId FROM runs WHERE id=?')
   function decode(event: PrincipalEvent, visited: Set<string>): ExecutionPrincipal | null {
     const value = z.record(z.string(), z.unknown()).parse(JSON.parse(event.data) as unknown)
@@ -62,7 +68,7 @@ export function createExecutionPrincipalStorage(db: Database) {
       idSchema.parse(sessionId)
       const rows = ['session.created', 'run.queued', 'run.recoveryQueued']
         .flatMap((type) => {
-          const row = latest.get(sessionId, type)
+          const row = (type === 'session.created' ? latest : original).get(sessionId, type)
           return row ? [eventSchema.parse(row)] : []
         })
         .sort((left, right) => right.seq - left.seq)

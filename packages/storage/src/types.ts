@@ -301,6 +301,8 @@ export interface StoredSettings {
 
 export interface StorageMethods {
   delegatedInputAccept: ReturnType<typeof createDelegatedUserInputStorage>['accept']
+  delegatedInputDeliver: ReturnType<typeof createDelegatedUserInputStorage>['deliver']
+  delegatedInputAdmitRun: ReturnType<typeof createDelegatedUserInputStorage>['admitRun']
   delegatedInputRead: ReturnType<typeof createDelegatedUserInputStorage>['read']
   delegatedInputBind: ReturnType<typeof createDelegatedUserInputStorage>['bind']
   delegatedInputComplete: ReturnType<typeof createDelegatedUserInputStorage>['complete']

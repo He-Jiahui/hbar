@@ -547,7 +547,7 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
   registry.register(
     runCommands['run.submit'],
     (input, context) => {
-      const { peerMessage: _untrustedPeerMessage, ...cleanInput } = input.input
+      const { peerMessage: _untrustedPeerMessage, delegatedDecision: _untrustedDecision, ...cleanInput } = input.input
       const clean = { ...input, input: cleanInput }
       return submit(clean, context, { id: 'run.submit', input: clean })
     },

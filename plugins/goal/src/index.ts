@@ -518,6 +518,7 @@ class GoalRuntime implements GoalService {
   }
 
   async startRun(event: HookEvents['run.start']) {
+    if (event.run.input.delegatedDecision) return
     await this.serial(event.sessionId, async () => {
       let goal = this.goals.get(event.sessionId)
       const binding = event.run.input.continuation
@@ -611,6 +612,7 @@ class GoalRuntime implements GoalService {
   }
 
   async cancelRun(event: HookEvents['run.cancelRequested']) {
+    if (event.run.input.delegatedDecision) return
     await this.serial(event.sessionId, async () => {
       const goal = this.goals.get(event.sessionId)
       const tracking = this.activeRuns.get(event.runId)

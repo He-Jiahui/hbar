@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { userInputRequestSchema, userInputResponseSchema } from './index'
+import { userInputRequestSchema, userInputResponseSchema, approvalModeSchema } from './index'
 import { autonomyPolicyResolutionSchema } from './autonomy'
 
 export const DELEGATED_INPUT_DEFAULT_TIMEOUT_MS = 300_000
@@ -73,6 +73,20 @@ export type DelegatedInputRecord = z.output<typeof delegatedInputRecordSchema>
 const mutation = delegatedInputIdentitySchema.extend({
   delegationId: id,
   expectedRevision: z.number().int().positive().safe(),
+})
+export const delegatedInputDeliverSchema = mutation.extend({ targetPermission: approvalModeSchema })
+export type DelegatedInputDeliver = z.output<typeof delegatedInputDeliverSchema>
+export const delegatedInputRunSchema = delegatedInputIdentitySchema.extend({
+  delegationId: id,
+  targetSessionId: id,
+  targetRunId: id,
+})
+export type DelegatedInputRun = z.output<typeof delegatedInputRunSchema>
+/** Reply arguments contain only the grant and answer; the actual target comes from the tool context. */
+export const delegatedInputToolReplySchema = mutation.extend({ reply: delegatedInputReplySchema })
+export const delegatedInputToolInboxSchema = z.strictObject({
+  after: id.optional(),
+  limit: z.number().int().min(1).max(32).default(16),
 })
 export const delegatedInputBindSchema = mutation.extend({
   targetSessionId: id,

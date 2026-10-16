@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import type { Database } from 'bun:sqlite'
-import { HbarError, type Run, type SessionEvent } from '@hbar/contracts'
+import { HbarError, type Run, type SessionEvent, type ApprovalMode } from '@hbar/contracts'
 import type { AutonomyPolicyResolution } from '@hbar/contracts/autonomy'
 import {
   DELEGATED_INPUT_MAX_PENDING,
@@ -13,6 +13,8 @@ import {
   delegatedInputCompleteSchema,
   delegatedInputFinishSchema,
   delegatedInputInboxSchema,
+  delegatedInputDeliverSchema,
+  delegatedInputRunSchema,
   type DelegatedInputIdentity,
   type DelegatedInputAccept,
   type DelegatedInputRecord,
@@ -20,6 +22,8 @@ import {
   type DelegatedInputComplete,
   type DelegatedInputFinish,
   type DelegatedInputInbox,
+  type DelegatedInputDeliver,
+  type DelegatedInputRun,
 } from '@hbar/contracts/delegated-user-input'
 import type { UserInputState, UserInputSettlement } from '@hbar/contracts/user-input-state'
 import type { ExecutionPrincipal } from '@hbar/contracts/execution-principal'
@@ -65,6 +69,12 @@ export function createDelegatedUserInputStorage(
     authorize(actorId: string, sessionIds: readonly string[]): boolean
     available(sessionId: string): boolean
     exists(sessionId: string): boolean
+    delivery?: {
+      plan(
+        state: DelegatedInputRecord,
+        permission: ApprovalMode,
+      ): { kind: 'guidance' | 'dedicated'; targetRunId: string; publish(): SessionEvent[] }
+    }
   },
 ) {
   const latest = db.query<{ data: string }, [string, string]>(
@@ -180,12 +190,12 @@ export function createDelegatedUserInputStorage(
       throw new HbarError('DECISION_CONFLICT', 'The delegated decision has changed')
     return state
   }
-  function target(state: DelegatedInputRecord, sessionId: string, runId: string): string {
+  function target(state: DelegatedInputRecord, sessionId: string, runId: string, queued = false): string {
     const run = ports.run(runId)
     if (
       sessionId !== state.targetSessionId ||
       run.sessionId !== sessionId ||
-      !['running', 'waiting_approval'].includes(run.status) ||
+      !['running', 'waiting_approval', ...(queued ? ['queued'] : [])].includes(run.status) ||
       cancelled.get(runId)
     )
       throw new HbarError('DELEGATION_TARGET_UNAVAILABLE', 'The original target Run is no longer active')
@@ -223,6 +233,53 @@ export function createDelegatedUserInputStorage(
   }
   return {
     read,
+    admitRun(raw: DelegatedInputRun): DelegatedInputRecord {
+      const input = delegatedInputRunSchema.parse(raw)
+      const state = read({ sessionId: input.sessionId, requestId: input.requestId })
+      if (
+        !state ||
+        state.delegationId !== input.delegationId ||
+        state.delivery !== 'dedicated' ||
+        state.targetRunId !== input.targetRunId ||
+        state.status !== 'delivered'
+      )
+        throw new HbarError('DELEGATION_RECEIPT_INVALID', 'The dedicated Run requires its exact live source grant')
+      current(state)
+      target(state, input.targetSessionId, input.targetRunId)
+      return state
+    },
+    deliver(raw: DelegatedInputDeliver) {
+      const input = delegatedInputDeliverSchema.parse(raw)
+      return db
+        .transaction(() => {
+          const prior = mutation(input)
+          current(prior)
+          if (prior.status === 'answered') return { state: prior, events: [] as SessionEvent[] }
+          if (prior.status === 'delivered' && prior.targetRunId) {
+            target(prior, prior.targetSessionId, prior.targetRunId, prior.delivery === 'dedicated')
+            return { state: prior, events: [] as SessionEvent[] }
+          }
+          if (prior.status !== 'pending')
+            throw new HbarError('DECISION_CONFLICT', 'The delegation is no longer pending')
+          if (!ports.delivery)
+            throw new HbarError('DELEGATION_TARGET_UNAVAILABLE', 'This storage has no decision delivery port')
+          const plan = ports.delivery.plan(prior, input.targetPermission)
+          if (plan.kind === 'guidance') target(prior, prior.targetSessionId, plan.targetRunId)
+          const state = delegatedInputRecordSchema.parse({
+            ...prior,
+            revision: prior.revision + 1,
+            status: 'delivered',
+            targetRunId: plan.targetRunId,
+            delivery: plan.kind,
+            updatedAt: Date.now(),
+          })
+          // Publish the grant first. A target queue/message must never outlive a missing source authorization.
+          const events = save(state)
+          events.push(...plan.publish())
+          return { state, events }
+        })
+        .immediate()
+    },
     /** Private composition port: validate everything before the source writer publishes its first durable event. */
     prepareSettlement(question: UserInputState, settlement: UserInputSettlement): () => SessionEvent[] {
       const state = read({ sessionId: question.request.sessionId, requestId: question.request.requestId })

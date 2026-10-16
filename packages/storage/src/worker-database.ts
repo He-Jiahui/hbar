@@ -1,10 +1,11 @@
 import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
-import { createExecutionPrincipalStorage } from './execution-principals'
+import { createExecutionPrincipalStorage, EXECUTION_PRINCIPAL_INDEX } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import { createUserInputStateStorage } from './user-input-state'
 import { createDelegatedUserInputStorage } from './delegated-user-input'
-import { delegatedInputAcceptSchema, delegatedInputBindSchema, delegatedInputCompleteSchema, delegatedInputFinishSchema } from '@hbar/contracts/delegated-user-input'
+import { createDelegatedInputDelivery } from './delegated-input-delivery'
+import { delegatedInputAcceptSchema, delegatedInputBindSchema, delegatedInputCompleteSchema, delegatedInputFinishSchema, delegatedInputDeliverSchema, delegatedInputRunSchema } from '@hbar/contracts/delegated-user-input'
 import { assertAutomaticPlanExit } from './automatic-plan-exit'
 import { assertAutomaticDecisionPolicy } from './automatic-decision-policy'
 import { automaticToolApprovalDecisionSchema } from '@hbar/contracts/autonomy'
@@ -649,6 +650,11 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       prepareDelegatedSettlement: (state, settlement) => delegatedInputs.prepareSettlement(state, settlement),
     })
     const delegatedInputs = createDelegatedUserInputStorage(db, appendEvent, {
+      delivery: createDelegatedInputDelivery(db, appendEvent, {
+        session: (id) => methods.session(id), workspace: (id) => methods.workspace(id),
+        run: (id) => methods.run(id), principal: executionPrincipals.run, steering: runSteering,
+        indexMessage: (id, sessionId, seq, content) => sessionSearch.queueMessage(id, sessionId, 'user', seq, content),
+      }),
       question: userInputState.read,
       run: (id) => methods.run(id),
       principal: executionPrincipals.run,
@@ -696,6 +702,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     if (!preflight || shadowMemory) {
       db.exec(DECISION_PAGE_INDEX)
       db.exec(AUTONOMY_RETRY_INDEX)
+      db.exec(EXECUTION_PRINCIPAL_INDEX)
+      db.exec(`CREATE INDEX IF NOT EXISTS events_live_guidance_run_seq ON events(sessionId,runId,seq)
+        WHERE type='message.committed' AND (json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL
+          OR json_extract(data,'$.decisionDelegation.targetRunId') IS NOT NULL);`)
       db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
       db.exec('CREATE INDEX IF NOT EXISTS events_session_type_seq ON events(sessionId,type,seq);')
       db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
@@ -1732,6 +1742,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       commandExecutionAccept: commandExecutionReceipts.accept,
       userInputAccept: userInputState.accept,
       delegatedInputAccept: delegatedInputs.accept,
+      delegatedInputDeliver: delegatedInputs.deliver,
+      delegatedInputAdmitRun: delegatedInputs.admitRun,
       delegatedInputRead: delegatedInputs.read,
       delegatedInputBind: delegatedInputs.bind,
       delegatedInputComplete: delegatedInputs.complete,
@@ -2378,17 +2390,24 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
                 closed: true,
               })
             const rows = db
-              .query<Row, [string, string, number, string]>(
+              .query<Row, [string, string, number, string, string]>(
                 `SELECT * FROM events
          WHERE sessionId=? AND type='message.committed' AND runId=? AND seq>?
-           AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL
-           AND json_extract(data,'$.queueGuidance.activeRunId')=?
+           AND (json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL OR json_extract(data,'$.decisionDelegation.targetRunId') IS NOT NULL)
+           AND (json_extract(data,'$.queueGuidance.activeRunId')=? OR json_extract(data,'$.decisionDelegation.targetRunId')=?)
          ORDER BY seq LIMIT 21`,
               )
-              .all(input.sessionId, input.runId, input.afterSeq, input.runId)
+              .all(input.sessionId, input.runId, input.afterSeq, input.runId, input.runId)
             const items = rows.slice(0, 20).map((row) => {
               const event = eventRow(row)
-              queueGuidanceFromEvent(event)
+              const envelope = z.object({ decisionDelegation: z.object({ sessionId: idSchema, requestId: idSchema,
+                delegationId: idSchema, targetRunId: idSchema }).optional() }).parse(event.data).decisionDelegation
+              if (envelope) {
+                const grant = delegatedInputs.read({ sessionId: envelope.sessionId, requestId: envelope.requestId })
+                if (!grant || grant.delegationId !== envelope.delegationId || grant.targetSessionId !== event.sessionId ||
+                  grant.targetRunId !== event.runId || envelope.targetRunId !== event.runId || grant.delivery !== 'guidance')
+                  throw new HbarError('SESSION_LOG_CORRUPTED', 'Delegated guidance differs from its canonical source grant')
+              } else queueGuidanceFromEvent(event)
               const data = z
                 .object({ id: idSchema, role: z.literal('user'), content: z.array(contentBlockSchema) })
                 .parse(event.data)
@@ -2971,6 +2990,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       enqueue: (sessionId, requestId, input, modelId, command, launchTarget, sourceRunId, autonomyRetry) =>
         db.transaction(() => {
+          if (input.delegatedDecision) throw new HbarError('FORBIDDEN', 'Dedicated decision Runs require the private delegation delivery grant')
           const submittedCommand = command === undefined ? undefined : runCommandRecordSchema.parse(command)
           const existing = db
             .query('SELECT * FROM runs WHERE sessionId=? AND requestId=?')
@@ -4549,9 +4569,11 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     }
     function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
       if (method === 'delegatedInputComplete') return delegatedInputCompleteSchema.parse(args[0]).targetRunId
-      if (method === 'delegatedInputAccept' || method === 'delegatedInputBind' || method === 'delegatedInputFinish') {
+      if (method === 'delegatedInputAdmitRun') return delegatedInputRunSchema.parse(args[0]).targetRunId
+      if (method === 'delegatedInputAccept' || method === 'delegatedInputBind' || method === 'delegatedInputFinish' || method === 'delegatedInputDeliver') {
         const input = method === 'delegatedInputAccept' ? delegatedInputAcceptSchema.parse(args[0])
-          : method === 'delegatedInputBind' ? delegatedInputBindSchema.parse(args[0]) : delegatedInputFinishSchema.parse(args[0])
+          : method === 'delegatedInputBind' ? delegatedInputBindSchema.parse(args[0])
+          : method === 'delegatedInputDeliver' ? delegatedInputDeliverSchema.parse(args[0]) : delegatedInputFinishSchema.parse(args[0])
         return userInputState.read({ sessionId: input.sessionId, requestId: input.requestId })?.request.runId
       }
       if (method === 'userInputAccept') return userInputAcceptSchema.parse(args[0]).request.runId

@@ -2051,6 +2051,8 @@ export class Kernel {
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
     if (this.storageFailure)
       throw new HbarError('STORAGE_UNAVAILABLE', 'Storage is unavailable; restart the Host to recover')
+    if (input.delegatedDecision)
+      throw new HbarError('FORBIDDEN', 'Dedicated decisions require the private source delegation grant')
     await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, input.source)
     input = { ...input, files }
     const initialSession = await this.storage.call('session', sessionId)
@@ -2324,6 +2326,15 @@ export class Kernel {
         if (reason) throw new HbarError(reason, 'Recovered execution is waiting for its original control conditions')
       }
       this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
+      if (run.input.delegatedDecision) {
+        await this.storage.call('delegatedInputAdmitRun', {
+          ...run.input.delegatedDecision,
+          targetSessionId: sessionId,
+          targetRunId: run.id,
+        })
+        await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, run.input.source)
+        await this.assertRunPermission(run)
+      }
       idleTimeout.progress()
       if (run.recovery && (await this.driverCompletionCommitted(run))) {
         controller.signal.throwIfAborted()
@@ -2343,7 +2354,10 @@ export class Kernel {
       const remoteWorkspace = workspace.location?.kind === 'node'
       const noLocalExecution = !this.localExecutionPolicy.enabled
       let workspaceForRun: Workspace
-      if (remoteWorkspace) {
+      if (run.input.delegatedDecision) {
+        // Dedicated replies have no workspace executor and must not prepare or switch the target checkout.
+        workspaceForRun = workspace
+      } else if (remoteWorkspace) {
         const admission = await this.storage.call('nodeRunWorktreeAdmission', run.id)
         if (!admission)
           throw new HbarError(
@@ -2486,6 +2500,10 @@ export class Kernel {
         runId: run.id,
         tools: scope.tools.list(),
       })
+      if (run.input.delegatedDecision)
+        selectedTools.tools = selectedTools.tools.filter((tool) =>
+          ['hbar_decisions_inbox', 'hbar_decision_reply'].includes(tool.name),
+        )
       scope.tools.pinParent()
       idleTimeout.progress()
       const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))

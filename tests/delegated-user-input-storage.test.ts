@@ -300,6 +300,134 @@ test('an exact delegated receipt settles the source once, survives target comple
   }
 })
 
+test('live delivery enters an open target steering gate once and preserves its original task', async () => {
+  const f = await fixture()
+  try {
+    const input = await f.acceptQuestion()
+    const accepted = await f.storage.call('delegatedInputAccept', input)
+    expect(
+      await failure(f.storage.call('delegatedInputDeliver', { ...mutation(accepted.state), targetPermission: 'ask' })),
+    ).toMatchObject({ code: 'DELEGATION_TARGET_BUSY' })
+    expect(await f.storage.call('delegatedInputRead', identity(accepted.state))).toEqual(accepted.state)
+    await f.storage.call('setRun', f.runs[1]!.id, 'running')
+    await f.storage.call('openRunSteering', f.sessions[1]!.id, f.runs[1]!.id)
+    const delivered = await f.storage.call('delegatedInputDeliver', {
+      ...mutation(accepted.state),
+      targetPermission: 'ask',
+    })
+    expect(delivered.state).toMatchObject({ delivery: 'guidance', status: 'delivered', targetRunId: f.runs[1]!.id })
+    expect(delivered.events.at(-1)?.type).toBe('message.committed')
+    const page = await f.storage.call('readRunSteering', {
+      sessionId: f.sessions[1]!.id,
+      runId: f.runs[1]!.id,
+      afterSeq: 0,
+    })
+    expect(page.messages).toHaveLength(1)
+    const block = page.messages[0]?.content[0]
+    if (block?.type !== 'text') throw new Error('The decision envelope is missing')
+    expect(block.text).toContain(accepted.state.delegationId)
+    expect((await f.storage.call('run', f.runs[1]!.id)).input.text).toBe('Original task')
+    expect(
+      (await f.storage.call('delegatedInputDeliver', { ...mutation(delivered.state), targetPermission: 'ask' })).events,
+    ).toEqual([])
+    const empty = await f.storage.call('readRunSteering', {
+      sessionId: f.sessions[1]!.id,
+      runId: f.runs[1]!.id,
+      afterSeq: page.nextSeq,
+      closeWhenEmpty: true,
+    })
+    expect(empty.closed).toBe(true)
+    const another = await f.storage.call('delegatedInputAccept', await f.acceptQuestion(0, 1, {}, input.policy))
+    expect(
+      await failure(f.storage.call('delegatedInputDeliver', { ...mutation(another.state), targetPermission: 'ask' })),
+    ).toMatchObject({ code: 'DELEGATION_TARGET_BUSY' })
+    expect((await f.storage.call('delegatedInputRead', identity(another.state)))?.status).toBe('pending')
+  } finally {
+    await f.close()
+  }
+})
+
+test('idle delivery publishes one dedicated queue item after its grant without changing target task ownership', async () => {
+  const f = await fixture()
+  try {
+    const targetActor = { ...f.actor, id: 'original-target-owner' }
+    await f.storage.call('putDevice', targetActor, 'original-target-token')
+    await f.storage.call('setRun', f.runs[1]!.id, 'completed')
+    const target = await f.storage.call(
+      'enqueue',
+      f.sessions[1]!.id,
+      'owned-target-task',
+      { text: 'Target original task', images: [] },
+      'fixture',
+      {
+        actorId: targetActor.id,
+        idempotencyKey: 'owned-target-task',
+        requestId: 'owned-target-task',
+        inputHash: 'b'.repeat(64),
+      },
+    )
+    await f.storage.call('claim', f.sessions[1]!.id)
+    await f.storage.call('setRun', target.id, 'completed')
+    const owner = await f.storage.call('sessionExecutionPrincipal', f.sessions[1]!.id)
+    const accepted = await f.storage.call('delegatedInputAccept', await f.acceptQuestion())
+    const delivered = await f.storage.call('delegatedInputDeliver', {
+      ...mutation(accepted.state),
+      targetPermission: 'ask',
+    })
+    expect(delivered.state).toMatchObject({ status: 'delivered', delivery: 'dedicated' })
+    const queued = delivered.events.at(-1)
+    expect(queued?.type).toBe('run.queued')
+    expect(delivered.events.findIndex((event) => /^decision\.delegation\.[a-f0-9]{64}$/.test(event.type))).toBeLessThan(
+      delivered.events.length - 1,
+    )
+    const run = await f.storage.call('run', delivered.state.targetRunId!)
+    expect(run.input).toMatchObject({
+      source: 'system',
+      approval: 'deny',
+      permissionAtAdmission: 'ask',
+      delegatedDecision: { ...identity(accepted.state), delegationId: accepted.state.delegationId },
+    })
+    expect(await f.storage.call('runExecutionPrincipal', run.id)).toEqual(
+      await f.storage.call('runExecutionPrincipal', f.runs[0]!.id),
+    )
+    expect(await f.storage.call('sessionExecutionPrincipal', f.sessions[1]!.id)).toEqual(owner)
+    expect((await f.storage.call('run', target.id)).input.text).toBe('Target original task')
+    expect(
+      (await f.storage.call('delegatedInputDeliver', { ...mutation(delivered.state), targetPermission: 'ask' })).events,
+    ).toEqual([])
+    await f.restart()
+    expect(await f.storage.call('sessionExecutionPrincipal', f.sessions[1]!.id)).toEqual(owner)
+    expect(await f.storage.call('claim', f.sessions[1]!.id)).toMatchObject({ id: run.id })
+    expect(
+      await f.storage.call('delegatedInputAdmitRun', {
+        ...identity(accepted.state),
+        delegationId: accepted.state.delegationId,
+        targetSessionId: run.sessionId,
+        targetRunId: run.id,
+      }),
+    ).toEqual(delivered.state)
+    expect(
+      (await f.storage.call('delegatedInputDeliver', { ...mutation(delivered.state), targetPermission: 'ask' })).events,
+    ).toEqual([])
+    expect(
+      await failure(f.storage.call('enqueue', run.sessionId, 'forged-decision', run.input, run.modelId)),
+    ).toMatchObject({ code: 'FORBIDDEN' })
+    await f.storage.call('delegatedInputFinish', { ...mutation(delivered.state), reason: 'cancelled' })
+    expect(
+      await failure(
+        f.storage.call('delegatedInputAdmitRun', {
+          ...identity(accepted.state),
+          delegationId: accepted.state.delegationId,
+          targetSessionId: run.sessionId,
+          targetRunId: run.id,
+        }),
+      ),
+    ).toMatchObject({ code: 'DELEGATION_RECEIPT_INVALID' })
+  } finally {
+    await f.close()
+  }
+})
+
 test('forged receipt identity, revision, answer and a delivered-but-unanswered grant cannot settle a source', async () => {
   const f = await fixture()
   try {
@@ -428,6 +556,13 @@ test('managed delegation writes bind the source lease while target replies requi
       code: 'EXECUTION_OWNER_REVOKED',
     })
     const accepted = await f.storage.callOwned(source, 'delegatedInputAccept', input)
+    const delivery = { ...mutation(accepted.state), targetPermission: 'ask' as const }
+    expect(await failure(f.storage.call('delegatedInputDeliver', delivery))).toMatchObject({
+      code: 'EXECUTION_AUTHORITY_REQUIRED',
+    })
+    expect(await failure(f.storage.callOwned(target, 'delegatedInputDeliver', delivery))).toMatchObject({
+      code: 'EXECUTION_OWNER_REVOKED',
+    })
     const binding = {
       ...mutation(accepted.state),
       targetSessionId: f.sessions[1]!.id,
@@ -904,6 +1039,102 @@ test('replaying a crash around source consumption never closes a grant before it
         expect(delegated.read(identity(state))?.status).toBe('closed')
         expect(source.read(identity(state))?.settlement).toEqual(input.settlement)
         expect(journal.filter((event) => /^user_input\.state\./.test(event.type))).toHaveLength(2)
+      } finally {
+        database.close()
+      }
+    }
+  } finally {
+    await f.close()
+  }
+})
+
+test('delivery journal replay always retains the source grant before any target message and never blindly redelivers', async () => {
+  const f = await fixture()
+  try {
+    const input = await f.acceptQuestion()
+    const question = await f.storage.call('userInputRead', identity(input))
+    if (!question) throw new Error('Missing source question')
+    const runs = new Map(
+      (await Promise.all(f.runs.map((run) => f.storage.call('run', run.id)))).map((run) => [run.id, run]),
+    )
+    for (const crash of ['before_message', 'after_message'] as const) {
+      const database = new Database(':memory:')
+      database.exec(
+        'CREATE TABLE events(sessionId TEXT,type TEXT,data TEXT,seq INTEGER,runId TEXT); CREATE TABLE settings_layers(id TEXT PRIMARY KEY,revision INTEGER);',
+      )
+      for (const [id, revision] of Object.entries(input.policy.revisions))
+        database.query('INSERT INTO settings_layers VALUES(?,?)').run(id, revision)
+      const journal: SessionEvent[] = []
+      const insert = (event: SessionEvent) =>
+        database
+          .query('INSERT INTO events VALUES(?,?,?,?,?)')
+          .run(event.sessionId, event.type, JSON.stringify(event.data), event.seq, event.runId)
+      const append = (sessionId: string, type: string, data: unknown, runId?: string): SessionEvent => {
+        if (type === 'message.committed' && crash === 'before_message') throw new Error('Simulated delivery loss')
+        const event: SessionEvent = {
+          eventId: crypto.randomUUID(),
+          sessionId,
+          type,
+          data: structuredClone(data),
+          seq: journal.length + 1,
+          runId: runId ?? null,
+          stepId: null,
+          version: 1,
+          time: Date.now(),
+        }
+        journal.push(event)
+        insert(event)
+        if (type === 'message.committed' && crash === 'after_message') throw new Error('Simulated delivery loss')
+        return event
+      }
+      const service = createDelegatedUserInputStorage(database, append, {
+        question: () => question,
+        run: (id) => {
+          const run = runs.get(id)
+          if (!run) throw new Error('Unknown Run')
+          return run
+        },
+        principal: (id) => ({
+          version: 1,
+          actorId: f.actor.id,
+          originSessionId: runs.get(id)!.sessionId,
+          originRunId: id,
+        }),
+        authorize: () => true,
+        available: () => true,
+        exists: () => true,
+        delivery: {
+          plan: () => ({
+            kind: 'guidance',
+            targetRunId: f.runs[1]!.id,
+            publish: () => [
+              append(f.sessions[1]!.id, 'message.committed', { delegationId: input.requestId }, f.runs[1]!.id),
+            ],
+          }),
+        },
+      })
+      try {
+        const accepted = service.accept(input)
+        expect(() => service.deliver({ ...mutation(accepted.state), targetPermission: 'ask' })).toThrow('delivery loss')
+        database.exec('DELETE FROM events')
+        for (const event of journal) insert(event)
+        const known = service.read(identity(input))
+        expect(known).toMatchObject({ status: 'delivered', targetRunId: f.runs[1]!.id })
+        if (!known) throw new Error('Missing replayed delivery')
+        expect(service.deliver({ ...mutation(known), targetPermission: 'ask' }).events).toEqual([])
+        const messageIndex = journal.findIndex((event) => event.type === 'message.committed')
+        if (crash === 'before_message') expect(messageIndex).toBe(-1)
+        else
+          expect(
+            journal.findIndex(
+              (event) =>
+                /^decision\.delegation\.[a-f0-9]{64}$/.test(event.type) &&
+                typeof event.data === 'object' &&
+                event.data !== null &&
+                'status' in event.data &&
+                event.data.status === 'delivered',
+            ),
+          ).toBeLessThan(messageIndex)
       } finally {
         database.close()
       }

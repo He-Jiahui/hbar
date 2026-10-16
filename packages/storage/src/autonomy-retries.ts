@@ -71,7 +71,8 @@ export function createAutonomyRetryStorage(
       run.status !== 'failed' ||
       run.failure?.category !== 'transient' ||
       !run.failure.retryable ||
-      run.input.source === 'goal'
+      run.input.source === 'goal' ||
+      run.input.delegatedDecision !== undefined
     )
       return null
     if (!['PROVIDER_TRANSIENT', 'PROVIDER_CONNECTION_FAILED', 'PROVIDER_STREAM_INTERRUPTED'].includes(run.failure.code))
