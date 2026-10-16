@@ -38,8 +38,8 @@ import { createCommandRouter, prepareCommandInvocation } from '@hbar/commands'
 
 import { Auth, requestToken } from './auth.ts'
 import { DeviceAuthorization } from './device-authorization'
-import { projectDesktopStartup } from './desktop-startup'
-import { desktopPairingRequestSchema } from '@hbar/contracts/desktop'
+import { enableDesktopBackground, projectDesktopStartup } from './desktop-startup'
+import { desktopBackgroundRequestSchema, desktopPairingRequestSchema } from '@hbar/contracts/desktop'
 import { projectDesktopTrayActions, projectDesktopPairing } from './desktop-tray'
 import { createNodeCommands, createRemoteWorkspaceCreator, createRemoteWorkspaceCommands } from './node-commands'
 import { nodeCommands as nodeDefinitions } from '@hbar/contracts/commands/nodes'
@@ -1491,6 +1491,12 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
               200,
               { 'Cache-Control': 'no-store' },
             )
+          }
+          if (url.pathname === '/api/desktop/background' && request.method === 'POST') {
+            desktopBackgroundRequestSchema.parse(await request.json())
+            return json(request, await enableDesktopBackground(application.settingsCommands, device.id), 200, {
+              'Cache-Control': 'no-store',
+            })
           }
           if (url.pathname === '/api/desktop/startup' && request.method === 'GET')
             return json(

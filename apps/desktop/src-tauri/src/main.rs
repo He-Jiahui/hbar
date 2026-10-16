@@ -2,6 +2,7 @@
 mod native_diagnostics;
 mod resource_browser;
 mod background;
+mod backend_mode;
 mod tray_actions;
 
 use background::{Startup, StartupMode, startup_override, shutdown_owner, release_workbench_on_close, host_port_override};
@@ -971,7 +972,7 @@ fn path_roots(
     ))
 }
 
-fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf, Option<u32>), Box<dyn std::error::Error>> {
+fn launch(app: &tauri::AppHandle, selected: Option<StartupMode>) -> Result<(Connection, PathBuf, Option<u32>), Box<dyn std::error::Error>> {
     let (data_root, cache_root, settings_root) = path_roots(app)?;
     fs::create_dir_all(&settings_root)?;
     fs::create_dir_all(&cache_root)?;
@@ -1026,6 +1027,9 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf, Option<u32>), 
         .stderr(log);
     if let Some(port) = host_port_override(std::env::var("HBAR_PORT").ok())? {
         command.arg("--port").arg(port.to_string());
+    }
+    if selected == Some(StartupMode::Background) {
+        command.arg("--unattended");
     }
     if let Some(url) = development_url {
         command
@@ -1231,10 +1235,13 @@ fn main() {
         ])
         .setup(|app| {
             let selected = startup_override(std::env::args().skip(1))?;
-            let (connection, data_root, owned_pid) = launch(app.handle())?;
+            let (connection, data_root, owned_pid) = launch(app.handle(), selected)?;
             let startup = desktop_startup(&connection)?;
             let tray_actions = tray_actions::load(&connection)?;
             let startup_mode = selected.unwrap_or(startup.startup_mode);
+            if startup_mode == StartupMode::Background {
+                backend_mode::enable_background(&connection.url, &connection.token)?;
+            }
             let (_, _, settings_root) = path_roots(app.handle())?;
             app.manage(NativeDiagnostics::for_settings_root(&settings_root));
             app.manage(NativeConnectionPath(settings_root.join("connection.json")));

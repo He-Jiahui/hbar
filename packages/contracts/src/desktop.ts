@@ -20,6 +20,10 @@ export const desktopStartupSchema = z.strictObject({
 })
 export type DesktopStartup = z.infer<typeof desktopStartupSchema>
 
+/** Explicit native background entry enables the existing Host without changing startup preferences. */
+export const desktopBackgroundRequestSchema = z.strictObject({ unattended: z.literal(true) })
+export const desktopBackgroundResponseSchema = z.strictObject({ unattended: z.literal(true) })
+
 /** Separately negotiated so older native startup projections remain compatible. */
 export const desktopTrayActionsSchema = z.strictObject({
   copyAddress: z.string().trim().min(1).max(120),
