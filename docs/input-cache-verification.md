@@ -56,3 +56,20 @@
 指标、界面和严格失败门禁已实现。串行受控调用链已实测达标；**并发稳定 ≥95% 尚未通过，不能宣称整体目标完成**。前端会如实显示这些失败，后续需结合网关服务端证据处理剩余异常。
 
 将最终串行及第二轮并发失败会话的真实用量送入同一生产前端组件，宽屏和 320px 深色窄屏均正确显示对应门禁。串行显示总体 91.32%；并发失败显示总体 83.09%、近期最低 0%，没有把异常平均隐藏。结果与上表记录一致。这是从已保存的真实用量进行的组件回放，未向运行中的用户会话注入数据。
+
+## 软件回归与未通过门禁
+
+本次最终代码与原有工作区改动合并后，15 个定向文件共 **118 项测试、944 条断言全部通过**。覆盖完整工具 manifest、原生及批量工作流调用、作用域拒绝、14 轮自主修复、晚到写入、Responses/Chat 协议、重启、压缩、容量估算、指标及图表。完整 TypeScript 检查、全仓严格 lint 及新增文件的单独严格 lint、修改文件格式、Web build、桌面 Web 资源同步均通过；App React 16 项及 Lumen 99 项测试通过。没有重建原生桌面安装包。
+
+主工作区最终浏览器复跑 **8 项全部通过（2.1 分钟）**：`e2e/input-cache.spec.ts`、`e2e/settings-usage.spec.ts`、`e2e/session-observability.spec.ts`、`e2e/session-request-details.spec.ts`。覆盖中英文、深浅主题、320px 窄窗、键盘读数、真实 Host 查询、范围切换、请求分页及原始消息。
+
+曾运行遍历 1,087 个文件的基础测试：6,882 pass、11 skip、21 fail、1 error。该长测期间继续修改了模块，因此 SDK 导出错误及两项旧模块前缀断言不能当作最终代码的结果；最终定向复跑已覆盖。长测还暴露 10 项旧工具隐藏/旧版本参数断言及一项“重复同一焦点”实际传入不同 scope 的 fixture，修正为当前协议和相同 canonical item 后全部通过。没有把长测与复跑数字相加或宣称全仓门禁已绿。
+
+以下失败仍保留：
+
+- 六项已在合入前的原始工作区复现：三项附件日志/元数据故障测试返回 `STORAGE_CLOSED`，一项目标命令列表与当前 catalog 不一致，两项 managed-driver 候选构建测试失败。对应 `chat-database-artifact-references`、`chat-database-artifact-upload`、`goal-plan-commands`、`managed-host-runtime` 测试文件。
+- `runtime-formal-reload.test.ts` 在隔离工作树复跑仍返回 `draining`，而断言要求 `completed`；在主工作区单独复跑通过。尚未定位时序差异，未将其标记修复。
+- 主工作区原有未提交的 `agent-record-ipc-bound.test.ts` 返回 `STORAGE_ERROR`（bad parameter or other API misuse）。其源码及关联原有改动未夹入本次提交。
+- 全局文档检查在隔离工作树报告 762 处历史产物链接缺失；本次两份缓存文档的本地链接检查无错误。
+
+原始长测、复跑、真实请求报告和真实计数图表已保存在主工作区忽略目录 `artifacts/input-cache-delivery/`；原有未提交修改保留。保存的 Host 连接健康检查当时不可达，因此没有声称已替换在线 Host 进程或已验证线上自然流量。
