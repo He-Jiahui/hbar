@@ -1,5 +1,11 @@
 import { HbarError } from '@hbar/contracts'
 import {
+  EXECUTION_SLOT_LIMITS,
+  type ExecutionActivityLease,
+  type ExecutionSlotsSnapshot,
+} from '@hbar/contracts/execution-slots'
+import { ExecutionSlots } from './execution-slots'
+import {
   executionOwnershipSchema,
   RUNTIME_LIMITS,
   runtimeOwnerSchema,
@@ -47,6 +53,12 @@ export interface StableHostResourceLease {
   readonly executionLeaseId: string
 }
 
+export interface RuntimeCoordinatorOptions {
+  readonly executionCapacity?: number
+  /** A queued Run now has capacity. This hint does not grant execution ownership. */
+  readonly capacityReady?: (sessionId: string, runId: string) => void
+}
+
 function sameOwner(left: RuntimeOwner, right: RuntimeOwner): boolean {
   return left.incarnation === right.incarnation && left.unitId === right.unitId && left.generation === right.generation
 }
@@ -77,8 +89,75 @@ export class RuntimeCoordinator {
   >()
   private readonly resourceKeys = new Map<string, string>()
   private fence = 0
+  private readonly executionSlots: ExecutionSlots
+  private readonly capacitySessions = new Map<string, string>()
+  private readonly capacityReservations = new Map<
+    string,
+    { readonly runId: string; readonly owner: RuntimeOwner; readonly activity: Readonly<ExecutionActivityLease> }
+  >()
 
-  constructor(private readonly persistence: CoordinationPersistence) {}
+  constructor(
+    private readonly persistence: CoordinationPersistence,
+    private readonly options: RuntimeCoordinatorOptions = {},
+  ) {
+    this.executionSlots = new ExecutionSlots({
+      capacity: options.executionCapacity ?? EXECUTION_SLOT_LIMITS.executions,
+    })
+  }
+
+  setExecutionCapacity(capacity: number): void {
+    this.executionSlots.setCapacity(capacity)
+    this.notifyCapacityReady()
+  }
+  executionCapacity(): ExecutionSlotsSnapshot {
+    return this.executionSlots.snapshot()
+  }
+  capacityReadyQueue(limit = 16): readonly { readonly sessionId: string; readonly runId: string }[] {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
+      throw new HbarError('INVALID_INPUT', 'Capacity wake batches require 1 to 64 Sessions')
+    const ready: Array<{ sessionId: string; runId: string }> = []
+    for (const [sessionId, reservation] of this.capacityReservations) {
+      if (
+        !this.sessions.has(sessionId) &&
+        !this.claiming.has(sessionId) &&
+        !this.blocked.has(sessionId) &&
+        this.executionSlots.get(reservation.runId, reservation.activity.id)?.state === 'active'
+      )
+        ready.push({ sessionId, runId: reservation.runId })
+      if (ready.length === limit) break
+    }
+    return ready
+  }
+  /** Only a not-yet-claimed queue reservation can be withdrawn by the Host. */
+  releaseQueuedSession(sessionId: string, expectedRunId?: string): void {
+    if (this.sessions.has(sessionId) || this.claiming.has(sessionId) || this.blocked.has(sessionId)) return
+    if (expectedRunId && this.capacityReservations.get(sessionId)?.runId !== expectedRunId) return
+    this.releaseCapacity(sessionId)
+  }
+  private releaseCapacity(sessionId: string): void {
+    const reservation = this.capacityReservations.get(sessionId)
+    if (!reservation) return
+    this.capacityReservations.delete(sessionId)
+    this.capacitySessions.delete(reservation.runId)
+    this.executionSlots.releaseExecution(reservation.runId)
+    this.notifyCapacityReady()
+  }
+  private notifyCapacityReady(skipRunId?: string): void {
+    for (const runId of this.executionSlots.takeReady()) {
+      if (runId === skipRunId) continue
+      const sessionId = this.capacitySessions.get(runId)
+      if (!sessionId) continue
+      try {
+        this.options.capacityReady?.(sessionId, runId)
+      } catch {
+        console.error('[hbar runtime] capacity notification failed')
+      }
+    }
+  }
+  private releaseQueuedOwner(owner: RuntimeOwner): void {
+    for (const [sessionId, reservation] of this.capacityReservations)
+      if (sameOwner(reservation.owner, owner)) this.releaseQueuedSession(sessionId)
+  }
 
   register(owner: RuntimeOwner, version: RuntimeVersion, descriptor: RuntimeUnitDescriptor): void {
     const parsed = runtimeOwnerSchema.parse(owner)
@@ -115,7 +194,10 @@ export class RuntimeCoordinator {
     const previous = this.defaults.get(owner.unitId)
     if (previous) {
       const old = this.owners.get(previous)
-      if (old && old.role === 'default') old.role = 'draining'
+      if (old && old.role === 'default') {
+        old.role = 'draining'
+        this.releaseQueuedOwner(old.owner)
+      }
     }
     record.role = 'default'
     this.defaults.set(owner.unitId, owner.incarnation)
@@ -203,6 +285,17 @@ export class RuntimeCoordinator {
       if (!dependency) throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'A bound default capability is not ready')
       return dependency
     })
+    const priorCapacity = this.capacityReservations.get(sessionId)
+    if (priorCapacity && (priorCapacity.runId !== runId || !sameOwner(priorCapacity.owner, owner)))
+      this.releaseCapacity(sessionId)
+    const reservedSession = this.capacitySessions.get(runId)
+    if (reservedSession && reservedSession !== sessionId)
+      throw new HbarError('EXECUTION_OWNER_MISMATCH', 'The queued Run belongs to another Session')
+    const activity = this.executionSlots.reserve({ executionId: runId, activityId: 'execution' })
+    this.capacityReservations.set(sessionId, { runId, owner: record.owner, activity })
+    this.capacitySessions.set(runId, sessionId)
+    this.notifyCapacityReady(runId)
+    if (activity.state !== 'active') return null
     this.claiming.add(sessionId)
     this.claimVersions.set(sessionId, parsed)
     const draft = executionOwnershipSchema.parse({
@@ -216,7 +309,10 @@ export class RuntimeCoordinator {
     })
     try {
       const persisted = await this.persistence.claim(draft)
-      if (!persisted) return null
+      if (!persisted) {
+        this.releaseCapacity(sessionId)
+        return null
+      }
       const lease = executionOwnershipSchema.parse(persisted)
       if (
         lease.leaseId !== draft.leaseId ||
@@ -288,6 +384,7 @@ export class RuntimeCoordinator {
       !record.exited &&
       !this.sessions.has(sessionId) &&
       !this.claiming.has(sessionId) &&
+      !this.capacityReservations.has(sessionId) &&
       !this.blocked.has(sessionId)
     )
   }
@@ -301,6 +398,7 @@ export class RuntimeCoordinator {
     if (this.runs.get(lease.runId)?.leaseId === lease.leaseId) {
       this.runs.delete(lease.runId)
       this.sessions.delete(lease.sessionId)
+      this.releaseCapacity(lease.sessionId)
     }
     this.blocked.delete(lease.sessionId)
   }
@@ -379,6 +477,7 @@ export class RuntimeCoordinator {
     const record = this.record(owner)
     const affected = this.executionsForOwner(owner)
     record.role = 'fenced'
+    this.releaseQueuedOwner(owner)
     this.revoking.add(owner.incarnation)
     for (const lease of affected) {
       this.pendingReleases.delete(lease.runId)
@@ -416,6 +515,7 @@ export class RuntimeCoordinator {
     const record = this.record(owner)
     record.exited = true
     record.role = 'fenced'
+    this.releaseQueuedOwner(owner)
     const tools = [...this.tools.values()].filter((permit) => sameOwner(permit.owner, owner))
     const resources = [...this.resources.values()].filter((resource) => sameOwner(resource.owner, owner))
     for (const permit of tools) this.releaseTool(permit.owner, permit.id)
@@ -449,6 +549,7 @@ export class RuntimeCoordinator {
     }
     if (this.claiming.has(sessionId))
       throw new HbarError('EXECUTION_CLAIM_PENDING', 'A physical ownership claim is still pending')
+    this.releaseCapacity(sessionId)
     this.blocked.delete(sessionId)
   }
 

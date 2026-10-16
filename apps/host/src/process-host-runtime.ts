@@ -1,4 +1,6 @@
 import { join, resolve } from 'node:path'
+import { BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
+import { EXECUTION_SLOT_LIMITS } from '@hbar/contracts/execution-slots'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -119,6 +121,8 @@ export interface ProcessHostRuntimeOptions {
   readonly workspace?: string
   /** Conversation-only hosts reject all calls into the local execution provider. */
   readonly noLocalExec?: boolean
+  /** Bound startup claims before the entry point persists its authenticated unattended setting. */
+  readonly unattended?: boolean
   readonly secrets?: SecretStore
   readonly sourceRoot?: string
   readonly processCommand?: readonly [string, ...string[]]
@@ -267,6 +271,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private scheduled = false
   private settingsSchedulingRefresh: Promise<void> | undefined
   private settingsSchedulingRequested = false
+  private unattendedStartupPending = false
   private reasonCode: string | null = null
   private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
   private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[]; cause?: RuntimeOwner }> = []
@@ -298,29 +303,38 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     )
     this.buildUnits =
       options.buildUnits ?? hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
-    this.coordinator = new RuntimeCoordinator({
-      claim: async (draft) => {
-        this.pendingClaims.set(draft.runId, { draft, failed: false })
-        this.leases.set(draft.runId, draft)
-        const lease = await this.storage.call('runtimeExecutionClaim', draft)
-        if (lease) this.leases.set(lease.runId, lease)
-        else {
-          this.pendingClaims.delete(draft.runId)
-          this.leases.delete(draft.runId)
-        }
-        return lease
+    this.unattendedStartupPending = options.unattended === true
+    this.coordinator = new RuntimeCoordinator(
+      {
+        claim: async (draft) => {
+          this.pendingClaims.set(draft.runId, { draft, failed: false })
+          this.leases.set(draft.runId, draft)
+          const lease = await this.storage.call('runtimeExecutionClaim', draft)
+          if (lease) this.leases.set(lease.runId, lease)
+          else {
+            this.pendingClaims.delete(draft.runId)
+            this.leases.delete(draft.runId)
+          }
+          return lease
+        },
+        release: (lease) => this.storage.call('runtimeExecutionRelease', lease),
+        revoke: async (owner, ids, cause) => {
+          // Controller/Maintenance faults without Run claims need no database projection write.
+          if (!ids.length) return
+          if (this.storageFailure) {
+            this.pendingRevocations.push({ owner, ids: [...ids], ...(cause ? { cause } : {}) })
+            return
+          }
+          await this.storage.call('runtimeExecutionRevoke', owner, ids, cause)
+        },
       },
-      release: (lease) => this.storage.call('runtimeExecutionRelease', lease),
-      revoke: async (owner, ids, cause) => {
-        // Controller/Maintenance faults without Run claims need no database projection write.
-        if (!ids.length) return
-        if (this.storageFailure) {
-          this.pendingRevocations.push({ owner, ids: [...ids], ...(cause ? { cause } : {}) })
-          return
-        }
-        await this.storage.call('runtimeExecutionRevoke', owner, ids, cause)
+      {
+        capacityReady: () => {
+          if (this.closing) return
+          this.schedule()
+        },
       },
-    })
+    )
     this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: (version) => this.driver(version) })
     this.resources = new RuntimeResourceRegistry(this.coordinator, this.storage)
     this.pluginRelay = new RuntimePluginRelay({
@@ -2132,6 +2146,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
     await this.refreshKernels()
     await this.resume()
+    await this.flushCapacityWakeups()
   }
   private async reconcileClaim(draft: ExecutionOwnership, kernel: RuntimeKernelEndpoint): Promise<void> {
     const receipt = await this.storage.call('runtimeExecutionRead', draft.runId)
@@ -2164,8 +2179,40 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       return
     const kernel = this.currentKernel()
     if (this.resumed.has(kernel.owner.incarnation)) return
+    await this.refreshExecutionCapacity()
     await kernel.process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
     this.resumed.add(kernel.owner.incarnation)
+  }
+  private async refreshExecutionCapacity(): Promise<void> {
+    const layers = await this.storage.call('settingsLayers', ['settings:global'])
+    const unattended =
+      layers.find((layer) => layer.id === 'settings:global')?.values[BACKEND_UNATTENDED_VALUE_KEY] === true
+    if (unattended) this.unattendedStartupPending = false
+    this.coordinator.setExecutionCapacity(
+      unattended || this.unattendedStartupPending ? EXECUTION_SLOT_LIMITS.capacity : EXECUTION_SLOT_LIMITS.executions,
+    )
+  }
+  private async flushCapacityWakeups(): Promise<void> {
+    for (const { sessionId, runId } of this.coordinator.capacityReadyQueue()) {
+      if (this.closing) return
+      try {
+        if (!this.canAdmit(sessionId)) continue
+        const next = await this.storage.call('nextQueuedRun', sessionId)
+        if (next?.id !== runId) {
+          this.coordinator.releaseQueuedSession(sessionId, runId)
+          if (!next) continue
+        }
+        // Wake only asks the Kernel to inspect its durable queue. Repeating a lost hint does not replay a Run.
+        await this.wake(sessionId)
+      } catch (error) {
+        // The coordinator retains the reservation for the existing one-second reconciliation sweep.
+        console.error(
+          '[hbar runtime] capacity wake deferred',
+          runtimeDomainError(error)?.code ?? 'CAPACITY_WAKE_FAILED',
+        )
+        return
+      }
+    }
   }
   private refreshSettingsScheduling(): void {
     this.settingsSchedulingRequested = true
@@ -2174,6 +2221,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       while (this.settingsSchedulingRequested && !this.closing) {
         this.settingsSchedulingRequested = false
         if (!this.executionReady() || this.storage.snapshot().phase !== 'serving') return
+        await this.refreshExecutionCapacity()
         await this.currentKernel().process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
       }
     })()
@@ -2188,7 +2236,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       })
   }
   private async wake(sessionId: string): Promise<void> {
-    if (!this.canAdmit(sessionId)) return
+    if (!this.canAdmit(sessionId)) {
+      return
+    }
     await this.currentKernel().process.call('kernel.wake', { sessionId }, z.undefined())
   }
   private async handoff(lease: ExecutionOwnership): Promise<void> {
@@ -2261,6 +2311,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const result = await this.storage.call('runtimeRecoveryCancel', runId)
     for (const event of result.events) this.facade.replay({ method: 'session.event', params: event })
     const lease = this.coordinator.execution(result.run.id)
+    if (!lease && result.run.status === 'cancelled')
+      this.coordinator.releaseQueuedSession(result.run.sessionId, result.run.id)
     const endpoint = lease
       ? this.endpoints().find((value) => value.owner.incarnation === lease.owner.incarnation)
       : result.run.status === 'failed' && result.events.some((event) => event.type === 'run.cancelRequested')

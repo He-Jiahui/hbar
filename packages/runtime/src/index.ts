@@ -15,6 +15,7 @@ export {
   type RuntimeToolPermit,
   type RuntimeResourceLease,
   type StableHostResourceLease,
+  type RuntimeCoordinatorOptions,
 } from './coordinator'
 export { ManagedProcess, type ManagedProcessOptions } from './process'
 export { acquireProcessLease, processIsAlive } from './process-lease'

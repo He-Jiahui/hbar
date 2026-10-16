@@ -123,6 +123,7 @@ export async function runHost(
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(values.profile ? { profileModule: resolve(values.profile) } : {}),
       ...(values['no-local-exec'] === true ? { noLocalExec: true } : {}),
+      ...(values.unattended === true ? { unattended: true } : {}),
       ...(['1', 'prepare'].includes(process.env.HBAR_RUNTIME_WATCH ?? '') ? {
         watchSource: true, autoApplySource: process.env.HBAR_RUNTIME_WATCH !== 'prepare',
       } : {}),

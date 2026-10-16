@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { RuntimeCoordinator, type CoordinationPersistence } from '@hbar/runtime'
+import { RuntimeCoordinator, type CoordinationPersistence, type RuntimeCoordinatorOptions } from '@hbar/runtime'
 import type {
   ExecutionOwnership,
   RuntimeOwner,
@@ -15,20 +15,23 @@ function owner(unitId: string, generation = 1): RuntimeOwner {
 function version(value: RuntimeOwner): RuntimeVersion {
   return { unitId: value.unitId, generation: value.generation, artifactId: hash }
 }
-function fixture(overrides: Partial<CoordinationPersistence> = {}) {
+function fixture(overrides: Partial<CoordinationPersistence> = {}, options: RuntimeCoordinatorOptions = {}) {
   const claimed: ExecutionOwnership[] = []
   const revoked: Array<{ owner: RuntimeOwner; runIds: readonly string[]; cause?: RuntimeOwner }> = []
-  const coordinator = new RuntimeCoordinator({
-    async claim(lease) {
-      claimed.push(lease)
-      return lease
+  const coordinator = new RuntimeCoordinator(
+    {
+      async claim(lease) {
+        claimed.push(lease)
+        return lease
+      },
+      async release() {},
+      async revoke(owner, runIds, cause) {
+        revoked.push({ owner, runIds, ...(cause ? { cause } : {}) })
+      },
+      ...overrides,
     },
-    async release() {},
-    async revoke(owner, runIds, cause) {
-      revoked.push({ owner, runIds, ...(cause ? { cause } : {}) })
-    },
-    ...overrides,
-  })
+    options,
+  )
   const kernel = owner('kernel')
   const driver = owner('driver')
   const plugin = owner('plugin.local')
@@ -582,4 +585,124 @@ test('shared checkout and maintenance resource gates remain global during genera
   f.coordinator.releaseResource(f.kernel, maintenance.id)
   await f.coordinator.releaseExecution(lease)
   expect(f.coordinator.acquireResource(kernel, 'database:maintenance')).not.toBeNull()
+})
+
+test('four durable claims retain FIFO capacity before a fifth Session can be claimed', async () => {
+  const ready: string[] = []
+  const f = fixture({}, { executionCapacity: 4, capacityReady: (sessionId) => ready.push(sessionId) })
+  const results = await Promise.all(
+    Array.from({ length: 6 }, (_, index) =>
+      f.coordinator.claim(f.kernel, `session-${index}`, `run-${index}`, f.bindings()),
+    ),
+  )
+  expect(results.filter(Boolean)).toHaveLength(4)
+  expect(f.claimed).toHaveLength(4)
+  expect(f.coordinator.executionForSession('session-4')).toBeNull()
+  expect(f.coordinator.canIdle(f.kernel, 'session-4')).toBe(false)
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 4, queuedExecutions: 2 })
+  const first = results[0]
+  if (!first) throw new Error('Missing first claim')
+  await f.coordinator.releaseExecution(first)
+  expect(ready).toEqual(['session-4'])
+  expect(await f.coordinator.claim(f.kernel, 'session-5', 'run-5', f.bindings())).toBeNull()
+  expect(await f.coordinator.claim(f.kernel, 'session-4', 'run-4', f.bindings())).not.toBeNull()
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 4, queuedExecutions: 1 })
+})
+
+test('physical claim writes count toward capacity and a null receipt releases their reservation', async () => {
+  let complete!: (value: ExecutionOwnership | null) => void
+  const gate = new Promise<ExecutionOwnership | null>((resolve) => {
+    complete = resolve
+  })
+  const ready: string[] = []
+  const f = fixture({ claim: () => gate }, { executionCapacity: 1, capacityReady: (id) => ready.push(id) })
+  const pending = f.coordinator.claim(f.kernel, 'pending', 'pending-run', f.bindings())
+  expect(await f.coordinator.claim(f.kernel, 'later', 'later-run', f.bindings())).toBeNull()
+  f.coordinator.releaseQueuedSession('pending')
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 1, queuedExecutions: 1 })
+  complete(null)
+  expect(await pending).toBeNull()
+  expect(ready).toEqual(['later'])
+  expect(f.coordinator.canIdle(f.kernel, 'pending')).toBe(true)
+})
+
+test('a lost claim acknowledgement retains capacity until the Host reconciles that exact Session', async () => {
+  const f = fixture(
+    {
+      claim: async () => {
+        throw new Error('lost durable acknowledgement')
+      },
+    },
+    { executionCapacity: 1 },
+  )
+  await expect(f.coordinator.claim(f.kernel, 'unknown', 'unknown-run', f.bindings())).rejects.toThrow('lost durable')
+  expect(await f.coordinator.claim(f.kernel, 'later', 'later-run', f.bindings())).toBeNull()
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 1, queuedExecutions: 1 })
+  f.coordinator.releaseQueuedSession('unknown')
+  expect(f.coordinator.capacityReadyQueue()).toEqual([])
+  f.coordinator.reconciled('unknown')
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 1, queuedExecutions: 0 })
+})
+
+test('a dropped capacity hint remains discoverable without replaying or duplicating a claim', async () => {
+  const f = fixture({}, { executionCapacity: 1 })
+  const first = await f.claim('first', 'first-run')
+  expect(await f.coordinator.claim(f.kernel, 'second', 'second-run', f.bindings())).toBeNull()
+  expect(f.coordinator.capacityReadyQueue()).toEqual([])
+  await f.coordinator.releaseExecution(first)
+  expect(f.coordinator.capacityReadyQueue()).toEqual([{ sessionId: 'second', runId: 'second-run' }])
+  expect(f.coordinator.capacityReadyQueue(1)).toEqual([{ sessionId: 'second', runId: 'second-run' }])
+  f.coordinator.releaseQueuedSession('second', 'stale-run')
+  expect(f.coordinator.capacityReadyQueue()).toHaveLength(1)
+  expect(f.claimed).toHaveLength(1)
+  await f.claim('second', 'second-run')
+  expect(f.coordinator.capacityReadyQueue()).toEqual([])
+  expect(f.claimed).toHaveLength(2)
+  expect(() => f.coordinator.capacityReadyQueue(65)).toThrow('1 to 64')
+})
+
+test('logical termination cannot release the slot before an unresponsive physical tool settles', async () => {
+  const ready: string[] = []
+  const f = fixture({}, { executionCapacity: 1, capacityReady: (id) => ready.push(id) })
+  const first = await f.claim('first', 'first-run')
+  const physical = f.coordinator.reserveTool(first, 'unresponsive-call', f.plugin)
+  expect(await f.coordinator.claim(f.kernel, 'later', 'later-run', f.bindings())).toBeNull()
+  await f.coordinator.requestRelease(first, () => {})
+  f.coordinator.releaseQueuedSession('first')
+  expect(ready).toEqual([])
+  expect(f.coordinator.executionForSession('first')).toEqual(first)
+  f.coordinator.releaseTool(physical.owner, physical.id)
+  for (let index = 0; index < 20 && ready.length === 0; index++) await Bun.sleep(1)
+  expect(ready).toEqual(['later'])
+  expect(f.coordinator.executionForSession('first')).toBeNull()
+})
+
+test('queue withdrawal and Kernel replacement release only reservations without active claims', async () => {
+  const f = fixture({}, { executionCapacity: 1 })
+  const first = await f.claim('first', 'first-run')
+  expect(await f.coordinator.claim(f.kernel, 'cancelled', 'cancelled-run', f.bindings())).toBeNull()
+  f.coordinator.releaseQueuedSession('cancelled')
+  expect(f.coordinator.canIdle(f.kernel, 'cancelled')).toBe(true)
+  expect(await f.coordinator.claim(f.kernel, 'old-queue', 'old-queue-run', f.bindings())).toBeNull()
+  const replacement = owner('kernel', 2)
+  f.register(replacement, 'kernel')
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 1, queuedExecutions: 0 })
+  expect(f.coordinator.executionForSession('first')).toEqual(first)
+  expect(await f.coordinator.claim(replacement, 'new-queue', 'new-queue-run', f.bindings(replacement))).toBeNull()
+  await f.coordinator.releaseExecution(first)
+  expect(await f.coordinator.claim(replacement, 'new-queue', 'new-queue-run', f.bindings(replacement))).not.toBeNull()
+})
+
+test('changing capacity preserves active claims while admitting existing queues in order', async () => {
+  const f = fixture({}, { executionCapacity: 1 })
+  const first = await f.claim('first', 'first-run')
+  expect(await f.coordinator.claim(f.kernel, 'second', 'second-run', f.bindings())).toBeNull()
+  f.coordinator.setExecutionCapacity(2)
+  const second = await f.claim('second', 'second-run')
+  f.coordinator.setExecutionCapacity(1)
+  expect(await f.coordinator.claim(f.kernel, 'third', 'third-run', f.bindings())).toBeNull()
+  await f.coordinator.releaseExecution(first)
+  expect(f.coordinator.executionCapacity()).toMatchObject({ activeExecutions: 1, queuedExecutions: 1 })
+  await f.coordinator.releaseExecution(second)
+  expect(await f.coordinator.claim(f.kernel, 'third', 'third-run', f.bindings())).not.toBeNull()
 })
