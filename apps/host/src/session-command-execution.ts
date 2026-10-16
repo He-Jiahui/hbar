@@ -27,12 +27,15 @@ import { CommandResultPayloads } from './command-result-payloads'
 import { SessionCommandAuthorization } from './session-command-authorization'
 import { CommandJobPayloadUnavailable } from './runtime-command-jobs'
 import { CommandMutationAdmission, type PendingCommandMutation } from './command-mutation-admission'
+import { clientCommandTargetSchema, type ClientCommandTarget } from '@hbar/contracts/client-commands'
+import type { ClientCommandJobs } from './client-command-jobs'
 
 export interface SessionCommandExecutionRequest {
   readonly source: ExecutionOwnership
   readonly callId: string
   readonly operationKey: string
   readonly prepared: CommandPreparation
+  readonly target?: ClientCommandTarget
   readonly signal?: AbortSignal
   readonly application?: HostSourceApplication
 }
@@ -77,6 +80,7 @@ export class SessionCommandExecution {
       readonly scopes: HostCommandExecutionScopes
       readonly payloads: CommandResultPayloads
       readonly assertSource: (source: ExecutionOwnership) => void
+      readonly clients?: ClientCommandJobs
     },
   ) {
     this.authorization = new SessionCommandAuthorization(options.storage)
@@ -85,6 +89,7 @@ export class SessionCommandExecution {
 
   async execute(request: SessionCommandExecutionRequest): Promise<CommandExecutionReceipt> {
     const source = executionOwnershipSchema.parse(request.source)
+    const target = request.target ? clientCommandTargetSchema.parse(request.target) : undefined
     request.signal?.throwIfAborted()
     const authorized = await this.authorization.authorize(
       source.sessionId,
@@ -92,6 +97,11 @@ export class SessionCommandExecution {
       request.prepared.descriptor,
       request.prepared.invocation,
     )
+    const client = request.prepared.descriptor.metadata.execution !== 'host'
+    if (client && (!target || !this.options.clients))
+      throw new HbarError('COMMAND_TARGET_UNAVAILABLE', 'This command requires an explicit connected client generation')
+    if (!client && target)
+      throw new HbarError('COMMAND_TARGET_INVALID', 'Host commands cannot be retargeted to a client')
     const intent = commandExecutionIntentSchema.parse({
       sessionId: source.sessionId,
       actorId: authorized.principal.actorId,
@@ -100,6 +110,7 @@ export class SessionCommandExecution {
       callId: request.callId,
       invocation: request.prepared.invocation,
       expectation: createCommandExpectation(request.prepared),
+      ...(target ? { target } : {}),
     })
     const key = keyOf(intent)
     const existing = this.active.get(key)
@@ -131,6 +142,11 @@ export class SessionCommandExecution {
         operationKey: intent.operationKey,
       })
       if (!prior) await this.assertReconciled(intent)
+      if (!prior && intent.target)
+        this.options.clients?.assertAvailable(intent.target, intent.actorId, {
+          descriptor: intent.expectation.descriptor,
+          invocation: intent.invocation,
+        })
       const accepted = await this.options.storage.call('commandExecutionAccept', intent)
       entry.receipt = accepted.receipt
       if (!accepted.created) {
@@ -169,12 +185,24 @@ export class SessionCommandExecution {
             },
           },
           () =>
-            this.options.routing.executePreparedTracked(
-              intent.invocation,
-              intent.actorId,
-              intent.expectation,
-              request.signal ? { signal: request.signal } : {},
-            ),
+            intent.target && this.options.clients
+              ? this.options.clients.execute(
+                  intent.target,
+                  intent.actorId,
+                  {
+                    descriptor: intent.expectation.descriptor,
+                    invocation: intent.invocation,
+                  },
+                  {
+                    signal: request.signal,
+                  },
+                )
+              : this.options.routing.executePreparedTracked(
+                  intent.invocation,
+                  intent.actorId,
+                  intent.expectation,
+                  request.signal ? { signal: request.signal } : {},
+                ),
         )
         entry.ticket = ticket
         entry.monitor = async () => {

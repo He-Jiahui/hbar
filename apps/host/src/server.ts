@@ -51,6 +51,7 @@ import { LocalCommandJobs } from './local-command-jobs'
 import { createHostCommandResultPayloads } from './host-command-result-payloads'
 import { SessionCommandExecution } from './session-command-execution'
 import { ClientCommandRelay } from './client-command-relay'
+import { ClientCommandJobs } from './client-command-jobs'
 
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
@@ -538,6 +539,14 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     },
   })
   const assertCommandSource = options.runtime?.assertCommandSource?.bind(options.runtime)
+  const clientCommandJobs =
+    options.runtime?.commandScopes && retainHostCommand
+      ? new ClientCommandJobs({
+          relay: commandClients,
+          scopes: options.runtime.commandScopes,
+          retainSource: retainHostCommand,
+        })
+      : undefined
   const sessionCommandExecution =
     options.runtime?.commandScopes && assertCommandSource
       ? new SessionCommandExecution({
@@ -546,6 +555,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           scopes: options.runtime.commandScopes,
           payloads: createHostCommandResultPayloads(kernel),
           assertSource: assertCommandSource,
+          ...(clientCommandJobs ? { clients: clientCommandJobs } : {}),
         })
       : undefined
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
@@ -1901,7 +1911,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     async close() {
       sessionCommandExecution?.assertCanClose()
       localCommandJobs.assertCanClose()
+      clientCommandJobs?.assertCanClose()
       commandClients.close()
+      clientCommandJobs?.dispose()
       closing = true
       detachCommandRouting?.()
       detachSessionCommandExecution?.()
