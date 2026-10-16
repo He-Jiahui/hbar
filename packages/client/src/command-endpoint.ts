@@ -9,6 +9,8 @@ import {
 } from '@hbar/contracts/client-commands'
 import type { HbarClient } from './index'
 
+const registrations = new WeakMap<HbarClient, Map<string, symbol>>()
+
 /** Owns real client handlers and retains physical results until the Host acknowledges them. */
 export class ClientCommandEndpoint {
   private readonly jobs = new CommandExecutionJobs({ maxJobs: 64 })
@@ -93,7 +95,19 @@ export async function registerCommandClient(
     commands: [...new Set(options.commands)],
   })
   const routing = options.routing
+  const owned = registrations.get(client) ?? new Map<string, symbol>()
+  if (owned.has(captured.clientId))
+    throw new CommandError('COMMAND_CLIENT_ALREADY_REGISTERED', 'This connection already owns that command endpoint')
+  if (owned.size >= 64) throw new CommandError('BUSY', 'Command endpoint registration capacity is full')
+  const lease = Symbol(captured.clientId)
+  owned.set(captured.clientId, lease)
+  registrations.set(client, owned)
+  const releaseRegistration = () => {
+    if (owned.get(captured.clientId) === lease) owned.delete(captured.clientId)
+    if (!owned.size) registrations.delete(client)
+  }
   let disposed = false
+  let disposal: Promise<void> | undefined
   let ordinary = 0
   let controls = 0
   let connectionLifetime = new AbortController()
@@ -174,6 +188,15 @@ export async function registerCommandClient(
     await ready
   } catch (error) {
     unsubscribe()
+    endpoint?.dispose()
+    connectionLifetime.abort(new CommandError('CANCELLED', 'Command registration failed'))
+    try {
+      await client.call('command.client.unregister', { clientId: captured.clientId, generation: captured.generation })
+    } catch {
+      /* A failed initial registration has no accepted client job to replay. */
+    } finally {
+      releaseRegistration()
+    }
     throw error
   }
   const offStatus = client.onStatus((status) => {
@@ -187,14 +210,18 @@ export async function registerCommandClient(
     void ready.catch(() => undefined)
   })
   return {
-    async dispose() {
-      if (disposed) return
+    dispose(): Promise<void> {
+      if (disposal) return disposal
       disposed = true
       connectionLifetime.abort(new CommandError('CANCELLED', 'The command client is closing'))
       endpoint?.dispose()
       offStatus()
       unsubscribe()
-      await client.call('command.client.unregister', { clientId: captured.clientId, generation: captured.generation })
+      disposal = client
+        .call('command.client.unregister', { clientId: captured.clientId, generation: captured.generation })
+        .then(() => undefined)
+        .finally(releaseRegistration)
+      return disposal
     },
   }
 }

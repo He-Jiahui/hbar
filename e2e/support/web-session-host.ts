@@ -300,7 +300,14 @@ export async function startWebSessionHost(
     historyCount?: number
     /** Test-only authored message content; never sent to a real Provider. */
     historyText?: string
-    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'runtime-status' | 'file-changes' | 'workspace-node'
+    fixture?:
+      | 'session'
+      | 'chat-database'
+      | 'chat-deletion'
+      | 'runtime-status'
+      | 'file-changes'
+      | 'workspace-node'
+      | 'client-commands'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
     /** Bounded delay in the local summary fixture, only for observing compaction lifecycle. */
@@ -319,12 +326,16 @@ export async function startWebSessionHost(
     .max(120_000)
     .parse(
       process.env.HBAR_E2E_HOST_STARTUP_TIMEOUT_MS ??
-        (options.fixture === 'runtime-status' || options.fixture === 'workspace-node' ? 120_000 : 20_000),
+        (options.fixture === 'runtime-status' || options.fixture === 'workspace-node' || options.fixture === 'client-commands'
+          ? 120_000
+          : 20_000),
     )
   const child = spawn(
     bunExecutable(),
     [
-      options.fixture === 'runtime-status'
+      options.fixture === 'client-commands'
+        ? 'scripts/e2e-client-command-host.ts'
+        : options.fixture === 'runtime-status'
         ? 'scripts/e2e-runtime-status-host.ts'
         : options.fixture === 'workspace-node'
           ? 'e2e/fixtures/workspace-location-host.ts'
@@ -353,7 +364,9 @@ export async function startWebSessionHost(
         HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
       },
       stdio: [
-        options.fixture === 'runtime-status' || options.fixture === 'workspace-node' ? 'pipe' : 'ignore',
+        options.fixture === 'runtime-status' || options.fixture === 'workspace-node' || options.fixture === 'client-commands'
+          ? 'pipe'
+          : 'ignore',
         'pipe',
         'pipe',
       ],

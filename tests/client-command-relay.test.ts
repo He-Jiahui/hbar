@@ -81,6 +81,9 @@ test('real WebSocket command clients retain actual jobs across reconnect and rej
   try {
     await Promise.all([client.connect(), other.connect(), rawClient.connect()])
     registration = await registerCommandClient(client, { ...target, commands: ['app.setSidebarVisible'], routing })
+    expect(
+      await rejected(registerCommandClient(client, { ...target, commands: ['app.setSidebarVisible'], routing })),
+    ).toMatchObject({ code: 'COMMAND_CLIENT_ALREADY_REGISTERED' })
     expect(await client.call('command.client.list', {})).toEqual({
       items: [{ ...target, commands: ['app.setSidebarVisible'] }],
     })

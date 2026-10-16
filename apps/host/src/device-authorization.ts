@@ -6,7 +6,15 @@ import { invocationSchema } from '@hbar/commands/protocol'
 import { workspaceListInputSchema, type WorkspacePage } from '@hbar/contracts/directory'
 import type { StoragePort } from '@hbar/storage'
 
+// These only publish or answer this authenticated connection's endpoint; command admission remains separate.
+const clientConnectionMethods = [
+  'command.client.register',
+  'command.client.unregister',
+  'command.client.reply',
+  'command.client.list',
+]
 const observerMethods = new Set([
+  ...clientConnectionMethods,
   'command.catalog',
   'command.describe',
   'command.execute',
@@ -22,6 +30,7 @@ const observerMethods = new Set([
   'session.summaries',
 ])
 const scopedGlobals = new Set([
+  ...clientConnectionMethods,
   'workspace.list',
   'command.catalog',
   'command.describe',
