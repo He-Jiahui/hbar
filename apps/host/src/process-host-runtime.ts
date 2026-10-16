@@ -99,6 +99,9 @@ import { RUNTIME_NODE_LINK_CONTROLS } from './runtime-node-link-contract'
 import { createRuntimeNodeIntentRecovery } from './runtime-node-intent-recovery'
 import { createRuntimeNodeWorkspaceInspection } from './runtime-node-workspace-inspection'
 
+/** Installation owns a temporary Worker only; serving Storage retains its normal 30s RPC budget. */
+export const STARTUP_STORAGE_READY_TIMEOUT_MS = 120_000
+
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
   readonly diagnosticFullCoverage?: boolean
@@ -673,10 +676,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             this.startupProbe = undefined
           }
           this.sourceAbort.signal.throwIfAborted()
-          const installation = new Storage(options.layout.database, options.layout)
+          const installation = new Storage(options.layout.database, options.layout, {
+            requestTimeoutMs: STARTUP_STORAGE_READY_TIMEOUT_MS,
+          })
           this.startupStorage = installation
           try {
             await installation.call('ready')
+            this.sourceAbort.signal.throwIfAborted()
           } finally {
             await installation.close()
             this.startupStorage = undefined
