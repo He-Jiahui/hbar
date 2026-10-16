@@ -1,3 +1,6 @@
+import { writeSync } from 'node:fs'
+import { diagnosticEvent, type DiagnosticEvent } from '@hbar/contracts/diagnostics'
+import type { RuntimeOwner } from '@hbar/contracts/runtime'
 import { z } from 'zod'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
@@ -47,6 +50,61 @@ import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 import { RuntimePluginAdapter } from './runtime-plugin-adapter'
 
 /** Managed candidates construct their actual Kernel with read-only ports; execution waits for explicit activation. */
+/** Preserve synchronous fail-closed exit; diagnostic failures never own shutdown. */
+export function stopKernelWithFatalDiagnostic(options: {
+  readonly owner: RuntimeOwner
+  readonly error: unknown
+  readonly notify: (event: DiagnosticEvent) => Promise<void>
+  readonly write?: (line: string) => void
+  readonly exit: (code: number) => never
+}): never {
+  try {
+    const descriptor = runtimeDomainError(options.error)
+    const code =
+      descriptor &&
+      /^(?:IPC|EXECUTION|RUNTIME|KERNEL|STORAGE|CONTEXT|COMPACTION)_[A-Z0-9_]{1,96}$/.test(descriptor.code)
+        ? descriptor.code
+        : 'KERNEL_FATAL_UNCLASSIFIED'
+    const event = diagnosticEvent({
+      component: 'host',
+      level: 'fatal',
+      event: 'host.runtime_kernel_fatal',
+      phase: 'scheduler_fatal',
+      errorCode: code,
+      contextId: options.owner.unitId,
+      requestId: options.owner.incarnation,
+      processId: process.pid,
+      exitCode: 76,
+      outcome: 'failure',
+    })
+    try {
+      ;(
+        options.write ??
+        ((line) => {
+          writeSync(2, line)
+        })
+      )(JSON.stringify(event) + '\n')
+    } catch {
+      /* Observation cannot own exit. */
+    }
+    options.notify(event).catch(() => {
+      /* Best effort; never wait for IPC. */
+    })
+  } catch {
+    try {
+      ;(
+        options.write ??
+        ((line) => {
+          writeSync(2, line)
+        })
+      )('[hbar runtime] kernel fatal diagnostic unavailable\n')
+    } catch {
+      /* Observation only. */
+    }
+  }
+  return options.exit(76)
+}
+
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const configuration = runtimeKernelConfigurationSchema.parse(context.configuration)
   const layout = createPathLayout(
@@ -153,7 +211,11 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           {
             execute: (input) => {
               const diagnostic = diagnosticScope.current()
-              return context.peer.call(readOnly ? 'kernel.preflight.read' : 'kernel.storage', { ...input, ...(diagnostic ? { diagnostic } : {}) }, z.unknown())
+              return context.peer.call(
+                readOnly ? 'kernel.preflight.read' : 'kernel.storage',
+                { ...input, ...(diagnostic ? { diagnostic } : {}) },
+                z.unknown(),
+              )
             },
           },
           method,
@@ -164,9 +226,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   }
   const construct = async (lifecycle: 'candidate' | 'managed', profile?: KernelProfile): Promise<Kernel> => {
     const profileReplacements = profile?.replacements ?? {}
-    const managedPlugins = configuration.isolatedPlugins
-      ? await plugins.load(Object.keys(profileReplacements))
-      : []
+    const managedPlugins = configuration.isolatedPlugins ? await plugins.load(Object.keys(profileReplacements)) : []
     return Kernel.create({
       layout,
       demo: configuration.demo,
@@ -174,42 +234,51 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       instanceId: configuration.instanceId,
       lifecycle,
       nodeIntentRecovery: {
-        reconcileRun: (runId, signal) => context.peer.call(
-          'kernel.nodeIntentRecovery.reconcileRun',
-          { runId },
-          runtimeKernelNodeIntentRecoverySchema,
-          { signal, timeoutMs: 65_000 },
-        ),
+        reconcileRun: (runId, signal) =>
+          context.peer.call(
+            'kernel.nodeIntentRecovery.reconcileRun',
+            { runId },
+            runtimeKernelNodeIntentRecoverySchema,
+            { signal, timeoutMs: 65_000 },
+          ),
       } satisfies NodeIntentRecoveryPort,
       nodeWorkspaceInspection: {
-        captureExecutionTarget: (request, signal) => context.peer.call(
-          'kernel.nodeWorkspaceInspection.captureExecutionTarget',
-          runtimeKernelNodeWorkspaceInspectionSchema.parse(request),
-          nodeExecutionTargetSchema,
-          { signal, timeoutMs: 20_000 },
-        ),
+        captureExecutionTarget: (request, signal) =>
+          context.peer.call(
+            'kernel.nodeWorkspaceInspection.captureExecutionTarget',
+            runtimeKernelNodeWorkspaceInspectionSchema.parse(request),
+            nodeExecutionTargetSchema,
+            { signal, timeoutMs: 20_000 },
+          ),
         resolveWorkspaceMountManifest: async (request, folders, primary, signal) =>
-          nodeWorkspaceMountManifestSchema.parse(await context.peer.call(
-            'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
-            runtimeKernelNodeWorkspaceMountManifestSchema.parse({ request, folders, primary }),
-            z.unknown(),
-            { signal, timeoutMs: 45_000 },
-          )),
+          nodeWorkspaceMountManifestSchema.parse(
+            await context.peer.call(
+              'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
+              runtimeKernelNodeWorkspaceMountManifestSchema.parse({ request, folders, primary }),
+              z.unknown(),
+              { signal, timeoutMs: 45_000 },
+            ),
+          ),
         verifyWorkspaceFolders: async (nodeId, folders, signal) =>
-          workspaceFoldersSchema.parse(await context.peer.call(
-            'kernel.nodeWorkspaceInspection.verifyWorkspaceFolders',
-            runtimeKernelVerifyWorkspaceFoldersSchema.parse({ nodeId, folders }),
-            z.unknown(),
-            { signal, timeoutMs: 45_000 },
-          )),
+          workspaceFoldersSchema.parse(
+            await context.peer.call(
+              'kernel.nodeWorkspaceInspection.verifyWorkspaceFolders',
+              runtimeKernelVerifyWorkspaceFoldersSchema.parse({ nodeId, folders }),
+              z.unknown(),
+              { signal, timeoutMs: 45_000 },
+            ),
+          ),
       } satisfies NodeWorkspaceInspectionPort,
       nodeWorktrees: {
-        create: async (nodeId, request, signal) => nodeManagedWorktreeSchema.parse(await context.peer.call(
-          'kernel.nodeWorktree.call',
-          runtimeKernelNodeWorktreeSchema.parse({ nodeId, method: 'worktree.create', input: request }),
-          z.unknown(),
-          { signal, timeoutMs: 160_000 },
-        )),
+        create: async (nodeId, request, signal) =>
+          nodeManagedWorktreeSchema.parse(
+            await context.peer.call(
+              'kernel.nodeWorktree.call',
+              runtimeKernelNodeWorktreeSchema.parse({ nodeId, method: 'worktree.create', input: request }),
+              z.unknown(),
+              { signal, timeoutMs: 160_000 },
+            ),
+          ),
         get: async (nodeId, request, signal) => {
           const result = await context.peer.call(
             'kernel.nodeWorktree.call',
@@ -231,12 +300,27 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
             throw new HbarError('NODE_WORKTREE_INVALID', 'Node did not confirm managed worktree removal')
         },
       } satisfies NodeWorktreePort,
-      onFatal: () => process.exit(76),
-      ...(configuration.diagnosticsEnabled ? {
-        diagnostics: protectDiagnosticSink({ emit: event => { void context.peer.notify('runtime.diagnostic', event).catch(() => {}) } }, diagnosticScope),
-        diagnosticScope,
-        diagnosticFullCoverage: configuration.diagnosticsFullCoverage ?? false,
-      } : {}),
+      onFatal: (error) =>
+        stopKernelWithFatalDiagnostic({
+          owner: context.peer.owner,
+          error,
+          notify: (event) => context.peer.notify('runtime.diagnostic', event),
+          exit: (code) => process.exit(code),
+        }),
+      ...(configuration.diagnosticsEnabled
+        ? {
+            diagnostics: protectDiagnosticSink(
+              {
+                emit: (event) => {
+                  void context.peer.notify('runtime.diagnostic', event).catch(() => {})
+                },
+              },
+              diagnosticScope,
+            ),
+            diagnosticScope,
+            diagnosticFullCoverage: configuration.diagnosticsFullCoverage ?? false,
+          }
+        : {}),
       secrets: {
         get: (id) => domain(() => context.peer.call('kernel.secret.get', { id }, z.string().nullable())),
         set: (id, value) => domain(() => context.peer.call('kernel.secret.set', { id, value }, z.undefined())),

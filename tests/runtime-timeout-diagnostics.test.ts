@@ -213,3 +213,54 @@ test('real process entry exit76 identifies uncaught stop reason without leaking 
     await rm(root, { recursive: true, force: true })
   }
 }, 15_000)
+
+test('actual entry child synchronously preserves stop and exception stderr before exit76', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-entry-stderr-'))
+  const modulePath = join(root, 'unused.ts')
+  const canary = 'private-entry-stderr-canary'
+  const entry = join(process.cwd(), 'packages/runtime/src/process-entry.ts').replaceAll('\\', '/')
+  const script = join(root, 'entry.ts')
+  await writeFile(
+    script,
+    `import { runRuntimeProcess } from ${JSON.stringify(entry)}; await runRuntimeProcess(); setTimeout(()=>{throw new ReferenceError('${canary}')},20)`,
+  )
+  const child = Bun.spawn([process.execPath, script], {
+    env: {
+      ...process.env,
+      HBAR_RUNTIME_SELF: JSON.stringify({ unitId: 'kernel', generation: 1, incarnation: 'stderr-child' }),
+      HBAR_RUNTIME_PARENT: JSON.stringify({ unitId: 'base', generation: 1, incarnation: 'stderr-parent' }),
+      HBAR_RUNTIME_MODULE: modulePath,
+    },
+    ipc: () => {},
+    stdout: 'ignore',
+    stderr: 'pipe',
+    windowsHide: true,
+  })
+  const stderr = new Response(child.stderr).text()
+  const deadline = setTimeout(() => child.kill('SIGKILL'), 5000)
+  try {
+    expect(await child.exited).toBe(76)
+    const text = await stderr
+    const events = text.split('\n').flatMap((line) => {
+      try {
+        const parsed = diagnosticEventSchema.safeParse(JSON.parse(line))
+        return parsed.success ? [parsed.data] : []
+      } catch {
+        return []
+      }
+    })
+    expect(events[0]?.event).toBe('host.runtime_entry_stop')
+    expect(events[0]?.phase).toBe('uncaught_exception')
+    expect(
+      events.some((event) => event.event === 'host.runtime_entry_exception' && event.method === 'ReferenceError'),
+    ).toBe(true)
+    expect(text).not.toContain(canary)
+  } finally {
+    clearTimeout(deadline)
+    if (child.exitCode === null) {
+      child.kill('SIGKILL')
+      await child.exited
+    }
+    await rm(root, { recursive: true, force: true })
+  }
+}, 10000)
