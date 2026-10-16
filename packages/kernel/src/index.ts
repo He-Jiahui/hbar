@@ -12,6 +12,9 @@ export type { NodeWorktreePort } from './node-worktree-port'
 import { ensureNodeRunWorktree } from './node-run-worktree'
 import { bindToolCall, type PreparedToolCall, type ToolCallPreparationPort } from './tool-call-binding'
 import { createSessionCommandTools } from './session-command-tools'
+import { createDelegatedInputTools, DELEGATED_INPUT_TOOL_NAMES } from './delegated-input-tools'
+import { coordinateDelegatedInput } from './delegated-input-coordinator'
+import type { DelegatedInputWake } from '@hbar/contracts/delegated-user-input'
 import type { SessionCommandDiscoveryPort } from './session-command-port'
 import type { ToolMutationAdmissionPort } from './mutation-admission'
 import { recommendedInputDecision } from './user-input-decisions'
@@ -452,6 +455,8 @@ export interface KernelOptions {
   mutationAdmission?: ToolMutationAdmissionPort | undefined
   /** Stable Host command discovery; every session inherits the core discovery tools when supplied. */
   sessionCommands?: SessionCommandDiscoveryPort | undefined
+  /** Wake an already authorized dedicated decision in the current scheduler, including generation handoff. */
+  delegationWake?: ((input: DelegatedInputWake, signal: AbortSignal) => Promise<void>) | undefined
   /** Private Host bridge for authenticated remote execution intent recovery. */
   nodeIntentRecovery?: NodeIntentRecoveryPort | undefined
   /** Stable Host adapter captures authenticated node facts before remote process admission. */
@@ -1185,6 +1190,8 @@ export class Kernel {
     }
   }
   private registerDefaults() {
+    for (const tool of createDelegatedInputTools(this.storage, (event) => this.publishEvent(event)))
+      this.tools.register(tool)
     if (this.options.sessionCommands)
       for (const tool of createSessionCommandTools(this.options.sessionCommands)) this.tools.register(tool)
     const isolatedPlugin = (id: string): HbarPlugin | undefined =>
@@ -2320,6 +2327,7 @@ export class Kernel {
     let driverCompletionRecorded = false
     let branchExecutionPath: string | null = null
     let branchTargetRevision: number | null = null
+    let delegationDeadline: ReturnType<typeof setTimeout> | undefined
     try {
       if (run.recovery) {
         const reason = await this.checkRuntimeRecovery(run)
@@ -2327,11 +2335,15 @@ export class Kernel {
       }
       this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
       if (run.input.delegatedDecision) {
-        await this.storage.call('delegatedInputAdmitRun', {
+        const grant = await this.storage.call('delegatedInputAdmitRun', {
           ...run.input.delegatedDecision,
           targetSessionId: sessionId,
           targetRunId: run.id,
         })
+        delegationDeadline = setTimeout(
+          () => controller.abort(new HbarError('DELEGATION_EXPIRED', 'The original dedicated decision deadline expired')),
+          Math.max(1, grant.expiresAt - Date.now()),
+        )
         await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, run.input.source)
         await this.assertRunPermission(run)
       }
@@ -2502,7 +2514,7 @@ export class Kernel {
       })
       if (run.input.delegatedDecision)
         selectedTools.tools = selectedTools.tools.filter((tool) =>
-          ['hbar_decisions_inbox', 'hbar_decision_reply'].includes(tool.name),
+          DELEGATED_INPUT_TOOL_NAMES.some((name) => name === tool.name),
         )
       scope.tools.pinParent()
       idleTimeout.progress()
@@ -2883,6 +2895,7 @@ export class Kernel {
             modelStartedAt.clear()
       }
     } finally {
+      if (delegationDeadline) clearTimeout(delegationDeadline)
       idleTimeout.dispose()
       try {
         const active = this.active.get(sessionId)
@@ -3150,6 +3163,11 @@ export class Kernel {
     scope: RuntimeScope,
     selectedTools?: readonly ToolDefinition[],
   ): Promise<ToolResult> {
+    if (context.run.input.delegatedDecision && !DELEGATED_INPUT_TOOL_NAMES.some((allowed) => allowed === name))
+      throw new HbarError(
+        'DELEGATION_TOOL_FORBIDDEN',
+        'Dedicated decisions can only inspect their grant and report a structured reply',
+      )
     const workspace = structuredClone(context.workspace)
     return this.workspaceExecutionScopes.run({ workspace, signal: context.signal }, () =>
       this.executeAdmittedTool(name, rawArgs, context, scope, selectedTools),
@@ -4197,30 +4215,73 @@ export class Kernel {
       }
       signal.addEventListener('abort', onAbort, { once: true })
       let resumeHumanWait: (() => void) | undefined
+      const suspendWaitTimeouts = () => {
+        if (resumeHumanWait) return
+        const active = this.active.get(request.sessionId)
+        if (request.isBlocking && active?.run.id === request.runId) {
+          const resumeIdle = active.idleTimeout.suspend()
+          const resumeTool = this.toolExecutions.suspend(request.runId, request.callId)
+          resumeHumanWait = () => {
+            resumeTool()
+            resumeIdle()
+          }
+        }
+      }
+      const announceHumanWait = () => {
+        this.publish({ method: 'user_input.requested', params: request })
+        void this.taskNotification(
+          'user_input',
+          request.sessionId,
+          request.runId,
+          '需要你的回答',
+          `${request.questions.length} 个问题正在等待处理。`,
+        ).catch((error: unknown) => console.error('Task notification failed:', error))
+      }
       try {
         for (const event of accepted.events) this.publishEvent(event)
         const boundaryStop = this.boundaryStops.get(request.runId)
         if (signal.aborted) onAbort()
         else if (boundaryStop) await settle(undefined, boundaryStop)
-        else await this.automateUserInput(request, accepted.state.policy, signal, settle)
-        if (!settled) {
-          const active = this.active.get(request.sessionId)
-          if (request.isBlocking && active?.run.id === request.runId) {
-            const resumeIdle = active.idleTimeout.suspend()
-            const resumeTool = this.toolExecutions.suspend(request.runId, request.callId)
-            resumeHumanWait = () => {
-              resumeTool()
-              resumeIdle()
-            }
+        else if (accepted.state.policy.policy.mode === 'delegate') {
+          const delegate = async () => {
+            await coordinateDelegatedInput(this.storage, {
+              request,
+              policy: accepted.state.policy,
+              revision: accepted.state.revision,
+              signal,
+              pending: () => !settled,
+              permission: (id) => this.sessionPermissionMode(id),
+              wake: async (value, wakeSignal) => {
+                if (this.options.delegationWake) await this.options.delegationWake(value, wakeSignal)
+                else this.kick(value.targetSessionId)
+              },
+              publish: (event) => this.publishEvent(event),
+              settle,
+              waiting: async (reason) => {
+                await this.append(
+                  request.sessionId,
+                  'user_input.automationWaiting',
+                  { version: 1, requestId: request.requestId, policy: accepted.state.policy, reason },
+                  request.runId,
+                )
+              },
+            })
+            if (!settled) announceHumanWait()
+            return outcome.promise
           }
-          this.publish({ method: 'user_input.requested', params: request })
-          void this.taskNotification(
-            'user_input',
-            request.sessionId,
-            request.runId,
-            '需要你的回答',
-            `${request.questions.length} 个问题正在等待处理。`,
-          ).catch((error: unknown) => console.error('Task notification failed:', error))
+          suspendWaitTimeouts()
+          return request.isBlocking
+            ? await this.withHumanWait(
+                request.runId,
+                request.callId,
+                { kind: 'questionnaire', id: request.requestId, revision: accepted.state.revision },
+                delegate,
+              )
+            : await delegate()
+        } else await this.automateUserInput(request, accepted.state.policy, signal, settle)
+        if (!settled) {
+          suspendWaitTimeouts()
+          announceHumanWait()
         }
         return request.isBlocking && !settled
           ? await this.withHumanWait(

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { withRuntimeHumanWait } from './runtime-human-wait-client'
 import { commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
 import { clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
+import { delegatedInputWakeSchema } from '@hbar/contracts/delegated-user-input'
 import { CommandExecutionJobs, commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { pathToFileURL } from 'node:url'
@@ -243,6 +244,8 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           runtimeKernelCommandDescribeSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, commandId }),
           commandDescriptorSchema, { signal: identity.signal, timeoutMs: 15_000 }),
       },
+      delegationWake: (input, signal) => context.peer.call('kernel.delegation.wake',
+        delegatedInputWakeSchema.parse(input), z.undefined(), { signal, timeoutMs: 15_000 }),
       nodeIntentRecovery: {
         reconcileRun: (runId, signal) => context.peer.call(
           'kernel.nodeIntentRecovery.reconcileRun',

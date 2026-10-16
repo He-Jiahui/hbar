@@ -1,6 +1,7 @@
 import { join, resolve } from 'node:path'
 import { BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
 import { EXECUTION_SLOT_LIMITS } from '@hbar/contracts/execution-slots'
+import { delegatedInputWakeSchema } from '@hbar/contracts/delegated-user-input'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -1653,6 +1654,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       return lease
     }
     record.cleanup.push(
+      peer.register(
+        'kernel.delegation.wake',
+        procedure(delegatedInputWakeSchema, z.undefined(), async (input) => {
+          assertCommandCaller(input)
+          const grant = await this.storage.call('delegatedInputRead', {
+            sessionId: input.sessionId,
+            requestId: input.requestId,
+          })
+          if (
+            !grant || grant.delegationId !== input.delegationId || grant.sourceRunId !== input.runId ||
+            grant.targetSessionId !== input.targetSessionId || grant.targetRunId !== input.targetRunId ||
+            grant.delivery !== 'dedicated' || grant.status !== 'delivered'
+          )
+            throw new HbarError('DECISION_CONFLICT', 'The dedicated wake requires its original live source grant')
+          assertCommandCaller(input)
+          await this.wake(input.targetSessionId)
+        }),
+      ),
       peer.register(
         'kernel.commands.prepare',
         procedure(runtimeKernelCommandPrepareSchema, sessionCommandPreparationSchema, async (input, call) => {

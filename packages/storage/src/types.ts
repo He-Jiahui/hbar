@@ -2,7 +2,10 @@ import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
-import type { createDelegatedUserInputStorage } from './delegated-user-input'
+import type {
+  DelegatedInputAccept, DelegatedInputDeliver, DelegatedInputRun, DelegatedInputIdentity,
+  DelegatedInputRecord, DelegatedInputBind, DelegatedInputComplete, DelegatedInputFinish, DelegatedInputInbox,
+} from '@hbar/contracts/delegated-user-input'
 import type { createAutonomyRetryStorage } from './autonomy-retries'
 import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type { AutomaticPlanExitDecision, AutomaticToolApprovalDecision } from '@hbar/contracts/autonomy'
@@ -300,14 +303,14 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
-  delegatedInputAccept: ReturnType<typeof createDelegatedUserInputStorage>['accept']
-  delegatedInputDeliver: ReturnType<typeof createDelegatedUserInputStorage>['deliver']
-  delegatedInputAdmitRun: ReturnType<typeof createDelegatedUserInputStorage>['admitRun']
-  delegatedInputRead: ReturnType<typeof createDelegatedUserInputStorage>['read']
-  delegatedInputBind: ReturnType<typeof createDelegatedUserInputStorage>['bind']
-  delegatedInputComplete: ReturnType<typeof createDelegatedUserInputStorage>['complete']
-  delegatedInputFinish: ReturnType<typeof createDelegatedUserInputStorage>['finish']
-  delegatedInputInbox: ReturnType<typeof createDelegatedUserInputStorage>['inbox']
+  delegatedInputAccept(input: DelegatedInputAccept): { created: boolean; state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputDeliver(input: DelegatedInputDeliver): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputAdmitRun(input: DelegatedInputRun): DelegatedInputRecord
+  delegatedInputRead(input: DelegatedInputIdentity): DelegatedInputRecord | null
+  delegatedInputBind(input: DelegatedInputBind): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputComplete(input: DelegatedInputComplete): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputFinish(input: DelegatedInputFinish): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputInbox(input: DelegatedInputInbox): { items: DelegatedInputRecord[]; nextCursor?: string }
   decisionPage: ReturnType<typeof createDecisionStorage>['page']
   autonomyRetryPlan: ReturnType<typeof createAutonomyRetryStorage>['plan']
   decisionOperationRead: ReturnType<typeof createDecisionStorage>['operationRead']

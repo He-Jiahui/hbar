@@ -82,6 +82,14 @@ export const delegatedInputRunSchema = delegatedInputIdentitySchema.extend({
   targetRunId: id,
 })
 export type DelegatedInputRun = z.output<typeof delegatedInputRunSchema>
+export const delegatedInputWakeSchema = delegatedInputRunSchema.extend({ runId: id })
+export type DelegatedInputWake = z.output<typeof delegatedInputWakeSchema>
+export const delegatedInputEnvelopeSchema = delegatedInputIdentitySchema.extend({
+  delegationId: id,
+  revision: z.number().int().positive().safe(),
+  expiresAt: timestamp,
+  request: userInputRequestSchema,
+})
 /** Reply arguments contain only the grant and answer; the actual target comes from the tool context. */
 export const delegatedInputToolReplySchema = mutation.extend({ reply: delegatedInputReplySchema })
 export const delegatedInputToolInboxSchema = z.strictObject({
@@ -117,6 +125,7 @@ export type DelegatedInputFinish = z.output<typeof delegatedInputFinishSchema>
 export const delegatedInputInboxSchema = z.strictObject({
   sessionId: id,
   runId: id,
+  deliveredOnly: z.boolean().default(false),
   after: id.optional(),
   limit: z.number().int().min(1).max(32).default(16),
 })

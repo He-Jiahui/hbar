@@ -848,6 +848,28 @@ test('source queues have a hard bound and target inbox pages keep an ordered sta
       after = page.nextCursor
     } while (after)
     expect(seen.size).toBe(64)
+    expect(
+      (
+        await f.storage.call('delegatedInputInbox', {
+          sessionId: f.sessions[1]!.id,
+          runId: f.runs[1]!.id,
+          deliveredOnly: true,
+        })
+      ).items,
+    ).toEqual([])
+  } finally {
+    await f.close()
+  }
+})
+
+test('an answered grant has no remaining target dependency when checking a reverse waiting cycle', async () => {
+  const f = await fixture()
+  try {
+    const answered = await f.complete((await f.delivered()).state)
+    expect((await f.storage.call('userInputRead', identity(answered.state)))?.settlement).toBeNull()
+    const reverse = await f.storage.call('delegatedInputAccept', await f.acceptQuestion(1, 0))
+    expect(reverse.state).toMatchObject({ status: 'pending', targetSessionId: f.sessions[0]!.id })
+    expect(await f.storage.call('delegatedInputRead', identity(answered.state))).toEqual(answered.state)
   } finally {
     await f.close()
   }

@@ -220,7 +220,8 @@ export function createDelegatedUserInputStorage(
       visited.add(id)
       for (const item of retained(id, 'outbox')) {
         const state = read(identityOf(item))
-        if (!state) continue
+        // A durable answer can be consumed without further target work; only unanswered grants are waiting edges.
+        if (!state || !['pending', 'delivered'].includes(state.status)) continue
         try {
           current(state)
         } catch (error) {
@@ -493,6 +494,7 @@ export function createDelegatedUserInputStorage(
         const state = read(identityOf(entry))
         seen++
         if (!state || (state.targetRunId !== null && state.targetRunId !== input.runId)) continue
+        if (input.deliveredOnly && (state.status !== 'delivered' || state.targetRunId !== input.runId)) continue
         try {
           current(state)
           target(state, input.sessionId, input.runId)

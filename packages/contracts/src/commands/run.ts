@@ -60,7 +60,7 @@ export type {
 export const submitRunInputSchema = z.strictObject({
   sessionId: idSchema,
   modelId: idSchema,
-  input: inputSchema,
+  input: inputSchema.omit({ delegatedDecision: true }),
   expectedLaunchTargetRevision: z.number().int().nonnegative().safe().optional(),
 })
 
