@@ -75,7 +75,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const labels = copy.monitoring.requests
       await openSessionTool(page, copy.session.tools, 'monitoring')
       const pane = page.locator('.hbar-app-react-session-monitoring')
-      await pane.locator('.hbar-monitoring-request-disclosure > .hbar-lumen-disclosure-trigger').click()
+      await pane.getByRole('tab', { name: copy.monitoring.tabs.requests, exact: true }).click()
       const requests = pane.locator('.hbar-session-requests')
       const rows = requests.locator(':scope > ul > li')
       await expect(rows).toHaveCount(50)
@@ -97,6 +97,8 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await expect(record).toContainText(expected.attemptId)
       await expect(record).toContainText(expected.providerId)
       await expect(record).toContainText(labels.number(expected.input))
+      await expect(record).toContainText(labels.fields.cacheHitRate)
+      await expect(record).toContainText(labels.cacheRatio(expected.cacheRead, expected.input))
       await expect(record).toContainText(labels.number(expected.billableTokens))
       await expect(record).toContainText(labels.cost(expected.cost))
       await expect(record.locator('pre')).toHaveCount(0)
@@ -134,16 +136,17 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await pane.screenshot({ path: testInfo.outputPath(`raw-messages-${locale}-${width}.png`) })
       }
       await row.locator(':scope > section > button').click()
-      await pane.getByRole('button', { name: labels.raw.sessionMessages, exact: true }).click()
-      const contextMessages = pane.locator(
-        '.hbar-session-context > .hbar-lumen-disclosure-content > .hbar-session-raw-messages',
-      )
+      await pane.getByRole('tab', { name: copy.monitoring.tabs.messages, exact: true }).click()
+      const contextMessages = pane
+        .getByRole('tabpanel', { name: copy.monitoring.tabs.messages, exact: true })
+        .locator('.hbar-session-raw-messages')
       await expect(contextMessages.locator(':scope > ul > li')).toHaveCount(20)
       await contextMessages.getByRole('button', { name: labels.raw.more(20), exact: true }).click()
       await expect(contextMessages.locator(':scope > ul > li')).toHaveCount(40)
       const beforeOlder = await contextMessages.locator('p').first().textContent()
       await pane.getByRole('button', { name: labels.raw.older, exact: true }).click()
       await expect.poll(() => contextMessages.locator('p').first().textContent()).not.toBe(beforeOlder)
+      await pane.getByRole('tab', { name: copy.monitoring.tabs.requests, exact: true }).click()
       await requests.getByRole('button', { name: labels.refresh, exact: true }).click()
       await expect(rows).toHaveCount(50)
       expect(errors).toEqual([])
