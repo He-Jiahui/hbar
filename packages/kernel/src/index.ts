@@ -4357,7 +4357,10 @@ export class Kernel {
     if (decision !== 'cancelled' && (await this.storage.call('approval', id)).tool === 'exit_plan_mode')
       throw new HbarError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
     const result = await this.storage.call('resolveApproval', id, decision, automatic)
-    if (result) this.publishEvent(result.event)
+    if (result) {
+      this.publishEvent(result.event)
+      for (const event of result.delegationEvents) this.publishEvent(event)
+    }
     // A concurrent decision may have won. Resolve from storage, never the losing argument.
     const approval = result?.approval ?? (await this.storage.call('approval', id))
     if (approval.status !== 'pending')
@@ -4419,6 +4422,7 @@ export class Kernel {
           })
         : await commit()
     this.publishEvent(resolved.event)
+    for (const event of resolved.delegationEvents) this.publishEvent(event)
     if (resolved.modeEvent) {
       if (resolved.modeEvent.eventId !== resolved.event.eventId) this.publishEvent(resolved.modeEvent)
       try {

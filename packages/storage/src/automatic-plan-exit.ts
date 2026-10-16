@@ -14,10 +14,10 @@ export function assertAutomaticPlanExit(
   raw: AutomaticPlanExitDecision,
 ): AutomaticPlanExitDecision {
   const automatic = automaticPlanExitDecisionSchema.parse(raw)
-  if (decision !== 'implement' || approval.tool !== 'exit_plan_mode')
-    throw new HbarError('AUTOMATIC_PLAN_EXIT_INVALID', 'Automatic Plan exit requires the original recommended policy')
+  if ((automatic.source === 'recommended' && decision !== 'implement') || approval.tool !== 'exit_plan_mode')
+    throw new HbarError('AUTOMATIC_PLAN_EXIT_INVALID', 'Automatic Plan exit requires its original Plan decision')
   if (!principal || principal.actorId !== actorId)
     throw new HbarError('EXECUTION_PRINCIPAL_UNAVAILABLE', 'Automatic Plan exit requires the actual source Run actor')
-  assertAutomaticDecisionPolicy(db, approval.sessionId, automatic.policy)
+  assertAutomaticDecisionPolicy(db, approval.sessionId, automatic.policy, automatic.source)
   return automatic
 }

@@ -1,8 +1,20 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import type { Database } from 'bun:sqlite'
-import { HbarError, type Run, type SessionEvent, type ApprovalMode } from '@hbar/contracts'
-import type { AutonomyPolicyResolution } from '@hbar/contracts/autonomy'
+import {
+  HbarError,
+  type Run,
+  type SessionEvent,
+  type ApprovalMode,
+  type Approval,
+  type UserInputResponse,
+} from '@hbar/contracts'
+import type {
+  AutonomyPolicyResolution,
+  DelegatedDecisionReceipt,
+  AutomaticPlanExitDecision,
+  AutomaticToolApprovalDecision,
+} from '@hbar/contracts/autonomy'
 import {
   DELEGATED_INPUT_MAX_PENDING,
   DELEGATED_INPUT_MAX_STATE_BYTES,
@@ -27,7 +39,11 @@ import {
 } from '@hbar/contracts/delegated-user-input'
 import type { UserInputState, UserInputSettlement } from '@hbar/contracts/user-input-state'
 import type { ExecutionPrincipal } from '@hbar/contracts/execution-principal'
-import { delegatedApprovalRequest, type DelegatedApprovalSubject } from '@hbar/contracts/delegated-approval'
+import {
+  delegatedApprovalRequest,
+  delegatedApprovalSubjectSchema,
+  type DelegatedApprovalSubject,
+} from '@hbar/contracts/delegated-approval'
 
 type Append = (sessionId: string, type: string, data: unknown, runId?: string) => SessionEvent
 const keyOf = (input: DelegatedInputIdentity) =>
@@ -255,6 +271,51 @@ export function createDelegatedUserInputStorage(
       }
     }
   }
+  function assertReceipt(
+    state: DelegatedInputRecord | null,
+    proof: DelegatedDecisionReceipt | undefined,
+    response: UserInputResponse,
+    policy: AutonomyPolicyResolution | undefined,
+  ): asserts state is DelegatedInputRecord {
+    if (
+      !state ||
+      !proof ||
+      state.status !== 'answered' ||
+      state.reply?.kind !== 'answered' ||
+      !state.repliedBy ||
+      state.delegationId !== proof.delegationId ||
+      state.revision !== proof.replyRevision ||
+      state.targetSessionId !== proof.targetSessionId ||
+      state.targetRunId !== proof.targetRunId ||
+      !same(state.reply.response, response) ||
+      !same(state.policy, policy)
+    )
+      throw new HbarError(
+        'DELEGATION_RECEIPT_INVALID',
+        'The decision requires its exact original structured target receipt',
+      )
+    current(state)
+    // A durable answer survives target completion, but both current device permissions still govern consumption.
+    const run = ports.run(proof.targetRunId)
+    const principal = ports.principal(run.id)
+    if (
+      run.sessionId !== state.targetSessionId ||
+      state.repliedBy.runId !== run.id ||
+      !principal ||
+      principal.actorId !== state.repliedBy.actorId ||
+      !ports.authorize(principal.actorId, [state.sessionId, state.targetSessionId, principal.originSessionId])
+    )
+      throw new HbarError('FORBIDDEN', 'The original target device no longer has access to both Sessions')
+  }
+  function prepareResolved(state: DelegatedInputRecord, cancelled: boolean) {
+    return prepareSave({
+      ...state,
+      revision: state.revision + 1,
+      status: cancelled ? 'cancelled' : 'closed',
+      reason: cancelled ? 'source_cancelled' : 'source_resolved',
+      updatedAt: Date.now(),
+    })
+  }
   return {
     read,
     admitRun(raw: DelegatedInputRun): DelegatedInputRecord {
@@ -309,47 +370,37 @@ export function createDelegatedUserInputStorage(
       const state = read({ sessionId: question.request.sessionId, requestId: question.request.requestId })
       if (state?.approval) throw new HbarError('DECISION_CONFLICT', 'An approval grant cannot settle a questionnaire')
       const automatic = settlement.kind === 'answered' ? settlement.automatic : undefined
-      if (automatic?.source === 'delegate') {
-        const proof = automatic.delegation
-        if (
-          !state ||
-          !proof ||
-          state.status !== 'answered' ||
-          state.reply?.kind !== 'answered' ||
-          !state.repliedBy ||
-          state.delegationId !== proof.delegationId ||
-          state.revision !== proof.replyRevision ||
-          state.targetSessionId !== proof.targetSessionId ||
-          state.targetRunId !== proof.targetRunId ||
-          !same(state.reply.response, automatic.response)
-        )
-          throw new HbarError(
-            'DELEGATION_RECEIPT_INVALID',
-            'The answer requires its exact original structured target receipt',
-          )
-        current(state)
-        // A valid reply survives normal target completion; current device access still governs consumption.
-        const run = ports.run(proof.targetRunId)
-        const principal = ports.principal(run.id)
-        if (
-          run.sessionId !== state.targetSessionId ||
-          state.repliedBy.runId !== run.id ||
-          !principal ||
-          principal.actorId !== state.repliedBy.actorId ||
-          !ports.authorize(principal.actorId, [state.sessionId, state.targetSessionId, principal.originSessionId])
-        )
-          throw new HbarError('FORBIDDEN', 'The original target device no longer has access to both Sessions')
-      }
+      if (automatic?.source === 'delegate')
+        assertReceipt(state, automatic.delegation, automatic.response, automatic.policy)
       if (!state || !open(state)) return () => []
       if (state.questionRevision !== question.revision || !same(state.request, question.request))
         throw new HbarError('DECISION_CONFLICT', 'The delegation belongs to another original question')
-      return prepareSave({
-        ...state,
-        revision: state.revision + 1,
-        status: settlement.kind === 'cancelled' ? 'cancelled' : 'closed',
-        reason: settlement.kind === 'cancelled' ? 'source_cancelled' : 'source_resolved',
-        updatedAt: Date.now(),
-      })
+      return prepareResolved(state, settlement.kind === 'cancelled')
+    },
+    /** Prepare before the original approval writer; publish closure only after its canonical outcome. */
+    prepareApprovalSettlement(
+      approval: Approval,
+      status: Approval['status'],
+      automatic?: AutomaticPlanExitDecision | AutomaticToolApprovalDecision,
+    ): () => SessionEvent[] {
+      const state = read({ sessionId: approval.sessionId, requestId: approval.id })
+      if (automatic?.source === 'delegate') {
+        const choice = approval.tool === 'exit_plan_mode' ? (status === 'allowed' ? 'implement' : 'continue') : status
+        assertReceipt(state, automatic.delegation, { answers: { decision: { answers: [choice] } } }, automatic.policy)
+        if (
+          !state.approval ||
+          !same(state.approval.approval, delegatedApprovalSubjectSchema.shape.approval.strip().parse(approval)) ||
+          (state.approval.kind === 'approval' &&
+            (!('admission' in automatic) || !same(automatic.admission, state.approval.context.admission)))
+        )
+          throw new HbarError(
+            'DELEGATION_RECEIPT_INVALID',
+            'The reply must match the original approval and trusted admission',
+          )
+      }
+      if (!state || !open(state)) return () => []
+      if (!state.approval) throw new HbarError('DECISION_CONFLICT', 'A questionnaire grant cannot settle an approval')
+      return prepareResolved(state, status === 'cancelled')
     },
     accept(raw: DelegatedInputAccept) {
       const input = delegatedInputAcceptSchema.parse(raw)

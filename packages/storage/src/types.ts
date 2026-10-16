@@ -612,7 +612,7 @@ export interface StorageMethods {
     id: string,
     status: Approval['status'],
     automatic?: AutomaticToolApprovalDecision,
-  ): { approval: Approval; event: SessionEvent } | null
+  ): { approval: Approval; event: SessionEvent; delegationEvents: SessionEvent[] } | null
   resolvePlanExit(
     id: string,
     sessionId: string,
@@ -622,7 +622,7 @@ export interface StorageMethods {
     feedback: string | undefined,
     actorId: string,
     automatic?: AutomaticPlanExitDecision,
-  ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null }
+  ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null; delegationEvents: SessionEvent[] }
   approval(id: string): Approval
   toolStart(
     sessionId: string,

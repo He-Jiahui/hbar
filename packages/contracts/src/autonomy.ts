@@ -25,11 +25,29 @@ export const autonomyPolicyResolutionSchema = z.strictObject({
 export type AutonomyPolicyResolution = z.infer<typeof autonomyPolicyResolutionSchema>
 
 /** Original Run identity and approval arguments remain in the same durable Plan-exit record. */
-export const automaticPlanExitDecisionSchema = z.strictObject({
-  version: z.literal(1),
-  source: z.literal('recommended'),
-  policy: autonomyPolicyResolutionSchema,
+export const delegatedDecisionReceiptSchema = z.strictObject({
+  delegationId: id,
+  targetSessionId: id,
+  targetRunId: id,
+  replyRevision: z.number().int().positive().safe(),
 })
+export type DelegatedDecisionReceipt = z.output<typeof delegatedDecisionReceiptSchema>
+const automaticDecisionFields = {
+  version: z.literal(1),
+  source: z.enum(['recommended', 'delegate']),
+  policy: autonomyPolicyResolutionSchema,
+  delegation: delegatedDecisionReceiptSchema.optional(),
+}
+function validateDecisionReceipt(
+  value: { source: 'recommended' | 'delegate'; delegation?: DelegatedDecisionReceipt | undefined },
+  context: z.RefinementCtx,
+) {
+  if ((value.source === 'delegate') !== (value.delegation !== undefined))
+    context.addIssue({ code: 'custom', message: 'Only a delegated decision must carry its original target receipt' })
+}
+export const automaticPlanExitDecisionSchema = z
+  .strictObject(automaticDecisionFields)
+  .superRefine(validateDecisionReceipt)
 export type AutomaticPlanExitDecision = z.infer<typeof automaticPlanExitDecisionSchema>
 
 /** Captured from the final trusted tool admission, never from model arguments. */
@@ -45,7 +63,10 @@ export const approvalAutomationContextSchema = z.strictObject({
   admission: automaticToolApprovalAdmissionSchema.optional(),
 })
 export type ApprovalAutomationContext = z.output<typeof approvalAutomationContextSchema>
-export const automaticToolApprovalDecisionSchema = automaticPlanExitDecisionSchema.extend({
-  admission: automaticToolApprovalAdmissionSchema,
-})
+export const automaticToolApprovalDecisionSchema = z
+  .strictObject({
+    ...automaticDecisionFields,
+    admission: automaticToolApprovalAdmissionSchema,
+  })
+  .superRefine(validateDecisionReceipt)
 export type AutomaticToolApprovalDecision = z.infer<typeof automaticToolApprovalDecisionSchema>

@@ -6,7 +6,12 @@ import { join } from 'node:path'
 import { Storage } from '@hbar/storage'
 import { SettingsService } from '@hbar/kernel'
 import type { Approval } from '@hbar/contracts'
-import { AUTONOMY_DECISION_MODE_SETTING, AUTONOMY_DECISION_TARGET_SETTING } from '@hbar/contracts/autonomy'
+import {
+  AUTONOMY_DECISION_MODE_SETTING,
+  AUTONOMY_DECISION_TARGET_SETTING,
+  automaticPlanExitDecisionSchema,
+  automaticToolApprovalDecisionSchema,
+} from '@hbar/contracts/autonomy'
 import type { DelegatedInputRecord } from '@hbar/contracts/delegated-user-input'
 import { delegatedDecisionText } from '../packages/storage/src/delegated-input-delivery'
 import { removeOwnedTestDirectory } from './owned-temp-directory'
@@ -29,6 +34,23 @@ const mutation = (state: DelegatedInputRecord) => ({
   delegationId: state.delegationId,
   expectedRevision: state.revision,
 })
+const evidence = (state: DelegatedInputRecord) => ({
+  version: 1,
+  source: 'delegate',
+  policy: state.policy,
+  delegation: {
+    delegationId: state.delegationId,
+    targetSessionId: state.targetSessionId,
+    targetRunId: state.targetRunId,
+    replyRevision: state.revision,
+  },
+})
+const toolEvidence = (state: DelegatedInputRecord) =>
+  automaticToolApprovalDecisionSchema.parse({
+    ...evidence(state),
+    admission: state.approval?.context.admission,
+  })
+const planEvidence = (state: DelegatedInputRecord) => automaticPlanExitDecisionSchema.parse(evidence(state))
 
 async function fixture(mode: 'plan' | 'default' = 'plan', approvalMode: 'ask' | 'deny' = 'ask') {
   const prefix = 'hbar-delegated-approval-'
@@ -113,13 +135,14 @@ async function fixture(mode: 'plan' | 'default' = 'plan', approvalMode: 'ask' | 
       await storage.call('setRun', sourceRun.id, 'waiting_approval')
       return value
     }
-    const accept = (value: Approval, kind: 'approval' | 'plan_exit' = 'approval') =>
+    const accept = (value: Approval, kind: 'approval' | 'plan_exit' = 'approval', timeoutMs?: number) =>
       storage.call('delegatedInputAccept', {
         sessionId: source.id,
         requestId: value.id,
         kind,
         policy,
         expectedQuestionRevision: 1,
+        ...(timeoutMs === undefined ? {} : { timeoutMs }),
       })
     const bind = async (state: DelegatedInputRecord) =>
       (
@@ -376,5 +399,169 @@ test('approval parameters must match the immutable request rather than a changed
     expect(read(input, 'approval')).toBeNull()
   } finally {
     db.close()
+  }
+})
+
+test('source approval consumes the exact allowed or denied target receipt once across restart', async () => {
+  for (const choice of ['allowed', 'denied'] as const) {
+    const f = await fixture('default')
+    try {
+      const approval = await f.approval()
+      const state = (await f.reply(await f.bind((await f.accept(approval)).state), choice)).state
+      const automatic = toolEvidence(state)
+      const result = await f.storage.call('resolveApproval', approval.id, choice, automatic)
+      expect(result?.approval).toMatchObject({ status: choice, decidedBy: f.actor.id, args: approval.args })
+      expect(result?.event.data).toMatchObject({ automatic: { source: 'delegate', delegation: automatic.delegation } })
+      expect(result?.delegationEvents.at(-1)?.seq).toBeGreaterThan(result?.event.seq ?? 0)
+      expect((await f.storage.call('delegatedInputRead', identity(state)))?.status).toBe('closed')
+      await f.restart()
+      expect(await f.storage.call('resolveApproval', approval.id, choice, automatic)).toBeNull()
+      const resolved = (await f.storage.call('events', f.source.id, 0, 256)).filter(
+        (event) => event.type === 'approval.resolved',
+      )
+      expect(resolved).toHaveLength(1)
+      expect((await f.storage.call('run', f.targetRun.id)).status).toBe('running')
+    } finally {
+      await f.close()
+    }
+  }
+})
+
+test('delegated Plan exit preserves the original Run and commits implement or continue canonically', async () => {
+  for (const choice of ['implement', 'continue'] as const) {
+    const f = await fixture()
+    try {
+      const approval = await f.approval('plan_exit', 'policy', { plan: '# Original plan' })
+      const state = (await f.reply(await f.bind((await f.accept(approval, 'plan_exit')).state), choice)).state
+      const result = await f.storage.call(
+        'resolvePlanExit',
+        approval.id,
+        f.source.id,
+        f.sourceRun.id,
+        approval.callId,
+        choice,
+        undefined,
+        f.actor.id,
+        planEvidence(state),
+      )
+      expect(result.approval.status).toBe(choice === 'implement' ? 'allowed' : 'denied')
+      expect(result.approval.decidedBy).toBe(f.actor.id)
+      expect(result.event.type).toBe('plan_exit.resolved')
+      expect(result.event.data).toMatchObject({ automatic: { source: 'delegate' }, exitRunId: f.sourceRun.id })
+      expect(result.event.data).toMatchObject({ mode: choice === 'implement' ? 'default' : null })
+      expect((await f.storage.call('run', f.sourceRun.id)).input.mode).toBe('plan')
+      expect((await f.storage.call('delegatedInputRead', identity(state)))?.status).toBe('closed')
+      expect(result.delegationEvents.at(-1)?.seq).toBeGreaterThan(result.event.seq)
+      await f.restart()
+      expect((await f.storage.call('approval', approval.id)).status).toBe(result.approval.status)
+      expect((await f.storage.call('delegatedInputRead', identity(state)))?.status).toBe('closed')
+    } finally {
+      await f.close()
+    }
+  }
+})
+
+test('forged grant, target, revision and a different choice cannot settle the original approval', async () => {
+  const f = await fixture('default')
+  try {
+    const approval = await f.approval()
+    const state = (await f.reply(await f.bind((await f.accept(approval)).state))).state
+    const original = toolEvidence(state)
+    for (const replacement of [
+      { delegationId: 'different-grant' },
+      { targetSessionId: f.source.id },
+      { targetRunId: f.sourceRun.id },
+      { replyRevision: state.revision + 1 },
+    ]) {
+      const automatic = automaticToolApprovalDecisionSchema.parse({
+        ...original,
+        delegation: { ...original.delegation, ...replacement },
+      })
+      expect(await rejected(f.storage.call('resolveApproval', approval.id, 'allowed', automatic))).toMatchObject({
+        code: 'DELEGATION_RECEIPT_INVALID',
+      })
+      expect((await f.storage.call('approval', approval.id)).status).toBe('pending')
+    }
+    expect(await rejected(f.storage.call('resolveApproval', approval.id, 'denied', original))).toMatchObject({
+      code: 'DELEGATION_RECEIPT_INVALID',
+    })
+    expect((await f.storage.call('resolveApproval', approval.id, 'allowed', original))?.approval.status).toBe('allowed')
+    expect(automaticToolApprovalDecisionSchema.safeParse({ ...original, delegation: undefined }).success).toBe(false)
+    expect(automaticPlanExitDecisionSchema.safeParse({ ...planEvidence(state), source: 'recommended' }).success).toBe(
+      false,
+    )
+  } finally {
+    await f.close()
+  }
+})
+
+test('manual and cancelled source decisions close grants without fabricating automatic provenance', async () => {
+  for (const manual of ['denied', 'cancelled'] as const) {
+    const f = await fixture('default')
+    try {
+      const approval = await f.approval()
+      const state = (await f.reply(await f.bind((await f.accept(approval)).state))).state
+      const result = await f.storage.call('resolveApproval', approval.id, manual)
+      expect(result?.event.data).not.toHaveProperty('automatic')
+      expect((await f.storage.call('delegatedInputRead', identity(state)))?.status).toBe(
+        manual === 'cancelled' ? 'cancelled' : 'closed',
+      )
+      expect(await f.storage.call('resolveApproval', approval.id, 'allowed', toolEvidence(state))).toBeNull()
+      expect((await f.storage.call('approval', approval.id)).status).toBe(manual)
+      expect((await f.storage.call('run', f.targetRun.id)).status).toBe('running')
+    } finally {
+      await f.close()
+    }
+  }
+})
+
+test('permission, cancellation, policy, archive and deadline changes after the answer prevent source approval', async () => {
+  for (const boundary of ['permission', 'cancel', 'policy', 'archive', 'timeout'] as const) {
+    const f = await fixture('default')
+    try {
+      const approval = await f.approval()
+      const state = (
+        await f.reply(
+          await f.bind((await f.accept(approval, 'approval', boundary === 'timeout' ? 1_000 : undefined)).state),
+        )
+      ).state
+      if (boundary === 'permission') {
+        await f.storage.call('revokeDevice', f.actor.id)
+        await f.storage.call('putDevice', { ...f.actor, role: 'observer' }, 'narrowed-approval-token')
+      } else if (boundary === 'cancel') await f.storage.call('requestCancel', f.sourceRun.id)
+      else if (boundary === 'archive') await f.storage.call('updateSession', f.target.id, { archived: true })
+      else if (boundary === 'timeout') await Bun.sleep(Math.max(1, state.expiresAt - Date.now() + 10))
+      else {
+        const service = new SettingsService(f.storage)
+        const scope = { kind: 'session' as const, targetId: f.source.id }
+        const before = await service.get(scope)
+        await service.apply({
+          schemaVersion: before.schemaVersion,
+          scope,
+          baselineRevisions: before.revisions,
+          actorId: f.actor.id,
+          idempotencyKey: 'policy-after-reply',
+          changes: [{ op: 'set', path: [{ kind: 'field', name: AUTONOMY_DECISION_MODE_SETTING }], value: 'wait_user' }],
+        })
+      }
+      expect(
+        await rejected(f.storage.call('resolveApproval', approval.id, 'allowed', toolEvidence(state))),
+      ).toHaveProperty(
+        'code',
+        {
+          permission: 'FORBIDDEN',
+          cancel: 'USER_CANCELLED',
+          policy: 'DECISION_POLICY_CHANGED',
+          archive: 'DELEGATION_TARGET_UNAVAILABLE',
+          timeout: 'DELEGATION_EXPIRED',
+        }[boundary],
+      )
+      expect((await f.storage.call('approval', approval.id)).status).toBe('pending')
+      expect(
+        (await f.storage.call('events', f.source.id, 0, 256)).filter((event) => event.type === 'approval.resolved'),
+      ).toHaveLength(0)
+    } finally {
+      await f.close()
+    }
   }
 })

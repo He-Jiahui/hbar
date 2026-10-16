@@ -3327,7 +3327,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           if (automatic) {
             const run = methods.run(approval.runId)
             if (
-              status !== 'allowed' ||
+              (automatic.source === 'recommended' ? status !== 'allowed' : !['allowed', 'denied'].includes(status)) ||
               approval.tool === 'exit_plan_mode' ||
               run.sessionId !== approval.sessionId ||
               run.status !== 'waiting_approval' ||
@@ -3341,23 +3341,19 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             const principal = executionPrincipals.run(run.id)
             if (!principal)
               throw new HbarError('EXECUTION_PRINCIPAL_UNAVAILABLE', 'Automatic approval requires its actual source actor')
-            assertAutomaticDecisionPolicy(db, approval.sessionId, automatic.policy)
+            assertAutomaticDecisionPolicy(db, approval.sessionId, automatic.policy, automatic.source)
             approval.decidedBy = principal.actorId
           }
+          const closeDelegation = delegatedInputs.prepareApprovalSettlement(approval, status, automatic)
           db.query('UPDATE approvals SET status=?,decidedBy=? WHERE id=?').run(status, approval.decidedBy ?? null, id)
           approval.status = status
-          return {
-            approval,
-            event: appendEvent(
-              approval.sessionId,
-              'approval.resolved',
-              {
-                ...approval,
-                ...(automatic ? { automatic } : {}),
-              },
-              approval.runId,
-            ),
-          }
+          const event = appendEvent(
+            approval.sessionId,
+            'approval.resolved',
+            { ...approval, ...(automatic ? { automatic } : {}) },
+            approval.runId,
+          )
+          return { approval, event, delegationEvents: closeDelegation() }
         })(),
       resolvePlanExit: (id, sessionId, runId, callId, decision, feedback, actorId, rawAutomatic) =>
         db.transaction(() => {
@@ -3380,6 +3376,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               ? undefined
               : assertAutomaticPlanExit(db, approval, decision, actorId, executionPrincipals.run(runId), rawAutomatic)
           const status = decision === 'implement' ? 'allowed' : 'denied'
+          const closeDelegation = delegatedInputs.prepareApprovalSettlement(approval, status, automatic)
           db.query('UPDATE approvals SET status=?,feedback=?,decidedBy=? WHERE id=?').run(
             status,
             feedback ?? null,
@@ -3402,7 +3399,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             runId,
           )
           const modeEvent = decision === 'implement' ? event : null
-          return { approval: resolved, event, modeEvent }
+          return { approval: resolved, event, modeEvent, delegationEvents: closeDelegation() }
         })(),
       toolStart: (sessionId, runId, callId, name, args, presentation, nodeExecution) =>
         db.transaction(() => {
