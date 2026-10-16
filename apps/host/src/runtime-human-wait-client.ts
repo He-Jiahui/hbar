@@ -8,12 +8,15 @@ export async function withRuntimeHumanWait<Result>(
   execution: ExecutionOwnership,
   callId: string,
   decision: ExecutionWaitDecision,
-  operation: () => Promise<Result>,
+  operation: (confirmed: boolean) => Promise<Result>,
 ): Promise<Result> {
   const input = executionHumanWaitSchema.parse({ waitId: crypto.randomUUID(), execution, callId, decision })
   try {
-    await peer.call('execution.humanWait.begin', input, z.boolean(), { timeoutMs: 30_000, ownership: execution })
-    return await operation()
+    const confirmed = await peer.call('execution.humanWait.begin', input, z.boolean(), {
+      timeoutMs: 30_000,
+      ownership: execution,
+    })
+    return await operation(confirmed)
   } finally {
     // Cleanup belongs to the original caller even if its claim was revoked or begin's acknowledgement was lost.
     await peer.call('execution.humanWait.end', input, z.undefined(), { timeoutMs: 30_000 })

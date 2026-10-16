@@ -348,3 +348,27 @@ test('client cleanup closes a confirmed wait after operation cancellation withou
     peers.close()
   }
 })
+
+test('an already-settled decision does not authorize suspension of a local parent RPC', async () => {
+  const f = fixture(),
+    peers = pair(f.owner)
+  const detach = f.waits.attachKernel(peers.host, f.owner)
+  f.setQuestion({ ...f.question, settlement: { kind: 'cancelled', reason: 'already answered elsewhere' } })
+  try {
+    const result = await withRuntimeHumanWait(
+      peers.unit,
+      f.execution,
+      'original-call',
+      { kind: 'questionnaire', id: 'question', revision: 1 },
+      async (confirmed) => {
+        expect(confirmed).toBe(false)
+        return 'existing outcome'
+      },
+    )
+    expect(result).toBe('existing outcome')
+    expect(f.waits.snapshot()).toEqual({ waits: 0, active: 0, callbacks: 0 })
+  } finally {
+    detach()
+    peers.close()
+  }
+})
