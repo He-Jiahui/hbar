@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./schedule-execution": "./src/schedule-execution.ts",
     "./delegated-approval": "./src/delegated-approval.ts",
     "./delegated-user-input": "./src/delegated-user-input.ts",
     "./client-commands": "./src/client-commands.ts",

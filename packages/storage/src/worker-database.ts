@@ -1621,6 +1621,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       sandboxSnapshot: (digest) => sandboxProfiles.snapshot(digest),
       schedulePage: (workspaceId, after, limit) => schedules.list(workspaceId, after, limit),
       schedule: (id) => schedules.get(id),
+      scheduleExecution: schedules.execution,
       createSchedule: (input, identity) => schedules.create(input, identity),
       updateSchedule: (input, identity) => schedules.update(input, identity),
       deleteSchedule: (id, expectedRevision, identity) => schedules.delete(id, expectedRevision, identity),
