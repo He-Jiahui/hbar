@@ -539,6 +539,10 @@ export async function invokeControllerRpc(
     case 'operation.unwatch':
     case 'metrics.watch':
     case 'metrics.unwatch':
+    case 'command.client.register':
+    case 'command.client.unregister':
+    case 'command.client.reply':
+    case 'command.client.list':
     case 'surface.register':
     case 'surface.unregister':
     case 'surface.list':

@@ -50,6 +50,7 @@ import { createSystemCommands } from './system-commands.ts'
 import { LocalCommandJobs } from './local-command-jobs'
 import { createHostCommandResultPayloads } from './host-command-result-payloads'
 import { SessionCommandExecution } from './session-command-execution'
+import { ClientCommandRelay } from './client-command-relay'
 
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
@@ -307,6 +308,11 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     string,
     { socket: ServerWebSocket<SocketData>; generation: number; commands: Set<string> }
   >()
+  const commandClients = new ClientCommandRelay((connectionId, request) => {
+    const target = [...sockets].find((socket) => socket.data.connectionId === connectionId && socket.readyState === 1)
+    if (!target) throw new HbarError('COMMAND_TARGET_STALE', 'The original command client connection is unavailable')
+    send(target, { jsonrpc: '2.0', method: 'command.client.request', params: request })
+  })
   type SurfaceOutcome = { ok: true; result: unknown } | { ok: false; code: string; message: string }
   interface PendingSurfaceInvocation {
     key: string
@@ -706,6 +712,28 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           rejectSurfaceTarget(input.clientId, input.generation, 'Target client unregistered')
         }
         return null
+      }
+      case 'command.client.register': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        return commandClients.register(socket.data.connectionId, actorId, rpcSchemas[method].parse(raw))
+      }
+      case 'command.client.unregister': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        commandClients.unregister(socket.data.connectionId, actorId, rpcSchemas[method].parse(raw))
+        return null
+      }
+      case 'command.client.reply': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        commandClients.reply(socket.data.connectionId, actorId, rpcSchemas[method].parse(raw))
+        return null
+      }
+      case 'command.client.list': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        return commandClients.list(actorId)
       }
       case 'surface.list':
         return {
@@ -1792,6 +1820,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           terminalRouter.detach(socket.data.deviceId, socket.data.terminalCallbacks)
         socket.data.terminals.clear()
         sockets.delete(socket)
+        commandClients.disconnected(socket.data.connectionId)
         for (const controller of socket.data.schemaQueries.values())
           controller.abort(new HbarError('CANCELLED', 'Schema content client disconnected'))
         socket.data.schemaQueries.clear()
@@ -1864,6 +1893,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     /** Trusted in-process adapters share the same route as authenticated RPC. */
     commands: commandRouter,
     commandJobs: localCommandJobs,
+    commandClients,
     sessionCommandExecution,
     auth,
     pairing,
@@ -1871,6 +1901,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     async close() {
       sessionCommandExecution?.assertCanClose()
       localCommandJobs.assertCanClose()
+      commandClients.close()
       closing = true
       detachCommandRouting?.()
       detachSessionCommandExecution?.()

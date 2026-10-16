@@ -1,4 +1,10 @@
 import { z } from 'zod'
+import {
+  clientCommandTargetSchema,
+  clientCommandRegistrationSchema,
+  clientCommandReplySchema,
+  type ClientCommandRequest,
+} from './client-commands'
 import { autonomyPolicyResolutionSchema } from './autonomy'
 export { HbarError } from './errors'
 import { runRecoverySchema, runtimeWatchInputSchema } from './runtime'
@@ -1360,6 +1366,7 @@ export type WireNotification =
       params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse | undefined }
     }
   | { method: 'auth.revoked'; params: { reason: string } }
+  | { method: 'command.client.request'; params: ClientCommandRequest }
   | {
       method: 'terminal.output'
       params: { terminalId: string; data: string; seq?: number | undefined; reset?: boolean | undefined }
@@ -1377,6 +1384,10 @@ export type WireNotification =
     }
 
 export const rpcSchemas = {
+  'command.client.register': clientCommandRegistrationSchema,
+  'command.client.unregister': clientCommandTargetSchema,
+  'command.client.reply': clientCommandReplySchema,
+  'command.client.list': z.strictObject({}),
   'system.runtime.watch': runtimeWatchInputSchema,
   'system.runtime.unwatch': z.strictObject({}),
   'command.execute': invocationSchema,
@@ -1740,6 +1751,10 @@ export interface RpcResults {
   'operation.unwatch': null
   'metrics.watch': import('./commands/metrics').MetricsWatchResult
   'metrics.unwatch': null
+  'command.client.register': { clientId: string; generation: number; actorId: string; commands: string[] }
+  'command.client.unregister': null
+  'command.client.reply': null
+  'command.client.list': { items: Array<{ clientId: string; generation: number; commands: string[] }> }
   'surface.register': { clientId: string; generation: number; commands: string[] }
   'surface.unregister': null
   'surface.list': { items: { clientId: string; generation: number; commands: string[] }[] }
