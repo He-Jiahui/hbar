@@ -11,7 +11,13 @@ import {
   runtimeDriverSummarySchema,
   runtimeDriverSummaryResultSchema,
 } from '@hbar/plugin-sdk/runtime-driver'
-import { procedure, runtimeDomainError, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
+import {
+  procedure,
+  runtimeDomainError,
+  type IpcPeer,
+  type RuntimeCoordinator,
+  type IpcCallOptions,
+} from '@hbar/runtime'
 import type { DiagnosticEvent } from '@hbar/contracts/diagnostics'
 import { driverCallbackCorrelation, observeDriverCallback } from './runtime-driver-callback-diagnostics'
 import { RuntimeDriverCallbackAdmission } from './runtime-driver-callback-gate'
@@ -21,6 +27,16 @@ export interface RuntimeDriverEndpoint {
   readonly peer: IpcPeer
   readonly owner: RuntimeOwner
   readonly version: RuntimeVersion
+}
+/** Trusted parent lifecycle adapter. Its hold spans the complete operation, including an unknown RPC outcome. */
+export interface RuntimeDriverDemand {
+  withDefault<Result>(
+    signal: AbortSignal,
+    operation: (
+      endpoint: RuntimeDriverEndpoint,
+      dispatch: Pick<IpcCallOptions, 'onDispatchStarted' | 'onDispatchSettled'>,
+    ) => Promise<Result>,
+  ): Promise<Result>
 }
 interface Invocation {
   readonly kernel: IpcPeer
@@ -32,6 +48,7 @@ interface Invocation {
 export interface RuntimeDriverRelayOptions {
   readonly coordinator: RuntimeCoordinator
   readonly resolve: (version?: RuntimeVersion) => RuntimeDriverEndpoint
+  readonly demand?: RuntimeDriverDemand
   readonly onDiagnostic?: (event: DiagnosticEvent) => void
 }
 /** The base routes plain descriptors between owners. Kernel callbacks and driver functions never leave their processes. */
@@ -96,18 +113,34 @@ export class RuntimeDriverRelay {
       ),
       peer.register(
         'driver.summarize',
-        procedure(runtimeDriverSummarySchema, runtimeDriverSummaryResultSchema, (input, call) => {
+        procedure(runtimeDriverSummarySchema, runtimeDriverSummaryResultSchema, async (input, call) => {
           const runId = input.request.context?.runId
           const execution = runId ? this.options.coordinator.execution(runId) : null
           if (execution && execution.owner.incarnation !== peer.remote.incarnation)
             throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Summarization belongs to another Kernel executor')
           this.options.coordinator.assertCanWrite(peer.remote, execution ?? undefined)
-          const driver = this.options.resolve(execution?.versions.driver)
-          this.options.coordinator.assertCanWrite(driver.owner, execution ?? undefined)
-          return driver.peer.call('driver.summarize', input, runtimeDriverSummaryResultSchema, {
-            signal: call.signal,
-            timeoutMs: DRIVER_COMPACTION_RPC_TIMEOUT_MS,
-          })
+          if (!execution && this.options.coordinator.role(peer.remote) !== 'default')
+            throw new HbarError('RUNTIME_NOT_DEFAULT', 'Unbound summarization requires the current Kernel')
+          const summarize = (
+            driver: RuntimeDriverEndpoint,
+            dispatch: Pick<IpcCallOptions, 'onDispatchStarted' | 'onDispatchSettled'> = {},
+          ) => {
+            // A cold start can outlive the original caller's authority or cancellation.
+            call.signal.throwIfAborted()
+            this.options.coordinator.assertCanWrite(peer.remote, execution ?? undefined)
+            if (!execution && this.options.coordinator.role(peer.remote) !== 'default')
+              throw new HbarError('RUNTIME_NOT_DEFAULT', 'The unbound summary caller was replaced during demand')
+            this.options.coordinator.assertCanWrite(driver.owner, execution ?? undefined)
+            return driver.peer.call('driver.summarize', input, runtimeDriverSummaryResultSchema, {
+              ...dispatch,
+              signal: call.signal,
+              timeoutMs: DRIVER_COMPACTION_RPC_TIMEOUT_MS,
+            })
+          }
+          // Bound work never wakes a replacement or changes its accepted version/incarnation.
+          if (execution) return summarize(this.options.resolve(execution.versions.driver))
+          if (this.options.demand) return this.options.demand.withDefault(call.signal, summarize)
+          return summarize(this.options.resolve())
         }),
       ),
       peer.onEvent('driver.cancel', runtimeDriverCancelSchema, (input) => {
