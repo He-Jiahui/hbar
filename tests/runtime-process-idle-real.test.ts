@@ -112,6 +112,45 @@ test('real child call and parent callback keep idle busy until physical replies 
   }
 }, 15_000)
 
+test('real callback admitted after drain keeps the final probe UNKNOWN without replaying retirement', async () => {
+  const release = deferred()
+  let callbackCount = 0
+  const runtime = create(1, {
+    configuration: { callbackAfterDrain: true },
+    onPeer: (peer) => {
+      peer.register(
+        'fixture.parent',
+        procedure(z.undefined(), z.undefined(), async () => {
+          callbackCount++
+          await release.promise
+        }),
+      )
+    },
+  })
+  try {
+    await runtime.prepare()
+    await runtime.activate()
+    const owner = runtime.owner()
+    const retirement = runtime.retireIdle(owner)
+    expect(await retirement).toMatchObject({ status: 'unknown', owner })
+    expect(callbackCount).toBe(1)
+    expect(runtime.snapshot()).toMatchObject({
+      phase: 'draining',
+      reasonCode: 'RUNTIME_IDLE_FINAL_PARENT_IPC_UNKNOWN',
+    })
+    expect(runtime.retirementReceipt(owner)).toBeNull()
+    expect(runtime.retireIdle(owner)).toBe(retirement)
+    await expect(runtime.call('fixture.echo', 'fenced', z.string())).rejects.toMatchObject({
+      code: 'RUNTIME_IDLE_FENCED',
+    })
+    expect(callbackCount).toBe(1)
+    expect(runtime.owner()).toEqual(owner)
+  } finally {
+    release.release()
+    await runtime.dispose()
+  }
+}, 15_000)
+
 test('dispose deadline produces UNKNOWN and elapsed service completion cannot reopen admission', async () => {
   const runtime = create(1, { shutdownMs: 80, configuration: { disposeDelayMs: 250 } })
   try {
@@ -119,8 +158,10 @@ test('dispose deadline produces UNKNOWN and elapsed service completion cannot re
     await runtime.activate()
     const owner = runtime.owner()
     expect(await runtime.retireIdle(owner)).toMatchObject({ status: 'unknown', owner })
+    expect(runtime.snapshot().reasonCode).toBe('RUNTIME_IDLE_DISPOSE_ACK_UNKNOWN')
     await Bun.sleep(350)
     expect(await runtime.retireIdle(owner)).toMatchObject({ status: 'unknown', owner })
+    expect(runtime.snapshot().reasonCode).toBe('RUNTIME_IDLE_DISPOSE_ACK_UNKNOWN')
     await expect(runtime.call('fixture.echo', 'late', z.string())).rejects.toMatchObject({
       code: 'RUNTIME_IDLE_FENCED',
     })

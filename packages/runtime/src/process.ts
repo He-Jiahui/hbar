@@ -464,8 +464,21 @@ export class ManagedProcess {
   }
 
   private async retireIdleProcess(owner: RuntimeOwner): Promise<RuntimeIdleRetirement> {
+    let stage:
+      | 'INITIAL_PROBE'
+      | 'DRAIN'
+      | 'FINAL_PROBE'
+      | 'FINAL_IDENTITY'
+      | 'FINAL_REFERENCES'
+      | 'FINAL_PARENT_IPC'
+      | 'FINAL_CHILD_PROBE'
+      | 'FINAL_BOUNDARY'
+      | 'DISPOSE_ACK'
+      | 'PHYSICAL_RECEIPT' = 'INITIAL_PROBE'
     const unknown = (): RuntimeIdleRetirement => {
       this.idleAdmission = 'unknown'
+      this.state.reasonCode = `RUNTIME_IDLE_${stage}_UNKNOWN`
+      this.publish()
       return { status: 'unknown', owner, reasonCode: 'RUNTIME_IDLE_BOUNDARY_UNKNOWN' }
     }
     try {
@@ -494,15 +507,33 @@ export class ManagedProcess {
       this.state.role = 'draining'
       this.state.phase = 'draining'
       this.publish()
+      stage = 'DRAIN'
       const drained = await peer.call('runtime.drain', undefined, runtimeDrainSchema, { timeoutMs: this.shutdownMs })
       if (!unchanged() || drained.requests !== 0 || drained.runs !== 0 || drained.resources !== 0) return unknown()
+      stage = 'FINAL_PROBE'
       const finalProbe = await this.idleSnapshot()
-      if (!unchanged() || !finalProbe.eligible) return unknown()
+      const finalIdentityUnchanged = unchanged()
+      if (!finalIdentityUnchanged || !finalProbe.eligible) {
+        // Fixed metadata only: preserve the original UNKNOWN fence and all physical counters.
+        if (!finalIdentityUnchanged) stage = 'FINAL_IDENTITY'
+        else if (finalProbe.runs !== 0 || finalProbe.resources !== 0) stage = 'FINAL_REFERENCES'
+        else if (
+          !finalProbe.parent ||
+          !runtimeIdleIpcIsEmpty(finalProbe.parent) ||
+          finalProbe.parent.incomingBytes !== 0
+        )
+          stage = 'FINAL_PARENT_IPC'
+        else if (!finalProbe.child || !runtimeIdleProbeIsEmpty(finalProbe.child)) stage = 'FINAL_CHILD_PROBE'
+        else stage = 'FINAL_BOUNDARY'
+        return unknown()
+      }
       // Unlike normal shutdown, a lost/failed service.dispose receipt is NOT considered clean.
+      stage = 'DISPOSE_ACK'
       await peer.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: this.shutdownMs })
       if (!unchanged() || this.state.references.runs !== 0 || this.state.references.resources !== 0) return unknown()
       this.idleDisposalAcknowledged = true
       this.disposalAcknowledgedChildPid = child.pid
+      stage = 'PHYSICAL_RECEIPT'
       await this.dispose()
       const receipt = this.retirementReceipt(owner)
       // dispose includes native join and onExit reconciliation; failed join/callback rejects.
