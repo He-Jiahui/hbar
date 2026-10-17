@@ -1,5 +1,5 @@
 import { runAgentLoop, runAgentLoopContinue } from '@earendil-works/pi-agent-core'
-import type { AgentEvent, AgentMessage, AgentTool, StreamFn } from '@earendil-works/pi-agent-core'
+import type { AgentContext, AgentEvent, AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
 import { normalizeContext, Type } from '@earendil-works/pi-ai'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
 import type {
@@ -660,13 +660,13 @@ export class PiDriver implements HarnessDriver {
       }
     }
     const transientToolContent = new Map<string, ToolResultContent[]>()
-    const tools: AgentTool[] = input.tools.map((tool) => ({
+    const tools: NonNullable<AgentContext['tools']> = input.tools.map((tool) => ({
       name: tool.name,
       label: tool.name,
       description: `${tool.description}\n${describeToolTimeout(tool)}`,
       parameters: Type.Unsafe(tool.inputJsonSchema ?? z.toJSONSchema(tool.inputSchema, { io: 'input' })),
       executionMode: 'sequential',
-      execute: async (callId, args) => {
+      execute: async (callId: string, args: unknown) => {
         toolExecutedInStep = true
         const result = await input.execute(tool.name, args as Record<string, unknown>, callId)
         if (result.hostControl) goalStopped = true
