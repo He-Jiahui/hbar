@@ -88,6 +88,8 @@ export function procedure<Input, Output>(
   }
 }
 export interface IpcCallOptions {
+  /** Local transport submission only: no remote admission, handler or side-effect guarantee. */
+  readonly onDispatchStarted?: ((event: 'submitting' | 'sent' | 'send-failed') => void) | undefined
   /** Physical reply, or proof no dispatch occurred. Closing a dispatched peer is unknown. */
   readonly onDispatchSettled?: ((event: 'reply' | 'not-dispatched') => void) | undefined
   readonly signal?: AbortSignal | undefined
@@ -141,6 +143,8 @@ export interface IpcCallTimeout {
 }
 
 interface Pending {
+  transportStarted: boolean
+  readonly dispatchStarted: (event: 'submitting' | 'sent' | 'send-failed') => void
   readonly dispatchSettled: (event: 'reply' | 'not-dispatched') => void
   readonly id: string
   readonly control: boolean
@@ -384,6 +388,13 @@ export class IpcPeer {
     output: z.ZodType<Output>,
     options: IpcCallOptions = {},
   ): Promise<Output> {
+    const dispatchStarted = (event: 'submitting' | 'sent' | 'send-failed'): void => {
+      try {
+        options.onDispatchStarted?.(event)
+      } catch {
+        console.error('[hbar runtime] dispatch observer failed')
+      }
+    }
     let dispatchObserved = false
     const dispatchSettled = (event: 'reply' | 'not-dispatched'): void => {
       if (dispatchObserved) return
@@ -436,6 +447,7 @@ export class IpcPeer {
     return new Promise<Output>((resolve, reject) => {
       const enqueuedAt = performance.now()
       const pending: Pending = {
+        dispatchStarted,
         dispatchSettled,
         id: callId,
         control: this.controlMethods.has(method),
@@ -452,6 +464,7 @@ export class IpcPeer {
         signal: options.signal,
         timer: undefined,
         started: false,
+        transportStarted: false,
         settled: false,
         abort: () => this.cancel(callId, new HbarError('IPC_CANCELLED', 'Runtime request was cancelled')),
       }
@@ -568,7 +581,7 @@ export class IpcPeer {
     if (this.failure) return
     this.failure = error
     for (const pending of this.pending.values()) {
-      if (!pending.started) pending.dispatchSettled('not-dispatched')
+      if (!pending.transportStarted) pending.dispatchSettled('not-dispatched')
       this.settle(pending)
       pending.reject(error)
     }
@@ -616,7 +629,8 @@ export class IpcPeer {
       this.pending.delete(callId)
       this.queue = this.queue.filter((id) => id !== callId)
       this.queuedBytes -= pending.bytes
-    } else void this.sendMessage({ kind: 'cancel', id: callId }).catch((error) => this.closeSendFailure(error))
+    } else if (pending.transportStarted)
+      void this.sendMessage({ kind: 'cancel', id: callId }).catch((error) => this.closeSendFailure(error))
   }
 
   private drain(): void {
@@ -636,7 +650,26 @@ export class IpcPeer {
         this.close(new HbarError('IPC_PROTOCOL', 'Runtime request lost its captured input'))
         return
       }
-      void this.sendEncoded(encoded).catch((error) => this.closeSendFailure(error))
+      pending.dispatchStarted('submitting')
+      // Observers can synchronously abort or close the peer before the first frame.
+      // Reservation alone is not transport dispatch or evidence of remote execution.
+      if (pending.settled || this.failure || this.pending.get(callId) !== pending) {
+        if (this.pending.get(callId) === pending) {
+          this.pending.delete(callId)
+          this.running--
+          if (!pending.control) this.runningNormal--
+        }
+        pending.dispatchSettled('not-dispatched')
+        continue
+      }
+      pending.transportStarted = true
+      void this.sendEncoded(encoded).then(
+        () => pending.dispatchStarted('sent'),
+        (error: unknown) => {
+          pending.dispatchStarted('send-failed')
+          this.closeSendFailure(error)
+        },
+      )
     }
   }
 
