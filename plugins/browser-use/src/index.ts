@@ -36,6 +36,8 @@ export interface BrowserBackendPage {
 }
 
 export interface BrowserBackend {
+  /** Pure native handle count; omission means idle proof is unsupported. */
+  idleResources?(): number
   available(): boolean | Promise<boolean>
   navigate(contextId: string, pageId: string, url: string, signal: AbortSignal): Promise<BrowserBackendPage>
   go(
@@ -154,6 +156,9 @@ function boundedSignal(parent: AbortSignal, timeoutMs: number) {
 
 /** A useful no-dependency backend for navigation and text snapshots. */
 export class FetchBrowserBackend implements BrowserBackend {
+  idleResources() {
+    return this.pages.size
+  }
   private pages = new Map<string, { url: string; title: string; text: string }>()
   private histories = new Map<string, { entries: string[]; index: number }>()
   available() {
@@ -312,6 +317,21 @@ interface PageState extends BrowserPage {
 }
 
 export class BrowserRuntime implements BrowserUseService {
+  private physicalOperations = 0
+  private disposal: Promise<void> | undefined
+  private disposeUnconfirmed = false
+  private readonly physicalPending = new Set<Promise<unknown>>()
+  idleCheckpoint() {
+    const native = this.backend.idleResources?.()
+    const valid = native !== undefined && Number.isSafeInteger(native) && native >= 0
+    return {
+      supported: valid,
+      requests: this.physicalOperations,
+      resources: this.contexts.size + this.resources.size + (valid ? (native ?? 0) : 0),
+      background: 0,
+      unconfirmed: valid && !this.disposeUnconfirmed ? 0 : 1,
+    }
+  }
   private contexts = new Map<string, Map<string, Map<string, PageState>>>()
   private readonly resources = new Map<string, import('@hbar/plugin-sdk').Disposer>()
   private readonly backend: BrowserBackend
@@ -324,9 +344,18 @@ export class BrowserRuntime implements BrowserUseService {
   }
 
   private async bounded<T>(parent: AbortSignal, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    if (this.disposal) throw new HbarError('BROWSER_DISPOSING', 'Browser disposal is in progress')
     const bounded = boundedSignal(parent, this.config.timeoutMs)
     try {
-      return await Promise.race([Promise.resolve().then(() => operation(bounded.signal)), bounded.timeout, bounded.aborted])
+      this.physicalOperations++
+      const physical = Promise.resolve()
+        .then(() => operation(bounded.signal))
+        .finally(() => {
+          this.physicalPending.delete(physical)
+          this.physicalOperations--
+        })
+      this.physicalPending.add(physical)
+      return await Promise.race([physical, bounded.timeout, bounded.aborted])
     } finally {
       bounded.dispose()
     }
@@ -579,7 +608,33 @@ export class BrowserRuntime implements BrowserUseService {
     return [...new Set((await Promise.all(ids.map((id) => this.bounded(signal, () => this.backend.history(id))))).flat())].slice(-100)
   }
 
-  async dispose() {
+  dispose(): Promise<void> {
+    if (this.disposal) return this.disposal
+    this.physicalOperations++
+    const admitted = [...this.physicalPending]
+    const operation = Promise.resolve()
+      .then(async () => {
+        await Promise.allSettled(admitted)
+        await this.disposeResources()
+      })
+      .then(
+        () => {
+          this.disposeUnconfirmed = false
+        },
+        (error: unknown) => {
+          this.disposeUnconfirmed = true
+          throw error
+        },
+      )
+      .finally(() => {
+        this.physicalOperations--
+        if (this.disposal === operation) this.disposal = undefined
+      })
+    this.disposal = operation
+    return operation
+  }
+
+  private async disposeResources() {
     for (const [sessionId, sessions] of this.contexts) {
       for (const contextId of sessions.keys()) await this.backend.close(contextId)
       this.contexts.delete(sessionId)
@@ -753,6 +808,7 @@ export const browserPlugin = definePlugin({
   configSchema: browserConfigSchema,
   async apply(ctx, rawConfig) {
     const runtime = new BrowserRuntime(ctx.hbar.api, browserConfigSchema.parse(rawConfig))
+    ctx.hbar.api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     provide<BrowserUseService>(ctx, 'browser', runtime)
     provide<BrowserUseService>(ctx, 'browser-use', runtime)
     ctx.effect(() => () => runtime.dispose())
