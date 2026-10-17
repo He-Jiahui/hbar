@@ -148,6 +148,7 @@ export class ManagedProcess {
   private recovering: Promise<void> | undefined
   private disposal: Promise<void> | undefined
   private idleAdmission: 'open' | 'checking' | 'draining' | 'unknown' | 'retired' = 'open'
+  private idleProbe: { readonly owner: RuntimeOwner; readonly promise: Promise<ManagedIdleSnapshot> } | undefined
   private idleRetirement: { readonly owner: RuntimeOwner; readonly promise: Promise<RuntimeIdleRetirement> } | undefined
   private idleDisposalAcknowledged = false
   private idleForcedTermination = false
@@ -352,7 +353,36 @@ export class ManagedProcess {
   }
 
   /** Snapshot only. It never closes admission, changes phase, drains or refreshes business idle. */
-  async idleSnapshot(): Promise<ManagedIdleSnapshot> {
+  idleSnapshot(): Promise<ManagedIdleSnapshot> {
+    const owner = this.owner()
+    if (this.idleAdmission !== 'open') {
+      return Promise.resolve({
+        owner,
+        phase: this.state.phase,
+        runs: this.state.references.runs,
+        resources: this.state.references.resources,
+        parent: this.peer ? runtimeIdleIpcSchema.parse(this.peer.snapshot()) : null,
+        child: null,
+        eligible: false,
+      })
+    }
+    const pending = this.idleProbe
+    if (pending && this.sameOwner(pending.owner)) return pending.promise
+    const promise = this.readIdleSnapshot().then((probe) => ({
+      ...probe,
+      eligible: probe.eligible && this.idleAdmission === 'open' && this.sameOwner(owner),
+    }))
+    this.idleProbe = { owner, promise }
+    const release = (): void => {
+      // A late old-owner completion must never clear a newer owner's physical probe.
+      if (this.idleProbe?.promise === promise && this.idleProbe.owner === owner) this.idleProbe = undefined
+    }
+    void promise.then(release, release)
+    return promise
+  }
+
+  /** Retirement owns admission before using this fresh, unshared physical probe. */
+  private async readIdleSnapshot(): Promise<ManagedIdleSnapshot> {
     const owner = this.owner()
     const peer = this.peer
     const phase = this.state.phase
@@ -495,7 +525,11 @@ export class ManagedProcess {
         !this.stopped &&
         this.disposal === undefined &&
         this.idleConfigurationIdentity() === configuration
-      const probe = await this.idleSnapshot()
+      const pending = this.idleProbe
+      // Keep the already dispatched probe's original RPC deadline and physical counters.
+      if (pending && this.sameOwner(pending.owner)) await pending.promise
+      if (!unchanged() || this.state.phase !== originalPhase) return unknown()
+      const probe = await this.readIdleSnapshot()
       if (!unchanged() || this.state.phase !== originalPhase) return unknown()
       if (!probe.eligible || !peer || !child || !this.options.processTree || !this.tree) {
         // No lifecycle side effects have happened. Reopen only this same healthy owner/configuration.
@@ -511,7 +545,7 @@ export class ManagedProcess {
       const drained = await peer.call('runtime.drain', undefined, runtimeDrainSchema, { timeoutMs: this.shutdownMs })
       if (!unchanged() || drained.requests !== 0 || drained.runs !== 0 || drained.resources !== 0) return unknown()
       stage = 'FINAL_PROBE'
-      const finalProbe = await this.idleSnapshot()
+      const finalProbe = await this.readIdleSnapshot()
       const finalIdentityUnchanged = unchanged()
       if (!finalIdentityUnchanged || !finalProbe.eligible) {
         // Fixed metadata only: preserve the original UNKNOWN fence and all physical counters.
