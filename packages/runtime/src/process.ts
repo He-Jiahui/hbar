@@ -525,6 +525,20 @@ export class ManagedProcess {
           stage = 'FINAL_PARENT_IPC'
         else if (!finalProbe.child || !runtimeIdleProbeIsEmpty(finalProbe.child)) stage = 'FINAL_CHILD_PROBE'
         else stage = 'FINAL_BOUNDARY'
+        try {
+          console.error(
+            JSON.stringify({
+              type: 'runtime-idle-final-probe-unknown',
+              stage,
+              owner: { unitId: owner.unitId, generation: owner.generation, incarnation: owner.incarnation },
+              parent: finalProbe.parent,
+              child: finalProbe.child,
+              references: { runs: finalProbe.runs, resources: finalProbe.resources },
+            }),
+          )
+        } catch {
+          // Observational evidence must never change UNKNOWN fencing or cleanup.
+        }
         return unknown()
       }
       // Unlike normal shutdown, a lost/failed service.dispose receipt is NOT considered clean.

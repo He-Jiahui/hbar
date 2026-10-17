@@ -1,5 +1,11 @@
-import { expect, test } from 'bun:test'
-import { ManagedProcess, procedure, type ManagedProcessOptions } from '@hbar/runtime'
+import { expect, spyOn, test } from 'bun:test'
+import {
+  ManagedProcess,
+  procedure,
+  runtimeIdleIpcSchema,
+  runtimeIdleProbeSchema,
+  type ManagedProcessOptions,
+} from '@hbar/runtime'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
@@ -114,6 +120,10 @@ test('real child call and parent callback keep idle busy until physical replies 
 
 test('real callback admitted after drain keeps the final probe UNKNOWN without replaying retirement', async () => {
   const release = deferred()
+  const lines: string[] = []
+  const diagnostic = spyOn(console, 'error').mockImplementation((value: unknown) => {
+    if (typeof value === 'string') lines.push(value)
+  })
   let callbackCount = 0
   const runtime = create(1, {
     configuration: { callbackAfterDrain: true },
@@ -140,6 +150,22 @@ test('real callback admitted after drain keeps the final probe UNKNOWN without r
     })
     expect(runtime.retirementReceipt(owner)).toBeNull()
     expect(runtime.retireIdle(owner)).toBe(retirement)
+    expect(lines).toHaveLength(1)
+    const decoded: unknown = JSON.parse(lines[0] ?? '')
+    const evidence = z
+      .strictObject({
+        type: z.literal('runtime-idle-final-probe-unknown'),
+        stage: z.literal('FINAL_PARENT_IPC'),
+        owner: z.strictObject({ unitId: z.string(), generation: z.number(), incarnation: z.string() }),
+        parent: runtimeIdleIpcSchema,
+        child: runtimeIdleProbeSchema,
+        references: z.strictObject({ runs: z.number(), resources: z.number() }),
+      })
+      .parse(decoded)
+    expect(evidence.owner).toEqual(owner)
+    expect(evidence.parent.incoming).toBe(1)
+    expect(evidence.child.requests).toBe(1)
+    expect(evidence.references).toEqual({ runs: 0, resources: 0 })
     await expect(runtime.call('fixture.echo', 'fenced', z.string())).rejects.toMatchObject({
       code: 'RUNTIME_IDLE_FENCED',
     })
@@ -147,7 +173,11 @@ test('real callback admitted after drain keeps the final probe UNKNOWN without r
     expect(runtime.owner()).toEqual(owner)
   } finally {
     release.release()
-    await runtime.dispose()
+    try {
+      await runtime.dispose()
+    } finally {
+      diagnostic.mockRestore()
+    }
   }
 }, 15_000)
 
