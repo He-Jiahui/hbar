@@ -13,9 +13,7 @@ import type {
   ThinkingLevelMap,
   Usage as PiUsage,
 } from '@earendil-works/pi-ai'
-import { streamSimple as openaiCompletions } from '@earendil-works/pi-ai/api/openai-completions'
-import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/openai-responses'
-import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
+import { lazyApi } from '@earendil-works/pi-ai/api/lazy'
 import { z } from 'zod'
 import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import { providerFailure } from './provider-failure'
@@ -51,6 +49,10 @@ import {
 } from './provider-http-diagnostics'
 import { ProviderStreamObservation } from './provider-stream-diagnostics'
 import { VisibleStreamProjection } from './visible-stream'
+
+const openaiCompletions = lazyApi(() => import('@earendil-works/pi-ai/api/openai-completions')).streamSimple
+const openaiResponses = lazyApi(() => import('@earendil-works/pi-ai/api/openai-responses')).streamSimple
+const anthropicMessages = lazyApi(() => import('@earendil-works/pi-ai/api/anthropic-messages')).streamSimple
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -828,9 +830,10 @@ export class PiDriver implements HarnessDriver {
             protocol: request.model.protocol,
           })
         modelDiagnosticStartedAt = performance.now()
-        const physicalRequest = request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
-          ? await input.modelActivity?.begin()
-          : undefined
+        const physicalRequest =
+          request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
+            ? await input.modelActivity?.begin()
+            : undefined
         const physicalState = streamState
         return streamProvider(
           request.model,
@@ -1219,9 +1222,9 @@ export class PiDriver implements HarnessDriver {
             (message.stopReason !== 'stop' || message.content.some((c) => c.type === 'toolCall'))
               ? ''
               : message.content
-            .filter((c) => c.type === 'text')
-            .map((c) => c.text)
-            .join('\n'),
+                  .filter((c) => c.type === 'text')
+                  .map((c) => c.text)
+                  .join('\n'),
           usage: normalizeUsage(message.usage),
         }
       } catch (error) {
