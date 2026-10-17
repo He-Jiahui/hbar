@@ -668,7 +668,7 @@ export class ManagedProcess {
     const child = Bun.spawn(
       this.options.command
         ? [...this.options.command]
-        : [process.execPath, fileURLToPath(new URL('./process-entry.ts', import.meta.url))],
+        : [process.execPath, '--smol', fileURLToPath(new URL('./process-entry.ts', import.meta.url))],
       {
         stdin: 'ignore',
         stdout: 'inherit',
