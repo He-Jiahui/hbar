@@ -122,11 +122,22 @@ async function collect(stream: ReadableStream<Uint8Array>, limit: number, state:
   return text + decoder.decode()
 }
 
-export class ProcessGitRunner implements GitRunner {
-  async run(cwd: string, args: string[], signal: AbortSignal, limits: { timeoutMs: number; maxOutputBytes: number }) {
-    signal.throwIfAborted()
-    assertLocalWorkspace(cwd)
-    const child = Bun.spawn(['git', ...args], {
+export interface GitProcessHandle {
+  readonly pid: number
+  readonly stdout: ReadableStream<Uint8Array>
+  readonly stderr: ReadableStream<Uint8Array>
+  readonly exited: Promise<number>
+  readonly exitCode: number | null
+  kill(signal?: 'SIGTERM'): void
+}
+export interface GitProcessPort {
+  spawnGit(cwd: string, args: readonly string[]): GitProcessHandle
+  /** Only accepts the pid of this runner's owned handle; resolves after the real killer exits. */
+  terminateTree(pid: number): Promise<void>
+}
+const gitProcesses: GitProcessPort = {
+  spawnGit(cwd, args) {
+    return Bun.spawn(['git', ...args], {
       cwd,
       env: environment(),
       stdout: 'pipe',
@@ -134,23 +145,50 @@ export class ProcessGitRunner implements GitRunner {
       stdin: 'ignore',
       windowsHide: true,
     })
+  },
+  async terminateTree(pid) {
+    const killer = Bun.spawn(['taskkill.exe', '/PID', String(pid), '/T', '/F'], {
+      stdout: 'ignore',
+      stderr: 'ignore',
+      windowsHide: true,
+    })
+    await killer.exited
+  },
+}
+export class ProcessGitRunner implements GitRunner {
+  private physical = 0
+  constructor(private readonly processes: GitProcessPort = gitProcesses) {}
+  idleRequests(): number {
+    return this.physical
+  }
+  private retain<Result>(operation: Promise<Result>): Promise<Result> {
+    this.physical++
+    return operation.then(
+      (value) => {
+        this.physical--
+        return value
+      },
+      (error: unknown) => {
+        throw error
+      },
+    )
+  }
+  async run(cwd: string, args: string[], signal: AbortSignal, limits: { timeoutMs: number; maxOutputBytes: number }) {
+    signal.throwIfAborted()
+    assertLocalWorkspace(cwd)
+    const child = this.processes.spawnGit(cwd, args)
+    const exited = this.retain(child.exited)
     const state = { truncated: false }
     let timedOut = false
     let terminating: Promise<void> | undefined
     const terminate = () =>
-      (terminating ??= (async () => {
-        if (process.platform === 'win32') {
-          const killer = Bun.spawn(['taskkill.exe', '/PID', String(child.pid), '/T', '/F'], {
-            stdout: 'ignore',
-            stderr: 'ignore',
-            windowsHide: true,
-          })
-          await killer.exited
-        } else {
-          child.kill('SIGTERM')
-        }
-        if (child.exitCode === null) child.kill()
-      })())
+      (terminating ??= this.retain(
+        (async () => {
+          if (process.platform === 'win32') await this.processes.terminateTree(child.pid)
+          else child.kill('SIGTERM')
+          if (child.exitCode === null) child.kill()
+        })(),
+      ))
     const onAbort = () => void terminate().catch(() => {})
     signal.addEventListener('abort', onAbort, { once: true })
     const timeout = setTimeout(() => {
@@ -159,21 +197,18 @@ export class ProcessGitRunner implements GitRunner {
     }, limits.timeoutMs)
     try {
       const perStream = Math.max(1, Math.floor(limits.maxOutputBytes / 2))
-      const [stdout, stderr, code] = await Promise.all([
-        collect(child.stdout, perStream, state),
-        collect(child.stderr, perStream, state),
-        child.exited,
-      ])
+      const stdout = this.retain(collect(child.stdout, perStream, state))
+      const stderr = this.retain(collect(child.stderr, perStream, state))
+      const [out, err, code] = await Promise.all([stdout, stderr, exited])
       if (terminating) await terminating
       signal.throwIfAborted()
-      return { stdout, stderr, code, truncated: state.truncated, timedOut }
+      return { stdout: out, stderr: err, code, truncated: state.truncated, timedOut }
     } finally {
       clearTimeout(timeout)
       signal.removeEventListener('abort', onAbort)
     }
   }
 }
-
 function safeRemote(value: string): string {
   try {
     const url = new URL(value)
@@ -539,6 +574,17 @@ function parseLaunchWorktreeBranches(output: string, currentRoot: string) {
 }
 
 export class GitRuntime implements GitService {
+  private initialization = 2
+  private initializationFailed = false
+  idleCheckpoint() {
+    return {
+      supported: this.runner instanceof ProcessGitRunner,
+      requests: this.runner instanceof ProcessGitRunner ? this.runner.idleRequests() : 0,
+      resources: 0,
+      background: this.initialization,
+      unconfirmed: Number(this.initializationFailed),
+    }
+  }
   private readonly rootPromise: Promise<string>
   private readonly worktreeRootPromise: Promise<string>
   constructor(
@@ -555,6 +601,15 @@ export class GitRuntime implements GitService {
     this.worktreeRootPromise = config.worktreeRoot
       ? this.resolveWithinRoot(config.worktreeRoot)
       : this.rootPromise.then((value) => resolve(value, '.hbar-worktrees'))
+    const settled = () => {
+      this.initialization--
+    }
+    const failed = () => {
+      this.initialization--
+      this.initializationFailed = true
+    }
+    void this.rootPromise.then(settled, failed)
+    void this.worktreeRootPromise.then(settled, failed)
   }
 
   scoped(root: string) {
@@ -1263,6 +1318,7 @@ export const gitPlugin = definePlugin({
     const runtime = new GitRuntime(root, config, new ProcessGitRunner(), true, (cwd) =>
       ctx.hbar.api.notify({ method: 'git.changed', params: { cwd } }),
     )
+    ctx.hbar.api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     provide<GitService>(ctx, 'git', runtime)
     const directories = ctx.hbar.api.service<WorkspaceDirectoryService>('workspace-directories')
     for (const tool of gitTools(runtime))
