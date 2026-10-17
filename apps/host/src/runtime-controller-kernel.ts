@@ -9,6 +9,7 @@ import { RUNTIME_APPLICATION_METHODS, type RuntimeApplicationTargets } from '@hb
 import { callStorageRpc, type PathLayout, type StoragePort } from '@hbar/storage'
 import { runtimeDomainError, type RuntimeValuePort } from '@hbar/runtime'
 import type { RuntimeControllerScope } from './runtime-controller-contract'
+import { RuntimePhysicalActivity } from './runtime-background-idle'
 
 type Methods<Target extends keyof RuntimeApplicationTargets> = Extract<
   (typeof RUNTIME_APPLICATION_METHODS)[Target][number],
@@ -23,6 +24,10 @@ type ApplicationMethods<Target extends keyof RuntimeApplicationTargets> = Pick<
 export class RuntimeControllerKernel {
   readonly api: KernelControllerPort
   private readonly scope = new AsyncLocalStorage<RuntimeControllerScope>()
+  private readonly physical = new RuntimePhysicalActivity()
+  idleSnapshot() {
+    return { physicalCalls: this.physical.snapshot() }
+  }
   constructor(
     private readonly values: Pick<RuntimeValuePort, 'call'>,
     layout: PathLayout,
@@ -152,10 +157,16 @@ export class RuntimeControllerKernel {
     args: readonly unknown[],
     options: import('@hbar/runtime').IpcCallOptions = {},
   ): Promise<Result> {
+    const invocationId = this.current().invocationId
+    const settle = this.physical.begin()
     try {
-      return await this.values.call<Result>(method, [this.current().invocationId, ...args], {
+      return await this.values.call<Result>(method, [invocationId, ...args], {
         timeoutMs: 130_000,
         ...options,
+        onDispatchSettled: (event) => {
+          settle()
+          options.onDispatchSettled?.(event)
+        },
       })
     } catch (error) {
       const domain = runtimeDomainError(error)
