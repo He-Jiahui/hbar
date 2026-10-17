@@ -1,4 +1,9 @@
-import type { KernelIdleCheckpoint, KernelActivationPurpose } from './runtime-idle'
+import {
+  kernelPluginQuiescenceIsEmpty,
+  type KernelIdleCheckpoint,
+  type KernelActivationPurpose,
+  type KernelPluginQuiescence,
+} from './runtime-idle'
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
@@ -599,13 +604,23 @@ export class Kernel {
       throw new HbarError('BUSY', 'Goal has work outside the transferable future deadlines')
     return result.resources
   }
-  async sessionWakesPreview(owner: RuntimeOwner, facts: { queuedRuns: boolean | null }) {
+  async sessionWakesPreview(
+    owner: RuntimeOwner,
+    facts: { queuedRuns: boolean | null; pluginQuiescence?: KernelPluginQuiescence },
+  ) {
     if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer checkpoint is fenced')
     const manifest = this.scheduledWakeups.preview(owner)
     const checkpoint = this.runtimeIdleCheckpoint(facts)
     if (facts.queuedRuns !== false || Object.values(checkpoint.counts).some((value) => value !== 0))
       throw new HbarError('BUSY', 'Kernel has nontransferable work')
-    await this.sessionWakesCoverage(manifest.entries)
+    // Empty parent-proven domains need no business call to a sleeping Goal.
+    // Direct callers without the complete proof retain the actual Goal check.
+    if (!(
+      manifest.entries.length === 0 &&
+      facts.pluginQuiescence &&
+      kernelPluginQuiescenceIsEmpty(facts.pluginQuiescence)
+    ))
+      await this.sessionWakesCoverage(manifest.entries)
     if (JSON.stringify(this.scheduledWakeups.preview(owner)) !== JSON.stringify(manifest))
       throw new HbarError('BUSY', 'Wake checkpoint changed during preview')
     return manifest

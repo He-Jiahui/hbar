@@ -31,3 +31,13 @@ export const kernelPluginQuiescenceSchema = z.strictObject({
     )
     .max(128),
 })
+export type KernelPluginQuiescence = z.infer<typeof kernelPluginQuiescenceSchema>
+
+/** Only a complete parent proof can replace an empty Goal coverage RPC. */
+export function kernelPluginQuiescenceIsEmpty(proof: KernelPluginQuiescence): boolean {
+  return (
+    proof.coverage === 'complete' &&
+    proof.queuedRuns === false &&
+    proof.owners.every((owner) => owner.eligible && owner.requests === 0 && owner.runs === 0 && owner.resources === 0)
+  )
+}

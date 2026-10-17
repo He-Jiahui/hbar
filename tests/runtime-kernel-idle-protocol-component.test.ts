@@ -318,6 +318,10 @@ test('actual managed Kernel refuses candidate idle and merges cache-only plugin 
     const settled = await f.kernel.call('runtime.idle', undefined, runtimeIdleProbeSchema)
     expect(settled).toMatchObject({ eligible: true, requests: 0, runs: 0, resources: 0 })
     expect(f.counters()).toEqual({ storage: before.storage, proofs: before.proofs + 3 })
+    const previewBefore = f.counters()
+    const emptyPreview = await f.kernel.call('kernel.sessionWakes.preview', undefined, sessionWakeManifestSchema)
+    expect(emptyPreview.entries).toEqual([])
+    expect(f.counters()).toEqual({ storage: previewBefore.storage, proofs: previewBefore.proofs + 1 })
   })
 }, 20_000)
 

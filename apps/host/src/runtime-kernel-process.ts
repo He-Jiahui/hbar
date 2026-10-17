@@ -1,4 +1,4 @@
-import { kernelPluginQuiescenceSchema } from '@hbar/kernel/runtime-idle'
+import { kernelPluginQuiescenceSchema, kernelPluginQuiescenceIsEmpty } from '@hbar/kernel/runtime-idle'
 import { writeSync } from 'node:fs'
 import { diagnosticEvent, type DiagnosticEvent } from '@hbar/contracts/diagnostics'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
@@ -465,8 +465,14 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         proof.owners.some((value) => value.requests !== 0 || value.runs !== 0)
       )
         throw new HbarError('BUSY', 'Plugins have nontransferable work')
-      const manifest = await application().sessionWakesPreview(owner, { queuedRuns: proof.queuedRuns })
-      const resources = await application().sessionWakesCoverage(manifest.entries)
+      const manifest = await application().sessionWakesPreview(owner, {
+        queuedRuns: proof.queuedRuns,
+        pluginQuiescence: proof,
+      })
+      const resources =
+        manifest.entries.length === 0 && kernelPluginQuiescenceIsEmpty(proof)
+          ? 0
+          : await application().sessionWakesCoverage(manifest.entries)
       if (proof.owners.reduce((sum, value) => sum + value.resources, 0) !== resources)
         throw new HbarError('BUSY', 'Plugin resources are not covered by the future Goal deadlines')
       return manifest
