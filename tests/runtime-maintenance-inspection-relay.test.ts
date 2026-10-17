@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { COMMAND_PROTOCOL_VERSION } from '@hbar/commands'
+import { HbarError } from '@hbar/contracts'
 import { chatDatabaseOperationSchema } from '@hbar/contracts/commands/chat-database'
 import type { RuntimeOwner, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import {
@@ -84,6 +85,8 @@ async function withRelay(
     source: { databaseId: string; catalogRevision: string }
     processMethods(): readonly string[]
     writerCalls(): number
+    closeDefaultAdmission(): void
+    revokeOwner(): void
     holdStorage(method: keyof StorageMethods): { entered: Promise<void>; release(): void }
     holdRestoreReply(): { entered: Promise<void>; release(): void }
   }) => Promise<void>,
@@ -194,12 +197,16 @@ async function withRelay(
     const version = { unitId: owner.unitId, generation: owner.generation, artifactId: 'a'.repeat(64) }
     coordinator.register(owner, version, descriptor)
     coordinator.activate(owner, 'default')
+    let defaultAdmissionClosed = false
     const relay = new RuntimeMaintenanceRelay({
       storage: storagePort,
       coordinator,
       kernel: kernel.api,
       layout,
-      current: () => ({ owner, version, process: processPort }),
+      current: () => {
+        if (defaultAdmissionClosed) throw new HbarError('RUNTIME_RECOVERING', 'Default admission is retiring')
+        return { owner, version, process: processPort }
+      },
       resolve: () => ({ owner, version, process: processPort }),
       changed: () => {},
     })
@@ -231,6 +238,12 @@ async function withRelay(
       source: { databaseId: storageSourceDatabaseId(layout.database), catalogRevision: 'b'.repeat(64) },
       processMethods: () => processPort.methods,
       writerCalls: () => writerCalls,
+      closeDefaultAdmission() {
+        defaultAdmissionClosed = true
+      },
+      revokeOwner() {
+        coordinator.ownerExited(owner)
+      },
       holdStorage(method) {
         if (storageHold) throw new Error('Storage gate already reserved')
         const gate = { method, entered: deferred(), released: deferred() }
@@ -303,6 +316,32 @@ function invocation() {
     input: { scope: { kind: 'global' } },
   }
 }
+
+test('captured Maintenance seals its real inspection after default admission closes and still rejects revoked ownership', async () => {
+  await withRelay(async ({ relay, parent, owner, source, writerCalls, closeDefaultAdmission, revokeOwner }) => {
+    const ack = maintenanceInspectionAckSchema.parse({
+      epoch: 'retiring-owner-epoch',
+      token: crypto.randomUUID(),
+      version: 1,
+      source,
+    })
+    const checkpoint = { version: 1 as const, cursor: null, nextCheckAt: Date.now() + 30_000 }
+    await relay.initializeIdle(owner, ack, checkpoint, new AbortController().signal)
+    const preview = await parent.call('maintenance.inspection.preview', source, maintenanceInspectionManifestSchema)
+    expect(preview.journal.empty).toBe(true)
+    closeDefaultAdmission()
+    const beforeSeal = writerCalls()
+    relay.sealInspection(owner, ack)
+    expect(relay.inspectionSealed(owner, ack)).toBe(true)
+    expect(writerCalls()).toBe(beforeSeal)
+    const prepared = await parent.call('maintenance.inspection.quiesce', ack, maintenanceInspectionManifestSchema)
+    expect(prepared.checkpoint).toEqual(checkpoint)
+    expect(relay.inspectionSealed(owner, ack)).toBe(true)
+    expect(() => relay.sealInspection({ ...owner, incarnation: 'another-owner' }, ack)).toThrow()
+    revokeOwner()
+    expect(() => relay.sealInspection(owner, ack)).toThrow()
+  })
+}, 20_000)
 
 test('actual idle-wake child restores one deadline through Relay and seals business and accept before the real writer', async () => {
   await withRelay(async ({ relay, parent, child, owner, actual, source, processMethods, writerCalls, holdStorage }) => {

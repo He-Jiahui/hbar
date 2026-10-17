@@ -126,7 +126,9 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
   sealInspection(owner: RuntimeOwner, raw: MaintenanceInspectionAck): void {
     const ack = maintenanceInspectionAckSchema.parse(raw)
     this.assertOwner(owner)
-    const endpoint = this.options.current()
+    // Manager has already closed default admission by marking this unit retiring.
+    // The checkpoint owns this captured endpoint; it must not reopen business routing.
+    const endpoint = this.options.resolve(owner)
     if (!this.sameOwner(endpoint.owner, owner) || this.writer || this.jobs.size || this.inspectionSeals.size >= 32)
       throw new HbarError('BUSY', 'Maintenance inspection cannot seal an active owner')
     const previous = this.inspectionSeals.get(owner.incarnation)
