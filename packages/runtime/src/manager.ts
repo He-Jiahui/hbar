@@ -401,6 +401,44 @@ export class RuntimeManager {
     this.changed(unitId)
   }
 
+  /** Pins only these already-serving exact owners. No dependency traversal, wake or RPC. */
+  tryPinServingOwners(owners: readonly RuntimeOwner[]): { release(): void } | null {
+    if (this.stopped || owners.length > 512 || new Set(owners.map((owner) => owner.unitId)).size !== owners.length)
+      return null
+    const selected: Unit[] = []
+    for (const owner of owners) {
+      const unit = this.units.get(owner.unitId)
+      const generation = unit?.current
+      const snapshot = generation?.snapshot()
+      if (
+        !unit ||
+        !generation ||
+        unit.idlePhase !== 'active' ||
+        unit.checkpointPending ||
+        unit.candidate ||
+        unit.queued ||
+        unit.demandHolds >= 256 ||
+        snapshot?.role !== 'default' ||
+        snapshot.phase !== 'serving' ||
+        !this.sameOwner(generation.owner(), owner)
+      )
+        return null
+      selected.push(unit)
+    }
+    // Validate the whole set before mutating any counter; no asynchronous interleave.
+    for (const unit of selected) unit.demandHolds++
+    for (const unit of selected) this.changed(unit.descriptor.id)
+    let released = false
+    return {
+      release: () => {
+        if (released) return
+        released = true
+        for (const unit of selected) unit.demandHolds--
+        for (const unit of selected) this.changed(unit.descriptor.id)
+      },
+    }
+  }
+
   /** Synchronously pins exact dependency closure before any asynchronous wake/claim admission. */
   holdDemand(unitIds: readonly string[]): RuntimeDemandHold {
     if (this.stopped) throw new HbarError('RUNTIME_STOPPING', 'Runtime manager is stopping')
