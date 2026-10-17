@@ -54,7 +54,7 @@ class Generation implements ManagedGenerationPort {
     readonly artifact: RuntimeArtifact,
     generation: number,
     readonly changed: () => void,
-    readonly purpose?: 'idle-wake',
+    readonly purpose?: 'startup' | 'idle-wake',
   ) {
     this.state = {
       unitId: artifact.unitId,

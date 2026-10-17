@@ -48,7 +48,7 @@ export interface RuntimeManagerOptions {
     artifact: RuntimeArtifact,
     generation: number,
     changed: () => void,
-    purpose?: 'idle-wake',
+    purpose?: 'startup' | 'idle-wake',
   ) => ManagedGenerationPort
   readonly references: (owner: RuntimeOwner) => { runs: number; resources: number; tools: number }
   /** Cancellable readiness checks alone. Production authority and writer retirement belong to activate(). */
@@ -70,7 +70,7 @@ export interface RuntimeManagerOptions {
 }
 interface Candidate {
   readonly demandFact?: DemandUnitFact
-  readonly purpose?: 'idle-wake'
+  readonly purpose?: 'startup' | 'idle-wake'
   readonly artifact: RuntimeArtifact
   readonly operationId: string
   readonly controller: AbortController
@@ -115,7 +115,7 @@ interface DemandAttempt {
   readonly facts: DemandUnitFact[]
   readonly cleaned: Set<string>
 }
-type IdlePhase = 'active' | 'sleeping' | 'retiring' | 'waking' | 'unknown'
+type IdlePhase = 'active' | 'dormant' | 'sleeping' | 'retiring' | 'waking' | 'unknown'
 interface Unit {
   serial: Promise<void>
   serialPending: number
@@ -297,6 +297,44 @@ export class RuntimeManager {
     const operation = this.operations.get(operationId)
     if (!operation) throw new HbarError('RUNTIME_OPERATION_NOT_FOUND', 'Runtime reload operation was not found')
     return runtimeReloadSchema.parse(operation)
+  }
+
+  /** Select immutable bytes for a Driver that has NEVER dispatched a generation.
+   * No owner, retirement proof, child RPC, or readiness is manufactured here.
+   * Storage, Kernel and plugin initialization/recovery remain eager until separately qualified.
+   */
+  stageInitialDriver(artifactSetId: string, unitId: string): void {
+    if (this.stopped) throw new HbarError('RUNTIME_STOPPING', 'Runtime manager is stopping')
+    const unit = this.units.get(unitId)
+    const artifact = this.options.artifacts
+      .artifactSet(artifactSetId)
+      .artifacts.find((value) => value.unitId === unitId)
+    if (!unit || !artifact)
+      throw new HbarError('RUNTIME_UNIT_NOT_FOUND', 'Initial Driver target or artifact is not registered')
+    if (
+      unit.descriptor.kind !== 'driver' ||
+      unit.descriptor.dependencies.length !== 0 ||
+      JSON.stringify(runtimeUnitDescriptorSchema.parse(artifact.descriptor)) !== JSON.stringify(unit.descriptor)
+    )
+      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Deferred Driver artifact must match its registered contract')
+    if (
+      unit.nextGeneration !== 0 ||
+      unit.generations.size !== 0 ||
+      unit.current ||
+      unit.candidate ||
+      unit.queued ||
+      unit.processing ||
+      unit.serialPending ||
+      unit.demandHolds ||
+      unit.checkpointPending ||
+      (unit.idlePhase !== 'active' && unit.idlePhase !== 'dormant') ||
+      (unit.currentArtifact && unit.currentArtifact.id !== artifact.id)
+    )
+      throw new HbarError('RUNTIME_IDLE_BUSY', 'Only an unowned never-started Driver can be staged')
+    if (unit.idlePhase === 'dormant') return
+    unit.currentArtifact = artifact
+    unit.idlePhase = 'dormant'
+    this.changed(unitId)
   }
 
   reload(artifactSetId: string, unitIds: readonly string[], initial = false): { operationId: string } {
@@ -493,15 +531,16 @@ export class RuntimeManager {
             fact.owner = structuredClone(unit.current.owner())
             return unit.current.owner()
           }
-          if (unit.idlePhase !== 'sleeping' || !unit.currentArtifact || unit.current)
-            throw new HbarError('RUNTIME_RECOVERING', 'Demand target is not safely sleeping')
+          if ((unit.idlePhase !== 'sleeping' && unit.idlePhase !== 'dormant') || !unit.currentArtifact || unit.current)
+            throw new HbarError('RUNTIME_RECOVERING', 'Demand target has no safe selected artifact')
+          const neverStarted = unit.idlePhase === 'dormant'
           const selected = unit.currentArtifact
           unit.idlePhase = 'waking'
           this.changed(unit.descriptor.id)
           // Feed selected immutable bytes through the same preparation/activation authority path.
           unit.queued = {
             demandFact: fact,
-            purpose: 'idle-wake',
+            purpose: neverStarted ? 'startup' : 'idle-wake',
             artifact: selected,
             operationId: crypto.randomUUID(),
             controller: new AbortController(),
@@ -1145,7 +1184,7 @@ export class RuntimeManager {
         unit.queued = null
         if (queued.cancelled) continue
         unit.candidate = queued
-        if (unit.idlePhase === 'sleeping') unit.idlePhase = 'waking'
+        if (unit.idlePhase === 'sleeping' || unit.idlePhase === 'dormant') unit.idlePhase = 'waking'
         candidate = queued
         this.update(candidate.operationId, unit.descriptor.id, 'preparing')
         const release = await this.capacity.acquire(candidate.controller.signal).catch(() => null)

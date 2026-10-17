@@ -219,7 +219,10 @@ test('JavaScript can reload with the same native assets, while changed native by
   const changed = { ...artifact(3), files: [...artifact(3).files, { ...binary, sha256: 'd'.repeat(64) }] }
   f.sets.set('changed-native', { id: 'changed-native', createdAt: Date.now(), artifacts: [changed] })
   const operation = f.manager.reload('changed-native', ['plugin']).operationId
-  expect(f.manager.getReload(operation)).toMatchObject({ phase: 'restart_required', units: [{ reasonCode: 'RUNTIME_NATIVE_RESTART_REQUIRED' }] })
+  expect(f.manager.getReload(operation)).toMatchObject({
+    phase: 'restart_required',
+    units: [{ reasonCode: 'RUNTIME_NATIVE_RESTART_REQUIRED' }],
+  })
   expect(f.manager.currentVersion('plugin')).toEqual(current)
   expect(f.created.length).toBe(created)
 })
@@ -229,11 +232,24 @@ test('adding, removing or changing declared native resources blocks the whole re
   for (const change of ['add', 'remove', 'change'] as const) {
     const f = fixture({ units: ['plugin', 'independent'] })
     const initial = { ...artifact(1), resourceFiles: change === 'add' ? [] : [resource] }
-    f.sets.set('initial-native', { id: 'initial-native', createdAt: Date.now(), artifacts: [initial, artifact(1, manifest('independent'))] })
+    f.sets.set('initial-native', {
+      id: 'initial-native',
+      createdAt: Date.now(),
+      artifacts: [initial, artifact(1, manifest('independent'))],
+    })
     await f.completed(f.manager.reload('initial-native', ['plugin', 'independent'], true).operationId)
-    const plugin = f.manager.currentVersion('plugin'), independent = f.manager.currentVersion('independent')
-    const candidate = { ...artifact(2), resourceFiles: change === 'remove' ? [] : [{ ...resource, sha256: change === 'change' ? 'c'.repeat(64) : resource.sha256 }] }
-    f.sets.set('native-group', { id: 'native-group', createdAt: Date.now(), artifacts: [candidate, artifact(2, manifest('independent'))] })
+    const plugin = f.manager.currentVersion('plugin'),
+      independent = f.manager.currentVersion('independent')
+    const candidate = {
+      ...artifact(2),
+      resourceFiles:
+        change === 'remove' ? [] : [{ ...resource, sha256: change === 'change' ? 'c'.repeat(64) : resource.sha256 }],
+    }
+    f.sets.set('native-group', {
+      id: 'native-group',
+      createdAt: Date.now(),
+      artifacts: [candidate, artifact(2, manifest('independent'))],
+    })
     const operation = f.manager.reload('native-group', ['plugin', 'independent']).operationId
     await f.manager.reconcile()
     expect(f.manager.getReload(operation).phase).toBe('restart_required')
@@ -319,24 +335,32 @@ test('a readiness wait remains cancellable before the default route switches and
 })
 
 test('a readiness hook that ignores cancellation expires without changing the default version', async () => {
-  const f = fixture({ activationPreparationMs: 25,
-    beforeActivate: async (_owner, artifact) => { if (artifact.id === '2'.padStart(64, '0')) await new Promise(() => {}) },
+  const f = fixture({
+    activationPreparationMs: 25,
+    beforeActivate: async (_owner, artifact) => {
+      if (artifact.id === '2'.padStart(64, '0')) await new Promise(() => {})
+    },
   })
   await f.completed(f.reload(1))
-  const original = f.manager.currentVersion('plugin'), operation = f.reload(2)
+  const original = f.manager.currentVersion('plugin'),
+    operation = f.reload(2)
   await until(() => f.manager.getReload(operation).phase === 'failed')
   expect(f.manager.getReload(operation).units[0]?.reasonCode).toBe('RUNTIME_ACTIVATION_PREPARATION_TIMEOUT')
   expect(f.manager.currentVersion('plugin')).toEqual(original)
 })
 
 test('deliberate manager shutdown cancels an unswitched readiness hook even when that hook never returns', async () => {
-  const f = fixture({ beforeActivate: async (_owner, artifact) => { if (artifact.id === '2'.padStart(64, '0')) await new Promise(() => {}) } })
+  const f = fixture({
+    beforeActivate: async (_owner, artifact) => {
+      if (artifact.id === '2'.padStart(64, '0')) await new Promise(() => {})
+    },
+  })
   await f.completed(f.reload(1))
   const operation = f.reload(2)
   await until(() => f.manager.getReload(operation).phase === 'activating')
   await f.manager.close()
   expect(f.manager.getReload(operation).phase).toBe('cancelled')
-  expect(f.created.every(generation => generation.snapshot().phase === 'disposed')).toBe(true)
+  expect(f.created.every((generation) => generation.snapshot().phase === 'disposed')).toBe(true)
   expect(f.manager.getReload(operation).switchedAt).toBeNull()
 })
 
@@ -404,7 +428,7 @@ test('a reentrant status observer cannot starve unrelated event-loop work with a
     callbacks++
     if (callbacks < 25) f.reload(1)
   })
-  const heartbeat = new Promise<number>(resolve => setTimeout(() => resolve(callbacks), 0))
+  const heartbeat = new Promise<number>((resolve) => setTimeout(() => resolve(callbacks), 0))
   f.reload(1)
   expect(await heartbeat).toBeLessThan(25)
   await until(() => callbacks >= 25)
@@ -458,8 +482,16 @@ test('the manager can replace a real Bun unit without changing an unrelated chil
   const inFlight = manager.call('plugin', 'fixture.wait', 300, z.number()).catch((error: unknown) => error)
   sets.set('second', { id: 'second', createdAt: Date.now(), artifacts: [artifact(2)] })
   const reload = manager.reload('second', ['plugin']).operationId
-  await until(() => manager.snapshot().units.find(unit => unit.descriptor.id === 'plugin')?.generations.some(generation =>
-    generation.role === 'default' && generation.artifactId === artifact(2).id && generation.phase === 'serving') ?? false)
+  await until(
+    () =>
+      manager
+        .snapshot()
+        .units.find((unit) => unit.descriptor.id === 'plugin')
+        ?.generations.some(
+          (generation) =>
+            generation.role === 'default' && generation.artifactId === artifact(2).id && generation.phase === 'serving',
+        ) ?? false,
+  )
   expect(await inFlight).toBe(originalPid)
   await until(() => manager.getReload(reload).phase === 'completed')
   const after = manager.snapshot()
@@ -471,4 +503,193 @@ test('the manager can replace a real Bun unit without changing an unrelated chil
     before.units.find((unit) => unit.descriptor.id === 'plugin')?.generations[0]?.pid,
   )
   expect(await manager.call('plugin', 'fixture.echo', 'real replacement', z.string())).toBe('real replacement')
+})
+
+/** Actual Manager, synthetic generation only; no native/Host memory qualification. */
+function stagedDriverFixture(fail = false, prepareGate?: Promise<void>, createThrows = false) {
+  const descriptor = { ...manifest('driver.pi'), kind: 'driver' as const }
+  const selected = artifact(71, descriptor)
+  const replacement = artifact(72, descriptor)
+  const plugin = artifact(73, manifest('plugin'))
+  const sets = new Map<string, RuntimeArtifactSet>([
+    ['driver-initial', { id: 'driver-initial', createdAt: 0, artifacts: [selected] }],
+    ['driver-replacement', { id: 'driver-replacement', createdAt: 0, artifacts: [replacement] }],
+    ['plugin-initial', { id: 'plugin-initial', createdAt: 0, artifacts: [plugin] }],
+  ])
+  const created: Generation[] = []
+  let createAttempts = 0
+  const purposes: Array<'startup' | 'idle-wake' | undefined> = []
+  const manager = new RuntimeManager({
+    instanceId: 'staged-driver-host',
+    artifacts: {
+      artifactSet(id) {
+        const set = sets.get(id)
+        if (!set) throw new HbarError('RUNTIME_ARTIFACT_UNREGISTERED', 'Fixture set missing')
+        return set
+      },
+      preparedSets: () => [...sets.keys()],
+    },
+    references: () => ({ runs: 0, resources: 0, tools: 0 }),
+    create(value, generation, changed, purpose) {
+      createAttempts++
+      if (createThrows) throw new HbarError('FIXTURE_CREATE_UNKNOWN', 'Creation failed before exposing an owner')
+      const child = new Generation(value, generation, changed, fail)
+      child.prepareGate = prepareGate
+      created.push(child)
+      purposes.push(purpose)
+      return child
+    },
+  })
+  managers.push(manager)
+  manager.register(descriptor)
+  return { manager, selected, created, purposes, sets, createAttempts: () => createAttempts }
+}
+
+test('staged Driver metadata selects immutable bytes without a process, owner, readiness or retirement', async () => {
+  const f = stagedDriverFixture()
+  f.manager.stageInitialDriver('driver-initial', 'driver.pi')
+  f.manager.stageInitialDriver('driver-initial', 'driver.pi')
+  await f.manager.reconcile()
+  const snapshot = f.manager.snapshot()
+  expect(snapshot.ready).toBe(false)
+  expect(snapshot.units[0]).toMatchObject({
+    generations: [],
+    queuedArtifactId: null,
+    idle: { phase: 'dormant', selectedArtifactId: f.selected.id, demandHolds: 0, checkpointPending: false },
+  })
+  expect(f.created).toHaveLength(0)
+  expect(f.manager.artifactReferences().artifactIds).toContain(f.selected.id)
+  expect(() => f.manager.currentVersion('driver.pi')).toThrow('Runtime default version is unavailable')
+  expect(() => f.manager.defaultOwner('driver.pi')).toThrow('Runtime default is unavailable')
+  expect(f.manager.retirement({ unitId: 'driver.pi', generation: 1, incarnation: 'not-created' }).status).toBe(
+    'unverified',
+  )
+  expect(() => f.manager.stageInitialDriver('driver-replacement', 'driver.pi')).toThrow(
+    'Only an unowned never-started Driver can be staged',
+  )
+  expect(() => f.manager.stageInitialDriver('plugin-initial', 'driver.pi')).toThrow(
+    'Initial Driver target or artifact is not registered',
+  )
+  f.manager.register(manifest('plugin'))
+  expect(() => f.manager.stageInitialDriver('plugin-initial', 'plugin')).toThrow(
+    'Deferred Driver artifact must match its registered contract',
+  )
+  expect(f.created).toHaveLength(0)
+})
+
+test('concurrent first Driver demand creates one startup owner through ordinary preparation and activation', async () => {
+  const preparing = deferred()
+  const f = stagedDriverFixture(false, preparing.promise)
+  f.manager.stageInitialDriver('driver-initial', 'driver.pi')
+  const first = f.manager.holdDemand(['driver.pi'])
+  const second = f.manager.holdDemand(['driver.pi'])
+  try {
+    await until(() => f.created.length === 1)
+    expect(f.manager.snapshot().ready).toBe(false)
+    expect(() => f.manager.stageInitialDriver('driver-initial', 'driver.pi')).toThrow(
+      'Only an unowned never-started Driver can be staged',
+    )
+    preparing.release()
+    const [left, right] = await Promise.all([first.ready, second.ready])
+    expect(left).toEqual(right)
+    expect(f.created).toHaveLength(1)
+    expect(f.purposes).toEqual(['startup'])
+    expect(f.manager.currentVersion('driver.pi')).toEqual({
+      unitId: 'driver.pi',
+      generation: 1,
+      artifactId: f.selected.id,
+    })
+    expect(f.manager.snapshot().ready).toBe(true)
+    expect(first.settlement().units[0]?.dispatch).toBe('started')
+    expect(second.settlement().units[0]?.dispatch).toBe('not-started')
+    expect(f.manager.snapshot().units[0]?.idle?.phase).toBe('active')
+  } finally {
+    preparing.release()
+    first.release()
+    second.release()
+  }
+})
+
+test('failed first Driver preparation retains UNKNOWN and cannot be restaged or silently replayed', async () => {
+  const f = stagedDriverFixture(true)
+  f.manager.stageInitialDriver('driver-initial', 'driver.pi')
+  const hold = f.manager.holdDemand(['driver.pi'])
+  await expect(hold.ready).rejects.toThrow('Wake did not establish a serving owner')
+  expect(f.manager.snapshot().units[0]?.idle?.phase).toBe('unknown')
+  expect(f.manager.snapshot().ready).toBe(false)
+  expect(hold.settlement().units[0]?.dispatch).toBe('started')
+  expect((await f.manager.reconcileDemandHold(hold.attemptId)).canRelease).toBe(false)
+  expect(() => f.manager.stageInitialDriver('driver-initial', 'driver.pi')).toThrow(
+    'Only an unowned never-started Driver can be staged',
+  )
+  const retry = f.manager.holdDemand(['driver.pi'])
+  await expect(retry.ready).rejects.toThrow('Previous idle retirement is unresolved')
+  expect(f.created).toHaveLength(1)
+  // Deliberately keep the failed physical hold: fake dispose is NOT native retirement proof.
+  // Manager.close below owns fixture shutdown; this is not permission for Host to release UNKNOWN.
+  retry.release()
+})
+test('release before first Driver dispatch preserves a genuinely never-started selection', async () => {
+  const f = stagedDriverFixture()
+  f.manager.stageInitialDriver('driver-initial', 'driver.pi')
+  const cancelled = f.manager.holdDemand(['driver.pi'])
+  cancelled.release()
+  await expect(cancelled.ready).rejects.toThrow('Demand admission was closed')
+  expect(cancelled.settlement().units[0]?.dispatch).toBe('not-started')
+  expect(f.created).toHaveLength(0)
+  expect(f.manager.snapshot().units[0]?.idle).toMatchObject({
+    phase: 'dormant',
+    selectedArtifactId: f.selected.id,
+    demandHolds: 0,
+  })
+  const actual = f.manager.holdDemand(['driver.pi'])
+  try {
+    const owners = await actual.ready
+    expect(owners).toHaveLength(1)
+    expect(f.created).toHaveLength(1)
+    expect(f.purposes).toEqual(['startup'])
+  } finally {
+    actual.release()
+  }
+})
+test('Driver staging rejects mismatched registered artifact descriptors before selecting or creating', () => {
+  const variants: ReadonlyArray<Partial<RuntimeUnitDescriptor>> = [
+    { storageSchema: 24 },
+    { contractFingerprint: 'b'.repeat(64) },
+    { dependencies: ['storage'] },
+  ]
+  for (const changed of variants) {
+    const f = stagedDriverFixture()
+    const mismatch = artifact(74, { ...f.selected.descriptor, ...changed })
+    f.sets.set('driver-mismatch', { id: 'driver-mismatch', createdAt: 0, artifacts: [mismatch] })
+    expect(() => f.manager.stageInitialDriver('driver-mismatch', 'driver.pi')).toThrow(
+      'Deferred Driver artifact must match its registered contract',
+    )
+    expect(f.created).toHaveLength(0)
+    expect(f.manager.snapshot().units[0]).toMatchObject({
+      generations: [],
+      queuedArtifactId: null,
+      idle: { phase: 'active', selectedArtifactId: null, demandHolds: 0 },
+    })
+    expect(f.manager.artifactReferences().artifactIds).not.toContain(mismatch.id)
+  }
+})
+
+test('Driver create throwing without an owner preserves unknown dispatch and prohibits replay', async () => {
+  const f = stagedDriverFixture(false, undefined, true)
+  f.manager.stageInitialDriver('driver-initial', 'driver.pi')
+  const hold = f.manager.holdDemand(['driver.pi'])
+  await expect(hold.ready).rejects.toThrow('Wake did not establish a serving owner')
+  expect(hold.settlement().units[0]).toEqual({ unitId: 'driver.pi', owner: null, dispatch: 'unknown' })
+  expect((await f.manager.reconcileDemandHold(hold.attemptId)).canRelease).toBe(false)
+  expect(f.manager.snapshot().units[0]).toMatchObject({ generations: [], idle: { phase: 'unknown' } })
+  expect(() => f.manager.stageInitialDriver('driver-initial', 'driver.pi')).toThrow(
+    'Only an unowned never-started Driver can be staged',
+  )
+  const retry = f.manager.holdDemand(['driver.pi'])
+  await expect(retry.ready).rejects.toThrow('Previous idle retirement is unresolved')
+  expect(f.created).toHaveLength(0)
+  expect(f.createAttempts()).toBe(1)
+  // No usable owner does not prove no physical dispatch: retain the original unknown hold.
+  retry.release()
 })
