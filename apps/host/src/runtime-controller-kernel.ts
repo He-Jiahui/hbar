@@ -4,11 +4,11 @@ import { CommandRegistry } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { HbarError, type LiveStream, type SessionEvent } from '@hbar/contracts'
 import { workspaceFoldersSchema } from '@hbar/contracts/commands/workspace-folders'
-import type { KernelControllerPort, KernelControllerCapabilities } from '@hbar/kernel/controller'
+import type { KernelControllerPort, KernelControllerCapabilities } from '@hbar/kernel/controller-port'
 import { RUNTIME_APPLICATION_METHODS, type RuntimeApplicationTargets } from '@hbar/kernel/runtime-application'
 import { callStorageRpc, type PathLayout, type StoragePort } from '@hbar/storage'
 import { runtimeDomainError, type RuntimeValuePort } from '@hbar/runtime'
-import type { RuntimeControllerScope } from './runtime-controller-contract'
+import type { RuntimeControllerScope } from './runtime-controller-scope'
 import { RuntimePhysicalActivity } from './runtime-background-idle'
 
 type Methods<Target extends keyof RuntimeApplicationTargets> = Extract<

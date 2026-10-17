@@ -17,7 +17,7 @@ import {
 } from '@hbar/contracts/commands/chat-database'
 import { settingsScopeSchema } from '@hbar/contracts/commands/settings'
 import type { RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
-import type { KernelControllerPort } from '@hbar/kernel/controller'
+import type { KernelControllerPort } from '@hbar/kernel/controller-port'
 import {
   RuntimeValuePort,
   procedure,

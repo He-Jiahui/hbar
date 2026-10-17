@@ -1,4 +1,4 @@
-import type { Kernel } from './index'
+import type { ControllerKernelContract } from './controller-kernel-contract'
 import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 import type { LiveStream } from '@hbar/contracts'
 import type {
@@ -14,13 +14,13 @@ import type {
   WorkflowService,
 } from '@hbar/plugin-sdk'
 
-/** Application use-case ports; controllers need neither private Kernel state nor a concrete runtime class. */
+/** Application use-case ports select the explicit public contract without depending on the concrete Kernel runtime class. */
 export type ConfigurationCommandKernelPort = Pick<
-  Kernel,
+  ControllerKernelContract,
   'providerProfiles' | 'permissionMode' | 'setPermissionMode' | 'saveProvider' | 'models' | 'deleteProvider'
 >
 export type RunCommandKernelPort = Pick<
-  Kernel,
+  ControllerKernelContract,
   | 'storage'
   | 'submit'
   | 'cancel'
@@ -30,23 +30,23 @@ export type RunCommandKernelPort = Pick<
   | 'guideQueuedRun'
   | 'undoFileChanges'
 > &
-  Partial<Pick<Kernel, 'continueInterrupted'>>
+  Partial<Pick<ControllerKernelContract, 'continueInterrupted'>>
 export type InteractionCommandKernelPort = Pick<
-  Kernel,
+  ControllerKernelContract,
   'storage' | 'resolvePlanExit' | 'resolveApproval' | 'snapshot' | 'resolveUserInput'
 >
-export type ModelCommandKernelPort = Pick<Kernel, 'models' | 'getContextUsage'>
+export type ModelCommandKernelPort = Pick<ControllerKernelContract, 'models' | 'getContextUsage'>
 export type WorkspaceSessionCommandKernelPort = Pick<
-  Kernel,
+  ControllerKernelContract,
   'storage' | 'changed' | 'createWorkspace' | 'createNodeWorkspace' | 'updateSession'
 > & {
-  readonly options: Pick<Kernel['options'], 'layout'> & {
+  readonly options: Pick<ControllerKernelContract['options'], 'layout'> & {
     readonly nodeWorkspaceInspection?: Pick<NodeWorkspaceInspectionPort, 'verifyWorkspaceFolders'> | undefined
   }
   readonly active: { has(sessionId: string): boolean }
 }
 export type SessionLaunchTargetCommandKernelPort = Pick<
-  Kernel,
+  ControllerKernelContract,
   | 'storage'
   | 'getSessionLaunchTarget'
   | 'setSessionLaunchTarget'
@@ -59,12 +59,15 @@ export type SessionLaunchTargetCommandKernelPort = Pick<
   | 'reconcileSessionLaunchTargetPreparation'
 >
 export type SessionBranchTargetCommandKernelPort = Pick<
-  Kernel,
+  ControllerKernelContract,
   'storage' | 'selectSessionBranchTarget' | 'reconcileSessionBranchTarget'
 > & {
-  readonly sessionBranchTargets: Pick<Kernel['sessionBranchTargets'], 'list'>
+  readonly sessionBranchTargets: Pick<ControllerKernelContract['sessionBranchTargets'], 'list'>
 }
-export type SandboxCommandPort = Pick<Kernel['sandboxProfiles'], 'list' | 'get' | 'save' | 'delete' | 'receipt'>
+export type SandboxCommandPort = Pick<
+  ControllerKernelContract['sandboxProfiles'],
+  'list' | 'get' | 'save' | 'delete' | 'receipt'
+>
 export interface KernelControllerCapabilities {
   readonly mode: ModeService
   readonly goal: GoalService
@@ -81,16 +84,22 @@ export interface KernelClientScopePort {
   dispose(): Promise<void>
 }
 export type KernelPluginControllerPort = Pick<
-  Kernel['plugins'],
+  ControllerKernelContract['plugins'],
   'list' | 'remove' | 'lock' | 'protectedResourceRoots' | 'assetPath'
 > & {
   resolve(
-    ...args: Parameters<Kernel['plugins']['resolve']>
-  ): ReturnType<Kernel['plugins']['resolve']> | Promise<ReturnType<Kernel['plugins']['resolve']>>
+    ...args: Parameters<ControllerKernelContract['plugins']['resolve']>
+  ):
+    | ReturnType<ControllerKernelContract['plugins']['resolve']>
+    | Promise<ReturnType<ControllerKernelContract['plugins']['resolve']>>
   graph(
-    ...args: Parameters<Kernel['plugins']['graph']>
-  ): ReturnType<Kernel['plugins']['graph']> | Promise<ReturnType<Kernel['plugins']['graph']>>
-  doctor(): ReturnType<Kernel['plugins']['doctor']> | Promise<ReturnType<Kernel['plugins']['doctor']>>
+    ...args: Parameters<ControllerKernelContract['plugins']['graph']>
+  ):
+    | ReturnType<ControllerKernelContract['plugins']['graph']>
+    | Promise<ReturnType<ControllerKernelContract['plugins']['graph']>>
+  doctor():
+    | ReturnType<ControllerKernelContract['plugins']['doctor']>
+    | Promise<ReturnType<ControllerKernelContract['plugins']['doctor']>>
   clientCode(id: string): string | Promise<string>
   get<Capability extends keyof KernelControllerCapabilities>(
     capability: Capability,
@@ -98,7 +107,7 @@ export type KernelPluginControllerPort = Pick<
   openScope(kind: 'client', id: string): Promise<KernelClientScopePort>
 }
 type HostUseCases = Pick<
-  Kernel,
+  ControllerKernelContract,
   | 'applyStorageLocations'
   | 'assertIdle'
   | 'automationGet'
@@ -147,7 +156,7 @@ export interface KernelControllerPort
     WorkspaceSessionCommandKernelPort,
     SessionLaunchTargetCommandKernelPort,
     SessionBranchTargetCommandKernelPort {
-  readonly options: Pick<Kernel['options'], 'layout' | 'demo' | 'noLocalExec'> & {
+  readonly options: Pick<ControllerKernelContract['options'], 'layout' | 'demo' | 'noLocalExec'> & {
     readonly nodeWorkspaceInspection?: Pick<NodeWorkspaceInspectionPort, 'verifyWorkspaceFolders'> | undefined
   }
   readonly active: { readonly size: number; has(sessionId: string): boolean }
@@ -155,13 +164,13 @@ export interface KernelControllerPort
   readonly plugins: KernelPluginControllerPort
   readonly tools: { list(): Array<{ readonly name: string }> }
   readonly directoryQueries: Pick<
-    Kernel['directoryQueries'],
+    ControllerKernelContract['directoryQueries'],
     'execute' | 'dispatch' | 'dispatchPrepared' | 'describe' | 'list'
   > &
-    Partial<Pick<Kernel['directoryQueries'], 'dispatchPreparedTracked'>>
-  readonly schemaCallbacks: Pick<Kernel['schemaCallbacks'], 'query'>
+    Partial<Pick<ControllerKernelContract['directoryQueries'], 'dispatchPreparedTracked'>>
+  readonly schemaCallbacks: Pick<ControllerKernelContract['schemaCallbacks'], 'query'>
   readonly sandboxProfiles: SandboxCommandPort
-  readonly sessionSandboxProfileId: Kernel['sessionSandboxProfileId']
-  readonly workspaceSandboxes: Pick<Kernel['workspaceSandboxes'], 'prepare'>
-  readonly sessionLaunchTargets: Pick<Kernel['sessionLaunchTargets'], 'workspaceForRun'>
+  readonly sessionSandboxProfileId: ControllerKernelContract['sessionSandboxProfileId']
+  readonly workspaceSandboxes: Pick<ControllerKernelContract['workspaceSandboxes'], 'prepare'>
+  readonly sessionLaunchTargets: Pick<ControllerKernelContract['sessionLaunchTargets'], 'workspaceForRun'>
 }

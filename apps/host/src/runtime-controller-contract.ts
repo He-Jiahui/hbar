@@ -1,16 +1,17 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { rpcRequestSchema, rpcSchemas, type RpcMethod, type HostInfo } from '@hbar/contracts'
-import { hostInfoSchema } from '@hbar/contracts/commands/system'
-import { liveStreamSchema } from '@hbar/contracts/runtime-notifications'
+
 import {
   commandMetadataSchema,
   commandExecutionExpectationSchema,
   invocationSchema,
   type CommandDescriptor,
 } from '@hbar/commands'
-import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
+
 import type { ControllerServerApplication } from './runtime-controller-services'
+import { runtimeControllerScopeSchema } from './runtime-controller-scope'
+export { runtimeControllerScopeSchema, type RuntimeControllerScope } from './runtime-controller-scope'
 import { RUNTIME_COMMAND_JOB_SCHEMAS } from './runtime-command-job-contract'
 import {
   controllerScheduleControlMethods,
@@ -50,13 +51,6 @@ export const runtimeControllerConfigurationSchema = z.strictObject({
   skillsRoot: z.string().min(1).max(4_000),
   identityRoot: z.string().min(1).max(4_000),
 })
-export const runtimeControllerScopeSchema = z.strictObject({
-  invocationId: z.string().min(1).max(160),
-  actorId: z.string().min(1).max(160),
-  host: hostInfoSchema,
-  kernel: runtimeKernelStateSchema,
-  streams: z.array(liveStreamSchema).max(4_096),
-})
 export const runtimeControllerDescriptorSchema = z.custom<CommandDescriptor>(
   (value) =>
     z
@@ -76,7 +70,7 @@ export const runtimeControllerCatalogSchema = z
     }),
   )
   .max(64)
-export type RuntimeControllerScope = z.output<typeof runtimeControllerScopeSchema>
+
 export const runtimeControllerCommandStartSchema = z.strictObject({
   scope: runtimeControllerScopeSchema,
   invocation: invocationSchema,
