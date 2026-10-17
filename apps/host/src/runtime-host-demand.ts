@@ -249,6 +249,17 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
     }
   }
 
+  /** Pure admission projection; recovery fences cannot be hidden by a ready successor. */
+  admissionReady(): boolean {
+    return (
+      this.adopted &&
+      !this.stopped &&
+      this.barriers.size === 0 &&
+      this.quarantined.size === 0 &&
+      this.failedStarts.size === 0
+    )
+  }
+
   /** Pure bounded projection; health/metrics polling must use this path. */
   snapshot(): DemandSnapshot & {
     readonly pendingAdmissions: number
