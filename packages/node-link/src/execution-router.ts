@@ -48,6 +48,13 @@ export class ExecutionRouter implements ExecutionProvider {
   private readonly stopped = new AbortController()
   private readonly running = new Set<Promise<ToolResult>>()
   private closing: Promise<void> | undefined
+  private readonly pendingQueries = new Set<Promise<void>>()
+  private idleUnknownExecutions = 0
+  idleRequests(): number {
+    return (
+      this.running.size + this.pendingQueries.size + Number(this.closing !== undefined) + this.idleUnknownExecutions
+    )
+  }
   constructor(private readonly options: ExecutionRouterOptions) {
     this.workspaceQuery = {
       search: async (workspace, input, signal) => {
@@ -138,6 +145,25 @@ export class ExecutionRouter implements ExecutionProvider {
         )
       },
       dispose: () => this.options.local.workspaceQuery?.dispose(),
+    }
+    const query = this.workspaceQuery
+    this.workspaceQuery = {
+      search: (...args) => this.trackQuery(() => query.search(...args)),
+      find: (...args) => this.trackQuery(() => query.find(...args)),
+      readRange: (...args) => this.trackQuery(() => query.readRange(...args)),
+      invalidate: (...args) => this.trackQuery(() => query.invalidate(...args)),
+      dispose: () => query.dispose(),
+    }
+  }
+  private async trackQuery<Result>(operation: () => Promise<Result>): Promise<Result> {
+    this.stopped.signal.throwIfAborted()
+    const pending = Promise.withResolvers<void>()
+    this.pendingQueries.add(pending.promise)
+    try {
+      return await operation()
+    } finally {
+      this.pendingQueries.delete(pending.promise)
+      pending.resolve()
     }
   }
   private localQuery(): WorkspaceQueryProvider {
@@ -361,8 +387,16 @@ export class ExecutionRouter implements ExecutionProvider {
     const task = this.execute(workspace, command, signal, options)
     this.running.add(task)
     void task.then(
-      () => this.running.delete(task),
-      () => this.running.delete(task),
+      (result) => {
+        const details = result.details
+        if (details && typeof details === 'object' && 'code' in details && details.code === 'EFFECT_UNKNOWN')
+          this.idleUnknownExecutions = 1
+        this.running.delete(task)
+      },
+      () => {
+        this.running.delete(task)
+        this.idleUnknownExecutions = 1
+      },
     )
     return task
   }
@@ -418,7 +452,7 @@ export class ExecutionRouter implements ExecutionProvider {
   }
   private async close(): Promise<void> {
     this.stopped.abort(new HbarError('EXECUTION_CLOSED', 'Workspace execution router is closing'))
-    await Promise.allSettled([...this.running])
+    await Promise.allSettled([...this.running, ...this.pendingQueries])
     await this.options.local.dispose?.()
   }
 }
