@@ -26,6 +26,17 @@ export class NodeRegistryService {
   private readonly attempts = new Map<string, { count: number; resetAt: number }>()
   private readonly revocations = new Set<(nodeId: string) => void>()
   private pendingInvitations = 0
+  private consumingInvitations = 0
+  /** Pure: expiry is evaluated without sweeping or extending any invitation. */
+  idleSnapshot() {
+    const now = this.now()
+    return {
+      invitations: [...this.invitations.values()].filter((value) => value.expiresAt > now || value.consuming).length,
+      pendingInvitations: this.pendingInvitations,
+      consumingInvitations: this.consumingInvitations,
+      rateLimitSources: [...this.attempts.values()].filter((value) => value.resetAt > now).length,
+    }
+  }
   private constructor(
     readonly identity: NodeIdentity,
     private readonly state: NodeRegistryStatePort,
@@ -98,6 +109,7 @@ export class NodeRegistryService {
       throw new HbarError('NODE_PAIRING_FAILED', 'Invalid, used or expired node invitation')
     const key = nodePublicKeySchema.parse(publicKey)
     candidate.consuming = true
+    this.consumingInvitations++
     try {
       const node = await this.state.call('node.register', {
         nodeId: nodeIdFromPublicKey(key),
@@ -110,6 +122,8 @@ export class NodeRegistryService {
     } catch (error) {
       candidate.consuming = false
       throw error
+    } finally {
+      this.consumingInvitations--
     }
   }
   async touch(nodeId: string, capabilities: NodeCapabilities): Promise<RegisteredNode> {
