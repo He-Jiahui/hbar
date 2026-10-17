@@ -145,6 +145,8 @@ export function createDirectoryQueries(repository: DirectoryRepository) {
   })
   return {
     ...createCommandClient(directoryCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { describeCommand, invocationSchema } from '@hbar/commands'
+import { CommandError, describeCommand, invocationSchema, type CommandExecutionExpectation, type CommandPreparedOptions } from '@hbar/commands'
+import { commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { chatDatabaseCommands, chatDatabaseOperationSchema, chatDatabasePreviewItemSchema, type ChatDatabaseOperation } from '@hbar/contracts/commands/chat-database'
 import { settingsScopeSchema } from '@hbar/contracts/commands/settings'
 import type { RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
@@ -8,6 +9,8 @@ import type { KernelControllerPort } from '@hbar/kernel/controller'
 import { RuntimeValuePort, procedure, type IpcPeer, type ManagedProcess, type RuntimeCoordinator } from '@hbar/runtime'
 import { storageRpcCallSchema, chatDatabaseVacuumRecordSchema, createChatDatabaseVacuumRecords, type StableStoragePort, type PathLayout } from '@hbar/storage'
 import type { RuntimeMaintenancePort } from './runtime-maintenance-contract'
+import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
+import type { HostCommandExecutionScopes } from './command-execution-scopes'
 
 export interface RuntimeMaintenanceEndpoint {
   readonly owner: RuntimeOwner
@@ -31,9 +34,11 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
   private readonly waiting = new Set<() => void>()
   private writer: Writer | null = null
   private reconciling: Promise<void> | undefined
+  private readonly commandLifetime = new AbortController()
   constructor(private readonly options: {
     readonly storage: StableStoragePort
     readonly coordinator: RuntimeCoordinator
+    readonly commandScopes?: HostCommandExecutionScopes
     readonly kernel: KernelControllerPort
     readonly layout: PathLayout
     readonly current: () => RuntimeMaintenanceEndpoint
@@ -46,9 +51,49 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
     if (!definition) throw new HbarError('COMMAND_NOT_FOUND', 'Maintenance command is not registered')
     return describeCommand(definition)
   }
-  dispose(): void { /* The managed owner lifecycle belongs to ProcessHostRuntime. */ }
+  dispose(): void { this.commandLifetime.abort() }
   list() { return { revision: 1, items: Object.values(chatDatabaseCommands).map(describeCommand) } }
   readonly dispatch = async (value: unknown, actorId: string): Promise<unknown> => {
+    return this.dispatchOwned(value, actorId)
+  }
+  readonly dispatchPrepared = (value: unknown, actorId: string, expectation: CommandExecutionExpectation, options: CommandPreparedOptions = {}): Promise<unknown> =>
+    this.dispatchOwned(value, actorId, expectation, options)
+  readonly dispatchPreparedTracked = (
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): RuntimeCommandJobTicket => {
+    if (this.commandLifetime.signal.aborted || options.signal?.aborted)
+      throw new CommandError('CANCELLED', 'Maintenance command cancelled before admission')
+    const { invocation, endpoint } = this.destination(value, actorId)
+    const jobId = crypto.randomUUID()
+    const input = commandJobStartSchema.parse({ jobId, actorId, invocation, expectation })
+    const resource = this.options.commandScopes
+      ? this.options.commandScopes.retain(this.options.coordinator, endpoint.owner, `maintenance.command.job:${jobId}`)
+      : this.options.coordinator.acquireResource(endpoint.owner, `maintenance.command.job:${jobId}`)
+    if (!resource) throw new CommandError('BUSY', 'Maintenance command already retains its owner')
+    const release = () => this.options.coordinator.releaseResource(endpoint.owner, resource.id)
+    try {
+      return trackRuntimeCommandJob(
+        endpoint.process,
+        { jobId, actorId },
+        (signal) => endpoint.process.call('maintenance.command.start', input, commandJobSnapshotSchema, {
+          signal, timeoutMs: 30_000,
+        }),
+        {
+          signal: options.signal,
+          beforeStart: this.options.commandScopes?.beforeStart({ kind: 'runtime', owner: endpoint.owner, jobId }),
+          lifetime: this.commandLifetime.signal,
+          onAcknowledged: release,
+        },
+      )
+    } catch (error) {
+      release()
+      throw error
+    }
+  }
+  private destination(value: unknown, actorId: string) {
     const invocation = invocationSchema.parse(value)
     this.describe(invocation.commandId)
     const target = z.object({ operationId: id.optional(), previewId: id.optional(), idempotencyKey: id.optional() }).safeParse(invocation.input)
@@ -56,8 +101,12 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
       (target.data.idempotencyKey ? this.receipts.get(`${actorId}:${target.data.idempotencyKey}`) : undefined) : undefined
     const job = operationId ? this.jobs.get(operationId) : undefined
     const endpoint = job && !this.dead.has(job.owner.incarnation) ? this.options.resolve(job.owner) : this.options.current()
+    return { invocation, endpoint }
+  }
+  private async dispatchOwned(value: unknown, actorId: string, expectation?: CommandExecutionExpectation, options: CommandPreparedOptions = {}): Promise<unknown> {
+    const { invocation, endpoint } = this.destination(value, actorId)
     const control = ['chatDatabase.cancel', 'chatDatabase.operation', 'chatDatabase.receipt'].includes(invocation.commandId)
-    return endpoint.process.call(control ? 'maintenance.control' : 'maintenance.dispatch', { invocation, actorId }, z.unknown())
+    return endpoint.process.call(control ? 'maintenance.control' : 'maintenance.dispatch', { invocation, actorId, ...(expectation ? { expectation } : {}) }, z.unknown(), options)
   }
   attach(peer: IpcPeer, owner: RuntimeOwner, version: RuntimeVersion): () => void {
     const values = new RuntimeValuePort(peer, { prefix: 'maintenance.application' })

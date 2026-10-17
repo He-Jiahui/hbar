@@ -6,7 +6,15 @@ import { invocationSchema } from '@hbar/commands/protocol'
 import { workspaceListInputSchema, type WorkspacePage } from '@hbar/contracts/directory'
 import type { StoragePort } from '@hbar/storage'
 
+// These only publish or answer this authenticated connection's endpoint; command admission remains separate.
+const clientConnectionMethods = [
+  'command.client.register',
+  'command.client.unregister',
+  'command.client.reply',
+  'command.client.list',
+]
 const observerMethods = new Set([
+  ...clientConnectionMethods,
   'command.catalog',
   'command.describe',
   'command.execute',
@@ -22,6 +30,7 @@ const observerMethods = new Set([
   'session.summaries',
 ])
 const scopedGlobals = new Set([
+  ...clientConnectionMethods,
   'workspace.list',
   'command.catalog',
   'command.describe',
@@ -124,6 +133,14 @@ export class DeviceAuthorization {
     const more = items.length > page.limit
     const kept = items.slice(0, page.limit)
     return { items: kept, nextCursor: more ? (kept.at(-1)?.id ?? null) : null }
+  }
+  /** Historical result access checks current entity scope; it never grants permission to execute the old operation. */
+  async assertCommandResultTargets(device: Device, descriptor: CommandDescriptor, value: unknown): Promise<void> {
+    const invocation = invocationSchema.parse(value)
+    if (invocation.commandId !== descriptor.metadata.id || invocation.commandVersion !== descriptor.metadata.version)
+      denied()
+    if (deviceAccessOf(device).workspaceIds !== null && !scopedGlobals.has(invocation.commandId))
+      await this.assertTargets(device, invocation.input, true)
   }
   /** Scoped/observer devices only receive session facts for subscriptions already authorized above. */
   notification(device: Device | undefined, follows: ReadonlySet<string>, event: WireNotification): boolean {

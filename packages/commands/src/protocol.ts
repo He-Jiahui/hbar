@@ -70,6 +70,99 @@ export interface CommandDescriptor {
   readonly outputSchema: z.core.JSONSchema.BaseSchema
 }
 
+/** Descriptors cross read-only ports; executable validators and functions stay in their owners. */
+const commandDescriptorWireSchema = z.strictObject({
+  metadata: commandMetadataSchema,
+  inputSchema: z.record(z.string(), z.unknown()),
+  outputSchema: z.record(z.string(), z.unknown()),
+})
+export const commandDescriptorSchema = commandDescriptorWireSchema.transform((value): CommandDescriptor => value)
+
+export const commandCatalogPageSchema = z
+  .strictObject({
+    revision: z.number().int().nonnegative().safe(),
+    items: z.array(commandDescriptorSchema).max(200),
+    nextCursor: z.string().min(1).max(128).optional(),
+  })
+  .transform(({ nextCursor, ...page }): CommandCatalogPage =>
+    nextCursor === undefined ? page : { ...page, nextCursor },
+  )
+
+export const commandCatalogQuerySchema = z.strictObject({
+  category: z.string().min(1).max(128).optional(),
+  after: z.string().max(128).optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+})
+export const commandDescriptionQuerySchema = z.strictObject({ commandId: z.string().min(1).max(128) })
+export type CommandCatalogQuery = z.input<typeof commandCatalogQuerySchema>
+export interface CommandCatalogPage {
+  readonly revision: number
+  readonly items: CommandDescriptor[]
+  readonly nextCursor?: string
+}
+
+/** Authenticated composition boundaries provide the actor; command payloads never contain it. */
+export interface CommandRoutingPort {
+  list(query?: CommandCatalogQuery): CommandCatalogPage
+  describe(commandId: string): CommandDescriptor
+  /** Read-only owner validation and defaults; never invokes the command handler. */
+  prepare(invocation: unknown): Promise<CommandPreparation>
+  execute(invocation: unknown, actorId: string): Promise<unknown>
+}
+
+export interface CommandPreparation {
+  readonly descriptor: CommandDescriptor
+  readonly invocation: CommandInvocation
+}
+
+/** Trusted admission facts, carried separately from an invocation and its authenticated actor. */
+export const commandExecutionExpectationSchema = z.strictObject({
+  descriptor: commandDescriptorSchema,
+  input: z.unknown(),
+})
+export type CommandExecutionExpectation = z.output<typeof commandExecutionExpectationSchema>
+export interface CommandPreparedOptions {
+  readonly signal?: AbortSignal
+}
+/** Physical completion is distinct from an earlier logical timeout/cancellation response. */
+export const commandPhysicalSettlementSchema = z.discriminatedUnion('status', [
+  z.strictObject({ status: z.literal('succeeded'), executionStarted: z.literal(true), result: z.unknown() }),
+  z.strictObject({
+    status: z.literal('failed'),
+    executionStarted: z.boolean(),
+    error: z.strictObject({
+      code: z.string().min(1).max(128),
+      message: z.string().min(1).max(8_192),
+    }),
+  }),
+])
+export type CommandPhysicalSettlement = z.output<typeof commandPhysicalSettlementSchema>
+/** Owner-local promises. Managed owners publish named data receipts instead of serializing this object. */
+export interface CommandExecutionTicket {
+  readonly result: Promise<unknown>
+  readonly settled: Promise<CommandPhysicalSettlement>
+  /** Managed owners retain receipts until the caller has saved them. Absent for an ordinary owner-local ticket. */
+  readonly acknowledge?: () => Promise<void>
+  /** Read the exact original owner/job again after tracking stops. This must never execute the command again. */
+  readonly follow?: (options?: CommandPreparedOptions) => CommandExecutionTicket
+}
+export interface PreparedCommandRoutingPort extends CommandRoutingPort {
+  executePrepared(
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ): Promise<unknown>
+}
+export interface TrackedCommandRoutingPort extends PreparedCommandRoutingPort {
+  executePreparedTracked(
+    invocation: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options?: CommandPreparedOptions,
+  ): CommandExecutionTicket
+}
+
 export const invocationSchema = z.strictObject({
   protocol: z.literal(COMMAND_PROTOCOL_VERSION),
   requestId: z.string().min(1).max(128),
@@ -83,6 +176,7 @@ export type CommandInvocation = z.output<typeof invocationSchema>
 export const commandErrorCodes = [
   'COMMAND_NOT_FOUND',
   'COMMAND_CONFLICT',
+  'COMMAND_PREPARATION_STALE',
   'INVALID_DEFINITION',
   'INVALID_INPUT',
   'INVALID_OUTPUT',

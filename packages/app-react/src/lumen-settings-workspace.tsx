@@ -632,9 +632,12 @@ function HbarSettingsWorkspaceContent({
             />
           </LumenFrame>
           {localCustomGroup ? (
-            <LumenFrame className="hbar-app-react-settings-scroll">
-              <LumenFrame className="hbar-app-react-settings-content">{suspendedCustomGroup}</LumenFrame>
-            </LumenFrame>
+            <>
+              <LumenFrame className="hbar-app-react-settings-scroll">
+                <LumenFrame className="hbar-app-react-settings-content">{suspendedCustomGroup}</LumenFrame>
+              </LumenFrame>
+              {renderedContent?.saveArea}
+            </>
           ) : !entry || entry.status === 'loading' ? (
             <LumenContentText context="feedback.message" className="hbar-app-react-settings-state" role="status">
               {labels.loading}

@@ -1,6 +1,7 @@
 import { rpcSchemas } from '@hbar/contracts'
 
 const connectionMethods = new Set([
+  'command.client.register', 'command.client.unregister', 'command.client.reply', 'command.client.list',
   'system.hello', 'system.runtime.watch', 'system.runtime.unwatch', 'session.follow', 'session.unfollow', 'operation.watch', 'operation.unwatch', 'metrics.watch', 'metrics.unwatch',
   'terminal.open', 'terminal.input', 'terminal.resize', 'terminal.close', 'terminal.list',
   'surface.register', 'surface.unregister', 'surface.list', 'surface.invoke', 'surface.resolve',

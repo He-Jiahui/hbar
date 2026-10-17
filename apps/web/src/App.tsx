@@ -169,6 +169,7 @@ import { notificationNavigationCopy } from './notification-copy'
 import { NotificationPageNavigation } from './NotificationPageButton'
 import { navigateNotification } from './notification-navigation'
 import { createDevelopmentDiagnostics } from './development-diagnostics'
+import { publishRuntimeCommands } from './command-client'
 import { WebNodeManagementSettings } from './node-management-settings'
 const SchedulesPage = lazySurface<ComponentProps<typeof import('./schedules-page').SchedulesPage>>(() =>
   import('./schedules-page').then((module) => ({ default: module.SchedulesPage })),
@@ -268,7 +269,7 @@ function createRuntime(
 ) {
   const goals = createGoalPlanCommandClient(client)
   const sessionLaunchBranches = createSessionLaunchBranchesManager(client)
-  return createAppRuntime({
+  const runtime = createAppRuntime({
     instanceId: crypto.randomUUID(),
     hostId: hostId ?? 'pending:identity',
     ...(hostId ? { hostRuntimeStatus: client.runtimeStatus } : {}),
@@ -547,6 +548,7 @@ function createRuntime(
     ...(hostId === null ? {} : { persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web') }),
     exporter: createBrowserClientExport(),
   })
+  return hostId === null ? runtime : publishRuntimeCommands(client, runtime).runtime
 }
 
 function createAppearancePortForRuntime(runtime: ReturnType<typeof createAppRuntime>): AppearanceEditorPort {
@@ -889,17 +891,29 @@ function WorkspaceBodyContent({
               />
             )
           if (groupId === 'general' && language)
-            return { content: (<>
-              <WebGeneralSettings
-                labels={copy.general}
-                language={language}
-                sendBehavior={sendBehavior}
-                zoom={zoom}
-                nativeZoom={nativeDesktop}
-                connected={connected}
-              />
-              {context.renderFields(['f:client.resourceWebOpenMode', 'f:client.resourceFileOpenMode'])}
-            </>), saveArea: context.saveArea }
+            return {
+              content: (
+                <>
+                  <WebGeneralSettings
+                    labels={copy.general}
+                    language={language}
+                    sendBehavior={sendBehavior}
+                    zoom={zoom}
+                    nativeZoom={nativeDesktop}
+                    connected={connected}
+                    webAddresses={client.connectionHost()?.addresses}
+                  />
+                  {context.renderFields([
+                    'f:client.resourceWebOpenMode',
+                    'f:client.resourceFileOpenMode',
+                    'f:desktop.startupMode',
+                    'f:backend.webAccess',
+                    'f:backend.webPort',
+                  ])}
+                </>
+              ),
+              saveArea: context.saveArea,
+            }
           if (groupId === 'appearance')
             return (
               <WebAppearanceSettings

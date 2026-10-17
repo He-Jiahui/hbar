@@ -1,6 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod'
-import { CommandRegistry } from '@hbar/commands'
+import {
+  CommandRegistry,
+  CommandError,
+  type CommandExecutionExpectation,
+  type CommandPreparedOptions,
+} from '@hbar/commands'
+import { commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { HbarError, type LiveStream, type SessionEvent, type WireNotification } from '@hbar/contracts'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
@@ -10,6 +16,8 @@ import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import { runtimeDomainError, type ManagedProcess, type RuntimeCoordinator, type RuntimeValuePort } from '@hbar/runtime'
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { NodeWorkspaceInspectionPort } from '@hbar/kernel/node-workspace-inspection'
+import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
+import type { HostCommandExecutionScopes } from './command-execution-scopes'
 
 export type RuntimeKernelState = z.output<typeof runtimeKernelStateSchema>
 export interface RuntimeKernelEndpoint {
@@ -26,6 +34,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly nodeWorkspaceInspection?: Pick<NodeWorkspaceInspectionPort, 'verifyWorkspaceFolders'>
   readonly storage: StoragePort
   readonly coordinator: RuntimeCoordinator
+  readonly commandScopes?: HostCommandExecutionScopes
   readonly current: () => RuntimeKernelEndpoint
   readonly endpoints: () => readonly RuntimeKernelEndpoint[]
   readonly resolve: (
@@ -39,6 +48,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly configurePlugin?: KernelControllerPort['changePlugin']
   readonly openScope?: (id: string) => Promise<KernelClientScopePort>
   readonly resourceSessions?: () => readonly string[]
+  readonly settingsChanged?: () => void
 }
 type Methods<Target extends keyof RuntimeApplicationTargets> = Extract<
   (typeof RUNTIME_APPLICATION_METHODS)[Target][number],
@@ -58,6 +68,7 @@ export class RuntimeKernelFacade {
   private readonly cursors = new Map<string, number>()
   private readonly settledRuns = new Set<string>()
   private recovered = 0
+  private readonly commandLifetime = new AbortController()
   constructor(private readonly options: RuntimeKernelFacadeOptions) {
     const directory = new CommandRegistry({ execution: 'host' })
     for (const definition of Object.values(directoryCommands))
@@ -95,21 +106,28 @@ export class RuntimeKernelFacade {
     this.api = {
       ...this.methods('kernel'),
       createNodeWorkspace: (input) => this.call('kernel', 'createNodeWorkspace', [input]),
-      ...(options.configurePlugin ? {
-        changePlugin: options.configurePlugin,
-        changePluginTree: async () => { throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Changing the plugin capability graph requires an explicit restart') },
-      } : {}),
+      ...(options.configurePlugin
+        ? {
+            changePlugin: options.configurePlugin,
+            changePluginTree: async () => {
+              throw new HbarError(
+                'RUNTIME_RESTART_REQUIRED',
+                'Changing the plugin capability graph requires an explicit restart',
+              )
+            },
+          }
+        : {}),
       instanceId: options.instanceId,
       options: {
         layout: options.layout,
         demo: options.demo,
         noLocalExec: options.noLocalExec ?? false,
-        ...(options.nodeWorkspaceInspection
-          ? { nodeWorkspaceInspection: options.nodeWorkspaceInspection }
-          : {}),
+        ...(options.nodeWorkspaceInspection ? { nodeWorkspaceInspection: options.nodeWorkspaceInspection } : {}),
       },
       storage: options.storage,
-      storageHealth: () => ({ ready: options.endpoints().some((endpoint) => endpoint.process.snapshot().phase === 'serving') }),
+      storageHealth: () => ({
+        ready: options.endpoints().some((endpoint) => endpoint.process.snapshot().phase === 'serving'),
+      }),
       ...(options.cancel ? { cancel: options.cancel } : {}),
       get recovered() {
         return self.recovered
@@ -122,7 +140,10 @@ export class RuntimeKernelFacade {
       },
       streams: this.streams,
       permissionMode: () => this.selected().state.permission,
-      changed: (kind) => this.publish({ method: 'host.changed', params: { kind } }),
+      changed: (kind) => {
+        this.publish({ method: 'host.changed', params: { kind } })
+        if (kind === 'settings') options.settingsChanged?.()
+      },
       subscribe: (listener) => {
         this.listeners.add(listener)
         return () => {
@@ -170,6 +191,8 @@ export class RuntimeKernelFacade {
       },
       directoryQueries: {
         ...this.methods('directory'),
+        dispatchPreparedTracked: (value, actorId, expectation, options) =>
+          this.trackDirectory(value, actorId, expectation, options),
         describe: (id) => directory.describe(id),
         list: () => directory.list({ limit: 500 }),
       },
@@ -182,6 +205,39 @@ export class RuntimeKernelFacade {
   }
   pin<Result>(endpoint: RuntimeKernelEndpoint, operation: () => Result): Result {
     return this.context.run(endpoint, operation)
+  }
+  private trackDirectory(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): RuntimeCommandJobTicket {
+    if (options.signal?.aborted) throw new CommandError('CANCELLED', 'Directory command cancelled before admission')
+    const endpoint = this.selected(),
+      jobId = crypto.randomUUID()
+    const input = commandJobStartSchema.parse({ jobId, actorId, invocation: value, expectation })
+    const resource = this.options.commandScopes
+      ? this.options.commandScopes.retain(this.options.coordinator, endpoint.owner, `kernel.command.job:${jobId}`)
+      : this.options.coordinator.acquireResource(endpoint.owner, `kernel.command.job:${jobId}`)
+    if (!resource) throw new CommandError('BUSY', 'Directory command already retains its owner')
+    const release = () => this.options.coordinator.releaseResource(endpoint.owner, resource.id)
+    try {
+      return trackRuntimeCommandJob(
+        endpoint.process,
+        { jobId, actorId },
+        (signal) =>
+          endpoint.process.call('kernel.command.start', input, commandJobSnapshotSchema, { signal, timeoutMs: 30_000 }),
+        {
+          signal: options.signal,
+          beforeStart: this.options.commandScopes?.beforeStart({ kind: 'runtime', owner: endpoint.owner, jobId }),
+          lifetime: this.commandLifetime.signal,
+          onAcknowledged: release,
+        },
+      )
+    } catch (error) {
+      release()
+      throw error
+    }
   }
   projection(): RuntimeKernelState {
     return runtimeKernelStateSchema.parse({
@@ -244,6 +300,7 @@ export class RuntimeKernelFacade {
     this.publish(event)
   }
   dispose(): void {
+    this.commandLifetime.abort()
     this.listeners.clear()
     this.streams.clear()
     this.cursors.clear()
@@ -265,7 +322,26 @@ export class RuntimeKernelFacade {
     return true
   }
   private selected(): RuntimeKernelEndpoint {
-    return this.context.getStore() ?? this.options.current()
+    return this.sourceKernel() ?? this.context.getStore() ?? this.options.current()
+  }
+  private sourceKernel(): RuntimeKernelEndpoint | undefined {
+    const source = this.options.commandScopes?.execution()
+    if (!source) return undefined
+    this.options.coordinator.assertExecution(source)
+    const endpoint = this.options
+      .endpoints()
+      .find(
+        (value) =>
+          value.owner.unitId === source.owner.unitId &&
+          value.owner.generation === source.owner.generation &&
+          value.owner.incarnation === source.owner.incarnation,
+      )
+    if (!endpoint || !['serving', 'draining'].includes(endpoint.process.snapshot().phase))
+      throw new HbarError(
+        'COMMAND_SOURCE_KERNEL_UNAVAILABLE',
+        'The command source Kernel is unavailable; reconcile its original execution',
+      )
+    return endpoint
   }
   private idle(): boolean {
     return (
@@ -289,13 +365,25 @@ export class RuntimeKernelFacade {
     }
   }
   private async call<Result>(target: string, method: string, args: readonly unknown[]): Promise<Result> {
-    const endpoint = await this.options.resolve(target, method, args, this.context.getStore())
-    if (!['serving', 'draining'].includes(endpoint.process.snapshot().phase))
-      throw new HbarError('RUNTIME_RECOVERING', 'The requested Kernel owner is recovering')
     try {
-      return await this.pin(endpoint, () =>
-        endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 }),
-      )
+      const source = this.options.commandScopes?.invokeApplication<Result>(target, method, args)
+      if (source) return await source
+      const captured = this.sourceKernel()
+      const endpoint = await this.options.resolve(target, method, args, captured ?? this.context.getStore())
+      if (captured) this.sourceKernel()
+      if (!['serving', 'draining'].includes(endpoint.process.snapshot().phase))
+        throw new HbarError('RUNTIME_RECOVERING', 'The requested Kernel owner is recovering')
+      return await this.pin(endpoint, async () => {
+        const callOptions = this.options.commandScopes?.applicationOptions()
+        if (!captured) return endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 })
+        const ticket = endpoint.application.callTracked<Result>(
+          `${target}.${method}`,
+          args,
+          callOptions ?? { timeoutMs: 120_000 },
+        )
+        void ticket.result.catch(() => undefined)
+        return ticket.settled
+      })
     } catch (error) {
       const known = runtimeDomainError(error)
       if (known) throw new HbarError(known.code, known.message)

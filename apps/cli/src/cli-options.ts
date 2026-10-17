@@ -2,6 +2,7 @@
 export const CLI_OPTIONS = {
   help: { type: 'boolean', short: 'h' },
   headless: { type: 'boolean' },
+  unattended: { type: 'boolean' },
   'connect-only': { type: 'boolean' },
   message: { type: 'string' },
   model: { type: 'string' },
@@ -21,6 +22,9 @@ export const CLI_OPTIONS = {
   'input-file': { type: 'string' },
   text: { type: 'string' },
   'expected-sha256': { type: 'string' },
+  'operation-key': { type: 'string' },
+  channel: { type: 'string' },
+  offset: { type: 'string' },
   client: { type: 'string' },
   'invocation-id': { type: 'string' },
   timeout: { type: 'string' },

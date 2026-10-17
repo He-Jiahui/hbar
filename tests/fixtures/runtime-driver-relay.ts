@@ -130,6 +130,8 @@ export function driverRelayFixture(
     coordinator,
     driver,
     kernel,
+    kernelPeer: kernelPeers.unit,
+    driverPeer: driverPeers.unit,
     start: (input: z.output<typeof runtimeDriverStartSchema>) =>
       kernelPeers.unit.call('driver.start', input, z.strictObject({ invocationId: z.string() })),
     callback: (invocationId: string) =>

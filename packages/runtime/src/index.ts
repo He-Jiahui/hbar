@@ -3,6 +3,7 @@ export {
   procedure,
   type IpcCallOptions,
   type IpcCallTimeout,
+  type IpcCallTicket,
   type IpcFrame,
   type IpcProcedure,
   type IpcProcedureContext,
@@ -14,10 +15,14 @@ export {
   type CoordinationPersistence,
   type RuntimeToolPermit,
   type RuntimeResourceLease,
+  type StableHostResourceLease,
+  type RuntimeCoordinatorOptions,
 } from './coordinator'
 export { ManagedProcess, type ManagedProcessOptions } from './process'
 export { acquireProcessLease, processIsAlive } from './process-lease'
 export { runtimeDomainError } from './errors'
+export { ExecutionSlots, type ExecutionSlotsOptions } from './execution-slots'
+export { ExecutionDeadlines } from './execution-deadlines'
 export { RUNTIME_BUNDLE_EXTERNALS } from './bundle-externals'
 export { buildRuntimeArtifact } from './builder'
 export {

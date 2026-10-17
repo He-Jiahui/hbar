@@ -2,6 +2,12 @@ import { writeSync } from 'node:fs'
 import { diagnosticEvent, type DiagnosticEvent } from '@hbar/contracts/diagnostics'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
 import { z } from 'zod'
+import { withRuntimeHumanWait } from './runtime-human-wait-client'
+import { commandCatalogPageSchema, commandDescriptorSchema } from '@hbar/commands'
+import { clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
+import { delegatedInputWakeSchema } from '@hbar/contracts/delegated-user-input'
+import { CommandExecutionJobs, commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
+import { directoryCommands } from '@hbar/contracts/commands'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
@@ -27,6 +33,10 @@ import {
   runtimeKernelVerifyWorkspaceFoldersSchema,
   runtimeKernelNodeWorktreeSchema,
   runtimeKernelCancelSchema,
+  runtimeKernelCommandCatalogSchema,
+  runtimeKernelCommandClientsSchema,
+  runtimeKernelCommandDescribeSchema,
+  runtimeKernelMutationAdmissionSchema,
 } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
@@ -48,6 +58,9 @@ import {
 } from '@hbar/runtime'
 import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 import { RuntimePluginAdapter } from './runtime-plugin-adapter'
+import { attachRuntimeCommandJobs } from './runtime-command-jobs'
+import { createRuntimeSessionCommandBinding } from './runtime-session-command-binding'
+import { RuntimeCommandSources } from './runtime-command-source'
 
 /** Managed candidates construct their actual Kernel with read-only ports; execution waits for explicit activation. */
 /** Preserve synchronous fail-closed exit; diagnostic failures never own shutdown. */
@@ -106,6 +119,9 @@ export function stopKernelWithFatalDiagnostic(options: {
 }
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
+  const commandJobs = new CommandExecutionJobs()
+  const commandSources = new RuntimeCommandSources(context.peer)
+  const detachCommandJobs = attachRuntimeCommandJobs(context.peer, commandJobs)
   const configuration = runtimeKernelConfigurationSchema.parse(context.configuration)
   const layout = createPathLayout(
     configuration.dataRoot,
@@ -150,9 +166,25 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       throw new HbarError('RUNTIME_PREPARING', 'Kernel preflight cannot invoke production')
     return kernel
   }
+  context.peer.register(
+    'kernel.command.start',
+    procedure(commandJobStartSchema, commandJobSnapshotSchema, (input, call) => {
+      call.signal.throwIfAborted()
+      const value = application()
+      const definition = Object.values(directoryCommands).find(
+        (definition) => definition.metadata.id === input.invocation.commandId,
+      )
+      if (!definition || definition.metadata.kind !== 'query' || definition.metadata.stateEffect !== 'none')
+        throw new HbarError('COMMAND_NOT_FOUND', 'This Kernel command port only owns directory queries')
+      return commandJobs.start({ jobId: input.jobId, actorId: input.actorId }, (signal) =>
+        value.directoryQueries.dispatchPreparedTracked(input.invocation, input.actorId, input.expectation, { signal }),
+      )
+    }),
+  )
   const values = new RuntimeValuePort(context.peer, {
     prefix: 'kernel.application',
     controlMethods: RUNTIME_APPLICATION_CONTROLS,
+    callbackSettlement: 'physical',
   })
   const capabilities = new Set([
     'goal',
@@ -233,6 +265,47 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       noLocalExec: configuration.noLocalExec,
       instanceId: configuration.instanceId,
       lifecycle,
+      toolCalls: createRuntimeSessionCommandBinding(context.peer, {
+        sources: commandSources,
+        capabilities: () => ({
+          execution: application().plugins.get<import('@hbar/plugin-sdk').ExecutionProvider>('execution'),
+          git: application().plugins.get<import('@hbar/plugin-sdk').GitService>('git'),
+          get browser() {
+            return application().plugins.get<import('@hbar/plugin-sdk').BrowserUseService>('browser')
+          },
+          get computer() {
+            return application().plugins.get<import('@hbar/plugin-sdk').ComputerUseService>('computer')
+          },
+        }),
+      }),
+      mutationAdmission: {
+        assertAllowed: (identity) =>
+          context.peer.call(
+            'kernel.commands.admitMutation',
+            runtimeKernelMutationAdmissionSchema.parse({
+              sessionId: identity.sessionId,
+              runId: identity.runId,
+              callId: identity.callId,
+              tool: identity.tool,
+              effect: identity.effect,
+            }),
+            z.undefined(),
+            { signal: identity.signal, timeoutMs: 15_000 },
+          ),
+      },
+      sessionCommands: {
+        clients: (query, identity) => context.peer.call('kernel.commands.clients',
+          runtimeKernelCommandClientsSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),
+          clientCommandDirectorySchema, { signal: identity.signal, timeoutMs: 15_000 }),
+        list: (query, identity) => context.peer.call('kernel.commands.list',
+          runtimeKernelCommandCatalogSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),
+          commandCatalogPageSchema, { signal: identity.signal, timeoutMs: 15_000 }),
+        describe: (commandId, identity) => context.peer.call('kernel.commands.describe',
+          runtimeKernelCommandDescribeSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, commandId }),
+          commandDescriptorSchema, { signal: identity.signal, timeoutMs: 15_000 }),
+      },
+      delegationWake: (input, signal) => context.peer.call('kernel.delegation.wake',
+        delegatedInputWakeSchema.parse(input), z.undefined(), { signal, timeoutMs: 15_000 }),
       nodeIntentRecovery: {
         reconcileRun: (runId, signal) =>
           context.peer.call(
@@ -369,6 +442,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         canIdle: (sessionId) => domain(() => coordinator.canIdle(sessionId)),
         reserveTool: (lease, callId) => domain(() => coordinator.reserveTool(lease, callId)),
         releaseTool: (id) => domain(() => coordinator.releaseTool(id)),
+        withHumanWait: (lease, callId, decision, operation) =>
+          domain(() =>
+            withRuntimeHumanWait(context.peer, lease, callId, decision, () => operation(), {
+              suspendLocal: () => plugins.suspendHumanWait(lease, callId),
+            }),
+          ),
         withResource: (key, execution, operation, signal) =>
           domain(() =>
             coordinator.withResource(key, operation, {
@@ -546,14 +625,17 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     async drain() {
       role = 'draining'
       kernel?.beginDrain()
-      return { runs: kernel?.active.size ?? 0, requests: 0, resources: 0 }
+      return { runs: kernel?.active.size ?? 0, requests: 0, resources: commandJobs.stats().jobs }
     },
     async dispose() {
       role = 'draining'
+      commandJobs.dispose()
+      detachCommandJobs()
       kernel?.beginDrain()
       unsubscribe?.()
       notifications.dispose()
       await kernel?.close()
+      commandSources.assertCanClose()
       plugins.dispose()
       driver.dispose()
       values.dispose()

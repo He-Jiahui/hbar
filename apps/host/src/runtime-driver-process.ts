@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import { PiDriver } from '@hbar/pi-driver'
-import type { DriverInput, ToolDefinition } from '@hbar/plugin-sdk'
+import type { DriverInput, ToolDefinition, ModelDiagnosticEvent } from '@hbar/plugin-sdk'
 import {
   runtimeDriverStartSchema,
   runtimeDriverCancelSchema,
@@ -12,6 +12,9 @@ import {
   runtimeToolResultSchema,
   runtimeDriverStepResultSchema,
   runtimeDriverEventResultSchema,
+  runtimeDriverDecisionSchema,
+  runtimeDriverDecisionResultSchema,
+  runtimeDriverModelActivitySchema,
   type RuntimeDriverCallbackValue,
 } from '@hbar/plugin-sdk/runtime-driver'
 import { procedure, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
@@ -26,10 +29,20 @@ export { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const driver = new PiDriver()
   const callbacks = new RuntimeDriverCallbackAdmission()
+  const { physicalModelActivity } = z
+    .object({ physicalModelActivity: z.boolean().default(false) })
+    .parse(context.configuration ?? {})
   const active = new Map<
     string,
-    { controller: AbortController; cancellation: ReturnType<typeof setTimeout> | undefined }
+    {
+      controller: AbortController
+      cancellation: ReturnType<typeof setTimeout> | undefined
+      runId: string
+      sessionId: string
+      model: DriverInput['request']['model']
+    }
   >()
+  const decisions = new Set<AbortController>()
   const streams = new Map<string, { invocationId: string; id: string; text: string; thinking: string }>()
   let draining = false
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -89,7 +102,13 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       if (active.has(input.invocationId))
         throw new HbarError('DRIVER_INVOCATION_EXISTS', 'Driver invocation already started')
       const controller = new AbortController()
-      const invocation = { controller, cancellation: undefined as ReturnType<typeof setTimeout> | undefined }
+      const invocation = {
+        controller,
+        cancellation: undefined as ReturnType<typeof setTimeout> | undefined,
+        runId: input.run.id,
+        sessionId: input.session.id,
+        model: input.request.model,
+      }
       active.set(input.invocationId, invocation)
       const call = <Output>(value: RuntimeDriverCallbackValue, result: z.ZodType<Output>) => {
         const rpcId = driverCallbackCorrelation()
@@ -138,6 +157,27 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         tools,
         apiKey: input.apiKey,
         signal: controller.signal,
+        ...(physicalModelActivity
+          ? {
+              modelActivity: {
+                begin: () =>
+                  context.peer.call(
+                    'driver.modelActivity.begin',
+                    runtimeDriverModelActivitySchema.parse({
+                      invocationId: input.invocationId,
+                      requestId: crypto.randomUUID(),
+                    }),
+                    z.string().uuid(),
+                  ),
+                settle: (requestId: string) =>
+                  context.peer.call(
+                    'driver.modelActivity.settle',
+                    runtimeDriverModelActivitySchema.parse({ invocationId: input.invocationId, requestId }),
+                    z.undefined(),
+                  ),
+              },
+            }
+          : {}),
         onModelDiagnostic: (event) => {
           void call({ method: 'modelDiagnostic', event }, z.undefined()).catch(() => {
             /* A diagnostic observer cannot interrupt the original model invocation. */
@@ -247,12 +287,63 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       return driver.summarize(input.request, input.apiKey, call.signal)
     }),
   )
+  context.peer.register(
+    'driver.completeDecision',
+    procedure(runtimeDriverDecisionSchema, runtimeDriverDecisionResultSchema, async (input, call) => {
+      if (context.preparing())
+        throw new HbarError('DRIVER_NOT_SERVING', 'Driver candidate cannot perform model requests')
+      const source = [...active.values()].find(
+        (invocation) =>
+          invocation.runId === input.request.context?.runId && invocation.sessionId === input.request.context.sessionId,
+      )
+      if (!source) throw new HbarError('DRIVER_DECISION_SOURCE', 'The original model Run is no longer active')
+      source.controller.signal.throwIfAborted()
+      if (
+        input.maxOutputTokens > source.model.maxOutput ||
+        JSON.stringify({ ...input.request.model, maxOutput: 0 }) !== JSON.stringify({ ...source.model, maxOutput: 0 })
+      )
+        throw new HbarError('DRIVER_DECISION_MODEL', 'Decision completion must use the original Run model')
+      if (decisions.size >= 16) throw new HbarError('DRIVER_CAPACITY', 'Decision completion capacity is exhausted')
+      const controller = new AbortController()
+      const signal = AbortSignal.any([call.signal, controller.signal, source.controller.signal])
+      const timeout = setTimeout(
+        () => controller.abort(new HbarError('DECISION_TIMEOUT', 'Decision completion timed out')),
+        90_000,
+      )
+      let cancellation: ReturnType<typeof setTimeout> | undefined
+      const cancelled = () => {
+        cancellation ??= setTimeout(() => {
+          if (decisions.has(controller)) stop('cancel_grace_expired')
+        }, 5_000)
+      }
+      signal.addEventListener('abort', cancelled, { once: true })
+      decisions.add(controller)
+      const diagnostics: ModelDiagnosticEvent[] = []
+      try {
+        signal.throwIfAborted()
+        const result = await driver.completeDecision(
+          { request: input.request, maxOutputTokens: input.maxOutputTokens },
+          input.apiKey,
+          signal,
+          (event) => {
+            if (diagnostics.length < 32) diagnostics.push(event)
+          },
+        )
+        return { ...result, diagnostics }
+      } finally {
+        clearTimeout(timeout)
+        clearTimeout(cancellation)
+        signal.removeEventListener('abort', cancelled)
+        decisions.delete(controller)
+      }
+    }),
+  )
   return {
     async prepare() {
       return {
         contractFingerprint: DRIVER_RUNTIME_FINGERPRINT,
         storageSchema: STORAGE_SCHEMA_VERSION,
-        capabilities: ['driver.start', 'driver.summarize'],
+        capabilities: ['driver.start', 'driver.summarize', 'driver.completeDecision'],
       }
     },
     async activate(role) {
@@ -260,7 +351,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     },
     async drain() {
       draining = true
-      return { runs: active.size, requests: 0, resources: 0 }
+      return { runs: active.size, requests: decisions.size, resources: 0 }
     },
     async dispose() {
       callbacks.close()
@@ -270,6 +361,8 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         clearTimeout(invocation.cancellation)
         invocation.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Driver owner is shutting down'))
       }
+      for (const controller of decisions)
+        controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Driver owner is shutting down'))
       streams.clear()
     },
   }

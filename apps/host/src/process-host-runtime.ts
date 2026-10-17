@@ -1,6 +1,9 @@
 import { commitRuntimeWorkflowRecovery } from './runtime-workflow-recovery'
 import { workflowRecoveryPageSchema } from '@hbar/plugin-sdk/workflow-recovery'
 import { join, resolve } from 'node:path'
+import { BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
+import { EXECUTION_SLOT_LIMITS } from '@hbar/contracts/execution-slots'
+import { delegatedInputWakeSchema } from '@hbar/contracts/delegated-user-input'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -45,6 +48,12 @@ import {
   runtimeKernelVerifyWorkspaceFoldersSchema,
   runtimeKernelNodeWorktreeSchema,
   runtimeKernelRunSchema,
+  runtimeKernelMutationAdmissionSchema,
+  runtimeKernelCommandCatalogSchema,
+  runtimeKernelCommandClientsSchema,
+  runtimeKernelCommandDescribeSchema,
+  runtimeKernelCommandPrepareSchema,
+  runtimeKernelCommandExecuteSchema,
 } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import {
@@ -73,6 +82,7 @@ import {
   storageRpcCallSchema,
   assertStoragePreflightMethod,
   type PathLayout,
+  type StoragePort,
 } from '@hbar/storage'
 import { acquireHostProcessLock } from './process-lock'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
@@ -81,13 +91,19 @@ import { runtimeControllerRequestSchema, type RuntimeControllerPort } from './ru
 import { RuntimeControllerAdapter } from './runtime-controller-adapter'
 import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
+import { HostCommandExecutionScopes } from './command-execution-scopes'
+import { connectRuntimeCommandSource } from './runtime-command-source'
+import { CommandMutationAdmission, type CommandMutationState } from './command-mutation-admission'
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
+import { RuntimeHumanWaits } from './runtime-human-waits'
+import { RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS } from '@hbar/plugin-sdk/runtime-driver'
 import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
 import { RuntimeResourceRegistry } from './runtime-resource-registry'
 import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runtime-maintenance-relay'
 import { RUNTIME_MAINTENANCE_CONTROL_METHODS } from './runtime-maintenance-contract'
 import { createRuntimeControllerServices } from './runtime-controller-services'
+import { RUNTIME_COMMAND_JOB_CONTROLS } from './runtime-command-job-contract'
 import { RuntimeStatusFeed } from './runtime-status-feed'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import { hostRuntimeProcessCommand } from './runtime-package'
@@ -98,6 +114,12 @@ import { RuntimeNodeLinkRelay } from './runtime-node-link-relay'
 import { RUNTIME_NODE_LINK_CONTROLS } from './runtime-node-link-contract'
 import { createRuntimeNodeIntentRecovery } from './runtime-node-intent-recovery'
 import { createRuntimeNodeWorkspaceInspection } from './runtime-node-workspace-inspection'
+import { SessionCommandDiscovery } from './session-command-discovery'
+import { commandCatalogPageSchema, commandDescriptorSchema, type CommandRoutingPort } from '@hbar/commands'
+import { sessionCommandPreparationSchema, sessionCommandToolResultSchema } from '@hbar/kernel/session-command-port'
+import { SessionCommandGateway } from './session-command-gateway'
+import { clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
+import type { SessionCommandExecution } from './session-command-execution'
 
 /** Installation owns a temporary Worker only; serving Storage retains its normal 30s RPC budget. */
 export const STARTUP_STORAGE_READY_TIMEOUT_MS = 120_000
@@ -110,6 +132,10 @@ export interface ProcessHostRuntimeOptions {
   readonly workspace?: string
   /** Conversation-only hosts reject all calls into the local execution provider. */
   readonly noLocalExec?: boolean
+  /** Bound startup claims before the entry point persists its authenticated unattended setting. */
+  readonly unattended?: boolean
+  /** Trusted entry-point settings must commit before any Kernel can resume durable work. */
+  readonly prepareInitialExecution?: (storage: StoragePort) => Promise<void>
   readonly secrets?: SecretStore
   readonly sourceRoot?: string
   readonly processCommand?: readonly [string, ...string[]]
@@ -229,8 +255,48 @@ export class DeferredRuntimeWakeups {
 }
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
-  private readonly processTree = createRuntimeProcessTreePort()
+  readonly commandScopes = new HostCommandExecutionScopes()
+  assertCommandSource(source: ExecutionOwnership): void {
+    if (this.closing) throw new HbarError('RUNTIME_STOPPED', 'The Host is closing')
+    this.coordinator.assertExecution(source)
+  }
+  retainHostCommand(jobId: string): () => void {
+    if (this.closing) throw new HbarError('RUNTIME_STOPPED', 'The Host is closing')
+    const resource = this.commandScopes.retainHost(this.coordinator, this.instanceId, `host.command.job:${jobId}`)
+    return () => this.coordinator.releaseHostResource(this.instanceId, resource.id)
+  }
+  private readonly commandDiscovery = new SessionCommandDiscovery()
   readonly storage = new StableStoragePort()
+  private commandExecution: SessionCommandExecution | undefined
+  private readonly commandGateway = new SessionCommandGateway({
+    storage: this.storage,
+    discovery: this.commandDiscovery,
+    execution: () => this.commandExecution,
+    assertSource: (source) => this.assertCommandSource(source),
+  })
+  attachSessionCommandExecution(service: SessionCommandExecution): () => void {
+    if (this.commandExecution && this.commandExecution !== service)
+      throw new HbarError('COMMAND_EXECUTION_ATTACHED', 'The Host already has a session command execution service')
+    this.commandExecution = service
+    return () => {
+      if (this.commandExecution === service) this.commandExecution = undefined
+    }
+  }
+  attachCommandRouting(port: CommandRoutingPort): () => void {
+    return this.commandDiscovery.attach(port)
+  }
+  private readonly processTree = createRuntimeProcessTreePort()
+  private commandMutationState: CommandMutationState | null = null
+  private readonly commandMutationAdmission = new CommandMutationAdmission(
+    this.storage,
+    (item, runId) => this.commandMutationState?.isKnownPending(item, runId) ?? false,
+  )
+  attachCommandMutationState(state: CommandMutationState): () => void {
+    this.commandMutationState = state
+    return () => {
+      if (this.commandMutationState === state) this.commandMutationState = null
+    }
+  }
   readonly artifacts: RuntimeArtifactStore
   readonly coordinator: RuntimeCoordinator
   readonly manager: RuntimeManager
@@ -312,6 +378,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     })
   })
   private readonly relay: RuntimeDriverRelay
+  private readonly humanWaits: RuntimeHumanWaits
   private readonly pluginRelay: RuntimePluginRelay
   private readonly resources: RuntimeResourceRegistry
   private readonly pluginConfigs = new Map<string, Record<string, unknown>>()
@@ -325,9 +392,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private initializing = true
   private maintaining = false
   private scheduled = false
+  private settingsSchedulingRefresh: Promise<void> | undefined
+  private settingsSchedulingRequested = false
+  private unattendedStartupPending = false
+  private initialExecutionPrepared = false
   private reasonCode: string | null = null
   private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
-  private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[] }> = []
+  private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[]; cause?: RuntimeOwner }> = []
   private readonly sourceAbort = new AbortController()
   private disposeSource = () => {}
   private sourceBaseline: RuntimeArtifact | null = null
@@ -356,7 +427,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     )
     this.buildUnits =
       options.buildUnits ?? hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
-    this.coordinator = new RuntimeCoordinator({
+    this.unattendedStartupPending = options.unattended === true
+    this.coordinator = new RuntimeCoordinator(
+      {
       claim: async (draft) => {
         this.pendingClaims.set(draft.runId, { draft, failed: false })
         this.leases.set(draft.runId, draft)
@@ -369,18 +442,58 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         return lease
       },
       release: (lease) => this.storage.call('runtimeExecutionRelease', lease),
-      revoke: async (owner, ids) => {
+        revoke: async (owner, ids, cause) => {
         // Controller/Maintenance faults without Run claims need no database projection write.
         if (!ids.length) return
         if (this.storageFailure) {
-          this.pendingRevocations.push({ owner, ids: [...ids] })
+            this.pendingRevocations.push({ owner, ids: [...ids], ...(cause ? { cause } : {}) })
           return
         }
-        await this.storage.call('runtimeExecutionRevoke', owner, ids)
+          await this.storage.call('runtimeExecutionRevoke', owner, ids, cause)
+        },
+      },
+      {
+        capacityReady: () => {
+          if (this.closing) return
+          this.schedule()
+        },
+      },
+    )
+    this.humanWaits = new RuntimeHumanWaits({
+      coordinator: this.coordinator,
+      decisions: {
+        question: (sessionId, requestId) => this.storage.call('userInputRead', { sessionId, requestId }),
+        approval: (id) => this.storage.call('approval', id),
+      },
+      capacity: {
+        suspend: (execution, calls) => {
+          const current = this.coordinator.execution(execution.runId)
+          if (
+            !current ||
+            current.leaseId !== execution.leaseId ||
+            !this.canAdmit(execution.sessionId) ||
+            this.coordinator.role(execution.owner) === 'fenced' ||
+            !this.relay.modelQuiescent(execution)
+          )
+            return
+          this.coordinator.suspendWaitingExecution(execution, calls)
+        },
+        resume: (execution) => this.coordinator.resumeExecutionCapacity(execution),
+        stopped: async (execution) => {
+          const current = this.coordinator.execution(execution.runId)
+          return (
+            !current ||
+            current.leaseId !== execution.leaseId ||
+            this.coordinator.role(execution.owner) === 'fenced' ||
+            (await this.storage.call('cancelRequested', execution.runId))
+          )
+        },
       },
     })
     this.relay = new RuntimeDriverRelay({
       coordinator: this.coordinator,
+      humanWaits: this.humanWaits,
+      activityChanged: (execution) => this.humanWaits.refresh(execution),
       resolve: (version) => this.driver(version),
       onDiagnostic: (event) => this.emitProcessLifecycleDiagnostic({ ...event, instanceId: this.instanceId }),
     })
@@ -388,11 +501,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.pluginRelay = new RuntimePluginRelay({
       storage: this.storage,
       coordinator: this.coordinator,
+      humanWaits: this.humanWaits,
       current: () => this.pluginEndpoints(),
       resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId),
       nodeLink: () => this.nodeLink,
     })
     this.facade = new RuntimeKernelFacade({
+      commandScopes: this.commandScopes,
       instanceId,
       layout: options.layout,
       demo: options.demo ?? false,
@@ -414,6 +529,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       cancel: (runId) => this.cancelRun(runId),
       configurePlugin: (...args) => this.configurePlugin(...args),
       resourceSessions: () => this.resources.sessions(),
+      settingsChanged: () => this.refreshSettingsScheduling(),
     })
     this.nodeLink = new RuntimeNodeLinkRelay({
       current: () => {
@@ -463,6 +579,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
     })
     this.maintenance = new RuntimeMaintenanceRelay({
+      commandScopes: this.commandScopes,
       layout: options.layout,
       storage: this.storage,
       coordinator: this.coordinator,
@@ -516,7 +633,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
               record && record.phase === 'serving' ? self.controllerAdapter().list() : { revision: 0, items: [] }
             return { ...catalog, items: catalog.items.filter((item) => !item.metadata.id.startsWith('chatDatabase.')) }
           },
-          call: (service, method, args) => self.controllerAdapter().service(service, method, args),
+          call: (service, method, args, options) => self.controllerAdapter().service(service, method, args, options),
+          tracked: (value, actorId, expectation, options) =>
+            self.controllerAdapter().trackCommand(value, actorId, expectation, options),
           start: async () => {
             self.controllerStarted = true
             if (!self.initializing) await self.controllerAdapter().resume()
@@ -693,7 +812,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         }
         this.completeStartupPhase()
       }
-      for (const id of ['storage', 'driver.pi', 'controller']) await this.initializeUnit(prepared, id)
+      await this.initializeUnit(prepared, 'storage')
+      if (!this.initialExecutionPrepared) {
+        await options.prepareInitialExecution?.(this.storage)
+        this.initialExecutionPrepared = true
+      }
+      for (const id of ['driver.pi', 'controller']) await this.initializeUnit(prepared, id)
       if (this.buildUnits.some((unit) => unit.descriptor.id === 'node-link'))
         await this.initializeUnit(prepared, 'node-link')
       if (!this.configurationLoaded) {
@@ -981,6 +1105,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         !queued.length &&
         !this.leases.size &&
         !this.scheduled &&
+        !this.settingsSchedulingRefresh &&
         this.coordinator.snapshot().sessions === 0 &&
         !this.interrupted.size &&
         this.endpoints().every((endpoint) => endpoint.state.idle)
@@ -991,16 +1116,26 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
   }
   close(): Promise<void> {
+    if (!this.closeTask && this.coordinator.hostReferences(this.instanceId))
+      return Promise.reject(
+        new HbarError(
+          'HOST_COMMANDS_ACTIVE',
+          'Stable Host commands require settlement and saved acknowledgment before closing',
+        ),
+      )
     this.closeTask ??= this.dispose()
     return this.closeTask
   }
   private async dispose(): Promise<void> {
     this.closing = true
+    this.commandDiscovery.close()
+    this.maintenance.dispose()
     this.disposeStatus()
     this.statusFeed.close()
     this.disposeSource()
     this.deferredWakeups.close()
     this.sourceAbort.abort()
+    await this.settingsSchedulingRefresh
     await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
     await this.sourceTask
     clearInterval(this.sweep)
@@ -1381,6 +1516,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                     noLocalExec: this.options.noLocalExec ?? false,
                     config: artifact.pluginConfiguration ?? this.pluginConfigs.get(artifact.unitId) ?? {},
                   }
+                : artifact.descriptor.kind === 'driver'
+                  ? { physicalModelActivity: true }
                 : {}
     let record: Generation
     const managed = new ManagedProcess({
@@ -1406,9 +1543,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         ...RUNTIME_KERNEL_CONTROL_METHODS,
         ...RUNTIME_KERNEL_HOST_METHODS,
         ...RUNTIME_COORDINATION_CONTROL_METHODS,
+        ...RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS,
         ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
         ...RUNTIME_NODE_LINK_CONTROLS,
+        ...RUNTIME_COMMAND_JOB_CONTROLS,
         'kernel.plugins.callback',
         'kernel.plugins.control',
         'controller.control',
@@ -1444,6 +1583,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'node-link') record.cleanup.push(this.nodeLink.attach(peer, owner))
         if (artifact.unitId === 'controller')
           record.controller = new RuntimeControllerAdapter(peer, {
+            commandScopes: this.commandScopes,
             kernel: this.kernel,
             maintenance: this.maintenance,
             nodeLink: this.nodeLink,
@@ -1451,6 +1591,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             background: () => this.coordinator.role(owner) === 'default',
             admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
             fresh: (event) => this.facade.replay({ method: 'notifications.created', params: event }),
+            retainCommand: (jobId) => {
+              const resource = this.commandScopes.retain(this.coordinator, owner, `command.job:${jobId}`)
+              if (!resource) throw new HbarError('BUSY', 'The command job already retains its owner')
+              return () => this.coordinator.releaseResource(owner, resource.id)
+            },
           })
         if (artifact.unitId === 'maintenance')
           record.cleanup.push(
@@ -1596,6 +1741,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'node-link') this.nodeLink.exited(owner)
         if (artifact.unitId === 'kernel') {
           this.relay.kernelExited(owner)
+          this.humanWaits.exited(owner)
           for (const lease of this.leases.values())
             if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId)
         }
@@ -1652,10 +1798,116 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     record.application = new RuntimeValuePort(peer, {
       prefix: 'kernel.application',
       controlMethods: RUNTIME_APPLICATION_CONTROLS,
+      callbackSettlement: 'physical',
     })
+    const assertCommandCaller = (input: { sessionId: string; runId: string }) => {
+      const lease = this.leases.get(input.runId)
+      if (!lease || lease.sessionId !== input.sessionId)
+        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Command access requires this Session Run claim')
+      this.coordinator.assertCanWrite(owner, lease)
+      return lease
+    }
+    record.cleanup.push(
+      peer.register(
+        'kernel.delegation.wake',
+        procedure(delegatedInputWakeSchema, z.undefined(), async (input) => {
+          assertCommandCaller(input)
+          const grant = await this.storage.call('delegatedInputRead', {
+            sessionId: input.sessionId,
+            requestId: input.requestId,
+          })
+          if (
+            !grant || grant.delegationId !== input.delegationId || grant.sourceRunId !== input.runId ||
+            grant.targetSessionId !== input.targetSessionId || grant.targetRunId !== input.targetRunId ||
+            grant.delivery !== 'dedicated' || grant.status !== 'delivered'
+          )
+            throw new HbarError('DECISION_CONFLICT', 'The dedicated wake requires its original live source grant')
+          assertCommandCaller(input)
+          await this.wake(input.targetSessionId)
+        }),
+      ),
+      peer.register(
+        'kernel.commands.prepare',
+        procedure(runtimeKernelCommandPrepareSchema, sessionCommandPreparationSchema, async (input, call) => {
+          const source = assertCommandCaller(input)
+          const result = await this.commandGateway.prepare(source, input.callId, input.call, call.signal)
+          assertCommandCaller(input)
+          return result
+        }),
+      ),
+      peer.register(
+        'kernel.commands.execute',
+        procedure(runtimeKernelCommandExecuteSchema, sessionCommandToolResultSchema, async (input, call) => {
+          const source = assertCommandCaller(input)
+          const connection = input.source
+            ? connectRuntimeCommandSource(
+                peer,
+                input.source,
+                source,
+                input.callId,
+                call.signal,
+                input.preparation.admission.timeoutMs,
+              )
+            : undefined
+          try {
+            return await this.commandGateway.execute(
+              source,
+              input.callId,
+              input.preparation,
+              call.signal,
+              connection?.application,
+            )
+          } finally {
+            await connection?.close()
+          }
+        }),
+      ),
+      peer.register(
+        'kernel.commands.admitMutation',
+        procedure(runtimeKernelMutationAdmissionSchema, z.undefined(), async (input, call) => {
+          assertCommandCaller(input)
+          await this.commandMutationAdmission.assertAllowed({
+            sessionId: input.sessionId,
+            runId: input.runId,
+            signal: call.signal,
+          })
+          assertCommandCaller(input)
+        }),
+      ),
+      peer.register(
+        'kernel.commands.clients',
+        procedure(runtimeKernelCommandClientsSchema, clientCommandDirectorySchema, async (input, call) => {
+          const source = assertCommandCaller(input)
+          const execution = this.commandExecution
+          if (!execution) throw new HbarError('COMMAND_TARGET_UNAVAILABLE', 'The Host listener has no client command directory')
+          const result = await execution.clientDirectory(source, input.query, call.signal)
+          assertCommandCaller(input)
+          return result
+        }),
+      ),
+      peer.register(
+        'kernel.commands.list',
+        procedure(runtimeKernelCommandCatalogSchema, commandCatalogPageSchema, async (input, call) => {
+          assertCommandCaller(input)
+          const result = await this.commandDiscovery.list(input.query, call.signal)
+          assertCommandCaller(input)
+          return result
+        }),
+      ),
+      peer.register(
+        'kernel.commands.describe',
+        procedure(runtimeKernelCommandDescribeSchema, commandDescriptorSchema, async (input, call) => {
+          assertCommandCaller(input)
+          const result = await this.commandDiscovery.describe(input.commandId, call.signal)
+          assertCommandCaller(input)
+          return result
+        }),
+      ),
+    )
     record.cleanup.push(
       this.relay.attachKernel(peer),
       this.pluginRelay.attachKernel(peer, owner),
+      this.humanWaits.attachKernel(peer, owner),
       registerRuntimeCoordinatorPort(peer, this.coordinator, {
         owner,
         bindings: (caller, sessionId) => this.bindings(caller, sessionId),
@@ -1677,7 +1929,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             this.schedule()
           }
         },
-        released: (lease) => this.handoff(lease),
+        released: (lease) => {
+          this.humanWaits.release(lease)
+          return this.handoff(lease)
+        },
         stopped: (_owner, runId) => {
           this.stopped.add(runId)
           this.schedule()
@@ -2010,7 +2265,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       for (const revoke of this.pendingRevocations)
         await record.process.call(
           'storage.call',
-          { method: 'runtimeExecutionRevoke', args: [revoke.owner, revoke.ids] },
+          { method: 'runtimeExecutionRevoke', args: [revoke.owner, revoke.ids, revoke.cause] },
           z.unknown(),
         )
       this.pendingRevocations.length = 0
@@ -2038,13 +2293,18 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     if (owner.unitId === 'node-link') this.nodeLink.exited(owner)
     if (this.closing || this.coordinator.role(owner) === 'candidate') return
     if (owner.unitId !== 'controller') this.resumed.clear()
-    const affected = [...this.leases.values()].filter(
+    const dependencies = [...this.leases.values()].filter(
       (lease) =>
         owner.unitId === 'storage' ||
         [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(
-          (v) => v.unitId === owner.unitId && v.generation === owner.generation,
+          (version) => version.unitId === owner.unitId && version.generation === owner.generation,
         ),
     )
+    const affected = [
+      ...new Map(
+        [...dependencies, ...this.coordinator.executionsForOwner(owner)].map((lease) => [lease.runId, lease]),
+      ).values(),
+    ]
     this.interrupted.set(owner.incarnation, { owner, leases: affected, exited: false })
     if (owner.unitId === 'storage') {
       this.storageFailure = { owner, unknown: this.storage.writeCallsInFlight > 0 }
@@ -2144,6 +2404,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       (sessionId) => this.wake(sessionId),
       this.sourceAbort.signal,
     )
+    await this.flushCapacityWakeups()
+    this.humanWaits.refreshPending()
   }
   private async reconcileClaim(draft: ExecutionOwnership, kernel: RuntimeKernelEndpoint): Promise<void> {
     const receipt = await this.storage.call('runtimeExecutionRead', draft.runId)
@@ -2255,8 +2517,61 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       return
     const kernel = this.currentKernel()
     if (this.resumed.has(kernel.owner.incarnation)) return
+    await this.refreshExecutionCapacity()
     await kernel.process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
     this.resumed.add(kernel.owner.incarnation)
+  }
+  private async refreshExecutionCapacity(): Promise<void> {
+    const layers = await this.storage.call('settingsLayers', ['settings:global'])
+    const unattended =
+      layers.find((layer) => layer.id === 'settings:global')?.values[BACKEND_UNATTENDED_VALUE_KEY] === true
+    if (unattended) this.unattendedStartupPending = false
+    this.coordinator.setExecutionCapacity(
+      unattended || this.unattendedStartupPending ? EXECUTION_SLOT_LIMITS.capacity : EXECUTION_SLOT_LIMITS.executions,
+    )
+  }
+  private async flushCapacityWakeups(): Promise<void> {
+    for (const { sessionId, runId } of this.coordinator.capacityReadyQueue()) {
+      if (this.closing) return
+      try {
+        if (!this.canAdmit(sessionId)) continue
+        const next = await this.storage.call('nextQueuedRun', sessionId)
+        if (next?.id !== runId) {
+          this.coordinator.releaseQueuedSession(sessionId, runId)
+          if (!next) continue
+        }
+        // Wake only asks the Kernel to inspect its durable queue. Repeating a lost hint does not replay a Run.
+        await this.wake(sessionId)
+      } catch (error) {
+        // The coordinator retains the reservation for the existing one-second reconciliation sweep.
+        console.error(
+          '[hbar runtime] capacity wake deferred',
+          runtimeDomainError(error)?.code ?? 'CAPACITY_WAKE_FAILED',
+        )
+        return
+      }
+    }
+  }
+  private refreshSettingsScheduling(): void {
+    this.settingsSchedulingRequested = true
+    if (this.settingsSchedulingRefresh || this.closing || this.initializing) return
+    this.settingsSchedulingRefresh = (async () => {
+      while (this.settingsSchedulingRequested && !this.closing) {
+        this.settingsSchedulingRequested = false
+        if (!this.executionReady() || this.storage.snapshot().phase !== 'serving') return
+        await this.refreshExecutionCapacity()
+        await this.currentKernel().process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
+      }
+    })()
+      .catch((error: unknown) => {
+        console.error(
+          '[hbar] Settings scheduling refresh failed',
+          runtimeDomainError(error)?.code ?? 'AUTONOMY_REFRESH_FAILED',
+        )
+      })
+      .finally(() => {
+        this.settingsSchedulingRefresh = undefined
+      })
   }
   private async wake(sessionId: string): Promise<void> {
     if (!this.canAdmit(sessionId)) {
@@ -2329,18 +2644,30 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       if (!endpoint) throw new HbarError('RUNTIME_RECOVERING', 'The execution owner is recovering')
       return endpoint
     }
-    return sessionId ? this.currentKernel() : (captured ?? this.currentKernel())
+    return captured ?? this.currentKernel()
   }
   private async cancelRun(runId: string): Promise<void> {
     const result = await this.storage.call('runtimeRecoveryCancel', runId)
     for (const event of result.events) this.facade.replay({ method: 'session.event', params: event })
-    const lease = this.coordinator.execution(result.run.id)
+    const targets = result.targets ?? [result.run]
+    const active = targets.flatMap((run) => {
+      const lease = this.coordinator.execution(run.id)
+      if (!lease && run.status === 'cancelled') this.coordinator.releaseQueuedSession(run.sessionId, run.id)
     const endpoint = lease
       ? this.endpoints().find((value) => value.owner.incarnation === lease.owner.incarnation)
       : null
-    if (endpoint && ['serving', 'draining'].includes(endpoint.process.snapshot().phase)) {
+      return endpoint ? [{ endpoint, run }] : []
+    })
+    if (
+      !active.length &&
+      result.run.status === 'failed' &&
+      result.events.some((event) => event.type === 'run.cancelRequested' && event.runId === result.run.id)
+    )
+      active.push({ endpoint: this.currentKernel(), run: result.run })
+    for (const { endpoint, run } of active)
+      if (['serving', 'draining'].includes(endpoint.process.snapshot().phase)) {
       try {
-        await endpoint.process.call('kernel.cancel', { runId: result.run.id, persisted: true }, z.undefined())
+          await endpoint.process.call('kernel.cancel', { runId: run.id, persisted: true }, z.undefined())
       } catch (error) {
         if (
           !['IPC_DISCONNECTED', 'RUNTIME_RECOVERING', 'RUNTIME_OWNER_REVOKED'].includes(

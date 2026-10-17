@@ -1,5 +1,24 @@
 import type { ScheduleOccurrence } from '@hbar/contracts/commands/schedules'
 import type { ScheduleService } from './schedule-service'
+import { HbarError } from '@hbar/contracts'
+import type { ScheduleExecution } from '@hbar/contracts/schedule-execution'
+
+export interface SchedulePrepareInput {
+  scheduleId: string
+  workspaceId: string
+  target: 'new-session' | 'existing-session'
+  sessionId?: string
+  occurrenceId: string
+  actorId: string
+}
+export interface ScheduleSubmitInput {
+  sessionId: string
+  input: string
+  modelId: string
+  idempotencyKey: string
+  occurrenceId: string
+  actorId: string
+}
 
 export type ScheduleOperationStatus =
   | 'queued'
@@ -13,25 +32,13 @@ export type ScheduleOperationStatus =
   | 'interrupted'
   | 'unknown'
 export interface ScheduleExecutionPort {
-  prepare(input: {
-    scheduleId: string
-    workspaceId: string
-    target: 'new-session' | 'existing-session'
-    sessionId?: string
-    occurrenceId: string
-  }): Promise<{ sessionId: string }>
-  submit(input: {
-    sessionId: string
-    input: string
-    modelId: string
-    idempotencyKey: string
-  }): Promise<{ operationId: string }>
+  prepare(input: SchedulePrepareInput): Promise<{ sessionId: string }>
+  submit(input: ScheduleSubmitInput): Promise<{ operationId: string }>
   getReceipt?: (input: {
     sessionId: string
     actorId: string
     idempotencyKey: string
   }) => Promise<{ operationId: string } | null>
-  actorId?: string
   observeOperation(operationId: string): Promise<ScheduleOperationStatus>
 }
 
@@ -56,7 +63,7 @@ export class ScheduleRunFailure extends Error {
 }
 
 export function createScheduleRunner(
-  service: Pick<ScheduleService, 'get' | 'claim' | 'transition'>,
+  service: Pick<ScheduleService, 'get' | 'execution' | 'claim' | 'transition'>,
   execution: ScheduleExecutionPort,
   options: { maxActive?: number } = {},
 ) {
@@ -72,11 +79,21 @@ export function createScheduleRunner(
     inFlight.add(scheduleId)
     return true
   }
+  async function frozen(occurrence: ScheduleOccurrence): Promise<ScheduleExecution> {
+    const value = await service.execution(occurrence.id)
+    if (!value || value.occurrenceId !== occurrence.id || value.schedule.id !== occurrence.scheduleId)
+      throw new HbarError(
+        'SCHEDULE_AUTHORIZATION_REQUIRED',
+        'This occurrence needs its original authorized schedule revision',
+      )
+    return value
+  }
   return {
     async runSchedule(scheduleId: string, dueAt: number, now = Date.now()): Promise<ScheduleOccurrence | null> {
       if (!reserve(scheduleId)) return null
       let occurrence: ScheduleOccurrence | null = null
       let keepClaim = false
+      let reconciling = false
       try {
         const schedule = await service.get(scheduleId)
         if (!schedule || !schedule.enabled) return null
@@ -88,13 +105,17 @@ export function createScheduleRunner(
           keepClaim = true
           return occurrence
         }
+        reconciling = Boolean(occurrence.sessionId)
+        const admitted = await frozen(occurrence)
+        const original = admitted.schedule
         // A durable receipt closes the crash window where submit succeeded before its operation id was persisted.
-        if (!occurrence.runId && occurrence.sessionId && execution.getReceipt && execution.actorId) {
-          const receipt = await execution.getReceipt({
+        if (occurrence.sessionId) {
+          const receipt = await execution.getReceipt?.({
             sessionId: occurrence.sessionId,
-            actorId: execution.actorId,
+            actorId: admitted.authorization.actorId,
             idempotencyKey: occurrence.idempotencyKey,
           })
+          reconciling = false
           if (receipt) {
             keepClaim = true
             return await service.transition(
@@ -113,16 +134,18 @@ export function createScheduleRunner(
             occurrence.sessionId,
           )
         }
+        reconciling = false
         if (occurrence.status === 'unknown') return occurrence
         const prepared = await execution.prepare({
           scheduleId,
-          workspaceId: schedule.workspaceId,
-          target: schedule.target.mode,
+          workspaceId: original.workspaceId,
+          target: original.target.mode,
           occurrenceId: occurrence.id,
+          actorId: admitted.authorization.actorId,
           ...(occurrence.sessionId
             ? { sessionId: occurrence.sessionId }
-            : schedule.target.mode === 'existing-session'
-              ? { sessionId: schedule.target.sessionId }
+            : original.target.mode === 'existing-session'
+              ? { sessionId: original.target.sessionId }
               : {}),
         })
         occurrence = await service.transition(
@@ -136,16 +159,18 @@ export function createScheduleRunner(
           return await service.transition(occurrence.id, 'running', occurrence.runId, undefined, prepared.sessionId)
         const accepted = await execution.submit({
           sessionId: prepared.sessionId,
-          input: schedule.input,
-          modelId: schedule.modelId,
+          input: original.input,
+          modelId: original.modelId,
           idempotencyKey: occurrence.idempotencyKey,
+          occurrenceId: occurrence.id,
+          actorId: admitted.authorization.actorId,
         })
         keepClaim = true
         return await service.transition(occurrence.id, 'running', accepted.operationId, undefined, prepared.sessionId)
       } catch (error) {
         const message = unknownError(error)
         if (occurrence) {
-          const unknown = isUnknownResult(error)
+          const unknown = isUnknownResult(error) || reconciling
           occurrence = await service.transition(
             occurrence.id,
             unknown ? 'unknown' : 'failed',
@@ -167,7 +192,7 @@ export function createScheduleRunner(
     },
     async recover(occurrences: readonly ScheduleOccurrence[]): Promise<ScheduleOccurrence[]> {
       const failures: ScheduleOccurrence[] = []
-      for (const occurrence of occurrences) {
+      for (let occurrence of occurrences) {
         if (occurrence.status !== 'running' && occurrence.status !== 'unknown' && occurrence.status !== 'pending')
           continue
         if (active >= maxActive && !inFlight.has(occurrence.scheduleId)) continue
@@ -176,6 +201,7 @@ export function createScheduleRunner(
           active++
         }
         let done = false
+        const reconciling = Boolean(occurrence.sessionId && !occurrence.runId)
         try {
           if (!occurrence.runId && !occurrence.sessionId && occurrence.status === 'pending') {
             const schedule = await service.get(occurrence.scheduleId)
@@ -190,28 +216,34 @@ export function createScheduleRunner(
               done = true
               continue
             }
+            const admitted = await frozen(occurrence)
+            const original = admitted.schedule
             const prepared = await execution.prepare({
-              scheduleId: schedule.id,
-              workspaceId: schedule.workspaceId,
-              target: schedule.target.mode,
+              scheduleId: original.id,
+              workspaceId: original.workspaceId,
+              target: original.target.mode,
               occurrenceId: occurrence.id,
-              ...(schedule.target.mode === 'existing-session' ? { sessionId: schedule.target.sessionId } : {}),
+              actorId: admitted.authorization.actorId,
+              ...(original.target.mode === 'existing-session' ? { sessionId: original.target.sessionId } : {}),
             })
-            await service.transition(occurrence.id, 'running', undefined, undefined, prepared.sessionId)
+            occurrence = await service.transition(occurrence.id, 'running', undefined, undefined, prepared.sessionId)
             const accepted = await execution.submit({
               sessionId: prepared.sessionId,
-              input: schedule.input,
-              modelId: schedule.modelId,
+              input: original.input,
+              modelId: original.modelId,
               idempotencyKey: occurrence.idempotencyKey,
+              occurrenceId: occurrence.id,
+              actorId: admitted.authorization.actorId,
             })
             await service.transition(occurrence.id, 'running', accepted.operationId, undefined, prepared.sessionId)
             continue
           }
           if (!occurrence.runId) {
-            if (occurrence.sessionId && execution.getReceipt && execution.actorId) {
+            if (occurrence.sessionId && execution.getReceipt) {
+              const admitted = await frozen(occurrence)
               const receipt = await execution.getReceipt({
                 sessionId: occurrence.sessionId,
-                actorId: execution.actorId,
+                actorId: admitted.authorization.actorId,
                 idempotencyKey: occurrence.idempotencyKey,
               })
               if (receipt) {
@@ -272,7 +304,7 @@ export function createScheduleRunner(
           const message = unknownError(error)
           const result = await service.transition(
             occurrence.id,
-            isUnknownResult(error) ? 'unknown' : 'failed',
+            isUnknownResult(error) || reconciling ? 'unknown' : 'failed',
             occurrence.runId ?? undefined,
             message,
             occurrence.sessionId ?? undefined,

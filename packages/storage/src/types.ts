@@ -1,3 +1,17 @@
+import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/execution-principal'
+import type { ScheduleExecution } from '@hbar/contracts/schedule-execution'
+import type { ScheduleOccurrence } from '@hbar/contracts/commands/schedules'
+import type { ContextSummaryExcerpt } from '@hbar/contracts/delegated-context'
+import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
+import type { createUserInputStateStorage } from './user-input-state'
+import type { createDecisionStorage } from './decisions'
+import type {
+  DelegatedInputAccept, DelegatedInputDeliver, DelegatedInputRun, DelegatedInputIdentity,
+  DelegatedInputRecord, DelegatedInputBind, DelegatedInputComplete, DelegatedInputFinish, DelegatedInputInbox,
+} from '@hbar/contracts/delegated-user-input'
+import type { createAutonomyRetryStorage } from './autonomy-retries'
+import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
+import type { AutomaticPlanExitDecision, AutomaticToolApprovalDecision, ApprovalAutomationContext } from '@hbar/contracts/autonomy'
 import type {
   Approval,
   ArtifactRef,
@@ -45,6 +59,7 @@ import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/co
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { ExecutionOwnership, RuntimeOwner, RecoveryChain } from '@hbar/contracts/runtime'
 import type { RuntimeRecoveryScope, RuntimeRecoveryRecord } from './runtime-state'
+import type { RuntimeBackendRecoveryPageInput, RuntimeBackendRecoveryPage } from './runtime-backend-recovery'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { ContextHistoryInput, ContextHistoryPage, ContextCompactionRecord } from '@hbar/contracts/context-history'
 import type { NotificationStorage } from './notifications'
@@ -292,6 +307,26 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
+  delegatedInputAccept(input: DelegatedInputAccept): { created: boolean; state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputDeliver(input: DelegatedInputDeliver): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputAdmitRun(input: DelegatedInputRun): DelegatedInputRecord
+  delegatedInputRead(input: DelegatedInputIdentity): DelegatedInputRecord | null
+  delegatedInputBind(input: DelegatedInputBind): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputComplete(input: DelegatedInputComplete): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputFinish(input: DelegatedInputFinish): { state: DelegatedInputRecord; events: SessionEvent[] }
+  delegatedInputInbox(input: DelegatedInputInbox): { items: DelegatedInputRecord[]; nextCursor?: string }
+  decisionPage: ReturnType<typeof createDecisionStorage>['page']
+  autonomyRetryPlan: ReturnType<typeof createAutonomyRetryStorage>['plan']
+  decisionOperationRead: ReturnType<typeof createDecisionStorage>['operationRead']
+  decisionOperationBegin: ReturnType<typeof createDecisionStorage>['operationBegin']
+  decisionOperationComplete: ReturnType<typeof createDecisionStorage>['operationComplete']
+  userInputAccept: ReturnType<typeof createUserInputStateStorage>['accept']
+  userInputRead: ReturnType<typeof createUserInputStateStorage>['read']
+  userInputCommit: ReturnType<typeof createUserInputStateStorage>['commit']
+  commandExecutionAccept: ReturnType<typeof createCommandExecutionReceiptStorage>['accept']
+  commandExecutionRead: ReturnType<typeof createCommandExecutionReceiptStorage>['read']
+  commandExecutionPending: ReturnType<typeof createCommandExecutionReceiptStorage>['pending']
+  commandExecutionUpdate: ReturnType<typeof createCommandExecutionReceiptStorage>['update']
   chatDatabaseMaintenanceBegin(operationId: string): void
   chatDatabaseMaintenanceEnd(operationId: string): void
   chatDatabaseUsageBackfill: ReturnType<typeof createChatDatabaseProjection>['backfill']
@@ -363,6 +398,8 @@ export interface StorageMethods {
   sandboxSnapshot: ReturnType<typeof createSandboxProfileStorage>['snapshot']
   schedulePage: ReturnType<typeof createScheduleStorage>['list']
   schedule: ReturnType<typeof createScheduleStorage>['get']
+  scheduleExecution(occurrenceId: string): ScheduleExecution | null
+  scheduleOccurrence(occurrenceId: string): ScheduleOccurrence | null
   createSchedule: ReturnType<typeof createScheduleStorage>['create']
   updateSchedule: ReturnType<typeof createScheduleStorage>['update']
   deleteSchedule: ReturnType<typeof createScheduleStorage>['delete']
@@ -408,7 +445,9 @@ export interface StorageMethods {
   workspaceDisplayNamesReceipt(input: WorkspaceDisplayNamesMutationInput): WorkspaceDisplayNamesReceipt | null
   findSession(id: string): Session | null
   workspace(id: string): Workspace
-  createSession(workspaceId: string, title?: string, parentId?: string): Session
+  createSession(workspaceId: string, title?: string, parentId?: string, source?: SessionCreationSource): Session
+  sessionExecutionPrincipal(sessionId: string): ExecutionPrincipal | null
+  runExecutionPrincipal(runId: string): ExecutionPrincipal | null
   createSessionCommand(input: CreateSessionCommandInput): Session
   sessions(): Session[]
   childSessions(parentId: string, after?: string, limit?: number): Session[]
@@ -519,6 +558,7 @@ export interface StorageMethods {
   }
   queuedRunRemoveReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunRemoveReceipt | null
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
+  contextSummaryExcerpt(sessionId: string): ContextSummaryExcerpt | null
   compact(
     sessionId: string,
     throughSeq: number,
@@ -533,7 +573,7 @@ export interface StorageMethods {
       chunks: number
     },
   ): SessionEvent
-  fork(sessionId: string, atSeq?: number): Session
+  fork(sessionId: string, atSeq?: number, source?: SessionCreationSource): Session
   forkSessionCommand(input: ForkSessionCommandInput): Session
   forkFromMessageCommand(input: ForkFromMessageCommandInput): Session
   forkFromMessageReceipt(input: ForkFromMessageReceiptInput): Session | null
@@ -545,6 +585,8 @@ export interface StorageMethods {
     modelId: string,
     command?: RunCommandRecord,
     launchTarget?: SessionLaunchTargetBindingInput,
+    sourceRunId?: string,
+    autonomyRetry?: AutonomyRetryAdmission,
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   runByRequestInWorkspace(
@@ -573,8 +615,12 @@ export interface StorageMethods {
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
   cancelRequested(id: string): boolean
   queuedSessions(): string[]
-  createApproval(approval: Approval): SessionEvent
-  resolveApproval(id: string, status: Approval['status']): { approval: Approval; event: SessionEvent } | null
+  createApproval(approval: Approval, automationContext?: ApprovalAutomationContext): SessionEvent
+  resolveApproval(
+    id: string,
+    status: Approval['status'],
+    automatic?: AutomaticToolApprovalDecision,
+  ): { approval: Approval; event: SessionEvent; delegationEvents: SessionEvent[] } | null
   resolvePlanExit(
     id: string,
     sessionId: string,
@@ -583,8 +629,10 @@ export interface StorageMethods {
     decision: 'implement' | 'continue',
     feedback: string | undefined,
     actorId: string,
-  ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null }
+    automatic?: AutomaticPlanExitDecision,
+  ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null; delegationEvents: SessionEvent[] }
   approval(id: string): Approval
+  approvalResolution(id: string): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null; delegationEvents: SessionEvent[] } | null
   toolStart(
     sessionId: string,
     runId: string,
@@ -605,14 +653,19 @@ export interface StorageMethods {
   recover(scope?: RuntimeRecoveryScope): number
   runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null
   runtimeExecutionRelease(lease: ExecutionOwnership): void
-  runtimeExecutionRevoke(owner: RuntimeOwner, runIds: readonly string[]): string[]
+  runtimeExecutionRevoke(owner: RuntimeOwner, runIds: readonly string[], cause?: RuntimeOwner): string[]
   runtimeExecutionRead(runId: string): { lease: ExecutionOwnership; state: string } | null
   runtimeActiveRuns(after?: string, limit?: number): Run[]
   runtimeUnreleasedExecutions(after?: string, limit?: number): ExecutionOwnership[]
   runtimeRecoveryPlan(predecessorRunId: string): RuntimeRecoveryRecord
   runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
   runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
-  runtimeRecoveryCancel(runId: string): { run: Run; events: SessionEvent[] }
+  runtimeBackendRecoveryPage(input: RuntimeBackendRecoveryPageInput): RuntimeBackendRecoveryPage
+  runtimeRecoveryCancel(runId: string): {
+    run: Run
+    targets?: Array<Pick<Run, 'id' | 'sessionId' | 'status'>>
+    events: SessionEvent[]
+  }
   runtimeRecoveryChain(chainId: string): RecoveryChain | null
   runtimeRecoveryHold(
     predecessorRunId: string,
@@ -630,6 +683,7 @@ export interface StorageMethods {
   artifact(id: string): ArtifactRef
   putDevice(device: Device, tokenHash: string): void
   deviceByHash(hash: string): Device | null
+  deviceById(id: string): Device | null
   devices(): Device[]
   revokeDevice(id: string): void
   nodeIdentityEnsure(

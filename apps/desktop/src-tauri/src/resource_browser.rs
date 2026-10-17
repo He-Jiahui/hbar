@@ -321,6 +321,11 @@ pub async fn resource_open_system(
         }
         target
     };
+    open_system_target(&value)
+}
+
+pub(crate) fn open_system_target(value: &str) -> Result<(), String> {
+    if value.contains('\0') { return Err("Invalid system target".into()); }
     #[cfg(windows)]
     {
         use windows::{

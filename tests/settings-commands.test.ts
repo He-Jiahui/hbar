@@ -168,6 +168,9 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     ],
   })
   expect(description.fields.map((item) => encodePath(item.path))).toEqual([
+    encodePath(field('desktop.startupMode')),
+    encodePath(field('backend.webAccess')),
+    encodePath(field('backend.webPort')),
     encodePath(field('client.resourceWebOpenMode')),
     encodePath(field('client.resourceFileOpenMode')),
     encodePath(field('client.chatSendBehavior')),

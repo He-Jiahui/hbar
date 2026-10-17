@@ -1,4 +1,11 @@
 import { z } from 'zod'
+import {
+  clientCommandTargetSchema,
+  clientCommandRegistrationSchema,
+  clientCommandReplySchema,
+  type ClientCommandRequest,
+} from './client-commands'
+import { autonomyPolicyResolutionSchema } from './autonomy'
 export { HbarError } from './errors'
 import { runRecoverySchema, runtimeWatchInputSchema } from './runtime'
 import { toolActivitySchema } from './tool-activity'
@@ -50,7 +57,7 @@ export {
 } from './tool-presentation'
 
 export { LEGACY_WRITE_RPC_METHODS, type LegacyWriteRpcMethod } from './legacy-rpc'
-import { invocationSchema } from '@hbar/commands/protocol'
+import { invocationSchema, commandCatalogQuerySchema, commandDescriptionQuerySchema } from '@hbar/commands/protocol'
 import {
   workspaceListInputSchema,
   workspaceGetInputSchema,
@@ -230,6 +237,7 @@ export const userInputOptionSchema = z.object({
   recommended: z.boolean().optional(),
 })
 export type UserInputOption = z.infer<typeof userInputOptionSchema>
+export const userInputPurposeSchema = z.enum(['decision', 'fact', 'authorization'])
 export const userInputQuestionSchema = z.object({
   id: userInputIdSchema,
   header: z.string().trim().min(1).max(12),
@@ -239,6 +247,8 @@ export const userInputQuestionSchema = z.object({
   options: z.array(userInputOptionSchema).max(3).optional(),
   isOther: z.boolean().default(false),
   isSecret: z.boolean().default(false),
+  /** Omission is legacy/unknown intent and requires a human; only explicit decisions can be automated. */
+  purpose: userInputPurposeSchema.optional(),
 })
 export type UserInputQuestion = z.infer<typeof userInputQuestionSchema>
 /** Shape accepted by the synchronous model control tool. */
@@ -264,6 +274,29 @@ export const userInputResponseSchema = z.object({
   answers: z.record(userInputIdSchema, userInputAnswerSchema),
 })
 export type UserInputResponse = z.infer<typeof userInputResponseSchema>
+export const userInputAutomaticDecisionSchema = z
+  .strictObject({
+    version: z.literal(1),
+    source: z.enum(['recommended', 'model', 'delegate']),
+    request: userInputRequestSchema,
+    response: userInputResponseSchema,
+    policy: autonomyPolicyResolutionSchema.optional(),
+    attemptIds: z.array(idSchema).min(1).max(2).optional(),
+    modelId: idSchema.optional(),
+    delegation: z
+      .strictObject({
+        delegationId: idSchema,
+        targetSessionId: idSchema,
+        targetRunId: idSchema,
+        replyRevision: z.number().int().positive().safe(),
+      })
+      .optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.source === 'delegate' ? !value.delegation || value.modelId || value.attemptIds : value.delegation)
+      context.addIssue({ code: 'custom', message: 'A delegated answer requires only its original target receipt' })
+  })
+export type UserInputAutomaticDecision = z.output<typeof userInputAutomaticDecisionSchema>
 /** Internal transport envelope; Codex responses themselves contain answers only. */
 export const userInputResolutionSchema = userInputResponseSchema.extend({ requestId: idSchema })
 export type UserInputResolution = z.infer<typeof userInputResolutionSchema>
@@ -530,6 +563,14 @@ export const inputSchema = z.object({
   sandbox: sandboxSnapshotRefSchema.optional(),
   mode: runModeSchema.optional(),
   source: runSourceSchema.optional(),
+  /** Host-owned dedicated decision binding. Public submissions cannot create this provenance. */
+  delegatedDecision: z
+    .strictObject({
+      sessionId: idSchema,
+      requestId: idSchema,
+      delegationId: idSchema,
+    })
+    .optional(),
   /** Host-authored delivery provenance; the public run.submit command strips this field. */
   peerMessage: z
     .strictObject({
@@ -806,7 +847,7 @@ export interface Approval {
   args: Record<string, unknown>
   status: 'pending' | 'allowed' | 'denied' | 'cancelled'
   createdAt: number
-  /** Present only after a Plan-exit decision; never part of the model-supplied tool input. */
+  /** Decision metadata is never part of the model-supplied tool input. */
   feedback?: string
   decidedBy?: string
   /** Captured remote execution target and capability observation shown for this approval. */
@@ -1388,6 +1429,7 @@ export type WireNotification =
       params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse | undefined }
     }
   | { method: 'auth.revoked'; params: { reason: string } }
+  | { method: 'command.client.request'; params: ClientCommandRequest }
   | {
       method: 'terminal.output'
       params: { terminalId: string; data: string; seq?: number | undefined; reset?: boolean | undefined }
@@ -1405,15 +1447,15 @@ export type WireNotification =
     }
 
 export const rpcSchemas = {
+  'command.client.register': clientCommandRegistrationSchema,
+  'command.client.unregister': clientCommandTargetSchema,
+  'command.client.reply': clientCommandReplySchema,
+  'command.client.list': z.strictObject({}),
   'system.runtime.watch': runtimeWatchInputSchema,
   'system.runtime.unwatch': z.strictObject({}),
   'command.execute': invocationSchema,
-  'command.catalog': z.strictObject({
-    category: z.string().min(1).max(128).optional(),
-    after: z.string().max(128).optional(),
-    limit: z.number().int().min(1).max(200).default(100),
-  }),
-  'command.describe': z.strictObject({ commandId: z.string().min(1).max(128) }),
+  'command.catalog': commandCatalogQuerySchema,
+  'command.describe': commandDescriptionQuerySchema,
   'command.getReceipt': z.strictObject({
     commandId: z.enum([
       'session.setBudget',
@@ -1759,11 +1801,7 @@ export interface RpcResults {
   'system.runtime.watch': import('./runtime').RuntimeWatchResult
   'system.runtime.unwatch': null
   'command.execute': unknown
-  'command.catalog': {
-    revision: number
-    items: import('@hbar/commands/protocol').CommandDescriptor[]
-    nextCursor?: string
-  }
+  'command.catalog': import('@hbar/commands/protocol').CommandCatalogPage
   'command.describe': import('@hbar/commands/protocol').CommandDescriptor
   'command.getReceipt':
     | import('./commands/budget').BudgetReceipt
@@ -1776,6 +1814,10 @@ export interface RpcResults {
   'operation.unwatch': null
   'metrics.watch': import('./commands/metrics').MetricsWatchResult
   'metrics.unwatch': null
+  'command.client.register': { clientId: string; generation: number; actorId: string; commands: string[] }
+  'command.client.unregister': null
+  'command.client.reply': null
+  'command.client.list': { items: Array<{ clientId: string; generation: number; commands: string[] }> }
   'surface.register': { clientId: string; generation: number; commands: string[] }
   'surface.unregister': null
   'surface.list': { items: { clientId: string; generation: number; commands: string[] }[] }

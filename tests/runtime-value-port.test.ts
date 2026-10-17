@@ -1,9 +1,18 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
 import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
 
-function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number | (() => number) } = {}) {
+function fixture(
+  options: {
+    peerTimeoutMs?: number
+    callbackTimeoutMs?: number | (() => number)
+    callbackSettlement?: 'physical'
+  } = {},
+) {
   const transport = new AsyncResource('isolated-runtime-transport')
   let child!: IpcPeer
   const peerOptions = options.peerTimeoutMs === undefined ? {} : { timeoutMs: options.peerTimeoutMs }
@@ -26,6 +35,7 @@ function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number |
     prefix: 'application',
     controlMethods: ['approval.resolve'],
     ...(options.callbackTimeoutMs === undefined ? {} : { callbackTimeoutMs: options.callbackTimeoutMs }),
+    ...(options.callbackSettlement ? { callbackSettlement: options.callbackSettlement } : {}),
     callbackScope: (action) => {
       entered++
       return action()
@@ -35,8 +45,10 @@ function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number |
     prefix: 'application',
     controlMethods: ['approval.resolve'],
     ...(options.callbackTimeoutMs === undefined ? {} : { callbackTimeoutMs: options.callbackTimeoutMs }),
+    ...(options.callbackSettlement ? { callbackSettlement: options.callbackSettlement } : {}),
   })
   return {
+    peer: parent,
     local,
     remote,
     entered: () => entered,
@@ -49,6 +61,169 @@ function fixture(options: { peerTimeoutMs?: number; callbackTimeoutMs?: number |
     },
   }
 }
+
+test('named application ports transfer a full 10 MiB attachment without regex engine exhaustion', async () => {
+  const f = fixture()
+  try {
+    f.remote.register('attachment.echo', (args) => args[0])
+    const bytes = new Uint8Array(10_485_760)
+    for (let index = 0; index < bytes.byteLength; index++) bytes[index] = index % 251
+    const result = await f.local.call<Uint8Array>('attachment.echo', [bytes])
+    expect(result).toBeInstanceOf(Uint8Array)
+    expect(result.byteLength).toBe(bytes.byteLength)
+    expect(Buffer.from(result).equals(Buffer.from(bytes))).toBe(true)
+  } finally {
+    f.close()
+  }
+})
+
+test('tracked application calls preserve actual late writes after cancellation and close new callback admission', async () => {
+  const f = fixture()
+  const root = await mkdtemp(join(tmpdir(), 'hbar-tracked-value-'))
+  const gate = Promise.withResolvers<void>()
+  const entered = Promise.withResolvers<void>()
+  let callbacks = 0,
+    writes = 0,
+    ownerCancelled = false,
+    finished = false
+  f.remote.register('write', async ([callback, signal]) => {
+    if (typeof callback !== 'function' || !(signal instanceof AbortSignal)) throw new Error('Expected owned arguments')
+    entered.resolve()
+    await gate.promise
+    ownerCancelled = signal.aborted
+    let rejected = false
+    try {
+      await Reflect.apply(callback, undefined, [])
+    } catch {
+      rejected = true
+    }
+    await writeFile(join(root, 'result.txt'), 'late physical result: 你好')
+    writes++
+    return { text: 'late physical result: 你好', rejected }
+  })
+  const controller = new AbortController()
+  try {
+    const ticket = f.local.callTracked<{ text: string; rejected: boolean }>('write', [
+      () => {
+        callbacks++
+      },
+      controller.signal,
+    ])
+    void ticket.settled.then(() => {
+      finished = true
+    })
+    await entered.promise
+    controller.abort()
+    await expect(ticket.result).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    expect(finished).toBe(false)
+    expect(f.local.snapshot().callbacks).toBe(0)
+    gate.resolve()
+    expect(await ticket.settled).toEqual({ text: 'late physical result: 你好', rejected: true })
+    expect(await readFile(join(root, 'result.txt'), 'utf8')).toBe('late physical result: 你好')
+    expect(ownerCancelled).toBe(true)
+    expect(callbacks).toBe(0)
+    expect(writes).toBe(1)
+  } finally {
+    gate.resolve()
+    f.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('owned physical callbacks preserve an already accepted write and its source scope through nested cancellation', async () => {
+  const f = fixture({ callbackSettlement: 'physical' })
+  const root = await mkdtemp(join(tmpdir(), 'hbar-tracked-callback-'))
+  const scope = new AsyncLocalStorage<string>()
+  const entered = Promise.withResolvers<void>(),
+    gate = Promise.withResolvers<void>()
+  let physicallyDone = false
+  f.remote.register('commit', async ([callback]) => {
+    if (typeof callback !== 'function') throw new Error('Expected owned callback')
+    return Reflect.apply(callback, undefined, [() => 'nested callback must close'])
+  })
+  const controller = new AbortController()
+  try {
+    const ticket = scope.run('source-run', () =>
+      f.local.callTracked<string>(
+        'commit',
+        [
+          async (nested: unknown) => {
+            if (typeof nested !== 'function') throw new Error('Expected nested callback')
+            entered.resolve()
+            await gate.promise
+            expect(scope.getStore()).toBe('source-run')
+            await expect(
+              Promise.resolve().then(() => {
+                const value: unknown = Reflect.apply(nested, undefined, [])
+                return value
+              }),
+            ).rejects.toBeInstanceOf(Error)
+            await writeFile(join(root, 'result.txt'), 'nested physical write')
+            return 'nested actual reply'
+          },
+        ],
+        { signal: controller.signal },
+      ),
+    )
+    void ticket.settled.then(() => {
+      physicallyDone = true
+    })
+    await entered.promise
+    controller.abort()
+    await expect(ticket.result).rejects.toMatchObject({ code: 'IPC_CANCELLED' })
+    // Cancellation of the nested IPC crosses the isolated transport asynchronously.
+    const deadline = Date.now() + 1_000
+    while (f.remote.snapshot().callbacks && Date.now() < deadline) await Bun.sleep(1)
+    expect(f.remote.snapshot().callbacks).toBe(0)
+    expect(physicallyDone).toBe(false)
+    gate.resolve()
+    expect(await ticket.settled).toBe('nested actual reply')
+    expect(await readFile(join(root, 'result.txt'), 'utf8')).toBe('nested physical write')
+    expect(f.local.snapshot().callbacks).toBe(0)
+    expect(f.remote.snapshot().callbacks).toBe(0)
+  } finally {
+    gate.resolve()
+    f.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('base64 validation rejects malformed length, padding and alphabet before an application handler executes', async () => {
+  const f = fixture()
+  let calls = 0
+  try {
+    f.remote.register('attachment.check', () => {
+      calls++
+      return true
+    })
+    for (const data of [
+      'A',
+      'A===',
+      'AA=A',
+      'AAAA=',
+      'AAA!',
+      '=AAA',
+      'AAA\n',
+      '____',
+      'A'.repeat(2_000_000) + 'AAA!',
+    ]) {
+      const result: unknown = await f.peer
+        .call('application.invoke', { method: 'attachment.check', args: [{ kind: 'bytes', data }] }, z.unknown())
+        .catch((error: unknown) => error)
+      expect(result).toBeInstanceOf(Error)
+    }
+    expect(calls).toBe(0)
+    for (const data of ['', 'AA==', 'AAA=', 'AAAA'])
+      await f.peer.call(
+        'application.invoke',
+        { method: 'attachment.check', args: [{ kind: 'bytes', data }] },
+        z.unknown(),
+      )
+    expect(calls).toBe(4)
+  } finally {
+    f.close()
+  }
+})
 
 test('plain descriptions preserve optional arguments and bytes while named callbacks stay in their owner scope', async () => {
   const f = fixture()

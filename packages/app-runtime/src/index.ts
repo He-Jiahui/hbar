@@ -93,6 +93,7 @@ export type {
 } from './workspace-tabs-runtime'
 import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
+import { createApplicationClientCommands } from './client-commands'
 import { createSessionTools, sessionToolCommands } from './session-tools'
 import { isSessionToolProtected } from './session-tool-retention'
 export { sessionToolCommands } from './session-tools'
@@ -1631,6 +1632,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   })
   return {
     view,
+    clientCommands: createApplicationClientCommands(local, platform, options.platform !== undefined),
     clientPreferences: Object.freeze({ refresh: clientPersistence.refreshPreferences }),
     workspaceTabs: Object.freeze({
       capture: workspaceTabs.capture,

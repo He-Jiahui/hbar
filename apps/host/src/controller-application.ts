@@ -30,6 +30,7 @@ import {
   createNotificationCommands,
   createRunBoardCommands,
   createScheduleDueReader,
+  createScheduleAdmission,
 } from '@hbar/kernel/controller'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
@@ -70,13 +71,22 @@ import { submitRunInputSchema } from '@hbar/contracts/commands/run'
 import { createScheduleService, createNotificationService } from '@hbar/kernel/controller'
 import { createScheduleHostController } from './schedule-host-controller.ts'
 import { createChatDatabaseHostController } from './chat-database-host-controller'
-import type { CommandDescriptor } from '@hbar/commands'
+import {
+  createCommandRouter,
+  prepareCommandInvocation,
+  type CommandDescriptor,
+  type CommandInvocation,
+  type CommandRoute,
+} from '@hbar/commands'
 declare const HBAR_MANAGED_MAINTENANCE: boolean
 
 export interface ControllerCommandService {
   readonly commandIds: readonly string[]
   readonly service: {
+    prepare?(value: unknown): CommandInvocation | Promise<CommandInvocation>
     dispatch(value: unknown, actorId: string): Promise<unknown>
+    readonly dispatchPrepared?: NonNullable<CommandRoute['dispatchPrepared']>
+    readonly dispatchPreparedTracked?: NonNullable<CommandRoute['dispatchPreparedTracked']>
     describe(id: string): CommandDescriptor
     list(filter?: { readonly includeInternal?: boolean }): { revision: number; items: readonly CommandDescriptor[] }
   }
@@ -176,11 +186,15 @@ export function createControllerApplication(
     skills: (signal) => skillInspection.list(signal),
     skillInspection,
   })
-  const gitCommands = createGitCommands(kernel.plugins.get('git'), {
-    storage: kernel.storage,
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  }, localExecutionPolicy)
+  const gitCommands = createGitCommands(
+    kernel.plugins.get('git'),
+    {
+      storage: kernel.storage,
+      resolveSessionPath: (sessionId, workspacePath, signal) =>
+        kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+    },
+    localExecutionPolicy,
+  )
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),
@@ -192,11 +206,16 @@ export function createControllerApplication(
   )
   const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get('budget'))
-  const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
-    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  }, { undo: (sessionId, runId, signal) => kernel.undoFileChanges(sessionId, runId, signal) })
+  const fileCommands = createFileCommands(
+    kernel.storage,
+    resolveExecutionProvider(kernel),
+    {
+      resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
+      resolveSessionPath: (sessionId, workspacePath, signal) =>
+        kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+    },
+    { undo: (sessionId, runId, signal) => kernel.undoFileChanges(sessionId, runId, signal) },
+  )
   const goalPlanCommands = createGoalPlanCommands(
     resolveGoalService(kernel),
     resolvePlanService(kernel),
@@ -254,6 +273,7 @@ export function createControllerApplication(
   const scheduleService = createScheduleService({
     list: (workspaceId, after, limit) => kernel.storage.call('schedulePage', workspaceId, after, limit),
     get: (scheduleId) => kernel.storage.call('schedule', scheduleId),
+    execution: (occurrenceId) => kernel.storage.call('scheduleExecution', occurrenceId),
     create: (input, identity) => kernel.storage.call('createSchedule', input, identity),
     update: (input, identity) => kernel.storage.call('updateSchedule', input, identity),
     delete: (scheduleId, expectedRevision, identity) =>
@@ -297,9 +317,9 @@ export function createControllerApplication(
     runtime: (id) => kernel.storage.call('scheduleRuntime', id),
     recordCandidate: (id, dueAt, now) => kernel.storage.call('recordScheduleCandidate', id, dueAt, now),
   })
+  const scheduleAdmission = createScheduleAdmission(kernel.storage, () => kernel.changed('sessions'))
   const scheduleController = createScheduleHostController({
     service: scheduleService,
-    actorId: 'hbar:scheduler',
     runCommands: {
       execute: (id, input, options) =>
         id === 'run.submit'
@@ -308,23 +328,8 @@ export function createControllerApplication(
       getReceipt: (_commandId, sessionId, actorId, idempotencyKey) =>
         runCommands.getReceipt('run.submit', sessionId, actorId, idempotencyKey),
     },
-    prepareSession: async (input) => {
-      if (input.sessionId || input.target === 'existing-session') {
-        if (!input.sessionId) throw new HbarError('INVALID_INPUT', 'Scheduled target session is required')
-        const session = await kernel.storage.call('session', input.sessionId)
-        if (session.workspaceId !== input.workspaceId || session.archived)
-          throw new HbarError('COMMAND_CONFLICT', 'Scheduled target session is unavailable')
-        return { sessionId: session.id }
-      }
-      const created = await kernel.storage.call('createSessionCommand', {
-        actorId: 'hbar:scheduler',
-        idempotencyKey: `schedule-session:${input.occurrenceId}`,
-        workspaceId: input.workspaceId,
-        title: 'Scheduled run',
-      })
-      kernel.changed('sessions')
-      return { sessionId: created.id }
-    },
+    prepareSession: scheduleAdmission.prepare,
+    authorizeSubmission: scheduleAdmission.authorizeSubmission,
     reader: {
       enabledSchedules: async (after: string | null, limit: number) =>
         (await kernel.storage.call('enabledSchedules', after, limit)).items,
@@ -362,7 +367,22 @@ export function createControllerApplication(
     { definitions: sandboxDefinitions, service: sandboxCommandService },
     { definitions: notificationDefinitions, service: notificationCommands },
     { definitions: runBoardDefinitions, service: runBoardCommands },
-  ].map(({ definitions, service }) => ({ commandIds: Object.keys(definitions), service }))
+  ].map(({ definitions, service }) => ({
+    commandIds: Object.keys(definitions),
+    service: {
+      dispatch: service.dispatch,
+      ...(service.dispatchPrepared ? { dispatchPrepared: service.dispatchPrepared } : {}),
+      ...(service.dispatchPreparedTracked ? { dispatchPreparedTracked: service.dispatchPreparedTracked } : {}),
+      describe: service.describe,
+      list: (filter?: { readonly includeInternal?: boolean }) => {
+        const catalog = service.list()
+        return filter?.includeInternal
+          ? { ...catalog, items: Object.keys(definitions).map((id) => service.describe(id)) }
+          : catalog
+      },
+      prepare: (value: unknown) => prepareCommandInvocation(definitions, value),
+    },
+  }))
   const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
     commandServices.flatMap(({ commandIds, service }) => commandIds.map((id) => [id, service.dispatch] as const)),
   )
@@ -371,6 +391,23 @@ export function createControllerApplication(
       commandIds.map((id) => [id, () => service.describe(id)] as const),
     ),
   )
+  const commandRouter = createCommandRouter({
+    catalogs: () => commandServices.map(({ service }) => service.list()),
+    resolve(id) {
+      const dispatch = commandDispatchers.get(id)
+      const describe = commandDescribers.get(id)
+      const service = commandServices.find((entry) => entry.commandIds.includes(id))?.service
+      return dispatch && describe
+        ? {
+            dispatch,
+            describe,
+            ...(service?.prepare ? { prepare: service.prepare } : {}),
+            ...(service?.dispatchPrepared ? { dispatchPrepared: service.dispatchPrepared } : {}),
+            ...(service?.dispatchPreparedTracked ? { dispatchPreparedTracked: service.dispatchPreparedTracked } : {}),
+          }
+        : undefined
+    },
+  })
 
   return {
     agentCommands,
@@ -408,6 +445,7 @@ export function createControllerApplication(
     commandServices,
     commandDispatchers,
     commandDescribers,
+    commandRouter,
     async dispose() {
       agentCommands.dispose()
       browserCommands.dispose()

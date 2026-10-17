@@ -1,4 +1,5 @@
 export * from './protocol'
+export { createCommandRouter, MAX_COMMAND_CATALOG_BYTES, type CommandRoute, type CommandRouterOptions } from './routing'
 export { describeCommand } from './descriptor'
 export { tokenizeCommand, parseArguments, MAX_COMMAND_ARGUMENTS, MAX_COMMAND_TEXT_LENGTH } from './parser'
 export {
@@ -8,8 +9,9 @@ export {
   type CommandRegistryOptions,
   type ExecuteOptions,
 } from './registry'
-export { createCommandClient, type CommandExecutor } from './client'
+export { createCommandClient, createGuardedCommandDispatcher, createTrackedCommandDispatcher, prepareCommandInvocation, type CommandExecutor } from './client'
 export { MAX_INVOCATION_BYTES } from './limits'
+export { createCommandExpectation } from './execution-expectation'
 export {
   compileCommandParameterForm,
   createCommandParameterDraft,

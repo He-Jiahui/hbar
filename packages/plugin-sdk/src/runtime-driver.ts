@@ -143,7 +143,7 @@ export const runtimeModelDiagnosticSchema = diagnosticEventSchema
   })
   .extend({
     phase: z.enum(['started', 'response', 'transport_failure', 'settled', 'failed', 'cancelled']),
-    purpose: z.enum(['model', 'compaction']),
+    purpose: z.enum(['model', 'compaction', 'decision']),
     providerId: idSchema,
     modelSelectionId: idSchema,
     model: z.string().min(1).max(256),
@@ -190,6 +190,8 @@ export type RuntimeDriverCallback = z.infer<typeof runtimeDriverCallbackSchema>
 export type RuntimeDriverCallbackValue<Value = RuntimeDriverCallback> = Value extends RuntimeDriverCallback
   ? Omit<Value, 'invocationId'>
   : never
+export const runtimeDriverModelActivitySchema = z.strictObject({ invocationId: idSchema, requestId: z.string().uuid() })
+export const RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS = ['driver.modelActivity.begin', 'driver.modelActivity.settle'] as const
 export const runtimeDriverStreamSchema = z.strictObject({
   invocationId: idSchema,
   id: idSchema,
@@ -255,6 +257,32 @@ export const runtimeDriverSummarySchema = z.strictObject({
   apiKey: z.string().max(8192).nullable(),
 })
 export const runtimeDriverSummaryResultSchema = z.strictObject({ text: z.string().max(16_000_000), usage: usageSchema })
+/** A decision request cannot advertise tools, attachments or unbounded conversation history. */
+export const runtimeDriverDecisionSchema = z
+  .strictObject({
+    request: runtimeModelRequestSchema.refine(
+      (request) =>
+        Boolean(request.context?.sessionId && request.context.runId) &&
+        request.toolNames?.length === 0 &&
+        request.context?.selectedToolNames?.length === 0 &&
+        request.messages.length <= 4 &&
+        request.system.length <= 16_384 &&
+        request.messages.every((message) => message.content.every((block) => block.type === 'text')) &&
+        JSON.stringify(request).length <= 131_072,
+      'Decision completion requires bounded text and an explicit toolless Run context',
+    ),
+    apiKey: z.string().max(8192).nullable(),
+    maxOutputTokens: z.number().int().min(64).max(4096),
+  })
+  .refine(
+    (input) => input.maxOutputTokens <= input.request.model.maxOutput,
+    'Output budget cannot exceed the source model limit',
+  )
+export const runtimeDriverDecisionResultSchema = z.strictObject({
+  text: z.string().max(65_536),
+  usage: usageSchema,
+  diagnostics: z.array(runtimeModelDiagnosticSchema).max(32),
+})
 export const runtimeDriverStepResultSchema = z.union([
   z.strictObject({ stop: z.enum(['goal_complete', 'goal_replaced']) }),
   z.undefined(),

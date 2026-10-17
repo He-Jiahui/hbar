@@ -23,10 +23,51 @@ import { nodeIdSchema, nodeRootIdSchema } from '@hbar/contracts/node-address'
 import { nodeWorktreeMethods } from '@hbar/contracts/node-worktree'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
+import {
+  commandCatalogQuerySchema,
+  commandMetadataSchema,
+  commandCatalogPageSchema,
+  commandDescriptorSchema,
+} from '@hbar/commands'
+import {
+  commandJobStartSchema,
+  commandJobSnapshotSchema,
+  commandJobWatchSchema,
+  commandJobReadSchema,
+  commandJobChunkSchema,
+} from '@hbar/commands/jobs'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
 import { RUNTIME_APPLICATION_METHODS } from './runtime-application'
+import { clientCommandDirectoryQuerySchema, clientCommandDirectorySchema } from '@hbar/contracts/client-commands'
+import {
+  sessionCommandCallSchema,
+  sessionCommandPreparationSchema,
+  sessionCommandToolResultSchema,
+  sessionCommandSourceSchema,
+} from './session-command-port'
 
 const id = z.string().min(1).max(160)
+export const runtimeKernelCommandIdentitySchema = z.strictObject({ sessionId: id, runId: id, callId: id })
+export const runtimeKernelCommandCatalogSchema = runtimeKernelCommandIdentitySchema.extend({
+  query: commandCatalogQuerySchema,
+})
+export const runtimeKernelCommandClientsSchema = runtimeKernelCommandIdentitySchema.extend({
+  query: clientCommandDirectoryQuerySchema,
+})
+export const runtimeKernelCommandDescribeSchema = runtimeKernelCommandIdentitySchema.extend({
+  commandId: z.string().min(1).max(128),
+})
+export const runtimeKernelCommandPrepareSchema = runtimeKernelCommandIdentitySchema.extend({
+  call: sessionCommandCallSchema,
+})
+export const runtimeKernelCommandExecuteSchema = runtimeKernelCommandIdentitySchema.extend({
+  preparation: sessionCommandPreparationSchema,
+  source: sessionCommandSourceSchema.optional(),
+})
+export const runtimeKernelMutationAdmissionSchema = runtimeKernelCommandIdentitySchema.extend({
+  tool: z.string().min(1).max(256),
+  effect: z.enum(['write', 'process', 'network']),
+})
 export const runtimeKernelConfigurationSchema = z.strictObject({
   instanceId: id,
   dataRoot: z.string().min(1).max(4_000),
@@ -134,6 +175,12 @@ export const runtimeKernelStateSchema = z.strictObject({
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
 /** Kernel-initiated callbacks to the stable Host, never exposed as Kernel services or operator RPC. */
 export const RUNTIME_KERNEL_HOST_METHODS = [
+  'kernel.commands.list',
+  'kernel.commands.clients',
+  'kernel.commands.describe',
+  'kernel.commands.prepare',
+  'kernel.commands.execute',
+  'kernel.commands.admitMutation',
   'kernel.nodeIntentRecovery.reconcileRun',
   'kernel.nodeWorkspaceInspection.captureExecutionTarget',
   'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
@@ -157,11 +204,32 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
       'hbar.kernel.runtime.v1',
+      'owned-invocation-physical-reply.v1',
+      'kernel.application.physical-callbacks.v1',
+      'kernel.directory.tracked-commands.v1',
+      z.toJSONSchema(commandJobStartSchema, { unrepresentable: 'any' }),
+      [commandJobSnapshotSchema, commandJobWatchSchema, commandJobReadSchema, commandJobChunkSchema].map((schema) =>
+        z.toJSONSchema(schema),
+      ),
       z.toJSONSchema(runtimeKernelConfigurationSchema),
       z.toJSONSchema(runtimeKernelSubmitSchema),
       RUNTIME_APPLICATION_METHODS,
       RUNTIME_KERNEL_CONTROL_METHODS,
       RUNTIME_KERNEL_HOST_METHODS,
+      z.toJSONSchema(runtimeKernelCommandCatalogSchema),
+      z.toJSONSchema(runtimeKernelCommandClientsSchema),
+      z.toJSONSchema(clientCommandDirectorySchema),
+      z.toJSONSchema(runtimeKernelCommandDescribeSchema),
+      [
+        runtimeKernelCommandPrepareSchema,
+        runtimeKernelCommandExecuteSchema,
+        sessionCommandPreparationSchema,
+        sessionCommandToolResultSchema,
+      ].map((schema) => z.toJSONSchema(schema, { unrepresentable: 'any' })),
+      z.toJSONSchema(runtimeKernelMutationAdmissionSchema),
+      z.toJSONSchema(commandMetadataSchema),
+      z.toJSONSchema(commandCatalogPageSchema, { unrepresentable: 'any' }),
+      z.toJSONSchema(commandDescriptorSchema, { unrepresentable: 'any' }),
       z.toJSONSchema(runtimeKernelCancelSchema),
       z.toJSONSchema(runtimeKernelNodeIntentRecoverySchema),
       z.toJSONSchema(runtimeKernelNodeWorkspaceInspectionSchema),

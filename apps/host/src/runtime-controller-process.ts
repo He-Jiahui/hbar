@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { HbarError, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import { createPathLayout, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
-import { CommandRegistry } from '@hbar/commands'
+import { CommandRegistry, commandExecutionExpectationSchema } from '@hbar/commands'
+import { CommandExecutionJobs, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import { chatDatabaseCommands } from '@hbar/contracts/commands/chat-database'
 import {
   procedure,
@@ -19,16 +20,20 @@ import {
   runtimeControllerDispatchSchema,
   runtimeControllerRequestSchema,
   isRuntimeControllerControl,
+  runtimeControllerCommandStartSchema,
 } from './runtime-controller-contract'
 import { RuntimeControllerKernel } from './runtime-controller-kernel'
 import { createControllerApplication } from './controller-application'
 import { ownsControllerRpc, invokeControllerRpc } from './controller-rpc'
 import { RUNTIME_CONTROLLER_SERVICES } from './runtime-controller-services'
+import { attachRuntimeCommandJobs } from './runtime-command-jobs'
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   let requests = 0
   let defaultOwner = false
   let backgroundStarted = false
+  const commandJobs = new CommandExecutionJobs()
+  const detachCommandJobs = attachRuntimeCommandJobs(context.peer, commandJobs)
   const configuration = runtimeControllerConfigurationSchema.safeParse(context.configuration)
   if (!configuration.success && !z.strictObject({}).safeParse(context.configuration).success)
     throw new HbarError('INVALID_INPUT', 'Controller configuration must satisfy its declared lifecycle contract')
@@ -72,7 +77,22 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         },
       })
     : null
-  values.register('service', async (args) => {
+  context.peer.register(
+    'controller.command.start',
+    procedure(runtimeControllerCommandStartSchema, commandJobSnapshotSchema, (input, call) => {
+      call.signal.throwIfAborted()
+      if (context.preparing() || !kernel || !application)
+        throw new HbarError('RUNTIME_PREPARING', 'Controller command jobs are not activated')
+      return kernel.pin(input.scope, () =>
+        commandJobs.start({ jobId: input.scope.invocationId, actorId: input.scope.actorId }, (jobSignal) =>
+          application.commandRouter.executePreparedTracked(input.invocation, input.scope.actorId, input.expectation, {
+            signal: jobSignal,
+          }),
+        ),
+      )
+    }),
+  )
+  values.register('service', async (args, signal) => {
     if (context.preparing() || !kernel || !application)
       throw new HbarError('RUNTIME_PREPARING', 'Controller services are not activated')
     const scope = runtimeControllerScopeSchema.parse(args[0]),
@@ -80,11 +100,23 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       method = z.string().parse(args[2]),
       input = z.array(z.unknown()).max(32).parse(args[3])
     return kernel.pin(scope, async () => {
+      if (service === 'commands' && method === 'prepare')
+        return (await application.commandRouter.prepare(input[0])).invocation
       if (service === 'commands' && method === 'dispatch') {
         const invocation = rpcSchemas['command.execute'].parse(input[0])
         const dispatch = application.commandDispatchers.get(invocation.commandId)
         if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is absent from this Controller owner')
         return dispatch(invocation, z.string().min(1).max(160).parse(input[1]))
+      }
+      if (service === 'commands' && method === 'dispatchPrepared') {
+        const actorId = z.string().min(1).max(160).parse(input[1])
+        if (actorId !== scope.actorId) throw new HbarError('FORBIDDEN', 'Command actor differs from its admitted scope')
+        return application.commandRouter.executePrepared(
+          input[0],
+          actorId,
+          commandExecutionExpectationSchema.parse(input[2]),
+          { signal },
+        )
       }
       const declared: unknown = Reflect.get(RUNTIME_CONTROLLER_SERVICES, service)
       if (!Array.isArray(declared) || !declared.includes(method))
@@ -208,10 +240,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       await application?.scheduleController.close()
       await application?.sessionSearchCommands.pause()
       backgroundStarted = false
-      return { requests, runs: 0, resources: 0 }
+      return { requests, runs: 0, resources: commandJobs.stats().jobs }
     },
     async dispose() {
       defaultOwner = false
+      commandJobs.dispose()
+      detachCommandJobs()
       await application?.dispose()
       maintenance.dispose()
       values.dispose()

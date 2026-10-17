@@ -33,6 +33,7 @@ function html(
   labels = generalSettingsCopy(language.store.getState().locale),
   sendBehavior?: WebSendBehaviorController,
   zoom?: WebZoomController,
+  web?: { addresses: readonly string[]; connected?: boolean },
 ) {
   // Zustand SSR uses getInitialState, not the post-action client snapshot. Seed
   // this render-only store from the actual owner's action result, never invented
@@ -43,11 +44,34 @@ function html(
     : undefined
   const renderedZoom = zoom ? { ...zoom, store: createStore(() => zoom.store.getState()) } : undefined
   return renderToStaticMarkup(
-    <WebGeneralSettings labels={labels} language={rendered} sendBehavior={renderedSend} zoom={renderedZoom} />,
+    <WebGeneralSettings
+      labels={labels}
+      language={rendered}
+      sendBehavior={renderedSend}
+      zoom={renderedZoom}
+      webAddresses={web?.addresses}
+      connected={web?.connected}
+    />,
   )
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`General reports active Host web addresses and clears stale addresses when disconnected: ${locale}`, () => {
+    const language = createWebLanguageController(locale, storage().port)
+    const labels = generalSettingsCopy(locale)
+    expect(html(language, labels)).toContain(labels.web.unavailable)
+    const addresses = Array.from({ length: 16 }, (_, index) => `http://192.168.${index}.1:46317`)
+    const markup = html(language, labels, undefined, undefined, { addresses })
+    expect(markup).toContain(labels.web.title)
+    for (const address of addresses) expect(markup).toContain(address)
+    const disconnected = html(language, labels, undefined, undefined, { addresses, connected: false })
+    expect(disconnected).toContain(labels.web.unavailable)
+    expect(disconnected).not.toContain('http://192.168.0.1:46317')
+    const untrusted = html(language, labels, undefined, undefined, { addresses: ['<script>unsafe</script>'] })
+    expect(untrusted).toContain('&lt;script&gt;unsafe&lt;/script&gt;')
+    expect(untrusted).not.toContain('<script>unsafe</script>')
+  })
+
   test(`General places device zoom after sending with a labeled bounded range and reset: ${locale}`, async () => {
     const controller = createWebZoomController({
       read: async () => 1.25,
@@ -108,7 +132,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(rendered).toContain(labels.deviceScope)
     expect(rendered).toContain(labels.languageDescription)
     expect(rendered).toContain(labels.currentLanguage(locale))
-    expect(rendered).toMatch(/<div(?=[^>]*role="radiogroup")(?=[^>]*aria-labelledby="hbar-general-language-label")[^>]*>/)
+    expect(rendered).toMatch(
+      /<div(?=[^>]*role="radiogroup")(?=[^>]*aria-labelledby="hbar-general-language-label")[^>]*>/,
+    )
     expect(rendered).toContain('aria-describedby="hbar-general-language-help"')
     expect(rendered.match(/role="radio"/g)).toHaveLength(3)
     expect(rendered.match(/aria-checked="true"/g)).toHaveLength(1)

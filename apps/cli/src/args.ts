@@ -7,6 +7,7 @@ export interface CliArgs {
   commandArgs: string[]
   message?: string | undefined
   headless: boolean
+  unattended?: boolean | undefined
   help: boolean
   connectOnly?: boolean | undefined
   dataRoot?: string | undefined
@@ -30,6 +31,9 @@ export interface CliArgs {
   inputFile?: string | undefined
   text?: string | undefined
   expectedSha256?: string | undefined
+  operationKey?: string | undefined
+  channel?: string | undefined
+  offset?: string | undefined
   client?: string | undefined
   invocationId?: string | undefined
   timeout?: string | undefined
@@ -97,7 +101,8 @@ Usage:
   hbar repl                         Open the line-oriented command REPL
   hbar --headless --message <text> Run one request without a UI
   hbar --connect-only ...           Use a healthy existing Host; do not create anything implicitly
-  hbar serve                        Start a background Host
+  hbar serve                        Start or attach to a backend service
+  hbar serve --unattended            Enable persistent unattended execution on that backend
   hbar serve --role conversation --host <address> --port <port> --cert <pem> --key <pem>
   hbar serve --role conversation --no-local-exec
   hbar serve --role workspace --home <node-data> --join <A-url> --code <8-digits> --fingerprint <A-fingerprint>
@@ -108,6 +113,9 @@ Usage:
   hbar exec session.clearBudget --session <id|name>
   hbar exec receipt [run.submit|run.retry] <idempotency-key> --session <id|name>
   hbar commands list [--category <category>] [--limit <1-200>]
+  hbar exec command.receipt.get <operationKey> --session <id|name>
+  hbar exec command.result.read <operationKey> --session <id|name>
+    [--channel logical|physical --offset <bytes> --limit <4-8192> --expected-sha256 <hash>]
   hbar commands describe <commandId>
   hbar exec app.setSession <id|name> --workspace <id|name> [--context <name>]
   hbar exec workspace.open <directory-path>
@@ -231,6 +239,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     noLocalExec: Boolean(values['no-local-exec']),
     message: (values.message as string | undefined) ?? freeMessage,
     headless: Boolean(values.headless),
+    unattended: Boolean(values.unattended),
     help: Boolean(values.help),
     connectOnly: Boolean(values['connect-only']),
     dataRoot: values['data-root'] as string | undefined,
@@ -254,6 +263,9 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     inputFile: values['input-file'] as string | undefined,
     text: values.text as string | undefined,
     expectedSha256: values['expected-sha256'] as string | undefined,
+    operationKey: values['operation-key'] as string | undefined,
+    channel: values.channel as string | undefined,
+    offset: values.offset as string | undefined,
     client: values.client as string | undefined,
     invocationId: values['invocation-id'] as string | undefined,
     timeout: values.timeout as string | undefined,

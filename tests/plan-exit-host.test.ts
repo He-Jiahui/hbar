@@ -91,6 +91,41 @@ async function fixture(approval: 'allow' | 'ask' | 'deny' = 'ask') {
   return { root, kernel, client, session, run, observed, results }
 }
 
+test('the common decision directory keeps Plan-exit identity and continues the original Run through the original mode transition', async () => {
+  const f = await fixture('allow')
+  const approval = await waitForApproval(f.kernel, f.session.id)
+  const commands = createInteractionCommandClient(f.client)
+  const target = { sessionId: f.session.id, kind: 'plan_exit' as const, id: approval.id }
+  expect(
+    (await commands.execute('decision.list', { sessionId: f.session.id, kind: 'plan_exit' })).items.map(
+      (item) => item.id,
+    ),
+  ).toContain(approval.id)
+  expect(await commands.execute('decision.get', target)).toMatchObject({
+    runId: f.run.id,
+    callId: approval.callId,
+    revision: 1,
+    status: 'pending',
+    tool: 'exit_plan_mode',
+  })
+  expect(
+    await commands.execute(
+      'decision.resolve',
+      {
+        sessionId: target.sessionId,
+        id: target.id,
+        expectedRevision: 1,
+        resolution: { kind: 'plan_exit', decision: 'implement' },
+      },
+      { idempotencyKey: 'directory-plan-exit' },
+    ),
+  ).toMatchObject({ accepted: true, decision: { status: 'allowed', revision: 2 } })
+  await f.kernel.waitForIdle()
+  expect(f.observed).toEqual(['plan', 'default'])
+  expect(f.results).toEqual({ exit: false, write: false })
+  expect(await Bun.file(join(f.root, 'approved.txt')).text()).toBe('same run')
+})
+
 test.each(['allow', 'ask', 'deny'] as const)(
   'Plan exit always waits for the exact user decision, then writes in the same Run: %s',
   async (approvalMode) => {

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
+import { CommandExecutionJobs, commandJobStartSchema, commandJobSnapshotSchema } from '@hbar/commands/jobs'
 import {
   chatDatabaseOperationSchema,
   type ChatDatabaseOperation,
@@ -28,6 +29,7 @@ import {
 } from '@hbar/storage'
 import { procedure, RuntimeValuePort, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
 import { acquireHostProcessLock } from './process-lock'
+import { attachRuntimeCommandJobs } from './runtime-command-jobs'
 import {
   runtimeMaintenanceConfigurationSchema,
   runtimeMaintenanceDispatchSchema,
@@ -36,6 +38,8 @@ import {
 
 /** All maintenance jobs, scanners, timers and the native SQLite maintenance Worker belong to this process. */
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
+  const commandJobs = new CommandExecutionJobs()
+  const detachCommandJobs = attachRuntimeCommandJobs(context.peer, commandJobs)
   const configuration = runtimeMaintenanceConfigurationSchema.parse(context.configuration)
   const layout = createPathLayout(
     configuration.dataRoot,
@@ -152,34 +156,47 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     }
   }
   let application = construct()
-  const dispatch = async (input: z.infer<typeof runtimeMaintenanceDispatchSchema>, control: boolean) => {
+  const assertDispatch = (commandId: string, control: boolean) => {
     if (!live || context.preparing()) throw new HbarError('RUNTIME_PREPARING', 'Maintenance is not activated')
     if (
       control &&
-      !['chatDatabase.cancel', 'chatDatabase.operation', 'chatDatabase.receipt'].includes(input.invocation.commandId)
+      !['chatDatabase.cancel', 'chatDatabase.operation', 'chatDatabase.receipt'].includes(commandId)
     )
       throw new HbarError('INVALID_INPUT', 'Reserved maintenance capacity only accepts control requests')
     if (
       draining &&
-      ['chatDatabase.preview', 'chatDatabase.cleanup', 'chatDatabase.inventory.begin'].includes(
-        input.invocation.commandId,
-      )
+      ['chatDatabase.preview', 'chatDatabase.cleanup', 'chatDatabase.inventory.begin'].includes(commandId)
     )
       throw new HbarError('RUNTIME_DRAINING', 'New maintenance jobs use the default generation')
+  }
+  const dispatch = async (input: z.infer<typeof runtimeMaintenanceDispatchSchema>, control: boolean, signal: AbortSignal) => {
+    assertDispatch(input.invocation.commandId, control)
     requests++
     try {
-      return await application.commands.dispatch(input.invocation, input.actorId)
+      return input.expectation
+        ? await application.commands.dispatchPrepared(input.invocation, input.actorId, input.expectation, { signal })
+        : await application.commands.dispatch(input.invocation, input.actorId)
     } finally {
       requests--
     }
   }
   context.peer.register(
     'maintenance.dispatch',
-    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input) => dispatch(input, false)),
+    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input, call) => dispatch(input, false, call.signal)),
   )
   context.peer.register(
     'maintenance.control',
-    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input) => dispatch(input, true)),
+    procedure(runtimeMaintenanceDispatchSchema, z.unknown(), (input, call) => dispatch(input, true, call.signal)),
+  )
+  context.peer.register(
+    'maintenance.command.start',
+    procedure(commandJobStartSchema, commandJobSnapshotSchema, (input, call) => {
+      call.signal.throwIfAborted()
+      assertDispatch(input.invocation.commandId, false)
+      return commandJobs.start({ jobId: input.jobId, actorId: input.actorId }, (signal) =>
+        application.commands.dispatchPreparedTracked(input.invocation, input.actorId, input.expectation, { signal }),
+      )
+    }),
   )
   context.peer.register(
     'maintenance.resume',
@@ -220,7 +237,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       return {
         contractFingerprint: MAINTENANCE_RUNTIME_FINGERPRINT,
         storageSchema: STORAGE_SCHEMA_VERSION,
-        capabilities: ['maintenance.dispatch', 'maintenance.control', 'maintenance.resume', 'maintenance.verifyWriter'],
+        capabilities: [
+          'maintenance.dispatch', 'maintenance.control', 'maintenance.command.start',
+          'maintenance.resume', 'maintenance.verifyWriter',
+        ],
       }
     },
     async activate() {
@@ -231,10 +251,16 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     async drain() {
       draining = true
       await application.scheduler.close()
-      return { requests, runs: application.maintenance.currentOperationId() ? 1 : 0, resources: releaseWriter ? 1 : 0 }
+      return {
+        requests,
+        runs: application.maintenance.currentOperationId() ? 1 : 0,
+        resources: commandJobs.stats().jobs + Number(Boolean(releaseWriter)),
+      }
     },
     async dispose() {
       draining = true
+      commandJobs.dispose()
+      detachCommandJobs()
       await probe?.close()
       probe = undefined
       await application.close()

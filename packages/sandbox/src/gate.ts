@@ -1,4 +1,5 @@
 import type { ResolvedSandboxProfile } from '@hbar/contracts/sandbox'
+import { toolArgumentValue, type ToolPathArgument } from '@hbar/contracts/tool-arguments'
 import {
   evaluateSandbox,
   normalizeSandboxAbsolutePath,
@@ -25,7 +26,7 @@ export interface SandboxToolDeclaration {
     | { kind: 'workspace' }
     | {
         kind: 'paths'
-        arguments: readonly { field: string; access: 'read' | 'write' }[]
+        arguments: readonly ToolPathArgument[]
       }
 }
 export interface SandboxGateMount {
@@ -64,8 +65,13 @@ export async function evaluateSandboxCall(
   // Process tools are the exception: their command rules decide, because a process is not confined.
   const required: { field: string; access: 'read' | 'write'; requested: string; subtree: boolean }[] =
     declared?.kind === 'paths'
-      ? declared.arguments.flatMap(({ field, access }) =>
-          requestedPaths(input.args[field]).map((requested) => ({ field, access, requested, subtree: false })),
+      ? declared.arguments.flatMap((argument) =>
+          requestedPaths(toolArgumentValue(input.args, argument)).map((requested) => ({
+            field: argument.field,
+            access: argument.access,
+            requested,
+            subtree: false,
+          })),
         )
       : declared?.kind === 'workspace' && input.tool.effect !== 'process'
         ? [{ field: '*', access: input.tool.effect === 'write' ? 'write' : 'read', requested: '.', subtree: true }]

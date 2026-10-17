@@ -2,6 +2,14 @@ import { lstat, mkdir, readdir, realpath } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
+import {
+  gitCommands,
+  gitRunContextSchema,
+  gitRunOperationSchema,
+  type GitRunContext,
+  type GitRunOperation,
+  type GitRunResult,
+} from '@hbar/contracts/commands/git'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import {
   HbarError,
@@ -559,6 +567,98 @@ export class GitRuntime implements GitService {
 
   scoped(root: string) {
     return new GitRuntime(root, this.config, this.runner, false, this.onChanged, this.statsIndexes)
+  }
+
+  async forRun(raw: GitRunOperation, context: GitRunContext, signal?: AbortSignal): Promise<GitRunResult> {
+    const operation = gitRunOperationSchema.parse(raw)
+    const source = gitRunContextSchema.parse(context)
+    if (operation.input.cwd !== undefined)
+      throw new HbarError('COMMAND_SOURCE_WORKSPACE_MISMATCH', 'Run-scoped Git cannot override its execution workspace')
+    const worktree = operation.method === 'worktree' ? gitCommands['git.worktree'].input.parse(operation.input) : null
+    let worktreeRoot: string | undefined
+    if (worktree && worktree.operation !== 'list' && this.config.worktreeRoot) {
+      worktreeRoot = await this.worktreeRootPromise
+      if (!inside(await realpath(source.workspacePath), worktreeRoot))
+        throw new HbarError(
+          'COMMAND_SOURCE_WORKTREE_ROOT_DENIED',
+          'Run-scoped worktrees must remain inside the admitted workspace',
+        )
+    }
+    const scoped = new GitRuntime(
+      source.workspacePath,
+      { ...this.config, worktreeRoot },
+      this.runner,
+      false,
+      this.onChanged,
+      this.statsIndexes,
+    )
+    switch (operation.method) {
+      case 'info':
+        gitCommands['git.info'].input.parse(operation.input)
+        return scoped.info(undefined, signal)
+      case 'status':
+        gitCommands['git.status'].input.parse(operation.input)
+        return scoped.status(undefined, signal)
+      case 'diff': {
+        const input = gitCommands['git.diff'].input.parse(operation.input)
+        return scoped.diff(undefined, input, signal)
+      }
+      case 'log': {
+        const input = gitCommands['git.log'].input.parse(operation.input)
+        return scoped.log(undefined, input.limit, signal)
+      }
+      case 'stats': {
+        const input = gitCommands['git.stats'].input.parse(operation.input)
+        return scoped.stats(undefined, input, signal)
+      }
+      case 'commit': {
+        const input = gitCommands['git.commit'].input.parse(operation.input)
+        if (
+          (input.sessionId !== undefined && input.sessionId !== source.sessionId) ||
+          (input.runId !== undefined && input.runId !== source.runId)
+        )
+          throw new HbarError('COMMAND_SOURCE_MISMATCH', 'Run-scoped commit attribution belongs to its captured source')
+        return scoped.commit(
+          undefined,
+          {
+            ...input,
+            provenance: {
+              source: 'auto',
+              sessionId: source.sessionId,
+              runId: source.runId,
+              operationId: source.callId,
+            },
+          },
+          signal,
+        )
+      }
+      case 'branch': {
+        const input = gitCommands['git.branch'].input.parse(operation.input)
+        if (input.operation === 'list') return scoped.branch(undefined, { operation: 'list' }, signal)
+        if (!input.name) throw new HbarError('GIT_BRANCH_NAME', 'Branch mutation requires a name')
+        return scoped.branch(undefined, { operation: input.operation, name: input.name, force: input.force }, signal)
+      }
+      case 'worktree': {
+        const input = gitCommands['git.worktree'].input.parse(operation.input)
+        if (input.operation === 'list') return scoped.worktree(undefined, { operation: 'list' }, signal)
+        if (!input.path) throw new HbarError('GIT_WORKTREE_PATH', 'Worktree mutation requires a path')
+        if (input.operation === 'add')
+          return scoped.worktree(
+            undefined,
+            {
+              operation: 'add',
+              path: input.path,
+              branch: input.branch,
+              createBranch: input.createBranch,
+            },
+            signal,
+          )
+        return scoped.worktree(undefined, { operation: 'remove', path: input.path, force: input.force }, signal)
+      }
+      case 'diffToRemote':
+        gitCommands['git.diffToRemote'].input.parse(operation.input)
+        return scoped.diffToRemote(undefined, signal)
+    }
   }
 
   private async notifyChanged(cwd: string) {

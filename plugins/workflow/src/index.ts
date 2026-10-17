@@ -36,6 +36,7 @@ import type {
   WorkflowWorkItem,
 } from '@hbar/contracts'
 import type { PeerMessageReceipt } from '@hbar/contracts/commands/run'
+import { toolArgumentValue } from '@hbar/contracts/tool-arguments'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
 import { appendModelContext, definePlugin, provide, readSessionEventPages, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
 import type {
@@ -243,7 +244,7 @@ function workspaceAccessPaths(
   if (tool.workspaceAccess.kind === 'workspace')
     return [{ path: '.', access: tool.effect === 'read' ? 'read' : 'write' }]
   return tool.workspaceAccess.arguments.flatMap((argument) => {
-    const value = args[argument.field]
+    const value = toolArgumentValue(args, argument)
     const values = value === undefined ? ['.'] : Array.isArray(value) ? value : [value]
     return values.flatMap((entry) =>
       typeof entry === 'string' ? [{ path: relativeToolPath(workspace, entry), access: argument.access }] : [],
@@ -4149,7 +4150,7 @@ export const workflowPlugin = definePlugin({
     api.hooks.on('run.start', (event) => runtime.startReviewer(event))
     api.hooks.on('run.end', (event) => runtime.settleTargetRun(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
-    api.hooks.on('tool.before', async (event) => {
+    api.hooks.on('tool.admitting', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)
       return event
     })
@@ -4162,6 +4163,7 @@ export const workflowPlugin = definePlugin({
       commit: await runtime.guardCompletion(event.sessionId, event.goal.goalId, event.commit),
     }))
     api.hooks.on('goal.beforeContinue', (event) => {
+      if (!event.allowed) return event
       const policy = runtime.continuationPolicy(event.sessionId)
       return { ...event, ...policy, allowed: event.allowed && policy.allowed }
     })

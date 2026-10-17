@@ -88,6 +88,13 @@ function settingsChoiceLabel(locale: ShellLocale, value: unknown): string {
       : { ask: 'Ask', deny: 'Deny approval requests', sandbox: 'Sandbox profile', allow: 'Auto-approve' }
   if (value === 'internal') return locale === 'zh-CN' ? '内置' : 'Built-in'
   if (value === 'system') return locale === 'zh-CN' ? '系统默认' : 'System default'
+  if (value === 'client') return locale === 'zh-CN' ? '打开客户端' : 'Open client'
+  if (value === 'background') return locale === 'zh-CN' ? '仅托盘后台' : 'Tray backend only'
+  if (value === 'local') return locale === 'zh-CN' ? '仅本机' : 'This device only'
+  if (value === 'lan') return locale === 'zh-CN' ? '允许局域网' : 'Local network'
+  if (value === 'wait_user') return locale === 'zh-CN' ? '需要输入时等待用户' : 'Wait when user input is needed'
+  if (value === 'recommended') return locale === 'zh-CN' ? '自动选择推荐项' : 'Choose recommended options'
+  if (value === 'delegate') return locale === 'zh-CN' ? '交给另一个会话抉择' : 'Delegate to another session'
   return approval[String(value)] ?? thinkingLevelLabel(locale, value)
 }
 
@@ -257,6 +264,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'app.navigation': '应用与导航',
         'workspace.session': '工程与会话',
         'run.approval': '运行与审批',
+        'run.decisions': '待决事项',
         'model.budget': '模型与预算',
         'model.configuration': '模型配置',
         'agent.goal.plan': '代理、目标与计划',
@@ -271,6 +279,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'app.navigation': 'App and navigation',
         'workspace.session': 'Projects and sessions',
         'run.approval': 'Runs and approvals',
+        'run.decisions': 'Decisions',
         'model.budget': 'Models and budgets',
         'model.configuration': 'Model configuration',
         'agent.goal.plan': 'Agents, goals, and plans',
@@ -284,6 +293,12 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
   const messages: Readonly<Record<string, string>> = zh
     ? {
         'commands.app.openPanel.title': '打开子界面',
+        'commands.decision.list.title': '列出待决事项',
+        'commands.decision.list.description': '按会话和类型分页读取问答、审批或计划决定。',
+        'commands.decision.get.title': '读取待决事项',
+        'commands.decision.get.description': '读取原请求、当前版本和处理结果。',
+        'commands.decision.resolve.title': '处理待决事项',
+        'commands.decision.resolve.description': '按已读取的版本提交答复、审批或计划决定。',
         'commands.app.openPanel.description': '在当前工作台打开指定子界面。',
         'commands.app.closePanel.title': '关闭子界面',
         'commands.app.closePanel.description': '关闭指定的工作台子界面。',
@@ -336,6 +351,13 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
       }
     : {
         'commands.app.openPanel.title': 'Open panel',
+        'commands.decision.list.title': 'List decisions',
+        'commands.decision.list.description': 'Read paged questions, approvals, or Plan decisions for a session.',
+        'commands.decision.get.title': 'Read a decision',
+        'commands.decision.get.description': 'Read the original request, current revision, and resolution.',
+        'commands.decision.resolve.title': 'Resolve a decision',
+        'commands.decision.resolve.description':
+          'Submit an answer, approval, or Plan decision using its observed revision.',
         'commands.app.openPanel.description': 'Open a named panel in the current workbench.',
         'commands.app.closePanel.title': 'Close panel',
         'commands.app.closePanel.description': 'Close a workbench panel instance.',
@@ -393,6 +415,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
   const fields: Readonly<Record<string, string>> = zh
     ? {
         sessionId: '会话 ID',
+        kind: '类型',
+        id: '标识符',
+        status: '状态',
+        resolution: '处理内容',
         workspaceId: '工作区 ID',
         session: '会话 ID 或名称',
         sessionName: '会话名称',
@@ -426,6 +452,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
       }
     : {
         sessionId: 'Session ID',
+        kind: 'Kind',
+        id: 'Identifier',
+        status: 'Status',
+        resolution: 'Resolution',
         workspaceId: 'Workspace ID',
         session: 'Session ID or name',
         sessionName: 'Session name',
@@ -499,7 +529,18 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
     workspaceOption: (name, path) => `${name} · ${path}`,
     sessionOption: (title, workspace) => `${title} · ${workspace}`,
     fieldFallback: (name) => fields[name] ?? name,
-    option: (_field, value) => String(value),
+    option: (field, value) => {
+      if (field.name === 'kind') {
+        if (value === 'questionnaire') return choose('问答', 'Question')
+        if (value === 'approval') return choose('审批', 'Approval')
+        if (value === 'plan_exit') return choose('计划决定', 'Plan decision')
+      }
+      if (field.name === 'status') {
+        if (value === 'pending') return choose('待处理', 'Pending')
+        if (value === 'all') return choose('全部', 'All')
+      }
+      return String(value)
+    },
     issue: (issue) => {
       const codes = zh
         ? {
@@ -559,6 +600,24 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     ? {
         'i18n:settings.groups.model': '模型',
         'i18n:settings.groups.general': '通用',
+        'i18n:settings.backend.decisionMode.label': '后台交互模式',
+        'i18n:settings.backend.decisionMode.help':
+          '为后台任务选择交互方式；会话可覆盖全局默认。事实、秘密和授权仍需要人工。',
+        'i18n:settings.backend.decisionTarget.label': '决策目标会话',
+        'i18n:settings.backend.decisionTimeout.label': '委派等待时限（秒）',
+        'i18n:settings.backend.decisionTimeout.help':
+          '等待目标会话的时间，可设为 1–3600 秒，默认 300 秒。超时后保留原问题并等待人工处理。',
+        'i18n:settings.backend.decisionTarget.help':
+          '填写同一宿主上目标会话的 ID；执行时仍按来源设备权限检查两个会话。',
+        'i18n:settings.desktop.startupMode.label': '桌面启动方式',
+        'i18n:settings.desktop.startupMode.help': '下次启动时打开客户端，或仅在托盘运行后台。',
+        'i18n:settings.backend.unattended.label': '无人值守运行',
+        'i18n:settings.backend.unattended.help':
+          '后台继续排队任务；普通任务遇到临时服务故障时，退避后最多重试两次。需要用户输入时按决策模式处理。',
+        'i18n:settings.backend.webAccess.label': '网页访问范围',
+        'i18n:settings.backend.webAccess.help': '局域网设备仍需配对并遵守设备权限；重启后台后应用监听范围。',
+        'i18n:settings.backend.webPort.label': '网页端口',
+        'i18n:settings.backend.webPort.help': '默认 4317；保存后重启后台生效。端口占用时会报告启动失败。',
         'i18n:settings.client.resourceWebOpenMode.label': '网页默认打开方式',
         'i18n:settings.client.resourceFileOpenMode.label': '文件默认打开方式',
         'i18n:settings.client.resourceOpenMode.help': '右键可以单次选择打开方式，图片点击后在内置查看器中显示。',
@@ -589,6 +648,24 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     : {
         'i18n:settings.groups.model': 'Model',
         'i18n:settings.groups.general': 'General',
+        'i18n:settings.backend.decisionMode.label': 'Backend interaction mode',
+        'i18n:settings.backend.decisionMode.help':
+          'Choose how background tasks handle input. Sessions can override the global default. Facts, secrets and authorization still require a human.',
+        'i18n:settings.backend.decisionTarget.label': 'Decision target session',
+        'i18n:settings.backend.decisionTimeout.label': 'Delegation wait time (seconds)',
+        'i18n:settings.backend.decisionTimeout.help':
+          'Wait 1–3600 seconds for the target session, with a default of 300 seconds. On timeout, keep the original decision for a person to handle.',
+        'i18n:settings.backend.decisionTarget.help':
+          'Enter a session ID on this Host. Execution still checks access to both sessions using the source device.',
+        'i18n:settings.desktop.startupMode.label': 'Desktop startup',
+        'i18n:settings.desktop.startupMode.help': 'On the next launch, open the client or run the backend in the tray.',
+        'i18n:settings.backend.unattended.label': 'Unattended execution',
+        'i18n:settings.backend.unattended.help':
+          'Continue queued work in the backend. Ordinary tasks retry temporary service failures up to twice with backoff; input requests follow the decision mode.',
+        'i18n:settings.backend.webAccess.label': 'Web access',
+        'i18n:settings.backend.webAccess.help': 'Network devices still require pairing and device permissions. Restart the backend to apply.',
+        'i18n:settings.backend.webPort.label': 'Web port',
+        'i18n:settings.backend.webPort.help': 'Default: 4317. Restart the backend after saving. A port conflict reports a startup failure.',
         'i18n:settings.client.resourceWebOpenMode.label': 'Default website opening',
         'i18n:settings.client.resourceFileOpenMode.label': 'Default file opening',
         'i18n:settings.client.resourceOpenMode.help':

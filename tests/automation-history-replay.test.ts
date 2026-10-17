@@ -3,7 +3,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import { sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { Kernel, MemorySecrets, SettingsService } from '@hbar/kernel'
+import { AUTONOMY_DECISION_MODE_SETTING } from '@hbar/contracts/autonomy'
+import { encodePath } from '@hbar/schema-core'
 import { Storage, type StoragePort } from '@hbar/storage'
 
 async function removeOwned(root: string): Promise<void> {
@@ -67,6 +69,23 @@ test('Kernel restoration reads past two thousand canonical events and retains th
       profile: { createStorage: async () => port },
     })
     expect(await kernel.automationGet(session.id)).toMatchObject({ unattended: true, goalEnabled: false })
+    const settings = new SettingsService(storage)
+    const policy = await settings.decisionPolicy(session.id)
+    expect(policy).toMatchObject({ policy: { mode: 'recommended' }, source: 'session' })
+    const modePath = [{ kind: 'field' as const, name: AUTONOMY_DECISION_MODE_SETTING }]
+    const migrated = await settings.get({ kind: 'session', targetId: session.id })
+    expect(migrated.resolution.reports[encodePath(modePath)]?.effectiveValue).toBe('recommended')
+    await settings.apply({
+      schemaVersion: 1,
+      scope: migrated.scope,
+      baselineRevisions: migrated.revisions,
+      changes: [{ op: 'unset', path: modePath }],
+      actorId: 'fixture',
+      idempotencyKey: 'inherit-after-migration',
+    })
+    expect(await kernel.automationGet(session.id)).toMatchObject({ unattended: false })
+    await kernel.automationSet(session.id, undefined, true)
+    expect((await settings.decisionPolicy(session.id)).policy.mode).toBe('wait_user')
     expect(eventPages).toContainEqual({
       afterSeq: 0,
       types: ['automation.changed'],
@@ -75,7 +94,9 @@ test('Kernel restoration reads past two thousand canonical events and retains th
       matchingEventCount: 2,
     })
     expect(kernel.active.size).toBe(0)
-    expect(await storage.call('events', session.id, last.seq, 128)).toHaveLength(0)
+    expect((await storage.call('events', session.id, last.seq, 128)).map((event) => event.type)).toEqual([
+      'automation.changed',
+    ])
   } finally {
     await kernel?.close()
     await storage.close()

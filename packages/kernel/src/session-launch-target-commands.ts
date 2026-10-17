@@ -166,6 +166,8 @@ export function createSessionLaunchTargetCommands(kernel: SessionLaunchTargetCom
   )
   return {
     ...createCommandClient(sessionLaunchTargetCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

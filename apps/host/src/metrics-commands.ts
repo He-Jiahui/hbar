@@ -29,6 +29,8 @@ export function createMetricsCommands(collector: PerformanceCollector, now: () =
   })
   return {
     ...createCommandClient(metricsCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

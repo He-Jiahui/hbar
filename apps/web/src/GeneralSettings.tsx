@@ -23,6 +23,12 @@ export interface WebGeneralSettingsLabels {
   readonly saveError: string
   readonly retryRead: string
   readonly retrySave: string
+  readonly web: {
+    readonly title: string
+    readonly description: string
+    readonly current: (addresses: readonly string[]) => string
+    readonly unavailable: string
+  }
   readonly sending: {
     readonly title: string
     readonly description: string
@@ -297,6 +303,7 @@ interface WebGeneralSettingsProps {
   readonly zoom?: WebZoomController | undefined
   readonly nativeZoom?: boolean | undefined
   readonly connected?: boolean | undefined
+  readonly webAddresses?: readonly string[] | undefined
 }
 
 function WebGeneralSettingsView({
@@ -305,6 +312,7 @@ function WebGeneralSettingsView({
   zoom,
   nativeZoom = false,
   connected = true,
+  webAddresses,
 }: Omit<WebGeneralSettingsProps, 'labels'>) {
   const { t } = WebGeneralSettingsMessages.useMessages()
   const state = useStore(language.store)
@@ -325,6 +333,17 @@ function WebGeneralSettingsView({
         </LumenFrame>
         <LumenContentText context="section.description" tone="subtle">
           {t('deviceScope')}
+        </LumenContentText>
+      </LumenFrame>
+      <LumenFrame as="fieldset" className="hbar-web-general-language">
+        <LumenText as="legend" variant="label">
+          {t('web').title}
+        </LumenText>
+        <LumenContentText context="section.description" tone="muted">
+          {t('web').description}
+        </LumenContentText>
+        <LumenContentText context="message.inline" role="status">
+          {connected && webAddresses?.length ? t('web').current(webAddresses) : t('web').unavailable}
         </LumenContentText>
       </LumenFrame>
       <LumenFrame as="fieldset" className="hbar-web-general-language">

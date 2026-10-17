@@ -32,16 +32,29 @@ import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/sy
 
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
 import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
+import { directoryCommands as directoryDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
+import { createCommandRouter, prepareCommandInvocation } from '@hbar/commands'
 
 import { Auth, requestToken } from './auth.ts'
 import { DeviceAuthorization } from './device-authorization'
-import { createNodeCommands, createRemoteWorkspaceCreator } from './node-commands'
+import { enableDesktopBackground, projectDesktopStartup } from './desktop-startup'
+import { desktopBackgroundRequestSchema, desktopPairingRequestSchema } from '@hbar/contracts/desktop'
+import { projectDesktopTrayActions, projectDesktopPairing } from './desktop-tray'
+import { createNodeCommands, createRemoteWorkspaceCreator, createRemoteWorkspaceCommands } from './node-commands'
 import { nodeCommands as nodeDefinitions } from '@hbar/contracts/commands/nodes'
 import { workspaceCreateInputSchema } from '@hbar/contracts/commands/workspaces'
 import { NodeSocketSurface, nodeRequestAllowed } from './node-sockets'
 import { resourceReadInputSchema } from '@hbar/contracts/commands/resources'
 import { createSystemCommands } from './system-commands.ts'
+import { LocalCommandJobs } from './local-command-jobs'
+import { createHostCommandResultPayloads } from './host-command-result-payloads'
+import { CommandReceiptReader } from './command-receipt-reader'
+import { createCommandResultCommands } from './command-result-commands'
+import { commandResultCommands as commandResultDefinitions } from '@hbar/contracts/commands/command-results'
+import { SessionCommandExecution } from './session-command-execution'
+import { ClientCommandRelay } from './client-command-relay'
+import { ClientCommandJobs } from './client-command-jobs'
 
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
@@ -163,7 +176,19 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   }
   if (options.runtime?.maintenance && options.controller?.application) {
     const maintenance = options.runtime.maintenance
-    commandServices.push({ commandIds: Object.keys(chatDatabaseDefinitions), service: maintenance })
+    commandServices.push({
+      commandIds: Object.keys(chatDatabaseDefinitions),
+      service: {
+        dispatch: maintenance.dispatch,
+        ...(maintenance.dispatchPrepared ? { dispatchPrepared: maintenance.dispatchPrepared } : {}),
+        ...(maintenance.dispatchPreparedTracked
+          ? { dispatchPreparedTracked: maintenance.dispatchPreparedTracked }
+          : {}),
+        describe: (id) => maintenance.describe(id),
+        list: () => maintenance.list(),
+        prepare: (value) => prepareCommandInvocation(chatDatabaseDefinitions, value),
+      },
+    })
     for (const id of Object.keys(chatDatabaseDefinitions)) {
       commandDispatchers.set(id, maintenance.dispatch)
       commandDescribers.set(id, () => maintenance.describe(id))
@@ -287,6 +312,11 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     string,
     { socket: ServerWebSocket<SocketData>; generation: number; commands: Set<string> }
   >()
+  const commandClients = new ClientCommandRelay((connectionId, request) => {
+    const target = [...sockets].find((socket) => socket.data.connectionId === connectionId && socket.readyState === 1)
+    if (!target) throw new HbarError('COMMAND_TARGET_STALE', 'The original command client connection is unavailable')
+    send(target, { jsonrpc: '2.0', method: 'command.client.request', params: request })
+  })
   type SurfaceOutcome = { ok: true; result: unknown } | { ok: false; code: string; message: string }
   interface PendingSurfaceInvocation {
     key: string
@@ -409,6 +439,15 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     commandDispatchers.set(id, systemCommands.dispatch)
     commandDescribers.set(id, () => systemCommands.describe(id))
   }
+  const commandResultPayloads = createHostCommandResultPayloads(kernel)
+  const commandResultCommands = createCommandResultCommands(
+    new CommandReceiptReader(kernel.storage, commandResultPayloads),
+  )
+  commandServices.push({ commandIds: Object.keys(commandResultDefinitions), service: commandResultCommands })
+  for (const id of Object.keys(commandResultDefinitions)) {
+    commandDispatchers.set(id, commandResultCommands.dispatch)
+    commandDescribers.set(id, () => commandResultCommands.describe(id))
+  }
   const nodeCommands = createNodeCommands(options.nodeLink)
   commandServices.push({ commandIds: Object.keys(nodeDefinitions), service: nodeCommands })
   for (const id of Object.keys(nodeDefinitions)) {
@@ -418,6 +457,119 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   const createRemoteWorkspace = createRemoteWorkspaceCreator(options.nodeLink, (input) =>
     kernel.createNodeWorkspace(input),
   )
+  const remoteWorkspaceCommands = createRemoteWorkspaceCommands(createRemoteWorkspace)
+  const retainHostCommand = options.runtime?.retainHostCommand?.bind(options.runtime)
+  const localCommandJobs = new LocalCommandJobs({
+    ...(options.runtime?.commandScopes ? { scopes: options.runtime.commandScopes } : {}),
+    ...(options.runtime?.instanceId ? { instanceId: options.runtime.instanceId } : {}),
+    ...(retainHostCommand ? { retainSource: retainHostCommand } : {}),
+  })
+  const commandRouter = createCommandRouter({
+    catalogs: () => [...commandServices.map(({ service }) => service.list()), systemCommands.list()],
+    resolve(id) {
+      let dispatch = commandDispatchers.get(id)
+      let describe = commandDescribers.get(id)
+      let guarded = Object.hasOwn(systemDefinitions, id)
+        ? systemCommands.dispatchPrepared
+        : commandServices.find((entry) => entry.commandIds.includes(id))?.service.dispatchPrepared
+      let tracked = Object.hasOwn(directoryDefinitions, id)
+        ? kernel.directoryQueries.dispatchPreparedTracked
+        : Object.hasOwn(systemDefinitions, id)
+          ? systemCommands.dispatchPreparedTracked
+          : commandServices.find((entry) => entry.commandIds.includes(id))?.service.dispatchPreparedTracked
+      const localDefinitions = [systemDefinitions, metricsDefinitions, nodeDefinitions, commandResultDefinitions].find(
+        (definitions) => Object.hasOwn(definitions, id),
+      )
+      let prepare = localDefinitions
+        ? (value: unknown) => prepareCommandInvocation(localDefinitions, value)
+        : commandServices.find((entry) => entry.commandIds.includes(id))?.service.prepare
+      if (!dispatch || !describe) {
+        const dynamic = application.resolveCommand?.(id)
+        dispatch ??= dynamic?.dispatch
+        describe ??= dynamic ? () => dynamic.describe(id) : undefined
+        prepare ??= dynamic?.prepare
+        guarded ??= dynamic?.dispatchPrepared
+        tracked ??= dynamic?.dispatchPreparedTracked
+      }
+      if (!dispatch || !describe) return undefined
+      const selectedDispatch = dispatch
+      return {
+        describe,
+        ...(prepare ? { prepare } : {}),
+        async dispatch(value, actorId) {
+          const invocation = rpcSchemas['command.execute'].parse(value)
+          if (id === 'workspace.create') {
+            const input = workspaceCreateInputSchema.safeParse(invocation.input)
+            if (input.success && input.data.path === undefined)
+              return remoteWorkspaceCommands.dispatch(invocation, actorId)
+          }
+          return selectedDispatch(invocation, actorId)
+        },
+        async dispatchPrepared(value, actorId, expectation, executeOptions) {
+          const invocation = rpcSchemas['command.execute'].parse(value)
+          if (id === 'workspace.create') {
+            const input = workspaceCreateInputSchema.safeParse(invocation.input)
+            if (input.success && input.data.path === undefined)
+              return remoteWorkspaceCommands.dispatchPrepared(invocation, actorId, expectation, executeOptions)
+          }
+          if (!guarded)
+            throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner does not support guarded dispatch')
+          return guarded(invocation, actorId, expectation, executeOptions)
+        },
+        dispatchPreparedTracked(value, actorId, expectation, executeOptions) {
+          const invocation = rpcSchemas['command.execute'].parse(value)
+          if (id === 'workspace.create') {
+            const input = workspaceCreateInputSchema.safeParse(invocation.input)
+            if (input.success && input.data.path === undefined)
+              return localCommandJobs.execute(
+                actorId,
+                (signal) =>
+                  remoteWorkspaceCommands.dispatchPreparedTracked(invocation, actorId, expectation, {
+                    ...executeOptions,
+                    signal,
+                  }),
+                { signal: executeOptions?.signal },
+              )
+          }
+          if (!tracked)
+            throw new CommandError('CAPABILITY_UNAVAILABLE', 'The command owner has no physical settlement tracking')
+          const actual = tracked
+          const managed = Object.hasOwn(directoryDefinitions, id)
+            ? !!options.runtime
+            : Object.hasOwn(chatDatabaseDefinitions, id)
+              ? !!options.runtime?.maintenance || !!options.controller?.application
+              : !!options.controller?.application
+          if (localDefinitions || !managed)
+            return localCommandJobs.execute(
+              actorId,
+              (signal) => actual(invocation, actorId, expectation, { ...executeOptions, signal }),
+              { signal: executeOptions?.signal },
+            )
+          return actual(invocation, actorId, expectation, executeOptions)
+        },
+      }
+    },
+  })
+  const assertCommandSource = options.runtime?.assertCommandSource?.bind(options.runtime)
+  const clientCommandJobs =
+    options.runtime?.commandScopes && retainHostCommand
+      ? new ClientCommandJobs({
+          relay: commandClients,
+          scopes: options.runtime.commandScopes,
+          retainSource: retainHostCommand,
+        })
+      : undefined
+  const sessionCommandExecution =
+    options.runtime?.commandScopes && assertCommandSource
+      ? new SessionCommandExecution({
+          storage: kernel.storage,
+          routing: commandRouter,
+          scopes: options.runtime.commandScopes,
+          payloads: commandResultPayloads,
+          assertSource: assertCommandSource,
+          ...(clientCommandJobs ? { clients: clientCommandJobs } : {}),
+        })
+      : undefined
   function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
     if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
     clearTimeout(pending.timer)
@@ -487,45 +639,14 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-        if (invocation.commandId === 'workspace.create') {
-          const input = workspaceCreateInputSchema.safeParse(invocation.input)
-          if (input.success && input.data.path === undefined) return createRemoteWorkspace(input.data)
-        }
-        const dispatch =
-          commandDispatchers.get(invocation.commandId) ?? application.resolveCommand?.(invocation.commandId)?.dispatch
-        if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
-        return dispatch(invocation, socket.data.deviceId)
+        return commandRouter.execute(invocation, socket.data.deviceId)
       }
       case 'command.catalog': {
-        const filter = rpcSchemas[method].parse(raw)
-        const catalogs = [...commandServices.map(({ service }) => service.list()), systemCommands.list()]
-        const descriptors = catalogs
-          .flatMap(({ items }) => items)
-          .filter(
-            ({ metadata }) =>
-              !filter.category ||
-              metadata.category === filter.category ||
-              metadata.category.startsWith(`${filter.category}.`),
-          )
-          .filter(({ metadata }) => !filter.after || metadata.id > filter.after)
-          .sort((a, b) => a.metadata.id.localeCompare(b.metadata.id))
-        const items = descriptors.slice(0, filter.limit)
-        return {
-          revision: catalogs.reduce((total, catalog) => total + catalog.revision, 0),
-          items,
-          ...(descriptors.length > filter.limit ? { nextCursor: items.at(-1)!.metadata.id } : {}),
-        }
+        return commandRouter.list(rpcSchemas[method].parse(raw))
       }
       case 'command.describe': {
         const input = rpcSchemas[method].parse(raw)
-        const describe =
-          commandDescribers.get(input.commandId) ??
-          (() => {
-            const service = application.resolveCommand?.(input.commandId)
-            return service ? () => service.describe(input.commandId) : null
-          })()
-        if (!describe) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
-        return describe()
+        return commandRouter.describe(input.commandId)
       }
       case 'command.getReceipt': {
         const input = rpcSchemas[method].parse(raw)
@@ -613,6 +734,28 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           rejectSurfaceTarget(input.clientId, input.generation, 'Target client unregistered')
         }
         return null
+      }
+      case 'command.client.register': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        return commandClients.register(socket.data.connectionId, actorId, rpcSchemas[method].parse(raw))
+      }
+      case 'command.client.unregister': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        commandClients.unregister(socket.data.connectionId, actorId, rpcSchemas[method].parse(raw))
+        return null
+      }
+      case 'command.client.reply': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        commandClients.reply(socket.data.connectionId, actorId, rpcSchemas[method].parse(raw))
+        return null
+      }
+      case 'command.client.list': {
+        const actorId = socket.data.device?.id
+        if (!actorId) throw new HbarError('UNAUTHORIZED', 'Authenticated command client required')
+        return commandClients.list(actorId)
       }
       case 'surface.list':
         return {
@@ -1376,6 +1519,45 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           const device = await auth.authenticate(requestToken(request))
           if (authorization.restricted(device) && url.pathname !== '/api/resource-media')
             throw new HbarError('FORBIDDEN', 'Use scoped resource reads for this device')
+          if (url.pathname === '/api/desktop/tray' && request.method === 'GET')
+            return json(request, projectDesktopTrayActions(request.headers.get('accept-language') ?? 'zh-CN'), 200, {
+              'Cache-Control': 'no-store',
+            })
+          if (url.pathname === '/api/desktop/pairing' && request.method === 'POST') {
+            const input = desktopPairingRequestSchema.parse(await request.json())
+            const pairing = await systemCommands.execute(
+              'pairing.create',
+              { role: input.role, workspaceIds: null },
+              { actorId: device.id },
+            )
+            return json(
+              request,
+              projectDesktopPairing(
+                pairing,
+                input.role,
+                hostInfo(device).addresses,
+                request.headers.get('accept-language') ?? 'zh-CN',
+              ),
+              200,
+              { 'Cache-Control': 'no-store' },
+            )
+          }
+          if (url.pathname === '/api/desktop/background' && request.method === 'POST') {
+            desktopBackgroundRequestSchema.parse(await request.json())
+            return json(request, await enableDesktopBackground(application.settingsCommands, device.id), 200, {
+              'Cache-Control': 'no-store',
+            })
+          }
+          if (url.pathname === '/api/desktop/startup' && request.method === 'GET')
+            return json(
+              request,
+              projectDesktopStartup(
+                await application.settingsCommands.execute('settings.get', { scope: { kind: 'global' } }),
+                request.headers.get('accept-language') ?? 'zh-CN',
+              ),
+              200,
+              { 'Cache-Control': 'no-store' },
+            )
           const clientPlugin = /^\/api\/plugins\/([^/]+)\/client\.js$/.exec(url.pathname)
           if (clientPlugin && request.method === 'GET')
             return response(request, await kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
@@ -1660,6 +1842,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           terminalRouter.detach(socket.data.deviceId, socket.data.terminalCallbacks)
         socket.data.terminals.clear()
         sockets.delete(socket)
+        commandClients.disconnected(socket.data.connectionId)
         for (const controller of socket.data.schemaQueries.values())
           controller.abort(new HbarError('CANCELLED', 'Schema content client disconnected'))
         socket.data.schemaQueries.clear()
@@ -1720,13 +1903,34 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         send(socket, { jsonrpc: '2.0', method: 'metrics.sample', params: sample })
   })
   await scheduleController.start()
+  const detachCommandRouting = options.runtime?.attachCommandRouting?.(commandRouter)
+  const detachSessionCommandExecution = sessionCommandExecution
+    ? options.runtime?.attachSessionCommandExecution?.(sessionCommandExecution)
+    : undefined
+  const detachCommandMutationState = sessionCommandExecution
+    ? options.runtime?.attachCommandMutationState?.(sessionCommandExecution)
+    : undefined
   return {
     server,
+    /** Trusted in-process adapters share the same route as authenticated RPC. */
+    commands: commandRouter,
+    commandJobs: localCommandJobs,
+    commandClients,
+    sessionCommandExecution,
     auth,
     pairing,
     info: hostInfo,
     async close() {
+      sessionCommandExecution?.assertCanClose()
+      localCommandJobs.assertCanClose()
+      clientCommandJobs?.assertCanClose()
+      commandClients.close()
+      clientCommandJobs?.dispose()
       closing = true
+      detachCommandRouting?.()
+      detachSessionCommandExecution?.()
+      detachCommandMutationState?.()
+      localCommandJobs.dispose()
       nodeSockets?.closeAll()
       await application.dispose()
       metricsCommands.dispose()
@@ -1737,6 +1941,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
       systemCommands.dispose()
       nodeCommands.dispose()
+      commandResultCommands.dispose()
+      remoteWorkspaceCommands.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })

@@ -142,6 +142,7 @@ export async function runRuntimeProcess(
   const peer = new IpcPeer({
     owner,
     remote,
+    acceptRemoteDeadlineControl: true,
     controlMethods: z
       .array(z.string().min(1).max(128))
       .max(128)
@@ -218,6 +219,7 @@ export async function runRuntimeProcess(
   process.on('disconnect', () => stop(0, 'parent_disconnect'))
   process.on('SIGINT', () => stop(0, 'signal_int'))
   process.on('SIGTERM', () => stop(0, 'signal_term'))
+  void peer.advertiseWaitCapacity().catch(() => stop(76, 'transport_failure'))
   peer.register(
     'runtime.prepare',
     procedure(runtimePrepareSchema, runtimeReadySchema, async (input) => {

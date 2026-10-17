@@ -3,9 +3,15 @@ import { z } from 'zod'
 import { rpcRequestSchema, rpcSchemas, type RpcMethod, type HostInfo } from '@hbar/contracts'
 import { hostInfoSchema } from '@hbar/contracts/commands/system'
 import { liveStreamSchema } from '@hbar/contracts/runtime-notifications'
-import { commandMetadataSchema, type CommandDescriptor } from '@hbar/commands'
+import {
+  commandMetadataSchema,
+  commandExecutionExpectationSchema,
+  invocationSchema,
+  type CommandDescriptor,
+} from '@hbar/commands'
 import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import type { ControllerServerApplication } from './runtime-controller-services'
+import { RUNTIME_COMMAND_JOB_SCHEMAS } from './runtime-command-job-contract'
 
 export const runtimeControllerRequestSchema = rpcRequestSchema
   .extend({
@@ -64,6 +70,11 @@ export const runtimeControllerCatalogSchema = z
   )
   .max(64)
 export type RuntimeControllerScope = z.output<typeof runtimeControllerScopeSchema>
+export const runtimeControllerCommandStartSchema = z.strictObject({
+  scope: runtimeControllerScopeSchema,
+  invocation: invocationSchema,
+  expectation: commandExecutionExpectationSchema,
+})
 export type RuntimeControllerAuthorize = (
   request: RuntimeControllerRequest,
   signal: AbortSignal,
@@ -80,7 +91,10 @@ export function isRuntimeControllerControl(request: RuntimeControllerRequest): b
 export const CONTROLLER_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
-      'hbar.controller.v1',
+      'hbar.controller.v4.tracked-command-jobs',
+      z.toJSONSchema(runtimeControllerCommandStartSchema, { unrepresentable: 'any' }),
+      RUNTIME_COMMAND_JOB_SCHEMAS.map((schema) => z.toJSONSchema(schema)),
+      z.toJSONSchema(commandExecutionExpectationSchema, { unrepresentable: 'any' }),
       z.toJSONSchema(runtimeControllerDispatchSchema),
       z.toJSONSchema(runtimeControllerConfigurationSchema),
       z.toJSONSchema(runtimeControllerScopeSchema),

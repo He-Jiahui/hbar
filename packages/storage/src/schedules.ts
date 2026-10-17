@@ -6,6 +6,7 @@ import {
   scheduleOccurrenceSchema,
 } from '@hbar/contracts/commands/schedules'
 import { createFeatureCommandReceipts, type FeatureWriteIdentity } from './feature-command-receipts'
+import { createScheduleExecutionStorage } from './schedule-executions'
 import type {
   ScheduleCreateInput,
   ScheduleDefinition,
@@ -28,9 +29,15 @@ export const SCHEDULES_MIGRATION_SQL = `ALTER TABLE schedule_occurrences ADD COL
 export function createScheduleStorage(db: Database) {
   db.exec(SCHEDULES_SQL)
   const receipts = createFeatureCommandReceipts(db)
+  const executions = createScheduleExecutionStorage(db)
   const read = (row: unknown): ScheduleDefinition =>
     scheduleDefinitionSchema.parse(JSON.parse(String((row as { data: string }).data)))
   return {
+    execution: executions.read,
+    occurrence(occurrenceId: string): ScheduleOccurrence | null {
+      const raw = db.query('SELECT * FROM schedule_occurrences WHERE id=?').get(occurrenceId)
+      return raw ? scheduleOccurrenceSchema.parse(raw) : null
+    },
     enabledSchedules(after: string | null, limit: number) {
       const rows = db
         .query(
@@ -242,6 +249,7 @@ export function createScheduleStorage(db: Database) {
           now,
           now,
         )
+        executions.capture(occurrence.id, schedule)
         db.query(
           'INSERT INTO schedule_runtime(scheduleId,lastDueAt,pendingDueAt,updatedAt) VALUES(?,?,NULL,?) ON CONFLICT(scheduleId) DO UPDATE SET lastDueAt=excluded.lastDueAt,pendingDueAt=CASE WHEN schedule_runtime.pendingDueAt<=excluded.lastDueAt THEN NULL ELSE schedule_runtime.pendingDueAt END,updatedAt=excluded.updatedAt',
         ).run(scheduleId, dueAt, now)

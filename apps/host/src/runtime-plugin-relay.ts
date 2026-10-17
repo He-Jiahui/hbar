@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import {
   HbarError,
   resolveProviderModel,
@@ -6,16 +7,28 @@ import {
   sessionEventPageSchema,
   sessionReadFactsInputSchema,
   sessionReadFactsSchema,
+  userInputRequestSchema,
 } from '@hbar/contracts'
 import type { ExecutionOwnership, RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
 import type { RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import type { WorkspaceExecutionScope } from '@hbar/plugin-sdk'
-import { RuntimeValuePort, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
+import {
+  RuntimeValuePort,
+  type IpcPeer,
+  type RuntimeCoordinator,
+  type IpcProcedureContext,
+  type IpcCallTicket,
+} from '@hbar/runtime'
 import type { StableStoragePort } from '@hbar/storage'
-import { runtimePluginAuthoritySchema, runtimePluginInvocationSchema } from './runtime-plugin-contract'
+import {
+  runtimePluginAuthoritySchema,
+  runtimePluginInvocationSchema,
+  isRuntimePluginControl,
+} from './runtime-plugin-contract'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import { invokeRuntimeNodeExecution } from './runtime-node-execution-call'
 import { assertRuntimePublicObservationCallback, runtimePublicObservation } from './runtime-public-observation'
+import type { RuntimeHumanWaits } from './runtime-human-waits'
 
 export interface RuntimePluginEndpoint {
   readonly owner: RuntimeOwner
@@ -33,17 +46,25 @@ interface Pending {
 /** Authentication, version routing and physical capacity live in the stable process. */
 export class RuntimePluginRelay {
   private readonly pending = new Map<string, Pending>()
+  private readonly incomingCallbacks = new AsyncLocalStorage<IpcProcedureContext>()
+  private readonly outgoingCallbacks = new AsyncLocalStorage<{ execution: ExecutionOwnership; callId: string }>()
   constructor(
     private readonly options: {
       readonly storage: StableStoragePort
       readonly coordinator: RuntimeCoordinator
+      readonly humanWaits?: Pick<RuntimeHumanWaits, 'track'>
       readonly current: () => readonly RuntimePluginEndpoint[]
       readonly resolve: (unitId: string, execution?: ExecutionOwnership, sessionId?: string) => RuntimePluginEndpoint
       readonly nodeLink?: () => RuntimeNodeLinkPort
     },
   ) {}
   attachPlugin(peer: IpcPeer, owner: RuntimeOwner): { application: RuntimeValuePort; dispose(): void } {
-    const application = new RuntimeValuePort(peer, { prefix: 'plugin.application', callbackTimeoutMs: 1_325_000 })
+    const application = new RuntimeValuePort(peer, {
+      prefix: 'plugin.application',
+      callbackScope: (operation, call) => this.incomingCallbacks.run(call, operation),
+      callbackTimeoutMs: 1_325_000,
+      callbackSettlement: 'physical',
+    })
     const cleanup = application.register('host.read', ([methodValue, argsValue], signal) => {
       const method = z.string().parse(methodValue),
         args = z.array(z.unknown()).max(32).parse(argsValue)
@@ -79,7 +100,15 @@ export class RuntimePluginRelay {
     }
   }
   attachKernel(peer: IpcPeer, owner: RuntimeOwner): () => void {
-    const application = new RuntimeValuePort(peer, { prefix: 'kernel.plugins', callbackTimeoutMs: 1_325_000 })
+    const application = new RuntimeValuePort(peer, {
+      prefix: 'kernel.plugins',
+      callbackTracked: (dispatch) => {
+        const scope = this.outgoingCallbacks.getStore()
+        return scope ? this.callback(scope.execution, scope.callId, dispatch) : dispatch().settled
+      },
+      callbackTimeoutMs: 1_325_000,
+      callbackSettlement: 'physical',
+    })
     application.register('catalog', () => {
       this.options.coordinator.assertCanRead(owner)
       return this.options.current().map((endpoint) => ({ unitId: endpoint.owner.unitId, state: endpoint.state }))
@@ -124,9 +153,30 @@ export class RuntimePluginRelay {
         this.options.coordinator.assertCanWrite(owner, execution)
         this.options.coordinator.assertCanWrite(endpoint.owner, execution)
         if (observation) assertRuntimePublicObservationCallback(observation, method, parameters)
-        if (method === 'execution.nodeCall') return this.nodeCall(parameters, workspaceScope, execution, signal)
-        const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
-        return result
+        if (method === 'execution.nodeCall') {
+          if (execution) this.options.coordinator.assertExecutionCapacity(execution)
+          return this.nodeCall(parameters, workspaceScope, execution, signal)
+        }
+        const forward = async (): Promise<unknown> => {
+          const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
+          return result
+        }
+        if (method !== 'userInput.request' || !execution || !callId) return forward()
+        const request = userInputRequestSchema.parse(parameters[0])
+        if (request.sessionId !== execution.sessionId || request.runId !== execution.runId || request.callId !== callId)
+          throw new HbarError(
+            'EXECUTION_OWNER_MISMATCH',
+            'A questionnaire callback must retain its original tool execution',
+          )
+        const incoming = this.incomingCallbacks.getStore()?.callerDeadline
+        const untrack = incoming
+          ? this.options.humanWaits?.track(execution, callId, { suspendDeadline: () => incoming.suspend() })
+          : undefined
+        try {
+          return await this.outgoingCallbacks.run({ execution, callId }, forward)
+        } finally {
+          untrack?.()
+        }
       }
       const invocationId = crypto.randomUUID()
       let callId: string | undefined
@@ -143,13 +193,17 @@ export class RuntimePluginRelay {
         callId = identity.callId
       }
       const resource = execution
-        ? this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
+        ? isRuntimePluginControl(request)
+          ? this.options.coordinator.acquireControlResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
+          : this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
         : null
       let permitId: string | undefined
       if (callId && execution) {
         try {
           permitId = this.options.coordinator.reserveTool(execution, callId, endpoint.owner).id
+          if (resource) this.options.coordinator.bindToolResource(endpoint.owner, resource.id, execution, callId)
         } catch (error) {
+          if (permitId) this.options.coordinator.releaseTool(endpoint.owner, permitId)
           if (resource) this.options.coordinator.releaseResource(endpoint.owner, resource.id)
           throw error
         }
@@ -162,11 +216,23 @@ export class RuntimePluginRelay {
         ...(workspaceScope ? { workspaceScope } : {}),
       })
       try {
-        return await endpoint.application.call('invoke', [{ ...request, invocationId }, args, invokeHost], {
+        const tracked = endpoint.application.callTracked('invoke', [{ ...request, invocationId }, args, invokeHost], {
           signal,
           timeoutMs:
             request.toolTimeoutMs === undefined ? 120_000 : Math.min(1_325_000, request.toolTimeoutMs + 125_000),
         })
+        void tracked.result.catch(() => {})
+        let untrack: (() => void) | undefined
+        try {
+          if (execution && callId) untrack = this.options.humanWaits?.track(execution, callId, tracked)
+          return await tracked.settled
+        } finally {
+          try {
+            await tracked.settled
+          } finally {
+            untrack?.()
+          }
+        }
       } catch (error) {
         // Cancellation/transport failure is not physical completion. The owner's finally notification or actual exit releases its permit.
         if (
@@ -183,6 +249,25 @@ export class RuntimePluginRelay {
       }
     })
     return () => application.dispose()
+  }
+  private async callback<Result>(
+    execution: ExecutionOwnership,
+    callId: string,
+    dispatch: () => IpcCallTicket<Result>,
+  ): Promise<Result> {
+    const ticket = dispatch()
+    void ticket.result.catch(() => {})
+    let untrack: (() => void) | undefined
+    try {
+      untrack = this.options.humanWaits?.track(execution, callId, ticket)
+      return await ticket.settled
+    } finally {
+      try {
+        await ticket.settled
+      } finally {
+        untrack?.()
+      }
+    }
   }
   exited(owner: RuntimeOwner): void {
     for (const [id, pending] of this.pending)

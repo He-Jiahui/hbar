@@ -66,6 +66,20 @@ async function fixture() {
   return { ...fixture, fixture, session, queue, claim, interrupt }
 }
 
+test('a command owner fault keeps its actual cause while revocation still requires the source lease authority', async () => {
+  const { storage, session, queue, claim } = await fixture()
+  const run = await queue('command-owned')
+  const lease = await claim(run.id)
+  const controller: RuntimeOwner = { unitId: 'controller', generation: 1, incarnation: 'controller-failed' }
+  await rejects(storage.call('runtimeExecutionRevoke', controller, [run.id], kernel), 'RUNTIME_OWNER_MISMATCH')
+  expect((await storage.call('runtimeExecutionRead', run.id))?.state).toBe('active')
+  expect(await storage.call('runtimeExecutionRevoke', lease.owner, [run.id], controller)).toEqual([run.id])
+  expect((await storage.call('runtimeExecutionRead', run.id))?.state).toBe('revoked')
+  expect((await storage.call('events', session.id, 0, 100)).find(event => event.type === 'execution.revoked')?.data).toMatchObject({
+    lease, failedOwner: controller, authorityOwner: kernel,
+  })
+})
+
 test('the database fences late commits and preserves unrelated ownership and queue identities', async () => {
   const { storage, session, queue, claim, interrupt } = await fixture()
   const run = await queue('first')

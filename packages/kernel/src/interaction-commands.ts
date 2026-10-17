@@ -2,9 +2,11 @@ import { CommandError, CommandRegistry, createCommandClient } from '@hbar/comman
 import { HbarError } from '@hbar/contracts'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import type { InteractionCommandKernelPort } from './controller-port'
+import { registerDecisionCommands } from './decision-commands'
 
 export function createInteractionCommands(kernel: InteractionCommandKernelPort) {
   const registry = new CommandRegistry({ execution: 'host' })
+  registerDecisionCommands(registry, kernel)
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
       return await operation()
@@ -88,6 +90,8 @@ export function createInteractionCommands(kernel: InteractionCommandKernelPort) 
 
   return {
     ...createCommandClient(interactionCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

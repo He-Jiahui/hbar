@@ -2,16 +2,17 @@ import { z } from 'zod'
 import { HbarError, toolPresentationDeclarationSchema, settingsContributionSchema, terminalContributionSchema, toolWindowContributionSchema, themeContributionSchema } from '@hbar/contracts'
 import { runtimeDriverToolSchema, runtimeToolResultSchema } from './runtime-driver'
 import { resolveToolTimeoutMs, type ToolDefinition, type ToolContext, type HookEvents } from './index'
+import { toolPathArgumentSchema } from '@hbar/contracts/tool-arguments'
 
 export const runtimePluginToolSchema = runtimeDriverToolSchema.extend({
   presentation: toolPresentationDeclarationSchema.optional(), humanApproval: z.literal('required').optional(),
   requiresProcess: z.boolean().optional(),
   commandArgument: z.string().min(1).max(128).optional(),
   workspaceAccess: z.discriminatedUnion('kind', [z.strictObject({ kind: z.literal('none') }), z.strictObject({ kind: z.literal('workspace') }),
-    z.strictObject({ kind: z.literal('paths'), arguments: z.array(z.strictObject({ field: z.string().min(1).max(128), access: z.enum(['read', 'write']) })).max(64) })]).optional(),
+    z.strictObject({ kind: z.literal('paths'), arguments: z.array(toolPathArgumentSchema).max(64) })]).optional(),
 })
 export type RuntimePluginTool = z.infer<typeof runtimePluginToolSchema>
-export const RUNTIME_PLUGIN_HOOKS = ['context.build', 'model.request', 'tool.before', 'tool.executing', 'tool.after', 'tool.settled',
+export const RUNTIME_PLUGIN_HOOKS = ['context.build', 'model.request', 'tool.before', 'tool.admitting', 'tool.executing', 'tool.after', 'tool.settled',
   'step.end', 'tools.select', 'tools.advertise', 'run.start', 'run.modeChanged', 'run.end', 'run.cancelRequested', 'session.idle',
   'session.continuationFailed', 'budget.committed', 'budget.beforeContinue', 'plan.implementationRequested', 'goal.beforeComplete',
   'goal.beforeContinue', 'goal.replaced', 'goal.cleared', 'agent.patch', 'agent.settled'] as const satisfies readonly (keyof HookEvents)[]
@@ -42,7 +43,7 @@ export function describeRuntimeHook<Event extends RuntimePluginHook>(event: Even
   if (event === 'tools.select' || event === 'tools.advertise') {
     const tools = value as HookEvents['tools.select']
     result.tools = tools.tools.map(describeRuntimeTool)
-  } else if (event === 'tool.before' || event === 'tool.executing' || event === 'tool.settled') {
+  } else if (event === 'tool.before' || event === 'tool.admitting' || event === 'tool.executing' || event === 'tool.settled') {
     const tool = value as HookEvents['tool.before']
     result.tool = describeRuntimeTool(tool.tool)
   }
@@ -61,7 +62,7 @@ export function restoreRuntimeHook<Event extends RuntimePluginHook>(event: Event
     return original.description === description.description ? original : { ...original, description: description.description }
   }
   if (event === 'tools.select' || event === 'tools.advertise') result.tools = z.array(z.unknown()).max(4_096).parse(result.tools).map(restore)
-  else if (event === 'tool.before' || event === 'tool.executing' || event === 'tool.settled') result.tool = restore(result.tool)
+  else if (event === 'tool.before' || event === 'tool.admitting' || event === 'tool.executing' || event === 'tool.settled') result.tool = restore(result.tool)
   if (originalValue && 'context' in originalValue) result.context = originalValue.context
   // Each named Hook selects this local domain shape; every transported graph and tool descriptor is validated above.
   return result as HookEvents[Event]

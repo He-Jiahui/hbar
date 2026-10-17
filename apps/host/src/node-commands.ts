@@ -1,6 +1,7 @@
 import { HbarError, type Workspace } from '@hbar/contracts'
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { nodeCommands } from '@hbar/contracts/commands/nodes'
+import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import type { NodeWorkspaceCreate } from '@hbar/contracts/node-workspaces'
 
@@ -73,9 +74,36 @@ export function createNodeCommands(port?: NodeManagementPort) {
   })
   return {
     ...createCommandClient(nodeCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch: (value: unknown, actorId: string) => registry.dispatch(value, { actorId }),
     describe: (id: string) => registry.describe(id),
     list: () => registry.list({ limit: 100 }),
+    dispose: () => registry.dispose(),
+  }
+}
+
+/** The stable Host owns node-root discovery, so its remote workspace path has its own final registry guard. */
+export function createRemoteWorkspaceCommands(create: ReturnType<typeof createRemoteWorkspaceCreator>) {
+  const registry = new CommandRegistry({ execution: 'host' })
+  registry.register(
+    workspaceSessionCommands['workspace.create'],
+    async (input) => {
+      if (input.path !== undefined)
+        throw new CommandError('INVALID_INPUT', 'Remote workspace creation requires a node root')
+      try {
+        return await create(input)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
+    },
+    { durable: true },
+  )
+  return {
+    dispatch: (value: unknown, actorId: string) => registry.dispatch(value, { actorId }),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispose: () => registry.dispose(),
   }
 }

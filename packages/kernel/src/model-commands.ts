@@ -222,6 +222,8 @@ export function createModelCommands(kernel: ModelCommandKernelPort, settings: Se
 
   return {
     ...createCommandClient(modelCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

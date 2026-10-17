@@ -12,7 +12,7 @@ export interface SessionLogLocation {
 }
 
 const durableEvent =
-  /^(message\.committed|run\.|tool\.(?:started|settled|unknown)|approval\.|plan_exit\.resolved$|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.|automation\.|agent\.|user_input\.)/
+  /^(message\.committed|run\.|tool\.(?:started|settled|unknown)|approval\.|plan_exit\.resolved$|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.|automation\.|agent\.|user_input\.|decision\.)/
 
 /** Events whose acknowledgement must include the canonical log on disk. */
 export function isDurableSessionEvent(type: string) {

@@ -73,6 +73,61 @@ test('a failed owner path resolution never falls back to the conversation filesy
 })
 
 for (const dialect of ['posix', 'win32'] as const)
+  test(`nested ${dialect} command paths ignore a permitted flat decoy and check every array destination`, async () => {
+    const path = dialect === 'win32' ? win32 : posix
+    const root = dialect === 'win32' ? 'C:\\remote\\project' : '/remote/project'
+    const port: SandboxPathPort = {
+      ...path,
+      separator: dialect === 'win32' ? '\\' : '/',
+      caseInsensitive: dialect === 'win32',
+      canonical: async (value) => value,
+    }
+    const base = await resolveSandboxProfile(':workspace-write', async () => null)
+    const profile = {
+      ...base,
+      filesystem: {
+        default: 'none' as const,
+        grants: [
+          { path: 'allowed', access: 'write' as const },
+          { path: 'denied', access: 'none' as const },
+        ],
+      },
+    }
+    const input = {
+      workspace: root,
+      tool: {
+        name: 'nested_write',
+        effect: 'write' as const,
+        workspaceAccess: {
+          kind: 'paths' as const,
+          arguments: [{ field: 'input.path', fieldPath: ['input', 'path'], access: 'write' as const }],
+        },
+      },
+      args: { 'input.path': 'allowed/decoy.txt', input: { path: 'allowed/proof.txt' } },
+    }
+    expect((await evaluateSandboxCall(profile, input, port)).decision).toBe('allow')
+    expect(
+      await evaluateSandboxCall(
+        profile,
+        { ...input, args: { ...input.args, input: { path: 'denied/private.txt' } } },
+        port,
+      ),
+    ).toMatchObject({ decision: 'deny', reason: { kind: 'path', field: 'input.path', granted: 'none' } })
+    const arrayCall = {
+      ...input,
+      tool: {
+        ...input.tool,
+        workspaceAccess: {
+          kind: 'paths' as const,
+          arguments: [{ field: 'input.paths', fieldPath: ['input', 'paths'], access: 'write' as const }],
+        },
+      },
+      args: { 'input.path': 'allowed/decoy.txt', input: { paths: ['allowed/first.txt', 'denied/second.txt'] } },
+    }
+    expect((await evaluateSandboxCall(profile, arrayCall, port)).decision).toBe('deny')
+  })
+
+for (const dialect of ['posix', 'win32'] as const)
   for (const caseInsensitive of [false, true])
     test(`the ${dialect} owner cannot widen grants or bypass exclusions with either advertised case mode (${caseInsensitive})`, async () => {
       const path = dialect === 'win32' ? win32 : posix

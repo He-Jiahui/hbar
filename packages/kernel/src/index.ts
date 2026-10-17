@@ -1,11 +1,41 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
+import { planAutonomyRetry } from './autonomy-retry'
+import { backendAllowsGoalContinuation, backendOwnsOrdinaryCompletion } from './backend-completion'
+import type { ExecutionWaitDecision } from '@hbar/contracts/execution-waits'
+import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 import type { NodeWorktreePort } from './node-worktree-port'
 export type { NodeWorktreePort } from './node-worktree-port'
 import { ensureNodeRunWorktree } from './node-run-worktree'
+import { bindToolCall, type PreparedToolCall, type ToolCallPreparationPort } from './tool-call-binding'
+import { createSessionCommandTools } from './session-command-tools'
+import { createDelegatedInputTools, DELEGATED_INPUT_TOOL_NAMES } from './delegated-input-tools'
+import { coordinateDelegatedInput } from './delegated-input-coordinator'
+import { captureDelegatedContext } from './delegated-context'
+import type { DelegatedSourceContext } from '@hbar/contracts/delegated-context'
+import type { DelegatedInputWake } from '@hbar/contracts/delegated-user-input'
+import { delegatedApprovalRequest, delegatedApprovalSubjectSchema } from '@hbar/contracts/delegated-approval'
+import type { SessionCommandDiscoveryPort } from './session-command-port'
+import type { ToolMutationAdmissionPort } from './mutation-admission'
+import { recommendedInputDecision } from './user-input-decisions'
+import {
+  captureInputDecisionContext,
+  completeInputDecision,
+  type InputDecisionContext,
+  type CompletedInputDecision,
+} from './user-input-completion'
+import type {
+  AutonomyPolicyResolution,
+  AutomaticPlanExitDecision,
+  AutomaticToolApprovalAdmission,
+  AutomaticToolApprovalDecision,
+} from '@hbar/contracts/autonomy'
+export type { ToolMutationAdmissionPort, ToolMutationAdmissionContext } from './mutation-admission'
+export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
+export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
 import { assertRemoteLaunchTargetSupported, nodeWorktreeBranchPlan } from './node-worktree-selection'
 import { nodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { admitNodeProcess } from './node-admission-gate'
@@ -96,6 +126,7 @@ import {
   resolveModelContextMode,
   userInputRequestSchema,
   userInputResponseSchema,
+  userInputAutomaticDecisionSchema,
   settingScopeSchema,
   automationStateSchema,
   taskNotificationSchema,
@@ -284,7 +315,8 @@ export type {
 } from './sandbox-policy'
 export { createNotificationService } from './notification-service'
 export { createScheduleRunner, ScheduleRunFailure } from './schedule-runner'
-export type { ScheduleExecutionPort } from './schedule-runner'
+export type { ScheduleExecutionPort, SchedulePrepareInput, ScheduleSubmitInput } from './schedule-runner'
+export { createScheduleAdmission } from './schedule-admission'
 export {
   SettingsService,
   HBAR_SETTINGS_DEFINITIONS,
@@ -422,6 +454,14 @@ export interface KernelOptions {
   /** Managed activation never runs global recovery or starts scheduling during construction. */
   lifecycle?: 'automatic' | 'managed' | 'candidate' | undefined
   execution?: KernelExecutionPort | undefined
+  /** Host-owned final operation binding, after transforming Hooks and before every execution gate. */
+  toolCalls?: ToolCallPreparationPort | undefined
+  /** Additional reconciliation restriction for all final mutating tools, including dynamically bound commands. */
+  mutationAdmission?: ToolMutationAdmissionPort | undefined
+  /** Stable Host command discovery; every session inherits the core discovery tools when supplied. */
+  sessionCommands?: SessionCommandDiscoveryPort | undefined
+  /** Wake an already authorized dedicated decision in the current scheduler, including generation handoff. */
+  delegationWake?: ((input: DelegatedInputWake, signal: AbortSignal) => Promise<void>) | undefined
   /** Private Host bridge for authenticated remote execution intent recovery. */
   nodeIntentRecovery?: NodeIntentRecoveryPort | undefined
   /** Stable Host adapter captures authenticated node facts before remote process admission. */
@@ -523,6 +563,8 @@ interface ActiveRun {
   run: Run
   lease?: ExecutionOwnership
   providerSnapshot?: ProviderConfig
+  decisionContext?: InputDecisionContext
+  decisionDriver?: HarnessDriver
   controller: AbortController
   context: RuntimeScope
   idleTimeout: ReturnType<typeof createRunIdleTimeout>
@@ -562,13 +604,23 @@ export class Kernel {
   private drains = new Map<string, Promise<void>>()
   private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
   private wakeups = new Set<string>()
+  private schedulingRefresh: Promise<void> | undefined
+  private schedulingRefreshRequested = false
   private listeners = new Set<(event: WireNotification) => unknown>()
   private approvals = new Map<string, (resolution: ApprovalResolution) => void>()
   private boundaryStops = new Map<string, RunControlSignal>()
   private userInputs = new Map<
     string,
-    { request: UserInputRequest; settle: (response?: UserInputResponse, error?: unknown) => Promise<boolean> }
+    {
+      request: UserInputRequest
+      settle: (
+        response?: UserInputResponse,
+        error?: unknown,
+        automatic?: z.output<typeof userInputAutomaticDecisionSchema>,
+      ) => Promise<boolean>
+    }
   >()
+  private readonly userInputAdmissions = new Set<string>()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private maintenance = false
@@ -763,6 +815,17 @@ export class Kernel {
       },
     )
     this.registerSettingsSchemaCallbacks()
+    this.hooks.on('budget.beforeContinue', async (event) => ({
+      ...event,
+      allowed: event.allowed && !(await backendOwnsOrdinaryCompletion(this.storage)),
+    }))
+    this.hooks.on('goal.beforeContinue', async (event) => {
+      // Storage owns new recovery acceptance; starting an accepted Run does not acquire another acceptance.
+      if (event.purpose === 'recovery' || event.purpose === 'accepted') return event
+      return (await backendAllowsGoalContinuation(this.storage))
+        ? event
+        : { ...event, allowed: false, reason: 'disabled' }
+    })
     this.hooks.on('goal.replaced', async ({ sessionId, previous, goal, supersededRunIds = [] }) => {
       if (!previous.goalId || !goal.goalId) return
       const stop = new RunControlSignal({ stop: 'goal_replaced', previousGoalId: previous.goalId, goalId: goal.goalId })
@@ -934,6 +997,7 @@ export class Kernel {
       const automatic = !options.lifecycle || options.lifecycle === 'automatic'
       if (automatic) kernel.recovered = await kernel.storage.call('recover')
       await kernel.restoreAutomation()
+      if (options.lifecycle !== 'candidate') await kernel.migrateAutomation()
       kernel.registerDefaults()
       const defaultPluginIds = new Set(kernel.plugins.list().map((plugin) => plugin.id))
       const profilePlugins = options.profile?.plugins ?? []
@@ -984,8 +1048,12 @@ export class Kernel {
     if (this.preparing) throw new HbarError('RUNTIME_PREPARING', 'Candidate Kernel cannot start execution')
     if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel is closed')
     this.readyForRuns = role === 'default'
-    if (!this.readyForRuns) return
+    if (!this.readyForRuns) {
+      this.runtimeRecovery.pauseBackendDiscovery()
+      return
+    }
     await this.sessionLaunchPreparations.resumePending()
+    this.runtimeRecovery.discoverBackendWaiting(() => this.readyForRuns && !this.closing)
     for (const session of await this.storage.call('sessions')) this.kick(session.id)
   }
   async completePreparation(): Promise<void> {
@@ -994,10 +1062,12 @@ export class Kernel {
     const stored = approvalModeSchema.safeParse(await this.storage.call('getSetting', 'permission.mode'))
     this.permissionModeValue = stored.success ? stored.data : 'ask'
     await this.restoreAutomation()
+    await this.migrateAutomation()
     this.preparing = false
   }
   beginDrain(): void {
     this.readyForRuns = false
+    this.runtimeRecovery.pauseBackendDiscovery()
     this.scheduledWakeups.close()
     this.wakeups.clear()
   }
@@ -1134,7 +1204,17 @@ export class Kernel {
       }
     }
   }
+  private async migrateAutomation(): Promise<void> {
+    for (const [sessionId, legacy] of this.automation) {
+      await this.permissionSettings.migrateLegacyDecisionPolicy(sessionId, legacy.unattended)
+      if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel closed during settings migration')
+    }
+  }
   private registerDefaults() {
+    for (const tool of createDelegatedInputTools(this.storage, (event) => this.publishEvent(event)))
+      this.tools.register(tool)
+    if (this.options.sessionCommands)
+      for (const tool of createSessionCommandTools(this.options.sessionCommands)) this.tools.register(tool)
     const isolatedPlugin = (id: string): HbarPlugin | undefined =>
       this.options.profile?.replacements?.[id] ??
       this.options.profile?.managedPlugins?.find((plugin) => plugin.manifest.id === id)
@@ -1319,6 +1399,24 @@ export class Kernel {
   }
   changed(kind: string) {
     this.publish({ method: 'host.changed', params: { kind } })
+    if (kind === 'settings' && this.readyForRuns && !this.closing) {
+      this.schedulingRefreshRequested = true
+      this.schedulingRefresh ??= (async () => {
+        while (this.schedulingRefreshRequested && !this.closing) {
+          this.schedulingRefreshRequested = false
+          await this.activate()
+        }
+      })()
+        .catch((error: unknown) => {
+          console.error(
+            '[hbar kernel] Settings scheduling refresh failed',
+            error instanceof HbarError ? error.code : 'AUTONOMY_REFRESH_FAILED',
+          )
+        })
+        .finally(() => {
+          this.schedulingRefresh = undefined
+        })
+    }
   }
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const recovery = this.executionScope.currentRecovery
@@ -1392,7 +1490,11 @@ export class Kernel {
     return workspace
   }
   async createSession(workspaceId: string, title?: string, parentId?: string) {
-    const session = await this.storage.call('createSession', workspaceId, title, parentId)
+    const parentRun = parentId ? this.active.get(parentId)?.run : undefined
+    const session = await this.storage.call(
+      'createSession', workspaceId, title, parentId,
+      parentRun ? { kind: 'run', runId: parentRun.id } : undefined,
+    )
     this.changed('sessions')
     return session
   }
@@ -1590,11 +1692,13 @@ export class Kernel {
   async automationGet(sessionId: string): Promise<AutomationState> {
     await this.storage.call('session', sessionId)
     const current = this.automation.get(sessionId) ?? { unattended: false, goalEnabled: false }
-    return { sessionId, ...current }
+    const decision = await this.permissionSettings.decisionPolicy(sessionId)
+    return { sessionId, goalEnabled: current.goalEnabled, unattended: decision.policy.mode !== 'wait_user' }
   }
   async automationSet(sessionId: string, unattended?: boolean, goalEnabled?: boolean): Promise<AutomationState> {
     await this.storage.call('session', sessionId)
-    const current = this.automation.get(sessionId) ?? { unattended: false, goalEnabled: false }
+    const current = await this.automationGet(sessionId)
+    if (unattended !== undefined) await this.permissionSettings.setLegacyDecisionPolicy(sessionId, unattended)
     const next = automationStateSchema.parse({
       sessionId,
       unattended: unattended ?? current.unattended,
@@ -1966,6 +2070,7 @@ export class Kernel {
     command?: RunCommandRecord,
     signal?: AbortSignal,
     expectedLaunchTargetRevision?: number,
+    autonomyRetry?: AutonomyRetryAdmission,
   ) {
     input = inputSchema.parse(input)
     const files = input.files ?? []
@@ -1973,6 +2078,8 @@ export class Kernel {
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
     if (this.storageFailure)
       throw new HbarError('STORAGE_UNAVAILABLE', 'Storage is unavailable; restart the Host to recover')
+    if (input.delegatedDecision)
+      throw new HbarError('FORBIDDEN', 'Dedicated decisions require the private source delegation grant')
     await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, input.source)
     input = { ...input, files }
     const initialSession = await this.storage.call('session', sessionId)
@@ -2069,7 +2176,9 @@ export class Kernel {
               binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
             }
             signal?.throwIfAborted()
-            return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+            return this.storage.call(
+              'enqueue', sessionId, requestId, input, modelId, command, binding, this.executionScope.current?.runId, autonomyRetry,
+            )
           }
           return remoteWorkspace || noLocalExecution
             ? enqueue()
@@ -2149,28 +2258,36 @@ export class Kernel {
         if (this.options.execution?.canIdle && !(await this.options.execution.canIdle(sessionId))) return
         const idle = await this.hooks.dispatch('session.idle', { sessionId })
         if (this.closing) return
-        if (!idle.submission) {
+        const retry = idle.submission || idle.wakeAt !== undefined ? null : await planAutonomyRetry(this.storage, sessionId)
+        const submission = idle.submission ?? (retry?.kind === 'submit' ? retry.submission : undefined)
+        if (!submission) {
           if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt)
+          else if (retry?.kind === 'wait') this.scheduledWakeups.schedule(sessionId, retry.wakeAt)
           return
         }
         let submitted: Run
         try {
           submitted = await this.submit(
             sessionId,
-            idle.submission.requestId,
-            idle.submission.input,
-            idle.submission.modelId,
+            submission.requestId,
+            submission.input,
+            submission.modelId,
+            undefined,
+            undefined,
+            undefined,
+            retry?.kind === 'submit' ? retry.admission : undefined,
           )
         } catch (error) {
           // Admission may have committed before its acknowledgement was lost.
           // Reconcile the same request identity, never generate a replacement.
-          const found = await this.storage.call('runByRequest', sessionId, idle.submission.requestId)
+          const found = await this.storage.call('runByRequest', sessionId, submission.requestId)
           if (found) submitted = found.run
           else {
             await this.hooks.dispatch('session.continuationFailed', {
               sessionId,
-              requestId: idle.submission.requestId,
+              requestId: submission.requestId,
               unknown: !(error instanceof HbarError) || error.code === 'RESULT_UNKNOWN',
+              ...(error instanceof HbarError ? { code: error.code } : {}),
             })
             return
           }
@@ -2250,12 +2367,26 @@ export class Kernel {
     let driverCompletionRecorded = false
     let branchExecutionPath: string | null = null
     let branchTargetRevision: number | null = null
+    let delegationDeadline: ReturnType<typeof setTimeout> | undefined
     try {
       if (run.recovery) {
         const reason = await this.checkRuntimeRecovery(run)
         if (reason) throw new HbarError(reason, 'Recovered execution is waiting for its original control conditions')
       }
       this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
+      if (run.input.delegatedDecision) {
+        const grant = await this.storage.call('delegatedInputAdmitRun', {
+          ...run.input.delegatedDecision,
+          targetSessionId: sessionId,
+          targetRunId: run.id,
+        })
+        delegationDeadline = setTimeout(
+          () => controller.abort(new HbarError('DELEGATION_EXPIRED', 'The original dedicated decision deadline expired')),
+          Math.max(1, grant.expiresAt - Date.now()),
+        )
+        await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, run.input.source)
+        await this.assertRunPermission(run)
+      }
       idleTimeout.progress()
       if (run.recovery && (await this.driverCompletionCommitted(run))) {
         controller.signal.throwIfAborted()
@@ -2275,7 +2406,10 @@ export class Kernel {
       const remoteWorkspace = workspace.location?.kind === 'node'
       const noLocalExecution = !this.localExecutionPolicy.enabled
       let workspaceForRun: Workspace
-      if (remoteWorkspace) {
+      if (run.input.delegatedDecision) {
+        // Dedicated replies have no workspace executor and must not prepare or switch the target checkout.
+        workspaceForRun = workspace
+      } else if (remoteWorkspace) {
         const admission = await this.storage.call('nodeRunWorktreeAdmission', run.id)
         if (!admission)
           throw new HbarError(
@@ -2397,6 +2531,8 @@ export class Kernel {
           ).slice(0, 80),
         })
       const driver = this.plugins.get<HarnessDriver>('driver')
+      const sourceDriver = this.active.get(sessionId)
+      if (sourceDriver?.run.id === run.id) sourceDriver.decisionDriver = driver
       const supportsSteering =
         driver.supportsCanonicalSteering === true && driver.supportsSteeringAdmissionClosure === true
       const steeringDeliveries: SteeringDelivery[] = []
@@ -2416,6 +2552,10 @@ export class Kernel {
         runId: run.id,
         tools: scope.tools.list(),
       })
+      if (run.input.delegatedDecision)
+        selectedTools.tools = selectedTools.tools.filter((tool) =>
+          DELEGATED_INPUT_TOOL_NAMES.some((name) => name === tool.name),
+        )
       scope.tools.pinParent()
       idleTimeout.progress()
       const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
@@ -2734,6 +2874,8 @@ export class Kernel {
             stepId,
           )
           idleTimeout.progress()
+          const sourceDecision = this.active.get(sessionId)
+          if (sourceDecision?.run.id === run.id) sourceDecision.decisionContext = captureInputDecisionContext(request)
           return request
         },
         stepEnded: async (stepId) => {
@@ -2819,6 +2961,7 @@ export class Kernel {
         modelStartedAt.clear()
       }
     } finally {
+      if (delegationDeadline) clearTimeout(delegationDeadline)
       idleTimeout.dispose()
       try {
         const active = this.active.get(sessionId)
@@ -3086,6 +3229,11 @@ export class Kernel {
     scope: RuntimeScope,
     selectedTools?: readonly ToolDefinition[],
   ): Promise<ToolResult> {
+    if (context.run.input.delegatedDecision && !DELEGATED_INPUT_TOOL_NAMES.some((allowed) => allowed === name))
+      throw new HbarError(
+        'DELEGATION_TOOL_FORBIDDEN',
+        'Dedicated decisions can only inspect their grant and report a structured reply',
+      )
     const workspace = structuredClone(context.workspace)
     return this.workspaceExecutionScopes.run({ workspace, signal: context.signal }, () =>
       this.executeAdmittedTool(name, rawArgs, context, scope, selectedTools),
@@ -3125,8 +3273,8 @@ export class Kernel {
     const forwardAbort = () => controller.abort(hostSignal.reason)
     hostSignal.addEventListener('abort', forwardAbort, { once: true })
     if (hostSignal.aborted) forwardAbort()
-    const tool = scope.tools.get(name)
-    if (!tool) {
+    const registeredTool = scope.tools.get(name)
+    if (!registeredTool) {
       this.executionDiagnostics.toolFailed(
         toolDiagnosticIdentity,
         name,
@@ -3136,6 +3284,8 @@ export class Kernel {
       hostSignal.removeEventListener('abort', forwardAbort)
       throw new HbarError('TOOL_NOT_FOUND', name)
     }
+    let tool: ToolDefinition = registeredTool
+    let permissionAliases: PreparedToolCall['permissionAliases'] = []
     // Hooks may alter their call context, but cannot mutate the active Run or another call's pinned facts.
     context = { ...context, ...structuredClone(executionFacts), signal: controller.signal }
     const sequence = selectedTools
@@ -3182,17 +3332,70 @@ export class Kernel {
         tool,
       })
       restoreExecutionFacts()
-      const args = tool.validate
+      let args = tool.validate
         ? await tool.validate(transformed.args)
         : (tool.inputSchema.parse(transformed.args) as Record<string, unknown>)
+      if (this.options.toolCalls) {
+        const binding = await this.options.toolCalls.prepare(name, structuredClone(args), {
+          ...structuredClone(executionFacts),
+          signal: controller.signal,
+        })
+        restoreExecutionFacts()
+        assertBoundary()
+        if (binding) {
+          const prepared = bindToolCall(tool, binding)
+          tool = prepared.tool
+          args = prepared.arguments
+          permissionAliases = prepared.permissionAliases
+        }
+      }
       const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args
+      // Transforming Hooks have finished. Scope/read-only gates inspect the exact
+      // validated execution arguments without receiving a mutable execution payload.
+      await scope.hooks.dispatch('tool.admitting', { name, args: structuredClone(args), context, tool })
+      restoreExecutionFacts()
+      for (const alias of permissionAliases) {
+        assertBoundary()
+        await scope.hooks.dispatch('tool.admitting', {
+          name: alias.name,
+          args: structuredClone(alias.arguments),
+          context,
+          tool: Object.freeze({ ...tool, name: alias.name }),
+        })
+        restoreExecutionFacts()
+      }
+      assertBoundary()
       await this.assertRunPermission(context.run)
+      if (tool.effect !== 'read' && this.options.mutationAdmission) {
+        await this.options.mutationAdmission.assertAllowed({
+          sessionId: executionFacts.session.id,
+          runId: executionFacts.run.id,
+          callId: executionFacts.callId,
+          tool: name,
+          effect: tool.effect,
+          signal: controller.signal,
+        })
+        restoreExecutionFacts()
+        assertBoundary()
+      }
       const mode = requestedMode ?? this.permissionModeValue
       let nodeAdmission: NodeCallAuthority['admission'] = { kind: 'allow' }
-      let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
+      const policy = this.plugins.get<PolicyProvider>('policy')
+      let decision = await policy.decide(tool, args, context)
       restoreExecutionFacts()
+      for (const alias of permissionAliases) {
+        if (decision === 'deny') break
+        assertBoundary()
+        const aliasDecision = await policy.decide(
+          { ...tool, name: alias.name },
+          structuredClone(alias.arguments),
+          context,
+        )
+        restoreExecutionFacts()
+        if (aliasDecision === 'deny' || aliasDecision === 'ask') decision = aliasDecision
+      }
       let denial = 'Tool denied by policy'
       let environment: Readonly<Record<string, string>> | undefined
       let osConfinement: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
@@ -3248,7 +3451,16 @@ export class Kernel {
       }
       if (tool.humanApproval === 'required' || (decision === 'ask' && gate === 'ask')) {
         this.executionDiagnostics.toolApproval(toolDiagnosticIdentity, name)
-        const resolution = await this.requestApproval(name, args, context, hostSignal, executionTarget)
+        const resolution = await this.requestApproval(
+          name,
+          args,
+          context,
+          hostSignal,
+          executionTarget,
+          mode === 'ask' && decision === 'ask' && tool.humanApproval !== 'required'
+            ? { mode: 'ask', decision: 'ask', humanApproval: false }
+            : undefined,
+        )
         const replacementStop = this.boundaryStops.get(context.run.id)
         if (replacementStop && !hostSignal.aborted) throw replacementStop
         if (resolution.source === 'abort') {
@@ -3474,6 +3686,7 @@ export class Kernel {
           return executed
         },
         permitId ? () => this.options.execution!.releaseTool!(permitId!) : undefined,
+        { runId: executionIdentity.runId },
       )
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
@@ -3680,6 +3893,7 @@ export class Kernel {
     context: ToolContext,
     hostSignal: AbortSignal,
     executionTarget?: import('@hbar/contracts/node-execution-target').NodeExecutionTarget,
+    automaticAdmission?: AutomaticToolApprovalAdmission,
   ) {
     const approval: Approval = {
       id: crypto.randomUUID(),
@@ -3693,10 +3907,16 @@ export class Kernel {
       ...(executionTarget ? { executionTarget } : {}),
     }
     let resolve!: (value: ApprovalResolution) => void
+    let settled = false
     const outcome = new Promise<ApprovalResolution>((done) => {
-      resolve = done
+      resolve = (value) => {
+        if (settled) return
+        settled = true
+        done(value)
+      }
     })
     this.approvals.set(approval.id, resolve)
+    let resumeIdle: (() => void) | undefined
     const onAbort = () => {
       if (hostSignal.reason instanceof HbarError && hostSignal.reason.code === 'EXECUTION_OWNER_REVOKED') {
         resolve({ source: 'abort', reason: hostSignal.reason })
@@ -3724,19 +3944,347 @@ export class Kernel {
         .finally(() => resolve({ source: 'abort', reason: hostSignal.reason }))
     }
     try {
-      this.publishEvent(await this.storage.call('createApproval', approval))
+      const policy = await this.permissionSettings.decisionPolicy(approval.sessionId)
+      this.publishEvent(
+        await this.storage.call('createApproval', approval, {
+          policy,
+          ...(automaticAdmission ? { admission: automaticAdmission } : {}),
+        }),
+      )
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'waiting_approval'))
+      const active = this.active.get(context.session.id)
+      if (active?.run.id === context.run.id) resumeIdle = active.idleTimeout.suspend()
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
-      return { ...(await outcome), approvalId: approval.id }
+      const wait = <Result,>(operation: () => Promise<Result>) =>
+        this.withHumanWait(
+          context.run.id,
+          context.callId,
+          { kind: tool === 'exit_plan_mode' ? 'plan_exit' : 'approval', id: approval.id, revision: 1 },
+          operation,
+        )
+      if ((tool === 'exit_plan_mode' || automaticAdmission) && !hostSignal.aborted && !settled) {
+        if (policy.policy.mode === 'delegate') {
+          const captureContext = await this.prepareDelegatedContext(approval.sessionId, approval.runId)
+          const commit = await wait(async () => {
+            const action = await this.automateApproval(
+              approval,
+              hostSignal,
+              policy,
+              () => !settled,
+              automaticAdmission,
+              captureContext,
+            )
+            if (!action) await outcome
+            return action
+          })
+          // A reply is durable before resuming, but any new work must reacquire real execution capacity first.
+          if (commit && !settled) await commit()
+        } else await this.automateApproval(approval, hostSignal, policy, () => !settled, automaticAdmission)
+      }
+      return {
+        ...(await (settled ? outcome : wait(() => outcome))),
+        approvalId: approval.id,
+      }
     } finally {
+      resumeIdle?.()
       hostSignal.removeEventListener('abort', onAbort)
       this.approvals.delete(approval.id)
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'running'))
     }
   }
+  private withHumanWait<Result>(
+    runId: string,
+    callId: string,
+    decision: ExecutionWaitDecision,
+    operation: () => Promise<Result>,
+  ): Promise<Result> {
+    const execution = this.executionScope.current
+    return execution?.runId === runId && this.options.execution?.withHumanWait
+      ? this.options.execution.withHumanWait(execution, callId, decision, operation)
+      : operation()
+  }
+  private async prepareDelegatedContext(sessionId: string, runId: string) {
+    try {
+      const value = await captureDelegatedContext(
+        { sessionId, runId },
+        {
+          run: (id) => this.storage.call('run', id),
+          session: (id) => this.storage.call('session', id),
+          goal: async (id) => (await this.plugins.get<GoalService>('goal').get(id)).goal,
+          plan: (id) => this.plugins.get<PlanService>('plan').get(id),
+          summary: (id) => this.storage.call('contextSummaryExcerpt', id),
+        },
+      )
+      return async () => value
+    } catch (error) {
+      return async () => {
+        throw error
+      }
+    }
+  }
+  private async automateApproval(
+    approval: Approval,
+    signal: AbortSignal,
+    policy: AutonomyPolicyResolution,
+    pending: () => boolean,
+    admission?: AutomaticToolApprovalAdmission,
+    captureContext?: () => Promise<DelegatedSourceContext>,
+  ): Promise<(() => Promise<void>) | undefined> {
+    if (policy.policy.mode === 'wait_user') return undefined
+    const principal = await this.storage.call('runExecutionPrincipal', approval.runId)
+    if (!principal) return undefined
+    signal.throwIfAborted()
+    const run = await this.storage.call('run', approval.runId)
+    await this.assertRunPermission(run)
+    if (policy.policy.mode === 'delegate') {
+      const subject = delegatedApprovalSubjectSchema.parse({
+        kind: approval.tool === 'exit_plan_mode' ? 'plan_exit' : 'approval',
+        approval: delegatedApprovalSubjectSchema.shape.approval.strip().parse(approval),
+        context: { policy, ...(admission ? { admission } : {}) },
+      })
+      let answered = false
+      const coordinate = (commit: boolean) =>
+        coordinateDelegatedInput(this.storage, {
+          ...(captureContext ? { captureContext } : {}),
+          kind: subject.kind,
+          request: delegatedApprovalRequest(subject),
+          policy,
+          revision: 1,
+          signal,
+          pending,
+          permission: (id) => this.sessionPermissionMode(id),
+          wake: (value, wakeSignal) => this.wakeDelegatedInput(value, wakeSignal),
+          publish: (event) => this.publishEvent(event),
+          settle: async (response, _error, evidence) => {
+            if (!pending()) return false
+            if (!commit) {
+              answered = true
+              return true
+            }
+            signal.throwIfAborted()
+            await this.assertRunPermission(await this.storage.call('run', approval.runId))
+            const choice = response.answers.decision?.answers[0]
+            const automatic = {
+              version: 1 as const,
+              source: 'delegate' as const,
+              policy,
+              delegation: evidence.delegation,
+            }
+            if (subject.kind === 'plan_exit') {
+              if (choice !== 'implement' && choice !== 'continue')
+                throw new HbarError('USER_INPUT_INVALID', 'Invalid Plan decision')
+              await this.resolvePlanExit({
+                sessionId: approval.sessionId,
+                approvalId: approval.id,
+                runId: approval.runId,
+                callId: approval.callId,
+                decision: choice,
+                actorId: principal.actorId,
+                automatic,
+              })
+            } else {
+              if (!admission || (choice !== 'allowed' && choice !== 'denied'))
+                throw new HbarError('USER_INPUT_INVALID', 'Invalid tool approval decision')
+              await this.resolveApproval(approval.id, choice, { ...automatic, admission })
+            }
+            return true
+          },
+          waiting: async (reason) => {
+            if (pending() && (await this.storage.call('approval', approval.id)).status === 'pending')
+              await this.append(
+                approval.sessionId,
+                'approval.automationWaiting',
+                { version: 1, approvalId: approval.id, policy, reason },
+                approval.runId,
+              )
+          },
+        })
+      await coordinate(false)
+      return answered ? () => coordinate(true) : undefined
+    }
+    try {
+      if (approval.tool === 'exit_plan_mode')
+        await this.resolvePlanExit({
+          sessionId: approval.sessionId,
+          approvalId: approval.id,
+          runId: approval.runId,
+          callId: approval.callId,
+          decision: 'implement',
+          actorId: principal.actorId,
+          automatic: { version: 1, source: 'recommended', policy },
+        })
+      else if (admission && run.input.approval === 'ask')
+        await this.resolveApproval(approval.id, 'allowed', {
+          version: 1,
+          source: 'recommended',
+          policy,
+          admission,
+        })
+    } catch (error) {
+      if (
+        !(error instanceof HbarError) ||
+        !['DECISION_POLICY_CHANGED', 'PLAN_EXIT_UNAVAILABLE', 'PLAN_EXIT_SETTLED'].includes(error.code)
+      )
+        throw error
+      // A manual decision or a policy change wins; never replace it with an automatic retry.
+    }
+    return undefined
+  }
+  private async wakeDelegatedInput(value: DelegatedInputWake, signal: AbortSignal): Promise<void> {
+    if (this.options.delegationWake) await this.options.delegationWake(value, signal)
+    else {
+      signal.throwIfAborted()
+      this.kick(value.targetSessionId)
+    }
+  }
+  private async inputDecisionIsCurrent(
+    request: UserInputRequest,
+    policy: AutonomyPolicyResolution,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    signal.throwIfAborted()
+    if (!this.userInputs.has(request.requestId)) return false
+    const stopped = this.boundaryStops.get(request.runId)
+    if (stopped) throw stopped
+    if (await this.storage.call('cancelRequested', request.runId))
+      throw new HbarError('USER_CANCELLED', 'The source decision Run was cancelled')
+    await this.assertRunPermission(await this.storage.call('run', request.runId))
+    const current = await this.permissionSettings.decisionPolicy(request.sessionId)
+    signal.throwIfAborted()
+    return JSON.stringify(current) === JSON.stringify(policy)
+  }
+  private async completeUserInputDecision(
+    request: UserInputRequest,
+    policy: AutonomyPolicyResolution,
+    signal: AbortSignal,
+  ): Promise<CompletedInputDecision> {
+    const active = this.active.get(request.sessionId)
+    const context = active?.run.id === request.runId ? active.decisionContext : undefined
+    if (!context) return { kind: 'human', reason: 'context_unavailable' }
+    const driver = active?.decisionDriver
+    const complete = driver?.completeDecision?.bind(driver)
+    if (!complete) return { kind: 'human', reason: 'driver_unavailable' }
+    const budget = this.plugins.get<BudgetService>('budget')
+    if (!budget.accountPendingUsage && (await budget.get(request.sessionId)))
+      return { kind: 'human', reason: 'budget_unavailable' }
+    const accountPending = budget.accountPendingUsage?.bind(budget)
+    return completeInputDecision(request, context, {
+      beforeAttempt: async () => {
+        signal.throwIfAborted()
+        await accountPending?.(request.sessionId, request.runId)
+        await budget.assertCanStart(request.sessionId)
+        return (await budget.get(request.sessionId))?.remainingTokens ?? null
+      },
+      isCurrent: () => this.inputDecisionIsCurrent(request, policy, signal),
+      requested: async (attemptId, completion, attempt) => {
+        await this.append(
+          request.sessionId,
+          'request.started',
+          {
+            ...describeUsageAttempt(attemptId, 'model', completion.request.model),
+            purpose: 'decision',
+            decisionRequestId: request.requestId,
+            decisionCallId: request.callId,
+            decisionAttempt: attempt,
+            request: completion.request,
+            tools: [],
+            maxOutputTokens: completion.maxOutputTokens,
+          },
+          request.runId,
+          attemptId,
+        )
+      },
+      complete: async (completion) =>
+        complete(
+          completion,
+          context.model.protocol === 'mock'
+            ? null
+            : await this.plugins.get<ModelRegistry>('models').secret(context.model.id),
+          signal,
+        ),
+      recorded: async (attemptId, completion, usage) => {
+        try {
+          await this.append(
+            request.sessionId,
+            'usage.recorded',
+            createUsageFact({
+              usage,
+              runId: request.runId,
+              attemptId,
+              source: 'model',
+              model: completion.request.model,
+            }),
+            request.runId,
+            attemptId,
+          )
+          await accountPending?.(request.sessionId, request.runId)
+        } catch (error) {
+          active?.controller.abort(new HbarError('DECISION_USAGE_UNKNOWN', 'Decision usage could not be confirmed'))
+          throw error
+        }
+      },
+    })
+  }
+  private async automateUserInput(
+    request: UserInputRequest,
+    policy: AutonomyPolicyResolution,
+    signal: AbortSignal,
+    settle: (
+      response?: UserInputResponse,
+      error?: unknown,
+      automatic?: z.output<typeof userInputAutomaticDecisionSchema>,
+    ) => Promise<boolean>,
+  ): Promise<void> {
+    const automatic = policy.policy.mode === 'recommended' ? recommendedInputDecision(request) : null
+    const completed =
+      automatic?.kind === 'human' && automatic.reason === 'recommendation_required'
+        ? await this.completeUserInputDecision(request, policy, signal)
+        : null
+    const response =
+      automatic?.kind === 'recommended' ? automatic.response : completed?.kind === 'model' ? completed.response : null
+    if (!this.userInputs.has(request.requestId)) return
+    if (response && (await this.inputDecisionIsCurrent(request, policy, signal))) {
+      try {
+        await settle(
+          response,
+          undefined,
+          userInputAutomaticDecisionSchema.parse({
+            version: 1,
+            source: completed?.kind === 'model' ? 'model' : 'recommended',
+            request,
+            response,
+            policy,
+            ...(completed?.kind === 'model'
+              ? {
+                  attemptIds: completed.attemptIds,
+                  modelId: this.active.get(request.sessionId)?.decisionContext?.model.id,
+                }
+              : {}),
+          }),
+        )
+        return
+      } catch (error) {
+        if (!(error instanceof HbarError) || error.code !== 'DECISION_POLICY_CHANGED') throw error
+      }
+    }
+    if (completed?.kind === 'human' || response)
+      await this.append(
+        request.sessionId,
+        'user_input.automationWaiting',
+        {
+          version: 1,
+          requestId: request.requestId,
+          policy,
+          reason: completed?.kind === 'human' ? completed.reason : 'policy_changed',
+        },
+        request.runId,
+      )
+  }
+
   async requestUserInput(raw: UserInputRequest, signal: AbortSignal): Promise<UserInputResponse> {
+    signal.throwIfAborted()
     const parsed = userInputRequestSchema.parse(raw)
     const request = userInputRequestSchema.parse({
       ...parsed,
@@ -3746,10 +4294,6 @@ export class Kernel {
         isSecret: question.isSecret ?? false,
       })),
     })
-    await this.storage.call('session', request.sessionId)
-    const run = await this.storage.call('run', request.runId)
-    if (run.sessionId !== request.sessionId)
-      throw new HbarError('USER_INPUT_INVALID', 'User input request does not belong to the current session')
     if (
       request.questions.some(
         (question, index) => request.questions.findIndex((item) => item.id === question.id) !== index,
@@ -3767,60 +4311,110 @@ export class Kernel {
       request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1)
     )
       throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
-    const unattended = this.automation.get(request.sessionId)?.unattended ?? false
-    const recommended = request.questions.map((question) =>
-      (question.options ?? []).filter((option) => option.recommended),
-    )
-    if (unattended && recommended.every((options) => options.length === 1)) {
-      const answers = Object.fromEntries(
-        request.questions.map((question, index) => [question.id, { answers: [recommended[index]![0]!.label] }]),
-      )
-      return { answers }
-    }
-    if (this.userInputs.has(request.requestId))
+    if (this.userInputs.has(request.requestId) || this.userInputAdmissions.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
+    if (this.userInputs.size + this.userInputAdmissions.size >= 128)
+      throw new HbarError('BUSY', 'Pending user input capacity is full')
+    this.userInputAdmissions.add(request.requestId)
+    try {
+      const policy = await this.permissionSettings.decisionPolicy(request.sessionId)
     signal.throwIfAborted()
-    const boundaryStop = this.boundaryStops.get(request.runId)
-    if (boundaryStop) throw boundaryStop
-
-    let settled = false
-    let resolve!: (response: UserInputResponse) => void
-    let reject!: (error: unknown) => void
-    const outcome = new Promise<UserInputResponse>((done, fail) => {
-      resolve = done
-      reject = fail
+      const stop = this.boundaryStops.get(request.runId)
+      if (stop) throw stop
+      const accepted = await this.storage
+        .call('userInputAccept', { request, policy })
+        .catch(async (acceptError: unknown) => {
+          const known = await this.storage.call('userInputRead', {
+            sessionId: request.sessionId,
+            requestId: request.requestId,
     })
-    const settle = this.executionScope.bind(async (response?: UserInputResponse, error?: unknown) => {
+          if (!known || JSON.stringify(known.request) !== JSON.stringify(request)) throw acceptError
+          return { created: false, state: known, events: [] }
+        })
+      if (accepted.state.settlement?.kind === 'answered') {
+        signal.throwIfAborted()
+        return accepted.state.settlement.response
+      }
+      if (accepted.state.settlement?.kind === 'cancelled')
+        throw new HbarError('USER_INPUT_CANCELLED', 'This question was already cancelled')
+      let settled = false
+      const outcome = Promise.withResolvers<UserInputResponse>()
+      void outcome.promise.catch(() => undefined)
+      const settle = this.executionScope.bind(
+        async (
+          response?: UserInputResponse,
+          error?: unknown,
+          automatic?: z.output<typeof userInputAutomaticDecisionSchema>,
+        ) => {
       if (settled) return false
+          const settlement =
+            response === undefined
+              ? {
+                  kind: 'cancelled' as const,
+                  reason: error instanceof HbarError ? error.code.slice(0, 128) : 'USER_INPUT_CANCELLED',
+                }
+              : { kind: 'answered' as const, response, ...(automatic ? { automatic } : {}) }
+          const result = await this.storage
+            .call('userInputCommit', {
+              sessionId: request.sessionId,
+              requestId: request.requestId,
+              expectedRevision: accepted.state.revision,
+              settlement,
+            })
+            .catch(async (commitError: unknown) => {
+              // A lost acknowledgement can already have a winner. Read that identity once; never submit another answer.
+              const known = await this.storage.call('userInputRead', {
+                sessionId: request.sessionId,
+                requestId: request.requestId,
+              })
+              if (!known?.settlement) throw commitError
+              return {
+                accepted: JSON.stringify(known.settlement) === JSON.stringify(settlement),
+                state: known,
+                events: [],
+              }
+            })
+          if (!result.state.settlement) return false
+          if (settled) return result.accepted
       settled = true
       this.userInputs.delete(request.requestId)
+          for (const event of result.events) this.publishEvent(event)
+          const winner = result.state.settlement
       const data = {
         requestId: request.requestId,
         sessionId: request.sessionId,
-        cancelled: response === undefined,
-        ...(response === undefined ? {} : { response }),
-      }
-      try {
-        await this.append(request.sessionId, 'user_input.resolved', data, request.runId)
-      } catch (appendError) {
-        console.error('Failed to persist user input resolution:', appendError)
+            cancelled: winner.kind === 'cancelled',
+            ...(winner.kind === 'answered' ? { response: winner.response } : {}),
       }
       this.publish({ method: 'user_input.resolved', params: data })
-      if (response === undefined)
-        reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
-      else resolve(response)
-      return true
-    })
+          if (winner.kind === 'answered') outcome.resolve(winner.response)
+          else outcome.reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+          return result.accepted
+        },
+      )
     this.userInputs.set(request.requestId, { request, settle })
+      this.userInputAdmissions.delete(request.requestId)
     const onAbort = () => {
-      void settle(undefined, signal.reason ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+        void settle(
+          undefined,
+          signal.reason ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'),
+        ).catch((error: unknown) => outcome.reject(error))
     }
     signal.addEventListener('abort', onAbort, { once: true })
-    try {
-      await this.append(request.sessionId, 'user_input.requested', request, request.runId)
-      const stop = this.boundaryStops.get(request.runId)
-      if (stop && !settled) await settle(undefined, stop)
-      if (!settled) {
+      let resumeHumanWait: (() => void) | undefined
+      const suspendWaitTimeouts = () => {
+        if (resumeHumanWait) return
+        const active = this.active.get(request.sessionId)
+        if (request.isBlocking && active?.run.id === request.runId) {
+          const resumeIdle = active.idleTimeout.suspend()
+          const resumeTool = this.toolExecutions.suspend(request.runId, request.callId)
+          resumeHumanWait = () => {
+            resumeTool()
+            resumeIdle()
+          }
+        }
+      }
+      const announceHumanWait = () => {
         this.publish({ method: 'user_input.requested', params: request })
         void this.taskNotification(
           'user_input',
@@ -3828,18 +4422,79 @@ export class Kernel {
           request.runId,
           '需要你的回答',
           `${request.questions.length} 个问题正在等待处理。`,
-        ).catch((error) => console.error('Task notification failed:', error))
+        ).catch((error: unknown) => console.error('Task notification failed:', error))
       }
+      try {
+        for (const event of accepted.events) this.publishEvent(event)
+        const boundaryStop = this.boundaryStops.get(request.runId)
       if (signal.aborted) onAbort()
-      return await outcome
+        else if (boundaryStop) await settle(undefined, boundaryStop)
+        else if (accepted.state.policy.policy.mode === 'delegate') {
+          suspendWaitTimeouts()
+          const captureContext = await this.prepareDelegatedContext(request.sessionId, request.runId)
+          const delegate = async () => {
+            await coordinateDelegatedInput(this.storage, {
+              captureContext,
+              request,
+              policy: accepted.state.policy,
+              revision: accepted.state.revision,
+              signal,
+              pending: () => !settled,
+              permission: (id) => this.sessionPermissionMode(id),
+              wake: (value, wakeSignal) => this.wakeDelegatedInput(value, wakeSignal),
+              publish: (event) => this.publishEvent(event),
+              settle,
+              waiting: async (reason) => {
+                await this.append(
+                  request.sessionId,
+                  'user_input.automationWaiting',
+                  { version: 1, requestId: request.requestId, policy: accepted.state.policy, reason },
+                  request.runId,
+                )
+              },
+            })
+            if (!settled) announceHumanWait()
+            return outcome.promise
+          }
+          suspendWaitTimeouts()
+          return request.isBlocking
+            ? await this.withHumanWait(
+                request.runId,
+                request.callId,
+                { kind: 'questionnaire', id: request.requestId, revision: accepted.state.revision },
+                delegate,
+              )
+            : await delegate()
+        } else await this.automateUserInput(request, accepted.state.policy, signal, settle)
+        if (!settled) {
+          suspendWaitTimeouts()
+          announceHumanWait()
+        }
+        return request.isBlocking && !settled
+          ? await this.withHumanWait(
+              request.runId,
+              request.callId,
+              {
+                kind: 'questionnaire',
+                id: request.requestId,
+                revision: accepted.state.revision,
+              },
+              () => outcome.promise,
+            )
+          : await outcome.promise
     } catch (error) {
       if (!settled) await settle(undefined, error)
       throw error
     } finally {
+        resumeHumanWait?.()
       signal.removeEventListener('abort', onAbort)
       this.userInputs.delete(request.requestId)
     }
+    } finally {
+      this.userInputAdmissions.delete(request.requestId)
   }
+  }
+
   async resolveUserInput(requestId: string, rawAnswers: Record<string, { answers: string[] }>) {
     const entry = this.userInputs.get(requestId)
     if (!entry) return false
@@ -3847,8 +4502,7 @@ export class Kernel {
     const questionIds = new Set(entry.request.questions.map((question) => question.id))
     if (Object.keys(response.answers).some((id) => !questionIds.has(id)))
       throw new HbarError('USER_INPUT_INVALID', 'Answers contain an unknown question id')
-    await entry.settle(response)
-    return true
+    return entry.settle(response)
   }
 
   pendingUserInput(requestId: string) {
@@ -3864,11 +4518,12 @@ export class Kernel {
       ...this.active.keys(),
       ...this.drains.keys(),
       ...this.wakeups,
+      ...this.scheduledWakeups.sessionIds,
       ...userInputs.map((request) => request.sessionId),
     ])
     return {
       userInputs,
-      idle: this.chatDatabaseIsIdle(),
+      idle: this.chatDatabaseIsIdle() && !this.scheduledWakeups.waiting.length && !this.schedulingRefresh,
       protectedRoots: this.plugins.protectedResourceRoots(),
       protection: [...sessionIds].flatMap((sessionId) => {
         const reason = this.chatDatabaseSessionProtection(sessionId)
@@ -3882,11 +4537,18 @@ export class Kernel {
     const pending = [...this.userInputs.values()].filter(({ request }) => request.sessionId === sessionId)
     for (const entry of pending) await entry.settle(undefined, reason)
   }
-  async resolveApproval(id: string, decision: Approval['status']) {
+  async resolveApproval(id: string, decision: Approval['status'], automatic?: AutomaticToolApprovalDecision) {
     if (decision !== 'cancelled' && (await this.storage.call('approval', id)).tool === 'exit_plan_mode')
       throw new HbarError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
-    const result = await this.storage.call('resolveApproval', id, decision)
-    if (result) this.publishEvent(result.event)
+    const result = await this.storage.call('resolveApproval', id, decision, automatic).catch(async (error: unknown) => {
+      const known = await this.storage.call('approvalResolution', id)
+      if (!known) throw error
+      return known
+    })
+    if (result) {
+      this.publishEvent(result.event)
+      for (const event of result.delegationEvents) this.publishEvent(event)
+    }
     // A concurrent decision may have won. Resolve from storage, never the losing argument.
     const approval = result?.approval ?? (await this.storage.call('approval', id))
     if (approval.status !== 'pending')
@@ -3904,6 +4566,7 @@ export class Kernel {
     decision: 'implement' | 'continue'
     feedback?: string
     actorId: string
+    automatic?: AutomaticPlanExitDecision
   }) {
     const recorded = await this.storage.call('approval', input.approvalId)
     if (
@@ -3937,7 +4600,17 @@ export class Kernel {
         input.decision,
         input.feedback,
         input.actorId,
-      )
+        input.automatic,
+      ).catch(async (error: unknown) => {
+        const known = await this.storage.call('approvalResolution', input.approvalId)
+        if (!known || known.event.type !== 'plan_exit.resolved' ||
+          known.approval.sessionId !== input.sessionId || known.approval.runId !== input.runId ||
+          known.approval.callId !== input.callId || known.approval.decidedBy !== input.actorId ||
+          known.approval.status !== (input.decision === 'implement' ? 'allowed' : 'denied') ||
+          (known.approval.feedback ?? '') !== (input.feedback?.trim() ?? '')
+        ) throw error
+        return known
+      })
     const resolved =
       input.decision === 'implement'
         ? await this.plugins.get<ModeService>('mode').commitExit(input.sessionId, async () => {
@@ -3946,6 +4619,7 @@ export class Kernel {
           })
         : await commit()
     this.publishEvent(resolved.event)
+    for (const event of resolved.delegationEvents) this.publishEvent(event)
     if (resolved.modeEvent) {
       if (resolved.modeEvent.eventId !== resolved.event.eventId) this.publishEvent(resolved.modeEvent)
       try {
@@ -3976,6 +4650,7 @@ export class Kernel {
     const activeRun = [...this.active.values()].find((active) => active.run.id === runId)
     const { run, event } = await this.storage.call('requestCancel', runId)
     if (event) this.publishEvent(event)
+    if (run.status === 'failed' && (event || persisted)) this.scheduledWakeups.cancel(run.sessionId)
     if (['running', 'waiting_approval'].includes(run.status)) {
       this.cancelled.add(runId)
       for (const active of this.active.values())
@@ -4380,6 +5055,7 @@ export class Kernel {
       this.admissions ||
       this.maintenance ||
       this.chatDatabaseWrites ||
+      this.runtimeRecovery.backendDiscoveryPending ||
       this.closing
     )
       throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
@@ -4391,6 +5067,7 @@ export class Kernel {
       !this.admissions &&
       !this.maintenance &&
       !this.chatDatabaseWrites &&
+      !this.runtimeRecovery.backendDiscoveryPending &&
       !this.closing
     )
   }
@@ -4603,13 +5280,24 @@ export class Kernel {
     }
   }
   async waitForIdle() {
-    while (this.drains.size || this.scheduledWakeups.waiting.length)
-      await Promise.all([...this.drains.values(), ...this.scheduledWakeups.waiting])
+    while (
+      this.drains.size ||
+      this.scheduledWakeups.waiting.length ||
+      this.schedulingRefresh ||
+      this.runtimeRecovery.backendDiscoveryPending
+    )
+      await Promise.all([
+        ...this.drains.values(),
+        ...this.scheduledWakeups.waiting,
+        ...(this.schedulingRefresh ? [this.schedulingRefresh] : []),
+        this.runtimeRecovery.waitForBackendDiscovery(),
+      ])
   }
   async close() {
     this.runtimeRecovery.close()
     this.closing = true
     this.continuationDiagnosticKeys.clear()
+    await this.schedulingRefresh
     this.removeStorageFatalListener?.()
     this.removeStorageFatalListener = undefined
     this.sessionSummaryCoordinator.close()

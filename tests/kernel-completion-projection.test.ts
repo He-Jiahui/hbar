@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
-import { Kernel, MemorySecrets } from '../packages/kernel/src/index'
+import { join } from 'node:path'
+import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { Storage, type StoragePort } from '@hbar/storage'
 import { definePlugin, provide, service, type HarnessDriver, type GoalService } from '@hbar/plugin-sdk'
 import {
@@ -14,18 +14,19 @@ import {
   type Run,
   type SessionEventPageInput,
 } from '@hbar/contracts'
+import { removeOwnedTestDirectory } from './owned-temp-directory'
 
 const resources: Array<{ root: string; storage: Storage; kernel?: Kernel }> = []
 afterEach(async () => {
   for (const resource of resources.splice(0)) {
-    const owned = resolve(resource.root)
-    if (dirname(owned) !== resolve(tmpdir()) || !basename(owned).startsWith('hbar-completion-projection-'))
-      throw new Error('Refusing to remove an unowned completion fixture')
     try {
       await resource.kernel?.close()
     } finally {
-      await resource.storage.close()
-      await rm(resource.root, { recursive: true, force: true })
+      try {
+        await resource.storage.close()
+      } finally {
+        await removeOwnedTestDirectory(resource.root, 'hbar-completion-projection-')
+      }
     }
   }
 })

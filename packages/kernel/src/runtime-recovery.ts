@@ -1,8 +1,14 @@
 import { z } from 'zod'
 import { HbarError, type Run } from '@hbar/contracts'
-import type { RuntimeRecoveryRecord, RuntimeManualRecovery, StoragePort } from '@hbar/storage'
+import {
+  runtimeManualRecoverySchema,
+  type RuntimeRecoveryRecord,
+  type RuntimeManualRecovery,
+  type StoragePort,
+} from '@hbar/storage'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import { NodeRecoveryRetryScheduler } from './node-recovery-retry'
+import { BackendRecoveryDiscovery } from './backend-recovery-discovery'
 
 export interface RuntimeRecoveryAdmission {
   reconcile(run: Run, record: RuntimeRecoveryRecord): Promise<void>
@@ -10,17 +16,26 @@ export interface RuntimeRecoveryAdmission {
   publish(record: RuntimeRecoveryRecord): void
 }
 
+interface PendingRecovery {
+  manual?: RuntimeManualRecovery
+  readonly operation: Promise<RuntimeRecoveryRecord>
+}
+
 /** Recovery creates a new identity after reconciliation; it never resurrects a historical Run. */
 export class RuntimeRecoveryService {
-  private readonly pending = new Map<string, Promise<RuntimeRecoveryRecord>>()
+  private readonly pending = new Map<string, PendingRecovery>()
   private readonly nodeRecoveryControllers = new Set<AbortController>()
   private closing = false
   private readonly nodeRetries: NodeRecoveryRetryScheduler
+  private readonly backendDiscovery: BackendRecoveryDiscovery
   constructor(
     private readonly storage: StoragePort,
     private readonly admission: RuntimeRecoveryAdmission,
     private readonly nodeIntentRecovery?: NodeIntentRecoveryPort,
   ) {
+    this.backendDiscovery = new BackendRecoveryDiscovery(this.storage, async (runId) => {
+      await this.resume(runId)
+    })
     this.nodeRetries = new NodeRecoveryRetryScheduler(async (runId) => {
       await this.recover([runId])
     })
@@ -101,24 +116,78 @@ export class RuntimeRecoveryService {
   resume(predecessorRunId: string): Promise<RuntimeRecoveryRecord> {
     return this.resumeOperation(predecessorRunId)
   }
+  get backendDiscoveryPending(): boolean {
+    return this.backendDiscovery.pending
+  }
+  discoverBackendWaiting(canContinue: () => boolean): void {
+    this.backendDiscovery.request(canContinue)
+  }
+  pauseBackendDiscovery(): void {
+    this.backendDiscovery.pause()
+  }
+  waitForBackendDiscovery(): Promise<void> {
+    return this.backendDiscovery.waitForSettlement()
+  }
   close(): void {
     this.closing = true
+    this.backendDiscovery.close()
     for (const controller of this.nodeRecoveryControllers)
       controller.abort(new HbarError('RUNTIME_CLOSED', 'Kernel recovery is closing'))
     this.nodeRecoveryControllers.clear()
     this.nodeRetries.close()
   }
   resumeManual(predecessorRunId: string, manual: RuntimeManualRecovery): Promise<RuntimeRecoveryRecord> {
-    return this.resumeOperation(predecessorRunId, manual)
+    const parsed = runtimeManualRecoverySchema.safeParse(manual)
+    if (!parsed.success)
+      return Promise.reject(new HbarError('INVALID_INPUT', 'Manual recovery requires its canonical command identity'))
+    return this.resumeOperation(predecessorRunId, parsed.data)
   }
   private resumeOperation(predecessorRunId: string, manual?: RuntimeManualRecovery): Promise<RuntimeRecoveryRecord> {
+    if (this.closing) return Promise.reject(new HbarError('RUNTIME_CLOSED', 'Kernel recovery is closing'))
     const existing = this.pending.get(predecessorRunId)
-    if (existing) return existing
+    if (existing) {
+      if (manual) {
+        if (
+          existing.manual &&
+          (existing.manual.command.actorId !== manual.command.actorId ||
+            existing.manual.command.inputHash !== manual.command.inputHash)
+        )
+          return Promise.reject(new HbarError('IDEMPOTENCY_CONFLICT', 'Recovery already has another manual command'))
+        if (
+          existing.manual &&
+          (existing.manual.requestId !== manual.requestId ||
+            existing.manual.command.idempotencyKey !== manual.command.idempotencyKey)
+        )
+          return Promise.reject(
+            new HbarError('CONTINUATION_ALREADY_EXISTS', 'Recovery already belongs to another manual request'),
+          )
+        existing.manual ??= manual
+      }
+      return existing.operation
+    }
     if (this.pending.size >= 256)
       return Promise.reject(new HbarError('RECOVERY_CAPACITY', 'Recovery admission capacity is exhausted'))
-    const operation = this.admit(predecessorRunId, manual).finally(() => this.pending.delete(predecessorRunId))
-    this.pending.set(predecessorRunId, operation)
-    return operation
+    // Start in a microtask so the one shared entry exists before any storage or observer callback.
+    const entry: PendingRecovery = {
+      ...(manual ? { manual } : {}),
+      operation: Promise.resolve().then(() => this.admitPending(predecessorRunId, entry)),
+    }
+    this.pending.set(predecessorRunId, entry)
+    return entry.operation
+  }
+  private async admitPending(predecessorRunId: string, entry: PendingRecovery): Promise<RuntimeRecoveryRecord> {
+    try {
+      if (this.closing) throw new HbarError('RUNTIME_CLOSED', 'Kernel recovery is closing')
+      const manual = entry.manual
+      const record = await this.admit(predecessorRunId, manual)
+      // A late manual request gets one recheck; accepted or uncertain writes never get replayed here.
+      if (!record.run && !manual && entry.manual && !this.closing)
+        return await this.admit(predecessorRunId, entry.manual)
+      return record
+    } finally {
+      // No await between the last handoff check and removal: late callers start a fresh recheck.
+      if (this.pending.get(predecessorRunId) === entry) this.pending.delete(predecessorRunId)
+    }
   }
   private async admit(predecessorRunId: string, manual?: RuntimeManualRecovery): Promise<RuntimeRecoveryRecord> {
     let record = await this.storage.call('runtimeRecoveryPlan', predecessorRunId)

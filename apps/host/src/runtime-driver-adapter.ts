@@ -2,7 +2,13 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
-import { resolveToolTimeoutMs, type HarnessDriver, type DriverInput } from '@hbar/plugin-sdk'
+import {
+  resolveToolTimeoutMs,
+  type HarnessDriver,
+  type DriverInput,
+  type DecisionCompletionRequest,
+  type ModelDiagnosticEvent,
+} from '@hbar/plugin-sdk'
 import {
   runtimeDriverCallbackSchema,
   runtimeDriverStartSchema,
@@ -10,6 +16,8 @@ import {
   runtimeDriverTerminalSchema,
   runtimeDriverSummarySchema,
   runtimeDriverSummaryResultSchema,
+  runtimeDriverDecisionSchema,
+  runtimeDriverDecisionResultSchema,
 } from '@hbar/plugin-sdk/runtime-driver'
 import { procedure, type IpcPeer } from '@hbar/runtime'
 import { DRIVER_COMPACTION_RPC_TIMEOUT_MS } from './runtime-driver-timeouts'
@@ -164,6 +172,30 @@ export class RuntimeDriverAdapter implements HarnessDriver {
       runtimeDriverSummaryResultSchema,
       { signal, timeoutMs: DRIVER_COMPACTION_RPC_TIMEOUT_MS },
     )
+  }
+  async completeDecision(
+    completion: DecisionCompletionRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ) {
+    if (this.closed) throw new HbarError('DRIVER_UNAVAILABLE', 'Driver owner is unavailable')
+    const tracked = this.peer.callTracked(
+      'driver.completeDecision',
+      runtimeDriverDecisionSchema.parse({ ...completion, apiKey }),
+      runtimeDriverDecisionResultSchema,
+      { signal, timeoutMs: 95_000 },
+    )
+    void tracked.result.catch(() => {})
+    const result = await tracked.settled
+    for (const diagnostic of result.diagnostics) {
+      try {
+        onDiagnostic?.(diagnostic)
+      } catch {
+        /* Diagnostic observers do not change the original result. */
+      }
+    }
+    return { text: result.text, usage: result.usage }
   }
   dispose(error = new HbarError('DRIVER_UNAVAILABLE', 'Driver process exited')): void {
     this.closed = true

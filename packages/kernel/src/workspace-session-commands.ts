@@ -145,6 +145,8 @@ export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKe
   })
   return {
     ...createCommandClient(workspaceSessionCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

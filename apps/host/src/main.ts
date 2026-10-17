@@ -1,17 +1,26 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { runtimeDomainError, type RuntimeArtifactPackage } from '@hbar/runtime'
-import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
+import { getStorageLocations, resolvePathLayout, readStartupSettingsLayer } from '@hbar/storage'
+import {
+  resolveStartupWebConfiguration,
+  resolveStartupDesktopMode,
+  SettingsService,
+  createSettingsCommands,
+} from '@hbar/kernel/controller'
+import { desktopStartupModeSchema } from '@hbar/contracts/desktop'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
-import { desktopConnection, desktopConnectionToken, resolveDesktopDevice } from './desktop-connection.ts'
+import { desktopConnection, loadDesktopDevice } from './desktop-connection.ts'
+import { enableDesktopBackground } from './desktop-startup'
+import { Auth } from './auth'
 import { ensureHostDataRootId } from './host-data-identity.ts'
 import { FAILURE_EXIT_CODE, installHostShutdown, registerHostProcessHandlers } from './process-shutdown'
 import { sendHostSupervisorMessage } from './supervisor-protocol'
 import { acquireHostProcessLock } from './process-lock'
 import { ProcessHostRuntime } from './process-host-runtime'
-import { embeddedRuntimePackage, hostRuntimeProcessCommand } from './runtime-package'
+import { embeddedRuntimePackage, hostRuntimeProcessCommand, hostMaintenanceWorkerPath } from './runtime-package'
 import { createHostRuntimeDiagnostics, hostLifecycleEvent } from './runtime-diagnostics'
 
 export async function runHost(
@@ -34,6 +43,9 @@ export async function runHost(
       origin: { type: 'string', multiple: true },
       demo: { type: 'boolean' },
       desktop: { type: 'boolean' },
+      'desktop-startup': { type: 'string' },
+      service: { type: 'boolean' },
+      unattended: { type: 'boolean' },
       cert: { type: 'string' },
       key: { type: 'string' },
       'web-root': { type: 'string' },
@@ -48,7 +60,7 @@ export async function runHost(
   if (values.port !== undefined && (!/^\d+$/.test(values.port) || Number(values.port) > 65535))
     throw new Error('Invalid --port: use an integer from 0 to 65535')
   const layout = await resolvePathLayout({
-    preferPointer: values.desktop === true,
+    preferPointer: values.desktop === true || values.service === true,
     home: values.home ?? process.env.HBAR_HOME,
     dataRoot: values['data-root'] ?? process.env.HBAR_DATA_ROOT,
     cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
@@ -103,6 +115,14 @@ export async function runHost(
   }, 5_000, diagnostics)
   registerHostProcessHandlers(requestShutdown, diagnostics)
   try {
+    const workerPath = hostMaintenanceWorkerPath()
+    const startupLayer = await readStartupSettingsLayer(layout.database, workerPath ? { workerPath } : {})
+    const web = resolveStartupWebConfiguration(startupLayer)
+    const desktopMode = desktopStartupModeSchema.parse(
+      values['desktop-startup'] ?? resolveStartupDesktopMode(startupLayer),
+    )
+    const enableOnStartup = values.unattended === true || (values.desktop === true && desktopMode === 'background')
+    let startupDevice: Awaited<ReturnType<typeof loadDesktopDevice>> | undefined
     const dataRootId = await ensureHostDataRootId(layout.settings)
     const artifactPackage = await loadArtifactPackage()
     runtime = await ProcessHostRuntime.open({
@@ -115,6 +135,15 @@ export async function runHost(
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(values.profile ? { profileModule: resolve(values.profile) } : {}),
       ...(values['no-local-exec'] === true ? { noLocalExec: true } : {}),
+      ...(enableOnStartup
+        ? {
+            unattended: true,
+            prepareInitialExecution: async (storage) => {
+              startupDevice ??= await loadDesktopDevice(new Auth(storage), layout.connectionFile)
+              await enableDesktopBackground(createSettingsCommands(new SettingsService(storage)), startupDevice.device.id)
+            },
+          }
+        : {}),
       ...(['1', 'prepare'].includes(process.env.HBAR_RUNTIME_WATCH ?? '') ? {
         watchSource: true, autoApplySource: process.env.HBAR_RUNTIME_WATCH !== 'prepare',
       } : {}),
@@ -128,8 +157,8 @@ export async function runHost(
       diagnosticFull: diagnostics.snapshot().fullCoverage,
       diagnosticSampleRate: diagnostics.snapshot().fullCoverage ? 1 : 0.1,
       dataRootId,
-      ...(values.host ? { hostname: values.host } : {}),
-      ...(values.port ? { port: Number(values.port) } : {}),
+      hostname: values.host ?? (web.access === 'lan' ? '0.0.0.0' : '127.0.0.1'),
+      port: values.port === undefined ? web.port : Number(values.port),
       ...(values.desktop ? { desktop: true } : {}),
       ...(values.origin ? { origins: values.origin } : {}),
       ...(values.cert ? { cert: values.cert } : {}),
@@ -159,16 +188,10 @@ export async function runHost(
     if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
     heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
     heartbeat.unref()
-    if (values.desktop) {
+    if (values.desktop || values.service || enableOnStartup) {
       await runtime.authenticationReady()
-      let persistedToken: string | undefined
-      try {
-        persistedToken = desktopConnectionToken(JSON.parse(await readFile(layout.connectionFile, 'utf8')) as unknown)
-      } catch (error) {
-        const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
-        if (code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
-      }
-      const device = await resolveDesktopDevice(host.auth, persistedToken)
+      if (enableOnStartup) await runtime.ready()
+      const device = startupDevice ?? (await loadDesktopDevice(host.auth, layout.connectionFile))
       await writeFile(
         layout.connectionFile,
         JSON.stringify(
@@ -183,8 +206,10 @@ export async function runHost(
       )
     }
   } catch (error) {
+    const listenerCode = error && typeof error === 'object' && 'code' in error &&
+      (error.code === 'EADDRINUSE' || error.code === 'EACCES') ? error.code : undefined
     console.error(
-      `[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`,
+      `[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? listenerCode ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`,
     )
     requestShutdown(FAILURE_EXIT_CODE)
   }

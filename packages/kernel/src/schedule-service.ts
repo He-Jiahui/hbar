@@ -7,6 +7,7 @@ import type {
   SchedulePreviewInput,
   ScheduleUpdateInput,
 } from '@hbar/contracts/commands/schedules'
+import type { ScheduleExecution } from '@hbar/contracts/schedule-execution'
 
 export interface ScheduleStore {
   list(
@@ -15,6 +16,7 @@ export interface ScheduleStore {
     limit: number,
   ): Promise<{ items: ScheduleDefinition[]; next: string | null; revision: number }>
   get(scheduleId: string): Promise<ScheduleDefinition | null>
+  execution(occurrenceId: string): Promise<ScheduleExecution | null>
   create(
     input: ScheduleCreateInput,
     identity?: { actorId: string; idempotencyKey: string },
@@ -99,6 +101,7 @@ export function createScheduleService(store: ScheduleStore) {
     list: (workspaceId: string, after: string | null, limit: number) =>
       store.list(workspaceId, after, Math.min(100, Math.max(1, limit))),
     get: (scheduleId: string) => store.get(scheduleId),
+    execution: (occurrenceId: string) => store.execution(occurrenceId),
     create: async (input: ScheduleCreateInput, identity?: { actorId: string; idempotencyKey: string }) => {
       previewSchedule({ spec: input.spec, timezone: input.timezone })
       return store.create(input, identity)

@@ -18,7 +18,8 @@ import {
   type RuntimePluginState,
 } from '@hbar/plugin-sdk/runtime-plugin'
 import type { Kernel } from '@hbar/kernel'
-import { RuntimeValuePort, type IpcPeer } from '@hbar/runtime'
+import { ExecutionDeadlines, RuntimeValuePort, type IpcPeer } from '@hbar/runtime'
+import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import {
   runtimePluginAuthoritySchema,
   runtimePluginCatalogSchema,
@@ -33,6 +34,7 @@ type Invocation = z.infer<typeof runtimePluginInvocationSchema>
 /** The Kernel owns API functions and admission. Remote registrations contain descriptions alone. */
 export class RuntimePluginAdapter {
   private readonly values: RuntimeValuePort
+  private readonly deadlines = new ExecutionDeadlines()
   private catalog: Catalog = []
   private excludedPluginIds = new Set<string>()
   private readonly tools = new Map<string, Array<() => void>>()
@@ -44,6 +46,7 @@ export class RuntimePluginAdapter {
     this.values = new RuntimeValuePort(peer, {
       prefix: 'kernel.plugins',
       callbackTimeoutMs: RUNTIME_PLUGIN_CALLBACK_TIMEOUT_MS,
+      callbackSettlement: 'physical',
     })
   }
   async load(excludedPluginIds: readonly string[] = []): Promise<HbarPlugin[]> {
@@ -129,6 +132,7 @@ export class RuntimePluginAdapter {
           { operation: 'hook', name: event },
           [describeRuntimeHook(event, value)],
           api,
+          this.hookTools(value, api),
         )
         return restoreRuntimeHook(event, result, this.hookTools(value, api), value)
       })
@@ -142,7 +146,7 @@ export class RuntimePluginAdapter {
       selected.every((tool) => tool && typeof tool === 'object' && typeof Reflect.get(tool, 'execute') === 'function')
       ? (selected as ToolDefinition[])
       : single && typeof single === 'object' && typeof Reflect.get(single, 'execute') === 'function'
-        ? [single as ToolDefinition, ...api.tools.list()]
+        ? [single as ToolDefinition, ...api.tools.list().filter((tool) => tool.name !== Reflect.get(single, 'name'))]
         : api.tools.list()
   }
   private registerTools(unitId: string, state: RuntimePluginState, api: HbarAPI): void {
@@ -196,6 +200,7 @@ export class RuntimePluginAdapter {
     operation: Omit<Invocation, 'catalog'>,
     args: readonly unknown[],
     api: HbarAPI,
+    toolCatalog?: readonly ToolDefinition[],
   ): Promise<Result> {
     const kernel = this.kernel(),
       execution = kernel.runtimeExecution()
@@ -261,13 +266,13 @@ export class RuntimePluginAdapter {
         : undefined)
     const request = runtimePluginInvocationSchema.parse({
       ...operation,
-      catalog: this.hookTools(first, api).map(describeRuntimeTool),
+      catalog: (toolCatalog ?? this.hookTools(first, api)).map(describeRuntimeTool),
       ...(mount ? { mount } : {}),
       ...(workspaceExecutionScope ? { workspaceExecutionScope } : {}),
       ...(toolTimeout?.success ? { toolTimeoutMs: toolTimeout.data } : {}),
     })
-    const result = runtimePluginResultSchema.parse(
-      await this.values.call(
+    const dispatch = () =>
+      this.values.callTracked(
         'invoke',
         [
           unitId,
@@ -283,12 +288,21 @@ export class RuntimePluginAdapter {
           ...(operationSignal ? { signal: operationSignal } : {}),
           timeoutMs: Math.min(operationTimeoutMs + 125_000, 1_325_000),
         },
-      ),
+      )
+    const callId =
+      operation.operation === 'execute'
+        ? z.object({ callId: z.string().min(1).max(160) }).parse(context).callId
+        : undefined
+    const result = runtimePluginResultSchema.parse(
+      execution && callId ? await this.deadlines.execute(execution, callId, dispatch) : await dispatch().settled,
     )
     if (result.kind === 'error') throw new HbarError(result.code, result.message)
     if (result.kind === 'control') throw new RunControlSignal(result.control)
     // The named capability or Hook fixes Result; its plain graph was validated by both application ports.
     return result.value as Result
+  }
+  suspendHumanWait(execution: ExecutionOwnership, callId: string): () => void {
+    return this.deadlines.suspend(execution, callId)
   }
   private async host(api: HbarAPI, method: string, args: readonly unknown[]): Promise<unknown> {
     if (method === 'notify') {

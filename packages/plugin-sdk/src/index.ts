@@ -13,6 +13,8 @@ export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
 import type { OsConfinementOptions } from './execution-options'
+import type { ToolPathArgument } from '@hbar/contracts/tool-arguments'
+import type { GitRunContext, GitRunOperation, GitRunResult } from '@hbar/contracts/commands/git'
 import type { NodeCallAuthority, nodeWorkspaceMethods } from '@hbar/contracts/node'
 export { osConfinementOptionsSchema, type OsConfinementOptions } from './execution-options'
 import type { z } from 'zod'
@@ -176,7 +178,7 @@ export type ToolWorkspaceAccess =
   | { kind: 'none' }
   | {
       kind: 'paths'
-      arguments: readonly { field: string; access: 'read' | 'write' }[]
+      arguments: readonly ToolPathArgument[]
     }
   | { kind: 'workspace' }
 export interface ToolDefinition extends ToolTimeoutPolicy {
@@ -305,6 +307,11 @@ export interface DriverInput {
   signal: AbortSignal
   /** Bounded observational model lifecycle metadata. Callback failures are ignored by the Host. */
   onModelDiagnostic?(event: ModelDiagnosticEvent): void
+  /** Optional physical lifecycle: settle only after the original response body/I/O actually ends. */
+  modelActivity?: {
+    begin(): Promise<string>
+    settle(requestId: string): Promise<void>
+  }
   resolveKey(modelId: string): Promise<string | null>
   readImage(id: string): Promise<{ mime: string; data: string }>
   readFile(id: string): Promise<{
@@ -343,6 +350,11 @@ export interface DriverInput {
    * already accepted messages or start a replacement Run. */
   closeSteeringAdmission?(): Promise<void>
 }
+export interface DecisionCompletionRequest {
+  readonly request: ModelRequest
+  /** A per-call budget, separate from the self-normalizing provider configuration. */
+  readonly maxOutputTokens: number
+}
 export interface HarnessDriver {
   /** Explicit opt-in; a Host must not admit live steering to a legacy driver
    * merely because DriverInput has an optional source callback. */
@@ -357,11 +369,19 @@ export interface HarnessDriver {
     signal: AbortSignal,
     onDiagnostic?: (event: ModelDiagnosticEvent) => void,
   ): Promise<{ text: string; usage: Usage }>
+  /** Toolless, bounded decision completion under the current Run's pinned model and ownership.
+   * Older drivers can omit it; callers must then retain the human input request. */
+  completeDecision?(
+    completion: DecisionCompletionRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ): Promise<{ text: string; usage: Usage }>
 }
 
 export interface ModelDiagnosticEvent {
   readonly phase: 'started' | 'response' | 'transport_failure' | 'settled' | 'failed' | 'cancelled'
-  readonly purpose: 'model' | 'compaction'
+  readonly purpose: 'model' | 'compaction' | 'decision'
   readonly providerId: string
   readonly modelSelectionId: string
   readonly modelRequestId?: string | undefined
@@ -707,6 +727,8 @@ export interface ModeService {
 export interface BudgetService {
   /** Validate against the active Budget owner configuration without creating Session state. */
   validateLimit(limit: number): Promise<void>
+  /** Settle already recorded usage without ending the current Run or inventing a model step. */
+  accountPendingUsage?(sessionId: string, runId: string): Promise<void>
   refreshSession?(sessionId: string): Promise<void>
   reconcileRun?(run: Run): Promise<void>
   get(sessionId: string): Promise<SessionBudget | null>
@@ -820,6 +842,8 @@ export interface GitLaunchBranchCreateResult {
 }
 
 export interface GitService {
+  /** Captured source context pins cwd and automatic commit attribution for a command invocation. */
+  forRun?(operation: GitRunOperation, context: GitRunContext, signal?: AbortSignal): Promise<GitRunResult>
   info(cwd?: string, signal?: AbortSignal): Promise<GitInfo>
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
   diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>
@@ -942,6 +966,8 @@ export interface HookEvents {
   'context.build': ModelRequest
   'model.request': ModelRequest
   'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
+  /** Validated final arguments, before policy/approval/intent. Failure denies admission; returned changes are ignored. */
+  'tool.admitting': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
   /** After approval and durable intent, before execution. Failure prevents execution; returned arguments are ignored. */
   'tool.executing': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
   'tool.after': { name: string; result: ToolResult; context: ToolContext }
@@ -965,7 +991,7 @@ export interface HookEvents {
     wakeAt?: number
     submission?: { requestId: string; input: UserInput; modelId: string }
   }
-  'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean }
+  'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean; code?: string }
   /** Published after the session budget fact has been committed. */
   'budget.committed': { sessionId: string; budget: SessionBudget | null }
   /** Goal or other lifecycle owners may veto budget-only continuation without a reverse service dependency. */
@@ -984,7 +1010,10 @@ export interface HookEvents {
     runId: string
     goal: ThreadGoal
     allowed: boolean
-    reason?: 'workflow_wait' | 'repair'
+    /** Omitted checks new acceptance; recovery/accepted check controls without granting authority. */
+    purpose?: 'recovery' | 'accepted'
+    /** Disabled keeps the intent waiting; it must not clear the Goal or its remaining budgets. */
+    reason?: 'workflow_wait' | 'repair' | 'disabled'
     recoveryKey?: string
   }
   'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal; supersededRunIds?: readonly string[] }

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { HbarError } from '@hbar/contracts'
-import { procedure, type IpcPeer, type IpcCallOptions } from './ipc'
+import { procedure, type IpcPeer, type IpcCallOptions, type IpcCallTicket, type IpcProcedureContext } from './ipc'
 
 type Value =
   | { kind: 'scalar'; value: string | number | boolean | null }
@@ -11,6 +11,12 @@ type Value =
   | { kind: 'bytes'; data: string }
   | { kind: 'signal' }
   | { kind: 'callback'; id: string }
+/** A repeated-group expression exhausts the regex engine on legal multi-MiB attachments in Bun. */
+function validBase64(value: string): boolean {
+  if (value.length > 24 * 1024 * 1024 || value.length % 4 !== 0) return false
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0
+  return !/[^A-Za-z0-9+/]/.test(value.slice(0, value.length - padding))
+}
 const valueSchema: z.ZodType<Value> = z.lazy(() =>
   z.discriminatedUnion('kind', [
     z.strictObject({
@@ -25,7 +31,7 @@ const valueSchema: z.ZodType<Value> = z.lazy(() =>
       data: z
         .string()
         .max(24 * 1024 * 1024)
-        .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
+        .refine(validBase64, 'Application bytes must contain complete base64 data'),
     }),
     z.strictObject({ kind: z.literal('signal') }),
     z.strictObject({ kind: z.literal('callback'), id: z.string().uuid() }),
@@ -49,12 +55,16 @@ export interface RuntimeValuePortOptions {
   /** Trusted, owner-local callback deadline. Omission preserves the peer's configured default timeout. */
   readonly callbackTimeoutMs?: CallbackTimeout
   /** Enter the captured local application scope when a named callback returns to its owner. */
-  readonly callbackScope?: <Result>(operation: () => Result) => Result
+  readonly callbackScope?: <Result>(operation: () => Result, context: IpcProcedureContext) => Result
+  /** Trusted composition binds an original outgoing physical callback before awaiting its result. */
+  readonly callbackTracked?: <Output>(dispatch: () => IpcCallTicket<Output>) => Promise<Output>
+  /** Owned effect chains can wait for callbacks already running when logical cancellation arrives. */
+  readonly callbackSettlement?: 'physical'
 }
 
 /** Plain, bounded argument descriptions. Functions and signals remain local and use authenticated named callbacks. */
 export class RuntimeValuePort {
-  private readonly callbacks = new Map<string, (...args: unknown[]) => unknown>()
+  private readonly callbacks = new Map<string, (args: readonly unknown[], call: IpcProcedureContext) => unknown>()
   private readonly operations = new Map<string, Operation>()
   private readonly disposers: Array<() => void>
   private closed = false
@@ -82,8 +92,7 @@ export class RuntimeValuePort {
           const callback = this.callbacks.get(input.id)
           if (!callback)
             throw new HbarError('RUNTIME_CALLBACK_EXPIRED', 'The original application callback is no longer owned')
-          const invoke = () => callback(...input.args.map((value) => this.decode(value, call.signal)))
-          const result = this.options.callbackScope ? await this.options.callbackScope(invoke) : await invoke()
+          const result = await callback(input.args.map((value) => this.decode(value, call.signal)), call)
           return this.encode(result, this.encoding())
         }),
       ),
@@ -137,6 +146,39 @@ export class RuntimeValuePort {
       for (const id of callbacks) this.callbacks.delete(id)
     }
   }
+  callTracked<Result>(method: string, args: readonly unknown[], options: IpcCallOptions = {}): IpcCallTicket<Result> {
+    const callbacks: string[] = []
+    const signals: AbortSignal[] = []
+    const release = () => {
+      for (const id of callbacks) this.callbacks.delete(id)
+    }
+    try {
+      if (this.closed) throw new HbarError('IPC_DISCONNECTED', 'Application port owner has exited')
+      const encoding = this.encoding(callbacks, signals)
+      const input = invocationSchema.parse({ method, args: args.map((value) => this.encode(value, encoding)) })
+      if (options.signal) signals.push(options.signal)
+      const signal = signals.length ? AbortSignal.any(signals) : undefined
+      const kind = this.options.controlMethods?.includes(method) ? 'control' : 'invoke'
+      const ticket = this.peer.callTracked(`${this.options.prefix}.${kind}`, input, valueSchema, {
+        ...options,
+        ...(signal ? { signal } : {}),
+      })
+      // Decode the owner's result once, including late replies; the logical promise retains its original deadline.
+      const settled = ticket.settled.then(
+        (value) => this.decode(value, signal ?? new AbortController().signal) as Result,
+      )
+      const result = ticket.result.then(() => settled)
+      // No new callback can start after logical completion. Already running callbacks own their captured operation.
+      void result.then(release, release)
+      void settled.catch(() => undefined)
+      return { result, settled, suspendDeadline: () => ticket.suspendDeadline() }
+    } catch (error) {
+      release()
+      const rejected: Promise<Result> = Promise.reject(error)
+      void rejected.catch(() => undefined)
+      return { result: rejected, settled: rejected, suspendDeadline: () => () => {} }
+    }
+  }
   snapshot() {
     return { callbacks: this.callbacks.size, methods: this.operations.size }
   }
@@ -176,10 +218,10 @@ export class RuntimeValuePort {
         throw new HbarError('RUNTIME_CALLBACK_CAPACITY', 'Local callback capacity is exhausted')
       const id = crypto.randomUUID()
       const captured = AsyncLocalStorage.snapshot()
-      this.callbacks.set(id, (...args) =>
+      this.callbacks.set(id, (args, call) =>
         captured(() => {
-          const result: unknown = Reflect.apply(value, undefined, args)
-          return result
+          const invoke = (): unknown => Reflect.apply(value, undefined, args)
+          return this.options.callbackScope ? this.options.callbackScope(invoke, call) : invoke()
         }),
       )
       state.callbacks.push(id)
@@ -239,26 +281,33 @@ export class RuntimeValuePort {
         // Snapshot the owner-selected budget while decoding the original call. The original
         // request signal remains captured as the cancellation fence for nested callback values.
         const timeoutMs = this.callbackTimeout()
+        const physical = this.options.callbackSettlement === 'physical'
         return async (...args: unknown[]) => {
           signal.throwIfAborted()
           const callbacks: string[] = [],
             signals: AbortSignal[] = [signal]
           const state = this.encoding(callbacks, signals)
+          let nestedSignal: AbortSignal | undefined
+          const release = () => {
+            for (const id of callbacks) this.callbacks.delete(id)
+          }
           try {
             const described = args.map((item) => this.encode(item, state))
-            const nestedSignal = AbortSignal.any(signals)
-            const result = await this.peer.call(
-              `${this.options.prefix}.callback`,
-              { id: value.id, args: described },
-              valueSchema,
-              {
-                signal: nestedSignal,
-                ...(timeoutMs === undefined ? {} : { timeoutMs }),
-              },
-            )
+            nestedSignal = AbortSignal.any(signals)
+            nestedSignal.addEventListener('abort', release, { once: true })
+            const method = `${this.options.prefix}.callback`
+            const input = { id: value.id, args: described }
+            const options = { signal: nestedSignal, ...(timeoutMs === undefined ? {} : { timeoutMs }) }
+            const dispatch = () => this.peer.callTracked(method, input, valueSchema, options)
+            const result = physical
+              ? this.options.callbackTracked
+                ? await this.options.callbackTracked(dispatch)
+                : await dispatch().settled
+              : await this.peer.call(method, input, valueSchema, options)
             return this.decode(result, nestedSignal)
           } finally {
-            for (const id of callbacks) this.callbacks.delete(id)
+            nestedSignal?.removeEventListener('abort', release)
+            release()
           }
         }
       }

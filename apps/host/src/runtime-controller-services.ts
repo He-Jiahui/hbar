@@ -1,9 +1,16 @@
-import type { CommandDescriptor } from '@hbar/commands'
+import type {
+  CommandDescriptor,
+  CommandInvocation,
+  CommandExecutionExpectation,
+  CommandPreparedOptions,
+  CommandExecutionTicket,
+} from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import type { ControllerApplication, ControllerCommandService } from './controller-application'
 
 /** Methods used by stable connection, media and scheduling adapters; private registries remain in the owner. */
 export const RUNTIME_CONTROLLER_SERVICES = {
+  settingsCommands: ['execute'],
   browserCommands: ['execute'],
   computerCommands: ['execute'],
   configurationCommands: ['execute'],
@@ -40,9 +47,22 @@ export interface ControllerServerApplication extends RemoteServices {
 }
 export interface RuntimeControllerServicesOptions {
   readonly catalog: () => { revision: number; items: readonly CommandDescriptor[] }
-  readonly call: <Result>(service: string, method: string, args: readonly unknown[]) => Promise<Result>
+  readonly call: <Result>(
+    service: string,
+    method: string,
+    args: readonly unknown[],
+    options?: CommandPreparedOptions,
+  ) => Promise<Result>
   readonly start: () => Promise<void>
   readonly stop: () => Promise<void>
+  readonly tracked?:
+    | ((
+        value: unknown,
+        actorId: string,
+        expectation: CommandExecutionExpectation,
+        options?: CommandPreparedOptions,
+      ) => CommandExecutionTicket)
+    | undefined
 }
 
 export function createRuntimeControllerServices(
@@ -62,14 +82,32 @@ export function createRuntimeControllerServices(
     return { ...catalog, items: catalog.items.filter((value) => value.metadata.visibility !== 'internal') }
   }
   const service = {
+    prepare: (value: unknown) => options.call<CommandInvocation>('commands', 'prepare', [value]),
     dispatch: (value: unknown, actorId: string) => options.call('commands', 'dispatch', [value, actorId]),
+    dispatchPrepared: (
+      value: unknown,
+      actorId: string,
+      expectation: CommandExecutionExpectation,
+      executeOptions?: CommandPreparedOptions,
+    ) => options.call('commands', 'dispatchPrepared', [value, actorId, expectation], executeOptions),
+    dispatchPreparedTracked: (
+      value: unknown,
+      actorId: string,
+      expectation: CommandExecutionExpectation,
+      executeOptions?: CommandPreparedOptions,
+    ) => {
+      if (!options.tracked)
+        throw new HbarError('CAPABILITY_UNAVAILABLE', 'The Controller transport has no physical command tracking')
+      return options.tracked(value, actorId, expectation, executeOptions)
+    },
     describe(id: string) {
       const descriptor = allDescriptors().find((value) => value.metadata.id === id)
       if (!descriptor)
         throw new HbarError('COMMAND_NOT_FOUND', 'Command is absent from the activated Controller catalog')
       return descriptor
     },
-    list: publicCatalog,
+    list: (filter?: { readonly includeInternal?: boolean }) =>
+      filter?.includeInternal ? options.catalog() : publicCatalog(),
   }
   const commandIds = allDescriptors().map((value) => value.metadata.id)
   const commandDispatchers = new Map(commandIds.map((id) => [id, service.dispatch]))

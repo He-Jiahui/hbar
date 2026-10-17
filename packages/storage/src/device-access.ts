@@ -54,6 +54,12 @@ export function createDeviceStorage(db: Database, onCreated: (id: string) => voi
         .get(hash)
       return row === null ? null : decode(row)
     },
+    byId(id: string): Device | null {
+      const row = db
+        .query(`SELECT ${columns} FROM devices d LEFT JOIN device_access a ON a.deviceId=d.id WHERE d.id=?`)
+        .get(id)
+      return row === null ? null : decode(row)
+    },
     list(): Device[] {
       return db
         .query(

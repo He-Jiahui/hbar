@@ -1,5 +1,23 @@
 import { Database } from 'bun:sqlite'
+import { createContextSummaryReader } from './context-summary'
+import { readSessionFacts } from './session-read-facts'
+import { createBackendContinuationAdmission } from './backend-continuation'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
+import { createExecutionPrincipalStorage, EXECUTION_PRINCIPAL_INDEX } from './execution-principals'
+import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
+import { createUserInputStateStorage } from './user-input-state'
+import { createDelegatedUserInputStorage } from './delegated-user-input'
+import { createDelegatedInputDelivery } from './delegated-input-delivery'
+import { createDelegatedApprovalSource, DELEGATED_APPROVAL_INDEX } from './delegated-approval-source'
+import { createApprovalResolutionStorage, APPROVAL_RESOLUTION_INDEX } from './approval-resolutions'
+import { delegatedInputAcceptSchema, delegatedInputBindSchema, delegatedInputCompleteSchema, delegatedInputFinishSchema, delegatedInputDeliverSchema, delegatedInputRunSchema } from '@hbar/contracts/delegated-user-input'
+import { assertAutomaticPlanExit } from './automatic-plan-exit'
+import { assertAutomaticDecisionPolicy } from './automatic-decision-policy'
+import { automaticToolApprovalDecisionSchema, approvalAutomationContextSchema } from '@hbar/contracts/autonomy'
+import { createDecisionStorage, DECISION_PAGE_INDEX } from './decisions'
+import { createAutonomyRetryStorage, AUTONOMY_RETRY_INDEX } from './autonomy-retries'
+import { userInputAcceptSchema, userInputCommitSchema } from '@hbar/contracts/user-input-state'
+import { executionPrincipalSchema, sessionCreationSourceSchema } from '@hbar/contracts/execution-principal'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
 import {
@@ -107,6 +125,7 @@ import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { createRuntimeState, RUNTIME_STATE_SQL, runtimeManualRecoverySchema } from './runtime-state'
+import { createRuntimeBackendRecoveryPage } from './runtime-backend-recovery'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { readSessionObservability } from './session-observability.ts'
 import { beginContextCompaction, finishContextCompaction, readContextHistory } from './context-history'
@@ -190,6 +209,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
   const databaseMaintenanceReads = new Set<string>([
     'ready',
     'deviceByHash',
+    'deviceById',
     'devices',
     'pendingNodeExecutionIntents',
     'chatDatabaseOperationRead',
@@ -631,6 +651,48 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       { readOnly: preflight && !shadowMemory },
     )
     const deviceStorage = createDeviceStorage(db, (id) => chatDatabaseArtifacts.unknownDevice(id, false))
+    const executionPrincipals = createExecutionPrincipalStorage(db)
+    const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
+    const userInputState: ReturnType<typeof createUserInputStateStorage> = createUserInputStateStorage(db, appendEvent, {
+      prepareDelegatedSettlement: (state, settlement) => delegatedInputs.prepareSettlement(state, settlement),
+    })
+    const delegatedInputs = createDelegatedUserInputStorage(db, appendEvent, {
+      delivery: createDelegatedInputDelivery(db, appendEvent, {
+        session: (id) => methods.session(id), workspace: (id) => methods.workspace(id),
+        run: (id) => methods.run(id), principal: executionPrincipals.run, steering: runSteering,
+        indexMessage: (id, sessionId, seq, content) => sessionSearch.queueMessage(id, sessionId, 'user', seq, content),
+      }),
+      question: userInputState.read,
+      approval: createDelegatedApprovalSource(db, (id) => methods.approval(id)),
+      run: (id) => methods.run(id),
+      principal: executionPrincipals.run,
+      available: (id) => { const session = methods.findSession(id); return session !== null && !session.archived },
+      exists: (id) => methods.findSession(id) !== null,
+      authorize: (actorId, sessionIds) => {
+        const device = methods.deviceById(actorId)
+        if (!device || device.role === 'observer') return false
+        const workspaceIds = device.workspaceIds
+        return workspaceIds == null || sessionIds.every((id) => {
+          const session = methods.findSession(id)
+          return session !== null && workspaceIds.includes(session.workspaceId)
+        })
+      },
+    })
+    const decisions = createDecisionStorage(db, appendEvent)
+    const admitBackendContinuation = createBackendContinuationAdmission(db)
+    const approvalResolutions = createApprovalResolutionStorage(db, (id) => methods.approval(id))
+    const autonomyRetries = createAutonomyRetryStorage(db, appendEvent, {
+      run: (id) => methods.run(id),
+      hasPendingCommands: (sessionId) => commandExecutionReceipts.pending(sessionId).items.length > 0,
+      authorized: (principal, sessionId) => {
+        const device = methods.deviceById(principal.actorId)
+        if (!device || device.role === 'observer') return false
+        const workspaceIds = device.workspaceIds
+        return workspaceIds == null || [sessionId, principal.originSessionId].every(
+          (id) => workspaceIds.includes(methods.session(id).workspaceId),
+        )
+      },
+    })
     const nodeRegistryStorage = createNodeRegistryStorage(db)
     const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
     const nodeExecutionIntentStorage = createNodeExecutionIntentStorage(db)
@@ -648,6 +710,14 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
     if (!preflight || shadowMemory) {
+      db.exec(DECISION_PAGE_INDEX)
+      db.exec(AUTONOMY_RETRY_INDEX)
+      db.exec(EXECUTION_PRINCIPAL_INDEX)
+      db.exec(DELEGATED_APPROVAL_INDEX)
+      db.exec(APPROVAL_RESOLUTION_INDEX)
+      db.exec(`CREATE INDEX IF NOT EXISTS events_live_guidance_run_seq ON events(sessionId,runId,seq)
+        WHERE type='message.committed' AND (json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL
+          OR json_extract(data,'$.decisionDelegation.targetRunId') IS NOT NULL);`)
       db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
       db.exec('CREATE INDEX IF NOT EXISTS events_session_type_seq ON events(sessionId,type,seq);')
       db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
@@ -1367,10 +1437,32 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       append: appendEvent,
       cancelRequested: (id) => methods.cancelRequested(id),
       requestCancel: (id) => methods.requestCancel(id),
+      retrySuccessor: (id) => autonomyRetries.successor(id),
       reconcile: (run) => {
         methods.recover({ runIds: [run.id], preserveQueued: true, preserveApprovals: true, reconcileInterrupted: true })
       },
       archived: (id) => methods.session(id).archived,
+      driverCompletionCommitted(sessionId, runIds) {
+        if (runIds.length === 0 || runIds.length > 33 || new Set(runIds).size !== runIds.length)
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion requires one bounded verified lineage')
+        const row = db
+          .query<{ data: string | null }, string[]>(
+            `SELECT CASE WHEN length(CAST(data AS BLOB))<=128 THEN data ELSE NULL END AS data
+             FROM events WHERE sessionId=? AND runId IN (${runIds.map(() => '?').join(',')})
+             AND type='run.driverCompleted' ORDER BY seq LIMIT 1`,
+          )
+          .get(sessionId, ...runIds)
+        if (!row) return false
+        let data: unknown
+        try {
+          data = row.data === null ? null : JSON.parse(row.data)
+        } catch {
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion marker is not canonical JSON')
+        }
+        if (!z.strictObject({ version: z.literal(1) }).safeParse(data).success)
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion marker differs from its canonical version')
+        return true
+      },
       restoreBinding: (binding) => sessionLaunchTarget.restoreBinding(binding),
       start(run, startedAt) {
         db.query("UPDATE runs SET status='running',startedAt=? WHERE id=?").run(startedAt, run.id)
@@ -1421,6 +1513,14 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             chain: { ...chain, currentRunId: run.id },
             run,
             ...(manual ? { manual } : {}),
+            executionPrincipal: manual
+              ? executionPrincipalSchema.parse({
+                  version: 1,
+                  actorId: manual.command.actorId,
+                  originSessionId: run.sessionId,
+                  originRunId: run.id,
+                })
+              : executionPrincipals.run(original.id),
             launchTarget,
           },
           run.id,
@@ -1436,6 +1536,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       runtimeRecoveryPlan: runtimeState.planRecovery,
       runtimeRecoveryQueue: runtimeState.queueRecovery,
       runtimeRecoveryRead: runtimeState.readRecovery,
+      runtimeBackendRecoveryPage: createRuntimeBackendRecoveryPage(db),
       runtimeRecoveryCancel: runtimeState.cancelRecovery,
       runtimeRecoveryChain: runtimeState.readChain,
       runtimeRecoveryHold: runtimeState.holdRecovery,
@@ -1543,6 +1644,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       sandboxSnapshot: (digest) => sandboxProfiles.snapshot(digest),
       schedulePage: (workspaceId, after, limit) => schedules.list(workspaceId, after, limit),
       schedule: (id) => schedules.get(id),
+      scheduleExecution: schedules.execution,
+      scheduleOccurrence: schedules.occurrence,
       createSchedule: (input, identity) => schedules.create(input, identity),
       updateSchedule: (input, identity) => schedules.update(input, identity),
       deleteSchedule: (id, expectedRevision, identity) => schedules.delete(id, expectedRevision, identity),
@@ -1665,7 +1768,29 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       workspace: (id) =>
         readWorkspaceRow(db, required(db.query('SELECT * FROM workspaces WHERE id=?').get(id), 'Workspace')),
-      createSession(workspaceId, title = 'New session', parentId) {
+      sessionExecutionPrincipal: executionPrincipals.session,
+      runExecutionPrincipal: executionPrincipals.run,
+      commandExecutionAccept: commandExecutionReceipts.accept,
+      userInputAccept: userInputState.accept,
+      delegatedInputAccept: delegatedInputs.accept,
+      delegatedInputDeliver: delegatedInputs.deliver,
+      delegatedInputAdmitRun: delegatedInputs.admitRun,
+      delegatedInputRead: delegatedInputs.read,
+      delegatedInputBind: delegatedInputs.bind,
+      delegatedInputComplete: delegatedInputs.complete,
+      delegatedInputFinish: delegatedInputs.finish,
+      delegatedInputInbox: delegatedInputs.inbox,
+      decisionPage: decisions.page,
+      autonomyRetryPlan: autonomyRetries.plan,
+      decisionOperationRead: decisions.operationRead,
+      decisionOperationBegin: decisions.operationBegin,
+      decisionOperationComplete: decisions.operationComplete,
+      userInputRead: userInputState.read,
+      userInputCommit: userInputState.commit,
+      commandExecutionRead: commandExecutionReceipts.read,
+      commandExecutionPending: commandExecutionReceipts.pending,
+      commandExecutionUpdate: commandExecutionReceipts.update,
+      createSession(workspaceId, title = 'New session', parentId, source) {
         return db.transaction(() => {
           const workspace = methods.workspace(workspaceId)
           if (parentId) methods.session(parentId)
@@ -1679,6 +1804,23 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             updatedAt: Date.now(),
             seq: 0,
           }
+          const origin = source === undefined ? undefined : sessionCreationSourceSchema.parse(source)
+          const sourceRun = origin?.kind === 'run' ? methods.run(origin.runId) : undefined
+          if (sourceRun && sourceRun.sessionId !== parentId)
+            throw new HbarError('EXECUTION_PRINCIPAL_SOURCE', 'A child session must inherit from its actual parent Run')
+          const executionPrincipal =
+            origin?.kind === 'command'
+              ? executionPrincipalSchema.parse({
+                  version: 1,
+                  actorId: origin.actorId,
+                  originSessionId: session.id,
+                  originRunId: null,
+                })
+              : sourceRun
+                ? executionPrincipals.run(sourceRun.id)
+                : parentId
+                  ? executionPrincipals.session(parentId)
+                  : null
           db.query('INSERT INTO sessions VALUES(?,?,?,?,?,?,?,?)').run(
             session.id,
             workspaceId,
@@ -1689,7 +1831,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             session.updatedAt,
             0,
           )
-          appendEvent(session.id, 'session.created', { session, workspace })
+          appendEvent(session.id, 'session.created', { session, workspace, executionPrincipal })
           return methods.session(session.id)
         })()
       },
@@ -1702,7 +1844,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           })
           const prior = entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
           if (prior) return prior
-          const session = methods.createSession(input.workspaceId, input.title)
+          const session = methods.createSession(input.workspaceId, input.title, undefined, {
+            kind: 'command',
+            actorId: input.actorId,
+          })
           storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
           return session
         })()
@@ -2300,17 +2445,24 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
                 closed: true,
               })
             const rows = db
-              .query<Row, [string, string, number, string]>(
+              .query<Row, [string, string, number, string, string]>(
                 `SELECT * FROM events
          WHERE sessionId=? AND type='message.committed' AND runId=? AND seq>?
-           AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL
-           AND json_extract(data,'$.queueGuidance.activeRunId')=?
+           AND (json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL OR json_extract(data,'$.decisionDelegation.targetRunId') IS NOT NULL)
+           AND (json_extract(data,'$.queueGuidance.activeRunId')=? OR json_extract(data,'$.decisionDelegation.targetRunId')=?)
          ORDER BY seq LIMIT 21`,
               )
-              .all(input.sessionId, input.runId, input.afterSeq, input.runId)
+              .all(input.sessionId, input.runId, input.afterSeq, input.runId, input.runId)
             const items = rows.slice(0, 20).map((row) => {
               const event = eventRow(row)
-              queueGuidanceFromEvent(event)
+              const envelope = z.object({ decisionDelegation: z.object({ sessionId: idSchema, requestId: idSchema,
+                delegationId: idSchema, targetRunId: idSchema }).optional() }).parse(event.data).decisionDelegation
+              if (envelope) {
+                const grant = delegatedInputs.read({ sessionId: envelope.sessionId, requestId: envelope.requestId })
+                if (!grant || grant.delegationId !== envelope.delegationId || grant.targetSessionId !== event.sessionId ||
+                  grant.targetRunId !== event.runId || envelope.targetRunId !== event.runId || grant.delivery !== 'guidance')
+                  throw new HbarError('SESSION_LOG_CORRUPTED', 'Delegated guidance differs from its canonical source grant')
+              } else queueGuidanceFromEvent(event)
               const data = z
                 .object({ id: idSchema, role: z.literal('user'), content: z.array(contentBlockSchema) })
                 .parse(event.data)
@@ -2693,6 +2845,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to another session')
         return receipt
       },
+      contextSummaryExcerpt: createContextSummaryReader(db),
       context(sessionId) {
         const compacted = db
           .query('SELECT * FROM compactions WHERE sessionId=? ORDER BY eventSeq DESC LIMIT 1')
@@ -2750,7 +2903,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           db.query('INSERT INTO compactions VALUES(?,?,?,?)').run(sessionId, throughSeq, summary, event.seq)
           return event
         })(),
-      fork: (sessionId, atSeq) =>
+      fork: (sessionId, atSeq, source) =>
         db.transaction(() => {
           const parent = methods.session(sessionId)
           const boundary = atSeq ?? parent.seq
@@ -2765,7 +2918,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               .get(sessionId, atSeq)
           )
             throw new HbarError('INVALID_BOUNDARY', 'A fork must end at a settled run')
-          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id)
+          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id, source)
           appendEvent(child.id, 'session.forked', { parentId: parent.id, atSeq: boundary })
           for (const row of db
             .query('SELECT * FROM messages WHERE sessionId=? AND seq<=? ORDER BY seq')
@@ -2788,7 +2941,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const payloadHash = entityPayloadHash(commandId, { sessionId: input.sessionId, atSeq: input.atSeq ?? null })
           const prior = entityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash)
           if (prior) return prior
-          const session = methods.fork(input.sessionId, input.atSeq)
+          const session = methods.fork(input.sessionId, input.atSeq, { kind: 'command', actorId: input.actorId })
           storeEntityCommandReceipt(input.actorId, input.idempotencyKey, commandId, payloadHash, session)
           return session
         })()
@@ -2806,7 +2959,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const parent = methods.session(input.sessionId)
           const { target, prefix } = messageForkPrefix(parent.id, input.messageId)
 
-          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id)
+          const child = methods.createSession(parent.workspaceId, `${parent.title} (fork)`, parent.id, {
+            kind: 'command',
+            actorId: input.actorId,
+          })
           appendEvent(child.id, 'session.forked', {
             parentId: parent.id,
             sourceMessageId: target.id,
@@ -2888,8 +3044,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           return { sessionId: parsed.sessionId, items: parsed.messageIds.map((id) => unique.get(id)!) }
         })()
       },
-      enqueue: (sessionId, requestId, input, modelId, command, launchTarget) =>
+      enqueue: (sessionId, requestId, input, modelId, command, launchTarget, sourceRunId, autonomyRetry) =>
         db.transaction(() => {
+          if (input.delegatedDecision) throw new HbarError('FORBIDDEN', 'Dedicated decision Runs require the private delegation delivery grant')
+          const submittedCommand = command === undefined ? undefined : runCommandRecordSchema.parse(command)
           const existing = db
             .query('SELECT * FROM runs WHERE sessionId=? AND requestId=?')
             .get(sessionId, requestId) as Row | null
@@ -2905,8 +3063,20 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             const original = runSchema.parse((parseJson(queued.data) as { run: unknown }).run)
             if (original.modelId !== modelId || stableJson(original.input) !== stableJson(input))
               throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id was already used with different input')
+            const accepted = z.object({ command: runCommandRecordSchema.optional() }).parse(parseJson(queued.data))
+            if (submittedCommand && stableJson(accepted.command) !== stableJson(submittedCommand))
+              throw new HbarError(
+                'IDEMPOTENCY_CONFLICT',
+                'This request id already belongs to a different authenticated submission',
+              )
             return prior
           }
+          admitBackendContinuation(input)
+          const retrySource = autonomyRetry === undefined
+            ? undefined
+            : autonomyRetries.validate(autonomyRetry, sessionId, requestId, input, modelId)
+          if (autonomyRetry && (submittedCommand || sourceRunId !== undefined))
+            throw new HbarError('AUTONOMY_RETRY_INVALID', 'An automatic successor inherits only from its original Run')
           const owner = methods.session(sessionId)
           if (owner.archived) throw new HbarError('ARCHIVED', 'Unarchive the session before running')
           const workspace = methods.workspace(owner.workspaceId)
@@ -2922,6 +3092,25 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             endedAt: null,
             error: null,
           }
+          const sourceRun =
+            submittedCommand || (sourceRunId === undefined && retrySource === undefined)
+              ? undefined
+              : methods.run(idSchema.parse(retrySource ?? sourceRunId))
+          if (sourceRun && sourceRun.sessionId !== owner.id && sourceRun.sessionId !== owner.parentId)
+            throw new HbarError(
+              'EXECUTION_PRINCIPAL_SOURCE',
+              'A Run can inherit only from its session or its parent session',
+            )
+          const executionPrincipal = submittedCommand
+            ? executionPrincipalSchema.parse({
+                version: 1,
+                actorId: submittedCommand.actorId,
+                originSessionId: sessionId,
+                originRunId: run.id,
+              })
+            : sourceRun
+              ? executionPrincipals.run(sourceRun.id)
+              : executionPrincipals.session(sessionId)
           const retainedLaunchTarget = sessionLaunchTarget.bindToRun(sessionId, run.id, workspace.path, launchTarget)
           db.query(
             'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
@@ -2931,7 +3120,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             'run.queued',
             {
               run,
+              executionPrincipal,
               launchTarget: retainedLaunchTarget,
+              ...(autonomyRetry ? { autonomyRetry: autonomyRetry.plan } : {}),
               workspaceId: owner.workspaceId,
               ...(workspace.location?.kind === 'node'
                 ? {
@@ -2943,7 +3134,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
                     workspaceFoldersSnapshot: workspaceFolders.read(owner.workspaceId),
                   }
                 : {}),
-              ...(command ? { command } : {}),
+              ...(submittedCommand ? { command: submittedCommand } : {}),
             },
             run.id,
           )
@@ -3097,7 +3288,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       requestCancel: (id) =>
         db.transaction(() => {
           const run = methods.run(id)
-          if (['guided', 'completed', 'cancelled', 'failed'].includes(run.status)) return { run, event: null }
+          if (run.status === 'failed') return { run, event: autonomyRetries.cancel(id) }
+          if (['guided', 'completed', 'cancelled'].includes(run.status)) return { run, event: null }
           runSteering.close(run.sessionId, run.id)
           if (run.status === 'queued') {
             const event = methods.setRun(id, 'cancelled', 'Cancelled by user', {
@@ -3156,8 +3348,11 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         (db.query("SELECT DISTINCT sessionId FROM runs WHERE status='queued'").all() as { sessionId: string }[]).map(
           (row) => row.sessionId,
         ),
-      createApproval: (raw) => {
+      createApproval: (raw, rawContext) => {
         const approval = approvalSchema.parse(raw)
+        const automationContext = rawContext === undefined ? undefined : approvalAutomationContextSchema.parse(rawContext)
+        if (automationContext && automationContext.policy.sessionId !== approval.sessionId)
+          throw new HbarError('AUTOMATIC_APPROVAL_INVALID', 'The approval context must belong to its source Session')
         return db.transaction(() => {
           db.query(
             'INSERT INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt,executionTarget) VALUES(?,?,?,?,?,?,?,?,?)',
@@ -3172,19 +3367,50 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             approval.createdAt,
             approval.executionTarget ? JSON.stringify(approval.executionTarget) : null,
           )
-          return appendEvent(approval.sessionId, 'approval.requested', approval, approval.runId)
+          return appendEvent(approval.sessionId, 'approval.requested', {
+            ...approval, ...(automationContext ? { automationContext } : {}),
+          }, approval.runId)
         })()
       },
       approval: (id) => approvalRow(db.query('SELECT * FROM approvals WHERE id=?').get(id) as Row | null),
-      resolveApproval: (id, status) =>
+      approvalResolution: approvalResolutions.read,
+      resolveApproval: (id, status, rawAutomatic) =>
         db.transaction(() => {
           const approval = methods.approval(id)
           if (approval.status !== 'pending') return null
-          db.query('UPDATE approvals SET status=? WHERE id=?').run(status, id)
+          const automatic = rawAutomatic === undefined ? undefined : automaticToolApprovalDecisionSchema.parse(rawAutomatic)
+          if (automatic) {
+            const run = methods.run(approval.runId)
+            if (
+              (automatic.source === 'recommended' ? status !== 'allowed' : !['allowed', 'denied'].includes(status)) ||
+              approval.tool === 'exit_plan_mode' ||
+              run.sessionId !== approval.sessionId ||
+              run.status !== 'waiting_approval' ||
+              run.input.approval !== 'ask'
+            )
+              throw new HbarError(
+                'AUTOMATIC_APPROVAL_INVALID',
+                'Automatic tool approval requires its original ask-mode Run',
+              )
+            if (methods.cancelRequested(run.id)) throw new HbarError('USER_CANCELLED', 'The source Run was cancelled')
+            const principal = executionPrincipals.run(run.id)
+            if (!principal)
+              throw new HbarError('EXECUTION_PRINCIPAL_UNAVAILABLE', 'Automatic approval requires its actual source actor')
+            assertAutomaticDecisionPolicy(db, approval.sessionId, automatic.policy, automatic.source)
+            approval.decidedBy = principal.actorId
+          }
+          const closeDelegation = delegatedInputs.prepareApprovalSettlement(approval, status, automatic)
+          db.query('UPDATE approvals SET status=?,decidedBy=? WHERE id=?').run(status, approval.decidedBy ?? null, id)
           approval.status = status
-          return { approval, event: appendEvent(approval.sessionId, 'approval.resolved', approval, approval.runId) }
+          const event = appendEvent(
+            approval.sessionId,
+            'approval.resolved',
+            { ...approval, ...(automatic ? { automatic } : {}) },
+            approval.runId,
+          )
+          return { approval, event, delegationEvents: closeDelegation() }
         })(),
-      resolvePlanExit: (id, sessionId, runId, callId, decision, feedback, actorId) =>
+      resolvePlanExit: (id, sessionId, runId, callId, decision, feedback, actorId, rawAutomatic) =>
         db.transaction(() => {
           const approval = methods.approval(id)
           if (
@@ -3200,7 +3426,12 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan run is no longer waiting for approval')
           if (methods.cancelRequested(runId))
             throw new HbarError('PLAN_EXIT_CANCELLED', 'The original Plan run is being cancelled')
+          const automatic =
+            rawAutomatic === undefined
+              ? undefined
+              : assertAutomaticPlanExit(db, approval, decision, actorId, executionPrincipals.run(runId), rawAutomatic)
           const status = decision === 'implement' ? 'allowed' : 'denied'
+          const closeDelegation = delegatedInputs.prepareApprovalSettlement(approval, status, automatic)
           db.query('UPDATE approvals SET status=?,feedback=?,decidedBy=? WHERE id=?').run(
             status,
             feedback ?? null,
@@ -3213,11 +3444,17 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           const event = appendEvent(
             sessionId,
             'plan_exit.resolved',
-            { approval: resolved, mode: decision === 'implement' ? 'default' : null, exitRunId: runId, callId },
+            {
+              approval: resolved,
+              mode: decision === 'implement' ? 'default' : null,
+              exitRunId: runId,
+              callId,
+              ...(automatic ? { automatic } : {}),
+            },
             runId,
           )
           const modeEvent = decision === 'implement' ? event : null
-          return { approval: resolved, event, modeEvent }
+          return { approval: resolved, event, modeEvent, delegationEvents: closeDelegation() }
         })(),
       toolStart: (sessionId, runId, callId, name, args, presentation, nodeExecution) =>
         db.transaction(() => {
@@ -3600,6 +3837,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       putDevice: (device, tokenHash) => deviceStorage.put(device, tokenHash),
       deviceByHash: (hash) => deviceStorage.byHash(hash),
+      deviceById: (id) => deviceStorage.byId(idSchema.parse(id)),
       devices: () => deviceStorage.list(),
       revokeDevice: (id) => deviceStorage.revoke(id),
       nodeIdentityEnsure: (identity) => nodeRegistryStorage.ensureIdentity(identity),
@@ -4390,6 +4628,19 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       }
     }
     function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
+      if (method === 'delegatedInputComplete') return delegatedInputCompleteSchema.parse(args[0]).targetRunId
+      if (method === 'delegatedInputAdmitRun') return delegatedInputRunSchema.parse(args[0]).targetRunId
+      if (method === 'delegatedInputAccept' || method === 'delegatedInputBind' || method === 'delegatedInputFinish' || method === 'delegatedInputDeliver') {
+        const input = method === 'delegatedInputAccept' ? delegatedInputAcceptSchema.parse(args[0])
+          : method === 'delegatedInputBind' ? delegatedInputBindSchema.parse(args[0])
+          : method === 'delegatedInputDeliver' ? delegatedInputDeliverSchema.parse(args[0]) : delegatedInputFinishSchema.parse(args[0])
+        return userInputState.read({ sessionId: input.sessionId, requestId: input.requestId })?.request.runId
+      }
+      if (method === 'userInputAccept') return userInputAcceptSchema.parse(args[0]).request.runId
+      if (method === 'userInputCommit') {
+        const input = userInputCommitSchema.parse(args[0])
+        return userInputState.read({ sessionId: input.sessionId, requestId: input.requestId })?.request.runId
+      }
       if (method === 'setRun') return z.string().parse(args[0])
       if (method === 'commit' || method === 'toolStart' || method === 'toolEnd') return z.string().parse(args[1])
       if (method === 'append') return args[3] === undefined ? undefined : z.string().parse(args[3])

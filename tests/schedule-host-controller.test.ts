@@ -7,7 +7,7 @@ const occurrence = (id: string, runId: string | null = null) => ({
   scheduleId: 's',
   dueAt: 1,
   status: runId ? ('running' as const) : ('pending' as const),
-  sessionId: 'session',
+  sessionId: runId ? 'session' : null,
   runId,
   attempt: 0,
   idempotencyKey: id,
@@ -37,6 +37,11 @@ test('schedule host controller recovers, submits, settles and closes', async () 
   const controller = createScheduleHostController({
     service: {
       get: async () => schedule,
+      execution: async (occurrenceId) => ({
+        occurrenceId,
+        authorization: { actorId: 'scheduler', idempotencyKey: 'management', commandId: 'schedule.create' },
+        schedule,
+      }),
       claim: async () => occurrence('new'),
       transition: async (id, status, runId, error, sessionId) => {
         transitions.push(status)
@@ -78,7 +83,7 @@ test('schedule host controller recovers, submits, settles and closes', async () 
         }
       },
     },
-    actorId: 'scheduler',
+    authorizeSubmission: async () => {},
     prepareSession: async () => ({ sessionId: 'session' }),
     now: () => 2,
     intervalMs: 60_000,
@@ -94,13 +99,18 @@ test('schedule host controller recovers, submits, settles and closes', async () 
 })
 
 test('restart recovery resolves an unknown occurrence from receipt without preparing or submitting', async () => {
-  const active = [occurrence('unknown')]
+  const active = [{ ...occurrence('unknown'), sessionId: 'session' }]
   let prepares = 0
   const calls: string[] = []
   const transitions: string[] = []
   const controller = createScheduleHostController({
     service: {
       get: async () => schedule,
+      execution: async (occurrenceId) => ({
+        occurrenceId,
+        authorization: { actorId: 'scheduler', idempotencyKey: 'management', commandId: 'schedule.create' },
+        schedule,
+      }),
       claim: async () => null,
       transition: async (id, status, runId, error, sessionId) => {
         transitions.push(status)
@@ -134,7 +144,7 @@ test('restart recovery resolves an unknown occurrence from receipt without prepa
       },
       getReceipt: async () => ({ operationId: 'receipt-run' }),
     },
-    actorId: 'scheduler',
+    authorizeSubmission: async () => {},
     prepareSession: async () => {
       prepares++
       return { sessionId: 'session' }
@@ -155,6 +165,11 @@ test('known prepare failure is persisted and reported through ScheduleRunFailure
   const controller = createScheduleHostController({
     service: {
       get: async () => schedule,
+      execution: async (occurrenceId) => ({
+        occurrenceId,
+        authorization: { actorId: 'scheduler', idempotencyKey: 'management', commandId: 'schedule.create' },
+        schedule,
+      }),
       claim: async () => occurrence('failed'),
       transition: async (id, status, runId, error, sessionId) => {
         transitions.push(status)
@@ -177,7 +192,7 @@ test('known prepare failure is persisted and reported through ScheduleRunFailure
         throw new Error('unused')
       },
     },
-    actorId: 'scheduler',
+    authorizeSubmission: async () => {},
     prepareSession: async () => {
       throw new Error('known prepare failure')
     },
@@ -200,6 +215,11 @@ test('recovery terminal failure is reported once even when the same occurrence i
   const controller = createScheduleHostController({
     service: {
       get: async () => schedule,
+      execution: async (occurrenceId) => ({
+        occurrenceId,
+        authorization: { actorId: 'scheduler', idempotencyKey: 'management', commandId: 'schedule.create' },
+        schedule,
+      }),
       claim: async () => null,
       transition: async (id, status, runId, error, sessionId) => ({
         ...occurrence(id, runId ?? null),
@@ -232,7 +252,7 @@ test('recovery terminal failure is reported once even when the same occurrence i
         error: 'terminal failure',
       }),
     },
-    actorId: 'scheduler',
+    authorizeSubmission: async () => {},
     prepareSession: async () => ({ sessionId: 'session' }),
     onFailure: (failure) => {
       failures.push(failure.occurrenceId)
@@ -258,6 +278,11 @@ test('paged recovery reaches a terminal Run behind more than 64 unknown operatio
   const controller = createScheduleHostController({
     service: {
       get: async () => schedule,
+      execution: async (occurrenceId) => ({
+        occurrenceId,
+        authorization: { actorId: 'scheduler', idempotencyKey: 'management', commandId: 'schedule.create' },
+        schedule,
+      }),
       claim: async () => null,
       transition: async (id, status, runId, error, sessionId) => {
         transitions.push(`${id}:${status}`)
@@ -288,7 +313,7 @@ test('paged recovery reaches a terminal Run behind more than 64 unknown operatio
           : { invalid: true }
       },
     },
-    actorId: 'scheduler',
+    authorizeSubmission: async () => {},
     prepareSession: async () => {
       throw new Error('Unknown occurrences must not be resubmitted')
     },

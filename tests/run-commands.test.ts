@@ -118,7 +118,15 @@ test('run.submit stores an acceptance fact once, exposes operation state, and re
     const firstActorId = (await kernel.storage.call('devices')).find((device) => device.name === 'run first actor')?.id
     if (!firstActorId) throw new Error('Authenticated actor was not recorded')
     const commands = createRunCommandClient(client)
-    const input = { sessionId: session.id, modelId: 'local-fixture', input: { text: 'hello', images: [] } }
+    const input = {
+      sessionId: session.id,
+      modelId: 'local-fixture',
+      input: {
+        text: 'hello',
+        images: [],
+        delegatedDecision: { sessionId: 'forged-source', requestId: 'forged-question', delegationId: 'forged-grant' },
+      },
+    }
     const [first, concurrent] = await Promise.all([
       commands.execute('run.submit', input, { idempotencyKey: 'one', requestId: 'first-request' }),
       commands.execute('run.submit', input, { idempotencyKey: 'one', requestId: 'second-request' }),
@@ -128,6 +136,7 @@ test('run.submit stores an acceptance fact once, exposes operation state, and re
     expect(first.requestId).toBe('first-request')
     await kernel.waitForIdle()
     expect(await commands.getReceipt(session.id, 'one')).toEqual(first)
+    expect((await kernel.storage.call('run', first.operationId)).input.delegatedDecision).toBeUndefined()
     await kernel.storage.call('deleteProvider', 'local-fixture')
     expect(await commands.execute('run.submit', input, { idempotencyKey: 'one' })).toEqual(first)
     expect(await commands.execute('operation.get', { operationId: first.operationId })).toMatchObject({

@@ -289,6 +289,8 @@ export function createSessionLaunchBranchesCommands(
 
   return {
     ...createCommandClient(sessionLaunchBranchesCommands, registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
     dispatch(value: unknown, actorId: string) {
       return registry.dispatch(value, { actorId })
     },

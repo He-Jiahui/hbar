@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { describeCommand } from './descriptor'
 import { parseArguments, tokenizeCommand } from './parser'
 import { checkInvocationSize } from './limits'
+import { captureCommandExpectation, type CapturedCommandExpectation } from './execution-expectation'
 import {
   COMMAND_PROTOCOL_VERSION,
   CommandError,
@@ -10,6 +11,11 @@ import {
   type CommandDefinition,
   type CommandDescriptor,
   type CommandMetadata,
+  type CommandInvocation,
+  type CommandExecutionExpectation,
+  type CommandPreparedOptions,
+  type CommandExecutionTicket,
+  type CommandPhysicalSettlement,
 } from './protocol'
 
 export interface CommandContext {
@@ -43,9 +49,36 @@ export interface ExecuteOptions {
 interface Registration {
   readonly descriptor: CommandDescriptor
   readonly parseInput: (value: unknown) => unknown
-  readonly run: (input: unknown, context: CommandContext) => Promise<unknown>
+  readonly run: (
+    input: unknown,
+    context: CommandContext,
+    expectation?: CapturedCommandExpectation,
+    onEnter?: () => void,
+  ) => Promise<unknown>
   readonly active: Set<AbortController>
   readonly durable: boolean
+}
+
+interface PhysicalObserver {
+  admitted(): void
+  settle(result: CommandPhysicalSettlement): void
+}
+
+function physicalFailure(error: unknown, executionStarted: boolean): CommandPhysicalSettlement {
+  const known =
+    error instanceof CommandError
+      ? error
+      : error instanceof z.ZodError
+        ? new CommandError('INVALID_INPUT', 'Command input is invalid')
+        : new CommandError('EXECUTION_FAILED', 'Command execution failed')
+  return {
+    status: 'failed',
+    executionStarted,
+    error: {
+      code: known.code.slice(0, 128) || 'EXECUTION_FAILED',
+      message: known.message.slice(0, 8_192) || 'Command execution failed',
+    },
+  }
 }
 
 function checkedLimit(value: number, maximum: number): number {
@@ -113,8 +146,11 @@ export class CommandRegistry {
       parseInput,
       active: new Set(),
       durable: options.durable ?? false,
-      async run(value, context) {
-        const result = await handler(parseInput(value), context)
+      async run(value, context, expectation, onEnter) {
+        const input = parseInput(value)
+        expectation?.assertInput(input)
+        onEnter?.()
+        const result = await handler(input, context)
         const parsed = outputSchema.safeParse(result)
         if (!parsed.success) throw validationError('INVALID_OUTPUT', parsed.error)
         return parsed.data
@@ -254,9 +290,108 @@ export class CommandRegistry {
     })
   }
 
+  /** The final owner checks the same definition and normalized arguments that passed tool admission. */
+  async dispatchPrepared(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): Promise<unknown> {
+    return this.#dispatchPrepared(value, actorId, expectation, options)
+  }
+
+  /** Preserve the actual late result while the logical result still honors timeout and cancellation. */
+  dispatchPreparedTracked(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions = {},
+  ): CommandExecutionTicket {
+    let admitted = false,
+      finished = false
+    let resolve: (settlement: CommandPhysicalSettlement) => void = () => {
+      throw new Error('Settlement has not initialized')
+    }
+    const settled = new Promise<CommandPhysicalSettlement>((complete) => {
+      resolve = complete
+    })
+    const observer: PhysicalObserver = {
+      admitted: () => {
+        admitted = true
+      },
+      settle: (settlement) => {
+        if (!finished) {
+          finished = true
+          resolve(settlement)
+        }
+      },
+    }
+    const result = this.#dispatchPrepared(value, actorId, expectation, options, observer).catch((error: unknown) => {
+      if (!admitted) observer.settle(physicalFailure(error, false))
+      throw error
+    })
+    return { result, settled }
+  }
+
+  async #dispatchPrepared(
+    value: unknown,
+    actorId: string,
+    expectation: CommandExecutionExpectation,
+    options: CommandPreparedOptions,
+    physical?: PhysicalObserver,
+  ): Promise<unknown> {
+    checkInvocationSize(value)
+    const invocation = invocationSchema.parse(value)
+    if (!actorId || actorId.length > 160 || !/\S/.test(actorId))
+      throw new CommandError('FORBIDDEN', 'A Host-bound command actor is required')
+    const captured = captureCommandExpectation(expectation)
+    return this.#execute(
+      invocation.commandId,
+      invocation.input,
+      {
+        ...options,
+        actorId,
+        requestId: invocation.requestId,
+        version: invocation.commandVersion,
+        ...(invocation.idempotencyKey ? { idempotencyKey: invocation.idempotencyKey } : {}),
+      },
+      captured,
+      physical,
+    )
+  }
+
+  /** Normalize with the registered owner's validator without entering execution or reserving capacity. */
+  prepare(value: unknown): CommandInvocation {
+    checkInvocationSize(value)
+    const input = invocationSchema.safeParse(value)
+    if (!input.success) throw validationError('INVALID_INPUT', input.error)
+    const registration = this.#find(input.data.commandId)
+    const metadata = registration.descriptor.metadata
+    if (input.data.commandVersion !== metadata.version)
+      throw new CommandError('VERSION_MISMATCH', 'Command version is incompatible')
+    const prepared = {
+      ...input.data,
+      commandId: metadata.id,
+      input: registration.parseInput(input.data.input),
+    }
+    checkInvocationSize(prepared)
+    return prepared
+  }
+
   async execute(name: string, value: unknown, options: ExecuteOptions = {}): Promise<unknown> {
+    return this.#execute(name, value, options)
+  }
+
+  async #execute(
+    name: string,
+    value: unknown,
+    options: ExecuteOptions,
+    expectation?: CapturedCommandExpectation,
+    physical?: PhysicalObserver,
+  ): Promise<unknown> {
     const registration = this.#find(name)
     const metadata = registration.descriptor.metadata
+    expectation?.assertDescriptor(registration.descriptor)
     if (options.version !== undefined && options.version !== metadata.version)
       throw new CommandError('VERSION_MISMATCH', 'Command version is incompatible')
     // Persistent/external execution is enabled with the journal adapter in A3, never silently memory-only.
@@ -272,7 +407,8 @@ export class CommandRegistry {
     if (registration.durable && metadata.idempotency === 'required' && !options.idempotencyKey)
       throw new CommandError('INVALID_INPUT', 'Durable command requires an idempotency key')
     if (options.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
-    const input = registration.parseInput(value)
+    const input = registration.parseInput(expectation ? expectation.detachInput(value) : value)
+    expectation?.assertInput(input)
     if (this.#active.size >= this.#maxConcurrent || registration.active.size >= metadata.maxConcurrent)
       throw new CommandError('BUSY', 'Command concurrency limit reached')
     const requestId = options.requestId ?? `local-${++this.#requestSequence}`
@@ -324,17 +460,21 @@ export class CommandRegistry {
         if (metadata.capabilities.length && !(await this.#authorize?.(metadata, context)))
           throw new CommandError('FORBIDDEN', 'Command capability is not authorized')
         if (controller.signal.aborted) throw new CommandError('CANCELLED', 'Command cancelled before execution')
-        enteredHandler = true
-        return registration.run(input, context)
+        return registration.run(input, context, expectation, () => {
+          enteredHandler = true
+        })
       }
       // Retain capacity until the real handler settles, even if it ignores cancellation.
+      physical?.admitted()
       run().then(
         (output) => {
           cleanup()
+          physical?.settle({ status: 'succeeded', executionStarted: true, result: output })
           resolve(output)
         },
         (error: unknown) => {
           cleanup()
+          physical?.settle(physicalFailure(error, enteredHandler))
           reject(
             error instanceof CommandError ? error : new CommandError('EXECUTION_FAILED', 'Command execution failed'),
           )
