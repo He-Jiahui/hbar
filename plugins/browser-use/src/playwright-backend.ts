@@ -52,6 +52,8 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
   private launchFailure: HbarError | undefined
   private contexts = new Map<string, BrowserContext>()
   private pages = new Map<string, Page>()
+  private readonly contextCreations = new Map<string, Promise<BrowserContext>>()
+  private readonly pageCreations = new Map<string, Promise<Page>>()
   private histories = new Map<string, string[]>()
 
   constructor(
@@ -101,7 +103,15 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
   }
 
   private async context(contextId: string) {
-    return this.track(() => this.createContext(contextId))
+    const existing = this.contextCreations.get(contextId)
+    if (existing) return existing
+    const pending = this.track(() => this.createContext(contextId))
+    this.contextCreations.set(contextId, pending)
+    try {
+      return await pending
+    } finally {
+      if (this.contextCreations.get(contextId) === pending) this.contextCreations.delete(contextId)
+    }
   }
 
   private async createContext(contextId: string) {
@@ -116,7 +126,16 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
   }
 
   private async page(contextId: string, pageId: string) {
-    return this.track(() => this.createPage(contextId, pageId))
+    const pageKey = key(contextId, pageId)
+    const existing = this.pageCreations.get(pageKey)
+    if (existing) return existing
+    const pending = this.track(() => this.createPage(contextId, pageId))
+    this.pageCreations.set(pageKey, pending)
+    try {
+      return await pending
+    } finally {
+      if (this.pageCreations.get(pageKey) === pending) this.pageCreations.delete(pageKey)
+    }
   }
 
   private async createPage(contextId: string, pageId: string) {
