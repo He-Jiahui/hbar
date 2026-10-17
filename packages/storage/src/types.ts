@@ -2,6 +2,7 @@ import type { ExecutionPrincipal, SessionCreationSource } from '@hbar/contracts/
 import type { ScheduleExecution } from '@hbar/contracts/schedule-execution'
 import type { ScheduleOccurrence } from '@hbar/contracts/commands/schedules'
 import type { ContextSummaryExcerpt } from '@hbar/contracts/delegated-context'
+import type { SessionScanInput, SessionScanPage } from '@hbar/contracts/session-scan'
 import type { createCommandExecutionReceiptStorage } from './command-execution-receipts'
 import type { createUserInputStateStorage } from './user-input-state'
 import type { createDecisionStorage } from './decisions'
@@ -450,6 +451,7 @@ export interface StorageMethods {
   runExecutionPrincipal(runId: string): ExecutionPrincipal | null
   createSessionCommand(input: CreateSessionCommandInput): Session
   sessions(): Session[]
+  sessionScanPage(input: SessionScanInput): SessionScanPage
   childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
   moveSession(id: string, workspaceId: string): { session: Session; event: SessionEvent }

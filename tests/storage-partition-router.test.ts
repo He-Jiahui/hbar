@@ -48,7 +48,7 @@ function reader() {
 }
 test('catalog exactly covers the current public port; adding a method cannot compile without a route', () => {
   expect(Object.keys(partitionRouteCatalog).sort()).toEqual([...STORAGE_RPC_METHODS].sort())
-  expect(Object.keys(partitionRouteCatalog)).toHaveLength(246)
+  expect(Object.keys(partitionRouteCatalog)).toHaveLength(STORAGE_RPC_METHODS.length)
   type ExpandedMethods = StorageMethods & { deliberatelyUnrouted(): void }
   // @ts-expect-error A new public method must make the exhaustive route catalog fail compilation.
   const incomplete: { readonly [K in keyof ExpandedMethods]: PartitionRouteDefinition } = partitionRouteCatalog

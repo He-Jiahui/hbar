@@ -23,6 +23,7 @@ async function fixture(maxExplorationCalls = 8, autoContinue = false) {
     secrets: new MemorySecrets(),
   })
   resources.push({ root, kernel })
+  await kernel.waitForIdle()
   await kernel.changePlugin('goal.codex', true, {
     autoContinue,
     maxContinuations: autoContinue ? 8 : 0,

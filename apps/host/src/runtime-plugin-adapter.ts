@@ -361,6 +361,7 @@ export class RuntimePluginAdapter {
       [
         'get',
         'list',
+        'scanPage',
         'children',
         'events',
         'readEventPage',

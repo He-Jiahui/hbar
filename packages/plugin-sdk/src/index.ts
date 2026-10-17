@@ -10,6 +10,8 @@ export {
 } from './model-host-context'
 export { SKILL_TOOL_NAMES } from './skills'
 export { RunControlSignal, type GoalReplacementStop } from './run-control'
+export { readSessionPages, type SessionScanPort } from './session-scan'
+import type { SessionScanPort } from './session-scan'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
 import type { OsConfinementOptions } from './execution-options'
@@ -416,7 +418,7 @@ export interface ModelDiagnosticEvent {
   readonly streamErrorClass?: DiagnosticEvent['streamErrorClass'] | undefined
   readonly durationMs?: number | undefined
 }
-export interface SessionService {
+export interface SessionService extends SessionScanPort {
   /** Host-owned layered settings bridge; plugins never reach into SettingsService or Storage internals. */
   agentConfiguration?: {
     read(sessionId: string, parentRunId?: string): Promise<AgentSessionConfiguration>

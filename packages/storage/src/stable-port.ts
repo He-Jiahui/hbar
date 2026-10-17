@@ -10,6 +10,7 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'getSetting',
   'session',
   'sessions',
+  'sessionScanPage',
   'workspace',
   'workspaces',
   'providers',

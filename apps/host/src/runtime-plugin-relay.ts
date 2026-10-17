@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { sessionScanInputSchema, sessionScanPageSchema } from '@hbar/contracts/session-scan'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import {
   HbarError,
@@ -295,6 +296,8 @@ export class RuntimePluginRelay {
       return typeof args[0] === 'string' ? sessions.filter((session) => session.workspaceId === args[0]) : sessions
     }
     if (method === 'sessions.get') return storage.call('session', z.string().parse(args[0]))
+    if (method === 'sessions.scanPage')
+      return sessionScanPageSchema.parse(await storage.call('sessionScanPage', sessionScanInputSchema.parse(args[0])))
     if (method === 'sessions.events')
       return storage.call(
         'events',

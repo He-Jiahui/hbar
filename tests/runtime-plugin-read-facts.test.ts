@@ -98,11 +98,14 @@ test('the plugin API and authenticated relay carry bounded facts through the exi
     storage = actual
     await actual.call('ready')
     let reads = 0
+    let scanReads = 0
     stable.install({
       owner: { unitId: 'storage', generation: 1, incarnation: 'facts-storage' },
       call<Method extends keyof StorageMethods>(method: Method, args: Parameters<StorageMethods[Method]>) {
-        if (method !== 'readSessionFacts') throw new Error('The fixture writer only serves the bounded read')
-        reads++
+        if (method !== 'readSessionFacts' && method !== 'sessionScanPage')
+          throw new Error('The fixture writer only serves bounded reads')
+        if (method === 'sessionScanPage') scanReads++
+        else reads++
         return actual.call(method, ...args)
       },
       retire: async () => {
@@ -146,6 +149,12 @@ test('the plugin API and authenticated relay carry bounded facts through the exi
     const pending = api.sessions.readFacts(input)
     expect(sessionReadFactsSchema.parse(await pending)).toEqual(expected)
     expect(reads).toBe(2)
+    if (!api.sessions.scanPage) throw new Error('Missing managed Session discovery')
+    const scanned = await api.sessions.scanPage({ limit: 1 })
+    expect(scanned.items.map((item) => item.id)).toEqual([session.id])
+    expect(scanned.nextCursor).toBeNull()
+    expect(scanReads).toBe(1)
+    expect(stable.writeCallsInFlight).toBe(0)
     expect(wire.frames.join('\n')).not.toContain('private-admitted-text-')
     expect(wire.frames.join('\n')).not.toContain('unrelated-journal-body-')
     let invalid: unknown

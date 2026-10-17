@@ -4,7 +4,7 @@ import { HbarError, idSchema, usageSchema } from '@hbar/contracts'
 import type { Run, RunSource, SessionEvent, Usage } from '@hbar/contracts'
 import { budgetReceiptSchema, setBudgetInputSchema } from '@hbar/contracts/commands/budget'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import { appendModelContext, definePlugin, provide, readSessionEventPages } from '@hbar/plugin-sdk'
+import { appendModelContext, definePlugin, provide, readSessionEventPages, readSessionPages } from '@hbar/plugin-sdk'
 import type { HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
 
 const MAX_RESTORE_EVENTS = 100_000
@@ -89,9 +89,12 @@ export class BudgetRuntime {
   ) {}
 
   async restore() {
-    const sessions = await this.api.sessions.list()
-    for (let offset = 0; offset < sessions.length; offset += 8) {
-      await Promise.all(sessions.slice(offset, offset + 8).map((session) => this.restoreSession(session.id)))
+    for await (const page of readSessionPages(this.api.sessions)) {
+      const sessions = page.items
+      for (let offset = 0; offset < sessions.length; offset += 8) {
+        await Promise.all(sessions.slice(offset, offset + 8).map((session) => this.restoreSession(session.id)))
+      }
+      await Bun.sleep(0)
     }
     this.hydrated = true
   }

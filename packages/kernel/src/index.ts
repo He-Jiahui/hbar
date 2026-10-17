@@ -175,6 +175,7 @@ import {
   prependModelInstructions,
   provide,
   readSessionEventPages,
+  readSessionPages,
   resolveToolTimeoutMs,
   RunControlSignal,
 } from '@hbar/plugin-sdk'
@@ -633,6 +634,7 @@ export class Kernel {
   private readonly sharedCheckoutLocks = new Map<string, Promise<void>>()
   private sharedCheckoutWaiters = 0
   private closing = false
+  private startupSessionScan: Promise<void> | undefined
   private automation = new Map<string, { unattended: boolean; goalEnabled: boolean }>()
   private readyForRuns = false
   private preparing = false
@@ -786,6 +788,7 @@ export class Kernel {
             const sessions = await this.storage.call('sessions')
             return workspaceId ? sessions.filter((session) => session.workspaceId === workspaceId) : sessions
           },
+          scanPage: (input) => this.storage.call('sessionScanPage', input),
           children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
           readEventPage: (input) => this.storage.call('readEventPage', input),
@@ -1054,7 +1057,18 @@ export class Kernel {
     }
     await this.sessionLaunchPreparations.resumePending()
     this.runtimeRecovery.discoverBackendWaiting(() => this.readyForRuns && !this.closing)
-    for (const session of await this.storage.call('sessions')) this.kick(session.id)
+    this.startupSessionScan ??= this.discoverStartupSessions().finally(() => {
+      this.startupSessionScan = undefined
+    })
+    await this.startupSessionScan
+  }
+  private async discoverStartupSessions(): Promise<void> {
+    for await (const page of readSessionPages({ scanPage: (input) => this.storage.call('sessionScanPage', input) })) {
+      if (!this.readyForRuns || this.closing) return
+      for (const session of page.items) if (!session.archived) this.kick(session.id)
+      await Bun.sleep(0)
+      if (!this.readyForRuns || this.closing) return
+    }
   }
   async completePreparation(): Promise<void> {
     if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel is closed')
@@ -1186,22 +1200,27 @@ export class Kernel {
   }
   private async restoreAutomation() {
     this.automation.clear()
-    for (const session of await this.storage.call('sessions')) {
-      for await (const page of readSessionEventPages(
-        { readEventPage: (input) => this.storage.call('readEventPage', input) },
-        { sessionId: session.id, types: ['automation.changed'], limit: 128, maxReplyBytes: 1_048_576 },
-      )) {
-        for (const item of page.items) {
-          if (item.kind !== 'event') continue
-          const parsed = automationStateSchema.safeParse(item.event.data)
-          if (parsed.success && parsed.data.sessionId === session.id)
-            this.automation.set(session.id, {
-              unattended: parsed.data.unattended,
-              goalEnabled: parsed.data.goalEnabled,
-            })
+    for await (const sessions of readSessionPages({
+      scanPage: (input) => this.storage.call('sessionScanPage', input),
+    })) {
+      for (const session of sessions.items) {
+        for await (const page of readSessionEventPages(
+          { readEventPage: (input) => this.storage.call('readEventPage', input) },
+          { sessionId: session.id, types: ['automation.changed'], limit: 128, maxReplyBytes: 1_048_576 },
+        )) {
+          for (const item of page.items) {
+            if (item.kind !== 'event') continue
+            const parsed = automationStateSchema.safeParse(item.event.data)
+            if (parsed.success && parsed.data.sessionId === session.id)
+              this.automation.set(session.id, {
+                unattended: parsed.data.unattended,
+                goalEnabled: parsed.data.goalEnabled,
+              })
+          }
+          if (page.hasMore) await Bun.sleep(0)
         }
-        if (page.hasMore) await Bun.sleep(0)
       }
+      await Bun.sleep(0)
     }
   }
   private async migrateAutomation(): Promise<void> {
@@ -5055,6 +5074,7 @@ export class Kernel {
       this.admissions ||
       this.maintenance ||
       this.chatDatabaseWrites ||
+      this.startupSessionScan ||
       this.runtimeRecovery.backendDiscoveryPending ||
       this.closing
     )
@@ -5067,6 +5087,7 @@ export class Kernel {
       !this.admissions &&
       !this.maintenance &&
       !this.chatDatabaseWrites &&
+      !this.startupSessionScan &&
       !this.runtimeRecovery.backendDiscoveryPending &&
       !this.closing
     )
@@ -5284,12 +5305,14 @@ export class Kernel {
       this.drains.size ||
       this.scheduledWakeups.waiting.length ||
       this.schedulingRefresh ||
+      this.startupSessionScan ||
       this.runtimeRecovery.backendDiscoveryPending
     )
       await Promise.all([
         ...this.drains.values(),
         ...this.scheduledWakeups.waiting,
         ...(this.schedulingRefresh ? [this.schedulingRefresh] : []),
+        ...(this.startupSessionScan ? [this.startupSessionScan] : []),
         this.runtimeRecovery.waitForBackendDiscovery(),
       ])
   }

@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite'
+import { createSessionScanner } from './session-scan'
 import { createContextSummaryReader } from './context-summary'
 import { readSessionFacts } from './session-read-facts'
 import { createBackendContinuationAdmission } from './backend-continuation'
@@ -1853,6 +1854,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       sessions: () =>
         (db.query('SELECT * FROM sessions ORDER BY updatedAt DESC LIMIT 2000').all() as Row[]).map(sessionRow),
+      sessionScanPage: createSessionScanner(db),
       childSessions(parentId, after, limit = 200) {
         methods.session(parentId)
         return (

@@ -6,6 +6,7 @@ export const STORAGE_PREFLIGHT_METHODS: ReadonlySet<keyof StorageMethods> = new 
   'ready',
   'getSetting',
   'sessions',
+  'sessionScanPage',
   'events',
   'readEventPage',
   'plugins',

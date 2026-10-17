@@ -1,7 +1,14 @@
 import { z } from 'zod'
 import { HbarError, RUN_STEP_LIMIT_CODE, runSchema, threadGoalSchema, usageSchema } from '@hbar/contracts'
 import type { GoalStatus, Run, SessionEvent, ThreadGoal } from '@hbar/contracts'
-import { appendModelContext, definePlugin, provide, readSessionEventPages, RunControlSignal } from '@hbar/plugin-sdk'
+import {
+  appendModelContext,
+  definePlugin,
+  provide,
+  readSessionEventPages,
+  readSessionPages,
+  RunControlSignal,
+} from '@hbar/plugin-sdk'
 import type {
   BudgetService,
   GoalService,
@@ -253,155 +260,162 @@ class GoalRuntime implements GoalService {
     this.uncertainSessions.clear()
     this.continuationTriggers.clear()
     this.restoredRuns.clear()
-    const sessions = await this.api.sessions.list()
-    for (let offset = 0; offset < sessions.length; offset += 8) {
-      const batch = sessions.slice(offset, offset + 8)
-      await Promise.all(
-        batch.map(async (session) => {
-          const settled = new Map<string, Run>()
-          for await (const page of readSessionEventPages(this.api.sessions, {
-            sessionId: session.id,
-            types: GOAL_RESTORE_EVENT_TYPES,
-            limit: 500,
-            maxReplyBytes: 1_048_576,
-          })) {
-            if (page.totalEventCount > MAX_EVENTS)
-              throw new HbarError('GOAL_RESTORE_LIMIT', `Goal replay for ${session.id} exceeded ${MAX_EVENTS} events`)
-            for (const item of page.items) {
-              if (item.kind !== 'event') continue
-              const event = item.event
-              const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
-              if (
-                ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type) &&
-                checkpoint.success &&
-                accountingRunIdentity(event)
-              ) {
-                if (checkpoint.data.accounting.sessionId !== session.id)
-                  throw new HbarError('GOAL_REPLAY', `Invalid run accounting in ${session.id}`)
-                const accountingId = accountingRunIdentity(event)
-                if (!accountingId) throw new HbarError('GOAL_REPLAY', 'Goal accounting is missing its Run identity')
-                this.activeRuns.set(accountingId, checkpoint.data.accounting)
-                this.boundRuns.add(accountingId)
-              }
-              if (event.type === 'goal.cleared') {
-                this.goals.delete(session.id)
-                this.sequences.set(session.id, event.seq)
-                this.continuationTriggers.delete(session.id)
-                continue
-              }
-              const goal = eventGoal(event)
-              if (goal) {
-                if (goal.threadId !== session.id)
-                  throw new HbarError('GOAL_REPLAY', `Invalid goal event in ${session.id}`)
-                this.rememberTriggers(goal)
-                this.goals.set(session.id, goal)
-                this.sequences.set(session.id, event.seq)
-                for (const runId of goal.accountedRuns) {
-                  this.boundRuns.add(runId)
-                  this.activeRuns.delete(runId)
+    for await (const page of readSessionPages(this.api.sessions)) {
+      const sessions = page.items
+      for (let offset = 0; offset < sessions.length; offset += 8) {
+        const batch = sessions.slice(offset, offset + 8)
+        await Promise.all(
+          batch.map(async (session) => {
+            const settled = new Map<string, Run>()
+            for await (const page of readSessionEventPages(this.api.sessions, {
+              sessionId: session.id,
+              types: GOAL_RESTORE_EVENT_TYPES,
+              limit: 500,
+              maxReplyBytes: 1_048_576,
+            })) {
+              if (page.totalEventCount > MAX_EVENTS)
+                throw new HbarError('GOAL_RESTORE_LIMIT', `Goal replay for ${session.id} exceeded ${MAX_EVENTS} events`)
+              for (const item of page.items) {
+                if (item.kind !== 'event') continue
+                const event = item.event
+                const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
+                if (
+                  ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type) &&
+                  checkpoint.success &&
+                  accountingRunIdentity(event)
+                ) {
+                  if (checkpoint.data.accounting.sessionId !== session.id)
+                    throw new HbarError('GOAL_REPLAY', `Invalid run accounting in ${session.id}`)
+                  const accountingId = accountingRunIdentity(event)
+                  if (!accountingId) throw new HbarError('GOAL_REPLAY', 'Goal accounting is missing its Run identity')
+                  this.activeRuns.set(accountingId, checkpoint.data.accounting)
+                  this.boundRuns.add(accountingId)
+                }
+                if (event.type === 'goal.cleared') {
+                  this.goals.delete(session.id)
+                  this.sequences.set(session.id, event.seq)
+                  this.continuationTriggers.delete(session.id)
+                  continue
+                }
+                const goal = eventGoal(event)
+                if (goal) {
+                  if (goal.threadId !== session.id)
+                    throw new HbarError('GOAL_REPLAY', `Invalid goal event in ${session.id}`)
+                  this.rememberTriggers(goal)
+                  this.goals.set(session.id, goal)
+                  this.sequences.set(session.id, event.seq)
+                  for (const runId of goal.accountedRuns) {
+                    this.boundRuns.add(runId)
+                    this.activeRuns.delete(runId)
+                  }
+                }
+                if (event.type === 'run.settled') {
+                  const parsed = z.object({ run: runSchema }).safeParse(event.data)
+                  if (parsed.success && parsed.data.run.sessionId === session.id)
+                    settled.set(parsed.data.run.id, parsed.data.run)
                 }
               }
-              if (event.type === 'run.settled') {
-                const parsed = z.object({ run: runSchema }).safeParse(event.data)
-                if (parsed.success && parsed.data.run.sessionId === session.id)
-                  settled.set(parsed.data.run.id, parsed.data.run)
-              }
             }
-          }
-          for (const [runId, tracking] of this.activeRuns) {
-            if (tracking.sessionId !== session.id) continue
-            const run = settled.get(runId)
-            if (!run) continue
-            const current = this.goals.get(session.id)
-            if (!projectionOnly && current?.goalId === tracking.goalId && !current.accountedRuns.includes(runId)) {
-              const accounted = await this.accountProgressUnlocked(session.id, runId, 'bound-run', run)
-              if (accounted) {
-                const progressEvents = await readGoalProgressEvents(
-                  this.api.sessions,
-                  session.id,
-                  runId,
-                  'GOAL_RESTORE_LIMIT',
-                )
-                const progress = auditProgress(progressEvents, runId, accounted.progressKeys)
-                await this.persist(
-                  {
-                    ...accounted,
-                    status:
-                      (run.status === 'cancelled' || run.failure?.category === 'cancelled') &&
-                      ['active', 'budget_limited'].includes(accounted.status)
-                        ? 'paused'
-                        : accounted.status,
-                    accountedRuns: [...accounted.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS),
-                    progressKeys: progress.keys,
-                    noProgressStreak: progress.progress ? 0 : accounted.noProgressStreak + 1,
-                    updatedAt: Date.now(),
-                  },
-                  runId,
-                  'goal.accounted',
-                )
+            for (const [runId, tracking] of this.activeRuns) {
+              if (tracking.sessionId !== session.id) continue
+              const run = settled.get(runId)
+              if (!run) continue
+              const current = this.goals.get(session.id)
+              if (!projectionOnly && current?.goalId === tracking.goalId && !current.accountedRuns.includes(runId)) {
+                const accounted = await this.accountProgressUnlocked(session.id, runId, 'bound-run', run)
+                if (accounted) {
+                  const progressEvents = await readGoalProgressEvents(
+                    this.api.sessions,
+                    session.id,
+                    runId,
+                    'GOAL_RESTORE_LIMIT',
+                  )
+                  const progress = auditProgress(progressEvents, runId, accounted.progressKeys)
+                  await this.persist(
+                    {
+                      ...accounted,
+                      status:
+                        (run.status === 'cancelled' || run.failure?.category === 'cancelled') &&
+                        ['active', 'budget_limited'].includes(accounted.status)
+                          ? 'paused'
+                          : accounted.status,
+                      accountedRuns: [...accounted.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS),
+                      progressKeys: progress.keys,
+                      noProgressStreak: progress.progress ? 0 : accounted.noProgressStreak + 1,
+                      updatedAt: Date.now(),
+                    },
+                    runId,
+                    'goal.accounted',
+                  )
+                }
               }
+              this.activeRuns.delete(runId)
             }
-            this.activeRuns.delete(runId)
-          }
-          const goal = this.goals.get(session.id)
-          if (goal) {
-            let normalized = await this.withBudget(goal)
-            const intent = normalized.continuationIntent
-            if (!projectionOnly && intent && ['running', 'queued'].includes(intent.phase)) {
-              const terminal = [...settled.values()].find((run) => run.input.continuation?.intentId === intent.intentId)
-              if (terminal?.status === 'completed' && ['active', 'budget_limited'].includes(normalized.status)) {
-                await this.queueContinuation(this.withContinuation(normalized, 'running', 'goal_active'), {
-                  trigger: terminal.id,
-                  modelId: terminal.modelId,
+            const goal = this.goals.get(session.id)
+            if (goal) {
+              let normalized = await this.withBudget(goal)
+              const intent = normalized.continuationIntent
+              if (!projectionOnly && intent && ['running', 'queued'].includes(intent.phase)) {
+                const terminal = [...settled.values()].find(
+                  (run) => run.input.continuation?.intentId === intent.intentId,
+                )
+                if (terminal?.status === 'completed' && ['active', 'budget_limited'].includes(normalized.status)) {
+                  await this.queueContinuation(this.withContinuation(normalized, 'running', 'goal_active'), {
+                    trigger: terminal.id,
+                    modelId: terminal.modelId,
+                  })
+                  normalized = this.goals.get(session.id) ?? normalized
+                } else if (terminal)
+                  normalized = this.withContinuation(
+                    normalized,
+                    'stopped',
+                    terminal.failure?.category === 'result_unknown'
+                      ? 'result_unknown'
+                      : terminal.status === 'failed'
+                        ? 'run_failed'
+                        : 'interrupted',
+                  )
+              }
+              if (
+                !projectionOnly &&
+                normalized.status === 'active' &&
+                normalized.continuationIntent?.phase === 'stopped' &&
+                ['no_tool_calls', 'no_progress'].includes(normalized.continuationIntent.reason) &&
+                normalized.continuationIntent.modelId !== null
+              ) {
+                await this.queueContinuation(normalized, {
+                  trigger: `revalidate:${normalized.continuationIntent.intentId}`,
+                  modelId: normalized.continuationIntent.modelId,
                 })
                 normalized = this.goals.get(session.id) ?? normalized
-              } else if (terminal)
-                normalized = this.withContinuation(
-                  normalized,
-                  'stopped',
-                  terminal.failure?.category === 'result_unknown'
-                    ? 'result_unknown'
-                    : terminal.status === 'failed'
-                      ? 'run_failed'
-                      : 'interrupted',
+              }
+              if (!projectionOnly && JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
+              const lastRun = [...settled.values()]
+                .reverse()
+                .find(
+                  (run) =>
+                    run.input.mode !== 'plan' &&
+                    (normalized.accountedRuns.includes(run.id) ||
+                      run.input.continuation?.goalId === normalized.goalId ||
+                      (!this.boundRuns.has(run.id) &&
+                        !run.input.continuation &&
+                        run.createdAt >= normalized.createdAt)),
                 )
-            }
-            if (
-              !projectionOnly &&
-              normalized.status === 'active' &&
-              normalized.continuationIntent?.phase === 'stopped' &&
-              ['no_tool_calls', 'no_progress'].includes(normalized.continuationIntent.reason) &&
-              normalized.continuationIntent.modelId !== null
-            ) {
-              await this.queueContinuation(normalized, {
-                trigger: `revalidate:${normalized.continuationIntent.intentId}`,
-                modelId: normalized.continuationIntent.modelId,
-              })
-              normalized = this.goals.get(session.id) ?? normalized
-            }
-            if (!projectionOnly && JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
-            const lastRun = [...settled.values()]
-              .reverse()
-              .find(
-                (run) =>
-                  run.input.mode !== 'plan' &&
-                  (normalized.accountedRuns.includes(run.id) ||
-                    run.input.continuation?.goalId === normalized.goalId ||
-                    (!this.boundRuns.has(run.id) && !run.input.continuation && run.createdAt >= normalized.createdAt)),
+              const stopped = normalized.continuationIntent
+              if (
+                normalized.status === 'active' &&
+                stopped?.phase === 'stopped' &&
+                SESSION_STOP_REASONS.has(stopped.reason) &&
+                !(stopped.reason === 'run_failed' && lastRun?.failure?.category === 'interrupted')
               )
-            const stopped = normalized.continuationIntent
-            if (
-              normalized.status === 'active' &&
-              stopped?.phase === 'stopped' &&
-              SESSION_STOP_REASONS.has(stopped.reason) &&
-              !(stopped.reason === 'run_failed' && lastRun?.failure?.category === 'interrupted')
-            )
-              normalized = this.pauseContinuation(normalized, stopped.reason)
-            if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
-            if (lastRun) this.restoredRuns.set(session.id, lastRun)
-          }
-        }),
-      )
+                normalized = this.pauseContinuation(normalized, stopped.reason)
+              if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
+              if (lastRun) this.restoredRuns.set(session.id, lastRun)
+            }
+          }),
+        )
+      }
+      await Bun.sleep(0)
     }
     this.hydrated = true
   }

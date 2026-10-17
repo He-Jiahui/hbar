@@ -20,7 +20,7 @@ import type {
   SessionEvent,
   UserInputQuestion,
 } from '@hbar/contracts'
-import { definePlugin, provide, readSessionEventPages } from '@hbar/plugin-sdk'
+import { definePlugin, provide, readSessionEventPages, readSessionPages } from '@hbar/plugin-sdk'
 import type { HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from './instructions.ts'
 
@@ -97,11 +97,14 @@ class PlanRuntime implements PlanService {
   ) {}
 
   async restore() {
-    const sessions = await this.api.sessions.list()
-    for (let offset = 0; offset < sessions.length; offset += RESTORE_CONCURRENCY) {
-      await Promise.all(
-        sessions.slice(offset, offset + RESTORE_CONCURRENCY).map((session) => this.restoreSession(session.id)),
-      )
+    for await (const page of readSessionPages(this.api.sessions)) {
+      const sessions = page.items
+      for (let offset = 0; offset < sessions.length; offset += RESTORE_CONCURRENCY) {
+        await Promise.all(
+          sessions.slice(offset, offset + RESTORE_CONCURRENCY).map((session) => this.restoreSession(session.id)),
+        )
+      }
+      await Bun.sleep(0)
     }
     this.hydrated = true
   }

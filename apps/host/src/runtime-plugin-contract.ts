@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import { workspaceSchema } from '@hbar/contracts/directory'
 import { osConfinementOptionsSchema } from '@hbar/plugin-sdk'
+import { sessionScanInputSchema, sessionScanPageSchema } from '@hbar/contracts/session-scan'
 import { nodeCallAuthoritySchema } from '@hbar/contracts/node'
 import { runtimePluginStateSchema, RUNTIME_PLUGIN_HOOKS } from '@hbar/plugin-sdk/runtime-plugin'
 import { RUNTIME_APPLICATION_METHODS } from '@hbar/kernel/runtime-application'
@@ -113,6 +114,7 @@ export const PLUGIN_RUNTIME_FINGERPRINT = createHash('sha256')
     JSON.stringify([
       'hbar.plugin.runtime.v1',
       'owned-invocation-physical-reply.v1',
+      ['sessions.scanPage', z.toJSONSchema(sessionScanInputSchema), z.toJSONSchema(sessionScanPageSchema)],
       z.toJSONSchema(runtimePluginStateSchema),
       z.toJSONSchema(runtimePluginAuthoritySchema),
       z.toJSONSchema(runtimePluginConfigurationSchema),

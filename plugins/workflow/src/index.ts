@@ -38,7 +38,14 @@ import type {
 import type { PeerMessageReceipt } from '@hbar/contracts/commands/run'
 import { toolArgumentValue } from '@hbar/contracts/tool-arguments'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
-import { appendModelContext, definePlugin, provide, readSessionEventPages, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
+import {
+  appendModelContext,
+  definePlugin,
+  provide,
+  readSessionEventPages,
+  readSessionPages,
+  SKILL_TOOL_NAMES,
+} from '@hbar/plugin-sdk'
 import type {
   AgentService,
   HookEvents,
@@ -418,11 +425,14 @@ export class WorkflowRuntime implements WorkflowService {
   }
 
   async restore() {
-    const sessions = await this.api.sessions.list()
-    for (let offset = 0; offset < sessions.length; offset += RESTORE_CONCURRENCY)
-      await Promise.all(
-        sessions.slice(offset, offset + RESTORE_CONCURRENCY).map((session) => this.restoreSession(session.id)),
-      )
+    for await (const page of readSessionPages(this.api.sessions)) {
+      const sessions = page.items
+      for (let offset = 0; offset < sessions.length; offset += RESTORE_CONCURRENCY)
+        await Promise.all(
+          sessions.slice(offset, offset + RESTORE_CONCURRENCY).map((session) => this.restoreSession(session.id)),
+        )
+      await Bun.sleep(0)
+    }
     this.hydrated = true
   }
 

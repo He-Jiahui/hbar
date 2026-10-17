@@ -137,6 +137,7 @@ export function createRuntimePluginAPI(options: {
     sessions: {
       get: (id) => invoke('sessions.get', [id]),
       list: (workspaceId) => invoke('sessions.list', [workspaceId]),
+      scanPage: (input) => invoke('sessions.scanPage', [input]),
       children: (id, after, limit) => invoke('sessions.children', [id, after, limit]),
       events: (id, after, limit) => invoke('sessions.events', [id, after, limit]),
       readEventPage: (input) => invoke('sessions.readEventPage', [input]),

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./session-scan": "./src/session-scan.ts",
     "./delegated-context": "./src/delegated-context.ts",
     "./schedule-execution": "./src/schedule-execution.ts",
     "./delegated-approval": "./src/delegated-approval.ts",

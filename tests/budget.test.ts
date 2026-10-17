@@ -44,7 +44,9 @@ test('budget accounts completed runs, blocks exhausted runs, and restores after 
   const exhausted = await budget.get(session.id)
   expect(exhausted?.usedTokens).toBeGreaterThan(0)
   expect(exhausted?.phase).toBe('exhausted')
-  await expect(kernel.submit(session.id, 'blocked-run', { text: 'second', images: [] }, 'local-fixture')).rejects.toThrow('exhausted')
+  await expect(
+    kernel.submit(session.id, 'blocked-run', { text: 'second', images: [] }, 'local-fixture'),
+  ).rejects.toThrow('exhausted')
   expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
 
   const increased = await budget.set(session.id, exhausted!.usedTokens + 100)
@@ -75,7 +77,9 @@ test('budget command clears an existing ledger and converges when repeated', asy
   await client.pair(host.pairing.code, 'budget test')
   const created = await client.call('budget.set', { sessionId: session.id, limit: 500 })
   expect(created.limit).toBe(500)
-  expect(await client.call('automation.set', { sessionId: session.id, unattended: true, goalEnabled: true })).toMatchObject({
+  expect(
+    await client.call('automation.set', { sessionId: session.id, unattended: true, goalEnabled: true }),
+  ).toMatchObject({
     sessionId: session.id,
     unattended: true,
     goalEnabled: true,
@@ -201,6 +205,22 @@ test('an ACK lost after append is unknown until restart, then the original recei
         return { id, seq: events.length }
       },
       list: async () => [{ id: sessionId }],
+      scanPage: async () => ({
+        items: [
+          {
+            id: sessionId,
+            workspaceId: 'fixture',
+            title: '',
+            archived: false,
+            parentId: null,
+            createdAt: 0,
+            updatedAt: 0,
+            seq: events.length,
+          },
+        ],
+        through: sessionId,
+        nextCursor: null,
+      }),
       events: async (id: string) => (id === sessionId ? [...events] : []),
       readEventPage: async (input: SessionEventPageInput): Promise<SessionEventPage> => {
         const throughSeq = input.throughSeq ?? events.at(-1)?.seq ?? 0
@@ -277,7 +297,12 @@ test('active budgets continue completed user runs until the budget is exhausted 
   await kernel.changePlugin('budget.codex', true, { maxLimit: 1_000_000, autoContinue: true, maxContinuations: 1 })
   const budget = kernel.plugins.get<BudgetService>('budget')
   await budget.set(session.id, 1_000_000)
-  const first = await kernel.submit(session.id, 'budget-continuation', { text: 'keep working', images: [] }, 'local-fixture')
+  const first = await kernel.submit(
+    session.id,
+    'budget-continuation',
+    { text: 'keep working', images: [] },
+    'local-fixture',
+  )
   await kernel.waitForIdle()
   const runs = (await kernel.snapshot(session.id)).runs
   expect((await kernel.storage.call('run', first.id)).status).toBe('completed')
