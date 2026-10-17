@@ -30,7 +30,6 @@ import { NODE_RUN_WORKSPACE_MOUNTS_SQL, createNodeRunWorkspaceMountStorage } fro
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { readContextCompactionMarkers } from './context-compaction-markers'
-import { readSessionFacts } from './session-read-facts'
 import {
   RUN_FILE_CHANGES_SQL,
   projectRunFileChanges,
