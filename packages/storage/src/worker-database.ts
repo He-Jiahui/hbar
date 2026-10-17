@@ -124,6 +124,7 @@ import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { createRuntimeState, RUNTIME_STATE_SQL, runtimeManualRecoverySchema } from './runtime-state'
+import { createRuntimeBackendRecoveryPage } from './runtime-backend-recovery'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { readSessionObservability } from './session-observability.ts'
 import { beginContextCompaction, finishContextCompaction, readContextHistory } from './context-history'
@@ -1539,6 +1540,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       runtimeRecoveryPlan: runtimeState.planRecovery,
       runtimeRecoveryQueue: runtimeState.queueRecovery,
       runtimeRecoveryRead: runtimeState.readRecovery,
+      runtimeBackendRecoveryPage: createRuntimeBackendRecoveryPage(db),
       runtimeRecoveryCancel: runtimeState.cancelRecovery,
       runtimeRecoveryChain: runtimeState.readChain,
       runtimeRecoveryHold: runtimeState.holdRecovery,

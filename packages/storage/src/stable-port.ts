@@ -31,6 +31,7 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'cancelRequested',
   'runtimeExecutionRead',
   'runtimeRecoveryRead',
+  'runtimeBackendRecoveryPage',
   'runtimeRecoveryChain',
   'runtimeActiveRuns',
   'runtimeUnreleasedExecutions',

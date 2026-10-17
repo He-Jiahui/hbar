@@ -8,6 +8,7 @@ import {
 } from '@hbar/storage'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import { NodeRecoveryRetryScheduler } from './node-recovery-retry'
+import { BackendRecoveryDiscovery } from './backend-recovery-discovery'
 
 export interface RuntimeRecoveryAdmission {
   reconcile(run: Run, record: RuntimeRecoveryRecord): Promise<void>
@@ -26,11 +27,15 @@ export class RuntimeRecoveryService {
   private readonly nodeRecoveryControllers = new Set<AbortController>()
   private closing = false
   private readonly nodeRetries: NodeRecoveryRetryScheduler
+  private readonly backendDiscovery: BackendRecoveryDiscovery
   constructor(
     private readonly storage: StoragePort,
     private readonly admission: RuntimeRecoveryAdmission,
     private readonly nodeIntentRecovery?: NodeIntentRecoveryPort,
   ) {
+    this.backendDiscovery = new BackendRecoveryDiscovery(this.storage, async (runId) => {
+      await this.resume(runId)
+    })
     this.nodeRetries = new NodeRecoveryRetryScheduler(async (runId) => {
       await this.recover([runId])
     })
@@ -111,8 +116,21 @@ export class RuntimeRecoveryService {
   resume(predecessorRunId: string): Promise<RuntimeRecoveryRecord> {
     return this.resumeOperation(predecessorRunId)
   }
+  get backendDiscoveryPending(): boolean {
+    return this.backendDiscovery.pending
+  }
+  discoverBackendWaiting(canContinue: () => boolean): void {
+    this.backendDiscovery.request(canContinue)
+  }
+  pauseBackendDiscovery(): void {
+    this.backendDiscovery.pause()
+  }
+  waitForBackendDiscovery(): Promise<void> {
+    return this.backendDiscovery.waitForSettlement()
+  }
   close(): void {
     this.closing = true
+    this.backendDiscovery.close()
     for (const controller of this.nodeRecoveryControllers)
       controller.abort(new HbarError('RUNTIME_CLOSED', 'Kernel recovery is closing'))
     this.nodeRecoveryControllers.clear()

@@ -1048,8 +1048,12 @@ export class Kernel {
     if (this.preparing) throw new HbarError('RUNTIME_PREPARING', 'Candidate Kernel cannot start execution')
     if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel is closed')
     this.readyForRuns = role === 'default'
-    if (!this.readyForRuns) return
+    if (!this.readyForRuns) {
+      this.runtimeRecovery.pauseBackendDiscovery()
+      return
+    }
     await this.sessionLaunchPreparations.resumePending()
+    this.runtimeRecovery.discoverBackendWaiting(() => this.readyForRuns && !this.closing)
     for (const session of await this.storage.call('sessions')) this.kick(session.id)
   }
   async completePreparation(): Promise<void> {
@@ -1063,6 +1067,7 @@ export class Kernel {
   }
   beginDrain(): void {
     this.readyForRuns = false
+    this.runtimeRecovery.pauseBackendDiscovery()
     this.scheduledWakeups.close()
     this.wakeups.clear()
   }
@@ -5001,6 +5006,7 @@ export class Kernel {
       this.admissions ||
       this.maintenance ||
       this.chatDatabaseWrites ||
+      this.runtimeRecovery.backendDiscoveryPending ||
       this.closing
     )
       throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
@@ -5012,6 +5018,7 @@ export class Kernel {
       !this.admissions &&
       !this.maintenance &&
       !this.chatDatabaseWrites &&
+      !this.runtimeRecovery.backendDiscoveryPending &&
       !this.closing
     )
   }
@@ -5224,11 +5231,17 @@ export class Kernel {
     }
   }
   async waitForIdle() {
-    while (this.drains.size || this.scheduledWakeups.waiting.length || this.schedulingRefresh)
+    while (
+      this.drains.size ||
+      this.scheduledWakeups.waiting.length ||
+      this.schedulingRefresh ||
+      this.runtimeRecovery.backendDiscoveryPending
+    )
       await Promise.all([
         ...this.drains.values(),
         ...this.scheduledWakeups.waiting,
         ...(this.schedulingRefresh ? [this.schedulingRefresh] : []),
+        this.runtimeRecovery.waitForBackendDiscovery(),
       ])
   }
   async close() {

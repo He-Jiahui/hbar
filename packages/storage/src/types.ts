@@ -59,6 +59,7 @@ import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/co
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { ExecutionOwnership, RuntimeOwner, RecoveryChain } from '@hbar/contracts/runtime'
 import type { RuntimeRecoveryScope, RuntimeRecoveryRecord } from './runtime-state'
+import type { RuntimeBackendRecoveryPageInput, RuntimeBackendRecoveryPage } from './runtime-backend-recovery'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { ContextHistoryInput, ContextHistoryPage, ContextCompactionRecord } from '@hbar/contracts/context-history'
 import type { NotificationStorage } from './notifications'
@@ -659,6 +660,7 @@ export interface StorageMethods {
   runtimeRecoveryPlan(predecessorRunId: string): RuntimeRecoveryRecord
   runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
   runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
+  runtimeBackendRecoveryPage(input: RuntimeBackendRecoveryPageInput): RuntimeBackendRecoveryPage
   runtimeRecoveryCancel(runId: string): {
     run: Run
     targets?: Array<Pick<Run, 'id' | 'sessionId' | 'status'>>

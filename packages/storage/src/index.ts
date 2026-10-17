@@ -21,6 +21,12 @@ export type {
 export type { NodeRunWorktreeAdmission, NodeRunWorktreeBindInput, NodeRunWorktreeBinding } from './node-run-worktrees'
 export type { NodeRunWorkspaceMount, NodeRunWorkspaceMountBindInput } from './node-run-workspace-mounts'
 export { runtimeRecoveryRecordSchema, runtimeManualRecoverySchema } from './runtime-state'
+export { runtimeBackendRecoveryPageInputSchema, runtimeBackendRecoveryPageSchema } from './runtime-backend-recovery'
+export type {
+  RuntimeBackendRecoveryCursor,
+  RuntimeBackendRecoveryPageInput,
+  RuntimeBackendRecoveryPage,
+} from './runtime-backend-recovery'
 export { StableStoragePort } from './stable-port'
 export { readStartupSettingsLayer } from './startup-settings'
 export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'
