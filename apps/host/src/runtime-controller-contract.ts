@@ -6,6 +6,13 @@ import { liveStreamSchema } from '@hbar/contracts/runtime-notifications'
 import { commandMetadataSchema, type CommandDescriptor } from '@hbar/commands'
 import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import type { ControllerServerApplication } from './runtime-controller-services'
+import {
+  controllerScheduleControlMethods,
+  controllerScheduleInitializeSchema,
+  controllerScheduleTransferSchema,
+  controllerScheduleStatusSchema,
+} from './runtime-controller-schedule-contract'
+import { scheduleIdleManifestSchema, scheduleWakeReplySchema } from './runtime-schedule-idle-contract'
 
 export const runtimeControllerRequestSchema = rpcRequestSchema
   .extend({
@@ -80,7 +87,13 @@ export function isRuntimeControllerControl(request: RuntimeControllerRequest): b
 export const CONTROLLER_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
-      'hbar.controller.v1',
+      'hbar.controller.v2.schedule-idle',
+      controllerScheduleControlMethods,
+      z.toJSONSchema(controllerScheduleInitializeSchema),
+      z.toJSONSchema(controllerScheduleTransferSchema),
+      z.toJSONSchema(controllerScheduleStatusSchema),
+      z.toJSONSchema(scheduleIdleManifestSchema),
+      z.toJSONSchema(scheduleWakeReplySchema),
       z.toJSONSchema(runtimeControllerDispatchSchema),
       z.toJSONSchema(runtimeControllerConfigurationSchema),
       z.toJSONSchema(runtimeControllerScopeSchema),
