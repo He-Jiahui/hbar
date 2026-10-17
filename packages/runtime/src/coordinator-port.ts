@@ -38,6 +38,8 @@ export interface RuntimeCoordinatorPortOptions {
   readonly canAdmit?: (sessionId: string) => boolean
   /** Pure session.idle readiness; defaults to canAdmit for existing callers. Does not authorize a Run claim. */
   readonly canIdle?: (sessionId: string) => boolean
+  /** Preserve an actual denied scheduling notification only after coordinator idle authority is verified. */
+  readonly idleDenied?: (sessionId: string) => void
   readonly admitted?: (execution: ExecutionOwnership) => void
   /** The claim did not return authority to the caller. Reconcile its durable receipt rather than retrying the write. */
   readonly claimFailed?: (owner: RuntimeOwner, sessionId: string, runId: string) => void
@@ -93,7 +95,11 @@ export function registerRuntimeCoordinatorPort(
       'execution.canIdle',
       procedure(z.strictObject({ sessionId: id }), z.boolean(), (input) => {
         const canIdle = options.canIdle ?? options.canAdmit
-        return (!canIdle || canIdle(input.sessionId)) && coordinator.canIdle(owner, input.sessionId)
+        if (canIdle && !canIdle(input.sessionId)) {
+          if (options.idleDenied && coordinator.canIdle(owner, input.sessionId)) options.idleDenied(input.sessionId)
+          return false
+        }
+        return coordinator.canIdle(owner, input.sessionId)
       }),
     ),
     peer.register(
