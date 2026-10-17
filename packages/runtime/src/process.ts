@@ -149,6 +149,14 @@ export class ManagedProcess {
   private disposal: Promise<void> | undefined
   private idleAdmission: 'open' | 'checking' | 'draining' | 'unknown' | 'retired' = 'open'
   private idleProbe: { readonly owner: RuntimeOwner; readonly promise: Promise<ManagedIdleSnapshot> } | undefined
+  private idleControlLease:
+    | {
+        readonly owner: RuntimeOwner
+        readonly peer: IpcPeer
+        readonly token: symbol
+        readonly deadline: number
+      }
+    | undefined
   private idleRetirement: { readonly owner: RuntimeOwner; readonly promise: Promise<RuntimeIdleRetirement> } | undefined
   private idleDisposalAcknowledged = false
   private idleForcedTermination = false
@@ -493,6 +501,23 @@ export class ManagedProcess {
     return value
   }
 
+  private async idleControl<T>(owner: RuntimeOwner, peer: IpcPeer, action: () => Promise<T>): Promise<T> {
+    if (this.idleAdmission !== 'draining' || !this.sameOwner(owner) || this.peer !== peer || this.idleControlLease)
+      throw new HbarError('RUNTIME_IDLE_BOUNDARY_UNKNOWN', 'Idle control admission is unavailable')
+    const lease = {
+      owner: { ...owner },
+      peer,
+      token: Symbol('idle-control'),
+      deadline: performance.now() + this.shutdownMs,
+    }
+    this.idleControlLease = lease
+    try {
+      return await action()
+    } finally {
+      if (this.idleControlLease?.token === lease.token) this.idleControlLease = undefined
+    }
+  }
+
   private async retireIdleProcess(owner: RuntimeOwner): Promise<RuntimeIdleRetirement> {
     let stage:
       | 'INITIAL_PROBE'
@@ -542,10 +567,12 @@ export class ManagedProcess {
       this.state.phase = 'draining'
       this.publish()
       stage = 'DRAIN'
-      const drained = await peer.call('runtime.drain', undefined, runtimeDrainSchema, { timeoutMs: this.shutdownMs })
+      const drained = await this.idleControl(owner, peer, () =>
+        peer.call('runtime.drain', { mode: 'idle-retirement' }, runtimeDrainSchema, { timeoutMs: this.shutdownMs }),
+      )
       if (!unchanged() || drained.requests !== 0 || drained.runs !== 0 || drained.resources !== 0) return unknown()
       stage = 'FINAL_PROBE'
-      const finalProbe = await this.readIdleSnapshot()
+      const finalProbe = await this.idleControl(owner, peer, () => this.readIdleSnapshot())
       const finalIdentityUnchanged = unchanged()
       if (!finalIdentityUnchanged || !finalProbe.eligible) {
         // Fixed metadata only: preserve the original UNKNOWN fence and all physical counters.
@@ -577,7 +604,9 @@ export class ManagedProcess {
       }
       // Unlike normal shutdown, a lost/failed service.dispose receipt is NOT considered clean.
       stage = 'DISPOSE_ACK'
-      await peer.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: this.shutdownMs })
+      await this.idleControl(owner, peer, () =>
+        peer.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: this.shutdownMs }),
+      )
       if (!unchanged() || this.state.references.runs !== 0 || this.state.references.resources !== 0) return unknown()
       this.idleDisposalAcknowledged = true
       this.disposalAcknowledgedChildPid = child.pid
@@ -745,7 +774,26 @@ export class ManagedProcess {
             performance.now(),
             Math.min(this.heartbeatMs, 500),
           )
-          if (this.stopped || this.child !== child || this.state.phase === 'preparing') return
+          if (
+            this.stopped ||
+            this.child !== child ||
+            this.state.phase === 'preparing' ||
+            this.state.phase === 'recovering' ||
+            this.state.phase === 'failed'
+          )
+            return
+          const idleControl = this.idleControlLease
+          if (
+            idleControl &&
+            this.idleAdmission === 'draining' &&
+            idleControl.peer === peer &&
+            this.peer === peer &&
+            this.sameOwner(idleControl.owner)
+          ) {
+            if (performance.now() < idleControl.deadline) return
+            this.fault('RUNTIME_CALL_TIMEOUT')
+            return
+          }
           if (Date.now() - (this.state.lastHeartbeatAt ?? 0) >= this.heartbeatMs * RUNTIME_LIMITS.missedHeartbeats) {
             const counts = peer.snapshot()
             if (this.heartbeatEvidence?.shouldReport(performance.now(), true))

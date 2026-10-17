@@ -8,6 +8,7 @@ import { RUNTIME_LIMITS, runtimeOwnerSchema, runtimeIdleAuthoritySchema } from '
 import { IpcPeer, procedure } from './ipc'
 import {
   runtimeDrainSchema,
+  runtimeDrainInputSchema,
   runtimeIdleProbeSchema,
   readRuntimeIdleProbe,
   runtimePrepareSchema,
@@ -80,6 +81,8 @@ export async function runRuntimeProcess(
   let service: RuntimeProcessService | undefined
   let phase: 'boot' | 'preparing' | 'ready' | 'serving' | 'draining' | 'disposed' = 'boot'
   let exiting = false
+  let heartbeatFrozen = false
+  const heartbeatSends = new Set<Promise<void>>()
   type StopReason =
     | 'transport_failure'
     | 'dispatched_timeout'
@@ -277,11 +280,23 @@ export async function runRuntimeProcess(
   )
   peer.register(
     'runtime.drain',
-    procedure(z.undefined(), runtimeDrainSchema, async () => {
+    procedure(runtimeDrainInputSchema, runtimeDrainSchema, async (input) => {
       if ((phase !== 'serving' && phase !== 'draining') || !service)
         throw new HbarError('RUNTIME_LIFECYCLE', 'Runtime process is not serving')
       phase = 'draining'
-      return service.drain()
+      const drained = runtimeDrainSchema.parse(await service.drain())
+      if (
+        input?.mode === 'idle-retirement' &&
+        drained.requests === 0 &&
+        drained.runs === 0 &&
+        drained.resources === 0
+      ) {
+        heartbeatFrozen = true
+        clearInterval(heartbeat)
+        // Retain every real send until its original transport ACK or failure settles it.
+        await Promise.all([...heartbeatSends])
+      }
+      return drained
     }),
   )
   peer.register(
@@ -304,12 +319,18 @@ export async function runRuntimeProcess(
   const heartbeatEvidence = new HeartbeatEvidence(heartbeatCadence, Date.now(), performance.now())
   const heartbeat = setInterval(
     () => {
+      if (heartbeatFrozen) return
       const started = performance.now()
       const lateness = heartbeatEvidence.tick(started)
       if (lateness >= heartbeatCadence && heartbeatEvidence.shouldReport(started))
         writeHeartbeatEvidence(owner, 'child_tick_delayed', { queueWaitMs: lateness })
-      void peer
-        .notify('runtime.heartbeat', { time: Date.now() })
+      const sending = peer.notify('runtime.heartbeat', { time: Date.now() })
+      heartbeatSends.add(sending)
+      const release = (): void => {
+        heartbeatSends.delete(sending)
+      }
+      void sending.then(release, release)
+      void sending
         .then(() => {
           const elapsed = performance.now() - started
           if (elapsed >= heartbeatCadence && heartbeatEvidence.shouldReport(performance.now()))

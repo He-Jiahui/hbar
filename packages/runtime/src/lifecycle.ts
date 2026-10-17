@@ -24,6 +24,7 @@ export const runtimeDrainSchema = z.strictObject({
   runs: z.number().int().nonnegative(),
   resources: z.number().int().nonnegative(),
 })
+export const runtimeDrainInputSchema = z.strictObject({ mode: z.literal('idle-retirement') }).optional()
 export type RuntimePreparation = z.infer<typeof runtimePrepareSchema>
 export type RuntimeReady = z.infer<typeof runtimeReadySchema>
 export type RuntimeDrain = z.infer<typeof runtimeDrainSchema>
