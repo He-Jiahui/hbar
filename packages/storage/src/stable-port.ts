@@ -16,6 +16,7 @@ const readOnlyMethods: ReadonlySet<keyof StorageMethods> = new Set([
   'plugins',
   'events',
   'readEventPage',
+  'readSessionFacts',
   'run',
   'runByRequest',
   'sessionExecutionPrincipal',

@@ -140,6 +140,7 @@ export function createRuntimePluginAPI(options: {
       children: (id, after, limit) => invoke('sessions.children', [id, after, limit]),
       events: (id, after, limit) => invoke('sessions.events', [id, after, limit]),
       readEventPage: (input) => invoke('sessions.readEventPage', [input]),
+      readFacts: (input) => invoke('sessions.readFacts', [input]),
       create: (id, title, parentId) => invoke('sessions.create', [id, title, parentId]),
       submit: (...args) => invoke('sessions.submit', args),
       cancel: (id) => invoke('sessions.cancel', [id]),

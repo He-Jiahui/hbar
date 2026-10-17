@@ -5,6 +5,8 @@ import {
   resolveProviderModel,
   sessionEventPageInputSchema,
   sessionEventPageSchema,
+  sessionReadFactsInputSchema,
+  sessionReadFactsSchema,
   userInputRequestSchema,
 } from '@hbar/contracts'
 import type { ExecutionOwnership, RuntimeOwner, RuntimeVersion } from '@hbar/contracts/runtime'
@@ -302,6 +304,10 @@ export class RuntimePluginRelay {
     if (method === 'sessions.readEventPage') {
       const input = sessionEventPageInputSchema.parse(args[0])
       return sessionEventPageSchema.parse(await storage.call('readEventPage', input))
+    }
+    if (method === 'sessions.readFacts') {
+      const input = sessionReadFactsInputSchema.parse(args[0])
+      return sessionReadFactsSchema.parse(await storage.call('readSessionFacts', input))
     }
     if (method === 'sessions.snapshot') return storage.call('snapshot', z.string().parse(args[0]))
     if (method === 'sessions.workspace') return storage.call('workspace', z.string().parse(args[0]))

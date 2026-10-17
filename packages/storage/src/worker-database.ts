@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { createContextSummaryReader } from './context-summary'
+import { readSessionFacts } from './session-read-facts'
 import { createBackendContinuationAdmission } from './backend-continuation'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage, EXECUTION_PRINCIPAL_INDEX } from './execution-principals'
@@ -2252,6 +2253,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             return { message, event }
           })
           .immediate(),
+      readSessionFacts: (input) => readSessionFacts(db, input),
       snapshot(sessionId, before, limit = 60) {
         const session = workerDiagnostics.readPhase('session', () => methods.session(sessionId))
         const { messages, hasOlder } = workerDiagnostics.readPhase('messages', () => {

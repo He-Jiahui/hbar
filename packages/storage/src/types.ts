@@ -507,6 +507,7 @@ export interface StorageMethods {
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
   readEventPage(input: SessionEventPageInput): SessionEventPage
+  readSessionFacts(input: import('@hbar/contracts').SessionReadFactsInput): import('@hbar/contracts').SessionReadFacts
   goalHistory(input: GoalHistoryInput): GoalHistoryPage
   usageEvents(input: UsageReadInput): UsageReadPage
   commit(

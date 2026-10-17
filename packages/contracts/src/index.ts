@@ -684,6 +684,47 @@ export const runSchema = z.object({
   fileChanges: runFileChangesSummarySchema.optional(),
 })
 export type Run = z.infer<typeof runSchema>
+/** Bounded read facts for status/configuration consumers; never includes admitted text or attachments. */
+export const sessionRunFactSchema = runSchema
+  .pick({
+    id: true,
+    sessionId: true,
+    requestId: true,
+    modelId: true,
+    status: true,
+    createdAt: true,
+    startedAt: true,
+    endedAt: true,
+    error: true,
+  })
+  .extend({
+    error: z.string().max(4_001).nullable(),
+    input: inputSchema.pick({ thinking: true, approval: true, sandbox: true }),
+  })
+export type SessionRunFact = z.infer<typeof sessionRunFactSchema>
+export const sessionReadFactsInputSchema = z.strictObject({
+  sessionId: idSchema,
+  requestId: idSchema.optional(),
+  includeRuns: z.boolean().default(true),
+  /** The horizon of the first N persisted events, before filtering by event type. */
+  eventLimit: z.number().int().min(1).max(100_000).default(100_000),
+})
+export type SessionReadFactsInput = z.input<typeof sessionReadFactsInputSchema>
+export const sessionReadFactsSchema = z
+  .strictObject({
+    sessionId: idSchema,
+    cursor: z.number().int().nonnegative(),
+    eventThroughSeq: z.number().int().nonnegative(),
+    /** Same newest-first 40-Run window as the ordinary Session snapshot. */
+    runs: z.array(sessionRunFactSchema).max(40),
+    /** Text from the selected request within the ordinary latest-60-message window, joined then sliced. */
+    resultSummary: z.string().max(4_000),
+  })
+  .superRefine((facts, context) => {
+    if (facts.eventThroughSeq > facts.cursor || facts.runs.some((run) => run.sessionId !== facts.sessionId))
+      context.addIssue({ code: 'custom', message: 'Session read facts have an inconsistent identity or horizon' })
+  })
+export type SessionReadFacts = z.infer<typeof sessionReadFactsSchema>
 export interface Message {
   id: string
   sessionId: string

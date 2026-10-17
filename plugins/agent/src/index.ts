@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { agentPatchSchema, HbarError } from '@hbar/contracts'
+import { agentPatchSchema, HbarError, sessionReadFactsSchema } from '@hbar/contracts'
 import { assertLocalWorkspace } from '@hbar/contracts/local-workspace'
-import type { AgentPatch, Run, WorkflowScope } from '@hbar/contracts'
+import type { AgentPatch, Run, SessionReadFactsInput, WorkflowScope } from '@hbar/contracts'
 import {
   agentCreateInputSchema,
   agentDispatchConfigurationSchema,
@@ -19,7 +19,7 @@ import type {
   AgentRecord,
   AgentPolicySetInput,
 } from '@hbar/contracts/commands/agents'
-import { definePlugin, provide, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
+import { definePlugin, provide, readSessionEventPages, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   BudgetService,
@@ -171,19 +171,30 @@ export class AgentRuntime implements AgentService {
     return this.sessions.events(sessionId, 0, MAX_AGENT_EVENTS)
   }
 
+  private async facts(input: SessionReadFactsInput) {
+    if (!this.sessions.readFacts)
+      throw new HbarError('CAPABILITY_UNAVAILABLE', 'Bounded Session read facts are unavailable')
+    const facts = sessionReadFactsSchema.parse(await this.sessions.readFacts(input))
+    if (facts.sessionId !== input.sessionId || facts.runs.some((run) => run.sessionId !== input.sessionId))
+      throw new HbarError('INVALID_STATE', 'Session read facts belong to another session')
+    return facts
+  }
+
   private async created(sessionId: string): Promise<CreatedAgent | null> {
-    // Current children persist their seed second; retain the original first-100
-    // event window for older histories without reading later payloads normally.
-    let events = await this.sessions.events(sessionId, 0, 2)
-    for (let page = 0; page < 2; page++) {
-      for (const event of events) {
-        if (event.type !== 'agent.created') continue
-        const parsed = createdSchema.safeParse(event.data)
+    // Capture the original first-100-row window before filtering, including sparse imported histories.
+    const facts = await this.facts({ sessionId, includeRuns: false, eventLimit: 100 })
+    for await (const page of readSessionEventPages(this.sessions, {
+      sessionId,
+      types: ['agent.created'],
+      throughSeq: facts.eventThroughSeq,
+      limit: 1,
+      maxReplyBytes: 8 * 1024 * 1024,
+    })) {
+      for (const item of page.items) {
+        if (item.kind !== 'event') continue
+        const parsed = createdSchema.safeParse(item.event.data)
         if (parsed.success) return parsed.data
       }
-      const last = events.at(-1)
-      if (page === 1 || events.length < 2 || !last) return null
-      events = await this.sessions.events(sessionId, last.seq, 98)
     }
     return null
   }

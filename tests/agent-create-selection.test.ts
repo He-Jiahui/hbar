@@ -16,7 +16,7 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
   const fullEvents: string[] = []
   const configurations: string[] = []
   const fixture: { sessions?: SessionService } = {}
-  const seedPages: { id: string; after: number; limit: number | undefined; seqs: number[] }[] = []
+  const seedPages: { id: string; after: number; limit: number | undefined; seqs: number[]; types: string[] }[] = []
   const reset = () => {
     snapshots.length = 0
     fullEvents.length = 0
@@ -38,10 +38,20 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
         },
         events: async (id, after, limit) => {
           if (limit === 100_000) fullEvents.push(id)
-          const events = await api.sessions.events(id, after, limit)
-          if (limit !== 100_000)
-            seedPages.push({ id, after: after ?? 0, limit, seqs: events.map((event) => event.seq) })
-          return events
+          else throw new Error('Seed lookup must not hydrate raw event history')
+          return api.sessions.events(id, after, limit)
+        },
+        readEventPage: async (input) => {
+          const page = await api.sessions.readEventPage(input)
+          if (input.types.includes('agent.created'))
+            seedPages.push({
+              id: input.sessionId,
+              after: input.afterSeq,
+              limit: input.limit,
+              seqs: page.items.map((item) => item.event.seq),
+              types: [...input.types],
+            })
+          return page
         },
         agentConfiguration: {
           ...configuration,
@@ -111,7 +121,7 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
     expect(repeated.agentId).toBe(first.agentId)
     expect(repeated.runId).toBe(first.runId)
     expect(seedPages).toHaveLength(30)
-    expect(seedPages.every((page) => page.after === 0 && page.limit === 2 && page.seqs.join(',') === '1,2')).toBe(true)
+    expect(seedPages.every((page) => page.after === 0 && page.limit === 1 && page.seqs.join(',') === '2')).toBe(true)
     const firstSessionId = first.sessionId
     const unrelated = new Set([...siblings].filter((id) => id !== firstSessionId))
     assertNoUnrelatedReads(unrelated)
@@ -132,7 +142,8 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
       records.map((record) => [record.agentId, record.runId]),
     )
     expect(seedPages).toHaveLength(900)
-    expect(seedPages.every((page) => page.after === 0 && page.limit === 2 && page.seqs.join(',') === '1,2')).toBe(true)
+    expect(seedPages.every((page) => page.after === 0 && page.limit === 1 && page.seqs.join(',') === '2')).toBe(true)
+    expect(seedPages.every((page) => page.types.length === 1 && page.types[0] === 'agent.created')).toBe(true)
     expect(snapshots).toHaveLength(30)
     for (const record of records) {
       expect(snapshots.filter((id) => id === record.sessionId)).toHaveLength(1)
@@ -155,7 +166,8 @@ test('create hydrates only its matching idempotency seed among thirty real sibli
     expect(conflict).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
     assertNoUnrelatedReads(siblings)
     expect(seedPages).toHaveLength(30)
-    expect(seedPages.every((page) => page.after === 0 && page.limit === 2 && page.seqs.join(',') === '1,2')).toBe(true)
+    expect(seedPages.every((page) => page.after === 0 && page.limit === 1 && page.seqs.join(',') === '2')).toBe(true)
+    expect(seedPages.every((page) => page.types.length === 1 && page.types[0] === 'agent.created')).toBe(true)
     reset()
     const other = await agents.create(input, {
       actorId: 'actor-two',

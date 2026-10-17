@@ -364,6 +364,7 @@ export class RuntimePluginAdapter {
         'children',
         'events',
         'readEventPage',
+        'readFacts',
         'create',
         'submit',
         'cancel',

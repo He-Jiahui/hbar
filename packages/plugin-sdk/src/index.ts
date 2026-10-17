@@ -26,6 +26,8 @@ import type {
   SessionEvent,
   SessionEventPage,
   SessionEventPageInput,
+  SessionReadFacts,
+  SessionReadFactsInput,
   SessionSnapshot,
   TerminalContribution,
   ThreadGoal,
@@ -424,6 +426,8 @@ export interface SessionService {
   children(parentId: string, after?: string, limit?: number): Promise<Session[]>
   events(id: string, after?: number, limit?: number): Promise<SessionEvent[]>
   readEventPage(input: SessionEventPageInput): Promise<SessionEventPage>
+  /** Optional for older adapters. Status consumers must fail closed when this bounded read is unavailable. */
+  readFacts?(input: SessionReadFactsInput): Promise<SessionReadFacts>
   create(workspaceId: string, title?: string, parentId?: string): Promise<Session>
   submit(sessionId: string, requestId: string, input: UserInput, modelId: string): Promise<Run>
   /** Wake the Host idle dispatcher; this does not enqueue a model turn. */

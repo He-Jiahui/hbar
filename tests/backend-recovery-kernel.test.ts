@@ -30,7 +30,7 @@ async function configure(kernel: Kernel, enabled: boolean) {
   })
 }
 
-async function fixture() {
+async function fixture(observeLegacyRead?: () => void) {
   const prefix = 'hbar-backend-recovery-kernel-'
   const root = await mkdtemp(join(tmpdir(), prefix))
   const storage = new Storage(join(root, 'state.sqlite'))
@@ -86,7 +86,13 @@ async function fixture() {
         })
       },
     })
-    const port: StoragePort = { call: (method, ...args) => storage.call(method, ...args), close: async () => {} }
+    const port: StoragePort = {
+      call: (method, ...args) => {
+        if (method === 'events') observeLegacyRead?.()
+        return storage.call(method, ...args)
+      },
+      close: async () => {},
+    }
     kernel = await Kernel.create({
       home: join(root, 'data'),
       demo: true,
@@ -338,5 +344,38 @@ test('manual Goal recovery while background is off still respects a continuation
     } finally {
       await f.close()
     }
+  }
+}, 20_000)
+
+test('driver completion reconciliation does not read unrelated journal bodies', async () => {
+  let legacyReads = 0
+  const f = await fixture(() => legacyReads++)
+  try {
+    const padding = 'x'.repeat(64 * 1_024)
+    for (let index = 0; index < 32; index++)
+      await f.storage.call('append', f.session.id, 'fixture.unrelated', { index, padding }, f.original.id)
+    await f.storage.call('commit', f.session.id, f.original.id, 'assistant', [
+      { type: 'text', text: 'Final result already committed' },
+    ])
+    await f.storage.call('append', f.session.id, 'run.driverCompleted', { version: 1 }, f.original.id)
+    await f.goals.set(f.session.id, { status: 'complete' })
+    await f.storage.call('deleteProvider', 'fixture')
+    const beforeRecovery = legacyReads
+    const accepted = (await f.kernel.recoverRuns([f.original.id]))[0]
+    if (!accepted?.run) throw new Error('Expected completion reconciliation to retain its successor identity')
+    await f.kernel.activate()
+    await f.kernel.waitForIdle()
+    expect(f.executions).toHaveLength(0)
+    expect((await f.storage.call('run', f.original.id)).status).toBe('interrupted')
+    expect((await f.storage.call('run', accepted.run.id)).status).toBe('completed')
+    const snapshot = await f.storage.call('snapshot', f.session.id)
+    expect(
+      snapshot.messages
+        .flatMap((message) => message.content)
+        .filter((block) => block.type === 'text' && block.text === 'Final result already committed'),
+    ).toHaveLength(1)
+    expect(legacyReads - beforeRecovery).toBe(0)
+  } finally {
+    await f.close()
   }
 }, 20_000)
