@@ -3,7 +3,7 @@ import { HbarError } from '@hbar/contracts'
 import { nodeCallAuthoritySchema, nodeReceiptSchema, type NodeReceipt } from '@hbar/contracts/node'
 import type { ToolResult } from '@hbar/plugin-sdk'
 import type { NodeExecutionIntentRecord, StoragePort } from '@hbar/storage'
-import { reconcileNodeToolIntent, type NodeToolIntentRecoveryIdentity } from '@hbar/kernel'
+import { reconcileNodeToolIntent, type NodeToolIntentRecoveryIdentity } from '@hbar/kernel/node-intent-recovery'
 import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 
 type RecoveryIdentity = Omit<NodeExecutionIntentRecord, 'createdAt'>

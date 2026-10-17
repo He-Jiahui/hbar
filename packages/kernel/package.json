@@ -15,6 +15,7 @@
     "./node-workspace-inspection": "./src/node-workspace-inspection.ts",
     "./node-workspace-mounts": "./src/node-workspace-mounts.ts",
     "./node-worktree-port": "./src/node-worktree-port.ts",
+    "./node-intent-recovery": "./src/node-intent-recovery.ts",
     "./diagnostics": "./src/diagnostic-journal.ts",
     "./diagnostic-scope": "./src/diagnostic-scope.ts",
     "./session-search-commands": "./src/session-search-commands.ts",
