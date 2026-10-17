@@ -1,5 +1,5 @@
 import { HbarError } from '@hbar/contracts'
-import type { RuntimeOwner, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
+import { runtimeUnitDescriptorSchema, type RuntimeOwner, type RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import {
   RuntimeDemandLifecycle,
   type DemandClock,
@@ -30,6 +30,12 @@ type DemandManager = Pick<
   | 'reconcileIdle'
   | 'reconcileDemandHold'
 >
+
+/** Explicit trusted bootstrap selection, never inferred from a missing default. */
+export interface HostRuntimeDeferredDriver {
+  readonly unitId: string
+  readonly selectedArtifactId: string
+}
 
 export interface HostRuntimeDemandOptions {
   readonly manager: DemandManager
@@ -70,6 +76,8 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
   private readonly quarantined = new Map<symbol, PendingAdmission>()
   private readonly maximumOperations: number
   private adoption: Promise<void> | undefined
+  private adoptionSelection: string | undefined
+  private readonly deferredDrivers = new Map<string, string>()
   private readonly barriers = new Map<string, symbol>()
   private readonly acknowledgements = new Map<string, RuntimeOwner>()
   private reconciliation: Promise<void> | undefined
@@ -95,6 +103,16 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
           if (signal.aborted || this.stopped) return { kind: 'not-started' }
           // The caller obtains all capability dependencies in topological order first.
           // This lower atomic hold also prevents a reload between readiness and use.
+          const selectedArtifactId = this.deferredDrivers.get(input.unitId)
+          if (selectedArtifactId) {
+            try {
+              this.assertDeferredDriver({ unitId: input.unitId, selectedArtifactId })
+            } catch {
+              // An externally changed selection is not an authorized retry or owner adoption.
+              this.barriers.set(input.unitId, Symbol())
+              return { kind: 'unknown', owner: null }
+            }
+          }
           const hold = options.manager.holdDemand([input.unitId])
           try {
             const owners = await hold.ready
@@ -107,6 +125,24 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
                 owner: null,
               })
               return { kind: 'unknown', owner: null }
+            }
+            if (selectedArtifactId) {
+              const unit = options.manager.snapshot().units.find((value) => value.descriptor.id === input.unitId)
+              const current = unit?.generations.find((value) => value.role === 'default')
+              if (
+                !current ||
+                current.phase !== 'serving' ||
+                !sameOwner(owner, current) ||
+                current.artifactId !== selectedArtifactId ||
+                unit?.idle?.phase !== 'active'
+              )
+                throw new HbarError(
+                  'RUNTIME_DEMAND_OWNER_CHANGED',
+                  'First Driver owner differs from bootstrap selection',
+                )
+              // The original lower hold still pins this owner while protocol support is checked.
+              options.manager.setIdleEnabled(input.unitId, true)
+              this.deferredDrivers.delete(input.unitId)
             }
             hold.release()
             return { kind: 'started', owner }
@@ -178,29 +214,85 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
 
   /** Adopt existing serving children once. Metadata reads never call this method.
    * Must finish after startup recovery and before the Kernel/Goal scheduling gates open.
+   * Only an explicit exact dormant Driver selection may remain unstarted; other missing owners fail.
    */
-  adoptServing(signal: AbortSignal): Promise<void> {
-    if (this.adoption) return this.adoption
+  adoptServing(signal: AbortSignal, deferredDriver?: HostRuntimeDeferredDriver): Promise<void> {
+    const selection = deferredDriver ? { ...deferredDriver } : undefined
+    const selectionKey = JSON.stringify(selection ? [selection.unitId, selection.selectedArtifactId] : null)
+    if (this.adoption) {
+      if (this.adoptionSelection !== selectionKey)
+        return Promise.reject(
+          new HbarError('RUNTIME_INITIALIZING', 'Bootstrap selection cannot change during adoption'),
+        )
+      return this.adoption
+    }
+    this.adoptionSelection = selectionKey
     const adoption = Promise.resolve().then(async () => {
       this.assertOpen(signal)
       const units = this.options.manager.snapshot().units
-      const ids = [...this.descriptors.keys()]
+      if (selection) this.assertDeferredDriver(selection)
+      const ids = [...this.descriptors.keys()].filter((id) => id !== selection?.unitId)
+      if (selection && ids.length && this.closure(ids).includes(selection.unitId))
+        throw new HbarError('RUNTIME_INITIALIZING', 'Serving bootstrap depends on the deferred Driver')
+      if (selection) this.assertDeferredServingDescriptors(ids)
       for (const id of ids) {
         const unit = units.find((value) => value.descriptor.id === id)
         if (!unit?.generations.some((value) => value.role === 'default' && value.phase === 'serving'))
           throw new HbarError('RUNTIME_INITIALIZING', 'Serving bootstrap ownership is incomplete')
       }
-      const hold = await this.acquireInternal(ids, signal)
+      const hold = ids.length ? await this.acquireInternal(ids, signal) : undefined
       try {
         this.assertOpen(signal)
+        if (selection) {
+          this.assertDeferredDriver(selection)
+          this.assertDeferredServingDescriptors(ids)
+        }
         for (const id of ids) this.options.manager.setIdleEnabled(id, true)
+        if (selection) this.deferredDrivers.set(selection.unitId, selection.selectedArtifactId)
         this.adopted = true
       } finally {
-        hold.release()
+        hold?.release()
       }
     })
     this.adoption = adoption
     return adoption
+  }
+
+  private assertDeferredServingDescriptors(ids: readonly string[]): void {
+    const units = this.options.manager.snapshot().units
+    for (const id of ids) {
+      const descriptor = this.descriptors.get(id)
+      const unit = units.find((value) => value.descriptor.id === id)
+      if (
+        !descriptor ||
+        !unit ||
+        JSON.stringify(runtimeUnitDescriptorSchema.parse(descriptor)) !== JSON.stringify(unit.descriptor)
+      )
+        throw new HbarError('RUNTIME_INITIALIZING', 'Deferred bootstrap serving descriptor differs from Manager')
+    }
+  }
+  private assertDeferredDriver(selection: HostRuntimeDeferredDriver): void {
+    const descriptor = this.descriptors.get(selection.unitId)
+    const unit = this.options.manager.snapshot().units.find((value) => value.descriptor.id === selection.unitId)
+    if (
+      !descriptor ||
+      descriptor.kind !== 'driver' ||
+      descriptor.dependencies.length !== 0 ||
+      !unit ||
+      JSON.stringify(runtimeUnitDescriptorSchema.parse(descriptor)) !== JSON.stringify(unit.descriptor) ||
+      unit.generations.length !== 0 ||
+      unit.queuedArtifactId !== null ||
+      unit.idle?.phase !== 'dormant' ||
+      unit.idle.selectedArtifactId !== selection.selectedArtifactId ||
+      !selection.selectedArtifactId ||
+      unit.idle.demandHolds !== 0 ||
+      unit.idle.checkpointPending ||
+      unit.idle.enabled
+    )
+      throw new HbarError('RUNTIME_INITIALIZING', 'Explicit deferred Driver is not an exact unowned selection')
+    // dormant can only be produced by Manager.stageInitialDriver, whose gate also
+    // proves nextGeneration=0 and no current/candidate/queued/processing authority.
+    // Never reinterpret a missing generation, sleeping owner, or UNKNOWN as this state.
   }
 
   acquire(unitIds: readonly string[], signal: AbortSignal): Promise<HostRuntimeDemandHold> {
