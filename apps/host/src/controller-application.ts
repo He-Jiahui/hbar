@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { projectScheduleIdleManifest } from './runtime-schedule-idle-contract'
 import { z } from 'zod'
 import { createLocalExecutionPolicy, HbarError } from '@hbar/contracts'
 import {
@@ -442,6 +443,12 @@ export function createControllerApplication(
     notificationCommands,
     runBoardCommands,
     scheduleController,
+    scheduleCheckpoint: {
+      async read() {
+        const snapshot = await kernel.storage.call('scheduleIdleCheckpoint', { maxItems: 128, maxBytes: 131072 })
+        return projectScheduleIdleManifest(snapshot, Date.now())
+      },
+    },
     commandServices,
     commandDispatchers,
     commandDescribers,

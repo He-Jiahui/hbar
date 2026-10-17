@@ -10,6 +10,7 @@ import {
 } from '@hbar/runtime'
 import type { RuntimeGeneration, RuntimeOwner, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import { fileURLToPath } from 'node:url'
+import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 
 const managers: RuntimeManager[] = []
 afterEach(async () => {
@@ -432,6 +433,9 @@ test('the manager can replace a real Bun unit without changing an unrelated chil
         generation,
         modulePath: fileURLToPath(new URL('./fixtures/runtime-service.ts', import.meta.url)),
         parent: { unitId: 'base', generation: 1, incarnation: 'real-base' },
+        processTree: createRuntimeProcessTreePort(),
+        // This isolated fixture has no durable owner records to release; completion is still explicit.
+        onExit: async () => {},
         startupMs: 3_000,
         shutdownMs: 500,
         onState: changed,

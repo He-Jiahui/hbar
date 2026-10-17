@@ -29,6 +29,7 @@ import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import { invokeRuntimeNodeExecution } from './runtime-node-execution-call'
 import { assertRuntimePublicObservationCallback, runtimePublicObservation } from './runtime-public-observation'
 import type { RuntimeHumanWaits } from './runtime-human-waits'
+import type { HostRuntimeDemandPort, HostRuntimeDemandHold } from './runtime-host-demand'
 
 export interface RuntimePluginEndpoint {
   readonly owner: RuntimeOwner
@@ -38,6 +39,7 @@ export interface RuntimePluginEndpoint {
 }
 interface Pending {
   readonly owner: RuntimeOwner
+  readonly demand?: HostRuntimeDemandHold
   readonly permitId?: string
   readonly resourceId?: string
   readonly execution?: ExecutionOwnership
@@ -53,7 +55,9 @@ export class RuntimePluginRelay {
       readonly storage: StableStoragePort
       readonly coordinator: RuntimeCoordinator
       readonly humanWaits?: Pick<RuntimeHumanWaits, 'track'>
-      readonly current: () => readonly RuntimePluginEndpoint[]
+      readonly demand: HostRuntimeDemandPort
+      readonly catalog: () => readonly { readonly unitId: string; readonly state: RuntimePluginState }[]
+      readonly retainedVersion: (unitId: string, sessionId: string) => RuntimeVersion | undefined
       readonly resolve: (unitId: string, execution?: ExecutionOwnership, sessionId?: string) => RuntimePluginEndpoint
       readonly nodeLink?: () => RuntimeNodeLinkPort
     },
@@ -82,13 +86,10 @@ export class RuntimePluginRelay {
         return this.nodeCall(args.slice(1), pending.workspaceScope, pending.execution, signal, true)
       }
       if (method === 'execution.nodeCall') return this.nodeCall(args, undefined, undefined, signal)
-      return this.read(method, args)
+      return this.read(method, args, signal)
     })
     const finished = peer.onEvent('plugin.finished', z.strictObject({ invocationId: z.string().uuid() }), (input) => {
-      const pending = this.pending.get(input.invocationId)
-      if (!pending || pending.owner.incarnation !== owner.incarnation) return
-      this.pending.delete(input.invocationId)
-      this.release(pending)
+      this.finish(input.invocationId, owner)
     })
     return {
       application,
@@ -111,7 +112,7 @@ export class RuntimePluginRelay {
     })
     application.register('catalog', () => {
       this.options.coordinator.assertCanRead(owner)
-      return this.options.current().map((endpoint) => ({ unitId: endpoint.owner.unitId, state: endpoint.state }))
+      return structuredClone(this.options.catalog())
     })
     application.register('invoke', async ([unitValue, authorityValue, description, rawArgs, callback], signal) => {
       const unitId = z.string().min(1).max(160).parse(unitValue),
@@ -133,119 +134,150 @@ export class RuntimePluginRelay {
       const observation = runtimePublicObservation(unitId, authority, request, args)
       const execution = observation ? undefined : routedExecution
       this.options.coordinator.assertCanWrite(owner, execution)
-      // Observation changes authorization only; retain the Session's pinned plugin version.
-      const endpoint = this.options.resolve(unitId, routedExecution, authority.sessionId)
-      this.options.coordinator.assertCanWrite(endpoint.owner, execution)
-      if (observation && !endpoint.state.capabilities[observation.capability]?.includes(observation.method))
-        throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'The bound plugin does not provide this observation')
-      const workspaceScope = request.workspaceExecutionScope
-        ? {
-            workspace: structuredClone(request.workspaceExecutionScope.workspace),
-            ...(request.workspaceExecutionScope.authority
-              ? { authority: structuredClone(request.workspaceExecutionScope.authority) }
-              : {}),
-            signal: request.workspaceExecutionScope.signal,
-          }
-        : undefined
-      if (typeof callback !== 'function')
-        throw new HbarError('RUNTIME_HOST_REQUIRED', 'Plugin dispatch needs its owned host callback')
-      const invokeHost = async (method: string, parameters: readonly unknown[]): Promise<unknown> => {
-        this.options.coordinator.assertCanWrite(owner, execution)
-        this.options.coordinator.assertCanWrite(endpoint.owner, execution)
-        if (observation) assertRuntimePublicObservationCallback(observation, method, parameters)
-        if (method === 'execution.nodeCall') {
-          if (execution) this.options.coordinator.assertExecutionCapacity(execution)
-          return this.nodeCall(parameters, workspaceScope, execution, signal)
-        }
-        const forward = async (): Promise<unknown> => {
-          const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
-          return result
-        }
-        if (method !== 'userInput.request' || !execution || !callId) return forward()
-        const request = userInputRequestSchema.parse(parameters[0])
-        if (request.sessionId !== execution.sessionId || request.runId !== execution.runId || request.callId !== callId)
-          throw new HbarError(
-            'EXECUTION_OWNER_MISMATCH',
-            'A questionnaire callback must retain its original tool execution',
-          )
-        const incoming = this.incomingCallbacks.getStore()?.callerDeadline
-        const untrack = incoming
-          ? this.options.humanWaits?.track(execution, callId, { suspendDeadline: () => incoming.suspend() })
-          : undefined
-        try {
-          return await this.outgoingCallbacks.run({ execution, callId }, forward)
-        } finally {
-          untrack?.()
-        }
-      }
-      const invocationId = crypto.randomUUID()
-      let callId: string | undefined
-      if (request.operation === 'execute') {
-        const identity = z
-          .object({
-            callId: z.string().min(1).max(160),
-            run: z.object({ id: z.string() }),
-            session: z.object({ id: z.string() }),
-          })
-          .parse(args[1])
-        if (!execution || identity.run.id !== execution.runId || identity.session.id !== execution.sessionId)
-          throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Tool execution needs its durable bound Run')
-        callId = identity.callId
-      }
-      const resource = execution
-        ? isRuntimePluginControl(request)
-          ? this.options.coordinator.acquireControlResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
-          : this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
-        : null
-      let permitId: string | undefined
-      if (callId && execution) {
-        try {
-          permitId = this.options.coordinator.reserveTool(execution, callId, endpoint.owner).id
-          if (resource) this.options.coordinator.bindToolResource(endpoint.owner, resource.id, execution, callId)
-        } catch (error) {
-          if (permitId) this.options.coordinator.releaseTool(endpoint.owner, permitId)
-          if (resource) this.options.coordinator.releaseResource(endpoint.owner, resource.id)
-          throw error
-        }
-      }
-      this.pending.set(invocationId, {
-        owner: endpoint.owner,
-        ...(permitId ? { permitId } : {}),
-        ...(resource ? { resourceId: resource.id } : {}),
-        ...(execution ? { execution } : {}),
-        ...(workspaceScope ? { workspaceScope } : {}),
-      })
+      const retained = authority.sessionId ? this.options.retainedVersion(unitId, authority.sessionId) : undefined
+      const demand = !routedExecution && !retained ? await this.options.demand.acquire([unitId], signal) : undefined
+      let transferred = false
       try {
-        const tracked = endpoint.application.callTracked('invoke', [{ ...request, invocationId }, args, invokeHost], {
-          signal,
-          timeoutMs:
-            request.toolTimeoutMs === undefined ? 120_000 : Math.min(1_325_000, request.toolTimeoutMs + 125_000),
-        })
-        void tracked.result.catch(() => {})
-        let untrack: (() => void) | undefined
-        try {
-          if (execution && callId) untrack = this.options.humanWaits?.track(execution, callId, tracked)
-          return await tracked.settled
-        } finally {
+        // Observation changes authorization only; retain the Session's pinned plugin version.
+        const endpoint = this.options.resolve(unitId, routedExecution, authority.sessionId)
+        if (
+          retained &&
+          (endpoint.version.unitId !== retained.unitId ||
+            endpoint.version.generation !== retained.generation ||
+            endpoint.version.artifactId !== retained.artifactId)
+        )
+          throw new HbarError('RUNTIME_VERSION_MISMATCH', 'Retained plugin dispatch changed its version')
+        if (
+          demand &&
+          !demand.owners.some(
+            (value) =>
+              value.unitId === endpoint.owner.unitId &&
+              value.generation === endpoint.owner.generation &&
+              value.incarnation === endpoint.owner.incarnation,
+          )
+        )
+          throw new HbarError('RUNTIME_DEMAND_OWNER_CHANGED', 'Plugin default changed during demand admission')
+        this.options.coordinator.assertCanWrite(endpoint.owner, execution)
+        if (observation && !endpoint.state.capabilities[observation.capability]?.includes(observation.method))
+          throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'The bound plugin does not provide this observation')
+        const workspaceScope = request.workspaceExecutionScope
+          ? {
+              workspace: structuredClone(request.workspaceExecutionScope.workspace),
+              ...(request.workspaceExecutionScope.authority
+                ? { authority: structuredClone(request.workspaceExecutionScope.authority) }
+                : {}),
+              signal: request.workspaceExecutionScope.signal,
+            }
+          : undefined
+        if (typeof callback !== 'function')
+          throw new HbarError('RUNTIME_HOST_REQUIRED', 'Plugin dispatch needs its owned host callback')
+        const invokeHost = async (method: string, parameters: readonly unknown[]): Promise<unknown> => {
+          this.options.coordinator.assertCanWrite(owner, execution)
+          this.options.coordinator.assertCanWrite(endpoint.owner, execution)
+          if (observation) assertRuntimePublicObservationCallback(observation, method, parameters)
+          if (method === 'execution.nodeCall') {
+            if (execution) this.options.coordinator.assertExecutionCapacity(execution)
+            return this.nodeCall(parameters, workspaceScope, execution, signal)
+          }
+          const forward = async (): Promise<unknown> => {
+            const result: unknown = await Reflect.apply(callback, undefined, [method, [...parameters]])
+            return result
+          }
+          if (method !== 'userInput.request' || !execution || !callId) return forward()
+          const request = userInputRequestSchema.parse(parameters[0])
+          if (
+            request.sessionId !== execution.sessionId ||
+            request.runId !== execution.runId ||
+            request.callId !== callId
+          )
+            throw new HbarError(
+              'EXECUTION_OWNER_MISMATCH',
+              'A questionnaire callback must retain its original tool execution',
+            )
+          const incoming = this.incomingCallbacks.getStore()?.callerDeadline
+          const untrack = incoming
+            ? this.options.humanWaits?.track(execution, callId, { suspendDeadline: () => incoming.suspend() })
+            : undefined
           try {
-            await tracked.settled
+            return await this.outgoingCallbacks.run({ execution, callId }, forward)
           } finally {
             untrack?.()
           }
         }
-      } catch (error) {
-        // Cancellation/transport failure is not physical completion. The owner's finally notification or actual exit releases its permit.
-        if (
-          !signal.aborted &&
-          !(error instanceof HbarError && ['IPC_DISCONNECTED', 'IPC_TIMEOUT'].includes(error.code))
-        ) {
-          const pending = this.pending.get(invocationId)
-          if (pending) {
-            this.pending.delete(invocationId)
-            this.release(pending)
+        const invocationId = crypto.randomUUID()
+        let callId: string | undefined
+        if (request.operation === 'execute') {
+          const identity = z
+            .object({
+              callId: z.string().min(1).max(160),
+              run: z.object({ id: z.string() }),
+              session: z.object({ id: z.string() }),
+            })
+            .parse(args[1])
+          if (!execution || identity.run.id !== execution.runId || identity.session.id !== execution.sessionId)
+            throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Tool execution needs its durable bound Run')
+          callId = identity.callId
+        }
+        const resource = execution
+          ? isRuntimePluginControl(request)
+            ? this.options.coordinator.acquireControlResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
+            : this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution)
+          : null
+        let permitId: string | undefined
+        if (callId && execution) {
+          try {
+            permitId = this.options.coordinator.reserveTool(execution, callId, endpoint.owner).id
+            if (resource) this.options.coordinator.bindToolResource(endpoint.owner, resource.id, execution, callId)
+          } catch (error) {
+            if (permitId) this.options.coordinator.releaseTool(endpoint.owner, permitId)
+            if (resource) this.options.coordinator.releaseResource(endpoint.owner, resource.id)
+            throw error
           }
         }
-        throw error
+        this.pending.set(invocationId, {
+          owner: endpoint.owner,
+          ...(demand ? { demand } : {}),
+          ...(permitId ? { permitId } : {}),
+          ...(resource ? { resourceId: resource.id } : {}),
+          ...(execution ? { execution } : {}),
+          ...(workspaceScope ? { workspaceScope } : {}),
+        })
+        transferred = true
+        try {
+          const tracked = endpoint.application.callTracked('invoke', [{ ...request, invocationId }, args, invokeHost], {
+            signal,
+            onDispatchSettled: () => this.finish(invocationId, endpoint.owner),
+            timeoutMs:
+              request.toolTimeoutMs === undefined ? 120_000 : Math.min(1_325_000, request.toolTimeoutMs + 125_000),
+          })
+          void tracked.result.catch(() => {})
+          let untrack: (() => void) | undefined
+          try {
+            if (execution && callId) untrack = this.options.humanWaits?.track(execution, callId, tracked)
+            return await tracked.settled
+          } finally {
+            try {
+              await tracked.settled
+            } finally {
+              untrack?.()
+            }
+          }
+        } catch (error) {
+          // Cancellation/transport failure is not physical completion. The owner's finally notification or actual exit releases its permit.
+          if (
+            !signal.aborted &&
+            !(error instanceof HbarError && ['IPC_DISCONNECTED', 'IPC_TIMEOUT'].includes(error.code))
+          ) {
+            const pending = this.pending.get(invocationId)
+            if (pending) {
+              this.pending.delete(invocationId)
+              this.release(pending)
+            }
+          }
+          throw error
+        }
+      } finally {
+        if (!transferred) demand?.release()
       }
     })
     return () => application.dispose()
@@ -271,11 +303,31 @@ export class RuntimePluginRelay {
   }
   exited(owner: RuntimeOwner): void {
     for (const [id, pending] of this.pending)
-      if (pending.owner.incarnation === owner.incarnation) this.pending.delete(id)
+      if (
+        pending.owner.unitId === owner.unitId &&
+        pending.owner.generation === owner.generation &&
+        pending.owner.incarnation === owner.incarnation
+      ) {
+        this.pending.delete(id)
+        this.release(pending)
+      }
+  }
+  private finish(id: string, owner: RuntimeOwner): void {
+    const pending = this.pending.get(id)
+    if (
+      !pending ||
+      pending.owner.unitId !== owner.unitId ||
+      pending.owner.generation !== owner.generation ||
+      pending.owner.incarnation !== owner.incarnation
+    )
+      return
+    this.pending.delete(id)
+    this.release(pending)
   }
   private release(pending: Pending): void {
     if (pending.permitId) this.options.coordinator.releaseTool(pending.owner, pending.permitId)
     if (pending.resourceId) this.options.coordinator.releaseResource(pending.owner, pending.resourceId)
+    pending.demand?.release()
   }
   private nodeCall(
     args: readonly unknown[],
@@ -288,7 +340,11 @@ export class RuntimePluginRelay {
     if (!node) throw new HbarError('NODE_LINK_UNAVAILABLE', 'The workspace node link is unavailable')
     return invokeRuntimeNodeExecution({ node, scope, execution, signal, settlement }, args)
   }
-  private async read(method: string, args: readonly unknown[]): Promise<unknown> {
+  private async read(
+    method: string,
+    args: readonly unknown[],
+    signal: AbortSignal = new AbortController().signal,
+  ): Promise<unknown> {
     const storage = this.options.storage
     if (method === 'sessions.list') {
       const sessions = await storage.call('sessions')
@@ -331,22 +387,53 @@ export class RuntimePluginRelay {
     }
     const target = /^service\.(goal|plan|mode|budget)\.(get|snapshot)$/.exec(method)
     if (target) {
-      const endpoint = this.options.current().find((item) => Object.hasOwn(item.state.capabilities, target[1] ?? ''))
-      if (!endpoint)
-        throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'The candidate read dependency is unavailable')
-      const result = await endpoint.application.call<unknown>('invoke', [
-        { operation: 'capability', name: target[1], method: target[2], catalog: [] },
-        [...args],
-        (next: string, parameters: readonly unknown[]) => this.read(next, parameters),
-      ])
-      const { runtimePluginResultSchema } = await import('./runtime-plugin-contract')
-      const checked = runtimePluginResultSchema.parse(result)
-      if (checked.kind !== 'value')
-        throw new HbarError(
-          checked.kind === 'error' ? checked.code : 'RUNTIME_PREPARING',
-          'The candidate read was rejected',
+      const cached = this.options.catalog().find((item) => Object.hasOwn(item.state.capabilities, target[1] ?? ''))
+      if (!cached) throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'The candidate read dependency is unavailable')
+      const sessionId = typeof args[0] === 'string' ? args[0] : undefined
+      const execution = sessionId ? (this.options.coordinator.executionForSession(sessionId) ?? undefined) : undefined
+      const retained = sessionId ? this.options.retainedVersion(cached.unitId, sessionId) : undefined
+      const demand = !execution && !retained ? await this.options.demand.acquire([cached.unitId], signal) : undefined
+      let transferred = false
+      try {
+        const endpoint = this.options.resolve(cached.unitId, execution, sessionId)
+        if (
+          retained &&
+          (endpoint.version.generation !== retained.generation || endpoint.version.artifactId !== retained.artifactId)
         )
-      return checked.value
+          throw new HbarError('RUNTIME_VERSION_MISMATCH', 'Retained read changed its plugin version')
+        if (
+          demand &&
+          !demand.owners.some(
+            (value) =>
+              value.unitId === endpoint.owner.unitId &&
+              value.generation === endpoint.owner.generation &&
+              value.incarnation === endpoint.owner.incarnation,
+          )
+        )
+          throw new HbarError('RUNTIME_DEMAND_OWNER_CHANGED', 'Read default changed during demand admission')
+        const invocationId = crypto.randomUUID()
+        this.pending.set(invocationId, { owner: endpoint.owner, ...(demand ? { demand } : {}) })
+        transferred = true
+        const result = await endpoint.application.call<unknown>(
+          'invoke',
+          [
+            { operation: 'capability', name: target[1], method: target[2], catalog: [], invocationId },
+            [...args],
+            (next: string, parameters: readonly unknown[]) => this.read(next, parameters, signal),
+          ],
+          { signal, onDispatchSettled: () => this.finish(invocationId, endpoint.owner) },
+        )
+        const { runtimePluginResultSchema } = await import('./runtime-plugin-contract')
+        const checked = runtimePluginResultSchema.parse(result)
+        if (checked.kind !== 'value')
+          throw new HbarError(
+            checked.kind === 'error' ? checked.code : 'RUNTIME_PREPARING',
+            'The candidate read was rejected',
+          )
+        return checked.value
+      } finally {
+        if (!transferred) demand?.release()
+      }
     }
     throw new HbarError(
       'RUNTIME_PREPARING',

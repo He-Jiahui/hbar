@@ -58,8 +58,13 @@ async function readBounded(response: Response, maximum: number, signal: AbortSig
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
   let size = 0
+  let cancellation: Promise<void> | undefined
+  const cancel = (reason: unknown): Promise<void> => {
+    cancellation ??= reader.cancel(reason).catch(() => {})
+    return cancellation
+  }
   const abort = () => {
-    void reader.cancel(signal.reason).catch(() => {})
+    void cancel(signal.reason)
   }
   signal.addEventListener('abort', abort, { once: true })
   try {
@@ -69,18 +74,19 @@ async function readBounded(response: Response, maximum: number, signal: AbortSig
       if (done) break
       size += value.byteLength
       if (size > maximum) {
-        await reader.cancel('response size limit exceeded').catch(() => {})
+        await cancel('response size limit exceeded')
         throw new HbarError('IMAGE_RESPONSE_LIMIT', 'Image provider response exceeds the 14 MiB limit')
       }
       chunks.push(value)
     }
     signal.throwIfAborted()
   } catch (error) {
-    await reader.cancel(signal.aborted ? signal.reason : error).catch(() => {})
+    await cancel(signal.aborted ? signal.reason : error)
     if (signal.aborted) signal.throwIfAborted()
     throw error
   } finally {
     signal.removeEventListener('abort', abort)
+    await cancellation
     reader.releaseLock()
   }
   const result = new Uint8Array(size)
@@ -132,6 +138,7 @@ export function createImageGenerationTool(
   registry: ModelRegistry,
   fetcher: ImageFetcher = globalThis.fetch,
   options: ImageGenerationToolOptions = {},
+  idle?: import('@hbar/plugin-sdk').RuntimePluginIdleRegistry,
 ): ToolDefinition {
   const timeoutMs = boundedOption(options.timeoutMs, 120_000, 120_000, 'timeoutMs')
   const maxInFlightRequests = boundedOption(
@@ -158,6 +165,7 @@ export function createImageGenerationTool(
   >()
   let inFlight = 0
   let cachedResultMemoryBytes = 0
+  idle?.register(() => ({ supported: true, requests: inFlight, resources: 0, background: 0, unconfirmed: 0 }))
   return {
     name: 'image_generate',
     description:
@@ -319,7 +327,14 @@ export function createImageGenerationPlugin(options: ImageGenerationToolOptions 
     },
     apply(context) {
       const register = context.hbar.api.tools.register
-      register(createImageGenerationTool(context.hbar.api.service<ModelRegistry>('models'), globalThis.fetch, options))
+      register(
+        createImageGenerationTool(
+          context.hbar.api.service<ModelRegistry>('models'),
+          globalThis.fetch,
+          options,
+          context.hbar.api.runtimeIdle,
+        ),
+      )
     },
   })
 }

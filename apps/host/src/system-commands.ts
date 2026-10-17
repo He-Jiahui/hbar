@@ -14,6 +14,8 @@ export interface RuntimeSystemPort {
   attachSessionCommandExecution?(service: import('./session-command-execution').SessionCommandExecution): () => void
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean
+  /** Stable shallow projection. Reading this must not acquire business demand. */
+  metricsSnapshot?(): { readonly queuedRuns: number | null }
   subscribe?(listener: (delta: RuntimeDelta) => void): () => void
   watch?(cursor?: number): RuntimeWatchResult
   snapshot(): RuntimeSnapshot

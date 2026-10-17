@@ -59,6 +59,17 @@ export class SessionSummaryCoordinator {
     this.clearTimer = options.clearTimer ?? ((timer) => clearTimeout(timer))
   }
 
+  idleCounts() {
+    return {
+      timers: this.timers.size,
+      pending: this.pending.size,
+      inFlight: this.inFlight.size,
+      operations: this.operations.size,
+      failed: this.closeErrors.length,
+      closed: this.closed,
+    }
+  }
+
   schedule(sessionId: string, activity?: SessionSummary['activity'], activeRunId?: string | null): void {
     if (this.closed) return
     const previous = this.pending.get(sessionId) ?? {}

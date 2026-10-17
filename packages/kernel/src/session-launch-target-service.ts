@@ -315,6 +315,10 @@ export class SessionLaunchTargetService {
     })
   }
 
+  idleCounts() {
+    return { active: this.active.size, operations: this.trackedOperations.size, closed: this.closing }
+  }
+
   private trackOperation<Value>(action: () => Promise<Value>): Promise<Value> {
     try {
       assertLocalExecutionAllowed(this.localExecutionPolicy, 'Local worktree operation')

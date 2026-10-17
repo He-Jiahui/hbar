@@ -1,3 +1,9 @@
+import {
+  kernelPluginQuiescenceIsEmpty,
+  type KernelIdleCheckpoint,
+  type KernelActivationPurpose,
+  type KernelPluginQuiescence,
+} from './runtime-idle'
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
@@ -35,7 +41,12 @@ import type {
 } from '@hbar/contracts/autonomy'
 export type { ToolMutationAdmissionPort, ToolMutationAdmissionContext } from './mutation-admission'
 export type { SessionCommandDiscoveryPort, SessionCommandContext } from './session-command-port'
-export type { ToolCallPreparationPort, ToolCallPreparationContext, ToolCallBinding, ToolCallAdmission } from './tool-call-binding'
+export type {
+  ToolCallPreparationPort,
+  ToolCallPreparationContext,
+  ToolCallBinding,
+  ToolCallAdmission,
+} from './tool-call-binding'
 import { assertRemoteLaunchTargetSupported, nodeWorktreeBranchPlan } from './node-worktree-selection'
 import { nodeWorkspaceLocator } from '@hbar/contracts/node-address'
 import { admitNodeProcess } from './node-admission-gate'
@@ -336,6 +347,14 @@ import { captureToolPresentations, enrichToolCallPresentations } from './tool-pr
 import { createContextCompactionJournal } from './context-compaction-journal'
 import { persistToolResultImages } from './tool-result-images'
 import { SessionWakeups } from './session-wakeups.ts'
+import {
+  goalWakeReplySchema,
+  sessionWakeAckSchema,
+  sessionWakeDeliverySchema,
+  type SessionWakeAck,
+  type SessionWakeEntry,
+} from '@hbar/contracts/session-wake'
+import type { RuntimeOwner } from '@hbar/contracts/runtime'
 import { createToolSequenceExecutor } from './tool-sequence'
 import { createToolExecutionReporter } from './tool-execution'
 import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
@@ -602,7 +621,151 @@ export class Kernel {
   private streamPublished = new Map<string, { text: string; thinking: string; version: number }>()
   readonly active = new Map<string, ActiveRun>()
   private drains = new Map<string, Promise<void>>()
+  private restoredSessionWakeAck: string | undefined
+  private sessionWakePhase: 'open' | 'sealing' | 'quiesced' | 'committed' | 'unknown' = 'open'
+  private sessionWakeBlocked(): boolean {
+    return !['open', 'committed'].includes(this.sessionWakePhase)
+  }
+  private sealSessionWakes(): void {
+    if (
+      this.sessionWakeBlocked() ||
+      this.active.size ||
+      this.drains.size ||
+      this.admissions ||
+      this.wakeups.size ||
+      this.userInputAdmissions.size ||
+      this.schedulingRefresh ||
+      this.schedulingRefreshRequested ||
+      this.runtimeRecovery.backendDiscoveryPending
+    )
+      throw new HbarError('BUSY', 'Kernel has real work or a wake transfer pending')
+    this.sessionWakePhase = 'sealing'
+  }
   private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
+  private async goalWake(action: 'validate' | 'commit' | 'abort' | 'deliver', token: string, entry: SessionWakeEntry) {
+    const service = this.plugins.get<import('@hbar/plugin-sdk').GoalService>('goal')
+    if (!service.continuationWake)
+      throw new HbarError('SESSION_WAKE_UNSUPPORTED', 'Goal deadline transfer is unavailable')
+    return goalWakeReplySchema.parse(
+      await service.continuationWake({ action, token, entry, sessionId: entry.sessionId }),
+    )
+  }
+  async sessionWakesCoverage(entries: readonly SessionWakeEntry[]): Promise<number> {
+    const service = this.plugins.get<import('@hbar/plugin-sdk').GoalService>('goal')
+    if (!service.continuationWake)
+      throw new HbarError('SESSION_WAKE_UNSUPPORTED', 'Goal transfer coverage is unavailable')
+    const result = goalWakeReplySchema.parse(
+      await service.continuationWake({ action: 'coverage', sessionId: 'session-wake-coverage', entries: [...entries] }),
+    )
+    if (!result.accepted || result.resources === undefined)
+      throw new HbarError('BUSY', 'Goal has work outside the transferable future deadlines')
+    return result.resources
+  }
+  async sessionWakesPreview(
+    owner: RuntimeOwner,
+    facts: { queuedRuns: boolean | null; pluginQuiescence?: KernelPluginQuiescence },
+  ) {
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer checkpoint is fenced')
+    const manifest = this.scheduledWakeups.preview(owner)
+    const checkpoint = this.runtimeIdleCheckpoint(facts)
+    if (facts.queuedRuns !== false || Object.values(checkpoint.counts).some((value) => value !== 0))
+      throw new HbarError('BUSY', 'Kernel has nontransferable work')
+    // Empty parent-proven domains need no business call to a sleeping Goal.
+    // Direct callers without the complete proof retain the actual Goal check.
+    if (!(
+      manifest.entries.length === 0 &&
+      facts.pluginQuiescence &&
+      kernelPluginQuiescenceIsEmpty(facts.pluginQuiescence)
+    ))
+      await this.sessionWakesCoverage(manifest.entries)
+    if (JSON.stringify(this.scheduledWakeups.preview(owner)) !== JSON.stringify(manifest))
+      throw new HbarError('BUSY', 'Wake checkpoint changed during preview')
+    return manifest
+  }
+  async sessionWakesQuiesce(ack: SessionWakeAck, owner: RuntimeOwner) {
+    const parsed = sessionWakeAckSchema.parse(ack)
+    this.sealSessionWakes()
+    try {
+      // Freeze absolute timers synchronously before the first Goal RPC can yield.
+      this.scheduledWakeups.quiesce(parsed, owner)
+      await this.sessionWakesCoverage(parsed.manifest.entries)
+      for (const entry of parsed.manifest.entries) {
+        if (!(await this.goalWake('validate', parsed.token, entry)).accepted)
+          throw new HbarError('SESSION_WAKE_STALE', 'Goal deadline changed before quiescence')
+      }
+      this.sessionWakePhase = 'quiesced'
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'quiesced' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesCommit(ack: SessionWakeAck) {
+    const parsed = sessionWakeAckSchema.parse(ack)
+    if (this.sessionWakePhase !== 'quiesced')
+      throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer is not quiesced')
+    this.sessionWakePhase = 'sealing'
+    try {
+      for (const entry of parsed.manifest.entries) {
+        if (!(await this.goalWake('commit', parsed.token, entry)).accepted)
+          throw new HbarError('SESSION_WAKE_STALE', 'Goal deadline changed before transfer commit')
+      }
+      this.scheduledWakeups.commit(parsed)
+      this.sessionWakePhase = 'committed'
+      this.pumpWakeups()
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'committed' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesAbort(ack: SessionWakeAck) {
+    const parsed = sessionWakeAckSchema.parse(ack)
+    if (this.sessionWakePhase !== 'quiesced')
+      throw new HbarError('SESSION_WAKE_FENCED', 'Unknown transfer cannot be aborted')
+    this.sessionWakePhase = 'sealing'
+    try {
+      for (const entry of parsed.manifest.entries) await this.goalWake('abort', parsed.token, entry)
+      this.scheduledWakeups.abort(parsed)
+      this.sessionWakePhase = 'open'
+      this.pumpWakeups()
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'aborted' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesRestore(ack: SessionWakeAck) {
+    const parsed = sessionWakeAckSchema.parse(ack),
+      entries: SessionWakeEntry[] = []
+    if (this.restoredSessionWakeAck === JSON.stringify(parsed))
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'restored' as const }
+    this.sealSessionWakes()
+    try {
+      // Restore every still-current entry, not merely the first deadline that woke this generation.
+      for (const entry of parsed.manifest.entries) {
+        if ((await this.goalWake('commit', parsed.token, entry)).accepted) entries.push(entry)
+      }
+      this.scheduledWakeups.restore(parsed, entries)
+      this.restoredSessionWakeAck = JSON.stringify(parsed)
+      this.sessionWakePhase = 'committed'
+      return { token: parsed.token, revision: parsed.manifest.revision, phase: 'restored' as const }
+    } catch (error) {
+      this.sessionWakePhase = 'unknown'
+      throw error
+    }
+  }
+  async sessionWakesDeliver(raw: { token: string; entry: SessionWakeEntry }) {
+    const input = sessionWakeDeliverySchema.parse(raw)
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer is not settled')
+    if (!this.scheduledWakeups.matches(input.token, input.entry)) return { status: 'stale' as const }
+    if (input.entry.dueAt > Date.now()) throw new HbarError('SESSION_WAKE_NOT_DUE', 'Wake deadline has not arrived')
+    const result = await this.goalWake('deliver', input.token, input.entry)
+    if (!this.scheduledWakeups.delivered(input.token, input.entry)) return { status: 'stale' as const }
+    if (!result.accepted) return { status: 'stale' as const }
+    this.kick(input.entry.sessionId)
+    return { status: 'notified' as const }
+  }
   private wakeups = new Set<string>()
   private schedulingRefresh: Promise<void> | undefined
   private schedulingRefreshRequested = false
@@ -623,6 +786,7 @@ export class Kernel {
   private readonly userInputAdmissions = new Set<string>()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private subscriberPublications = 0
   private maintenance = false
   private providerSaveInFlight = false
   private chatDatabaseWrites = 0
@@ -1044,7 +1208,10 @@ export class Kernel {
       throw error
     }
   }
-  async activate(role: 'default' | 'draining' = 'default'): Promise<void> {
+  async activate(
+    role: 'default' | 'draining' = 'default',
+    purpose: KernelActivationPurpose = 'startup',
+  ): Promise<void> {
     if (this.preparing) throw new HbarError('RUNTIME_PREPARING', 'Candidate Kernel cannot start execution')
     if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel is closed')
     this.readyForRuns = role === 'default'
@@ -1052,6 +1219,8 @@ export class Kernel {
       this.runtimeRecovery.pauseBackendDiscovery()
       return
     }
+    // An idle wake serves a new explicit demand; it is not startup/crash reconciliation.
+    if (purpose === 'idle-wake') return
     await this.sessionLaunchPreparations.resumePending()
     this.runtimeRecovery.discoverBackendWaiting(() => this.readyForRuns && !this.closing)
     for (const session of await this.storage.call('sessions')) this.kick(session.id)
@@ -1064,6 +1233,70 @@ export class Kernel {
     await this.restoreAutomation()
     await this.migrateAutomation()
     this.preparing = false
+  }
+  /** Pure probe: never drains, claims, dispatches hooks, refreshes timestamps or cancels timers.
+   * Host must not retire this generation while any unsupported domain remains unproven.
+   */
+  runtimeIdleCheckpoint(facts: { readonly queuedRuns: boolean | null }): KernelIdleCheckpoint {
+    const queuedRuns = facts.queuedRuns
+    const summary = this.sessionSummaryCoordinator.idleCounts()
+    const preparation = this.sessionLaunchPreparations.idleCounts()
+    const launch = this.sessionLaunchTargets.idleCounts()
+    const branch = this.sessionBranchTargets.idleCounts()
+    const counts = {
+      subscriberPublications: this.subscriberPublications,
+      physicalTools: this.toolExecutions.idleCounts().active,
+      toolsClosed: Number(this.toolExecutions.idleCounts().closed),
+      boundaryStops: this.boundaryStops.size,
+      sessionWakeTransfer: Number(this.sessionWakeBlocked()),
+      activeRuns: this.active.size,
+      drains: this.drains.size,
+      admissions: this.admissions,
+      queuedWakes: this.wakeups.size,
+      approvals: this.approvals.size,
+      userInputs: this.userInputs.size,
+      userInputAdmissions: this.userInputAdmissions.size,
+      schedulingRefresh: Number(!!this.schedulingRefresh),
+      schedulingRefreshRequested: Number(this.schedulingRefreshRequested),
+      backendRecoveryDiscovery: Number(this.runtimeRecovery.backendDiscoveryPending),
+      streams: this.streams.size,
+      streamTimers: this.streamTimers.size,
+      maintenance: Number(this.maintenance),
+      providerSave: Number(this.providerSaveInFlight),
+      chatDatabaseWrites: this.chatDatabaseWrites,
+      launchLocks: this.sessionLaunchTargetLocks.size,
+      checkoutLocks: this.sharedCheckoutLocks.size,
+      checkoutWaiters: this.sharedCheckoutWaiters,
+      closing: Number(this.closing),
+      preparing: Number(this.preparing),
+      storageFailed: Number(!!this.storageFailure),
+      summaryTimers: summary.timers,
+      summaryPending: summary.pending,
+      summaryInFlight: summary.inFlight,
+      summaryOperations: summary.operations,
+      summaryFailures: summary.failed,
+      summaryClosed: Number(summary.closed),
+      preparationQueued: preparation.queued,
+      preparationActive: preparation.active,
+      preparationDeferred: preparation.deferred,
+      preparationClosed: Number(preparation.closed),
+      launchActive: launch.active,
+      launchOperations: launch.operations,
+      launchClosed: Number(launch.closed),
+      branchOperations: branch.operations,
+      branchClosed: Number(branch.closed),
+    }
+    const scheduledWakeups = this.scheduledWakeups.pendingCount
+    return {
+      schemaVersion: 1,
+      instanceId: this.instanceId,
+      coverage: 'kernel-domain',
+      counts,
+      queuedRuns,
+      scheduledWakeups,
+      requiresAlarmTransfer: scheduledWakeups !== 0,
+      eligible: queuedRuns === false && scheduledWakeups === 0 && Object.values(counts).every((value) => value === 0),
+    }
   }
   beginDrain(): void {
     this.readyForRuns = false
@@ -1388,11 +1621,17 @@ export class Kernel {
   }
   private publish(event: WireNotification) {
     for (const listener of [...this.listeners]) {
+      this.subscriberPublications++
       try {
-        void Promise.resolve(this.executionScope.observe(() => listener(event))).catch((error: unknown) => {
-          console.error('Subscriber failed:', error)
-        })
+        void Promise.resolve(this.executionScope.observe(() => listener(event)))
+          .catch((error: unknown) => {
+            console.error('Subscriber failed:', error)
+          })
+          .finally(() => {
+            this.subscriberPublications--
+          })
       } catch (error) {
+        this.subscriberPublications--
         console.error('Subscriber failed:', error)
       }
     }
@@ -1492,7 +1731,10 @@ export class Kernel {
   async createSession(workspaceId: string, title?: string, parentId?: string) {
     const parentRun = parentId ? this.active.get(parentId)?.run : undefined
     const session = await this.storage.call(
-      'createSession', workspaceId, title, parentId,
+      'createSession',
+      workspaceId,
+      title,
+      parentId,
       parentRun ? { kind: 'run', runId: parentRun.id } : undefined,
     )
     this.changed('sessions')
@@ -2072,6 +2314,7 @@ export class Kernel {
     expectedLaunchTargetRevision?: number,
     autonomyRetry?: AutonomyRetryAdmission,
   ) {
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer prevents admission')
     input = inputSchema.parse(input)
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
@@ -2108,6 +2351,7 @@ export class Kernel {
       ...(input.source === undefined ? { source: 'user' as const } : {}),
     }
     if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host is changing its plugin composition')
+    if (this.sessionWakeBlocked()) throw new HbarError('SESSION_WAKE_FENCED', 'Wake transfer began during admission')
     this.admissions++
     try {
       if (
@@ -2177,7 +2421,15 @@ export class Kernel {
             }
             signal?.throwIfAborted()
             return this.storage.call(
-              'enqueue', sessionId, requestId, input, modelId, command, binding, this.executionScope.current?.runId, autonomyRetry,
+              'enqueue',
+              sessionId,
+              requestId,
+              input,
+              modelId,
+              command,
+              binding,
+              this.executionScope.current?.runId,
+              autonomyRetry,
             )
           }
           return remoteWorkspace || noLocalExecution
@@ -2203,12 +2455,16 @@ export class Kernel {
     }
   }
   private kick(sessionId: string) {
+    if (this.sessionWakeBlocked()) {
+      this.wakeups.add(sessionId)
+      return
+    }
     this.scheduledWakeups.cancel(sessionId)
     this.wakeups.add(sessionId)
     this.pumpWakeups()
   }
   private pumpWakeups(): void {
-    if (this.closing || this.maintenance || !this.readyForRuns) return
+    if (this.closing || this.maintenance || !this.readyForRuns || this.sessionWakeBlocked()) return
     // Shared by startup, submissions and idle continuations. Keep thirty-way
     // execution possible while bounding the claim/idle RPC fanout per owner.
     for (const sessionId of this.wakeups) {
@@ -2258,10 +2514,11 @@ export class Kernel {
         if (this.options.execution?.canIdle && !(await this.options.execution.canIdle(sessionId))) return
         const idle = await this.hooks.dispatch('session.idle', { sessionId })
         if (this.closing) return
-        const retry = idle.submission || idle.wakeAt !== undefined ? null : await planAutonomyRetry(this.storage, sessionId)
+        const retry =
+          idle.submission || idle.wakeAt !== undefined ? null : await planAutonomyRetry(this.storage, sessionId)
         const submission = idle.submission ?? (retry?.kind === 'submit' ? retry.submission : undefined)
         if (!submission) {
-          if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt)
+          if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt, idle.continuationWake)
           else if (retry?.kind === 'wait') this.scheduledWakeups.schedule(sessionId, retry.wakeAt)
           return
         }
@@ -2381,7 +2638,8 @@ export class Kernel {
           targetRunId: run.id,
         })
         delegationDeadline = setTimeout(
-          () => controller.abort(new HbarError('DELEGATION_EXPIRED', 'The original dedicated decision deadline expired')),
+          () =>
+            controller.abort(new HbarError('DELEGATION_EXPIRED', 'The original dedicated decision deadline expired')),
           Math.max(1, grant.expiresAt - Date.now()),
         )
         await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, run.input.source)
@@ -3957,7 +4215,7 @@ export class Kernel {
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
       if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
-      const wait = <Result,>(operation: () => Promise<Result>) =>
+      const wait = <Result>(operation: () => Promise<Result>) =>
         this.withHumanWait(
           context.run.id,
           context.callId,
@@ -4318,7 +4576,7 @@ export class Kernel {
     this.userInputAdmissions.add(request.requestId)
     try {
       const policy = await this.permissionSettings.decisionPolicy(request.sessionId)
-    signal.throwIfAborted()
+      signal.throwIfAborted()
       const stop = this.boundaryStops.get(request.runId)
       if (stop) throw stop
       const accepted = await this.storage
@@ -4327,7 +4585,7 @@ export class Kernel {
           const known = await this.storage.call('userInputRead', {
             sessionId: request.sessionId,
             requestId: request.requestId,
-    })
+          })
           if (!known || JSON.stringify(known.request) !== JSON.stringify(request)) throw acceptError
           return { created: false, state: known, events: [] }
         })
@@ -4346,7 +4604,7 @@ export class Kernel {
           error?: unknown,
           automatic?: z.output<typeof userInputAutomaticDecisionSchema>,
         ) => {
-      if (settled) return false
+          if (settled) return false
           const settlement =
             response === undefined
               ? {
@@ -4376,31 +4634,31 @@ export class Kernel {
             })
           if (!result.state.settlement) return false
           if (settled) return result.accepted
-      settled = true
-      this.userInputs.delete(request.requestId)
+          settled = true
+          this.userInputs.delete(request.requestId)
           for (const event of result.events) this.publishEvent(event)
           const winner = result.state.settlement
-      const data = {
-        requestId: request.requestId,
-        sessionId: request.sessionId,
+          const data = {
+            requestId: request.requestId,
+            sessionId: request.sessionId,
             cancelled: winner.kind === 'cancelled',
             ...(winner.kind === 'answered' ? { response: winner.response } : {}),
-      }
-      this.publish({ method: 'user_input.resolved', params: data })
+          }
+          this.publish({ method: 'user_input.resolved', params: data })
           if (winner.kind === 'answered') outcome.resolve(winner.response)
           else outcome.reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
           return result.accepted
         },
       )
-    this.userInputs.set(request.requestId, { request, settle })
+      this.userInputs.set(request.requestId, { request, settle })
       this.userInputAdmissions.delete(request.requestId)
-    const onAbort = () => {
+      const onAbort = () => {
         void settle(
           undefined,
           signal.reason ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'),
         ).catch((error: unknown) => outcome.reject(error))
-    }
-    signal.addEventListener('abort', onAbort, { once: true })
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
       let resumeHumanWait: (() => void) | undefined
       const suspendWaitTimeouts = () => {
         if (resumeHumanWait) return
@@ -4427,7 +4685,7 @@ export class Kernel {
       try {
         for (const event of accepted.events) this.publishEvent(event)
         const boundaryStop = this.boundaryStops.get(request.runId)
-      if (signal.aborted) onAbort()
+        if (signal.aborted) onAbort()
         else if (boundaryStop) await settle(undefined, boundaryStop)
         else if (accepted.state.policy.policy.mode === 'delegate') {
           suspendWaitTimeouts()
@@ -4482,17 +4740,17 @@ export class Kernel {
               () => outcome.promise,
             )
           : await outcome.promise
-    } catch (error) {
-      if (!settled) await settle(undefined, error)
-      throw error
-    } finally {
+      } catch (error) {
+        if (!settled) await settle(undefined, error)
+        throw error
+      } finally {
         resumeHumanWait?.()
-      signal.removeEventListener('abort', onAbort)
-      this.userInputs.delete(request.requestId)
-    }
+        signal.removeEventListener('abort', onAbort)
+        this.userInputs.delete(request.requestId)
+      }
     } finally {
       this.userInputAdmissions.delete(request.requestId)
-  }
+    }
   }
 
   async resolveUserInput(requestId: string, rawAnswers: Record<string, { answers: string[] }>) {
@@ -4591,26 +4849,33 @@ export class Kernel {
       throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan request is no longer active')
     active.controller.signal.throwIfAborted()
     const commit = () =>
-      this.storage.call(
-        'resolvePlanExit',
-        input.approvalId,
-        input.sessionId,
-        input.runId,
-        input.callId,
-        input.decision,
-        input.feedback,
-        input.actorId,
-        input.automatic,
-      ).catch(async (error: unknown) => {
-        const known = await this.storage.call('approvalResolution', input.approvalId)
-        if (!known || known.event.type !== 'plan_exit.resolved' ||
-          known.approval.sessionId !== input.sessionId || known.approval.runId !== input.runId ||
-          known.approval.callId !== input.callId || known.approval.decidedBy !== input.actorId ||
-          known.approval.status !== (input.decision === 'implement' ? 'allowed' : 'denied') ||
-          (known.approval.feedback ?? '') !== (input.feedback?.trim() ?? '')
-        ) throw error
-        return known
-      })
+      this.storage
+        .call(
+          'resolvePlanExit',
+          input.approvalId,
+          input.sessionId,
+          input.runId,
+          input.callId,
+          input.decision,
+          input.feedback,
+          input.actorId,
+          input.automatic,
+        )
+        .catch(async (error: unknown) => {
+          const known = await this.storage.call('approvalResolution', input.approvalId)
+          if (
+            !known ||
+            known.event.type !== 'plan_exit.resolved' ||
+            known.approval.sessionId !== input.sessionId ||
+            known.approval.runId !== input.runId ||
+            known.approval.callId !== input.callId ||
+            known.approval.decidedBy !== input.actorId ||
+            known.approval.status !== (input.decision === 'implement' ? 'allowed' : 'denied') ||
+            (known.approval.feedback ?? '') !== (input.feedback?.trim() ?? '')
+          )
+            throw error
+          return known
+        })
     const resolved =
       input.decision === 'implement'
         ? await this.plugins.get<ModeService>('mode').commitExit(input.sessionId, async () => {

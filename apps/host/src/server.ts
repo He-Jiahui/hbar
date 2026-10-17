@@ -64,6 +64,7 @@ import { isStableRpc, isRecoveryControl } from './stable-rpc'
 
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
+import { readRuntimeActivity } from './runtime-activity-metrics'
 import { createMetricsCommands } from './metrics-commands.ts'
 import type { StorageFatalEvent } from '@hbar/storage'
 
@@ -124,19 +125,13 @@ export interface ServerOptions {
 export async function startServer(kernel: KernelControllerPort, options: ServerOptions = {}) {
   const nodeSockets = options.nodeLink ? new NodeSocketSurface(options.nodeLink) : null
   const performance = new PerformanceCollector(
-    createHostPerformanceProvider(async () => {
-      const runtime = options.runtime?.snapshot()
-      return {
-        activeRuns: kernel.active.size,
-        queuedRuns:
-          runtime && !options.runtime?.authenticationAvailable?.()
-            ? null
-            : (await kernel.storage.call('queuedSessions')).length,
-        managedChildProcesses: runtime
-          ? runtime.units.flatMap((unit) => unit.generations).filter((generation) => generation.pid !== null).length
-          : null,
-      }
-    }),
+    createHostPerformanceProvider(() =>
+      readRuntimeActivity({
+        activeRuns: () => kernel.active.size,
+        readQueuedSessionCount: async () => (await kernel.storage.call('queuedSessions')).length,
+        ...(options.runtime ? { runtime: options.runtime } : {}),
+      }),
+    ),
     { intervalMs: options.metricsIntervalMs },
   )
   await performance.start()

@@ -34,8 +34,21 @@ import type { RuntimeNodeLinkPort } from './runtime-node-link-contract'
 import { notificationFreshEventSchema, type NotificationFreshEvent } from '@hbar/contracts/commands/notifications'
 import { trackRuntimeCommandJob, type RuntimeCommandJobTicket } from './runtime-command-jobs'
 import type { HostCommandExecutionScopes } from './command-execution-scopes'
+import {
+  scheduleIdleManifestSchema,
+  scheduleWakeReplySchema,
+  type ScheduleTransferAck,
+} from './runtime-schedule-idle-contract'
+import {
+  controllerScheduleInitializeSchema,
+  controllerScheduleStatusSchema,
+} from './runtime-controller-schedule-contract'
+import type { RuntimeScheduleAlarmTransfer } from './runtime-schedule-alarm-transfer'
+import type { DemandOwner } from '@hbar/runtime'
 
 export interface RuntimeControllerAdapterOptions {
+  /** Bound by the stable Host before any automatic resume. Never inferred from child state. */
+  readonly scheduleIdleRestore?: ScheduleTransferAck
   readonly kernel: KernelControllerPort
   readonly maintenance: RuntimeMaintenancePort
   readonly nodeLink?: RuntimeNodeLinkPort
@@ -70,6 +83,9 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
   private closed = false
   private readonly commandLifetime = new AbortController()
   private readonly commandCleanup = new Set<() => void>()
+  private scheduleInitialized = false
+  private scheduleInitialization: Promise<void> | null = null
+  private scheduleFenced = false
   constructor(
     private readonly peer: IpcPeer,
     private readonly options?: RuntimeControllerAdapterOptions,
@@ -278,6 +294,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
     invoke: (request: RuntimeControllerRequest, signal: AbortSignal) => Promise<unknown>,
     authorize?: RuntimeControllerAuthorize,
   ): Promise<string> {
+    if (this.scheduleFenced) throw new HbarError('RUNTIME_IDLE_FENCED', 'Schedule transfer owns Controller admission')
     if (this.closed) throw new HbarError('RUNTIME_RECOVERING', 'The accepted Controller incarnation exited')
     if (this.invocations.size >= 320)
       throw new HbarError('CONTROLLER_CAPACITY', 'Controller request admission is exhausted')
@@ -323,6 +340,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
     args: readonly unknown[],
     options: CommandPreparedOptions = {},
   ): Promise<Result> {
+    if (this.scheduleFenced) throw new HbarError('RUNTIME_IDLE_FENCED', 'Schedule transfer owns Controller admission')
     if (!this.options)
       throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'This Controller does not expose owned command services')
     if (this.closed || !this.options.admitsApplications())
@@ -362,7 +380,35 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
       this.invocations.delete(invocationId)
     }
   }
-  async resume(): Promise<void> {
+  /** Pure inspection; no initialization, lease acquisition or timer refresh. */
+  scheduleIdleSnapshot(): { initialized: boolean; fenced: boolean } {
+    return { initialized: this.scheduleInitialized, fenced: this.scheduleFenced }
+  }
+  private initializeSchedule(): Promise<void> {
+    if (this.scheduleInitialization) return this.scheduleInitialization
+    const restore = this.options?.scheduleIdleRestore
+    this.scheduleFenced = true
+    // Store the Promise before the first peer call, including reentrant onState/resume/wake paths.
+    const operation = Promise.resolve().then(async () => {
+      await this.peer.call(
+        'controller.schedule.initialize',
+        controllerScheduleInitializeSchema.parse(restore ? { mode: 'idle-wake', ack: restore } : { mode: 'normal' }),
+        controllerScheduleStatusSchema,
+      )
+      this.scheduleInitialized = true
+      if (!restore) this.scheduleFenced = false
+    })
+    this.scheduleInitialization = operation
+    // Retain a rejected memo as UNKNOWN; consuming it here also prevents detached rejection noise.
+    void operation.catch(() => undefined)
+    return operation
+  }
+  async resume(mayResume?: () => boolean): Promise<void> {
+    await this.initializeSchedule()
+    if (mayResume && !mayResume()) return
+    if (this.options?.scheduleIdleRestore && this.scheduleFenced) return
+    if (this.scheduleFenced)
+      throw new HbarError('RUNTIME_IDLE_FENCED', 'Restored Controller requires exact schedule wake')
     await this.peer.call('controller.resume', undefined, z.undefined())
   }
   trackCommand(
@@ -371,6 +417,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
     expectation: CommandExecutionExpectation,
     options: CommandPreparedOptions = {},
   ): RuntimeCommandJobTicket {
+    if (this.scheduleFenced) throw new HbarError('RUNTIME_IDLE_FENCED', 'Schedule transfer owns Controller admission')
     if (!this.options || this.closed || !this.options.admitsApplications())
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'The Controller owner cannot admit a command job')
     if (options.signal?.aborted) throw new CommandError('CANCELLED', 'Command cancelled before job admission')
@@ -421,7 +468,11 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
           this.peer.call('controller.command.start', start, commandJobSnapshotSchema, { signal, timeoutMs: 30_000 }),
         {
           signal: options.signal,
-          beforeStart: this.options.commandScopes?.beforeStart({ kind: 'runtime', owner: this.peer.remote, jobId: invocationId }),
+          beforeStart: this.options.commandScopes?.beforeStart({
+            kind: 'runtime',
+            owner: this.peer.remote,
+            jobId: invocationId,
+          }),
           lifetime: this.commandLifetime.signal,
           onLogicalResult: (result) => {
             if (!result.ok) close()
@@ -438,6 +489,56 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
       cleanup()
       throw error
     }
+  }
+  /** Real consumer sequence: preview -> parent reservation ACK -> child quiesce -> parent commit -> child commit. */
+  async transferSchedule(owner: DemandOwner, parent: RuntimeScheduleAlarmTransfer): Promise<ScheduleTransferAck> {
+    const manifest = await this.peer.call('controller.schedule.preview', undefined, scheduleIdleManifestSchema)
+    const ack = parent.offer(owner, manifest)
+    this.scheduleFenced = true
+    let committed = false
+    try {
+      const verified = await this.peer.call('controller.schedule.quiesce', { ack }, scheduleIdleManifestSchema)
+      try {
+        parent.commit(owner, ack, verified)
+      } catch (error) {
+        // Local validation failed, so no alarm was prepared. Child quiescence is known.
+        await this.abortSchedule(owner, ack, parent)
+        throw error
+      }
+      committed = true
+      await this.peer.call('controller.schedule.commit', { ack }, controllerScheduleStatusSchema)
+      parent.activate(owner, ack)
+      return ack
+    } catch (error) {
+      // No finally reopening admission: timeout/transport failure can conceal successful quiescence.
+      // Parent reservation/committed transfer remains available for exact reconciliation.
+      if (!committed) {
+        const domain = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
+        if (domain === 'BUSY' || domain === 'SCHEDULE_CHECKPOINT_CHANGED') {
+          parent.abort(owner, ack)
+          this.scheduleFenced = false
+        }
+      }
+      throw error
+    }
+  }
+  async abortSchedule(
+    owner: DemandOwner,
+    ack: ScheduleTransferAck,
+    parent: RuntimeScheduleAlarmTransfer,
+  ): Promise<void> {
+    await this.peer.call('controller.schedule.abort', { ack }, controllerScheduleStatusSchema)
+    if (!parent.abort(owner, ack)) throw new HbarError('RUNTIME_IDLE_FENCED', 'Parent transfer identity changed')
+    this.scheduleFenced = false
+  }
+  async wakeSchedule(ack: ScheduleTransferAck, signal?: AbortSignal) {
+    await this.initializeSchedule()
+    const reply = await this.peer.call('controller.schedule.wake', { ack }, scheduleWakeReplySchema, {
+      signal,
+      timeoutMs: 120_000,
+    })
+    this.scheduleFenced = false
+    return reply
   }
   async pause(): Promise<void> {
     await this.peer.call('controller.pause', undefined, z.undefined())

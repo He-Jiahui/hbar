@@ -109,6 +109,8 @@ export function procedure<Input, Output>(
   }
 }
 export interface IpcCallOptions {
+  /** Local transport submission only: no remote admission, handler or side-effect guarantee. */
+  readonly onDispatchStarted?: ((event: 'submitting' | 'sent' | 'send-failed') => void) | undefined
   /** Physical reply, or proof no dispatch occurred. Closing a dispatched peer is unknown. */
   readonly onDispatchSettled?: ((event: 'reply' | 'not-dispatched') => void) | undefined
   readonly signal?: AbortSignal | undefined
@@ -181,6 +183,8 @@ export interface IpcCallTimeout {
 }
 
 interface Pending {
+  transportStarted: boolean
+  readonly dispatchStarted: (event: 'submitting' | 'sent' | 'send-failed') => void
   readonly dispatchSettled: (event: 'reply' | 'not-dispatched') => void
   readonly id: string
   readonly control: boolean
@@ -476,6 +480,13 @@ export class IpcPeer {
     options: IpcCallOptions,
     settlement?: Settlement<Output>,
   ): Promise<Output> {
+    const dispatchStarted = (event: 'submitting' | 'sent' | 'send-failed'): void => {
+      try {
+        options.onDispatchStarted?.(event)
+      } catch {
+        console.error('[hbar runtime] dispatch observer failed')
+      }
+    }
     let dispatchObserved = false
     const dispatchSettled = (event: 'reply' | 'not-dispatched'): void => {
       if (dispatchObserved) return
@@ -527,6 +538,7 @@ export class IpcPeer {
     return new Promise<Output>((resolve, reject) => {
       const enqueuedAt = performance.now()
       const pending: Pending = {
+        dispatchStarted,
         dispatchSettled,
         id: callId,
         control: this.controlMethods.has(method),
@@ -547,6 +559,7 @@ export class IpcPeer {
         signal: options.signal,
         deadline: undefined,
         started: false,
+        transportStarted: false,
         settled: false,
         abort: () => this.cancel(callId, new HbarError('IPC_CANCELLED', 'Runtime request was cancelled')),
       }
@@ -680,7 +693,7 @@ export class IpcPeer {
     if (this.failure) return
     this.failure = error
     for (const pending of this.pending.values()) {
-      if (!pending.started) pending.dispatchSettled('not-dispatched')
+      if (!pending.transportStarted) pending.dispatchSettled('not-dispatched')
       this.settle(pending)
       pending.reject(error)
       pending.rejectSettlement?.(error)
@@ -735,7 +748,8 @@ export class IpcPeer {
       this.pending.delete(callId)
       this.queue = this.queue.filter((id) => id !== callId)
       this.queuedBytes -= pending.bytes
-    } else void this.sendMessage({ kind: 'cancel', id: callId }).catch((error) => this.closeSendFailure(error))
+    } else if (pending.transportStarted)
+      void this.sendMessage({ kind: 'cancel', id: callId }).catch((error) => this.closeSendFailure(error))
   }
 
   private drain(): void {
@@ -755,7 +769,26 @@ export class IpcPeer {
         this.close(new HbarError('IPC_PROTOCOL', 'Runtime request lost its captured input'))
         return
       }
-      void this.sendEncoded(encoded).catch((error) => this.closeSendFailure(error))
+      pending.dispatchStarted('submitting')
+      // Observers can synchronously abort or close the peer before the first frame.
+      // Reservation alone is not transport dispatch or evidence of remote execution.
+      if (pending.settled || this.failure || this.pending.get(callId) !== pending) {
+        if (this.pending.get(callId) === pending) {
+          this.pending.delete(callId)
+          this.running--
+          if (!pending.control) this.runningNormal--
+        }
+        pending.dispatchSettled('not-dispatched')
+        continue
+      }
+      pending.transportStarted = true
+      void this.sendEncoded(encoded).then(
+        () => pending.dispatchStarted('sent'),
+        (error: unknown) => {
+          pending.dispatchStarted('send-failed')
+          this.closeSendFailure(error)
+        },
+      )
     }
   }
 
@@ -867,21 +900,22 @@ export class IpcPeer {
       this.incomingRunning++
       const control = this.controlMethods.has(request.message.method)
       if (!control) this.incomingRunningNormal++
-      void this.invoke(request)
+      const complete = (): void => {
+        request.deadlineWaits?.clear()
+        if (!this.incoming.delete(callId)) return
+        this.clearAdmission('incoming', request)
+        this.incomingBytes -= request.bytes
+        this.incomingRunning--
+        if (!control) this.incomingRunningNormal--
+        this.drainIncoming()
+      }
+      void this.invoke(request, complete)
         .catch((error) => this.closeSendFailure(error))
-        .finally(() => {
-          request.deadlineWaits?.clear()
-          if (!this.incoming.delete(callId)) return
-          this.clearAdmission('incoming', request)
-          this.incomingBytes -= request.bytes
-          this.incomingRunning--
-          if (!control) this.incomingRunningNormal--
-          this.drainIncoming()
-        })
+        .finally(complete)
     }
   }
 
-  private async invoke(request: Incoming): Promise<void> {
+  private async invoke(request: Incoming, confirmed: () => void): Promise<void> {
     try {
       request.controller.signal.throwIfAborted()
       const handler = this.procedures.get(request.message.method)
@@ -895,9 +929,9 @@ export class IpcPeer {
           ? { callerDeadline: { suspend: () => this.suspendCaller(request) } }
           : {}),
       })
-      await this.sendMessage({ kind: 'reply', id: request.message.id, ok: true, result })
+      await this.sendMessage({ kind: 'reply', id: request.message.id, ok: true, result }, confirmed)
     } catch (error) {
-      await this.sendError(request.message.id, error)
+      await this.sendError(request.message.id, error, confirmed)
     }
   }
 
@@ -1011,26 +1045,29 @@ export class IpcPeer {
     if (pending.deadline) waits.set(token, pending.deadline.suspend())
   }
 
-  private sendError(callId: string, error: unknown): Promise<void> {
+  private sendError(callId: string, error: unknown, confirmed?: () => void): Promise<void> {
     // Immutable bundles contain their own contracts class. The error descriptor is validated
     // structurally so a legitimate domain error survives this local module boundary.
     const descriptor = runtimeDomainError(error)
-    return this.sendMessage({
-      kind: 'reply',
-      id: callId,
-      ok: false,
-      code: descriptor?.code ?? 'IPC_PROCEDURE_FAILED',
-      message: descriptor?.message ?? 'Runtime procedure failed',
-    })
+    return this.sendMessage(
+      {
+        kind: 'reply',
+        id: callId,
+        ok: false,
+        code: descriptor?.code ?? 'IPC_PROCEDURE_FAILED',
+        message: descriptor?.message ?? 'Runtime procedure failed',
+      },
+      confirmed,
+    )
   }
 
-  private async sendMessage(message: IpcMessage): Promise<void> {
+  private async sendMessage(message: IpcMessage, confirmed?: () => void): Promise<void> {
     if (this.failure) throw this.failure
     const encoded = encode(message, this.maximumMessage)
-    await this.sendEncoded(encoded)
+    await this.sendEncoded(encoded, confirmed)
   }
 
-  private async sendEncoded(encoded: string): Promise<void> {
+  private async sendEncoded(encoded: string, confirmed?: () => void): Promise<void> {
     if (this.failure) throw this.failure
     const bytes = new TextEncoder().encode(encoded).byteLength
     if (
@@ -1040,6 +1077,13 @@ export class IpcPeer {
       throw new HbarError('IPC_BUSY', 'Runtime transfer capacity is exhausted')
     this.sendingBytes += bytes
     this.sendingMessages++
+    let completed = false
+    const complete = (): void => {
+      if (completed) return
+      completed = true
+      this.sendingBytes -= bytes
+      this.sendingMessages--
+    }
     const messageId = crypto.randomUUID()
     const ends = fragmentEnds(encoded)
     const total = ends.length
@@ -1052,7 +1096,18 @@ export class IpcPeer {
             this.acknowledgements.delete(key)
             reject(new HbarError('IPC_FRAGMENT_TIMEOUT', 'Runtime transfer was not acknowledged'))
           }, this.fragmentTimeoutMs)
-          this.acknowledgements.set(key, { resolve, reject, timer })
+          this.acknowledgements.set(key, {
+            resolve: () => {
+              if (index === total - 1) {
+                // The real final ACK is the physical boundary, before the next FIFO frame.
+                complete()
+                confirmed?.()
+              }
+              resolve()
+            },
+            reject,
+            timer,
+          })
           try {
             this.sendFrame({
               kind: 'fragment',
@@ -1072,8 +1127,8 @@ export class IpcPeer {
         })
       }
     } finally {
-      this.sendingBytes -= bytes
-      this.sendingMessages--
+      // Failed sends retain the existing cleanup path; confirmed sends are already settled.
+      complete()
     }
   }
 }

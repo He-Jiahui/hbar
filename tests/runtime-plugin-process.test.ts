@@ -580,7 +580,13 @@ test('the Host plugin relay validates and forwards event-page reads to the actua
     relay = new RuntimePluginRelay({
       storage: stable,
       coordinator,
-      current: () => [],
+      catalog: () => [],
+      retainedVersion: () => undefined,
+      demand: {
+        acquire() {
+          throw new Error('No demand admission is expected in this storage read fixture')
+        },
+      },
       resolve: () => {
         throw new Error('No endpoint resolution is expected in a Host read')
       },

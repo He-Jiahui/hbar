@@ -1,3 +1,4 @@
+import { kernelPluginQuiescenceSchema, kernelPluginQuiescenceIsEmpty } from '@hbar/kernel/runtime-idle'
 import { writeSync } from 'node:fs'
 import { diagnosticEvent, type DiagnosticEvent } from '@hbar/contracts/diagnostics'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
@@ -11,6 +12,13 @@ import { directoryCommands } from '@hbar/contracts/commands'
 import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
+import {
+  sessionWakeManifestSchema,
+  sessionWakeTransferSchema,
+  sessionWakeStatusSchema,
+  sessionWakeDeliverySchema,
+  sessionWakeDeliveryResultSchema,
+} from '@hbar/contracts/session-wake'
 import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { nodeWorkspaceMountManifestSchema } from '@hbar/contracts/node-workspace-mount-plan'
 import { workspaceFoldersSchema } from '@hbar/contracts/commands/workspace-folders'
@@ -294,18 +302,48 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           ),
       },
       sessionCommands: {
-        clients: (query, identity) => context.peer.call('kernel.commands.clients',
-          runtimeKernelCommandClientsSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),
-          clientCommandDirectorySchema, { signal: identity.signal, timeoutMs: 15_000 }),
-        list: (query, identity) => context.peer.call('kernel.commands.list',
-          runtimeKernelCommandCatalogSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, query }),
-          commandCatalogPageSchema, { signal: identity.signal, timeoutMs: 15_000 }),
-        describe: (commandId, identity) => context.peer.call('kernel.commands.describe',
-          runtimeKernelCommandDescribeSchema.parse({ sessionId: identity.sessionId, runId: identity.runId, callId: identity.callId, commandId }),
-          commandDescriptorSchema, { signal: identity.signal, timeoutMs: 15_000 }),
+        clients: (query, identity) =>
+          context.peer.call(
+            'kernel.commands.clients',
+            runtimeKernelCommandClientsSchema.parse({
+              sessionId: identity.sessionId,
+              runId: identity.runId,
+              callId: identity.callId,
+              query,
+            }),
+            clientCommandDirectorySchema,
+            { signal: identity.signal, timeoutMs: 15_000 },
+          ),
+        list: (query, identity) =>
+          context.peer.call(
+            'kernel.commands.list',
+            runtimeKernelCommandCatalogSchema.parse({
+              sessionId: identity.sessionId,
+              runId: identity.runId,
+              callId: identity.callId,
+              query,
+            }),
+            commandCatalogPageSchema,
+            { signal: identity.signal, timeoutMs: 15_000 },
+          ),
+        describe: (commandId, identity) =>
+          context.peer.call(
+            'kernel.commands.describe',
+            runtimeKernelCommandDescribeSchema.parse({
+              sessionId: identity.sessionId,
+              runId: identity.runId,
+              callId: identity.callId,
+              commandId,
+            }),
+            commandDescriptorSchema,
+            { signal: identity.signal, timeoutMs: 15_000 },
+          ),
       },
-      delegationWake: (input, signal) => context.peer.call('kernel.delegation.wake',
-        delegatedInputWakeSchema.parse(input), z.undefined(), { signal, timeoutMs: 15_000 }),
+      delegationWake: (input, signal) =>
+        context.peer.call('kernel.delegation.wake', delegatedInputWakeSchema.parse(input), z.undefined(), {
+          signal,
+          timeoutMs: 15_000,
+        }),
       nodeIntentRecovery: {
         reconcileRun: (runId, signal) =>
           context.peer.call(
@@ -520,6 +558,73 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       if (role === 'default') application().wake(input.sessionId)
     }),
   )
+  const wakeOwner = () => {
+    if (role !== 'default' || context.preparing())
+      throw new HbarError('RUNTIME_NOT_DEFAULT', 'Session wake transfer requires an activated Kernel')
+    return context.peer.owner
+  }
+  context.peer.register(
+    'kernel.sessionWakes.preview',
+    procedure(z.undefined(), sessionWakeManifestSchema, async () => {
+      const owner = wakeOwner()
+      if (commandJobs.stats().jobs) throw new HbarError('BUSY', 'Kernel command jobs retain physical ownership')
+      const proof = await context.peer.call('kernel.plugin.quiescence', undefined, kernelPluginQuiescenceSchema)
+      if (
+        proof.coverage !== 'complete' ||
+        proof.queuedRuns !== false ||
+        proof.owners.some((value) => value.requests !== 0 || value.runs !== 0)
+      )
+        throw new HbarError('BUSY', 'Plugins have nontransferable work')
+      const manifest = await application().sessionWakesPreview(owner, {
+        queuedRuns: proof.queuedRuns,
+        pluginQuiescence: proof,
+      })
+      const resources =
+        manifest.entries.length === 0 && kernelPluginQuiescenceIsEmpty(proof)
+          ? 0
+          : await application().sessionWakesCoverage(manifest.entries)
+      if (proof.owners.reduce((sum, value) => sum + value.resources, 0) !== resources)
+        throw new HbarError('BUSY', 'Plugin resources are not covered by the future Goal deadlines')
+      if (commandJobs.stats().jobs) throw new HbarError('BUSY', 'Kernel command jobs changed during preview')
+      return manifest
+    }),
+  )
+  context.peer.register(
+    'kernel.sessionWakes.quiesce',
+    procedure(sessionWakeTransferSchema, sessionWakeStatusSchema, (input) => {
+      if (commandJobs.stats().jobs) throw new HbarError('BUSY', 'Kernel command jobs retain physical ownership')
+      return application().sessionWakesQuiesce(input.ack, wakeOwner())
+    }),
+  )
+  context.peer.register(
+    'kernel.sessionWakes.commit',
+    procedure(sessionWakeTransferSchema, sessionWakeStatusSchema, (input) => {
+      wakeOwner()
+      if (commandJobs.stats().jobs) throw new HbarError('BUSY', 'Kernel command jobs retain physical ownership')
+      return application().sessionWakesCommit(input.ack)
+    }),
+  )
+  context.peer.register(
+    'kernel.sessionWakes.abort',
+    procedure(sessionWakeTransferSchema, sessionWakeStatusSchema, (input) => {
+      wakeOwner()
+      return application().sessionWakesAbort(input.ack)
+    }),
+  )
+  context.peer.register(
+    'kernel.sessionWakes.restore',
+    procedure(sessionWakeTransferSchema, sessionWakeStatusSchema, (input) => {
+      wakeOwner()
+      return application().sessionWakesRestore(input.ack)
+    }),
+  )
+  context.peer.register(
+    'kernel.sessionWakes.deliver',
+    procedure(sessionWakeDeliverySchema, sessionWakeDeliveryResultSchema, (input) => {
+      wakeOwner()
+      return application().sessionWakesDeliver(input)
+    }),
+  )
   context.peer.register(
     'kernel.session.refresh',
     procedure(runtimeKernelSessionSchema, z.undefined(), (input) =>
@@ -544,7 +649,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     'kernel.resume',
     procedure(z.undefined(), z.undefined(), async () => {
       if (role !== 'default') throw new HbarError('RUNTIME_NOT_DEFAULT', 'A draining Kernel cannot resume scheduling')
-      await application().activate()
+      await application().activate(
+        'default',
+        context.purpose === 'idle-wake' ? 'idle-wake' : context.purpose === 'recovery' ? 'recovery' : 'startup',
+      )
     }),
   )
   context.peer.register(
@@ -555,6 +663,47 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       (input) => application().setPermissionMode(input.mode),
     ),
   )
+  const readIdle = async () => {
+    if (!kernel || context.preparing()) return { eligible: false, requests: 0, runs: 0, resources: 0 }
+    // Pure stable-cache query only: Host must not acquire demand or probe sleeping dependencies.
+    const proof = await context.peer.call('kernel.plugin.quiescence', undefined, kernelPluginQuiescenceSchema)
+    // Sample local facts synchronously after cache projection; no Storage/business dependency RPC follows.
+    const checkpoint = kernel.runtimeIdleCheckpoint({ queuedRuns: proof.queuedRuns })
+    const applicationCounts = values.idleCounts(),
+      pluginCounts = plugins.idleCounts(),
+      delivery = notifications.idleCounts()
+    const requests =
+      applicationCounts.incoming +
+      applicationCounts.outgoing +
+      pluginCounts.incoming +
+      pluginCounts.outgoing +
+      proof.owners.reduce((sum, value) => sum + value.requests, 0)
+    const resources =
+      commandJobs.stats().jobs +
+      applicationCounts.callbacks +
+      pluginCounts.callbacks +
+      delivery.queued +
+      delivery.sending +
+      Object.values(checkpoint.counts).reduce((sum, value) => sum + value, 0) +
+      checkpoint.scheduledWakeups +
+      Number(checkpoint.queuedRuns) +
+      proof.owners.reduce((sum, value) => sum + value.resources, 0)
+    const pluginIdle =
+      proof.coverage === 'complete' &&
+      proof.owners.every((value) => value.eligible && value.requests === 0 && value.runs === 0 && value.resources === 0)
+    const eligible =
+      !context.preparing() &&
+      checkpoint.eligible &&
+      pluginIdle &&
+      requests === 0 &&
+      resources === 0 &&
+      !applicationCounts.closed &&
+      !pluginCounts.closed &&
+      !delivery.closed &&
+      !delivery.failed &&
+      delivery.bytes === 0
+    return { eligible, requests, runs: kernel.active.size, resources }
+  }
   return {
     async prepare() {
       if (configuration.profileModule && context.purpose === 'candidate')
@@ -585,6 +734,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           'kernel.cancel',
           'kernel.fence',
           'kernel.wake',
+          'kernel.sessionWakes.preview',
+          'kernel.sessionWakes.quiesce',
+          'kernel.sessionWakes.commit',
+          'kernel.sessionWakes.abort',
+          'kernel.sessionWakes.restore',
+          'kernel.sessionWakes.deliver',
           'kernel.recover',
           'kernel.recovery.resume',
           'kernel.resume',
@@ -622,10 +777,24 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       unsubscribe = kernel.subscribe((event) => notifications.publish(event))
       // The stable composition activates all selected bindings before explicitly opening this scheduling gate.
     },
+    idle: readIdle,
     async drain() {
       role = 'draining'
       kernel?.beginDrain()
-      return { runs: kernel?.active.size ?? 0, requests: 0, resources: commandJobs.stats().jobs }
+      const applicationCounts = values.idleCounts(),
+        pluginCounts = plugins.idleCounts(),
+        delivery = notifications.idleCounts()
+      return {
+        runs: kernel?.active.size ?? 0,
+        requests:
+          applicationCounts.incoming + applicationCounts.outgoing + pluginCounts.incoming + pluginCounts.outgoing,
+        resources:
+          commandJobs.stats().jobs +
+          applicationCounts.callbacks +
+          pluginCounts.callbacks +
+          delivery.queued +
+          delivery.sending,
+      }
     },
     async dispose() {
       role = 'draining'

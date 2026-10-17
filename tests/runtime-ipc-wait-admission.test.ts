@@ -1,6 +1,13 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
-import { IpcPeer, procedure } from '@hbar/runtime'
+import {
+  IpcPeer,
+  procedure,
+  readRuntimeIdleProbe,
+  runtimeIdleIpcSchema,
+  runtimeIdleIpcIsEmpty,
+  runtimeIdleProbeSchema,
+} from '@hbar/runtime'
 
 async function pair(advertise = true, waiting = 2, childWaiting = waiting, parentControl = true) {
   const host = { unitId: 'base', generation: 1, incarnation: 'host' }
@@ -32,6 +39,65 @@ async function pair(advertise = true, waiting = 2, childWaiting = waiting, paren
     },
   }
 }
+
+test('real human-wait admission remains physically busy until its reply settles, then the real probe is eligible', async () => {
+  const f = await pair()
+  const physical = Promise.withResolvers<string>()
+  let entered = false
+  f.right.register(
+    'hold-idle',
+    procedure(z.undefined(), z.string(), () => {
+      entered = true
+      return physical.promise
+    }),
+  )
+  f.right.register(
+    'idle-probe',
+    procedure(z.undefined(), runtimeIdleProbeSchema, () =>
+      readRuntimeIdleProbe(
+        { idle: () => ({ eligible: true, requests: 0, runs: 0, resources: 0 }) },
+        () => 'serving',
+        () => f.right.snapshot(),
+      ),
+    ),
+  )
+  const ticket = f.left.callTracked('hold-idle', undefined, z.string())
+  let resume: (() => void) | undefined
+  try {
+    const deadline = Date.now() + 1_000
+    while (!entered) {
+      if (Date.now() >= deadline) throw new Error('Human-wait handler did not enter')
+      await Bun.sleep(0)
+    }
+    resume = ticket.suspendDeadline()
+    await Bun.sleep(0)
+    const parent = runtimeIdleIpcSchema.parse(f.left.snapshot())
+    const child = runtimeIdleIpcSchema.parse(f.right.snapshot())
+    expect(parent).toMatchObject({ inFlight: 1, waiting: 1 })
+    expect(child).toMatchObject({ incoming: 1, incomingWaiting: 1 })
+    expect(runtimeIdleIpcIsEmpty(parent)).toBe(false)
+    expect(runtimeIdleIpcIsEmpty(child)).toBe(false)
+    const held = await f.left.call('idle-probe', undefined, runtimeIdleProbeSchema)
+    expect(held.eligible).toBe(false)
+    expect(held.ipc.incomingWaiting).toBe(1)
+    resume()
+    physical.resolve('physical reply')
+    expect(await ticket.settled).toBe('physical reply')
+    await Bun.sleep(0)
+    expect(runtimeIdleIpcIsEmpty(runtimeIdleIpcSchema.parse(f.left.snapshot()))).toBe(true)
+    const settled = await f.left.call('idle-probe', undefined, runtimeIdleProbeSchema)
+    expect(settled.eligible).toBe(true)
+    expect(settled.ipc).toMatchObject({ waiting: 0, incomingWaiting: 0 })
+  } finally {
+    resume?.()
+    physical.resolve('cleanup')
+    try {
+      await ticket.settled
+    } finally {
+      f.close()
+    }
+  }
+}, 5_000)
 
 test('negotiated human waits admit other work while preserving physical replies, cancellation, nesting and exact counters', async () => {
   const f = await pair()

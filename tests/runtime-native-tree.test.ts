@@ -43,9 +43,16 @@ test('native ownership refuses release while descendants are live and terminates
   )
   const tree = await port.attach(child.pid, AbortSignal.timeout(5_000))
   try {
+    const activeMethod = tree.active
+    if (!activeMethod) throw new Error('Native process tree active observation is unavailable')
+    const active = activeMethod.bind(tree)
     child.send('launch')
     await until(() => leaf > 0)
     expect(alive(leaf)).toBe(true)
+    if (process.platform === 'win32') {
+      await until(() => active() === 2)
+      expect(active()).toBe(2)
+    }
     const unjoined = await tree.join(30).catch((error: unknown) => error)
     expect(unjoined).toMatchObject({ code: 'RUNTIME_PROCESS_TREE_UNCONFIRMED' })
     expect(() => tree.close()).toThrow('exit is unconfirmed')
@@ -54,13 +61,17 @@ test('native ownership refuses release while descendants are live and terminates
       // Terminate only the Bun PID; the detached native child is still owned by the stable Job.
       process.kill(child.pid, 'SIGKILL')
       await child.exited
+      await until(() => active() === 1)
+      expect(active()).toBe(1)
       const afterOwnerExit = await tree.join(30).catch((error: unknown) => error)
       expect(afterOwnerExit).toMatchObject({ code: 'RUNTIME_PROCESS_TREE_UNCONFIRMED' })
       expect(alive(leaf)).toBe(true)
     }
     tree.terminate()
     await tree.join(5_000)
+    if (process.platform === 'win32') expect(active()).toBe(0)
     tree.close()
+    expect(() => active()).toThrow('Native job handle is closed')
     await child.exited
     await until(() => !alive(leaf))
     tree.terminate()

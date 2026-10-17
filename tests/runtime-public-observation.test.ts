@@ -67,7 +67,21 @@ test('real Relay permits only external audited Goal/Plan observation after drive
   const relay = new RuntimePluginRelay({
     coordinator,
     storage,
-    current: () => endpoints,
+    catalog: () => endpoints.map((endpoint) => ({ unitId: endpoint.owner.unitId, state: endpoint.state })),
+    retainedVersion: () => undefined,
+    demand: {
+      acquire: (ids) =>
+        Promise.resolve({
+          owners: ids.map((id) => {
+            const endpoint = endpoints.find((value) => value.owner.unitId === id)
+            if (!endpoint) throw new Error('Fixture endpoint missing')
+            return endpoint.owner
+          }),
+          release() {
+            /* Existing fixture owns these endpoints until cleanup. */
+          },
+        }),
+    },
     resolve: (unitId, execution, sessionId) => {
       routed.push({ unitId, leaseId: execution?.leaseId ?? null, sessionId })
       const endpoint = endpoints.find((item) => item.owner.unitId === unitId)

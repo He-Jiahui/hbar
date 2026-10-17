@@ -18,7 +18,13 @@ export {
   type StableHostResourceLease,
   type RuntimeCoordinatorOptions,
 } from './coordinator'
-export { ManagedProcess, type ManagedProcessOptions } from './process'
+export {
+  ManagedProcess,
+  type ManagedProcessOptions,
+  type ManagedIdleSnapshot,
+  type RuntimeIdleRetirement,
+  type RuntimePhysicalRetirementReceipt,
+} from './process'
 export { acquireProcessLease, processIsAlive } from './process-lease'
 export { runtimeDomainError } from './errors'
 export { ExecutionSlots, type ExecutionSlotsOptions } from './execution-slots'
@@ -55,6 +61,15 @@ export {
   runtimePrepareSchema,
   runtimeReadySchema,
   runtimeDrainSchema,
+  runtimeServiceIdleSchema,
+  runtimeIdleIpcSchema,
+  runtimeIdleProbeSchema,
+  runtimeIdleIpcIsEmpty,
+  runtimeIdleProbeIsEmpty,
+  readRuntimeIdleProbe,
+  type RuntimeServiceIdle,
+  type RuntimeIdleIpc,
+  type RuntimeIdleProbe,
 } from './lifecycle'
 export {
   RuntimeArtifactStore,
@@ -68,6 +83,31 @@ export {
 export {
   RuntimeManager,
   type RuntimeManagerOptions,
+  type RuntimeDemandHold,
+  type RuntimeDemandSettlement,
+  type RuntimeDemandUnitSettlement,
+  type RuntimeDemandReleaseProof,
+  type RuntimeIdleCheckpoint,
+  type RuntimeManagerRetirement,
+  type RuntimeManagerRetirementState,
+  type RuntimeManagerIdleResult,
   type RuntimeArtifactRegistry,
   type ManagedGenerationPort,
 } from './manager'
+
+export {
+  RuntimeDemandLifecycle,
+  DemandLifecycleError,
+  type DemandOwner,
+  type DemandLease,
+  type DemandTimer,
+  type DemandClock,
+  type StartResult,
+  type RetireResult,
+  type DemandAttempt,
+  type DemandPorts,
+  type DemandUnit,
+  type DemandLimits,
+  type DemandPhase,
+  type DemandSnapshot,
+} from './runtime-demand-lifecycle'

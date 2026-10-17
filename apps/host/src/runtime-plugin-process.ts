@@ -1,3 +1,4 @@
+import { runtimePluginIdleCheckpointSchema, type RuntimePluginIdleCheckpoint } from '@hbar/plugin-sdk'
 import {
   workflowRecoveryCommitSchema,
   workflowRecoveryPageSchema,
@@ -58,6 +59,10 @@ interface Owner {
   readonly tools: Map<string, ToolDefinition>
   readonly hooks: RuntimePluginHooks
   readonly panels: Map<string, ToolWindowContribution>
+  readonly idleReaders: ReadonlyMap<
+    string,
+    (authority?: import('@hbar/contracts/runtime').RuntimeIdleAuthority) => RuntimePluginIdleCheckpoint
+  >
 }
 export interface RuntimePluginFactory {
   readonly plugins: readonly HbarPlugin[]
@@ -129,6 +134,9 @@ export function createRuntimePlugin(
     callbackSettlement: 'physical',
   })
   let owner: Owner | undefined
+  let resources = 0
+  let finishing = 0
+  let transitioning = 0
   let calls = 0,
     preflight = true
   let capabilityMethods: Readonly<Record<string, readonly string[]>> = {}
@@ -142,6 +150,11 @@ export function createRuntimePlugin(
     )
   }
   const construct = async (shadow: boolean): Promise<Owner> => {
+    const idleReaders = new Map<
+      string,
+      (authority?: import('@hbar/contracts/runtime').RuntimeIdleAuthority) => RuntimePluginIdleCheckpoint
+    >()
+    let applying: string | undefined
     const ctx = new Context(),
       tools = new Map<string, ToolDefinition>(),
       hooks = new RuntimePluginHooks(),
@@ -154,20 +167,39 @@ export function createRuntimePlugin(
       ownerId: z.string().parse(plugins.at(-1)?.manifest.id),
       preparing: () => shadow,
       fallback,
+      runtimeIdle: {
+        register(read) {
+          const id = applying
+          if (!id || idleReaders.has(id))
+            throw new HbarError('RUNTIME_IDLE_REGISTRATION', 'Idle proof must register once during plugin apply')
+          idleReaders.set(id, read)
+          return () => {
+            if (idleReaders.get(id) === read) idleReaders.delete(id)
+          }
+        },
+      },
       resources: {
         retain: async (descriptor) => {
           if (shadow || preflight || context.preparing())
             throw new HbarError('RUNTIME_PREPARING', 'A candidate cannot acquire native resources')
+          if (resources >= 256)
+            throw new HbarError('RUNTIME_RESOURCE_CAPACITY', 'Plugin retained resource capacity exhausted')
+          // Admission/unknown retain remains occupied until successful release or physical owner exit.
+          resources++
           const id = z
             .string()
             .uuid()
             .parse(await values.call('resource.retain', [descriptor]))
-          let released = false
-          return async () => {
-            if (!released) {
-              await values.call('resource.release', [id])
-              released = true
-            }
+          let release: Promise<void> | undefined
+          return () => {
+            // Publish the memo before dispatch, including synchronous callback reentry.
+            // Rejection/unknown remains occupied; a disposer never replays that release.
+            release ??= Promise.resolve()
+              .then(() => values.call('resource.release', [id]))
+              .then(() => {
+                resources--
+              })
+            return release
           }
         },
       },
@@ -180,9 +212,15 @@ export function createRuntimePlugin(
     ].filter((name) => !provided.has(name))
     provideRuntimePluginDependencies(ctx, dependencies, fallback)
     try {
-      for (const plugin of plugins)
-        await plugin.apply(ctx, plugin.configSchema?.parse(configuration.config) ?? configuration.config)
-      return { ctx, api, tools, hooks, panels }
+      for (const plugin of plugins) {
+        applying = plugin.manifest.id
+        try {
+          await plugin.apply(ctx, plugin.configSchema?.parse(configuration.config) ?? configuration.config)
+        } finally {
+          applying = undefined
+        }
+      }
+      return { ctx, api, tools, hooks, panels, idleReaders }
     } catch (error) {
       await ctx.fiber.dispose()
       throw error
@@ -379,6 +417,7 @@ export function createRuntimePlugin(
         },
       )
     } finally {
+      finishing++
       calls--
       clearTimeout(deadline)
       callSignal.removeEventListener('abort', aborted)
@@ -389,11 +428,17 @@ export function createRuntimePlugin(
           process.exit(76)
         }
       }
+      finishing--
     }
   })
   return {
     async prepare() {
-      owner = await construct(true)
+      transitioning++
+      try {
+        owner = await construct(true)
+      } finally {
+        transitioning--
+      }
       state()
       return {
         contractFingerprint: PLUGIN_RUNTIME_FINGERPRINT,
@@ -402,10 +447,38 @@ export function createRuntimePlugin(
       }
     },
     async activate() {
-      await owner?.ctx.fiber.dispose()
-      owner = await construct(false)
-      state()
-      preflight = false
+      preflight = true
+      transitioning++
+      try {
+        await owner?.ctx.fiber.dispose()
+        owner = await construct(false)
+        state()
+        preflight = false
+      } finally {
+        transitioning--
+      }
+    },
+    idle(authority) {
+      const port = values.idleSnapshot()
+      let requests = calls + finishing + port.physicalCalls
+      let retained = resources + port.callbacks
+      let supported = !preflight && !port.closed && !context.preparing() && transitioning === 0 && owner !== undefined
+      for (const plugin of plugins) {
+        const read = owner?.idleReaders.get(plugin.manifest.id)
+        if (!read) {
+          supported = false
+          continue
+        }
+        try {
+          const proof = runtimePluginIdleCheckpointSchema.parse(read(authority))
+          supported &&= proof.supported
+          requests += proof.requests + proof.background
+          retained += proof.resources + proof.unconfirmed
+        } catch {
+          supported = false
+        }
+      }
+      return { eligible: supported && requests === 0 && retained === 0, requests, runs: 0, resources: retained }
     },
     async drain() {
       return { runs: 0, requests: calls, resources: 0 }

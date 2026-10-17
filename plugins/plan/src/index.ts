@@ -91,6 +91,9 @@ class PlanRuntime implements PlanService {
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
 
+  idleCheckpoint() {
+    return { supported: true, requests: 0, resources: 0, background: this.locks.size, unconfirmed: 0 }
+  }
   constructor(
     private api: HbarAPI,
     private config: PlanConfig,
@@ -496,6 +499,7 @@ export const planPlugin = definePlugin({
   async apply(ctx, rawConfig) {
     const runtime = new PlanRuntime(ctx.hbar.api, planConfigSchema.parse(rawConfig))
     await runtime.restore()
+    ctx.hbar.api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     provide<PlanService>(ctx, 'plan', runtime)
     provide<ModeService>(ctx, 'mode', {
       get: (sessionId) => runtime.getMode(sessionId),

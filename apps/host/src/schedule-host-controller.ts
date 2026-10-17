@@ -84,6 +84,8 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
   const runner = createScheduleRunner(options.service, execution, { maxActive: 2 })
   let timer: ReturnType<typeof setTimeout> | undefined
   let stopped = false
+  let paused = false
+  let nextDueAt: number | null = null
   let ticking: Promise<void> | undefined
   const notifiedFailures = new Set<string>()
   let recoveryCursor: { dueAt: number; id: string } | null = null
@@ -101,8 +103,10 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
     })
   }
   const tick = async () => {
-    if (stopped || ticking) return ticking
+    if (stopped || paused || ticking) return ticking
     if (timer) clearTimeout(timer)
+    timer = undefined
+    nextDueAt = null
     ticking = (async () => {
       const timestamp = now()
       const activePage = await options.reader.activeScheduleOccurrences(64, recoveryCursor)
@@ -130,21 +134,60 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
       }
     })().finally(() => {
       ticking = undefined
-      if (!stopped)
+      if (!stopped && !paused) {
+        nextDueAt = now() + (options.intervalMs ?? 30_000)
         timer = setTimeout(() => {
           void tick().catch((error) => console.error('Schedule tick failed:', error))
         }, options.intervalMs ?? 30_000)
+      }
     })
     return ticking
   }
+  // A clean restoration re-arms the existing periodic check; it does not replay start/recover immediately.
+  const resumeTimer = () => {
+    if (stopped || !paused) return
+    paused = false
+    if (timer || ticking) return
+    nextDueAt = now() + (options.intervalMs ?? 30_000)
+    timer = setTimeout(() => {
+      void tick().catch((error) => console.error('Schedule tick failed:', error))
+    }, options.intervalMs ?? 30_000)
+  }
   return {
+    resumeTimer,
+    async wakeDue() {
+      if (stopped) throw new Error('SCHEDULE_CONTROLLER_STOPPED')
+      paused = false
+      await tick()
+    },
+    idleSnapshot() {
+      return {
+        stopped,
+        paused,
+        timer: timer !== undefined,
+        nextDueAt,
+        ticking: ticking !== undefined,
+        recoveryCursor: recoveryCursor ? { ...recoveryCursor } : null,
+      }
+    },
     async start() {
+      if (stopped) return
+      paused = false
       await tick()
     },
     tick,
+    async pause() {
+      paused = true
+      if (timer) clearTimeout(timer)
+      timer = undefined
+      nextDueAt = null
+      await ticking
+    },
     async close() {
       stopped = true
       if (timer) clearTimeout(timer)
+      timer = undefined
+      nextDueAt = null
       await ticking
     },
   }

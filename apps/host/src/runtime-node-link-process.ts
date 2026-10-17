@@ -34,14 +34,25 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     requests = 0,
     outputBytes = 0,
     outputs = 0
+  let initialized = false,
+    disposed = false,
+    activating = false,
+    drained = false
+  let physicalStateCalls = 0
+  let outputUnknown = false
   const state: NodeRegistryStatePort = {
     async call(method, input) {
       const entry = nodeRegistryStateMethods[method]
-      const result: unknown = await context.peer.call<unknown>(
-        'nodeLink.registry.' + method,
-        entry.input.parse(input),
-        entry.output,
-      )
+      const parsed = entry.input.parse(input)
+      physicalStateCalls++
+      let settled = false
+      const result: unknown = await context.peer.call<unknown>('nodeLink.registry.' + method, parsed, entry.output, {
+        onDispatchSettled: () => {
+          if (settled) return
+          settled = true
+          physicalStateCalls--
+        },
+      })
       // The method-selected schema validates this correlated generic output.
       return entry.output.parse(result) as NodeRegistryOutput<typeof method>
     },
@@ -92,7 +103,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     outputBytes += bytes
     void context.peer
       .notify('nodeLink.transport', event)
-      .catch(() => context.peer.close(new HbarError('NODE_TRANSPORT_FAILED', 'Node transport delivery failed')))
+      .catch(() => {
+        outputUnknown = true
+        context.peer.close(new HbarError('NODE_TRANSPORT_FAILED', 'Node transport delivery failed'))
+      })
       .finally(() => {
         outputs--
         outputBytes -= bytes
@@ -167,7 +181,33 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       return registry.revoke(input.selector)
     },
   )
+  const idle = () => {
+    const registration = registry?.idleSnapshot()
+    const transport = connections?.idleSnapshot()
+    const resources =
+      outputs +
+      outputBytes +
+      physicalStateCalls +
+      Number(outputUnknown) +
+      (registration?.invitations ?? 0) +
+      (registration?.pendingInvitations ?? 0) +
+      (registration?.consumingInvitations ?? 0) +
+      (registration?.rateLimitSources ?? 0) +
+      (transport?.connections ?? 0) +
+      (transport?.handshakes ?? 0) +
+      (transport?.physicalBackground ?? 0) +
+      (transport?.physicalRequests ?? 0) +
+      Number(transport?.uncertainRemote === true) +
+      (transport?.rateLimitSources ?? 0)
+    return {
+      eligible: initialized && !disposed && !context.preparing() && registry !== null && connections !== null,
+      requests,
+      runs: 0,
+      resources,
+    }
+  }
   return {
+    idle,
     async prepare() {
       return {
         contractFingerprint: NODE_LINK_RUNTIME_FINGERPRINT,
@@ -184,19 +224,35 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       }
     },
     async activate(role) {
+      if (disposed || initialized || activating || drained)
+        throw new HbarError('RUNTIME_LIFECYCLE', 'Node link owner cannot reactivate')
       if (role !== 'default') return
-      registry = await NodeRegistryService.open(state)
-      connections = new ConversationNodeConnections(registry, {
-        observe: (nodeId, method, input, signal) => observation.invoke(nodeId, method, input, signal),
-      })
-      live = true
+      activating = true
+      try {
+        const opened = await NodeRegistryService.open(state)
+        if (disposed || drained) {
+          opened.dispose()
+          throw new HbarError('RUNTIME_LIFECYCLE', 'Node link activation was retired')
+        }
+        registry = opened
+        connections = new ConversationNodeConnections(registry, {
+          observe: (nodeId, method, input, signal) => observation.invoke(nodeId, method, input, signal),
+        })
+        initialized = true
+        live = true
+      } finally {
+        activating = false
+      }
     },
     async drain() {
+      drained = true
       live = false
       connections?.dispose()
-      return { requests, runs: 0, resources: 0 }
+      const state = idle()
+      return { requests: state.requests, runs: state.runs, resources: state.resources }
     },
     async dispose() {
+      disposed = true
       live = false
       connections?.dispose()
       registry?.dispose()

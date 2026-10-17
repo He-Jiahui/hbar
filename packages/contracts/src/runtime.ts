@@ -13,9 +13,17 @@ export const runtimeOwnerSchema = z.strictObject({
   incarnation: opaqueId,
 })
 export type RuntimeOwner = z.infer<typeof runtimeOwnerSchema>
+/** Authenticated parent-only native job sample. No PID list or native handle crosses IPC. */
+export const runtimeIdleAuthoritySchema = z.strictObject({
+  owner: runtimeOwnerSchema,
+  nativeActive: z.number().int().nonnegative().safe(),
+})
+export type RuntimeIdleAuthority = z.infer<typeof runtimeIdleAuthoritySchema>
 
 /** Local supervision ports. Native handles and functions never cross the IPC boundary. */
 export interface RuntimeProcessTree {
+  /** Pure native job/group active count. Missing capability means unknown, never zero. */
+  active?(): number
   terminate(): void
   join(timeoutMs: number): Promise<void>
   close(): void
@@ -121,6 +129,15 @@ export const runtimeUnitSnapshotSchema = z.strictObject({
   descriptor: runtimeUnitDescriptorSchema,
   generations: z.array(runtimeGenerationSchema).max(3),
   queuedArtifactId: runtimeArtifactIdSchema.nullable(),
+  idle: z
+    .strictObject({
+      checkpointPending: z.boolean(),
+      enabled: z.boolean(),
+      phase: z.enum(['active', 'sleeping', 'retiring', 'waking', 'unknown']),
+      demandHolds: z.number().int().nonnegative().max(256),
+      selectedArtifactId: runtimeArtifactIdSchema.nullable(),
+    })
+    .optional(),
 })
 export type RuntimeUnitSnapshot = z.infer<typeof runtimeUnitSnapshotSchema>
 export const runtimeSourceReloadSchema = z.strictObject({
@@ -149,6 +166,8 @@ export const runtimeAdmissionSchema = z.strictObject({
     queued: z.number().int().min(0).max(256),
     bufferedBytes: z.number().int().nonnegative(),
     reasonCode: z.string().min(1).max(128).nullable(),
+    /** Missing/invalidated shallow facts remain unknown, rather than triggering I/O. */
+    queuedSessionCount: z.number().int().nonnegative().nullable().optional(),
   }),
 })
 export const runtimeSnapshotSchema = z.strictObject({

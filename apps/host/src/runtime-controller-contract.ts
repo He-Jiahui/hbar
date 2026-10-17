@@ -12,6 +12,13 @@ import {
 import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import type { ControllerServerApplication } from './runtime-controller-services'
 import { RUNTIME_COMMAND_JOB_SCHEMAS } from './runtime-command-job-contract'
+import {
+  controllerScheduleControlMethods,
+  controllerScheduleInitializeSchema,
+  controllerScheduleTransferSchema,
+  controllerScheduleStatusSchema,
+} from './runtime-controller-schedule-contract'
+import { scheduleIdleManifestSchema, scheduleWakeReplySchema } from './runtime-schedule-idle-contract'
 
 export const runtimeControllerRequestSchema = rpcRequestSchema
   .extend({
@@ -91,10 +98,16 @@ export function isRuntimeControllerControl(request: RuntimeControllerRequest): b
 export const CONTROLLER_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
-      'hbar.controller.v4.tracked-command-jobs',
+      'hbar.controller.v5.tracked-command-jobs.schedule-idle',
       z.toJSONSchema(runtimeControllerCommandStartSchema, { unrepresentable: 'any' }),
       RUNTIME_COMMAND_JOB_SCHEMAS.map((schema) => z.toJSONSchema(schema)),
       z.toJSONSchema(commandExecutionExpectationSchema, { unrepresentable: 'any' }),
+      controllerScheduleControlMethods,
+      z.toJSONSchema(controllerScheduleInitializeSchema),
+      z.toJSONSchema(controllerScheduleTransferSchema),
+      z.toJSONSchema(controllerScheduleStatusSchema),
+      z.toJSONSchema(scheduleIdleManifestSchema),
+      z.toJSONSchema(scheduleWakeReplySchema),
       z.toJSONSchema(runtimeControllerDispatchSchema),
       z.toJSONSchema(runtimeControllerConfigurationSchema),
       z.toJSONSchema(runtimeControllerScopeSchema),

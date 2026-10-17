@@ -4,10 +4,13 @@ import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts/errors'
 import { diagnosticEvent } from '@hbar/contracts/diagnostics'
-import { RUNTIME_LIMITS, runtimeOwnerSchema } from '@hbar/contracts/runtime'
+import { RUNTIME_LIMITS, runtimeOwnerSchema, runtimeIdleAuthoritySchema } from '@hbar/contracts/runtime'
 import { IpcPeer, procedure } from './ipc'
 import {
   runtimeDrainSchema,
+  runtimeDrainInputSchema,
+  runtimeIdleProbeSchema,
+  readRuntimeIdleProbe,
   runtimePrepareSchema,
   runtimeReadySchema,
   type RuntimeProcessModule,
@@ -78,6 +81,8 @@ export async function runRuntimeProcess(
   let service: RuntimeProcessService | undefined
   let phase: 'boot' | 'preparing' | 'ready' | 'serving' | 'draining' | 'disposed' = 'boot'
   let exiting = false
+  let heartbeatFrozen = false
+  const heartbeatSends = new Set<Promise<void>>()
   type StopReason =
     | 'transport_failure'
     | 'dispatched_timeout'
@@ -237,7 +242,7 @@ export async function runRuntimeProcess(
       const module = imported as RuntimeProcessModule
       service = await module.create({
         purpose: z
-          .enum(['startup', 'candidate', 'recovery'])
+          .enum(['startup', 'candidate', 'recovery', 'idle-wake'])
           .parse(process.env.HBAR_RUNTIME_PREPARATION ?? 'candidate'),
         peer,
         configuration: input.configuration,
@@ -257,12 +262,43 @@ export async function runRuntimeProcess(
     }),
   )
   peer.register(
+    'runtime.idle',
+    procedure(runtimeIdleAuthoritySchema.optional(), runtimeIdleProbeSchema, (authority) => {
+      if (
+        authority &&
+        (authority.owner.unitId !== owner.unitId ||
+          authority.owner.generation !== owner.generation ||
+          authority.owner.incarnation !== owner.incarnation)
+      )
+        throw new HbarError('RUNTIME_IDLE_BOUNDARY_UNKNOWN', 'Native idle sample belongs to another owner')
+      // This control call is observational. Never drain, dispose, collect or change phase here.
+      return readRuntimeIdleProbe(
+        service,
+        () => phase,
+        () => peer.snapshot(),
+        authority,
+      )
+    }),
+  )
+  peer.register(
     'runtime.drain',
-    procedure(z.undefined(), runtimeDrainSchema, async () => {
+    procedure(runtimeDrainInputSchema, runtimeDrainSchema, async (input) => {
       if ((phase !== 'serving' && phase !== 'draining') || !service)
         throw new HbarError('RUNTIME_LIFECYCLE', 'Runtime process is not serving')
       phase = 'draining'
-      return service.drain()
+      const drained = runtimeDrainSchema.parse(await service.drain())
+      if (
+        input?.mode === 'idle-retirement' &&
+        drained.requests === 0 &&
+        drained.runs === 0 &&
+        drained.resources === 0
+      ) {
+        heartbeatFrozen = true
+        clearInterval(heartbeat)
+        // Retain every real send until its original transport ACK or failure settles it.
+        await Promise.all([...heartbeatSends])
+      }
+      return drained
     }),
   )
   peer.register(
@@ -285,12 +321,18 @@ export async function runRuntimeProcess(
   const heartbeatEvidence = new HeartbeatEvidence(heartbeatCadence, Date.now(), performance.now())
   const heartbeat = setInterval(
     () => {
+      if (heartbeatFrozen) return
       const started = performance.now()
       const lateness = heartbeatEvidence.tick(started)
       if (lateness >= heartbeatCadence && heartbeatEvidence.shouldReport(started))
         writeHeartbeatEvidence(owner, 'child_tick_delayed', { queueWaitMs: lateness })
-      void peer
-        .notify('runtime.heartbeat', { time: Date.now() })
+      const sending = peer.notify('runtime.heartbeat', { time: Date.now() })
+      heartbeatSends.add(sending)
+      const release = (): void => {
+        heartbeatSends.delete(sending)
+      }
+      void sending.then(release, release)
+      void sending
         .then(() => {
           const elapsed = performance.now() - started
           if (elapsed >= heartbeatCadence && heartbeatEvidence.shouldReport(performance.now()))

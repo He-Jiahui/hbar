@@ -15,7 +15,13 @@ import {
   runtimeDriverModelActivitySchema,
   runtimeModelRequestSchema,
 } from '@hbar/plugin-sdk/runtime-driver'
-import { procedure, runtimeDomainError, type IpcPeer, type RuntimeCoordinator } from '@hbar/runtime'
+import {
+  procedure,
+  runtimeDomainError,
+  type IpcPeer,
+  type RuntimeCoordinator,
+  type IpcCallOptions,
+} from '@hbar/runtime'
 import type { RuntimeHumanWaits } from './runtime-human-waits'
 import { RuntimeModelActivities } from './runtime-model-activities'
 import type { DiagnosticEvent } from '@hbar/contracts/diagnostics'
@@ -27,6 +33,16 @@ export interface RuntimeDriverEndpoint {
   readonly peer: IpcPeer
   readonly owner: RuntimeOwner
   readonly version: RuntimeVersion
+}
+/** Trusted parent lifecycle adapter. Its hold spans the complete operation, including an unknown RPC outcome. */
+export interface RuntimeDriverDemand {
+  withDefault<Result>(
+    signal: AbortSignal,
+    operation: (
+      endpoint: RuntimeDriverEndpoint,
+      dispatch: Pick<IpcCallOptions, 'onDispatchStarted' | 'onDispatchSettled'>,
+    ) => Promise<Result>,
+  ): Promise<Result>
 }
 interface Invocation {
   readonly kernel: IpcPeer
@@ -48,6 +64,7 @@ export interface RuntimeDriverRelayOptions {
   readonly humanWaits?: Pick<RuntimeHumanWaits, 'track'>
   readonly activityChanged?: (execution: ExecutionOwnership) => void
   readonly resolve: (version?: RuntimeVersion) => RuntimeDriverEndpoint
+  readonly demand?: RuntimeDriverDemand
   readonly onDiagnostic?: (event: DiagnosticEvent) => void
 }
 /** The base routes plain descriptors between owners. Kernel callbacks and driver functions never leave their processes. */
@@ -56,9 +73,15 @@ export class RuntimeDriverRelay {
   private readonly callbackGates = new Map<string, RuntimeDriverCallbackAdmission>()
   private readonly decisions = new Set<DecisionInvocation>()
   private readonly summaries = new Map<symbol, { leaseId: string | null; owner: RuntimeOwner }>()
-  private readonly physicalModels = new Map<string, {
-    invocationId: string; owner: RuntimeOwner; execution: ExecutionOwnership; resourceId: string
-  }>()
+  private readonly physicalModels = new Map<
+    string,
+    {
+      invocationId: string
+      owner: RuntimeOwner
+      execution: ExecutionOwnership
+      resourceId: string
+    }
+  >()
   constructor(private readonly options: RuntimeDriverRelayOptions) {}
   attachKernel(peer: IpcPeer): () => void {
     const disposers = [
@@ -124,36 +147,54 @@ export class RuntimeDriverRelay {
           if (execution && execution.owner.incarnation !== peer.remote.incarnation)
             throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Summarization belongs to another Kernel executor')
           this.options.coordinator.assertCanWrite(peer.remote, execution ?? undefined)
-          const driver = this.options.resolve(execution?.versions.driver)
-          this.options.coordinator.assertCanWrite(driver.owner, execution ?? undefined)
-          if (this.summaries.size >= 64) throw new HbarError('BUSY', 'Physical model summary capacity is full')
-          const id = Symbol('model-summary')
-          const resource = execution
-            ? this.options.coordinator.acquireResource(driver.owner, `driver.summary:${crypto.randomUUID()}`, execution)
-            : null
-          if (execution && !resource)
-            throw new HbarError('BUSY', 'The original summary already retains its physical executor')
-          this.summaries.set(id, { leaseId: execution?.leaseId ?? null, owner: driver.owner })
-          const ticket = driver.peer.callTracked('driver.summarize', input, runtimeDriverSummaryResultSchema, {
-            signal: call.signal,
-            timeoutMs: DRIVER_COMPACTION_RPC_TIMEOUT_MS,
-          })
-          void ticket.result.catch(() => {})
-          let replied = false
-          try {
-            const result = await ticket.settled
-            replied = true
-            return result
-          } catch (error) {
-            replied = !driver.peer.snapshot().failed
-            throw error
-          } finally {
-            if (replied) {
-              this.summaries.delete(id)
-              if (resource) this.options.coordinator.releaseResource(driver.owner, resource.id)
+          if (!execution && this.options.coordinator.role(peer.remote) !== 'default')
+            throw new HbarError('RUNTIME_NOT_DEFAULT', 'Unbound summarization requires the current Kernel')
+          const summarize = async (
+            driver: RuntimeDriverEndpoint,
+            dispatch: Pick<IpcCallOptions, 'onDispatchStarted' | 'onDispatchSettled'> = {},
+          ) => {
+            call.signal.throwIfAborted()
+            this.options.coordinator.assertCanWrite(peer.remote, execution ?? undefined)
+            if (!execution && this.options.coordinator.role(peer.remote) !== 'default')
+              throw new HbarError('RUNTIME_NOT_DEFAULT', 'The unbound summary caller was replaced during demand')
+            this.options.coordinator.assertCanWrite(driver.owner, execution ?? undefined)
+            if (this.summaries.size >= 64) throw new HbarError('BUSY', 'Physical model summary capacity is full')
+            const id = Symbol('model-summary')
+            const resource = execution
+              ? this.options.coordinator.acquireResource(
+                  driver.owner,
+                  `driver.summary:${crypto.randomUUID()}`,
+                  execution,
+                )
+              : null
+            if (execution && !resource)
+              throw new HbarError('BUSY', 'The original summary already retains its physical executor')
+            this.summaries.set(id, { leaseId: execution?.leaseId ?? null, owner: driver.owner })
+            const ticket = driver.peer.callTracked('driver.summarize', input, runtimeDriverSummaryResultSchema, {
+              ...dispatch,
+              signal: call.signal,
+              timeoutMs: DRIVER_COMPACTION_RPC_TIMEOUT_MS,
+            })
+            void ticket.result.catch(() => {})
+            let replied = false
+            try {
+              const result = await ticket.settled
+              replied = true
+              return result
+            } catch (error) {
+              replied = !driver.peer.snapshot().failed
+              throw error
+            } finally {
+              if (replied) {
+                this.summaries.delete(id)
+                if (resource) this.options.coordinator.releaseResource(driver.owner, resource.id)
+              }
+              if (execution) this.options.activityChanged?.(execution)
             }
-            if (execution) this.options.activityChanged?.(execution)
           }
+          if (execution) return summarize(this.options.resolve(execution.versions.driver))
+          if (this.options.demand) return this.options.demand.withDefault(call.signal, summarize)
+          return summarize(this.options.resolve())
         }),
       ),
       peer.register(
@@ -180,15 +221,26 @@ export class RuntimeDriverRelay {
             execution,
           )
           if (!resource) throw new HbarError('BUSY', 'The original decision already retains its physical executor')
-          const invocation: DecisionInvocation = { kernel: peer, driver, execution, controller, resourceId: resource.id }
+          const invocation: DecisionInvocation = {
+            kernel: peer,
+            driver,
+            execution,
+            controller,
+            resourceId: resource.id,
+          }
           this.decisions.add(invocation)
           let replied = false
           try {
-            const tracked = driver.peer.callTracked('driver.completeDecision', input, runtimeDriverDecisionResultSchema, {
-              signal: AbortSignal.any([call.signal, controller.signal]),
-              timeoutMs: 95_000,
-              ownership: execution,
-            })
+            const tracked = driver.peer.callTracked(
+              'driver.completeDecision',
+              input,
+              runtimeDriverDecisionResultSchema,
+              {
+                signal: AbortSignal.any([call.signal, controller.signal]),
+                timeoutMs: 95_000,
+                ownership: execution,
+              },
+            )
             void tracked.result.catch(() => {})
             const result = await tracked.settled
             replied = true
@@ -268,8 +320,14 @@ export class RuntimeDriverRelay {
             invocation.model.settle(input.requestId)
             return
           }
-          if (physical.invocationId !== input.invocationId || JSON.stringify(physical.owner) !== JSON.stringify(peer.remote))
-            throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Only the original physical model owner may settle its receipt')
+          if (
+            physical.invocationId !== input.invocationId ||
+            JSON.stringify(physical.owner) !== JSON.stringify(peer.remote)
+          )
+            throw new HbarError(
+              'EXECUTION_OWNER_MISMATCH',
+              'Only the original physical model owner may settle its receipt',
+            )
           this.invocations.get(input.invocationId)?.model.settle(input.requestId)
           this.physicalModels.delete(input.requestId)
           this.options.coordinator.releaseResource(peer.remote, physical.resourceId)
@@ -387,11 +445,16 @@ export class RuntimeDriverRelay {
     }
   }
   modelQuiescent(execution: ExecutionOwnership): boolean {
-    const invocations = [...this.invocations.values()].filter(invocation =>
-      invocation.execution.leaseId === execution.leaseId && invocation.execution.runId === execution.runId)
-    return invocations.length > 0 && invocations.every(invocation => invocation.model.quiescent) &&
-      ![...this.decisions].some(invocation => invocation.execution.leaseId === execution.leaseId) &&
-      ![...this.summaries.values()].some(summary => summary.leaseId === null || summary.leaseId === execution.leaseId)
+    const invocations = [...this.invocations.values()].filter(
+      (invocation) =>
+        invocation.execution.leaseId === execution.leaseId && invocation.execution.runId === execution.runId,
+    )
+    return (
+      invocations.length > 0 &&
+      invocations.every((invocation) => invocation.model.quiescent) &&
+      ![...this.decisions].some((invocation) => invocation.execution.leaseId === execution.leaseId) &&
+      ![...this.summaries.values()].some((summary) => summary.leaseId === null || summary.leaseId === execution.leaseId)
+    )
   }
   kernelExited(owner: RuntimeOwner): void {
     this.callbackGates.get(owner.incarnation)?.close()

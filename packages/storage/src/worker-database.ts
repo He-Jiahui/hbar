@@ -2,6 +2,7 @@ import { Database } from 'bun:sqlite'
 import { createContextSummaryReader } from './context-summary'
 import { readSessionFacts } from './session-read-facts'
 import { createBackendContinuationAdmission } from './backend-continuation'
+import type {} from './bun-sqlite-query-cache'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { createExecutionPrincipalStorage, EXECUTION_PRINCIPAL_INDEX } from './execution-principals'
 import { createCommandExecutionReceiptStorage } from './command-execution-receipts'
@@ -10,7 +11,14 @@ import { createDelegatedUserInputStorage } from './delegated-user-input'
 import { createDelegatedInputDelivery } from './delegated-input-delivery'
 import { createDelegatedApprovalSource, DELEGATED_APPROVAL_INDEX } from './delegated-approval-source'
 import { createApprovalResolutionStorage, APPROVAL_RESOLUTION_INDEX } from './approval-resolutions'
-import { delegatedInputAcceptSchema, delegatedInputBindSchema, delegatedInputCompleteSchema, delegatedInputFinishSchema, delegatedInputDeliverSchema, delegatedInputRunSchema } from '@hbar/contracts/delegated-user-input'
+import {
+  delegatedInputAcceptSchema,
+  delegatedInputBindSchema,
+  delegatedInputCompleteSchema,
+  delegatedInputFinishSchema,
+  delegatedInputDeliverSchema,
+  delegatedInputRunSchema,
+} from '@hbar/contracts/delegated-user-input'
 import { assertAutomaticPlanExit } from './automatic-plan-exit'
 import { assertAutomaticDecisionPolicy } from './automatic-decision-policy'
 import { automaticToolApprovalDecisionSchema, approvalAutomationContextSchema } from '@hbar/contracts/autonomy'
@@ -30,6 +38,8 @@ import { NODE_RUN_WORKSPACE_MOUNTS_SQL, createNodeRunWorkspaceMountStorage } fro
 import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { nodeExecutionTargetSchema } from '@hbar/contracts/node-execution-target'
 import { readContextCompactionMarkers } from './context-compaction-markers'
+import { readScheduleIdleCheckpoint } from './schedule-idle-checkpoint'
+import { readSearchIdleCheckpoint } from './search-idle-checkpoint'
 import {
   RUN_FILE_CHANGES_SQL,
   projectRunFileChanges,
@@ -40,6 +50,7 @@ import {
   readRunFileChangeVersions,
 } from './run-file-changes'
 import { createHash } from 'node:crypto'
+import { storageSourceDatabaseId } from './activated-catalog'
 import { dirname, join } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import {
@@ -143,6 +154,7 @@ import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search
 import { CHAT_DATABASE_SQL } from './chat-database-schema'
 import { createChatDatabaseProjection } from './chat-database-projection'
 import { createChatDatabaseJournal } from './chat-database-journal'
+import { readChatDatabaseActiveJournalProof } from './chat-database-active-proof'
 import { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
 import { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import { createChatDatabaseDeletionStorage } from './chat-database-deletion'
@@ -652,29 +664,42 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     const deviceStorage = createDeviceStorage(db, (id) => chatDatabaseArtifacts.unknownDevice(id, false))
     const executionPrincipals = createExecutionPrincipalStorage(db)
     const commandExecutionReceipts = createCommandExecutionReceiptStorage(db, appendEvent)
-    const userInputState: ReturnType<typeof createUserInputStateStorage> = createUserInputStateStorage(db, appendEvent, {
-      prepareDelegatedSettlement: (state, settlement) => delegatedInputs.prepareSettlement(state, settlement),
-    })
+    const userInputState: ReturnType<typeof createUserInputStateStorage> = createUserInputStateStorage(
+      db,
+      appendEvent,
+      {
+        prepareDelegatedSettlement: (state, settlement) => delegatedInputs.prepareSettlement(state, settlement),
+      },
+    )
     const delegatedInputs = createDelegatedUserInputStorage(db, appendEvent, {
       delivery: createDelegatedInputDelivery(db, appendEvent, {
-        session: (id) => methods.session(id), workspace: (id) => methods.workspace(id),
-        run: (id) => methods.run(id), principal: executionPrincipals.run, steering: runSteering,
+        session: (id) => methods.session(id),
+        workspace: (id) => methods.workspace(id),
+        run: (id) => methods.run(id),
+        principal: executionPrincipals.run,
+        steering: runSteering,
         indexMessage: (id, sessionId, seq, content) => sessionSearch.queueMessage(id, sessionId, 'user', seq, content),
       }),
       question: userInputState.read,
       approval: createDelegatedApprovalSource(db, (id) => methods.approval(id)),
       run: (id) => methods.run(id),
       principal: executionPrincipals.run,
-      available: (id) => { const session = methods.findSession(id); return session !== null && !session.archived },
+      available: (id) => {
+        const session = methods.findSession(id)
+        return session !== null && !session.archived
+      },
       exists: (id) => methods.findSession(id) !== null,
       authorize: (actorId, sessionIds) => {
         const device = methods.deviceById(actorId)
         if (!device || device.role === 'observer') return false
         const workspaceIds = device.workspaceIds
-        return workspaceIds == null || sessionIds.every((id) => {
-          const session = methods.findSession(id)
-          return session !== null && workspaceIds.includes(session.workspaceId)
-        })
+        return (
+          workspaceIds == null ||
+          sessionIds.every((id) => {
+            const session = methods.findSession(id)
+            return session !== null && workspaceIds.includes(session.workspaceId)
+          })
+        )
       },
     })
     const decisions = createDecisionStorage(db, appendEvent)
@@ -687,8 +712,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         const device = methods.deviceById(principal.actorId)
         if (!device || device.role === 'observer') return false
         const workspaceIds = device.workspaceIds
-        return workspaceIds == null || [sessionId, principal.originSessionId].every(
-          (id) => workspaceIds.includes(methods.session(id).workspaceId),
+        return (
+          workspaceIds == null ||
+          [sessionId, principal.originSessionId].every((id) => workspaceIds.includes(methods.session(id).workspaceId))
         )
       },
     })
@@ -1608,6 +1634,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       chatDatabaseRetainedChild: chatDatabaseJournal.retainedChild,
       chatDatabaseHistory: chatDatabaseJournal.history,
       chatDatabasePending: chatDatabaseJournal.pending,
+      chatDatabaseActiveJournalProof: () =>
+        readChatDatabaseActiveJournalProof(db, storageSourceDatabaseId(options.path)),
       chatDatabasePreviewReset: chatDatabaseJournal.resetPreview,
       chatDatabaseAutomaticPlanStep: chatDatabaseAutomaticPlan.step,
       chatDatabaseAutomaticPlanRead: chatDatabaseAutomaticPlan.read,
@@ -1658,6 +1686,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           if (notification) notifications.insert(notification)
           return occurrence
         })(),
+      scheduleIdleCheckpoint: (input) => readScheduleIdleCheckpoint(db, storageSourceDatabaseId(options.path), input),
+      searchIdleCheckpoint: () => readSearchIdleCheckpoint(db, storageSourceDatabaseId(options.path)),
       enabledSchedules: (after, limit) => schedules.enabledSchedules(after, limit),
       activeScheduleOccurrences: (limit, after) => schedules.activeScheduleOccurrences(limit, after),
       scheduleRuntime: (id) => schedules.scheduleRuntime(id),
@@ -2454,13 +2484,27 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               .all(input.sessionId, input.runId, input.afterSeq, input.runId, input.runId)
             const items = rows.slice(0, 20).map((row) => {
               const event = eventRow(row)
-              const envelope = z.object({ decisionDelegation: z.object({ sessionId: idSchema, requestId: idSchema,
-                delegationId: idSchema, targetRunId: idSchema }).optional() }).parse(event.data).decisionDelegation
+              const envelope = z
+                .object({
+                  decisionDelegation: z
+                    .object({ sessionId: idSchema, requestId: idSchema, delegationId: idSchema, targetRunId: idSchema })
+                    .optional(),
+                })
+                .parse(event.data).decisionDelegation
               if (envelope) {
                 const grant = delegatedInputs.read({ sessionId: envelope.sessionId, requestId: envelope.requestId })
-                if (!grant || grant.delegationId !== envelope.delegationId || grant.targetSessionId !== event.sessionId ||
-                  grant.targetRunId !== event.runId || envelope.targetRunId !== event.runId || grant.delivery !== 'guidance')
-                  throw new HbarError('SESSION_LOG_CORRUPTED', 'Delegated guidance differs from its canonical source grant')
+                if (
+                  !grant ||
+                  grant.delegationId !== envelope.delegationId ||
+                  grant.targetSessionId !== event.sessionId ||
+                  grant.targetRunId !== event.runId ||
+                  envelope.targetRunId !== event.runId ||
+                  grant.delivery !== 'guidance'
+                )
+                  throw new HbarError(
+                    'SESSION_LOG_CORRUPTED',
+                    'Delegated guidance differs from its canonical source grant',
+                  )
               } else queueGuidanceFromEvent(event)
               const data = z
                 .object({ id: idSchema, role: z.literal('user'), content: z.array(contentBlockSchema) })
@@ -3045,7 +3089,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       },
       enqueue: (sessionId, requestId, input, modelId, command, launchTarget, sourceRunId, autonomyRetry) =>
         db.transaction(() => {
-          if (input.delegatedDecision) throw new HbarError('FORBIDDEN', 'Dedicated decision Runs require the private delegation delivery grant')
+          if (input.delegatedDecision)
+            throw new HbarError('FORBIDDEN', 'Dedicated decision Runs require the private delegation delivery grant')
           const submittedCommand = command === undefined ? undefined : runCommandRecordSchema.parse(command)
           const existing = db
             .query('SELECT * FROM runs WHERE sessionId=? AND requestId=?')
@@ -3071,9 +3116,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             return prior
           }
           admitBackendContinuation(input)
-          const retrySource = autonomyRetry === undefined
-            ? undefined
-            : autonomyRetries.validate(autonomyRetry, sessionId, requestId, input, modelId)
+          const retrySource =
+            autonomyRetry === undefined
+              ? undefined
+              : autonomyRetries.validate(autonomyRetry, sessionId, requestId, input, modelId)
           if (autonomyRetry && (submittedCommand || sourceRunId !== undefined))
             throw new HbarError('AUTONOMY_RETRY_INVALID', 'An automatic successor inherits only from its original Run')
           const owner = methods.session(sessionId)
@@ -3343,13 +3389,15 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           }
           return events
         })(),
+      hasQueuedRuns: () => db.query("SELECT 1 FROM runs WHERE status='queued' LIMIT 1").get() !== null,
       queuedSessions: () =>
         (db.query("SELECT DISTINCT sessionId FROM runs WHERE status='queued'").all() as { sessionId: string }[]).map(
           (row) => row.sessionId,
         ),
       createApproval: (raw, rawContext) => {
         const approval = approvalSchema.parse(raw)
-        const automationContext = rawContext === undefined ? undefined : approvalAutomationContextSchema.parse(rawContext)
+        const automationContext =
+          rawContext === undefined ? undefined : approvalAutomationContextSchema.parse(rawContext)
         if (automationContext && automationContext.policy.sessionId !== approval.sessionId)
           throw new HbarError('AUTOMATIC_APPROVAL_INVALID', 'The approval context must belong to its source Session')
         return db.transaction(() => {
@@ -3366,9 +3414,15 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             approval.createdAt,
             approval.executionTarget ? JSON.stringify(approval.executionTarget) : null,
           )
-          return appendEvent(approval.sessionId, 'approval.requested', {
-            ...approval, ...(automationContext ? { automationContext } : {}),
-          }, approval.runId)
+          return appendEvent(
+            approval.sessionId,
+            'approval.requested',
+            {
+              ...approval,
+              ...(automationContext ? { automationContext } : {}),
+            },
+            approval.runId,
+          )
         })()
       },
       approval: (id) => approvalRow(db.query('SELECT * FROM approvals WHERE id=?').get(id) as Row | null),
@@ -3377,7 +3431,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         db.transaction(() => {
           const approval = methods.approval(id)
           if (approval.status !== 'pending') return null
-          const automatic = rawAutomatic === undefined ? undefined : automaticToolApprovalDecisionSchema.parse(rawAutomatic)
+          const automatic =
+            rawAutomatic === undefined ? undefined : automaticToolApprovalDecisionSchema.parse(rawAutomatic)
           if (automatic) {
             const run = methods.run(approval.runId)
             if (
@@ -3394,7 +3449,10 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             if (methods.cancelRequested(run.id)) throw new HbarError('USER_CANCELLED', 'The source Run was cancelled')
             const principal = executionPrincipals.run(run.id)
             if (!principal)
-              throw new HbarError('EXECUTION_PRINCIPAL_UNAVAILABLE', 'Automatic approval requires its actual source actor')
+              throw new HbarError(
+                'EXECUTION_PRINCIPAL_UNAVAILABLE',
+                'Automatic approval requires its actual source actor',
+              )
             assertAutomaticDecisionPolicy(db, approval.sessionId, automatic.policy, automatic.source)
             approval.decidedBy = principal.actorId
           }
@@ -4629,10 +4687,20 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
     function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
       if (method === 'delegatedInputComplete') return delegatedInputCompleteSchema.parse(args[0]).targetRunId
       if (method === 'delegatedInputAdmitRun') return delegatedInputRunSchema.parse(args[0]).targetRunId
-      if (method === 'delegatedInputAccept' || method === 'delegatedInputBind' || method === 'delegatedInputFinish' || method === 'delegatedInputDeliver') {
-        const input = method === 'delegatedInputAccept' ? delegatedInputAcceptSchema.parse(args[0])
-          : method === 'delegatedInputBind' ? delegatedInputBindSchema.parse(args[0])
-          : method === 'delegatedInputDeliver' ? delegatedInputDeliverSchema.parse(args[0]) : delegatedInputFinishSchema.parse(args[0])
+      if (
+        method === 'delegatedInputAccept' ||
+        method === 'delegatedInputBind' ||
+        method === 'delegatedInputFinish' ||
+        method === 'delegatedInputDeliver'
+      ) {
+        const input =
+          method === 'delegatedInputAccept'
+            ? delegatedInputAcceptSchema.parse(args[0])
+            : method === 'delegatedInputBind'
+              ? delegatedInputBindSchema.parse(args[0])
+              : method === 'delegatedInputDeliver'
+                ? delegatedInputDeliverSchema.parse(args[0])
+                : delegatedInputFinishSchema.parse(args[0])
         return userInputState.read({ sessionId: input.sessionId, requestId: input.requestId })?.request.runId
       }
       if (method === 'userInputAccept') return userInputAcceptSchema.parse(args[0]).request.runId

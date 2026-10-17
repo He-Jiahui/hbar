@@ -14,6 +14,8 @@ const replySchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(false), code: z.string(), error: z.string() }),
 ])
 export interface ChatDatabaseMaintenanceWorkerPort {
+  /** Pure observation. active remains until run/exit/handover has actually settled. */
+  idleSnapshot(): { readonly activeOperationId: string | null; readonly closed: boolean }
   run(operationId: string, signal: AbortSignal): Promise<ChatDatabaseVacuumRecord>
   progress(operationId: string): ChatDatabaseVacuumRecord | null
   isRunning(operationId: string): boolean
@@ -117,6 +119,7 @@ export function createChatDatabaseMaintenanceWorker(
     return record
   }
   return {
+    idleSnapshot: () => ({ activeOperationId: active?.id ?? null, closed }),
     progress,
     isRunning: (id) => active?.id === id,
     cancel(id, identity) {

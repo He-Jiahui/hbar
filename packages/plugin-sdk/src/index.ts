@@ -1,3 +1,11 @@
+import type { RuntimePluginIdleRegistry } from './runtime-plugin-idle'
+export {
+  runtimePluginIdleCheckpointSchema,
+  nativeDescendantsConfirmed,
+  type RuntimePluginIdleCheckpoint,
+  type RuntimePluginIdleRegistry,
+  type RuntimePluginIdleAuthority,
+} from './runtime-plugin-idle'
 import { Context, Service } from 'cordis'
 import { HbarError, sessionEventPageInputSchema, sessionEventPageSchema } from '@hbar/contracts'
 export type { DecisionContext, DecisionService } from './decision'
@@ -570,6 +578,10 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
+  /** Parent-owned deadline transfer; metadata and notification only, never model submission. */
+  continuationWake?(
+    input: import('@hbar/contracts/session-wake').GoalWakeRequest,
+  ): Promise<import('@hbar/contracts/session-wake').GoalWakeReply>
   /** Read the canonical Session journal without accounting, continuation or external effects. */
   refreshSession?(sessionId: string): Promise<void>
   reconcileRun?(run: Run): Promise<void>
@@ -989,6 +1001,7 @@ export interface HookEvents {
   'session.idle': {
     sessionId: string
     wakeAt?: number
+    continuationWake?: import('@hbar/contracts/session-wake').SessionWakeEntry
     submission?: { requestId: string; input: UserInput; modelId: string }
   }
   'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean; code?: string }
@@ -1038,6 +1051,8 @@ export interface HookRegistry {
   dispatch<K extends keyof HookEvents>(event: K, value: HookEvents[K]): Promise<HookEvents[K]>
 }
 export interface HbarAPI {
+  /** Optional managed-owner lifecycle proof; ordinary plugins remain compatible. */
+  runtimeIdle?: RuntimePluginIdleRegistry | undefined
   scope: ScopeDescriptor
   /** Managed owners hydrate projections; reconciliation belongs to the stable recovery coordinator. */
   restoreMode?: 'projection' | undefined
