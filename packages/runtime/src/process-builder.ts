@@ -268,8 +268,9 @@ export class RuntimeBuildProcessOwner {
         job.phase = 'unknown'
       })
   }
-  private start(store: RuntimeArtifactStore, unit: RuntimeBuildUnit): Job {
-    const child = spawnCompiler(this.command, store.sourceRoot, this.environment)
+  private start(unit: RuntimeBuildUnit): Job {
+    // Match the existing Worker build context; sourceRoot independently validates every owned path.
+    const child = spawnCompiler(this.command, process.cwd(), this.environment)
     const job: Job = {
       id: crypto.randomUUID(),
       unitId: unit.descriptor.id,
@@ -353,7 +354,7 @@ export class RuntimeBuildProcessOwner {
     const bytes = new TextEncoder().encode(JSON.stringify(parsed.data))
     if (bytes.byteLength > BUILD_REQUEST_MAX_BYTES)
       throw new HbarError('RUNTIME_BUILD_INVALID', 'Local build request exceeded transport capacity')
-    const job = this.start(store, unit)
+    const job = this.start(unit)
     const interrupted = Promise.withResolvers<never>()
     const interrupt = (): void => {
       interrupted.reject(job.lifetime.signal.reason)

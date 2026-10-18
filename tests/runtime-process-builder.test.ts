@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts/errors'
 import type { RuntimeProcessTree, RuntimeProcessTreePort, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
-import { RuntimeArtifactStore, RuntimeBuildProcessOwner } from '@hbar/runtime'
+import { RuntimeArtifactStore, RuntimeBuildProcessOwner, buildRuntimeArtifact } from '@hbar/runtime'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 
 const testWindows = process.platform === 'win32' ? test : test.skip
@@ -190,6 +190,29 @@ async function dispatchMarker(
     watcher.close()
   }
 }
+
+testWindows(
+  'a source root distinct from the caller preserves the original Worker bytes and immutable identity',
+  async () => {
+    await fixture(async ({ root, unit, owner }) => {
+      const isolated = new RuntimeArtifactStore(join(root, 'different-source-root'), root)
+      const callerDirectory = process.cwd()
+      expect(isolated.sourceRoot).not.toBe(callerDirectory)
+      const expected = await buildRuntimeArtifact(isolated, unit, new AbortController().signal)
+      const expectedBytes = await Bun.file(await isolated.modulePath(expected.id)).bytes()
+      const buildOwner = owner()
+      const actual = await buildOwner.build(isolated, unit, new AbortController().signal)
+      expect(actual).toEqual(expected)
+      expect(await Bun.file(await isolated.modulePath(actual.id)).bytes()).toEqual(expectedBytes)
+      expect(process.cwd()).toBe(callerDirectory)
+      expect(buildOwner.snapshot()).toMatchObject({
+        jobs: [],
+        receipts: [{ nativeJoined: true, activeProcesses: 0, nativeClosed: true }],
+      })
+    })
+  },
+  30_000,
+)
 
 testWindows(
   'managed process builds immutable bytes; real native close precedes original acceptance',
