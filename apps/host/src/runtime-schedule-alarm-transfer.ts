@@ -224,6 +224,47 @@ export class RuntimeScheduleAlarmTransfer {
     return { ...transfer.ack }
   }
 
+  /** Read the same frozen absolute checkpoint; this neither dispatches nor consumes its ACK. */
+  restoreManifest(oldOwner: DemandOwner, expected: ScheduleTransferAck): ScheduleIdleManifest | null {
+    const ack = this.restoreAck(oldOwner)
+    const transfer = this.committed
+    return ack && transfer && sameAck(ack, expected) ? structuredClone(transfer.manifest) : null
+  }
+
+  /** Trusted Host hook after this exact peer's restore ACK and first actual serving publication. */
+  activationRestored(owner: DemandOwner, expected: ScheduleTransferAck, raw: ScheduleWakeReply): void {
+    const reply = scheduleWakeReplySchema.parse(raw)
+    const transfer = this.committed
+    if (
+      this.stopped ||
+      this.offered ||
+      !transfer ||
+      transfer.phase === 'prepared' ||
+      !sameAck(transfer.ack, expected) ||
+      owner.unitId !== 'controller' ||
+      owner.generation <= transfer.owner.generation ||
+      owner.incarnation === transfer.owner.incarnation ||
+      reply.manifest.snapshot.database.id !== expected.databaseId ||
+      (this.wakeOwner && !sameOwner(this.wakeOwner, owner)) ||
+      this.held
+    )
+      throw new Error('SCHEDULE_ACTIVATION_ACK_MISMATCH')
+    if (transfer.phase === 'delivered') return
+    // This is the already completed original physical result, so a later
+    // catalog refresh cannot rewrite it. Future admissions still validate catalog.
+    this.wakeOwner = { ...owner }
+    this.committed = { ...transfer, phase: 'delivered' }
+    // Never abort an in-flight acquisition/attempt. It joins the cached ACK after
+    // ready, then its original scheduler continuation observes the completed transfer.
+    if (!this.alarms.peek().inFlight)
+      this.alarms.cancel({
+        key: 'controller:schedule',
+        id: expected.token,
+        version: expected.version,
+        epoch: expected.epoch,
+      })
+  }
+
   /**
    * Root already holds its request lease. This joins the same scheduler attempt as due, with its own
    * internal physical lease. It does not consume the Root lease or admit foreground application work.

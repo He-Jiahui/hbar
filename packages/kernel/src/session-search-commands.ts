@@ -29,28 +29,33 @@ export function createSessionSearchCommands(storage: StoragePort, options: { rea
     return operation
   }
 
-  const schedule = (delayMs: number): void => {
+  const schedule = (delayMs: number, absoluteDueAt?: number): void => {
+    if (absoluteDueAt !== undefined && (!Number.isSafeInteger(absoluteDueAt) || absoluteDueAt < 0))
+      throw new RangeError('Invalid restored Search inspection deadline')
     if (disposed || !started || timer || background) return
-    nextDueAt = Date.now() + delayMs
-    timer = setTimeout(() => {
-      timer = null
-      nextDueAt = null
-      background = (async () => {
-        let nextDelay: number | null = null
-        try {
-          const status = await advance()
-          consecutiveFailures = 0
-          nextDelay = status.complete ? 60_000 : 0
-        } catch {
-          // Do not spin forever against a broken projection; user queries surface the error.
-          consecutiveFailures++
-          if (consecutiveFailures <= 3) nextDelay = consecutiveFailures * 1000
-        } finally {
-          background = null
-          if (nextDelay !== null) schedule(nextDelay)
-        }
-      })()
-    }, delayMs)
+    nextDueAt = absoluteDueAt ?? Date.now() + delayMs
+    timer = setTimeout(
+      () => {
+        timer = null
+        nextDueAt = null
+        background = (async () => {
+          let nextDelay: number | null = null
+          try {
+            const status = await advance()
+            consecutiveFailures = 0
+            nextDelay = status.complete ? 60_000 : 0
+          } catch {
+            // Do not spin forever against a broken projection; user queries surface the error.
+            consecutiveFailures++
+            if (consecutiveFailures <= 3) nextDelay = consecutiveFailures * 1000
+          } finally {
+            background = null
+            if (nextDelay !== null) schedule(nextDelay)
+          }
+        })()
+      },
+      Math.max(0, nextDueAt - Date.now()),
+    )
   }
 
   // Each Storage Worker step is bounded; yielding between steps leaves Host requests responsive.
@@ -66,10 +71,10 @@ export function createSessionSearchCommands(storage: StoragePort, options: { rea
   })
   return {
     /** Re-arm a bounded inspection without startup dispatch or resetting durable continuation. */
-    resumeInspectionTimer(complete: boolean) {
+    resumeInspectionTimer(complete: boolean, absoluteDueAt?: number) {
       if (disposed) return
       started = true
-      schedule(complete ? 60_000 : 1000)
+      schedule(complete ? 60_000 : 1000, absoluteDueAt)
     },
     checkpoint: () => storage.call('searchIdleCheckpoint'),
     /** Parent alarm demand: one real bounded step; existing durable offset/queue is authoritative. */

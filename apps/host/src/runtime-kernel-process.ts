@@ -148,6 +148,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   let kernel: Kernel | undefined
   let driverIsolation: 'managed' | 'legacy' = 'managed'
   let role: 'default' | 'draining' = 'draining'
+  let idleIneligibleReported = false
   let unsubscribe: (() => void) | undefined
   const notifications = new RuntimeNotificationDelivery({
     send: (event) => context.peer.notify('kernel.notification', event),
@@ -702,6 +703,32 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       !delivery.closed &&
       !delivery.failed &&
       delivery.bytes === 0
+    if (role === 'draining' && !eligible && !idleIneligibleReported) {
+      idleIneligibleReported = true
+      try {
+        console.error(
+          JSON.stringify({
+            type: 'runtime-kernel-idle-ineligible',
+            owner: context.peer.owner,
+            checkpoint,
+            pluginCoverage: proof.coverage,
+            pluginQueuedRuns: proof.queuedRuns,
+            pluginOwners: proof.owners.map(({ owner, eligible, requests, runs, resources }) => ({
+              unitId: owner.unitId,
+              eligible,
+              requests,
+              runs,
+              resources,
+            })),
+            applicationCounts,
+            pluginCounts,
+            delivery,
+          }),
+        )
+      } catch {
+        // Observation cannot change final-probe eligibility or release UNKNOWN ownership.
+      }
+    }
     return { eligible, requests, runs: kernel.active.size, resources }
   }
   return {

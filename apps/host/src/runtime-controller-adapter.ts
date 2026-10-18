@@ -37,11 +37,14 @@ import type { HostCommandExecutionScopes } from './command-execution-scopes'
 import {
   scheduleIdleManifestSchema,
   scheduleWakeReplySchema,
+  type ScheduleIdleManifest,
   type ScheduleTransferAck,
+  type ScheduleWakeReply,
 } from './runtime-schedule-idle-contract'
 import {
   controllerScheduleInitializeSchema,
   controllerScheduleStatusSchema,
+  controllerScheduleWakeSchema,
 } from './runtime-controller-schedule-contract'
 import type { RuntimeScheduleAlarmTransfer } from './runtime-schedule-alarm-transfer'
 import type { DemandOwner } from '@hbar/runtime'
@@ -49,6 +52,7 @@ import type { DemandOwner } from '@hbar/runtime'
 export interface RuntimeControllerAdapterOptions {
   /** Bound by the stable Host before any automatic resume. Never inferred from child state. */
   readonly scheduleIdleRestore?: ScheduleTransferAck
+  readonly scheduleIdleManifest?: ScheduleIdleManifest
   readonly kernel: KernelControllerPort
   readonly maintenance: RuntimeMaintenancePort
   readonly nodeLink?: RuntimeNodeLinkPort
@@ -86,6 +90,7 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
   private scheduleInitialized = false
   private scheduleInitialization: Promise<void> | null = null
   private scheduleFenced = false
+  private scheduleWake: { readonly ack: string; readonly promise: Promise<ScheduleWakeReply> } | null = null
   constructor(
     private readonly peer: IpcPeer,
     private readonly options?: RuntimeControllerAdapterOptions,
@@ -531,14 +536,28 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
     if (!parent.abort(owner, ack)) throw new HbarError('RUNTIME_IDLE_FENCED', 'Parent transfer identity changed')
     this.scheduleFenced = false
   }
-  async wakeSchedule(ack: ScheduleTransferAck, signal?: AbortSignal) {
-    await this.initializeSchedule()
-    const reply = await this.peer.call('controller.schedule.wake', { ack }, scheduleWakeReplySchema, {
-      signal,
-      timeoutMs: 120_000,
+  async wakeSchedule(ack: ScheduleTransferAck, signal?: AbortSignal): Promise<ScheduleWakeReply> {
+    const signature = JSON.stringify(ack)
+    if (this.scheduleWake) {
+      if (this.scheduleWake.ack !== signature)
+        throw new HbarError('RUNTIME_IDLE_FENCED', 'Schedule restoration identity changed')
+      return this.scheduleWake.promise
+    }
+    const restoration = this.options?.scheduleIdleManifest
+    const operation = Promise.resolve().then(async () => {
+      await this.initializeSchedule()
+      const input = controllerScheduleWakeSchema.parse({ ack, ...(restoration ? { restoration } : {}) })
+      const reply = await this.peer.call('controller.schedule.wake', input, scheduleWakeReplySchema, {
+        signal,
+        timeoutMs: 120_000,
+      })
+      this.scheduleFenced = false
+      return reply
     })
-    this.scheduleFenced = false
-    return reply
+    // The activation and the parent alarm join one physical restoration. Keep
+    // rejection too: neither a foreground waiter nor a due alarm may replay UNKNOWN.
+    if (restoration) this.scheduleWake = { ack: signature, promise: operation }
+    return operation
   }
   async pause(): Promise<void> {
     await this.peer.call('controller.pause', undefined, z.undefined())

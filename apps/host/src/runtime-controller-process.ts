@@ -40,6 +40,7 @@ import {
 import {
   controllerScheduleInitializeSchema,
   controllerScheduleTransferSchema,
+  controllerScheduleWakeSchema,
   controllerScheduleStatusSchema,
   controllerScheduleControlMethods,
 } from './runtime-controller-schedule-contract'
@@ -303,7 +304,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   )
   context.peer.register(
     'controller.schedule.wake',
-    procedure(controllerScheduleTransferSchema, scheduleWakeReplySchema, async ({ ack }) => {
+    procedure(controllerScheduleWakeSchema, scheduleWakeReplySchema, async ({ ack, restoration }) => {
       if (!sameAck(ack) || !['restored', 'committed'].includes(schedulePhase))
         throw new HbarError('RUNTIME_IDLE_FENCED', 'Wake must match the committed transfer')
       try {
@@ -321,9 +322,22 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
         if (!kernel || !application) throw new HbarError('RUNTIME_NOT_DEFAULT', 'Controller absent')
         const scope = await context.peer.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
         await kernel.pin(scope, async () => {
-          await application.scheduleController.wakeDue()
-          const search = await application.sessionSearchCommands.wakeStep()
-          application.sessionSearchCommands.resumeInspectionTimer(search.complete)
+          if (
+            restoration?.nextDueAt !== undefined &&
+            restoration.nextDueAt !== null &&
+            restoration.nextDueAt > Date.now()
+          )
+            application.scheduleController.resumeTimer(restoration.nextDueAt)
+          else await application.scheduleController.wakeDue()
+          if (restoration && restoration.nextSearchCheckAt > Date.now())
+            application.sessionSearchCommands.resumeInspectionTimer(
+              before.snapshot.search.complete,
+              restoration.nextSearchCheckAt,
+            )
+          else {
+            const search = await application.sessionSearchCommands.wakeStep()
+            application.sessionSearchCommands.resumeInspectionTimer(search.complete)
+          }
         })
         const manifest = await readSchedule()
         scheduleAck = null

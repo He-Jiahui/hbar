@@ -75,11 +75,14 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
     })),
     {
       descriptor: {
-        ...descriptor('kernel', 'kernel', KERNEL_RUNTIME_FINGERPRINT, [
-          'storage',
-          'driver.pi',
-          ...plugins.map(([id]) => 'plugin.' + id),
-        ]),
+        // Keep submit preflight capabilities together without starting execution-only plugins.
+        // Claim admission separately retains the Driver and the remaining plugins.
+        ...descriptor(
+          'kernel',
+          'kernel',
+          KERNEL_RUNTIME_FINGERPRINT,
+          options.profileModule ? ['storage', 'driver.pi'] : ['storage', 'plugin.plan', 'plugin.budget', 'plugin.goal'],
+        ),
         reloadable: !options.profileModule,
       },
       entrypoint: 'apps/host/src/runtime-kernel-process.ts',

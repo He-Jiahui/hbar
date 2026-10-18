@@ -144,14 +144,19 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
     return ticking
   }
   // A clean restoration re-arms the existing periodic check; it does not replay start/recover immediately.
-  const resumeTimer = () => {
+  const resumeTimer = (absoluteDueAt?: number) => {
+    if (absoluteDueAt !== undefined && (!Number.isSafeInteger(absoluteDueAt) || absoluteDueAt < 0))
+      throw new RangeError('Invalid restored Schedule inspection deadline')
     if (stopped || !paused) return
     paused = false
     if (timer || ticking) return
-    nextDueAt = now() + (options.intervalMs ?? 30_000)
-    timer = setTimeout(() => {
-      void tick().catch((error) => console.error('Schedule tick failed:', error))
-    }, options.intervalMs ?? 30_000)
+    nextDueAt = absoluteDueAt ?? now() + (options.intervalMs ?? 30_000)
+    timer = setTimeout(
+      () => {
+        void tick().catch((error) => console.error('Schedule tick failed:', error))
+      },
+      Math.max(0, nextDueAt - now()),
+    )
   }
   return {
     resumeTimer,

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { scheduleTransferAckSchema } from './runtime-schedule-idle-contract'
+import { scheduleIdleManifestSchema, scheduleTransferAckSchema } from './runtime-schedule-idle-contract'
 
 export const controllerScheduleInitializeSchema = z.discriminatedUnion('mode', [
   z.strictObject({ mode: z.literal('normal') }),
@@ -7,6 +7,20 @@ export const controllerScheduleInitializeSchema = z.discriminatedUnion('mode', [
 ])
 export type ControllerScheduleInitialize = z.output<typeof controllerScheduleInitializeSchema>
 export const controllerScheduleTransferSchema = z.strictObject({ ack: scheduleTransferAckSchema })
+export const controllerScheduleWakeSchema = controllerScheduleTransferSchema
+  .extend({ restoration: scheduleIdleManifestSchema.optional() })
+  .superRefine(({ ack, restoration }, context) => {
+    if (
+      restoration &&
+      (restoration.snapshot.coverage !== 'complete' ||
+        restoration.snapshot.database.id !== ack.databaseId ||
+        restoration.snapshot.database.sourceRevision !== ack.sourceRevision)
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Absolute schedule restoration must match the original transfer source',
+      })
+  })
 export const controllerScheduleStatusSchema = z.strictObject({
   phase: z.enum(['open', 'restored', 'quiescing', 'quiesced', 'committed', 'unknown']),
 })

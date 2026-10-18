@@ -238,6 +238,43 @@ export class RuntimeMaintenanceAlarmTransfer {
     )
       throw new Error('MAINTENANCE_INSPECTION_UNKNOWN')
   }
+  /** Trusted Host hook: actual restore reply first, then this exact peer's first serving publication. */
+  activationRestored(
+    owner: DemandOwner,
+    expected: MaintenanceInspectionAck,
+    raw: MaintenanceInspectionWakeReply,
+  ): void {
+    const reply = maintenanceInspectionWakeReplySchema.parse(raw)
+    const transfer = this.committed
+    if (
+      this.stopped ||
+      this.offered ||
+      !transfer ||
+      transfer.phase === 'prepared' ||
+      !sameMaintenanceAck(transfer.ack, expected) ||
+      !sameMaintenanceAck(reply.ack, expected) ||
+      !sameOwner(reply.owner, owner) ||
+      owner.unitId !== 'maintenance' ||
+      owner.generation <= transfer.owner.generation ||
+      owner.incarnation === transfer.owner.incarnation ||
+      reply.checkpoint.version !== transfer.manifest.checkpoint.version ||
+      reply.checkpoint.cursor !== transfer.manifest.checkpoint.cursor ||
+      reply.checkpoint.nextCheckAt !== transfer.manifest.checkpoint.nextCheckAt ||
+      (this.wakeOwner && !sameOwner(this.wakeOwner, owner)) ||
+      this.held
+    )
+      throw new Error('MAINTENANCE_ACTIVATION_ACK_MISMATCH')
+    if (transfer.phase === 'delivered') return
+    this.wakeOwner = { ...owner }
+    this.committed = { ...transfer, phase: 'delivered' }
+    if (!this.alarms.peek().inFlight)
+      this.alarms.cancel({
+        key: 'maintenance:inspection',
+        id: expected.token,
+        version: expected.version,
+        epoch: expected.epoch,
+      })
+  }
   peek() {
     return {
       stopped: this.stopped,

@@ -95,6 +95,14 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
   private readonly storageCalls = new Map<string, number>()
   private readonly idleWake = new Set<string>()
   private readonly restoringInspection = new Set<string>()
+  private readonly idlePeers = new Map<string, IpcPeer>()
+  private readonly activationInspection = new Map<
+    string,
+    {
+      readonly signature: string
+      readonly promise: Promise<MaintenanceInspectionWakeReply>
+    }
+  >()
   private readonly dispatchHolds = new Set<{
     readonly owner: RuntimeOwner | null
     readonly hold: HostRuntimeDemandHold
@@ -171,14 +179,70 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
     checkpoint: ChatDatabaseInspectionCheckpoint,
     signal: AbortSignal,
   ): Promise<MaintenanceInspectionWakeReply> {
+    const restored = this.activationInspection.get(owner.incarnation)
+    if (restored) {
+      if (restored.signature !== JSON.stringify({ ack, checkpoint }))
+        throw new HbarError('MAINTENANCE_INSPECTION_UNKNOWN', 'Activation inspection identity changed')
+      return restored.promise
+    }
     signal.throwIfAborted()
     const endpoint = this.options.current()
-    if (
-      !this.idleWake.has(owner.incarnation) ||
-      !this.sameOwner(endpoint.owner, owner) ||
-      this.writer ||
-      this.jobs.size
+    return this.restoreIdle(owner, ack, checkpoint, endpoint.owner, () =>
+      endpoint.process.call(
+        'maintenance.inspection.restore',
+        { ack, checkpoint },
+        maintenanceInspectionWakeReplySchema,
+        { signal },
+      ),
     )
+  }
+  /** Only the actual attached fresh peer may restore while ManagedProcess is still activating. */
+  initializeIdleBeforeServing(
+    peer: IpcPeer,
+    owner: RuntimeOwner,
+    ack: MaintenanceInspectionAck,
+    checkpoint: ChatDatabaseInspectionCheckpoint,
+    signal: AbortSignal,
+  ): Promise<MaintenanceInspectionWakeReply> {
+    const signature = JSON.stringify({ ack, checkpoint })
+    const existing = this.activationInspection.get(owner.incarnation)
+    if (existing) {
+      if (existing.signature !== signature)
+        return Promise.reject(new HbarError('MAINTENANCE_INSPECTION_UNKNOWN', 'Activation inspection identity changed'))
+      return existing.promise
+    }
+    signal.throwIfAborted()
+    this.assertOwner(owner)
+    if (
+      this.idlePeers.get(owner.incarnation) !== peer ||
+      !this.sameOwner(peer.remote, owner) ||
+      this.dead.has(owner.incarnation)
+    )
+      return Promise.reject(
+        new HbarError('MAINTENANCE_INSPECTION_UNKNOWN', 'Activation inspection peer is not current'),
+      )
+    if (this.activationInspection.size >= 3)
+      return Promise.reject(new HbarError('RUNTIME_LIFECYCLE_CAPACITY', 'Activation inspection capacity is exhausted'))
+    const promise = Promise.resolve().then(() =>
+      this.restoreIdle(owner, ack, checkpoint, peer.remote, () =>
+        peer.call('maintenance.inspection.restore', { ack, checkpoint }, maintenanceInspectionWakeReplySchema, {
+          signal,
+        }),
+      ),
+    )
+    // Retain a rejected or completed result; a later parent alarm joins the same
+    // physical call and cannot replay UNKNOWN or rewrite its successful ACK.
+    this.activationInspection.set(owner.incarnation, { signature, promise })
+    return promise
+  }
+  private async restoreIdle(
+    owner: RuntimeOwner,
+    ack: MaintenanceInspectionAck,
+    checkpoint: ChatDatabaseInspectionCheckpoint,
+    endpointOwner: RuntimeOwner,
+    invoke: () => Promise<MaintenanceInspectionWakeReply>,
+  ): Promise<MaintenanceInspectionWakeReply> {
+    if (!this.idleWake.has(owner.incarnation) || !this.sameOwner(endpointOwner, owner) || this.writer || this.jobs.size)
       throw new HbarError('MAINTENANCE_INSPECTION_UNKNOWN', 'Idle restore requires its exact fresh owner')
     // Permit only this child's automatic inspection accept after it arms its timer.
     // Foreground dispatch remains sealed by !resumed until the exact reply is checked.
@@ -186,12 +250,7 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
     if (this.restoringInspection.has(owner.incarnation))
       throw new HbarError('MAINTENANCE_INSPECTION_UNKNOWN', 'Idle restore already has an unresolved attempt')
     this.restoringInspection.add(owner.incarnation)
-    const reply = await endpoint.process.call(
-      'maintenance.inspection.restore',
-      { ack, checkpoint },
-      maintenanceInspectionWakeReplySchema,
-      { signal },
-    )
+    const reply = await invoke()
     if (
       !this.sameOwner(reply.owner, owner) ||
       !sameMaintenanceAck(reply.ack, ack) ||
@@ -445,7 +504,10 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
     version: RuntimeVersion,
     purpose?: 'startup' | 'candidate' | 'recovery' | 'idle-wake',
   ): () => void {
-    if (purpose === 'idle-wake') this.idleWake.add(owner.incarnation)
+    if (purpose === 'idle-wake') {
+      this.idleWake.add(owner.incarnation)
+      this.idlePeers.set(owner.incarnation, peer)
+    }
     const values = new RuntimeValuePort(peer, { prefix: 'maintenance.application' })
     const kernel = this.options.kernel
     const checked = <Value>(action: () => Value): Value => {
@@ -635,6 +697,8 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
   exited(owner: RuntimeOwner): void {
     if (owner.unitId !== 'maintenance') return
     this.idleWake.delete(owner.incarnation)
+    this.idlePeers.delete(owner.incarnation)
+    this.activationInspection.delete(owner.incarnation)
     this.restoringInspection.delete(owner.incarnation)
     this.inspectionSeals.delete(owner.incarnation)
     this.dead.add(owner.incarnation)
