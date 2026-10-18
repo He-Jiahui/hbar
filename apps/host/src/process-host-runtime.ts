@@ -441,6 +441,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     invoke: Parameters<RuntimeControllerPort['dispatch']>[1],
     authorize?: Parameters<RuntimeControllerPort['dispatch']>[2],
   ): Promise<string> {
+    if (this.initializing) throw new HbarError('RUNTIME_RECOVERING', 'Runtime business owners are still preparing')
     return this.demand.withUnits(['controller', 'kernel'], this.sourceAbort.signal, async (owners) => {
       this.assertDemandOwners(owners)
       await this.restoreControllerSchedule(owners, this.sourceAbort.signal)
@@ -1171,8 +1172,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           },
           call: <Result>(
             ...[service, method, args, options]: Parameters<RuntimeControllerServicesOptions['call']>
-          ): Promise<Result> =>
-            self.demand.withUnits(['controller', 'kernel'], self.sourceAbort.signal, async (owners) => {
+          ): Promise<Result> => {
+            if (self.initializing)
+              return Promise.reject(new HbarError('RUNTIME_RECOVERING', 'Runtime business owners are still preparing'))
+            return self.demand.withUnits(['controller', 'kernel'], self.sourceAbort.signal, async (owners) => {
               self.assertDemandOwners(owners)
               await self.restoreControllerSchedule(owners, self.sourceAbort.signal)
               self.assertDemandOwners(owners)
@@ -1189,7 +1192,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                 )
               }
               return result
-            }),
+            })
+          },
           tracked: (value, actorId, expectation, options) => {
             const scope = AsyncLocalStorage.snapshot()
             const signal = AbortSignal.any([
@@ -1199,7 +1203,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             ])
             return createDemandCommandTicket({
               signal,
-              acquire: (admission) => self.demand.acquire(['controller', 'kernel'], admission),
+              acquire: (admission) => {
+                if (self.initializing)
+                  return Promise.reject(
+                    new HbarError('RUNTIME_RECOVERING', 'Runtime business owners are still preparing'),
+                  )
+                return self.demand.acquire(['controller', 'kernel'], admission)
+              },
               restore: async (hold) => {
                 self.assertDemandOwners(hold.owners)
                 // Foreground cancellation cannot cancel another waiter's accepted shared restore.
@@ -2169,6 +2179,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       await this.initializeUnit(prepared, 'kernel')
       if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance'))
         await this.initializeUnit(prepared, 'maintenance')
+      this.setStartupPhase('startup.retirements')
+      await this.reconcileBootstrapFaultRetirements()
+      this.completeStartupPhase()
       if (options.workspace) {
         this.setStartupPhase('workspace.create')
         await this.kernel.createWorkspace(options.workspace)
@@ -4261,9 +4274,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private async fault(owner: RuntimeOwner, reason: string): Promise<void> {
     this.recoveryResponsibility.notificationOwnerFailed(owner)
-    this.demand.fence(owner)
+    const candidate = this.coordinator.role(owner) === 'candidate'
+    // A never-activated candidate belongs to Manager's preparation/cleanup gate.
+    // It has never supplied a default owner to the adopted demand lifecycle.
+    if (!candidate) this.demand.fence(owner)
     if (owner.unitId === 'node-link') this.nodeLink.faulted(owner)
-    if (this.closing || this.coordinator.role(owner) === 'candidate') return
+    if (this.closing || candidate) return
     if (owner.unitId !== 'controller') this.resumed.clear()
     const dependencies = [...this.leases.values()].filter(
       (lease) =>
@@ -4337,6 +4353,37 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     return this.retirementConsumption.reconcile((generation, owner) =>
       this.manager.consumeRetirementReceipt(generation, owner),
     )
+  }
+  private async reconcileBootstrapFaultRetirements(): Promise<void> {
+    // Cold startup has not admitted business execution. Clear only empty old-owner
+    // bookkeeping after its exact physical exit; accepted/UNKNOWN work stays held.
+    for (const [incarnation, failure] of this.interrupted) {
+      if (!failure.exited || failure.leases.length || failure.owner.unitId === 'storage') continue
+      const record = this.generations.get(key(failure.owner))
+      const physical =
+        this.retirementConsumption.physicalReceipt(failure.owner) ?? record?.process.retirementReceipt(failure.owner)
+      const retained = this.manager.retirement(failure.owner)
+      const physicallyRetired =
+        physical &&
+        this.sameStorageOwner(physical.owner, failure.owner) &&
+        physical.nativeJoined &&
+        physical.onExitCompleted
+      if (
+        !physicallyRetired &&
+        !(retained.status === 'retired' && this.sameStorageOwner(retained.owner, failure.owner))
+      )
+        continue
+      if (this.owners.has(incarnation)) {
+        const references = this.coordinator.references(failure.owner)
+        if (references.runs || references.tools || references.resources) continue
+        this.coordinator.disposeOwner(failure.owner)
+        this.owners.delete(incarnation)
+      }
+      this.interrupted.delete(incarnation)
+    }
+    await this.consumeRetirementReceipts()
+    await this.demand.reconcileRetirements()
+    await this.consumeRetirementReceipts()
   }
   private async reconcile(): Promise<void> {
     if (this.initializing || this.closing) return

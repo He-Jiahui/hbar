@@ -79,6 +79,8 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
   private adoptionSelection: string | undefined
   private readonly deferredDrivers = new Map<string, string>()
   private readonly barriers = new Map<string, symbol>()
+  private readonly bootstrapFaults = new Map<string, RuntimeOwner>()
+  private readonly bootstrapFaultOverflow = new Set<string>()
   private readonly acknowledgements = new Map<string, RuntimeOwner>()
   private reconciliation: Promise<void> | undefined
   private adopted = false
@@ -368,6 +370,12 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
 
   /** Fault invalidation is exact. It never silently adopts a recovered incarnation. */
   fence(owner: RuntimeOwner): void {
+    if (!this.adopted) {
+      const key = JSON.stringify([owner.unitId, owner.generation, owner.incarnation])
+      if (!this.bootstrapFaults.has(key) && this.bootstrapFaults.size >= this.maximumOperations)
+        this.bootstrapFaultOverflow.add(owner.unitId)
+      else this.bootstrapFaults.set(key, { ...owner })
+    }
     this.barriers.set(owner.unitId, Symbol())
     this.lifecycle.fenceOwner(owner)
   }
@@ -478,9 +486,17 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
           this.releasedStarts.set(id, { attempt: failed.attempt, owner: failed.owner })
           this.barriers.set(id, this.barriers.get(id) ?? Symbol())
         }
+        // Before adoption the idle lifecycle has never owned these failed children.
+        // A serving successor alone cannot prove their exact native/cleanup retirement.
+        for (const [key, owner] of this.bootstrapFaults) {
+          if (!this.proven(owner) || !this.options.manager.acknowledgeRetirement(owner)) continue
+          this.bootstrapFaults.delete(key)
+        }
         for (const state of this.lifecycle.snapshot().units) {
           if (
             this.quarantined.size ||
+            this.bootstrapFaultOverflow.has(state.unitId) ||
+            [...this.bootstrapFaults.values()].some((owner) => owner.unitId === state.unitId) ||
             !this.barriers.has(state.unitId) ||
             state.pins ||
             state.waiters ||

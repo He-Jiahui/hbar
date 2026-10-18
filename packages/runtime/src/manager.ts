@@ -198,6 +198,7 @@ export class RuntimeManager {
     { readonly generation: ManagedGenerationPort; acknowledged: boolean; readonly requiresDemandAcknowledgement?: true }
   >()
   private readonly retirements = new Map<string, RuntimeManagerRetirement>()
+  private readonly disposedGenerations = new WeakMap<ManagedGenerationPort, RuntimeOwner>()
   private readonly retirementReservations = new Set<string>()
   private readonly demandAttempts = new Map<string, DemandAttempt>()
   private readonly capacity = new PreparationCapacity()
@@ -732,11 +733,16 @@ export class RuntimeManager {
       }
       // Ordinary automatic recovery reuses the same generation object. Only an exact OLD incarnation can use this branch.
       const successor = generation.owner()
+      const ownedGeneration = (): boolean => {
+        if (unit.generations.get(expectedOwner.generation) === generation) return true
+        const disposed = this.disposedGenerations.get(generation)
+        return Boolean(disposed && this.sameOwner(disposed, successor) && generation.snapshot().phase === 'disposed')
+      }
       if (
         this.sameOwner(successor, expectedOwner) ||
         successor.unitId !== expectedOwner.unitId ||
         successor.generation !== expectedOwner.generation ||
-        unit.generations.get(expectedOwner.generation) !== generation ||
+        !ownedGeneration() ||
         unit.checkpointPending ||
         !oldReferencesClear()
       )
@@ -750,7 +756,8 @@ export class RuntimeManager {
       this.retirementReservations.add(recoveryKey)
       try {
         await this.options.afterDispose?.(expectedOwner)
-        if (!allowed() || !this.sameOwner(generation.owner(), successor) || !oldReferencesClear()) return false
+        if (!allowed() || !this.sameOwner(generation.owner(), successor) || !ownedGeneration() || !oldReferencesClear())
+          return false
         // Preserve the old exact native+cleanup proof before consuming Process's copy.
         // Successor authority and the current generation remain unchanged.
         this.retirements.set(recoveryKey, {
@@ -971,6 +978,9 @@ export class RuntimeManager {
         })
       if (!this.sameOwner(generation.owner(), physical.owner))
         throw new HbarError('RUNTIME_OWNER_MISMATCH', 'Retired generation changed owner')
+      // A replaced generation can still carry older exact incarnation receipts.
+      // Remember its verified final identity weakly, without retaining the process.
+      this.disposedGenerations.set(generation, structuredClone(physical.owner))
       this.retirements.set(key, {
         status: 'retired',
         owner: structuredClone(physical.owner),

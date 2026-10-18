@@ -204,6 +204,128 @@ async function fixture(
 }
 const signal = () => new AbortController().signal
 
+// Synthetic Manager retirement replies exercise the Host admission boundary.
+// The four real startup recovery cases independently cover actual child exit.
+function retiredBootstrapOwner(
+  owner: RuntimeOwner,
+  physicalOwner: RuntimeOwner = owner,
+): ReturnType<RuntimeManager['retirement']> {
+  return {
+    status: 'retired',
+    owner: { ...owner },
+    physical: {
+      owner: { ...physicalOwner },
+      childPid: 4242,
+      exitCode: 1,
+      nativeJoined: true,
+      onExitCompleted: true,
+      forced: true,
+      cleanDisposeAck: false,
+    },
+    ownerCleanupCompleted: true,
+    retiredAt: 1,
+  }
+}
+
+test('a cold serving successor cannot clear an unverified or mismatched old-owner fault', async () => {
+  const f = await fixture()
+  const demand = f.createDemand()
+  const old: RuntimeOwner = { unitId: 'storage', generation: 1, incarnation: 'old-bootstrap-storage' }
+  const wrong = { ...old, incarnation: 'different-bootstrap-storage' }
+  let proof: ReturnType<RuntimeManager['retirement']> = { status: 'unverified', owner: old }
+  let canAcknowledge = false
+  const retirement = spyOn(f.manager, 'retirement').mockImplementation(() => proof)
+  const acknowledge = spyOn(f.manager, 'acknowledgeRetirement').mockImplementation(() => canAcknowledge)
+  try {
+    demand.fence(old)
+    demand.fence(old)
+    for (const next of [
+      proof,
+      retiredBootstrapOwner(wrong),
+      retiredBootstrapOwner(old, wrong),
+      retiredBootstrapOwner(old),
+    ]) {
+      proof = next
+      await demand.reconcileRetirements()
+      await expect(demand.acquireBootstrap(['storage'], signal())).rejects.toThrow(
+        'Runtime default transition requires retry after retirement',
+      )
+      expect(f.manager.snapshot().units.find((unit) => unit.descriptor.id === 'storage')?.idle?.demandHolds).toBe(0)
+    }
+    expect(acknowledge).toHaveBeenCalledTimes(1)
+    canAcknowledge = true
+    await demand.reconcileRetirements()
+    const hold = await demand.acquireBootstrap(['storage'], signal())
+    try {
+      expect(hold.owners).toEqual([f.manager.defaultOwner('storage')])
+    } finally {
+      hold.release()
+    }
+    await demand.adoptServing(signal(), f.selection)
+    expect(demand.admissionReady()).toBe(true)
+    expect(f.created.map((child) => child.state.unitId)).toEqual(['storage'])
+    expect(acknowledge).toHaveBeenCalledTimes(2)
+  } finally {
+    retirement.mockRestore()
+    acknowledge.mockRestore()
+  }
+})
+
+test('cold retirement waits for every exact failed incarnation before admitting its existing successor', async () => {
+  const f = await fixture()
+  const demand = f.createDemand()
+  const first: RuntimeOwner = { unitId: 'storage', generation: 1, incarnation: 'first-failed-bootstrap' }
+  const second = { ...first, incarnation: 'second-failed-bootstrap' }
+  const completed = new Set([first.incarnation])
+  const retirement = spyOn(f.manager, 'retirement').mockImplementation((owner) =>
+    completed.has(owner.incarnation) ? retiredBootstrapOwner(owner) : { status: 'unverified', owner },
+  )
+  const acknowledged: RuntimeOwner[] = []
+  const acknowledge = spyOn(f.manager, 'acknowledgeRetirement').mockImplementation((owner) => {
+    acknowledged.push({ ...owner })
+    return true
+  })
+  try {
+    demand.fence(first)
+    demand.fence(second)
+    await demand.reconcileRetirements()
+    expect(acknowledged).toEqual([first])
+    await expect(demand.acquireBootstrap(['storage'], signal())).rejects.toThrow(
+      'Runtime default transition requires retry after retirement',
+    )
+    completed.add(second.incarnation)
+    await demand.reconcileRetirements()
+    const hold = await demand.acquireBootstrap(['storage'], signal())
+    hold.release()
+    expect(acknowledged).toEqual([first, second])
+    expect(f.created.map((child) => child.state.unitId)).toEqual(['storage'])
+  } finally {
+    retirement.mockRestore()
+    acknowledge.mockRestore()
+  }
+})
+
+test('cold fault evidence capacity stays fenced even when all retained owners report retirement', async () => {
+  const f = await fixture()
+  const demand = f.createDemand()
+  const retirement = spyOn(f.manager, 'retirement').mockImplementation((owner) => retiredBootstrapOwner(owner))
+  const acknowledge = spyOn(f.manager, 'acknowledgeRetirement').mockReturnValue(true)
+  try {
+    for (let attempt = 0; attempt < 129; attempt++)
+      demand.fence({ unitId: 'storage', generation: 1, incarnation: `bootstrap-fault-${attempt}` })
+    await demand.reconcileRetirements()
+    expect(acknowledge).toHaveBeenCalledTimes(128)
+    await expect(demand.acquireBootstrap(['storage'], signal())).rejects.toThrow(
+      'Runtime default transition requires retry after retirement',
+    )
+    expect(f.created.map((child) => child.state.unitId)).toEqual(['storage'])
+    expect(demand.admissionReady()).toBe(false)
+  } finally {
+    retirement.mockRestore()
+    acknowledge.mockRestore()
+  }
+})
+
 test('explicit deferred adoption and repeated metadata leave Driver genuinely unstarted', async () => {
   const f = await fixture()
   const demand = f.createDemand()

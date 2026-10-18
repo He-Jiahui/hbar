@@ -49,15 +49,21 @@ async function fixture(idle: boolean) {
     resourceFiles: [],
   }
   const set: RuntimeArtifactSet = { id: 'fixture-set', createdAt: 1, artifacts: [artifact] }
+  const replacement: RuntimeArtifactSet = {
+    id: 'replacement-fixture-set',
+    createdAt: 2,
+    artifacts: [{ ...artifact, id: 'c'.repeat(64) }],
+  }
   const manager = new RuntimeManager({
     instanceId: 'receipt-consumer',
     sweepMs: 60_000,
     artifacts: {
       artifactSet: (id) => {
-        if (id !== set.id) throw new Error('Unknown fixture set')
-        return set
+        if (id === set.id) return set
+        if (id === replacement.id) return replacement
+        throw new Error('Unknown fixture set')
       },
-      preparedSets: () => [set.id],
+      preparedSets: () => [set.id, replacement.id],
     },
     references: () => ({ runs: refs, resources: 0, tools: 0 }),
     canConsumeRetirement: () => allow,
@@ -119,6 +125,7 @@ async function fixture(idle: boolean) {
         refs = value
       },
       reconcile: () => consumer.reconcile((generation, owner) => manager.consumeRetirementReceipt(generation, owner)),
+      replace: () => manager.reload(replacement.id, ['fixture']),
     }
   } catch (initializationError: unknown) {
     try {
@@ -134,11 +141,54 @@ async function fixture(idle: boolean) {
   }
 }
 
+test('late old-incarnation native proof remains consumable after its recovered generation is replaced', async () => {
+  const f = await fixture(false)
+  try {
+    const old = f.runtime.owner()
+    f.allow(false)
+    await expect(f.runtime.call('fixture.crash', undefined, z.undefined())).rejects.toMatchObject({
+      code: 'IPC_DISCONNECTED',
+    })
+    await until(() => f.runtime.snapshot().phase === 'serving' && !same(f.runtime.owner(), old))
+    expect(f.consumer.physicalReceipt(old)).toMatchObject({ owner: old, nativeJoined: true, onExitCompleted: true })
+    const recovered = f.runtime.owner()
+    const replacement = f.replace()
+    await until(() => f.manager.getReload(replacement.operationId).phase === 'completed')
+    expect(f.runtime.snapshot().phase).toBe('disposed')
+    const current = f.manager.defaultOwner('fixture')
+    expect(current.generation).toBeGreaterThan(recovered.generation)
+    expect(f.consumer.physicalReceipt(old)).not.toBeNull()
+    await f.reconcile()
+    expect(f.runtime.retirementReceipt(old)).not.toBeNull()
+    f.allow(true)
+    f.refs(1)
+    await f.reconcile()
+    expect(f.runtime.retirementReceipt(old)).not.toBeNull()
+    f.refs(0)
+    await f.reconcile()
+    expect(f.manager.retirement(old)).toMatchObject({ status: 'retired', owner: old, ownerCleanupCompleted: true })
+    expect(f.runtime.retirementReceipt(old)).not.toBeNull()
+    expect(f.manager.acknowledgeRetirement(old)).toBe(true)
+    await f.reconcile()
+    expect(f.runtime.retirementReceipt(old)).toBeNull()
+    expect(f.consumer.physicalReceipt(old)).toBeNull()
+    expect(f.cleanups.filter((owner) => same(owner, old))).toHaveLength(1)
+    expect(f.manager.defaultOwner('fixture')).toEqual(current)
+    expect(await f.manager.call('fixture', 'fixture.echo', 'replacement-still-serving', z.string())).toBe(
+      'replacement-still-serving',
+    )
+  } finally {
+    await f.manager.close()
+  }
+}, 30_000)
+
 test('Host queue and Manager consume twenty actual recovered incarnations only after consumer/refs gates', async () => {
   const f = await fixture(false)
+  const intendedOwners: RuntimeOwner[] = []
   try {
     for (let index = 0; index < 20; index++) {
       const old = f.runtime.owner()
+      intendedOwners.push(old)
       f.allow(false)
       await expect(f.runtime.call('fixture.crash', undefined, z.undefined())).rejects.toMatchObject({
         code: 'IPC_DISCONNECTED',
@@ -152,11 +202,50 @@ test('Host queue and Manager consume twenty actual recovered incarnations only a
       expect(f.runtime.retirementReceipt(old)).not.toBeNull()
       f.refs(0)
       await f.reconcile()
+      expect(f.runtime.retirementReceipt(old)).not.toBeNull()
+      expect(f.manager.retirement(old)).toMatchObject({
+        status: 'retired',
+        owner: old,
+        physical: { owner: old, nativeJoined: true, onExitCompleted: true },
+        ownerCleanupCompleted: true,
+      })
+      expect(f.manager.acknowledgeRetirement(old)).toBe(true)
+      await f.reconcile()
       expect(f.runtime.retirementReceipt(old)).toBeNull()
       expect(f.cleanups.filter((value) => same(value, old))).toHaveLength(1)
       expect(await f.runtime.call('fixture.echo', `business-${index}`, z.string())).toBe(`business-${index}`)
     }
-    expect(f.observed).toHaveLength(20)
+    expect(intendedOwners).toHaveLength(20)
+    const intendedReceipts = f.observed.filter((receipt) => intendedOwners.some((owner) => same(owner, receipt.owner)))
+    expect(intendedReceipts).toHaveLength(20)
+    for (const owner of intendedOwners)
+      expect(intendedReceipts.find((receipt) => same(receipt.owner, owner))).toMatchObject({
+        owner,
+        exitCode: 23,
+        nativeJoined: true,
+        onExitCompleted: true,
+      })
+    expect(new Set(f.observed.map((receipt) => JSON.stringify(receipt.owner))).size).toBe(f.observed.length)
+    // A separately observed heartbeat/transport retirement is also real ownership evidence.
+    // Keep all twenty intentional crash receipts exact; never drop an additional receipt to fit that count.
+    await f.reconcile()
+    for (const receipt of f.observed.filter((value) => !intendedOwners.some((owner) => same(owner, value.owner)))) {
+      console.error(JSON.stringify({ event: 'test.native_additional_physical_retirement', receipt }))
+      expect(receipt).toMatchObject({ nativeJoined: true, onExitCompleted: true })
+      expect(f.runtime.retirementReceipt(receipt.owner)).not.toBeNull()
+      expect(f.manager.retirement(receipt.owner)).toMatchObject({
+        status: 'retired',
+        owner: receipt.owner,
+        physical: receipt,
+        ownerCleanupCompleted: true,
+      })
+      expect(f.manager.acknowledgeRetirement(receipt.owner)).toBe(true)
+    }
+    await f.reconcile()
+    for (const receipt of f.observed) {
+      expect(f.runtime.retirementReceipt(receipt.owner)).toBeNull()
+      expect(f.cleanups.filter((owner) => same(owner, receipt.owner))).toHaveLength(1)
+    }
     expect(f.consumer.snapshot()).toEqual([])
   } finally {
     await f.manager.close()
@@ -225,9 +314,12 @@ test('ordinary recovered owner cleanup records demand.cleaned before consuming i
     })
     await until(() => f.runtime.snapshot().phase === 'serving' && !same(f.runtime.owner(), old))
     await f.reconcile()
-    expect(f.runtime.retirementReceipt(old)).toBeNull()
+    expect(f.runtime.retirementReceipt(old)).not.toBeNull()
     const proof = await f.manager.reconcileDemandHold(hold.attemptId)
     expect(proof).toMatchObject({ attemptId: hold.attemptId, canRelease: true })
+    expect(f.manager.acknowledgeRetirement(old)).toBe(true)
+    await f.reconcile()
+    expect(f.runtime.retirementReceipt(old)).toBeNull()
     expect(await f.runtime.call('fixture.echo', 'new-owner-still-serving', z.string())).toBe('new-owner-still-serving')
   } finally {
     hold.release()
@@ -262,6 +354,11 @@ test('successor actual IPC in flight does not retain the physically retired pred
     expect(settled).toBe(false)
     expect(f.runtime.snapshot().references.requests).toBeGreaterThan(0)
     expect(f.runtime.owner()).toEqual(successor)
+    expect(f.runtime.retirementReceipt(old)).not.toBeNull()
+    expect(f.manager.acknowledgeRetirement(old)).toBe(true)
+    await f.reconcile()
+    expect(settled).toBe(false)
+    expect(f.runtime.snapshot().references.requests).toBeGreaterThan(0)
     expect(f.runtime.retirementReceipt(old)).toBeNull()
     expect(f.cleanups.filter((value) => same(value, old))).toHaveLength(1)
     expect(await inFlight).toBeGreaterThan(0)
@@ -308,10 +405,32 @@ test('one failing consumer retains its actual native proof without starving anot
       if (!(reported instanceof AggregateError)) throw new Error('Missing aggregate consumption failure')
       expect(reported.errors).toEqual([failure])
       expect(first.runtime.retirementReceipt(firstOld)).not.toBeNull()
+      expect(second.runtime.retirementReceipt(secondOld)).not.toBeNull()
+      expect(second.manager.retirement(secondOld)).toMatchObject({
+        status: 'retired',
+        owner: secondOld,
+        ownerCleanupCompleted: true,
+      })
+      expect(second.manager.acknowledgeRetirement(secondOld)).toBe(true)
+      // The blocked domain must not prevent another domain from finishing its exact ACK handoff.
+      await expect(
+        combined.reconcile((process, owner) => {
+          if (same(owner, firstOld)) throw failure
+          return second.manager.consumeRetirementReceipt(process, owner)
+        }),
+      ).rejects.toBeInstanceOf(AggregateError)
       expect(second.runtime.retirementReceipt(secondOld)).toBeNull()
       expect(combined.snapshot()).toEqual([firstOld])
       expect(second.cleanups.filter((value) => same(value, secondOld))).toHaveLength(1)
       expect(await second.runtime.call('fixture.echo', 'independent-domain', z.string())).toBe('independent-domain')
+      await combined.reconcile((process, owner) => first.manager.consumeRetirementReceipt(process, owner))
+      expect(first.runtime.retirementReceipt(firstOld)).not.toBeNull()
+      expect(first.manager.retirement(firstOld)).toMatchObject({
+        status: 'retired',
+        owner: firstOld,
+        ownerCleanupCompleted: true,
+      })
+      expect(first.manager.acknowledgeRetirement(firstOld)).toBe(true)
       await combined.reconcile((process, owner) => first.manager.consumeRetirementReceipt(process, owner))
       expect(first.runtime.retirementReceipt(firstOld)).toBeNull()
       expect(combined.snapshot()).toEqual([])

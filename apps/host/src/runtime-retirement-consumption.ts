@@ -1,6 +1,6 @@
 import { HbarError } from '@hbar/contracts'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
-import type { ManagedProcess } from '@hbar/runtime'
+import type { ManagedProcess, RuntimePhysicalRetirementReceipt } from '@hbar/runtime'
 
 type ReceiptProcess = ManagedProcess
 interface Pending {
@@ -67,5 +67,12 @@ export class HostRetirementConsumption {
   }
   snapshot(): readonly RuntimeOwner[] {
     return [...this.pending.values()].map((value) => ({ ...value.owner }))
+  }
+  /** Read the still-retained exact native receipt without consuming or waking its owner. */
+  physicalReceipt(owner: RuntimeOwner): RuntimePhysicalRetirementReceipt | null {
+    const receipt = this.pending.get(key(owner))?.process.retirementReceipt(owner)
+    return receipt && key(receipt.owner) === key(owner) && receipt.nativeJoined && receipt.onExitCompleted
+      ? structuredClone(receipt)
+      : null
   }
 }

@@ -50,6 +50,12 @@ async function blockedKernel(activatedFailure = false) {
     workspace: root,
     buildUnits,
     watchSource: activatedFailure,
+    diagnostics: {
+      emit(event) {
+        if (event.event === 'host.runtime_startup_failed')
+          console.error(JSON.stringify({ fixture: 'runtime-startup', ...event }))
+      },
+    },
   })
   return { root, gate, source, code, runtime }
 }
@@ -122,7 +128,26 @@ test('first-start Kernel failure keeps liveness, authenticated status and the so
     const pids = before.units.flatMap((unit) =>
       unit.generations.filter((g) => g.role === 'default').map((g) => [unit.descriptor.id, g.pid] as const),
     )
-    expect(pids).toHaveLength(13)
+    expect(before.units.map((unit) => unit.descriptor.id).sort()).toEqual(
+      hostRuntimeBuildUnits()
+        .map((unit) => unit.descriptor.id)
+        .sort(),
+    )
+    expect(pids.map(([id]) => id).sort()).toEqual(
+      hostRuntimeBuildUnits()
+        .filter((unit) => !['kernel', 'maintenance', 'driver.pi'].includes(unit.descriptor.id))
+        .map((unit) => unit.descriptor.id)
+        .sort(),
+    )
+    expect(pids.every(([, pid]) => typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 0)).toBe(true)
+    const driver = before.units.find((unit) => unit.descriptor.id === 'driver.pi')
+    expect(driver).toMatchObject({
+      generations: [],
+      queuedArtifactId: null,
+      idle: { phase: 'dormant', demandHolds: 0, checkpointPending: false, enabled: false },
+    })
+    expect(driver?.idle?.selectedArtifactId).toBeString()
+    expect(driver?.idle?.selectedArtifactId?.length).toBeGreaterThan(0)
     const nodeLinkDefaults = before.units
       .find((unit) => unit.descriptor.id === 'node-link')
       ?.generations.filter((generation) => generation.role === 'default')
@@ -158,6 +183,10 @@ test('first-start Kernel failure keeps liveness, authenticated status and the so
     const after = await commands.execute('system.runtime.get', {})
     expect(after.ready).toBe(true)
     expect(after.instanceId).toBe(before.instanceId)
+    expect(after.units.find((unit) => unit.descriptor.id === 'driver.pi')).toMatchObject({
+      generations: [],
+      idle: { phase: 'dormant', demandHolds: 0 },
+    })
     expect((await host.auth.authenticate(device.token)).id).toBe(device.device.id)
     expect(client.connectionStatus()).toBe('connected')
     for (const [id, pid] of pids)
