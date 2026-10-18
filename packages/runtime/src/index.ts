@@ -111,3 +111,10 @@ export {
   type DemandPhase,
   type DemandSnapshot,
 } from './runtime-demand-lifecycle'
+
+export {
+  RuntimeBuildProcessOwner,
+  type RuntimeBuildProcessOptions,
+  type RuntimeBuildProcessReceipt,
+  type RuntimeBuildProcessSnapshot,
+} from './process-builder'
