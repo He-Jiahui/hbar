@@ -199,7 +199,6 @@ export class RuntimeScheduleAlarmTransfer {
       this.stopped ||
       this.offered ||
       this.held ||
-      state.inFlight ||
       state.inFlightFenced ||
       !transfer ||
       transfer.phase !== 'armed' ||
@@ -210,8 +209,24 @@ export class RuntimeScheduleAlarmTransfer {
     if (
       !alarm ||
       (alarm.phase !== 'queued' && alarm.phase !== 'running') ||
+      alarm.alarm.key !== 'controller:schedule' ||
       alarm.alarm.id !== transfer.ack.token ||
-      alarm.alarm.version !== transfer.ack.version
+      alarm.alarm.version !== transfer.ack.version ||
+      alarm.alarm.epoch !== transfer.ack.epoch
+    )
+      return null
+    // The original due attempt may be acquiring the cold successor. Its
+    // pre-serving restoration needs this same frozen checkpoint; no RPC has
+    // been dispatched until acquire returns and held is installed. UNKNOWN and
+    // a physically held wake still reject this metadata-only lookup above.
+    const flight = state.inFlight
+    if (
+      flight &&
+      (alarm.phase !== 'running' ||
+        flight.key !== alarm.alarm.key ||
+        flight.id !== alarm.alarm.id ||
+        flight.version !== alarm.alarm.version ||
+        flight.epoch !== alarm.alarm.epoch)
     )
       return null
     const catalog = this.ports.catalog()

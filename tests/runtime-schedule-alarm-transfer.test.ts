@@ -618,6 +618,52 @@ test('pause after accepted physical wake neither aborts its signal nor releases 
   }
 })
 
+test('due alarm keeps its original restoration checkpoint readable while acquiring the successor', async () => {
+  const f = fixture()
+  const acquiring = deferred<DemandLease>()
+  const awake = { ...owner, generation: 2, incarnation: 'controller-due-successor' }
+  let releases = 0
+  let wakes = 0
+  const transfer = new RuntimeScheduleAlarmTransfer(
+    'parent-epoch',
+    {
+      acquire: () => acquiring.promise,
+      catalog: () => ({ revision: catalogRevision, databaseIds: [databaseId] }),
+      wake: () => {
+        wakes++
+        return Promise.resolve({ kind: 'settled', manifest: f.read() })
+      },
+      physicalExit: () => Promise.resolve('unknown'),
+    },
+    f.clock,
+  )
+  try {
+    const manifest = f.read()
+    const ack = transfer.offer(owner, manifest)
+    transfer.commit(owner, ack, manifest)
+    transfer.activate(owner, ack)
+    f.clock.advance(2000)
+    await Promise.resolve()
+    expect(transfer.peek().alarm.inFlight).not.toBeNull()
+    expect(transfer.peek().physicalOwner).toBeNull()
+    expect(transfer.restoreAck(owner)).toEqual(ack)
+    expect(transfer.restoreManifest(owner, ack)).toEqual(manifest)
+    expect(transfer.restoreAck(awake)).toBeNull()
+    expect(wakes).toBe(0)
+    acquiring.resolve({ owner: awake, release: () => releases++ })
+    await transfer.whenSettled()
+    expect(wakes).toBe(1)
+    expect(releases).toBe(1)
+    expect(transfer.peek().committed?.phase).toBe('delivered')
+    expect(transfer.restoreAck(owner)).toBeNull()
+  } finally {
+    acquiring.resolve({ owner: awake, release: () => releases++ })
+    transfer.stop()
+    await transfer.whenSettled()
+    f.db.close()
+  }
+})
+
 test('pure restore ACK requires armed exact old owner and live catalog, and wrong foreground identity dispatches nothing', async () => {
   const f = fixture()
   const awake = { ...owner, generation: 2, incarnation: 'controller-awake' }
