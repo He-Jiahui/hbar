@@ -385,7 +385,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       readonly owner: RuntimeOwner
       readonly hold: HostRuntimeDemandHold | undefined
       readonly proofPin: { release(): void }
-      readonly queueProofHold: HostRuntimeDemandHold | undefined
+      readonly queueProofHold: { release(): void } | undefined
     }
   >()
   private readonly deadlineReconciles = new Map<string, Promise<void>>()
@@ -1534,17 +1534,30 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     let ack: SessionWakeAck | null = null
     let checkpointHold: HostRuntimeDemandHold | undefined
     let proofPin: { release(): void } | null = null
-    let queueProofHold: HostRuntimeDemandHold | undefined
+    let queueProofHold: { release(): void } | undefined
     let emptyProofRegistered = false
     try {
       trace.at('preview')
       // A null cache is not an empty queue. Establish its real same-owner proof
       // before preview, which itself requires that proof and cannot refresh it.
       if (this.storage.snapshot().queuedSessionCount === null) {
-        queueProofHold = await this.demand.acquire(['storage'], signal)
+        const before = this.storage.snapshot()
+        let storageOwner: RuntimeOwner | undefined
+        if (before.phase === 'serving' && before.owner) {
+          // This internal checkpoint is not new business demand. Pin the exact
+          // already-serving writer without resetting its inactivity deadline.
+          // A concurrent retirement stays busy; never wake a replacement here.
+          const pin = this.manager.tryPinServingOwners([before.owner])
+          if (!pin) return trace.result('busy')
+          queueProofHold = pin
+          storageOwner = before.owner
+        } else {
+          // An actually cold writer still needs ordinary bounded admission.
+          const hold = await this.demand.acquire(['storage'], signal)
+          queueProofHold = hold
+          storageOwner = hold.owners.find((value) => value.unitId === 'storage')
+        }
         signal.throwIfAborted()
-        this.assertDemandOwners(queueProofHold.owners)
-        const storageOwner = queueProofHold.owners.find((value) => value.unitId === 'storage')
         const installed = this.storage.snapshot()
         if (
           !storageOwner ||
@@ -1553,9 +1566,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           !this.sameStorageOwner(storageOwner, installed.owner)
         )
           return trace.result('busy')
+        this.assertDemandOwners([storageOwner])
         const queued = await this.storage.call('queuedSessions')
         signal.throwIfAborted()
-        this.assertDemandOwners(queueProofHold.owners)
+        this.assertDemandOwners([storageOwner])
         const proof = this.storage.snapshot()
         if (
           queued.length ||
