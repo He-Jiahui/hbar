@@ -83,7 +83,8 @@ async function syncRuntimeDependencies(
   outputDirectory: string,
   operations: HostRuntimePublisherOperations,
 ): Promise<RuntimeDependency[]> {
-  const project = resolve(projectDirectory)
+  // createRequire can resolve through fallback locations even when this project does not exist.
+  const project = await realpath(resolve(projectDirectory))
   const output = resolve(outputDirectory)
   const browserRequire = createRequire(join(project, 'plugins/browser-use/package.json'))
   const playwrightManifest = browserRequire.resolve('playwright/package.json')
