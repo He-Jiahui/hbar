@@ -72,7 +72,8 @@ import {
   type RuntimeArtifactSet,
   type RuntimeBuildUnit,
 } from '@hbar/runtime'
-import { buildRuntimeArtifact, createRuntimeSourceReload, runtimeSourceRoots, watchRuntimeSources } from '@hbar/runtime'
+import { createRuntimeSourceReload, runtimeSourceRoots, watchRuntimeSources } from '@hbar/runtime'
+import { HostRuntimeCompiler, type HostRuntimeCompilerOptions } from './runtime-compiler'
 import {
   Storage,
   StableStoragePort,
@@ -106,7 +107,7 @@ import { createRuntimeControllerServices } from './runtime-controller-services'
 import { RUNTIME_COMMAND_JOB_CONTROLS } from './runtime-command-job-contract'
 import { RuntimeStatusFeed } from './runtime-status-feed'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
-import { hostRuntimeProcessCommand } from './runtime-package'
+import { hostRuntimeProcessCommand, hostRuntimeBuildProcessCommand } from './runtime-package'
 import { recoverRuntimeStartup } from './runtime-startup'
 import { recordRuntimeStartupFailure, RuntimeStartupDiagnostics } from './runtime-startup-diagnostics'
 import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
@@ -139,6 +140,8 @@ export interface ProcessHostRuntimeOptions {
   readonly secrets?: SecretStore
   readonly sourceRoot?: string
   readonly processCommand?: readonly [string, ...string[]]
+  /** Local composition only. Complete source, emitted JS or compiled command; no failure fallback. */
+  readonly compiler?: HostRuntimeCompilerOptions
   /** Trusted immutable build content, supplied by the packaged entry rather than a remote reload request. */
   readonly artifactPackage?: RuntimeArtifactPackage
   readonly profileModule?: string
@@ -286,6 +289,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     return this.commandDiscovery.attach(port)
   }
   private readonly processTree = createRuntimeProcessTreePort()
+  private readonly compiler: HostRuntimeCompiler
+  /** Pure compiler diagnostics: reading does not build, reconcile or wake a runtime unit. */
+  compilerSnapshot(): ReturnType<HostRuntimeCompiler['snapshot']> {
+    return this.compiler.snapshot()
+  }
+  /** Retains the same compiler owner after a failed shutdown or source build. */
+  async reconcileCompiler(): Promise<ReturnType<HostRuntimeCompiler['snapshot']>> {
+    return await this.compiler.reconcile()
+  }
   private commandMutationState: CommandMutationState | null = null
   private readonly commandMutationAdmission = new CommandMutationAdmission(
     this.storage,
@@ -420,6 +432,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     readonly instanceId = crypto.randomUUID(),
   ) {
     this.startupDiagnostics = new RuntimeStartupDiagnostics(options.diagnostics, process.pid)
+    this.compiler = new HostRuntimeCompiler(
+      options.compiler ??
+        (process.platform === 'win32' && !options.artifactPackage
+          ? { mode: 'process', processTree: this.processTree, command: hostRuntimeBuildProcessCommand() }
+          : { mode: 'worker' }),
+    )
     this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
     this.artifacts = new RuntimeArtifactStore(
       join(options.layout.cacheRoot, 'runtime-artifacts'),
@@ -1135,25 +1153,39 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.disposeSource()
     this.deferredWakeups.close()
     this.sourceAbort.abort()
-    await this.settingsSchedulingRefresh
-    await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
-    await this.sourceTask
     clearInterval(this.sweep)
-    for (const record of this.generations.values())
-      if (record.artifact.unitId === 'kernel') await record.process.dispose()
-    await this.storage.close()
-    await this.manager.close()
-    await this.startupTask?.catch(() => {})
-    await this.transitions
-    this.facade.dispose()
+    const compilerClose = this.compiler.close().then(
+      () => undefined,
+      (error: unknown) => ({ error }),
+    )
+    let primary: { error: unknown } | undefined
+    try {
+      await this.settingsSchedulingRefresh
+      await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
+      await this.sourceTask
+      for (const record of this.generations.values())
+        if (record.artifact.unitId === 'kernel') await record.process.dispose()
+      await this.storage.close()
+      await this.manager.close()
+      await this.startupTask?.catch(() => {})
+      await this.transitions
+      this.facade.dispose()
+    } catch (error) {
+      primary = { error }
+    }
+    const cleanup = await compilerClose
+    if (primary && cleanup) throw new AggregateError([primary.error, cleanup.error], 'Host shutdown failed')
+    if (primary) throw primary.error
+    if (cleanup) throw cleanup.error
   }
   private async buildInitial(): Promise<RuntimeArtifact[]> {
+    await this.compiler.prepare()
     const artifacts: RuntimeArtifact[] = []
     for (let offset = 0; offset < this.buildUnits.length; offset += 2) {
       const batch = await Promise.allSettled(
         this.buildUnits
           .slice(offset, offset + 2)
-          .map((unit) => buildRuntimeArtifact(this.artifacts, unit, this.sourceAbort.signal)),
+          .map((unit) => this.compiler.build(this.artifacts, unit, this.sourceAbort.signal)),
       )
       for (const result of batch) {
         if (result.status === 'rejected') throw result.reason
@@ -1165,11 +1197,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async watchSource(): Promise<void> {
     if (this.options.artifactPackage)
       throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Packaged runtime source watching is unavailable')
-    this.sourceBaseline = await buildRuntimeArtifact(
-      this.artifacts,
-      hostRuntimeBaseBuildUnit(),
-      this.sourceAbort.signal,
-    )
+    await this.compiler.prepare()
+    this.sourceBaseline = await this.compiler.build(this.artifacts, hostRuntimeBaseBuildUnit(), this.sourceAbort.signal)
     this.sourceState = {
       revision: 0,
       phase: 'idle',
@@ -1266,6 +1295,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
     const built: RuntimeArtifact[] = []
     try {
+      await this.compiler.prepare()
       for (let offset = 0; offset < affected.length; offset += 2) {
         const batch = affected
           .slice(offset, offset + 2)
@@ -1273,7 +1303,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         const result = await Promise.allSettled(
           batch.map((unit) => {
             if (!unit) throw new HbarError('RUNTIME_UNIT_NOT_FOUND', 'Changed source has no registered build unit')
-            return buildRuntimeArtifact(this.artifacts, unit, this.sourceAbort.signal)
+            return this.compiler.build(this.artifacts, unit, this.sourceAbort.signal)
           }),
         )
         for (const item of result) {
