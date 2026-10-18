@@ -252,7 +252,11 @@ export class RuntimeDemandLifecycle {
     if (unit.retiring) return unit.retiring
     if (unit.phase === 'sleeping') return Promise.resolve({ kind: 'confirmed-physical-exit' })
     if (unit.startController || unit.phase === 'starting' || unit.leases.size) return Promise.resolve({ kind: 'busy' })
+    const idleSince = unit.idleSince
     this.cancelIdle(unit)
+    // A technical checkpoint attempt is not new business activity. Keep the
+    // original idle deadline unless acquire() admits a real waiter meanwhile.
+    unit.idleSince = idleSince
     unit.phase = 'quiescing'
     // Publish the singleflight promise before invoking any reentrant external port.
     unit.retiring = Promise.resolve()
@@ -294,7 +298,12 @@ export class RuntimeDemandLifecycle {
   }
   private idle(unit: Unit): void {
     if (this.stopped || unit.phase !== 'awake' || unit.leases.size || unit.waiters.size || unit.timer) return
-    unit.idleSince = this.clock.now()
+    const now = this.clock.now()
+    unit.idleSince ??= now
+    const remaining = unit.idleSince + unit.idleTimeoutMs - now
+    // Retry a known-open busy owner at most once per second after its TTL.
+    // UNKNOWN remains blocked; this never grants retirement without port proof.
+    const delayMs = remaining > 0 ? remaining : Math.min(unit.idleTimeoutMs, 1000)
     const epoch = ++unit.timerEpoch
     unit.timer = this.clock.schedule(() => {
       if (epoch !== unit.timerEpoch || this.stopped) return
@@ -305,7 +314,7 @@ export class RuntimeDemandLifecycle {
         unit.phase = 'blocked'
         this.rejectWaiters(unit, 'BLOCKED')
       })
-    }, unit.idleTimeoutMs)
+    }, delayMs)
   }
   private deliver(unit: Unit): void {
     if (this.stopped || unit.phase !== 'awake' || !unit.owner) return
@@ -456,6 +465,7 @@ export class RuntimeDemandLifecycle {
     }
     if (result.kind === 'confirmed-physical-exit') {
       unit.owner = null
+      unit.idleSince = null
       this.releaseDependencies(unit)
       unit.phase = 'sleeping'
       this.kick(unit)

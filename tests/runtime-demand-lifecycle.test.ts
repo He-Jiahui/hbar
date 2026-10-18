@@ -93,6 +93,62 @@ function harness() {
   }
 }
 describe('RuntimeDemandLifecycle actual coordinator behavior', () => {
+  test('technical busy retirement preserves expired business TTL and retries without another full idle period', async () => {
+    const h = harness()
+    let busy = true
+    h.setRetire(() => Promise.resolve(busy ? { kind: 'busy' } : { kind: 'confirmed-physical-exit' }))
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'a', idleTimeoutMs: 30_000 })
+    const lease = await lifecycle.acquire('a')
+    lease.release()
+    try {
+      h.clock.advance(30_000)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      expect(row(lifecycle).phase).toBe('awake')
+      expect(row(lifecycle).idleSince).toBe(0)
+      expect(h.clock.pending()).toBe(1)
+      busy = false
+      h.clock.advance(1000)
+      await pump()
+      expect(h.retirements).toHaveLength(2)
+      expect(row(lifecycle).phase).toBe('sleeping')
+      expect(h.clock.pending()).toBe(0)
+    } finally {
+      lifecycle.stop()
+    }
+  })
+  test('actual demand during a technical busy retry starts a fresh full idle period after release', async () => {
+    const h = harness()
+    let busy = true
+    h.setRetire(() => Promise.resolve(busy ? { kind: 'busy' } : { kind: 'confirmed-physical-exit' }))
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'a', idleTimeoutMs: 30_000 })
+    const first = await lifecycle.acquire('a')
+    first.release()
+    try {
+      h.clock.advance(30_000)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      const second = await lifecycle.acquire('a')
+      h.clock.advance(10_000)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      expect(row(lifecycle).pins).toBe(1)
+      second.release()
+      busy = false
+      h.clock.advance(29_999)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      h.clock.advance(1)
+      await pump()
+      expect(h.retirements).toHaveLength(2)
+      expect(row(lifecycle).phase).toBe('sleeping')
+      expect(h.starts).toHaveLength(1)
+    } finally {
+      lifecycle.stop()
+    }
+  })
   test('TTL starts only after release; pure snapshots do not extend it', async () => {
     const h = harness(),
       lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
