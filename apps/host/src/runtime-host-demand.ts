@@ -1,4 +1,5 @@
 import { HbarError } from '@hbar/contracts'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { runtimeUnitDescriptorSchema, type RuntimeOwner, type RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import {
   RuntimeDemandLifecycle,
@@ -6,6 +7,7 @@ import {
   type DemandLease,
   type DemandOwner,
   type DemandSnapshot,
+  type RetireResult,
   type RuntimeManager,
 } from '@hbar/runtime'
 
@@ -68,6 +70,7 @@ function sameOwner(left: DemandOwner, right: RuntimeOwner): boolean {
  * Exact Run/resource/physical IPC authority remains checked by Manager and each process.
  */
 export class HostRuntimeDemand implements HostRuntimeDemandPort {
+  private readonly activity = new AsyncLocalStorage<'business' | 'background'>()
   private readonly descriptors = new Map<string, RuntimeUnitDescriptor>()
   private readonly lifecycle: RuntimeDemandLifecycle
   private readonly failedStarts = new Map<string, FailedStart>()
@@ -173,29 +176,30 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
             return { kind: 'unknown', owner }
           }
         },
-        retire: async (input) => {
-          const released = this.releasedStarts.get(input.unitId)
-          if (released?.attempt === input.attempt && !input.owner && !released.owner) {
-            // Exact attempt proof establishes no surviving process owned by THIS start,
-            // not absence/retirement of unrelated already-serving owners.
-            this.releasedStarts.delete(input.unitId)
-            return { kind: 'confirmed-physical-exit' }
-          }
-          if (!input.owner) return { kind: 'unknown' }
-          if (this.proven(input.owner)) {
-            this.releasedStarts.delete(input.unitId)
-            this.acknowledgements.set(input.unitId, input.owner)
-            return { kind: 'confirmed-physical-exit' }
-          }
-          if (this.failedStarts.has(input.unitId)) return { kind: 'unknown' }
-          const outcome = await options.manager.retireIdle(input.unitId, input.owner)
-          if (outcome === 'sleeping' || outcome === 'retired') {
-            if (!this.proven(input.owner)) return { kind: 'unknown' }
-            this.acknowledgements.set(input.unitId, input.owner)
-            return { kind: 'confirmed-physical-exit' }
-          }
-          return { kind: outcome }
-        },
+        retire: (input) =>
+          this.withBackground(async (): Promise<RetireResult> => {
+            const released = this.releasedStarts.get(input.unitId)
+            if (released?.attempt === input.attempt && !input.owner && !released.owner) {
+              // Exact attempt proof establishes no surviving process owned by THIS start,
+              // not absence/retirement of unrelated already-serving owners.
+              this.releasedStarts.delete(input.unitId)
+              return { kind: 'confirmed-physical-exit' }
+            }
+            if (!input.owner) return { kind: 'unknown' }
+            if (this.proven(input.owner)) {
+              this.releasedStarts.delete(input.unitId)
+              this.acknowledgements.set(input.unitId, input.owner)
+              return { kind: 'confirmed-physical-exit' }
+            }
+            if (this.failedStarts.has(input.unitId)) return { kind: 'unknown' }
+            const outcome = await options.manager.retireIdle(input.unitId, input.owner)
+            if (outcome === 'sleeping' || outcome === 'retired') {
+              if (!this.proven(input.owner)) return { kind: 'unknown' }
+              this.acknowledgements.set(input.unitId, input.owner)
+              return { kind: 'confirmed-physical-exit' }
+            }
+            return { kind: outcome }
+          }),
       },
       options.clock,
       {
@@ -297,10 +301,19 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
     // Never reinterpret a missing generation, sleeping owner, or UNKNOWN as this state.
   }
 
-  acquire(unitIds: readonly string[], signal: AbortSignal): Promise<HostRuntimeDemandHold> {
+  /** Only trusted parent checkpoints and authenticated Controller background calls enter this scope. */
+  withBackground<Result>(operation: () => Result): Result {
+    return this.activity.run('background', operation)
+  }
+
+  acquire(
+    unitIds: readonly string[],
+    signal: AbortSignal,
+    activity: 'business' | 'background' = this.activity.getStore() ?? 'business',
+  ): Promise<HostRuntimeDemandHold> {
     if (!this.adopted)
       return Promise.reject(new HbarError('RUNTIME_INITIALIZING', 'Runtime demand bootstrap is incomplete'))
-    return this.acquireInternal(unitIds, signal)
+    return this.activity.run(activity, () => this.acquireInternal(unitIds, signal, undefined, activity))
   }
 
   /** Composition-root startup only. It adopts already serving dependencies; it
@@ -550,6 +563,7 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
     unitIds: readonly string[],
     signal: AbortSignal,
     bootstrapOwners?: readonly RuntimeOwner[],
+    activity: 'business' | 'background' = 'business',
   ): Promise<HostRuntimeDemandHold> {
     this.assertOpen(signal)
     if (this.pending.size + this.quarantined.size >= this.maximumOperations)
@@ -563,7 +577,7 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
       if (!bootstrapOwners) {
         for (const id of ids) {
           this.assertOpen(signal)
-          const lease = await this.lifecycle.acquire(id, signal)
+          const lease = await this.lifecycle.acquire(id, signal, activity)
           pending.leases.push(lease)
         }
       }

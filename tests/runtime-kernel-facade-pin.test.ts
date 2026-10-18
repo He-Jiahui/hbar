@@ -1,9 +1,13 @@
 import { expect, test } from 'bun:test'
+import { AsyncLocalStorage } from 'node:async_hooks'
+import { CommandRegistry } from '@hbar/commands'
 import { IpcPeer, RuntimeCoordinator, RuntimeValuePort } from '@hbar/runtime'
 import { runtimeGenerationSchema, type RuntimeOwner } from '@hbar/contracts/runtime'
 import { runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
 import { createPathLayout, StableStoragePort } from '@hbar/storage'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint } from '../apps/host/src/runtime-kernel-facade'
+import { RuntimeControllerAdapter } from '../apps/host/src/runtime-controller-adapter'
+import { runtimeControllerScopeSchema } from '../apps/host/src/runtime-controller-contract'
 
 function endpoint(generation: number) {
   const owner: RuntimeOwner = { unitId: 'kernel', generation, incarnation: `facade-kernel-${generation}` }
@@ -78,6 +82,133 @@ function endpoint(generation: number) {
     },
   }
 }
+
+function backgroundFacade() {
+  const selected = endpoint(1)
+  const activity = new AsyncLocalStorage<'background'>()
+  const observed: string[] = []
+  let release = () => {}
+  let entered = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const started = new Promise<void>((resolve) => {
+    entered = resolve
+  })
+  let first = true
+  const facade = new RuntimeKernelFacade({
+    instanceId: 'background-facade-fixture',
+    layout: createPathLayout('D:/fixture-data', 'D:/fixture-cache', 'D:/fixture-pointer.json'),
+    demo: false,
+    storage: new StableStoragePort(),
+    coordinator: new RuntimeCoordinator({
+      async claim(lease) {
+        return lease
+      },
+      async release() {},
+      async revoke() {},
+    }),
+    current: () => selected.value,
+    endpoints: () => [selected.value],
+    resolve: (_target, _method, _args, captured) => captured ?? selected.value,
+    maintain: (action) => action(),
+    withCall: async (_target, _method, _args, _captured, operation) => {
+      observed.push(activity.getStore() ?? 'business')
+      if (first) {
+        first = false
+        entered()
+        await gate
+      }
+      return operation()
+    },
+  })
+  let child!: IpcPeer
+  const parent = new IpcPeer({
+    owner: { unitId: 'base', generation: 1, incarnation: 'background-base' },
+    remote: { unitId: 'controller', generation: 1, incarnation: 'background-controller' },
+    transport: { send: (frame) => queueMicrotask(() => child.receive(structuredClone(frame))) },
+  })
+  child = new IpcPeer({
+    owner: parent.remote,
+    remote: parent.owner,
+    transport: { send: (frame) => queueMicrotask(() => parent.receive(structuredClone(frame))) },
+  })
+  const registry = new CommandRegistry({ execution: 'host' })
+  const values = new RuntimeValuePort(child, { prefix: 'controller.application' })
+  let defaultOwner = true
+  const adapter = new RuntimeControllerAdapter(parent, {
+    kernel: facade.api,
+    maintenance: {
+      dispatch: (value, actorId) => registry.dispatch(value, { actorId }),
+      describe: (id) => registry.describe(id),
+      list: () => registry.list(),
+      dispose: () => registry.dispose(),
+    },
+    projection: () => selected.value.state,
+    background: () => defaultOwner,
+    admitsApplications: () => true,
+    withBackground: (operation) => activity.run('background', operation),
+    fresh() {},
+  })
+  return {
+    child,
+    values,
+    facade,
+    observed,
+    started,
+    release,
+    revokeDefault: () => {
+      defaultOwner = false
+    },
+    close() {
+      release()
+      adapter.dispose()
+      values.dispose()
+      facade.dispose()
+      parent.close()
+      child.close()
+      registry.dispose()
+      selected.close()
+    },
+  }
+}
+
+test('trusted Controller background scope survives the Kernel facade await without contaminating foreground work', async () => {
+  const f = backgroundFacade()
+  let pending: Promise<unknown> | undefined
+  try {
+    const scope = await f.child.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
+    pending = f.values.call('kernel.createWorkspace', [scope.invocationId, 'D:/fixture'])
+    void pending.catch(() => {})
+    await f.started
+    await f.facade.api.createWorkspace('D:/foreground')
+    expect(f.observed).toEqual(['background', 'business'])
+    f.release()
+    await pending
+  } finally {
+    f.release()
+    await pending?.catch(() => {})
+    f.close()
+  }
+})
+
+test('foreign or revoked Controller background identity never invokes the Kernel facade', async () => {
+  const f = backgroundFacade()
+  try {
+    const scope = await f.child.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
+    await expect(
+      f.values.call('kernel.createWorkspace', ['controller-background-another-owner', 'D:/fixture']),
+    ).rejects.toHaveProperty('code', 'CONTROLLER_INVOCATION_EXPIRED')
+    f.revokeDefault()
+    await expect(f.values.call('kernel.createWorkspace', [scope.invocationId, 'D:/fixture'])).rejects.toHaveProperty(
+      'code',
+      'CONTROLLER_INVOCATION_EXPIRED',
+    )
+    expect(f.observed).toEqual([])
+  } finally {
+    f.close()
+  }
+})
 
 test('owner selected by async wrapper remains pinned after its first lookup stops returning a lease', async () => {
   const old = endpoint(1),
@@ -221,7 +352,6 @@ test('sleeping facade reads retained metadata and opens a metadata-only scope wi
     facade.dispose()
   }
 })
-
 
 /** Logical Facade/real IPC boundary only; this fixture does not model native recovery or a complete Host. */
 function replacementEndpoint(incarnation: string) {

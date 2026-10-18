@@ -46,7 +46,7 @@ class Clock implements DemandClock {
 async function pump() {
   for (let i = 0; i < 64; i++) await Promise.resolve()
 }
-function fixture() {
+function fixture(idleTimeoutMs = 10) {
   const clock = new Clock(),
     receipts = new Map<string, ReturnType<Manager['retirement']>>()
   const descriptor: RuntimeUnitDescriptor = {
@@ -158,7 +158,7 @@ function fixture() {
         ],
       }),
   }
-  const demand = new HostRuntimeDemand({ manager, units: [descriptor], clock, idleTimeoutMs: 10 })
+  const demand = new HostRuntimeDemand({ manager, units: [descriptor], clock, idleTimeoutMs })
   active.push(demand)
   return {
     demand,
@@ -176,6 +176,86 @@ function fixture() {
     },
   }
 }
+
+test('background admission preserves Host business TTL and releases exact Manager holds', async () => {
+  const h = fixture(30_000)
+  const signal = new AbortController().signal
+  await h.demand.adoptServing(signal)
+  h.clock.advance(20_000)
+  const hold = await h.demand.acquire(['plugin'], signal, 'background')
+  try {
+    expect(h.holds).toBe(1)
+    h.clock.advance(1000)
+    hold.release()
+    h.clock.advance(9000)
+    await pump()
+    expect(h.demand.snapshot().units[0]?.phase).toBe('sleeping')
+    expect(h.holds).toBe(0)
+    expect(h.receipts.size).toBe(1)
+    expect(h.starts).toBe(0)
+  } finally {
+    hold.release()
+  }
+})
+
+test('background nested admission preserves the original business deadline across Manager readiness', async () => {
+  const h = fixture(30_000)
+  const signal = new AbortController().signal
+  await h.demand.adoptServing(signal)
+  const original = h.manager.holdDemand.bind(h.manager)
+  let nested = false
+  h.manager.holdDemand = (ids) => {
+    const hold = original(ids)
+    if (nested) return hold
+    nested = true
+    return {
+      ...hold,
+      ready: hold.ready.then(async (owners) => {
+        const inner = await h.demand.acquire(['plugin'], signal)
+        inner.release()
+        return owners
+      }),
+    }
+  }
+  h.clock.advance(20_000)
+  const background = await h.demand.acquire(['plugin'], signal, 'background')
+  try {
+    expect(nested).toBe(true)
+    expect(h.holds).toBe(1)
+    h.clock.advance(1000)
+    background.release()
+    h.clock.advance(9000)
+    await pump()
+    expect(h.demand.snapshot().units[0]?.phase).toBe('sleeping')
+    expect(h.holds).toBe(0)
+    expect(h.starts).toBe(0)
+  } finally {
+    background.release()
+  }
+})
+
+test('cold background admission keeps the original receipt ACK and then retires promptly', async () => {
+  const h = fixture(30_000)
+  const signal = new AbortController().signal
+  await h.demand.adoptServing(signal)
+  h.clock.advance(30_000)
+  await pump()
+  expect(h.receipts.size).toBe(1)
+  const hold = await h.demand.acquire(['plugin'], signal, 'background')
+  try {
+    expect(h.acknowledgements).toBe(1)
+    expect(h.starts).toBe(1)
+    expect(h.holds).toBe(1)
+    hold.release()
+    h.clock.advance(1000)
+    await pump()
+    expect(h.demand.snapshot().units[0]?.phase).toBe('sleeping')
+    expect(h.receipts.size).toBe(1)
+    expect(h.holds).toBe(0)
+  } finally {
+    hold.release()
+  }
+})
 
 test('30 outer and 30 nested admissions share one owner; 129th rejects without leaking', async () => {
   const h = fixture(),

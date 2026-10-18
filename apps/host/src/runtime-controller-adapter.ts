@@ -59,6 +59,8 @@ export interface RuntimeControllerAdapterOptions {
   readonly projection: () => RuntimeControllerScope['kernel']
   readonly background: () => boolean
   readonly admitsApplications: () => boolean
+  /** Parent-owned activity classification; never selected from a request's actor or payload. */
+  readonly withBackground?: <Result>(operation: () => Result) => Result
   readonly fresh: (event: NotificationFreshEvent) => void
   readonly retainCommand?: ((jobId: string) => () => void) | undefined
   readonly commandScopes?: HostCommandExecutionScopes
@@ -581,7 +583,10 @@ export class RuntimeControllerAdapter implements RuntimeControllerPort {
     if (!this.options?.admitsApplications())
       throw new HbarError('RUNTIME_OWNER_REVOKED', 'A fenced Controller cannot invoke application use cases')
     const id = z.string().min(1).max(160).parse(args[0])
-    if (id === this.backgroundId && this.options?.background()) return operation(args.slice(1))
+    if (id === this.backgroundId && this.options?.background()) {
+      const invoke = () => operation(args.slice(1))
+      return this.options.withBackground ? this.options.withBackground(invoke) : invoke()
+    }
     const invocation = this.invocations.get(id)
     if (!invocation?.authorized || invocation.applicationsClosed)
       throw new HbarError(

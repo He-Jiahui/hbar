@@ -1012,7 +1012,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       acquire: async (signal) => {
         if (this.closing || !this.controllerStarted)
           throw new HbarError('CONTROLLER_BACKGROUND_STOPPED', 'Controller background admission is paused')
-        const hold = await this.demand.acquire(['controller', 'kernel'], signal)
+        const hold = await this.demand.acquire(['controller', 'kernel'], signal, 'background')
         if (signal.aborted || this.closing || !this.controllerStarted) {
           hold.release()
           throw new HbarError('CONTROLLER_BACKGROUND_STOPPED', 'Controller background admission stopped before wake')
@@ -1029,17 +1029,18 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           throw new HbarError('SCHEDULE_DATABASE_CATALOG_UNAVAILABLE', 'Activated Storage metadata is unavailable')
         return { revision: this.storageCatalog.revision, databaseIds: [...this.storageCatalog.databaseIds] }
       },
-      wake: async (owner, ack, _attempt, signal) => {
-        signal.throwIfAborted()
-        if (this.closing || !this.controllerStarted)
-          throw new HbarError('CONTROLLER_BACKGROUND_STOPPED', 'Controller background admission is paused')
-        this.assertDemandOwners([owner])
-        const record = this.generations.get(key(owner))
-        if (!record?.controller || !record.owner || !this.sameStorageOwner(record.owner, owner))
-          throw new HbarError('RUNTIME_OWNER_REVOKED', 'Controller schedule wake owner changed')
-        const reply = await record.controller.wakeSchedule(ack, signal)
-        return reply
-      },
+      wake: (owner, ack, _attempt, signal) =>
+        this.demand.withBackground(async () => {
+          signal.throwIfAborted()
+          if (this.closing || !this.controllerStarted)
+            throw new HbarError('CONTROLLER_BACKGROUND_STOPPED', 'Controller background admission is paused')
+          this.assertDemandOwners([owner])
+          const record = this.generations.get(key(owner))
+          if (!record?.controller || !record.owner || !this.sameStorageOwner(record.owner, owner))
+            throw new HbarError('RUNTIME_OWNER_REVOKED', 'Controller schedule wake owner changed')
+          const reply = await record.controller.wakeSchedule(ack, signal)
+          return reply
+        }),
       physicalExit: async (owner) => {
         const retired = this.manager.retirement(owner)
         return retired.status === 'retired' &&
@@ -1066,7 +1067,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       acquire: async (signal) => {
         if (this.closing || !this.controllerStarted)
           throw new HbarError('MAINTENANCE_BACKGROUND_STOPPED', 'Maintenance background admission is paused')
-        const hold = await this.demand.acquire(['maintenance'], signal)
+        const hold = await this.demand.acquire(['maintenance'], signal, 'background')
         if (signal.aborted || this.closing || !this.controllerStarted) {
           hold.release()
           throw new HbarError('MAINTENANCE_BACKGROUND_STOPPED', 'Maintenance stopped before idle restoration')
@@ -1078,14 +1079,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         }
         return { owner, release: () => hold.release() }
       },
-      initializeIdle: async (owner, ack, checkpoint, _attempt, signal) => {
-        signal.throwIfAborted()
-        if (this.closing || !this.controllerStarted)
-          throw new HbarError('MAINTENANCE_BACKGROUND_STOPPED', 'Maintenance background admission is paused')
-        this.assertDemandOwners([owner])
-        const reply = await this.maintenance.initializeIdle(owner, ack, checkpoint, signal)
-        return reply
-      },
+      initializeIdle: (owner, ack, checkpoint, _attempt, signal) =>
+        this.demand.withBackground(async () => {
+          signal.throwIfAborted()
+          if (this.closing || !this.controllerStarted)
+            throw new HbarError('MAINTENANCE_BACKGROUND_STOPPED', 'Maintenance background admission is paused')
+          this.assertDemandOwners([owner])
+          const reply = await this.maintenance.initializeIdle(owner, ack, checkpoint, signal)
+          return reply
+        }),
       physicalExit: async (owner) => this.maintenanceCleanExit(owner),
     })
     this.maintenanceAlarms.pause()
@@ -1100,7 +1102,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       acquire: async (signal) => {
         if (this.closing || !this.controllerStarted)
           throw new HbarError('SESSION_WAKE_STOPPED', 'Goal deadline admission is paused')
-        const hold = await this.demand.acquire(['kernel'], signal)
+        const hold = await this.demand.acquire(['kernel'], signal, 'background')
         const owner = hold.owners.find((candidate) => candidate.unitId === 'kernel')
         if (!owner) {
           hold.release()
@@ -1108,29 +1110,30 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         }
         return { owner, release: () => hold.release() }
       },
-      notify: async (hold, ack, entry, signal) => {
-        if (signal.aborted || this.closing || !this.controllerStarted) return 'not-dispatched'
-        this.assertDemandOwners([hold.owner])
-        const record = this.generations.get(key(hold.owner))
-        if (
-          !record?.owner ||
-          !this.sameStorageOwner(record.owner, hold.owner) ||
-          record.sessionWakeRestoreAck?.token !== ack.token
-        )
-          throw new HbarError('SESSION_WAKE_UNKNOWN', 'Goal deadline belongs to another Kernel restoration')
-        await this.restoreSessionWakeRecord(record, signal)
-        if (signal.aborted || this.closing || !this.controllerStarted) return 'not-dispatched'
-        this.assertDemandOwners([hold.owner])
-        const reply = await record.process.call(
-          'kernel.sessionWakes.deliver',
-          { token: ack.token, entry },
-          sessionWakeDeliveryResultSchema,
-          { signal },
-        )
-        // The exact peer's validated reply settles this notification even if
-        // ownership changes immediately afterwards. Only later dispatch is gated.
-        return reply.status
-      },
+      notify: (hold, ack, entry, signal) =>
+        this.demand.withBackground(async () => {
+          if (signal.aborted || this.closing || !this.controllerStarted) return 'not-dispatched' as const
+          this.assertDemandOwners([hold.owner])
+          const record = this.generations.get(key(hold.owner))
+          if (
+            !record?.owner ||
+            !this.sameStorageOwner(record.owner, hold.owner) ||
+            record.sessionWakeRestoreAck?.token !== ack.token
+          )
+            throw new HbarError('SESSION_WAKE_UNKNOWN', 'Goal deadline belongs to another Kernel restoration')
+          await this.restoreSessionWakeRecord(record, signal)
+          if (signal.aborted || this.closing || !this.controllerStarted) return 'not-dispatched' as const
+          this.assertDemandOwners([hold.owner])
+          const reply = await record.process.call(
+            'kernel.sessionWakes.deliver',
+            { token: ack.token, entry },
+            sessionWakeDeliveryResultSchema,
+            { signal },
+          )
+          // The exact peer's validated reply settles this notification even if
+          // ownership changes immediately afterwards. Only later dispatch is gated.
+          return reply.status
+        }),
       physicalRetirement: (owner) => {
         const cached = this.sessionWakePhysicalReceipt
         if (cached && this.sameStorageOwner(cached.owner, owner)) return { ...cached, owner: { ...cached.owner } }
@@ -3235,6 +3238,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             projection: () => this.controllerProjection(),
             background: () => this.coordinator.role(owner) === 'default',
             admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
+            withBackground: (operation) => this.demand.withBackground(operation),
             fresh: (event) => this.facade.replay({ method: 'notifications.created', params: event }),
             retainCommand: (jobId) => {
               const resource = this.commandScopes.retain(this.coordinator, owner, `command.job:${jobId}`)
