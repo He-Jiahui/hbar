@@ -2104,6 +2104,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           const artifact = prepared.artifacts.find((unit) => unit.unitId === 'maintenance')
           if (!artifact)
             throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Startup needs the registered read-only integrity Worker')
+          const storageArtifact = prepared.artifacts.find((unit) => unit.unitId === 'storage')
+          if (!storageArtifact)
+            throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Startup needs the registered migration Worker')
           const probe = createMaintenanceWorkerPreflight(
             options.layout,
             join(this.artifacts.root, artifact.id, 'maintenance-worker.js'),
@@ -2118,7 +2121,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           }
           this.sourceAbort.signal.throwIfAborted()
           const installation = new Storage(options.layout.database, options.layout, {
+            // The immutable artifact provides the same Worker entry in source and relocated Host bundles.
+            workerPath: join(this.artifacts.root, storageArtifact.id, 'worker.js'),
             requestTimeoutMs: STARTUP_STORAGE_READY_TIMEOUT_MS,
+            instanceId: this.instanceId,
+            ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
+            diagnosticsFullCoverage: options.diagnosticFullCoverage === true,
           })
           this.startupStorage = installation
           try {

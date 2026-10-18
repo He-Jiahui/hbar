@@ -257,3 +257,43 @@ test('a corrupt database keeps the stable listener alive and never enters migrat
     await remove(root)
   }
 }, 120_000)
+
+test('first-start migration uses the registered real Worker when the fallback entry is unavailable', async () => {
+  const root = await mkdtemp(join(process.cwd(), 'artifacts', 'runtime-startup-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  const missingWorker = join(root, 'unavailable-default-worker.ts')
+  const previous = process.env.HBAR_STORAGE_WORKER
+  let runtime: ProcessHostRuntime | undefined
+  try {
+    process.env.HBAR_STORAGE_WORKER = missingWorker
+    runtime = await ProcessHostRuntime.open({
+      layout,
+      sourceRoot: process.cwd(),
+      secrets: new MemorySecrets(),
+      demo: true,
+      workspace: root,
+    })
+    const actual = runtime
+    await until(() => actual.snapshot().ready)
+    await actual.ready()
+    expect(await Bun.file(missingWorker).exists()).toBe(false)
+    expect(process.env.HBAR_STORAGE_WORKER).toBe(missingWorker)
+    expect(actual.storage.snapshot()).toMatchObject({ phase: 'serving', owner: { unitId: 'storage' } })
+    const storage = actual.snapshot().units.find((unit) => unit.descriptor.id === 'storage')
+    const owners = storage?.generations.filter((owner) => owner.role === 'default' && owner.phase === 'serving')
+    expect(owners).toHaveLength(1)
+    expect(owners?.[0]?.pid).toBeGreaterThan(0)
+    expect(actual.snapshot().units.find((unit) => unit.descriptor.id === 'driver.pi')).toMatchObject({
+      generations: [],
+      idle: { phase: 'dormant', demandHolds: 0 },
+    })
+  } finally {
+    try {
+      await runtime?.close()
+    } finally {
+      if (previous === undefined) delete process.env.HBAR_STORAGE_WORKER
+      else process.env.HBAR_STORAGE_WORKER = previous
+      await remove(root)
+    }
+  }
+}, 120_000)
