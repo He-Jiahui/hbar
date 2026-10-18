@@ -1,4 +1,4 @@
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
+import type { chromium, Browser, BrowserContext, Page } from 'playwright'
 import { HbarError } from '@hbar/contracts'
 import type { BrowserBackend, BrowserBackendPage } from './index.ts'
 import { resolveBrowserExecutable } from './browser-executable.ts'
@@ -14,7 +14,10 @@ export interface PlaywrightBrowserProvider {
   launch(options: Parameters<typeof chromium.launch>[0]): Promise<Browser>
 }
 const nativeBrowserProvider: PlaywrightBrowserProvider = {
-  launch: (options) => chromium.launch(options),
+  launch: async (options) => {
+    const { chromium } = await import('playwright')
+    return chromium.launch(options)
+  },
 }
 
 type BrowserLocator = ReturnType<Page['locator']>
@@ -61,7 +64,8 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
     private readonly provider: PlaywrightBrowserProvider = nativeBrowserProvider,
   ) {}
 
-  private resolveExecutable() {
+  private async resolveExecutable() {
+    const { chromium } = await import('playwright')
     return resolveBrowserExecutable(this.options.executablePath, {
       bundledPath: chromium.executablePath(),
       platform: process.platform,
