@@ -93,6 +93,149 @@ function harness() {
   }
 }
 describe('RuntimeDemandLifecycle actual coordinator behavior', () => {
+  test('background inspection preserves the existing business idle deadline', async () => {
+    const h = harness()
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'a', idleTimeoutMs: 30_000 })
+    const business = await lifecycle.acquire('a')
+    business.release()
+    try {
+      h.clock.advance(20_000)
+      const background = await lifecycle.acquire('a', undefined, 'background')
+      h.clock.advance(1000)
+      background.release()
+      h.clock.advance(9000)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      expect(row(lifecycle).phase).toBe('sleeping')
+      expect(h.starts).toHaveLength(1)
+    } finally {
+      lifecycle.stop()
+    }
+  })
+  test('cold background owner retires after acknowledged release without another business TTL', async () => {
+    const h = harness()
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'a', idleTimeoutMs: 30_000 })
+    const background = await lifecycle.acquire('a', undefined, 'background')
+    try {
+      h.clock.advance(100_000)
+      await pump()
+      expect(h.retirements).toHaveLength(0)
+      expect(row(lifecycle).pins).toBe(1)
+      background.release()
+      h.clock.advance(1000)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      expect(row(lifecycle).phase).toBe('sleeping')
+    } finally {
+      background.release()
+      lifecycle.stop()
+    }
+  })
+  test('business demand joining a cold background owner receives its full idle TTL', async () => {
+    const h = harness()
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'a', idleTimeoutMs: 30_000 })
+    const background = await lifecycle.acquire('a', undefined, 'background')
+    const business = await lifecycle.acquire('a')
+    try {
+      background.release()
+      h.clock.advance(10_000)
+      business.release()
+      h.clock.advance(29_999)
+      await pump()
+      expect(h.retirements).toHaveLength(0)
+      h.clock.advance(1)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      expect(h.starts).toHaveLength(1)
+    } finally {
+      background.release()
+      business.release()
+      lifecycle.stop()
+    }
+  })
+  test('background completion after the last business release does not restart its expired TTL', async () => {
+    const h = harness()
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'a', idleTimeoutMs: 30_000 })
+    const business = await lifecycle.acquire('a')
+    const background = await lifecycle.acquire('a', undefined, 'background')
+    try {
+      h.clock.advance(10_000)
+      business.release()
+      h.clock.advance(40_000)
+      await pump()
+      expect(h.retirements).toHaveLength(0)
+      expect(row(lifecycle).idleSince).toBe(10_000)
+      background.release()
+      background.release()
+      h.clock.advance(1000)
+      await pump()
+      expect(h.retirements).toHaveLength(1)
+      expect(row(lifecycle).pins).toBe(0)
+    } finally {
+      background.release()
+      business.release()
+      lifecycle.stop()
+    }
+  })
+  test('background UNKNOWN start retains its dependency and never retries on an idle timer', async () => {
+    const h = harness()
+    h.setStart((input) =>
+      Promise.resolve(
+        input.unitId === 'a'
+          ? { kind: 'unknown', owner: { unitId: 'a', generation: 1, incarnation: 'unknown-a' } }
+          : { kind: 'started', owner: { unitId: input.unitId, generation: 1, incarnation: 'dependency' } },
+      ),
+    )
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'dep', idleTimeoutMs: 30_000 })
+    lifecycle.register({ unitId: 'a', dependencies: ['dep'], idleTimeoutMs: 30_000 })
+    try {
+      await expect(lifecycle.acquire('a', undefined, 'background')).rejects.toHaveProperty('code', 'BLOCKED')
+      h.clock.advance(100_000)
+      await pump()
+      expect(row(lifecycle).phase).toBe('blocked')
+      expect(row(lifecycle, 'dep').pins).toBe(1)
+      expect(h.retirements).toHaveLength(0)
+      expect(h.starts).toHaveLength(2)
+      await expect(lifecycle.acquire('a', undefined, 'background')).rejects.toHaveProperty('code', 'BLOCKED')
+      expect(await lifecycle.retire('a')).toEqual({ kind: 'confirmed-physical-exit' })
+      expect(row(lifecycle, 'dep').pins).toBe(0)
+      h.clock.advance(1000)
+      await pump()
+      expect(row(lifecycle, 'dep').phase).toBe('sleeping')
+    } finally {
+      lifecycle.stop()
+    }
+  })
+  test('aborting an issued background lease retains its pin until explicit release and preserves the deadline', async () => {
+    const h = harness()
+    const lifecycle = new RuntimeDemandLifecycle(h.ports, h.clock)
+    lifecycle.register({ unitId: 'a', idleTimeoutMs: 30_000 })
+    const business = await lifecycle.acquire('a')
+    business.release()
+    h.clock.advance(20_000)
+    const controller = new AbortController()
+    const background = await lifecycle.acquire('a', controller.signal, 'background')
+    try {
+      controller.abort()
+      h.clock.advance(20_000)
+      await pump()
+      expect(row(lifecycle).pins).toBe(1)
+      expect(h.retirements).toHaveLength(0)
+      background.release()
+      h.clock.advance(1000)
+      await pump()
+      expect(row(lifecycle).phase).toBe('sleeping')
+      expect(h.retirements).toHaveLength(1)
+    } finally {
+      background.release()
+      lifecycle.stop()
+    }
+  })
   test('technical busy retirement preserves expired business TTL and retries without another full idle period', async () => {
     const h = harness()
     let busy = true

@@ -67,6 +67,7 @@ export class DemandLifecycleError extends Error {
   }
 }
 interface Waiter {
+  readonly business: boolean
   resolve(lease: DemandLease): void
   reject(error: DemandLifecycleError): void
   readonly signal: AbortSignal | undefined
@@ -87,6 +88,8 @@ interface Unit {
   lastOwner: DemandOwner | null
   readonly leases: Map<symbol, DemandOwner>
   readonly waiters: Map<symbol, Waiter>
+  businessLeases: number
+  backgroundOnly: boolean
   dependenciesHeld: DemandLease[]
   idleSince: number | null
   timer: DemandTimer | undefined
@@ -156,6 +159,8 @@ export class RuntimeDemandLifecycle {
       lastOwner: null,
       leases: new Map(),
       waiters: new Map(),
+      businessLeases: 0,
+      backgroundOnly: true,
       dependenciesHeld: [],
       idleSince: null,
       timer: undefined,
@@ -173,7 +178,12 @@ export class RuntimeDemandLifecycle {
       throw error
     }
   }
-  acquire(unitId: string, signal?: AbortSignal): Promise<DemandLease> {
+  /** Background leases retain all physical pins without renewing business idle time. */
+  acquire(
+    unitId: string,
+    signal?: AbortSignal,
+    activity: 'business' | 'background' = 'business',
+  ): Promise<DemandLease> {
     if (this.stopped) return Promise.reject(new DemandLifecycleError('STOPPED'))
     if (signal?.aborted) return Promise.reject(new DemandLifecycleError('ABORTED'))
     const unit = this.units.get(unitId)
@@ -186,11 +196,14 @@ export class RuntimeDemandLifecycle {
     if (unit.phase === 'blocked') return Promise.reject(new DemandLifecycleError('BLOCKED'))
     if (this.outstanding >= this.maximumOutstanding || unit.leases.size + unit.waiters.size >= this.maximumPerUnit)
       return Promise.reject(new DemandLifecycleError('CAPACITY'))
-    this.cancelIdle(unit)
+    const business = activity === 'business'
+    this.cancelIdle(unit, !business)
+    if (business) unit.backgroundOnly = false
     this.outstanding++
     return new Promise((resolve, reject) => {
       const key = Symbol()
       const waiter: Waiter = {
+        business,
         resolve,
         reject,
         signal,
@@ -198,6 +211,8 @@ export class RuntimeDemandLifecycle {
           if (!unit.waiters.delete(key)) return
           signal?.removeEventListener('abort', waiter.abort)
           this.outstanding--
+          if (business && unit.businessLeases === 0 && ![...unit.waiters.values()].some((value) => value.business))
+            unit.idleSince = this.clock.now()
           reject(new DemandLifecycleError('ABORTED'))
           this.idle(unit)
         },
@@ -290,19 +305,19 @@ export class RuntimeDemandLifecycle {
     visiting.delete(id)
     visited.add(id)
   }
-  private cancelIdle(unit: Unit): void {
+  private cancelIdle(unit: Unit, preserveDeadline = false): void {
     unit.timerEpoch++
     unit.timer?.cancel()
     unit.timer = undefined
-    unit.idleSince = null
+    if (!preserveDeadline) unit.idleSince = null
   }
   private idle(unit: Unit): void {
     if (this.stopped || unit.phase !== 'awake' || unit.leases.size || unit.waiters.size || unit.timer) return
     const now = this.clock.now()
-    unit.idleSince ??= now
-    const remaining = unit.idleSince + unit.idleTimeoutMs - now
-    // Retry a known-open busy owner at most once per second after its TTL.
-    // UNKNOWN remains blocked; this never grants retirement without port proof.
+    if (!unit.backgroundOnly) unit.idleSince ??= now
+    const remaining = unit.backgroundOnly ? 0 : (unit.idleSince ?? now) + unit.idleTimeoutMs - now
+    // Cold background-only work earns no new business grace period. Retry a
+    // known-open owner within one second; UNKNOWN still requires port proof.
     const delayMs = remaining > 0 ? remaining : Math.min(unit.idleTimeoutMs, 1000)
     const epoch = ++unit.timerEpoch
     unit.timer = this.clock.schedule(() => {
@@ -328,6 +343,11 @@ export class RuntimeDemandLifecycle {
       const token = Symbol()
       const owner = ownerCopy(unit.owner)
       unit.leases.set(token, owner)
+      if (waiter.business) {
+        unit.businessLeases++
+        unit.backgroundOnly = false
+        unit.idleSince = null
+      }
       let released = false
       waiter.resolve(
         Object.freeze({
@@ -339,6 +359,7 @@ export class RuntimeDemandLifecycle {
             if (!held || !sameOwner(held, owner)) return
             unit.leases.delete(token)
             this.outstanding--
+            if (waiter.business && --unit.businessLeases === 0) unit.idleSince = this.clock.now()
             this.idle(unit)
           },
         }),
@@ -375,7 +396,8 @@ export class RuntimeDemandLifecycle {
     let dispatched = false
     try {
       for (const id of unit.dependencies) {
-        dependencies.push(await this.acquire(id, controller.signal))
+        const activity = [...unit.waiters.values()].some((waiter) => waiter.business) ? 'business' : 'background'
+        dependencies.push(await this.acquire(id, controller.signal, activity))
         this.verifyDependencies(dependencies)
       }
       release = await this.permit(controller.signal)
@@ -466,6 +488,7 @@ export class RuntimeDemandLifecycle {
     if (result.kind === 'confirmed-physical-exit') {
       unit.owner = null
       unit.idleSince = null
+      unit.backgroundOnly = true
       this.releaseDependencies(unit)
       unit.phase = 'sleeping'
       this.kick(unit)
