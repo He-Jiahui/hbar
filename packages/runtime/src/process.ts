@@ -23,6 +23,7 @@ import {
   type RuntimeDrain,
   type RuntimeIdleProbe,
   type RuntimeIdleIpc,
+  type RuntimeProcessContext,
 } from './lifecycle'
 
 export interface ManagedIdleSnapshot {
@@ -82,7 +83,11 @@ export interface ManagedProcessOptions {
   readonly heartbeatMs?: number
   readonly startupMs?: number
   readonly shutdownMs?: number
-  readonly onPeer?: (peer: IpcPeer, owner: RuntimeOwner) => void
+  readonly onPeer?: (
+    peer: IpcPeer,
+    owner: RuntimeOwner,
+    preparation: NonNullable<RuntimeProcessContext['purpose']>,
+  ) => void
   /** Called only after activation has been authorized, for each actual process incarnation. */
   readonly onActivating?: (
     owner: RuntimeOwner,
@@ -694,6 +699,9 @@ export class ManagedProcess {
       }
     }
     if (this.stopped) throw new HbarError('RUNTIME_DISPOSED', 'Runtime process stopped before module loading')
+    const preparation: NonNullable<RuntimeProcessContext['purpose']> = this.activated
+      ? 'recovery'
+      : (this.options.purpose ?? (this.options.generation === 1 ? 'startup' : 'candidate'))
     const child = Bun.spawn(
       this.options.command
         ? [...this.options.command]
@@ -710,9 +718,7 @@ export class ManagedProcess {
           HBAR_RUNTIME_SELF: JSON.stringify(owner),
           HBAR_RUNTIME_PARENT: JSON.stringify(this.options.parent),
           HBAR_RUNTIME_MODULE: this.options.modulePath,
-          HBAR_RUNTIME_PREPARATION: this.activated
-            ? 'recovery'
-            : (this.options.purpose ?? (this.options.generation === 1 ? 'startup' : 'candidate')),
+          HBAR_RUNTIME_PREPARATION: preparation,
           HBAR_RUNTIME_HEARTBEAT_MS: String(this.heartbeatMs),
           HBAR_RUNTIME_CONTROL_METHODS: JSON.stringify([
             ...RUNTIME_CONTROL_METHODS,
@@ -758,7 +764,7 @@ export class ManagedProcess {
         this.publish()
       })
     try {
-      this.options.onPeer?.(peer, owner)
+      this.options.onPeer?.(peer, owner, preparation)
       const tree = await attachment
       if (this.child !== child || this.stopped) {
         tree?.terminate()
