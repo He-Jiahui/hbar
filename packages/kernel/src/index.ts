@@ -3281,33 +3281,42 @@ export class Kernel {
         await scope.hooks
           .dispatch('run.end', { sessionId, runId: run.id, status, run: await this.storage.call('run', run.id) })
           .catch((error) => console.error('Run observer failed:', error))
-        if (status === 'completed') {
-          const queued = (await this.storage.call('snapshot', sessionId, undefined, 40)).runs.some(
-            (item) => item.status === 'queued',
+        try {
+          if (status === 'completed') {
+            const queued = (await this.storage.call('snapshot', sessionId, undefined, 40)).runs.some(
+              (item) => item.status === 'queued',
+            )
+            const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
+            if (!queued && (!goalState.goal || goalState.goal.status === 'complete'))
+              void this.executionScope
+                .observe(() => this.taskNotification('completed', sessionId, run.id, '任务完成', '当前任务已完成。'))
+                .catch((error) => console.error('Task notification failed:', error))
+          } else if (status === 'failed') {
+            const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
+            const controlled =
+              run.input.source === 'goal' ||
+              run.input.source === 'system' ||
+              ['active', 'blocked', 'usage_limited', 'budget_limited'].includes(goalState.goal?.status ?? '')
+            if (controlled)
+              void this.executionScope
+                .observe(() =>
+                  this.taskNotification(
+                    'retry_failed',
+                    sessionId,
+                    run.id,
+                    '任务失败',
+                    '任务执行失败，请检查错误后重试。',
+                  ),
+                )
+                .catch((error) => console.error('Task notification failed:', error))
+          }
+        } catch (error) {
+          // Durable settlement above is known. Notification metadata cannot turn
+          // it into an interrupted execution or prevent release of its original lease.
+          console.error(
+            '[hbar kernel] terminal notification unavailable',
+            error instanceof HbarError ? error.code : 'TASK_NOTIFICATION_FAILED',
           )
-          const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
-          if (!queued && (!goalState.goal || goalState.goal.status === 'complete'))
-            void this.executionScope
-              .observe(() => this.taskNotification('completed', sessionId, run.id, '任务完成', '当前任务已完成。'))
-              .catch((error) => console.error('Task notification failed:', error))
-        } else if (status === 'failed') {
-          const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
-          const controlled =
-            run.input.source === 'goal' ||
-            run.input.source === 'system' ||
-            ['active', 'blocked', 'usage_limited', 'budget_limited'].includes(goalState.goal?.status ?? '')
-          if (controlled)
-            void this.executionScope
-              .observe(() =>
-                this.taskNotification(
-                  'retry_failed',
-                  sessionId,
-                  run.id,
-                  '任务失败',
-                  '任务执行失败，请检查错误后重试。',
-                ),
-              )
-              .catch((error) => console.error('Task notification failed:', error))
         }
       } finally {
         this.active.delete(sessionId)
