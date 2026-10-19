@@ -61,6 +61,7 @@ import { SystemTerminalManager } from './system-terminal'
 import { NodeTerminalRouter, sessionTerminalSandboxProvider } from './node-terminal-router'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
 import { isStableRpc, isRecoveryControl, isRuntimeMetadataRead } from './stable-rpc'
+import { createHostPluginConfigurationCommands } from './extension-commands'
 
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
@@ -164,6 +165,15 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     commandDispatchers,
     commandDescribers,
   } = application
+  const pluginConfiguration =
+    options.runtime && options.controller?.application
+      ? createHostPluginConfigurationCommands((id, enabled, config) => kernel.changePlugin(id, enabled, config))
+      : null
+  if (pluginConfiguration) {
+    commandServices.push({ commandIds: ['plugin.set'], service: pluginConfiguration })
+    commandDispatchers.set('plugin.set', pluginConfiguration.dispatch)
+    commandDescribers.set('plugin.set', () => pluginConfiguration.describe('plugin.set'))
+  }
   commandServices.push({ commandIds: Object.keys(metricsDefinitions), service: metricsCommands })
   for (const id of Object.keys(metricsDefinitions)) {
     commandDispatchers.set(id, metricsCommands.dispatch)
@@ -534,7 +544,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             : Object.hasOwn(chatDatabaseDefinitions, id)
               ? !!options.runtime?.maintenance || !!options.controller?.application
               : !!options.controller?.application
-          if (localDefinitions || !managed)
+          if (localDefinitions || (id === 'plugin.set' && pluginConfiguration) || !managed)
             return localCommandJobs.execute(
               actorId,
               (signal) => actual(invocation, actorId, expectation, { ...executeOptions, signal }),
@@ -1236,7 +1246,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       }
       case 'plugin.set': {
         const p = rpcSchemas[method].parse(raw)
-        return extensionCommands.execute('plugin.set', p, { actorId: socket.data.deviceId! })
+        return (pluginConfiguration ?? extensionCommands).execute('plugin.set', p, {
+          actorId: socket.data.deviceId!,
+        })
       }
       case 'plugin.install': {
         const p = rpcSchemas[method].parse(raw)
@@ -1944,6 +1956,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       nodeCommands.dispose()
       commandResultCommands.dispose()
       remoteWorkspaceCommands.dispose()
+      pluginConfiguration?.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })

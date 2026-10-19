@@ -448,6 +448,91 @@ test('failed outer readiness quarantines its exact attempt until matching nonpen
   await expect(h.demand.acquire(['plugin'], signal)).rejects.toHaveProperty('code', 'BLOCKED')
 })
 
+test('plugin reload fences its exact target while canonical replay can retain the unchanged Storage dependency', async () => {
+  const base = fixture(30_000)
+  const original = base.manager.snapshot()
+  const plugin = original.units[0]!
+  const units = [
+    {
+      ...plugin,
+      descriptor: { ...plugin.descriptor, id: 'storage', kind: 'storage' as const },
+      generations: plugin.generations.map((owner) => ({ ...owner, unitId: 'storage', incarnation: 'storage-owner' })),
+    },
+    { ...plugin, descriptor: { ...plugin.descriptor, dependencies: ['storage'] } },
+  ]
+  let holds = 0,
+    attempt = 0,
+    retirements = 0
+  const manager: Manager = {
+    ...base.manager,
+    snapshot: () => runtimeSnapshotSchema.parse({ ...original, units }),
+    holdDemand(ids) {
+      const owners = ids.map((id) => {
+        const owner = units.find((unit) => unit.descriptor.id === id)?.generations[0]
+        if (!owner) throw new Error('The fixture never starts a missing dependency')
+        return { unitId: owner.unitId, generation: owner.generation, incarnation: owner.incarnation }
+      })
+      const attemptId = 'existing-owner-' + ++attempt
+      holds++
+      let released = false
+      return {
+        attemptId,
+        ready: Promise.resolve(owners),
+        settlement: () => ({
+          attemptId,
+          status: 'settled',
+          units: owners.map((owner) => ({ unitId: owner.unitId, owner, dispatch: 'not-started' })),
+        }),
+        release() {
+          if (!released) {
+            released = true
+            holds--
+          }
+        },
+      }
+    },
+    retireIdle() {
+      retirements++
+      return Promise.resolve('busy')
+    },
+    retirement: (owner) => ({ status: 'unverified', owner }),
+    acknowledgeRetirement: () => false,
+  }
+  const demand = new HostRuntimeDemand({
+    manager,
+    units: units.map((unit) => unit.descriptor),
+    clock: base.clock,
+    idleTimeoutMs: 30_000,
+  })
+  active.push(demand)
+  const signal = new AbortController().signal
+  await demand.adoptServing(signal)
+  const occupied = await demand.acquire(['storage'], signal)
+  expect(() => demand.beginReload(['plugin'])).toThrow('Demand must settle')
+  occupied.release()
+  const reservation = demand.beginReload(['plugin'])
+  const preflightRead = await demand.acquire(['storage'], signal)
+  preflightRead.release()
+  await expect(demand.acquire(['plugin'], signal)).rejects.toHaveProperty('code', 'RUNTIME_RECOVERING')
+  reservation.abortBeforeDispatch()
+  const reopened = await demand.acquire(['plugin'], signal)
+  reopened.release()
+  const requested = ['plugin']
+  const committed = demand.beginReload(requested)
+  requested[0] = 'storage'
+  committed.commit('plugin-only-operation')
+  expect(() => committed.abortBeforeDispatch()).toThrow()
+  expect(demand.snapshot().units.find((unit) => unit.unitId === 'storage')?.phase).toBe('awake')
+  expect(demand.snapshot().units.find((unit) => unit.unitId === 'plugin')?.phase).toBe('blocked')
+  const canonicalReplay = await demand.acquire(['storage'], signal)
+  expect(canonicalReplay.owners).toEqual([{ unitId: 'storage', generation: 1, incarnation: 'storage-owner' }])
+  canonicalReplay.release()
+  await demand.reconcileRetirements()
+  await expect(demand.acquire(['plugin'], signal)).rejects.toHaveProperty('code', 'RUNTIME_RECOVERING')
+  expect(holds).toBe(0)
+  expect(retirements).toBe(0)
+})
+
 test('reload reservation abort is reversible; committed barrier and metadata reconciliation never start a process', async () => {
   const h = fixture(),
     signal = new AbortController().signal

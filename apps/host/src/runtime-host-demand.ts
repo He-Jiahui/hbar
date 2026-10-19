@@ -428,7 +428,8 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
   /** Call synchronously immediately before Manager.reload; never await between them. */
   beginReload(unitIds: readonly string[]): { commit(operationId: string): void; abortBeforeDispatch(): void } {
     if (this.stopped) throw new HbarError('RUNTIME_STOPPING', 'Runtime demand admission is closed')
-    const ids = this.closure(unitIds)
+    const targets = [...unitIds]
+    const ids = this.closure(targets)
     this.assertUnbarred(ids)
     const states = this.lifecycle.snapshot().units
     if (
@@ -445,7 +446,10 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
     )
       throw new HbarError('RUNTIME_IDLE_BUSY', 'Demand must settle before default replacement')
     const key = Symbol()
-    for (const id of ids) this.barriers.set(id, key)
+    // Only replaced owners lose admission. Their unchanged dependencies must remain
+    // available for candidate preparation, including Goal's canonical Storage replay.
+    // Calls through a replaced owner still meet its barrier through closure().
+    for (const id of targets) this.barriers.set(id, key)
     let committed = false,
       ended = false
     return {
@@ -454,12 +458,12 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
           throw new HbarError('INVALID_INPUT', 'Reload transition token is invalid')
         committed = true
         for (const state of states)
-          if (ids.includes(state.unitId) && state.owner) this.lifecycle.fenceOwner(state.owner)
+          if (targets.includes(state.unitId) && state.owner) this.lifecycle.fenceOwner(state.owner)
       },
       abortBeforeDispatch: () => {
         if (committed || ended) throw new HbarError('INVALID_INPUT', 'Dispatched reload cannot be aborted locally')
         ended = true
-        for (const id of ids) if (this.barriers.get(id) === key) this.barriers.delete(id)
+        for (const id of targets) if (this.barriers.get(id) === key) this.barriers.delete(id)
       },
     }
   }

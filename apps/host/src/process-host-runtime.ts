@@ -1198,7 +1198,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             const catalog =
               record && record.phase === 'serving' ? self.controllerAdapter().list() : self.controllerCatalog
             if (!catalog) throw new HbarError('RUNTIME_RECOVERING', 'Controller catalog has not been published')
-            return { ...catalog, items: catalog.items.filter((item) => !item.metadata.id.startsWith('chatDatabase.')) }
+            return {
+              ...catalog,
+              items: catalog.items.filter(
+                (item) => !item.metadata.id.startsWith('chatDatabase.') && item.metadata.id !== 'plugin.set',
+              ),
+            }
           },
           call: <Result>(
             ...[service, method, args, options]: Parameters<RuntimeControllerServicesOptions['call']>
@@ -5078,10 +5083,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.facade.setRecovered(recovered)
   }
   private async maintain<Result>(action: () => Promise<Result>): Promise<Result> {
-    this.kernel.assertIdle()
     if (this.maintaining) throw new HbarError('BUSY', 'Database maintenance is already active')
     this.maintaining = true
     try {
+      // This executable admission needs current owner facts. A retained projection
+      // can still describe an earlier provider write after its original ACK.
+      // Close new execution admission before sampling, then retain every idle fence.
+      await this.refreshKernels()
+      this.kernel.assertIdle()
       return await action()
     } finally {
       this.maintaining = false

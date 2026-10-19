@@ -1,6 +1,7 @@
 import { rpcSchemas } from '@hbar/contracts'
 
 const connectionMethods = new Set([
+  'plugin.set',
   'command.client.register',
   'command.client.unregister',
   'command.client.reply',
@@ -30,6 +31,9 @@ const managementCommands = new Set([
   'system.runtime.reload',
   'system.runtime.reload.get',
   'system.runtime.reload.cancel',
+  // Plugin configuration replaces its managed owner. Controller dispatch would
+  // retain the very dependency closure that this Host operation must replace.
+  'plugin.set',
   'node.invite',
   'node.list',
   'node.revoke',
