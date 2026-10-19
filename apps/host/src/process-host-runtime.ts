@@ -1007,6 +1007,22 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       // Leave a quiet interval before the 60-second Search inspection deadline.
       // That inspection is transferred to the parent while the child sleeps.
       idleTimeoutMs: options.idleTimeoutMs ?? 30_000,
+      ...(options.diagnosticFullCoverage === true && options.diagnostics
+        ? {
+            observeActivity: (unitIds: readonly string[], activity: 'business' | 'background') => {
+              for (const unitId of unitIds)
+                this.emitProcessLifecycleDiagnostic({
+                  component: 'host',
+                  level: 'debug',
+                  event: 'host.runtime_demand_requested',
+                  phase: activity,
+                  contextId: unitId,
+                  instanceId: this.instanceId,
+                  processId: process.pid,
+                })
+            },
+          }
+        : {}),
     })
     this.scheduleAlarms = new RuntimeScheduleAlarmTransfer(this.baseOwner.incarnation, {
       acquire: async (signal) => {

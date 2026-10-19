@@ -45,6 +45,8 @@ export interface HostRuntimeDemandOptions {
   readonly idleTimeoutMs?: number
   readonly maximumOperations?: number
   readonly clock?: DemandClock
+  /** Optional bounded observations; failures never own admission or physical pins. */
+  readonly observeActivity?: (unitIds: readonly string[], activity: 'business' | 'background') => void
 }
 
 interface FailedStart {
@@ -570,6 +572,13 @@ export class HostRuntimeDemand implements HostRuntimeDemandPort {
       throw new HbarError('RUNTIME_DEMAND_CAPACITY', 'Runtime demand admission capacity is exhausted')
     const ids = this.closure(unitIds)
     this.assertUnbarred(ids)
+    if (this.options.observeActivity) {
+      try {
+        this.options.observeActivity(Object.freeze([...ids]), activity)
+      } catch {
+        // Diagnostic sinks are observational, including during bootstrap and recovery.
+      }
+    }
     const key = Symbol()
     const pending: PendingAdmission = { leases: [], manager: undefined, readySucceeded: false }
     this.pending.set(key, pending)

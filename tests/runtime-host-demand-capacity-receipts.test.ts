@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { runtimeSnapshotSchema, type RuntimeOwner, type RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import type { DemandClock, RuntimeManager } from '@hbar/runtime'
 import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
-import { HostRuntimeDemand } from '../apps/host/src/runtime-host-demand'
+import { HostRuntimeDemand, type HostRuntimeDemandOptions } from '../apps/host/src/runtime-host-demand'
 
 type Manager = Pick<
   RuntimeManager,
@@ -46,7 +46,7 @@ class Clock implements DemandClock {
 async function pump() {
   for (let i = 0; i < 64; i++) await Promise.resolve()
 }
-function fixture(idleTimeoutMs = 10) {
+function fixture(idleTimeoutMs = 10, observeActivity?: HostRuntimeDemandOptions['observeActivity']) {
   const clock = new Clock(),
     receipts = new Map<string, ReturnType<Manager['retirement']>>()
   const descriptor: RuntimeUnitDescriptor = {
@@ -158,7 +158,13 @@ function fixture(idleTimeoutMs = 10) {
         ],
       }),
   }
-  const demand = new HostRuntimeDemand({ manager, units: [descriptor], clock, idleTimeoutMs })
+  const demand = new HostRuntimeDemand({
+    manager,
+    units: [descriptor],
+    clock,
+    idleTimeoutMs,
+    ...(observeActivity ? { observeActivity } : {}),
+  })
   active.push(demand)
   return {
     demand,
@@ -176,6 +182,49 @@ function fixture(idleTimeoutMs = 10) {
     },
   }
 }
+
+test('throwing activity observations preserve context, business TTL and exact physical holds', async () => {
+  const observations: { ids: readonly string[]; activity: 'business' | 'background'; frozen: boolean }[] = []
+  const h = fixture(30_000, (ids, activity) => {
+    observations.push({ ids: [...ids], activity, frozen: Object.isFrozen(ids) })
+    throw new Error('An observational sink is unavailable')
+  })
+  const signal = new AbortController().signal
+  await h.demand.adoptServing(signal)
+  observations.length = 0
+  h.clock.advance(20_000)
+  await h.demand.withBackground(async () => {
+    await Promise.resolve()
+    const hold = await h.demand.acquire(['plugin'], signal)
+    expect(h.holds).toBe(1)
+    h.clock.advance(1000)
+    hold.release()
+  })
+  expect(observations).toEqual([{ ids: ['plugin'], activity: 'background', frozen: true }])
+  expect(h.holds).toBe(0)
+  h.clock.advance(9000)
+  await pump()
+  expect(h.demand.snapshot().units[0]?.phase).toBe('sleeping')
+  const business = await h.demand.acquire(['plugin'], signal)
+  try {
+    expect(observations[1]).toEqual({ ids: ['plugin'], activity: 'business', frozen: true })
+    expect(h.starts).toBe(1)
+    h.clock.advance(40_000)
+    await pump()
+    expect(h.holds).toBe(1)
+    expect(h.demand.snapshot().units[0]?.phase).toBe('awake')
+    business.release()
+    h.clock.advance(29_999)
+    await pump()
+    expect(h.demand.snapshot().units[0]?.phase).toBe('awake')
+    h.clock.advance(1)
+    await pump()
+    expect(h.demand.snapshot().units[0]?.phase).toBe('sleeping')
+    expect(h.holds).toBe(0)
+  } finally {
+    business.release()
+  }
+})
 
 test('background admission preserves Host business TTL and releases exact Manager holds', async () => {
   const h = fixture(30_000)
