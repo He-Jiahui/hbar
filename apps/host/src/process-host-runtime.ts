@@ -3597,7 +3597,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           if (input.authority)
             throw new HbarError('RUNTIME_PREPARING', 'Candidate reads cannot carry execution authority')
           assertStoragePreflightMethod(input.method)
-          return this.storage.executeRpc(input)
+          return this.demand.withBackground(() => this.storage.executeRpc(input))
         }),
       ),
     )
@@ -3815,7 +3815,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           if (input.authority && input.authority.owner.incarnation !== owner.incarnation)
             throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Kernel storage authority belongs to another executor')
           this.coordinator.assertCanWrite(owner, input.authority)
-          return this.storage.executeRpc(input)
+          // The inbound IPC is nested dependency work. The original foreground
+          // Kernel/Run hold already owns business activity; child callbacks from
+          // checkpoints and restoration must not renew Storage's idle clock.
+          return this.demand.withBackground(() => this.storage.executeRpc(input))
         }),
       ),
       peer.register(
