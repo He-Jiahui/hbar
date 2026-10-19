@@ -2164,14 +2164,18 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         try {
           const artifact = prepared.artifacts.find((unit) => unit.unitId === 'maintenance')
           if (!artifact)
-            throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Startup needs the registered read-only integrity Worker')
+            throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Startup needs the registered migration decision Worker')
           const storageArtifact = prepared.artifacts.find((unit) => unit.unitId === 'storage')
           if (!storageArtifact)
             throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Startup needs the registered migration Worker')
           const migrationRequired = await startupStorageMigrationRequired(async (allowMigration) => {
             const probe = createMaintenanceWorkerPreflight(
               options.layout,
-              join(this.artifacts.root, artifact.id, 'maintenance-worker.js'),
+              join(
+                this.artifacts.root,
+                artifact.id,
+                allowMigration ? 'maintenance-worker.js' : 'startup-schema-worker.js',
+              ),
               { allowMigration },
             )
             this.startupProbe = probe

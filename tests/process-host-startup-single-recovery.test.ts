@@ -21,6 +21,8 @@ for (const schema of ['current', 'older'] as const) {
       const failures: unknown[] = []
       let recoveriesStarted = 0
       let recoveriesCompleted = 0
+      let preflightsStarted = 0
+      let preflightsCompleted = 0
       try {
         await ensurePathLayout(layout)
         seed = new Storage(layout.database, layout)
@@ -61,6 +63,8 @@ for (const schema of ['current', 'older'] as const) {
             emit(event) {
               if (event.event === 'sqlite.recovery_started') recoveriesStarted++
               if (event.event === 'sqlite.recovery_completed') recoveriesCompleted++
+              if (event.event === 'sqlite.preflight_started') preflightsStarted++
+              if (event.event === 'sqlite.preflight_completed') preflightsCompleted++
             },
           },
         })
@@ -73,6 +77,8 @@ for (const schema of ['current', 'older'] as const) {
         })
         expect(recoveriesStarted).toBe(schema === 'current' ? 1 : 2)
         expect(recoveriesCompleted).toBe(recoveriesStarted)
+        expect(preflightsStarted).toBe(2)
+        expect(preflightsCompleted).toBe(2)
       } catch (error) {
         failures.push(error)
       } finally {

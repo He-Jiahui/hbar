@@ -66,7 +66,7 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
     {
       descriptor: descriptor('maintenance', 'maintenance', MAINTENANCE_RUNTIME_FINGERPRINT, ['storage', 'kernel']),
       entrypoint: 'apps/host/src/runtime-maintenance-process.ts',
-      workers: ['packages/storage/src/maintenance-worker.ts'],
+      workers: ['packages/storage/src/maintenance-worker.ts', 'packages/storage/src/startup-schema-worker.ts'],
     },
     ...plugins.map(([id, entry, dependencies]) => ({
       descriptor: descriptor('plugin.' + id, 'plugin', PLUGIN_RUNTIME_FINGERPRINT, [...dependencies]),
