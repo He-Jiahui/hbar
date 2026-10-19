@@ -180,8 +180,9 @@ export function visitSessionLogs(
             'SESSION_LOG_CHANGED_DURING_RECOVERY canonical log ended before its initial size',
           )
         let segmentStart = 0
-        for (let index = 0; index < read; index++) {
-          if (readBuffer[index] !== 10) continue
+        // Search only bytes read this time: the reusable buffer can retain an old newline after EOF.
+        const chunk = readBuffer.subarray(0, read)
+        for (let index = chunk.indexOf(10); index !== -1; index = chunk.indexOf(10, segmentStart)) {
           appendSegment(segmentStart, index + 1)
           emitRecord()
           segmentStart = index + 1
