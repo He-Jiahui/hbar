@@ -17,9 +17,13 @@ export function classifyRunFailure(error: unknown): RunFailure {
   if (code === 'HOST_SHUTTING_DOWN') return { code, category: 'interrupted', retryable: false }
   if (code === 'RESULT_UNKNOWN' || code === 'EFFECT_UNKNOWN')
     return { code, category: 'result_unknown', retryable: false }
-  if (code === 'PROVIDER_CONNECTION_FAILED' || code === 'PROVIDER_STREAM_INTERRUPTED')
+  if (code === 'PROVIDER_CONNECTION_FAILED' || code === 'PROVIDER_STREAM_INTERRUPTED' || code === 'PROVIDER_TRANSIENT')
     return { code, category: 'transient', retryable: true }
+  if (code === 'PROVIDER_USAGE_LIMIT') return { code, category: 'usage_limit', retryable: false }
   if (code === RUN_STEP_LIMIT_CODE) return { code: RUN_STEP_LIMIT_CODE, category: 'execution', retryable: false }
+  // An explicit Host/tool cause cannot become a provider failure because its
+  // message happens to mention a status, errno or quota. Legacy text is untyped.
+  if (code !== null) return { code, category: 'execution', retryable: false }
   if (/(insufficient (?:credits|quota)|usage[_ -]?limit|quota (?:exceeded|exhausted))/i.test(message))
     return { code: code ?? 'PROVIDER_USAGE_LIMIT', category: 'usage_limit', retryable: false }
   if (

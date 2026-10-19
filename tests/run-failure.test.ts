@@ -26,6 +26,8 @@ async function fixture() {
   })
   const resource = { root, kernel }
   resources.push(resource)
+  // Startup recovery discovery owns an admission barrier until its original join.
+  await kernel.waitForIdle()
   await kernel.changePlugin('goal.codex', true, { autoContinue: false, maxContinuations: 0 })
   const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
   return { resource, kernel, session, goals: kernel.plugins.get<GoalService>('goal') }
