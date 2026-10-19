@@ -86,6 +86,17 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
   let activated = false
   let suspended: string | null = null
   let hibernation: { readonly operationId: string; phase: 'closing' | 'checkpointed' | 'unknown' } | null = null
+  const workerDiagnostics = configuration.diagnosticsEnabled
+    ? {
+        diagnostics: {
+          emit: (event: import('@hbar/contracts').DiagnosticEvent) => {
+            void context.peer.notify('runtime.diagnostic', event).catch(() => {})
+          },
+        },
+        instanceId: context.peer.owner.incarnation,
+        diagnosticsFullCoverage: configuration.diagnosticsFullCoverage ?? false,
+      }
+    : {}
   const verify = () => {
     if (!existsSync(configuration.database)) return
     const database = new Database(configuration.database, { readonly: true, strict: true })
@@ -105,6 +116,7 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
       preflight: true,
       ...(configuration.workerPath ? { workerPath: configuration.workerPath } : {}),
       requestTimeoutMs: 120_000,
+      ...workerDiagnostics,
     })
     probe = candidateProbe
     try {
@@ -128,17 +140,7 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
       if (configuration.workerPath) process.env.HBAR_STORAGE_WORKER = configuration.workerPath
       storage = new Storage(configuration.database, layout, {
         onFatal: (_error, event) => exitStorageProcessForFatal(event),
-        ...(configuration.diagnosticsEnabled
-          ? {
-              diagnostics: {
-                emit: (event) => {
-                  void context.peer.notify('runtime.diagnostic', event).catch(() => {})
-                },
-              },
-              instanceId: context.peer.owner.incarnation,
-              diagnosticsFullCoverage: configuration.diagnosticsFullCoverage ?? false,
-            }
-          : {}),
+        ...workerDiagnostics,
       })
       await storage.ready(120_000)
     } catch (error) {
@@ -173,21 +175,38 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
   )
   const hibernateInput = z.strictObject({ operationId: z.string().min(1).max(160), owner: runtimeOwnerSchema })
   const hibernateCheckpoint = hibernateInput.extend({
-    databaseCloseAcknowledged: z.literal(true), workerExitConfirmed: z.literal(true), writerLeaseReleased: z.literal(true),
+    databaseCloseAcknowledged: z.literal(true),
+    workerExitConfirmed: z.literal(true),
+    writerLeaseReleased: z.literal(true),
     queuedSessionCount: z.literal(0),
   })
   context.peer.register(
     'storage.hibernate',
     procedure(hibernateInput, hibernateCheckpoint, async ({ operationId, owner }) => {
       const self = context.peer.owner
-      if (owner.unitId !== self.unitId || owner.generation !== self.generation || owner.incarnation !== self.incarnation)
+      if (
+        owner.unitId !== self.unitId ||
+        owner.generation !== self.generation ||
+        owner.incarnation !== self.incarnation
+      )
         throw new HbarError('STORAGE_IDLE_OWNER_CHANGED', 'Storage checkpoint requires its exact owner')
       if (context.preparing() || !storage || probe || draining || suspended || hibernation || calls)
         throw new HbarError('STORAGE_IDLE_BUSY', 'Storage must quiesce before the explicit checkpoint')
       const ipc = context.peer.snapshot()
-      if (ipc.failed || ipc.inFlight || ipc.queued || ipc.queuedBytes || ipc.incoming !== 1 || ipc.incomingQueued || ipc.bufferedBytes)
+      if (
+        ipc.failed ||
+        ipc.inFlight ||
+        ipc.queued ||
+        ipc.queuedBytes ||
+        ipc.incoming !== 1 ||
+        ipc.incomingQueued ||
+        ipc.bufferedBytes
+      )
         throw new HbarError('STORAGE_IDLE_BUSY', 'Storage transport must quiesce before the explicit checkpoint')
-      const checkpoint: { readonly operationId: string; phase: 'closing' | 'checkpointed' | 'unknown' } = { operationId, phase: 'closing' }
+      const checkpoint: { readonly operationId: string; phase: 'closing' | 'checkpointed' | 'unknown' } = {
+        operationId,
+        phase: 'closing',
+      }
       hibernation = checkpoint
       draining = true
       const current = storage
@@ -259,16 +278,26 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
     },
     idle() {
       const checkpointed = hibernation?.phase === 'checkpointed'
-      const resources = Number(storage !== undefined) + Number(probe !== undefined)
-        + Number(releaseWriter !== undefined) + Number(suspended !== null)
-        + Number(hibernation !== null && !checkpointed)
+      const resources =
+        Number(storage !== undefined) +
+        Number(probe !== undefined) +
+        Number(releaseWriter !== undefined) +
+        Number(suspended !== null) +
+        Number(hibernation !== null && !checkpointed)
       return { eligible: checkpointed && calls === 0 && resources === 0, requests: calls, runs: 0, resources }
     },
     async drain() {
       draining = true
-      return { requests: calls, runs: 0, resources: Number(storage !== undefined) + Number(probe !== undefined)
-        + Number(releaseWriter !== undefined) + Number(suspended !== null)
-        + Number(hibernation !== null && hibernation.phase !== 'checkpointed') }
+      return {
+        requests: calls,
+        runs: 0,
+        resources:
+          Number(storage !== undefined) +
+          Number(probe !== undefined) +
+          Number(releaseWriter !== undefined) +
+          Number(suspended !== null) +
+          Number(hibernation !== null && hibernation.phase !== 'checkpointed'),
+      }
     },
     async dispose() {
       activated = false

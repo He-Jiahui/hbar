@@ -136,6 +136,7 @@ import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { createRuntimeState, RUNTIME_STATE_SQL, runtimeManualRecoverySchema } from './runtime-state'
 import { createRuntimeBackendRecoveryPage } from './runtime-backend-recovery'
+import { readPreflightDatabaseSequentially } from './preflight-database-read'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { readSessionObservability } from './session-observability.ts'
 import { beginContextCompaction, finishContextCompaction, readContextHistory } from './context-history'
@@ -4775,11 +4776,37 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
                 'STORAGE_CONTRACT_INVALID',
                 'Candidate Worker did not construct every declared storage method',
               )
+            const preflightStartedAt = performance.now()
+            workerDiagnostics.emit({
+              event: 'sqlite.preflight_started',
+              phase: 'preflight',
+              level: 'info',
+              workerState: 'starting',
+            })
+            if (!shadowMemory) {
+              // Bound this short-lived readonly connection; the serving writer keeps its existing settings.
+              db.exec('PRAGMA mmap_size=2147418112')
+              readPreflightDatabaseSequentially(options.path)
+            }
+            workerDiagnostics.emit({
+              event: 'sqlite.preflight_read_completed',
+              phase: 'preflight.read',
+              level: 'info',
+              outcome: 'success',
+              durationMs: Math.max(0, performance.now() - preflightStartedAt),
+            })
             const integrity = z
               .object({ quick_check: z.literal('ok') })
               .safeParse(db.query('PRAGMA quick_check(1)').get())
             if (!integrity.success)
               throw new HbarError('STORAGE_INTEGRITY_UNKNOWN', 'Candidate Worker cannot confirm database integrity')
+            workerDiagnostics.emit({
+              event: 'sqlite.preflight_completed',
+              phase: 'preflight',
+              level: 'info',
+              outcome: 'success',
+              durationMs: Math.max(0, performance.now() - preflightStartedAt),
+            })
           } else if (method === 'close') db.close()
           else throw new HbarError('RUNTIME_PREPARING', 'Candidate Worker accepts readiness and disposal only')
           return { id, ok: true, result: method === 'ready' ? methods.ready() : undefined } satisfies StorageReply
