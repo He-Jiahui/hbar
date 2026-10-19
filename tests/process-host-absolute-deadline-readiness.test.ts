@@ -31,6 +31,16 @@ interface Observation {
   readonly checkpoint?: unknown
 }
 
+interface StorageBoundaryObservation {
+  readonly sequence: number
+  readonly kind: 'idle-snapshot' | 'hibernate-ack' | 'hibernate-rejection'
+  readonly owner: RuntimeOwner
+  readonly snapshot?: Awaited<ReturnType<ManagedProcess['idleSnapshot']>>
+  readonly reply?: unknown
+  readonly errorCode?: string | null
+  readonly aborted?: boolean
+}
+
 async function until(check: () => boolean | Promise<boolean>): Promise<void> {
   const deadline = Date.now() + 30_000
   while (!(await check())) {
@@ -55,6 +65,12 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
   let overflow = false
   let stableControllerRestorations = 0
   const observations: Observation[] = []
+  const storageBoundaries: StorageBoundaryObservation[] = []
+  const recordStorageBoundary = (value: Omit<StorageBoundaryObservation, 'sequence'>): void => {
+    // Keep the first bounded facts: a later retry must not erase the original boundary.
+    if (storageBoundaries.length === 128) overflow = true
+    else storageBoundaries.push({ sequence: ++sequence, ...value })
+  }
   const serving = new Map<string, number>()
   const latest = new Map<string, RuntimeOwner>()
   const domains = ['kernel', 'controller', 'maintenance']
@@ -90,33 +106,62 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
     output: z.ZodType<Output>,
     options?: IpcCallOptions,
   ): Promise<Output> {
-    return originalCall.call(this, method, input, output, options).then(async (value) => {
-      const result = output.parse(value)
-      if (domains.includes(this.remote.unitId) && methods.has(method)) {
-        // The real child timer state is a metadata observation. A fresh manifest
-        // has a new observedAt; it cannot prove preservation of the old deadline.
-        const checkpoint =
-          method === 'controller.schedule.wake'
-            ? await originalCall.call(
-                this,
-                'controller.idleCheckpoint',
-                undefined,
-                runtimeControllerIdleCheckpointSchema,
-                options,
-              )
-            : undefined
-        if (observations.length === 256) overflow = true
-        else
-          observations.push({
-            sequence: ++sequence,
+    return originalCall.call(this, method, input, output, options).then(
+      async (value) => {
+        const result = output.parse(value)
+        if (this.remote.unitId === 'storage' && method === 'storage.hibernate')
+          recordStorageBoundary({
+            kind: 'hibernate-ack',
             owner: { ...this.remote },
-            method,
-            input,
             reply: result,
-            ...(checkpoint ? { checkpoint } : {}),
+            aborted: options?.signal?.aborted ?? false,
           })
-      }
-      return result
+        if (domains.includes(this.remote.unitId) && methods.has(method)) {
+          // The real child timer state is a metadata observation. A fresh manifest
+          // has a new observedAt; it cannot prove preservation of the old deadline.
+          const checkpoint =
+            method === 'controller.schedule.wake'
+              ? await originalCall.call(
+                  this,
+                  'controller.idleCheckpoint',
+                  undefined,
+                  runtimeControllerIdleCheckpointSchema,
+                  options,
+                )
+              : undefined
+          if (observations.length === 256) overflow = true
+          else
+            observations.push({
+              sequence: ++sequence,
+              owner: { ...this.remote },
+              method,
+              input,
+              reply: result,
+              ...(checkpoint ? { checkpoint } : {}),
+            })
+        }
+        return result
+      },
+      (error: unknown) => {
+        if (this.remote.unitId === 'storage' && method === 'storage.hibernate')
+          recordStorageBoundary({
+            kind: 'hibernate-rejection',
+            owner: { ...this.remote },
+            errorCode: error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : null,
+            aborted: options?.signal?.aborted ?? false,
+          })
+        throw error
+      },
+    )
+  })
+  const originalIdleSnapshot = ManagedProcess.prototype.idleSnapshot
+  const idleSnapshots = spyOn(ManagedProcess.prototype, 'idleSnapshot').mockImplementation(function (
+    this: ManagedProcess,
+  ) {
+    return originalIdleSnapshot.call(this).then((value) => {
+      if (value.owner.unitId === 'storage')
+        recordStorageBoundary({ kind: 'idle-snapshot', owner: { ...value.owner }, snapshot: value })
+      return value
     })
   })
   const originalSnapshot = ManagedProcess.prototype.snapshot
@@ -370,6 +415,9 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
       hold = undefined
     }
     expect(stableControllerRestorations).toBeGreaterThanOrEqual(1)
+    console.info(
+      JSON.stringify({ type: 'fullhost-storage-idle-boundaries', observations: storageBoundaries, overflow }),
+    )
     await goals.clear(session.id)
   } catch (error) {
     primary = { error }
@@ -377,6 +425,7 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
       JSON.stringify({
         type: 'fullhost-absolute-deadline-readiness-failure',
         observations,
+        storageBoundaries,
         serving: [...serving],
         overflow,
         checkpointEvents,
@@ -400,6 +449,7 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
   if (cleanup.length === 0) hold?.release()
   calls.mockRestore()
   snapshots.mockRestore()
+  idleSnapshots.mockRestore()
   demands.mockRestore()
   if (!primary && cleanup.length === 0 && runtime) {
     const current = await realpath(root)

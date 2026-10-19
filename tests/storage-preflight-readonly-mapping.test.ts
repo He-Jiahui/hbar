@@ -89,6 +89,15 @@ for (const corrupt of [false, true]) {
         probe = undefined
         expect(events.filter((event) => event.event === 'sqlite.preflight_started')).toHaveLength(1)
         expect(events.filter((event) => event.event === 'sqlite.preflight_completed')).toHaveLength(corrupt ? 0 : 1)
+        for (const phase of ['preflight.read', 'preflight.check']) {
+          for (const name of ['sqlite.startup_phase_wall_completed', 'sqlite.startup_phase_process_cpu_completed']) {
+            const observed = events.filter((event) => event.event === name && event.phase === phase)
+            expect(observed).toHaveLength(1)
+            expect(observed[0]?.outcome).toBe(corrupt && phase === 'preflight.check' ? 'failure' : 'success')
+            expect(Number.isFinite(observed[0]?.durationMs)).toBe(true)
+            expect(observed[0]?.durationMs).toBeGreaterThanOrEqual(0)
+          }
+        }
         expect(await digest(layout.database)).toBe(before)
         await assertOwned(parent, root)
         const moved = layout.database + '.closed'
