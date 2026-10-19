@@ -9,6 +9,7 @@ import { createDemandCommandTicket } from './runtime-demand-command-ticket'
 import { RuntimeSettingsSchedulingHint } from './runtime-settings-scheduling-hint'
 import { HostRetirementConsumption } from './runtime-retirement-consumption'
 import { IdleCheckpointDiagnostic } from './runtime-idle-checkpoint-diagnostics'
+import { RuntimeDeadlineDiagnostics } from './runtime-deadline-diagnostics'
 import { commitRuntimeWorkflowRecovery } from './runtime-workflow-recovery'
 import { workflowRecoveryPageSchema } from '@hbar/plugin-sdk/workflow-recovery'
 import { join, resolve } from 'node:path'
@@ -129,7 +130,7 @@ import { runtimeControllerRequestSchema, type RuntimeControllerPort } from './ru
 import { RuntimeControllerAdapter } from './runtime-controller-adapter'
 import { controllerScheduleControlMethods } from './runtime-controller-schedule-contract'
 import { RuntimeScheduleAlarmTransfer } from './runtime-schedule-alarm-transfer'
-import type { ScheduleTransferAck, ScheduleWakeReply } from './runtime-schedule-idle-contract'
+import type { ScheduleIdleManifest, ScheduleTransferAck, ScheduleWakeReply } from './runtime-schedule-idle-contract'
 import { RuntimeSessionWakeTransfer } from './runtime-session-wake-transfer'
 import type { RuntimeAlarmAttempt, RuntimeAlarmSnapshot } from './runtime-demand-alarm-scheduler'
 import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
@@ -492,6 +493,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private readonly pendingClaims = new Map<string, { readonly draft: ExecutionOwnership; failed: boolean }>()
   private readonly claimDemandHolds = new Map<string, HostRuntimeDemandHold[]>()
   private readonly retirementConsumption = new HostRetirementConsumption()
+  private readonly deadlineDiagnostics = new RuntimeDeadlineDiagnostics({
+    enabled: () => this.options.diagnosticFullCoverage === true && Boolean(this.options.diagnostics),
+    emit: (event) =>
+      this.emitProcessLifecycleDiagnostic({ ...event, instanceId: this.instanceId, processId: process.pid }),
+  })
   private readonly summaryDemandHolds = new Map<string, Set<HostRuntimeDemandHold>>()
   private kernelMetadata: RuntimeKernelState | undefined
   private controllerCatalog: ReturnType<RuntimeControllerAdapter['list']> | undefined
@@ -846,6 +852,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
             )
               return { status: 'unknown', owner }
             this.controllerIdleTransfer = { owner: { ...owner }, ack, process: record.process, physical: null }
+            this.deadlineDiagnostics.observe(owner, 'checkpointed', () => {
+              const manifest = this.scheduleAlarms.restoreManifest(owner, ack)
+              return manifest ? { domain: 'schedule', ack, manifest } : null
+            })
             return { status: 'prepared', owner }
           } catch {
             // A preview/offer failure cannot have paused the child. Once quiescence
@@ -1757,6 +1767,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       )
         return trace.result('unknown')
       this.sessionWakeIdleTransfer = { owner: { ...owner }, ack, process: record.process, physical: null }
+      const checkpointAck = ack
+      this.deadlineDiagnostics.observe(owner, 'checkpointed', () => ({ domain: 'goal', ack: checkpointAck }))
       return trace.result('prepared')
     } catch (error) {
       // A rejected preview has changed no timer or admission authority. Once an
@@ -1911,6 +1923,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       )
         return trace.result('unknown')
       this.maintenanceIdleTransfer = { owner: { ...owner }, ack, process: record.process, physical: null }
+      const checkpointAck = ack
+      this.deadlineDiagnostics.observe(owner, 'checkpointed', () => ({
+        domain: 'maintenance',
+        ack: checkpointAck,
+        checkpoint: committed.manifest.checkpoint,
+      }))
       return trace.result('prepared')
     } catch (error) {
       // Preview is read-only. After reservation/sealing, uncertainty never reopens
@@ -3382,8 +3400,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           )
         }
         signal.throwIfAborted()
+        this.observeRestoredDeadlines(record, owner, 'restored', scheduleRestoreManifest)
       },
       onState: (state) => {
+        if (state.phase === 'serving' && state.role === 'default' && record.owner?.incarnation === state.incarnation)
+          this.observeRestoredDeadlines(record, record.owner, 'serving', scheduleRestoreManifest)
         if (
           state.phase === 'serving' &&
           state.role === 'default' &&
@@ -4081,6 +4102,38 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       peer.onEvent('kernel.notification', runtimeWireNotificationSchema, receiveNotification),
       peer.onEvent('kernel.notifications.batch', runtimeWireNotificationBatchSchema, receiveNotificationBatch),
     )
+  }
+  private observeRestoredDeadlines(
+    record: Generation,
+    owner: RuntimeOwner,
+    phase: 'restored' | 'serving',
+    scheduleManifest: ScheduleIdleManifest | null,
+  ): void {
+    this.deadlineDiagnostics.observe(owner, phase, () => {
+      if (!record.owner || !this.sameStorageOwner(record.owner, owner) || this.coordinator.role(owner) !== 'default')
+        return null
+      if (owner.unitId === 'kernel' && record.sessionWakeRestoreAck && record.sessionWakeRestore)
+        return { domain: 'goal', ack: record.sessionWakeRestoreAck }
+      if (
+        owner.unitId === 'controller' &&
+        record.scheduleRestoreAck &&
+        record.controllerRestoreReply &&
+        scheduleManifest
+      )
+        return {
+          domain: 'schedule',
+          ack: record.scheduleRestoreAck,
+          manifest: scheduleManifest,
+          restorationKind: record.controllerRestoreReply.kind,
+        }
+      if (owner.unitId === 'maintenance' && record.maintenanceRestoreAck && record.maintenanceRestoreReply)
+        return {
+          domain: 'maintenance',
+          ack: record.maintenanceRestoreAck,
+          checkpoint: record.maintenanceRestoreReply.checkpoint,
+        }
+      return null
+    })
   }
   private emitProcessLifecycleDiagnostic(input: Parameters<typeof diagnosticEvent>[0]): void {
     try {

@@ -1,9 +1,11 @@
 import { expect, spyOn, test } from 'bun:test'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { createHash } from 'node:crypto'
 import { basename, dirname, join } from 'node:path'
 import type { z } from 'zod'
 import type { RuntimeOwner } from '@hbar/contracts/runtime'
+import { diagnosticEventSchema, type DiagnosticEvent } from '@hbar/contracts'
 import { sessionWakeTransferSchema, sessionWakeStatusSchema } from '@hbar/contracts/session-wake'
 import { MemorySecrets } from '@hbar/kernel/secrets'
 import { IpcPeer, ManagedProcess, type IpcCallOptions } from '@hbar/runtime'
@@ -56,6 +58,7 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
   const serving = new Map<string, number>()
   const latest = new Map<string, RuntimeOwner>()
   const domains = ['kernel', 'controller', 'maintenance']
+  const deadlineEvents: Array<{ sequence: number; event: DiagnosticEvent }> = []
   const checkpointEvents: Array<{
     event: string
     phase: string | null
@@ -150,6 +153,10 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
       diagnosticFullCoverage: true,
       diagnostics: {
         emit(event) {
+          if (event.event === 'host.runtime_deadline_checkpoint') {
+            if (deadlineEvents.length === 256) overflow = true
+            else deadlineEvents.push({ sequence: ++sequence, event: diagnosticEventSchema.parse(event) })
+          }
           if (!event.event.startsWith('host.runtime_idle_')) return
           if (checkpointEvents.length === 128) checkpointEvents.shift()
           checkpointEvents.push({
@@ -273,6 +280,51 @@ test('two real idle wakes restore Goal, Schedule, Search and Maintenance absolut
         expect(value.restore).not.toBeNull()
         if (!value.restore || value.firstServing === undefined) throw new Error('Actual before-serving proof missing')
         expect(value.restore.sequence).toBeLessThan(value.firstServing)
+        const previous = old.find((item) => item.unitId === value.owner.unitId)
+        const expectedDomains =
+          value.owner.unitId === 'kernel'
+            ? ['goal']
+            : value.owner.unitId === 'controller'
+              ? ['schedule', 'search']
+              : ['maintenance']
+        for (const domain of expectedDomains) {
+          const prior = deadlineEvents.findLast(
+            (item) =>
+              item.event.requestId === previous?.incarnation &&
+              item.event.phase === 'checkpointed' &&
+              item.event.runtimeDeadline?.domain === domain,
+          )
+          const restored = deadlineEvents.findLast(
+            (item) =>
+              item.event.requestId === value.owner.incarnation &&
+              item.event.phase === 'restored' &&
+              item.event.runtimeDeadline?.domain === domain,
+          )
+          const published = deadlineEvents.findLast(
+            (item) =>
+              item.event.requestId === value.owner.incarnation &&
+              item.event.phase === 'serving' &&
+              item.event.runtimeDeadline?.domain === domain,
+          )
+          expect(prior).toBeDefined()
+          expect(restored).toBeDefined()
+          expect(published).toBeDefined()
+          if (!prior || !restored || !published) throw new Error('Exact deadline diagnostic cohort missing')
+          expect(restored.sequence).toBeGreaterThan(value.restore.sequence)
+          expect(restored.sequence).toBeLessThan(value.firstServing)
+          expect(published.sequence).toBeGreaterThan(restored.sequence)
+          const metadata = prior.event.runtimeDeadline
+          expect(restored.event.runtimeDeadline).toMatchObject(metadata ?? {})
+          expect(published.event.runtimeDeadline).toEqual(restored.event.runtimeDeadline)
+          const originalToken =
+            value.owner.unitId === 'kernel'
+              ? wakes.token
+              : value.owner.unitId === 'controller'
+                ? controllerScheduleWakeSchema.parse(value.restore.input).ack.token
+                : maintenanceInspectionRestoreSchema.parse(value.restore.input).ack.token
+          expect(metadata?.tokenSha256).toBe(createHash('sha256').update(originalToken).digest('hex'))
+          expect(JSON.stringify(restored.event)).not.toContain(originalToken)
+        }
         if (value.owner.unitId === 'kernel') {
           expect(sessionWakeTransferSchema.parse(value.restore.input).ack).toEqual(wakes)
           expect(sessionWakeStatusSchema.parse(value.restore.reply)).toMatchObject({
