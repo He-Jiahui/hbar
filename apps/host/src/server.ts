@@ -60,7 +60,7 @@ import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/c
 import { SystemTerminalManager } from './system-terminal'
 import { NodeTerminalRouter, sessionTerminalSandboxProvider } from './node-terminal-router'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
-import { isStableRpc, isRecoveryControl } from './stable-rpc'
+import { isStableRpc, isRecoveryControl, isRuntimeMetadataRead } from './stable-rpc'
 
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
@@ -1705,7 +1705,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                     if (request.method !== 'system.hello') {
                       if (!socket.data.initialized)
                         throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-                      if (isRecoveryControl(request.method, request.params))
+                      if (isRuntimeMetadataRead(request.method, request.params))
+                        socket.data.device = auth.authenticateMetadata(socket.data.token, socket.data.deviceId)
+                      else if (isRecoveryControl(request.method, request.params))
                         await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                       else socket.data.device = await auth.authenticate(socket.data.token)
                     }
@@ -1716,7 +1718,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                     signal.throwIfAborted()
                     if (!socket.data.initialized || !socket.data.deviceId)
                       throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-                    if (isRecoveryControl(request.method, request.params))
+                    if (isRuntimeMetadataRead(request.method, request.params))
+                      socket.data.device = auth.authenticateMetadata(socket.data.token, socket.data.deviceId)
+                    else if (isRecoveryControl(request.method, request.params))
                       await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                     else socket.data.device = await auth.authenticate(socket.data.token)
                     if (socket.data.device)
@@ -1775,7 +1779,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
               if (request.method !== 'system.hello') {
                 if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
                 requestSpan.stage('auth', socket.data.pending)
-                if (isRecoveryControl(request.method, request.params))
+                if (isRuntimeMetadataRead(request.method, request.params))
+                  socket.data.device = auth.authenticateMetadata(socket.data.token, socket.data.deviceId)
+                else if (isRecoveryControl(request.method, request.params))
                   await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                 else socket.data.device = await auth.authenticate(socket.data.token)
               }

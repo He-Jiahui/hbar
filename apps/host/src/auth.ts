@@ -10,7 +10,10 @@ export class Auth {
   private attempts = new Map<string, { count: number; resetAt: number }>()
   private internalDevices = new Map<string, Device>()
   private verifiedDevices = new Map<string, Device>()
-  constructor(private storage: StoragePort, private readonly options: { available?(): boolean } = {}) {}
+  constructor(
+    private storage: StoragePort,
+    private readonly options: { available?(): boolean } = {},
+  ) {}
   createPairing(access: Partial<DeviceAccess> = {}) {
     this.pairingAccess = deviceAccessSchema.parse(access)
     this.pairing = {
@@ -54,7 +57,10 @@ export class Auth {
   }
   async createInternalDevice(name: string) {
     for (const device of await this.storage.call('devices')) {
-      if (device.name === name) { await this.storage.call('revokeDevice', device.id); this.invalidateDevice(device.id) }
+      if (device.name === name) {
+        await this.storage.call('revokeDevice', device.id)
+        this.invalidateDevice(device.id)
+      }
     }
     const token = randomBytes(32).toString('base64url')
     const device = { id: crypto.randomUUID(), name: name.slice(0, 100), createdAt: Date.now(), lastSeenAt: Date.now() }
@@ -68,8 +74,15 @@ export class Auth {
     if (!token || token.length > 512) throw new HbarError('UNAUTHORIZED', 'Device pairing required')
     const internal = this.internalDevices.get(this.hash(token))
     if (internal) return internal
-    const device = await this.storage.call('deviceByHash', this.hash(token))
-    if (!device) throw new HbarError('UNAUTHORIZED', 'Device credential is invalid or revoked')
+    const hash = this.hash(token)
+    const device = await this.storage.call('deviceByHash', hash).catch((error: unknown) => {
+      if (error instanceof HbarError && error.code === 'UNAUTHORIZED') this.verifiedDevices.delete(hash)
+      throw error
+    })
+    if (!device) {
+      this.verifiedDevices.delete(hash)
+      throw new HbarError('UNAUTHORIZED', 'Device credential is invalid or revoked')
+    }
     if (this.verifiedDevices.size >= 512) this.verifiedDevices.delete(this.verifiedDevices.keys().next().value!)
     this.verifiedDevices.set(this.hash(token), device)
     return device
@@ -77,15 +90,27 @@ export class Auth {
   invalidateDevice(deviceId: string): void {
     for (const [hash, device] of this.verifiedDevices) if (device.id === deviceId) this.verifiedDevices.delete(hash)
   }
+  /** Pure metadata keeps only this exact verified connection; it never opens Storage. */
+  authenticateMetadata(token: string | undefined, deviceId: string | undefined): Device {
+    if (!token || token.length > 512 || !deviceId)
+      throw new HbarError('UNAUTHORIZED', 'An exact verified connection is required for runtime metadata')
+    const hash = this.hash(token)
+    const device = this.internalDevices.get(hash) ?? this.verifiedDevices.get(hash)
+    if (!device || device.id !== deviceId)
+      throw new HbarError('UNAUTHORIZED', 'An exact verified connection is required for runtime metadata')
+    return device
+  }
   /** Recovery status and cooperative cancellation retain only an already authenticated connection identity. */
   async authenticateStatus(token: string | undefined, deviceId: string | undefined): Promise<Device> {
     const known = token && deviceId ? this.verifiedDevices.get(this.hash(token)) : null
     if (this.options.available?.() === false) {
-      if (!known || known.id !== deviceId) throw new HbarError('UNAUTHORIZED', 'An authenticated connection is required during writer recovery')
+      if (!known || known.id !== deviceId)
+        throw new HbarError('UNAUTHORIZED', 'An authenticated connection is required during writer recovery')
       return known
     }
-    try { return await this.authenticate(token) }
-    catch (error) {
+    try {
+      return await this.authenticate(token)
+    } catch (error) {
       if (!(error instanceof HbarError) || !/^(?:IPC_|STORAGE_|RUNTIME_)/.test(error.code)) throw error
       if (!known || known.id !== deviceId) throw error
       return known
