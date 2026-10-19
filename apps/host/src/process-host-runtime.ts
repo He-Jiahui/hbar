@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { startupStorageMigrationRequired } from './startup-storage-migration'
 import {
   RuntimeRecoveryResponsibility,
   withRuntimeClaimAdmission,
@@ -689,8 +690,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       storage: this.storage,
       coordinator: this.coordinator,
       humanWaits: this.humanWaits,
-      demand: { acquire: (ids, signal) => this.demand.acquire(ids, signal) },
-      catalog: () => this.pluginCatalog.snapshot(),
+      demand: {
+        acquire: (ids, signal) =>
+          this.initializing ? this.demand.acquireBootstrap(ids, signal) : this.demand.acquire(ids, signal),
+      },
+      catalog: (scope) => (scope === 'published' ? this.pluginCatalog.published() : this.pluginCatalog.snapshot()),
       retainedVersion: (unitId, sessionId) => this.resources.version(unitId, sessionId),
       resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId),
       nodeLink: () => this.nodeLink,
@@ -2164,34 +2168,37 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           const storageArtifact = prepared.artifacts.find((unit) => unit.unitId === 'storage')
           if (!storageArtifact)
             throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Startup needs the registered migration Worker')
-          const probe = createMaintenanceWorkerPreflight(
-            options.layout,
-            join(this.artifacts.root, artifact.id, 'maintenance-worker.js'),
-            { allowMigration: true },
-          )
-          this.startupProbe = probe
-          try {
-            await probe.ready
-          } finally {
-            await probe.close()
-            this.startupProbe = undefined
-          }
-          this.sourceAbort.signal.throwIfAborted()
-          const installation = new Storage(options.layout.database, options.layout, {
-            // The immutable artifact provides the same Worker entry in source and relocated Host bundles.
-            workerPath: join(this.artifacts.root, storageArtifact.id, 'worker.js'),
-            requestTimeoutMs: STARTUP_STORAGE_READY_TIMEOUT_MS,
-            instanceId: this.instanceId,
-            ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
-            diagnosticsFullCoverage: options.diagnosticFullCoverage === true,
-          })
-          this.startupStorage = installation
-          try {
-            await installation.call('ready')
-            this.sourceAbort.signal.throwIfAborted()
-          } finally {
-            await installation.close()
-            this.startupStorage = undefined
+          const migrationRequired = await startupStorageMigrationRequired(async (allowMigration) => {
+            const probe = createMaintenanceWorkerPreflight(
+              options.layout,
+              join(this.artifacts.root, artifact.id, 'maintenance-worker.js'),
+              { allowMigration },
+            )
+            this.startupProbe = probe
+            try {
+              await probe.ready
+            } finally {
+              await probe.close()
+              this.startupProbe = undefined
+            }
+          }, this.sourceAbort.signal)
+          if (migrationRequired) {
+            const installation = new Storage(options.layout.database, options.layout, {
+              // The immutable artifact provides the same Worker entry in source and relocated Host bundles.
+              workerPath: join(this.artifacts.root, storageArtifact.id, 'worker.js'),
+              requestTimeoutMs: STARTUP_STORAGE_READY_TIMEOUT_MS,
+              instanceId: this.instanceId,
+              ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
+              diagnosticsFullCoverage: options.diagnosticFullCoverage === true,
+            })
+            this.startupStorage = installation
+            try {
+              await installation.call('ready')
+              this.sourceAbort.signal.throwIfAborted()
+            } finally {
+              await installation.close()
+              this.startupStorage = undefined
+            }
           }
           this.migrated = true
         } finally {

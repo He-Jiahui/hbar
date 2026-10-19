@@ -36,6 +36,13 @@ export class RuntimePluginCatalogCache {
       return { unitId, state: structuredClone(entry.state) }
     })
   }
+  /** Preparation may read only dependencies already published by selected defaults. */
+  published(): { unitId: string; state: RuntimePluginState }[] {
+    return this.registered.flatMap((unitId) => {
+      const entry = this.entries.get(unitId)
+      return entry ? [{ unitId, state: structuredClone(entry.state) }] : []
+    })
+  }
   metadata(): readonly { owner: RuntimeOwner; version: RuntimeVersion }[] {
     return [...this.entries.values()].map((entry) => structuredClone({ owner: entry.owner, version: entry.version }))
   }

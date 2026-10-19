@@ -56,7 +56,9 @@ export class RuntimePluginRelay {
       readonly coordinator: RuntimeCoordinator
       readonly humanWaits?: Pick<RuntimeHumanWaits, 'track'>
       readonly demand: HostRuntimeDemandPort
-      readonly catalog: () => readonly { readonly unitId: string; readonly state: RuntimePluginState }[]
+      readonly catalog: (
+        scope?: 'published',
+      ) => readonly { readonly unitId: string; readonly state: RuntimePluginState }[]
       readonly retainedVersion: (unitId: string, sessionId: string) => RuntimeVersion | undefined
       readonly resolve: (unitId: string, execution?: ExecutionOwnership, sessionId?: string) => RuntimePluginEndpoint
       readonly nodeLink?: () => RuntimeNodeLinkPort
@@ -387,7 +389,9 @@ export class RuntimePluginRelay {
     }
     const target = /^service\.(goal|plan|mode|budget)\.(get|snapshot)$/.exec(method)
     if (target) {
-      const cached = this.options.catalog().find((item) => Object.hasOwn(item.state.capabilities, target[1] ?? ''))
+      const cached = this.options
+        .catalog('published')
+        .find((item) => Object.hasOwn(item.state.capabilities, target[1] ?? ''))
       if (!cached) throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'The candidate read dependency is unavailable')
       const sessionId = typeof args[0] === 'string' ? args[0] : undefined
       const execution = sessionId ? (this.options.coordinator.executionForSession(sessionId) ?? undefined) : undefined
