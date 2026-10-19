@@ -4405,7 +4405,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       visited INTEGER NOT NULL DEFAULT 0
     ) WITHOUT ROWID;
     CREATE TEMP TABLE recovery_session_log_events (
-      eventId TEXT PRIMARY KEY,
+      eventId TEXT NOT NULL,
       sessionId TEXT NOT NULL,
       seq INTEGER NOT NULL,
       logPath TEXT NOT NULL,
@@ -4414,7 +4414,8 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       contentHash TEXT NOT NULL,
       restoreProjection INTEGER NOT NULL DEFAULT 0,
       visited INTEGER NOT NULL DEFAULT 0,
-      UNIQUE(sessionId,seq)
+      PRIMARY KEY(sessionId,seq),
+      UNIQUE(eventId)
     ) WITHOUT ROWID;
   `)
       let restored = 0
@@ -4462,8 +4463,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             `
       SELECT 1
       FROM session_event_index AS indexed
-      LEFT JOIN ${eventsTable} AS scanned ON scanned.eventId=indexed.eventId
+      LEFT JOIN ${eventsTable} AS scanned ON scanned.sessionId=indexed.sessionId AND scanned.seq=indexed.seq
       WHERE scanned.eventId IS NULL
+        OR indexed.eventId IS NOT scanned.eventId
         OR indexed.sessionId<>scanned.sessionId
         OR indexed.seq<>scanned.seq
         OR indexed.logPath<>scanned.logPath
@@ -4480,12 +4482,13 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
             'SESSION_LOG_CORRUPTED SQLite event index does not match canonical JSONL',
           )
 
+        // Every existing index row has already passed the complete identity comparison.
         db.exec(`
       UPDATE recovery_session_log_events AS scanned
       SET restoreProjection=1
       WHERE NOT EXISTS (
         SELECT 1 FROM session_event_index AS indexed
-        WHERE indexed.eventId=scanned.eventId
+        WHERE indexed.sessionId=scanned.sessionId AND indexed.seq=scanned.seq
       )
     `)
         const needsRestore = db.query(`SELECT 1 FROM ${eventsTable} WHERE restoreProjection=1 LIMIT 1`).get()
