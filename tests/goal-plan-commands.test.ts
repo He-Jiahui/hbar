@@ -71,7 +71,25 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'workflow.get',
     'workflow.plan.save',
     'workflow.start',
+    'workflow.targets.cancel',
+    'workflow.targets.dispatch',
+    'workflow.targets.reconcile',
   ])
+  for (const id of ['workflow.targets.cancel', 'workflow.targets.dispatch', 'workflow.targets.reconcile']) {
+    expect(catalog.items.find((item) => item.metadata.id === id)?.metadata).toMatchObject({
+      id,
+      version: 1,
+      owner: 'hbar.workflow',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'persistent',
+      category: 'agent.goal.plan',
+      scope: 'session',
+      visibility: 'public',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      idempotency: 'required',
+    })
+  }
   expect(await commands.execute('goal.get', { sessionId: session.id })).toEqual({
     goal: null,
     remainingTokens: null,

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { createComputerCommandClient, type ClientTransport } from '@hbar/client'
+import { HbarClient, createComputerCommandClient, type ClientTransport } from '@hbar/client'
 import { HbarError } from '@hbar/contracts'
 import { createComputerCommands } from '@hbar/kernel'
 import type { ComputerUseService } from '@hbar/plugin-sdk'
@@ -156,4 +156,42 @@ test('computer actions treat backend and transport timeouts as unknown results',
   await expect(client.execute('computer.status', { sessionId: 'session-1' })).rejects.toMatchObject({
     code: 'DISCONNECTED',
   })
+})
+
+test('computer client rejects an already aborted request before transport admission', async () => {
+  const transport = new HbarClient('http://127.0.0.1:1')
+  const client = createComputerCommandClient(transport)
+  await expect(
+    client.execute('computer.click', { sessionId: 'session-1', x: 1, y: 2 }, { signal: AbortSignal.abort() }),
+  ).rejects.toMatchObject({ code: 'CANCELLED' })
+})
+
+test('computer client aborts observation after dispatch with an unknown outcome', async () => {
+  const entered = Promise.withResolvers<void>()
+  let effects = 0
+  const transport: ClientTransport = {
+    call(_method, _params, options) {
+      if (options?.signal?.aborted) return Promise.reject(new HbarError('CANCELLED', 'Not dispatched'))
+      effects++
+      entered.resolve()
+      return new Promise<never>((_resolve, reject) => {
+        options?.signal?.addEventListener(
+          'abort',
+          () => reject(new HbarError('RESULT_UNKNOWN', 'Observation ended; inspect state')),
+          { once: true },
+        )
+      })
+    },
+  }
+  const controller = new AbortController()
+  const client = createComputerCommandClient(transport)
+  const pending = client.execute(
+    'computer.click',
+    { sessionId: 'session-1', x: 1, y: 2 },
+    { signal: controller.signal },
+  )
+  await entered.promise
+  controller.abort()
+  await expect(pending).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+  expect(effects).toBe(1)
 })

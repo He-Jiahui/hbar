@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { Kernel, MemorySecrets, createPromptTemplateCommands } from '@hbar/kernel'
 import {
   HbarClient,
   createNotificationCommandClient,
@@ -89,6 +89,7 @@ describe('app-ui production feature command pipelines', () => {
     }
     const created = await commands.execute('promptTemplate.save', input, { idempotencyKey: 'template-create-1' })
     expect(created.revision).toBe(1)
+    expect(await commands.execute('promptTemplate.get', { id: created.id })).toEqual(created)
     expect(
       await commands.execute('promptTemplate.receipt', {
         commandId: 'promptTemplate.save',
@@ -257,4 +258,50 @@ describe('app-ui production feature command pipelines', () => {
       }),
     ).rejects.toThrow()
   })
+})
+
+test('prompt template catalog forwards hidden authorization descriptors and bounded filters', async () => {
+  const { kernel } = await fixture()
+  const service = createPromptTemplateCommands({
+    list: (input) => kernel.storage.call('promptTemplatePage', input),
+    get: (id) => kernel.storage.call('promptTemplate', id),
+    save: (input, identity) => kernel.storage.call('savePromptTemplate', input, identity),
+    delete: (input, identity) => kernel.storage.call('deletePromptTemplate', input, identity),
+    receipt: (commandId, input, identity) => kernel.storage.call('promptTemplateReceipt', commandId, input, identity),
+  })
+  try {
+    expect(service.list().items).toHaveLength(0)
+    expect(service.list({ includeInternal: false }).items).toHaveLength(0)
+    const all = service.list({ includeInternal: true })
+    expect(all.items.map((item) => item.metadata.id)).toEqual([
+      'promptTemplate.delete',
+      'promptTemplate.get',
+      'promptTemplate.list',
+      'promptTemplate.receipt',
+      'promptTemplate.save',
+    ])
+    expect(all.items.find((item) => item.metadata.id === 'promptTemplate.save')?.metadata).toMatchObject({
+      visibility: 'internal',
+      scope: 'workspace',
+      stateEffect: 'persistent',
+      idempotency: 'required',
+    })
+    const first = service.list({ includeInternal: true, limit: 2 })
+    expect(first.items.map((item) => item.metadata.id)).toEqual(['promptTemplate.delete', 'promptTemplate.get'])
+    expect(first.nextCursor).toBe('promptTemplate.get')
+    if (first.nextCursor === undefined) throw new Error('PROMPT_TEMPLATE_CATALOG_CURSOR_MISSING')
+    const second = service.list({ includeInternal: true, after: first.nextCursor, limit: 2 })
+    expect(second.items.map((item) => item.metadata.id)).toEqual(['promptTemplate.list', 'promptTemplate.receipt'])
+    if (second.nextCursor === undefined) throw new Error('PROMPT_TEMPLATE_CATALOG_CURSOR_MISSING')
+    const last = service.list({ includeInternal: true, after: second.nextCursor, limit: 2 })
+    expect(last.items.map((item) => item.metadata.id)).toEqual(['promptTemplate.save'])
+    expect(last.nextCursor).toBeUndefined()
+    expect(service.list({ includeInternal: true, category: 'prompt', surface: 'api' }).items).toHaveLength(5)
+    expect(service.list({ includeInternal: true, category: 'prompt.template', surface: 'api' }).items).toHaveLength(5)
+    expect(service.list({ includeInternal: true, category: 'unknown' }).items).toHaveLength(0)
+    expect(service.list({ includeInternal: true, surface: 'cli' }).items).toHaveLength(0)
+    expect(service.list().items).toHaveLength(0)
+  } finally {
+    service.dispose()
+  }
 })

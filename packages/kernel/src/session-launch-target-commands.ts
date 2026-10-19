@@ -69,10 +69,7 @@ export function createSessionLaunchTargetCommands(kernel: SessionLaunchTargetCom
         ...input,
       })
       const parsed = sessionLaunchTargetSetReceiptSchema.nullable().safeParse(result)
-      if (
-        !parsed.success ||
-        (parsed.data && parsed.data.request.sessionId !== input.sessionId)
-      )
+      if (!parsed.success || (parsed.data && parsed.data.request.sessionId !== input.sessionId))
         throw new CommandError('INVALID_OUTPUT', 'Launch target receipt does not match the requested session')
       return parsed.data
     })
@@ -172,7 +169,8 @@ export function createSessionLaunchTargetCommands(kernel: SessionLaunchTargetCom
       return registry.dispatch(value, { actorId })
     },
     describe: (id: string) => registry.describe(id),
-    list: () => registry.list({ limit: 500 }),
+    list: (filter: Parameters<CommandRegistry['list']>[0] = {}) =>
+      registry.list({ ...filter, limit: filter.limit ?? 500 }),
     dispose: () => registry.dispose(),
   }
 }

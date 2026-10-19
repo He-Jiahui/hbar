@@ -21,7 +21,9 @@ const MODEL_KEY = encodePath(MODEL_PATH)
 const THINKING_KEY = encodePath(THINKING_PATH)
 const MAX_MODE_KEY = encodePath(MAX_MODE_PATH)
 
-export function toModelDescriptor(model: Awaited<ReturnType<ModelCommandKernelPort['models']>>[number]): ModelDescriptor {
+export function toModelDescriptor(
+  model: Awaited<ReturnType<ModelCommandKernelPort['models']>>[number],
+): ModelDescriptor {
   return {
     id: model.id,
     providerId: model.providerId,
@@ -228,7 +230,8 @@ export function createModelCommands(kernel: ModelCommandKernelPort, settings: Se
       return registry.dispatch(value, { actorId })
     },
     describe: (id: string) => registry.describe(id),
-    list: () => registry.list({ limit: 500 }),
+    list: (filter: Parameters<CommandRegistry['list']>[0] = {}) =>
+      registry.list({ ...filter, limit: filter.limit ?? 500 }),
     dispose: () => registry.dispose(),
   }
 }

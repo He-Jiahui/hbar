@@ -1,7 +1,27 @@
+import { realpath } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
 import { HbarError } from '@hbar/contracts'
 import { toolFileChangeSchema, MAX_RUN_CHANGED_FILES, type ToolFileChange } from '@hbar/contracts/run-file-changes'
 
-/** Gate ordinary writes and multi-file restores to the same canonical files. */
+/** Resolve the directory entry replaced by rename/unlink, after workspace admission.
+ * Keep the final basename: a file symlink itself is replaced, not its referent.
+ * Missing parent directories retain their suffix below the nearest existing parent. */
+export async function canonicalFileMutationPath(path: string): Promise<string> {
+  let parent = dirname(path)
+  const suffix = [basename(path)]
+  for (;;) {
+    try {
+      return join(await realpath(parent), ...suffix)
+    } catch (error) {
+      const next = dirname(parent)
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT' || next === parent) throw error
+      suffix.unshift(basename(parent))
+      parent = next
+    }
+  }
+}
+
+/** Gate ordinary writes and multi-file restores using admitted canonical mutation paths. */
 export class FileMutationQueue {
   private readonly tails = new Map<string, Promise<void>>()
   private waiting = 0

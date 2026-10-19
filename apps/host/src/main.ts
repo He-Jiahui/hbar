@@ -68,7 +68,10 @@ export async function runHost(
   const home = layout.dataRoot
   if (values.supervisor || !values.supervised) {
     const releaseSupervisorLock = await acquireHostProcessLock(`${layout.hostLock}.supervisor`)
-    const diagnostics = createHostRuntimeDiagnostics({ root: layout.diagnostics, fileName: 'hbar-supervisor-diagnostics.jsonl' })
+    const diagnostics = createHostRuntimeDiagnostics({
+      root: layout.diagnostics,
+      fileName: 'hbar-supervisor-diagnostics.jsonl',
+    })
     const supervisor = createHostSupervisor({
       command: supervisorCommand,
       hostArgs: args,
@@ -99,20 +102,32 @@ export async function runHost(
   let cleanup: (() => Promise<void>) | undefined
   let runtime: ProcessHostRuntime | undefined
   let heartbeat: ReturnType<typeof setInterval> | undefined
-  const diagnostics = createHostRuntimeDiagnostics({ root: layout.diagnostics, fileName: 'hbar-host-diagnostics.jsonl' })
+  const diagnostics = createHostRuntimeDiagnostics({
+    root: layout.diagnostics,
+    fileName: 'hbar-host-diagnostics.jsonl',
+  })
   diagnostics.installFatalObserver('startup')
-  hostLifecycleEvent(diagnostics, 'host.starting', { level: 'info', outcome: 'success', workerState: 'starting', processId: process.pid })
-  const requestShutdown = installHostShutdown(async () => {
-    clearInterval(heartbeat)
-    try {
-      if (cleanup) await cleanup()
-      else await runtime?.close()
-    } finally {
-      await releaseLock()
-      hostLifecycleEvent(diagnostics, 'host.stopped', { processId: process.pid, outcome: 'success' })
-      await diagnostics.close(2_000)
-    }
-  }, 5_000, diagnostics)
+  hostLifecycleEvent(diagnostics, 'host.starting', {
+    level: 'info',
+    outcome: 'success',
+    workerState: 'starting',
+    processId: process.pid,
+  })
+  const requestShutdown = installHostShutdown(
+    async () => {
+      clearInterval(heartbeat)
+      try {
+        if (cleanup) await cleanup()
+        else await runtime?.close()
+      } finally {
+        await releaseLock()
+        hostLifecycleEvent(diagnostics, 'host.stopped', { processId: process.pid, outcome: 'success' })
+        await diagnostics.close(2_000)
+      }
+    },
+    5_000,
+    diagnostics,
+  )
   registerHostProcessHandlers(requestShutdown, diagnostics)
   try {
     const workerPath = hostMaintenanceWorkerPath()
@@ -140,13 +155,19 @@ export async function runHost(
             unattended: true,
             prepareInitialExecution: async (storage) => {
               startupDevice ??= await loadDesktopDevice(new Auth(storage), layout.connectionFile)
-              await enableDesktopBackground(createSettingsCommands(new SettingsService(storage)), startupDevice.device.id)
+              await enableDesktopBackground(
+                createSettingsCommands(new SettingsService(storage)),
+                startupDevice.device.id,
+              )
             },
           }
         : {}),
-      ...(['1', 'prepare'].includes(process.env.HBAR_RUNTIME_WATCH ?? '') ? {
-        watchSource: true, autoApplySource: process.env.HBAR_RUNTIME_WATCH !== 'prepare',
-      } : {}),
+      ...(['1', 'prepare'].includes(process.env.HBAR_RUNTIME_WATCH ?? '')
+        ? {
+            watchSource: true,
+            autoApplySource: process.env.HBAR_RUNTIME_WATCH !== 'prepare',
+          }
+        : {}),
     })
     const host = await startServer(runtime.kernel, {
       runtime,
@@ -178,10 +199,19 @@ export async function runHost(
     }
     diagnostics.setInstanceId(runtime.instanceId)
     diagnostics.setFatalPhase('running')
-    hostLifecycleEvent(diagnostics, 'host.listener_ready', { level: 'info', outcome: 'success', processId: process.pid })
-    void runtime.ready().then(() => {
-      hostLifecycleEvent(diagnostics, 'host.kernel_ready', { workerState: 'ready', processId: process.pid })
-    }).catch(() => { /* Runtime status retains the bounded startup failure and its recovery schedule. */ })
+    hostLifecycleEvent(diagnostics, 'host.listener_ready', {
+      level: 'info',
+      outcome: 'success',
+      processId: process.pid,
+    })
+    void runtime
+      .ready()
+      .then(() => {
+        hostLifecycleEvent(diagnostics, 'host.kernel_ready', { workerState: 'ready', processId: process.pid })
+      })
+      .catch(() => {
+        /* Runtime status retains the bounded startup failure and its recovery schedule. */
+      })
     console.log(`hbar ${host.info().version} | ${home}`)
     for (const address of host.info().addresses) console.log(`  ${address}`)
     if (!values.desktop) console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
@@ -206,8 +236,10 @@ export async function runHost(
       )
     }
   } catch (error) {
-    const listenerCode = error && typeof error === 'object' && 'code' in error &&
-      (error.code === 'EADDRINUSE' || error.code === 'EACCES') ? error.code : undefined
+    const listenerCode =
+      error && typeof error === 'object' && 'code' in error && (error.code === 'EADDRINUSE' || error.code === 'EACCES')
+        ? error.code
+        : undefined
     console.error(
       `[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? listenerCode ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`,
     )

@@ -426,27 +426,70 @@ test('a canonical declaration survives a database commit failure and malformed j
   const f = await fixture()
   const ref = await f.artifact()
   await f.recover()
-  const db = new Database(f.layout.database)
+  const fatalCodes: string[] = []
+  const removeFatal = f.storage.onFatal((event) => fatalCodes.push(event.code))
+  const injection = new Database(f.layout.database)
   try {
-    db.exec(
+    injection.exec(
       "CREATE TRIGGER fail_reference_receipt BEFORE INSERT ON entity_command_receipts WHEN NEW.commandId='chatDatabase.draft.sync' BEGIN SELECT RAISE(ABORT,'fixture failed receipt'); END",
     )
-    expect(
-      await errorOf(
-        f.storage.call(
-          'chatDatabaseDraftSync',
-          { owner: owner('crash-draft', [ref.id]), expectedRevision: 0 },
-          identity('crash-draft'),
-        ),
-      ),
-    ).toBeInstanceOf(Error)
-    expect((await f.storage.call('chatDatabaseReferenceHealth')).drafts).toBe(false)
-    db.exec('DROP TRIGGER fail_reference_receipt')
   } finally {
-    db.close()
+    injection.close()
   }
-  await f.recover()
-  expect((await f.storage.call('chatDatabaseDraftList', actor, null)).items[0]?.artifactIds).toEqual([ref.id])
+  expect(
+    await errorOf(
+      f.storage.call(
+        'chatDatabaseDraftSync',
+        { owner: owner('crash-draft', [ref.id]), expectedRevision: 0 },
+        identity('crash-draft'),
+      ),
+    ),
+  ).toMatchObject({ code: 'STORAGE_RESULT_UNKNOWN' })
+  expect(await errorOf(f.storage.call('chatDatabaseReferenceHealth'))).toMatchObject({ code: 'STORAGE_CLOSED' })
+  expect(await errorOf(f.storage.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now()))).toMatchObject({
+    code: 'STORAGE_CLOSED',
+  })
+  await f.storage.close()
+  expect(fatalCodes).toEqual(['STORAGE_RESULT_UNKNOWN'])
+  removeFatal()
+  const inspection = new Database(f.layout.database, { readonly: true })
+  try {
+    expect(
+      inspection.query('SELECT draftJournalComplete FROM chat_database_reference_health WHERE id=1').get(),
+    ).toEqual({
+      draftJournalComplete: 0,
+    })
+    expect(
+      inspection
+        .query('SELECT ownerId FROM chat_database_draft_owners WHERE deviceId=? AND ownerId=?')
+        .get(actor, 'session:crash-draft'),
+    ).toBeNull()
+    expect(
+      inspection
+        .query('SELECT commandId FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?')
+        .get(actor, 'crash-draft'),
+    ).toBeNull()
+  } finally {
+    inspection.close()
+  }
+  const cleanup = new Database(f.layout.database)
+  try {
+    cleanup.exec('DROP TRIGGER fail_reference_receipt')
+  } finally {
+    cleanup.close()
+  }
+  const recovered = await f.open()
+  expect((await recovered.call('chatDatabaseReferenceHealth')).drafts).toBe(false)
+  expect(await recovered.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now())).toMatchObject({
+    claimed: false,
+    reason: 'legacyArtifact',
+  })
+  await f.recover(recovered)
+  expect((await recovered.call('chatDatabaseDraftList', actor, null)).items[0]?.artifactIds).toEqual([ref.id])
+  expect(await recovered.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now())).toMatchObject({
+    claimed: false,
+    reason: 'referenced',
+  })
   const path = join(
     f.layout.sessions,
     '.maintenance',
@@ -454,13 +497,17 @@ test('a canonical declaration survives a database commit failure and malformed j
     `${createHash('sha256').update(actor).digest('hex')}.jsonl`,
   )
   await appendFile(path, '{incomplete')
-  await f.storage.close()
+  await recovered.close()
   const current = await f.open()
   let batch = await current.call('chatDatabaseDraftBackfill', 100)
   while (!batch.done) batch = await current.call('chatDatabaseDraftBackfill', 100)
   expect(batch).toMatchObject({ done: true, healthy: false })
   expect(batch.issues).toContain('DRAFT_JOURNAL_TRUNCATED')
   expect((await current.call('chatDatabaseReferenceHealth')).drafts).toBe(false)
+  expect(await current.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now())).toMatchObject({
+    claimed: false,
+    reason: 'legacyArtifact',
+  })
   expect((await readFile(path, 'utf8')).endsWith('\n')).toBe(true)
 })
 
@@ -489,27 +536,53 @@ test('a failed event commit blocks reclamation until canonical logs recover thei
   const workspace = await f.storage.call('createWorkspace', f.root, 'workspace')
   const session = await f.storage.call('createSession', workspace.id, 'failed event transaction')
   await f.recover()
-  const db = new Database(f.layout.database)
+  const fatalCodes: string[] = []
+  const removeFatal = f.storage.onFatal((event) => fatalCodes.push(event.code))
+  const injection = new Database(f.layout.database)
   try {
-    db.exec(
+    injection.exec(
       "CREATE TRIGGER fail_event_commit AFTER INSERT ON events WHEN NEW.type='tool.executed' BEGIN SELECT RAISE(ABORT,'fixture failed event commit'); END",
     )
-    expect(await errorOf(f.storage.call('append', session.id, 'tool.executed', { images: [ref] }))).toBeInstanceOf(
-      Error,
-    )
-    expect((await f.storage.call('chatDatabaseReferenceHealth')).events).toBe(false)
-    expect(await f.storage.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now())).toMatchObject({
-      reason: 'legacyArtifact',
-    })
-    db.exec('DROP TRIGGER fail_event_commit')
   } finally {
-    db.close()
+    injection.close()
   }
+  expect(await errorOf(f.storage.call('append', session.id, 'tool.executed', { images: [ref] }))).toMatchObject({
+    code: 'STORAGE_RESULT_UNKNOWN',
+  })
+  expect(await errorOf(f.storage.call('chatDatabaseReferenceHealth'))).toMatchObject({ code: 'STORAGE_CLOSED' })
+  expect(await errorOf(f.storage.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now()))).toMatchObject({
+    code: 'STORAGE_CLOSED',
+  })
   await f.storage.close()
+  expect(fatalCodes).toEqual(['STORAGE_RESULT_UNKNOWN'])
+  removeFatal()
+  const inspection = new Database(f.layout.database, { readonly: true })
+  try {
+    expect(inspection.query('SELECT complete FROM chat_database_event_reference_health WHERE id=1').get()).toEqual({
+      complete: 0,
+    })
+    expect(
+      inspection.query("SELECT eventId FROM events WHERE sessionId=? AND type='tool.executed'").get(session.id),
+    ).toBeNull()
+  } finally {
+    inspection.close()
+  }
+  const cleanup = new Database(f.layout.database)
+  try {
+    cleanup.exec('DROP TRIGGER fail_event_commit')
+  } finally {
+    cleanup.close()
+  }
   const current = await f.open()
+  expect((await current.call('chatDatabaseReferenceHealth')).events).toBe(true)
+  expect(await current.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now())).toMatchObject({
+    claimed: false,
+    reason: 'legacyArtifact',
+  })
   await f.recover(current)
   expect((await current.call('chatDatabaseReferenceHealth')).events).toBe(true)
   expect(await current.call('chatDatabaseArtifactClaim', ref.id, 'cleanup', Date.now())).toMatchObject({
+    claimed: false,
     reason: 'referenced',
   })
 })

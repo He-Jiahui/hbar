@@ -197,8 +197,6 @@ export class AgentRuntime implements AgentService {
     }
   }
 
-
-
   private async created(sessionId: string): Promise<CreatedAgent | null> {
     // Capture the original first-100-event window before filtering. This also
     // preserves that window for imported histories with gaps in their sequences.

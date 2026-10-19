@@ -137,7 +137,8 @@ function boundedSignal(parent: AbortSignal, timeoutMs: number) {
     rejectTimeout?.(timeoutError)
   }, timeoutMs)
   const abort = () => {
-    const reason: unknown = (parent.reason as unknown) ?? new HbarError('BROWSER_ABORTED', 'Browser operation was cancelled')
+    const reason: unknown =
+      (parent.reason as unknown) ?? new HbarError('BROWSER_ABORTED', 'Browser operation was cancelled')
     controller.abort(reason)
     rejectAbort?.(reason)
   }
@@ -369,14 +370,20 @@ export class BrowserRuntime implements BrowserUseService {
     await this.session(sessionId)
     const sessions = this.contexts.get(sessionId) ?? new Map<string, Map<string, PageState>>()
     this.contexts.set(sessionId, sessions)
+    // Explicit IDs refer to contexts already owned by this Session.
+    if (requested !== undefined && !sessions.has(requested))
+      throw new HbarError('BROWSER_PAGE_NOT_FOUND', 'Browser context not found')
     const contextId = requested ?? `browser-${crypto.randomUUID()}`
     let pages = sessions.get(contextId)
     if (!pages) {
       if (sessions.size >= this.config.maxContexts)
         throw new HbarError('BROWSER_CONTEXT_LIMIT', 'Browser context limit reached')
       pages = new Map()
-      if (this.api.resources) this.resources.set(sessionId + ':' + contextId,
-        await this.api.resources.retain({ kind: 'browser', id: contextId, sessionId }))
+      if (this.api.resources)
+        this.resources.set(
+          sessionId + ':' + contextId,
+          await this.api.resources.retain({ kind: 'browser', id: contextId, sessionId }),
+        )
       sessions.set(contextId, pages)
     }
     return { sessions, contextId, pages }
@@ -408,7 +415,9 @@ export class BrowserRuntime implements BrowserUseService {
     const history = this.config.allow_history_access
       ? [
           ...new Set(
-            (await Promise.all([...sessions.keys()].map((id) => this.bounded(signal, () => this.backend.history(id))))).flat(),
+            (
+              await Promise.all([...sessions.keys()].map((id) => this.bounded(signal, () => this.backend.history(id))))
+            ).flat(),
           ),
         ].slice(-100)
       : []
@@ -588,7 +597,7 @@ export class BrowserRuntime implements BrowserUseService {
     if (pageId) pages.delete(pageId)
     else sessions?.delete(contextId)
     if (!pageId || !pages.size) {
-      if (pageId) await this.bounded(signal, boundedSignal => this.backend.close(contextId, undefined, boundedSignal))
+      if (pageId) await this.bounded(signal, (boundedSignal) => this.backend.close(contextId, undefined, boundedSignal))
       sessions?.delete(contextId)
       await this.resources.get(sessionId + ':' + contextId)?.()
       this.resources.delete(sessionId + ':' + contextId)
@@ -604,8 +613,12 @@ export class BrowserRuntime implements BrowserUseService {
     if (!this.config.allow_history_access)
       throw new HbarError('BROWSER_HISTORY_DENIED', 'Browser history access is disabled')
     const sessions = this.contexts.get(sessionId)
+    if (contextId !== undefined && !sessions?.has(contextId))
+      throw new HbarError('BROWSER_PAGE_NOT_FOUND', 'Browser context not found')
     const ids = contextId ? [contextId] : [...(sessions?.keys() ?? [])]
-    return [...new Set((await Promise.all(ids.map((id) => this.bounded(signal, () => this.backend.history(id))))).flat())].slice(-100)
+    return [
+      ...new Set((await Promise.all(ids.map((id) => this.bounded(signal, () => this.backend.history(id))))).flat()),
+    ].slice(-100)
   }
 
   dispose(): Promise<void> {

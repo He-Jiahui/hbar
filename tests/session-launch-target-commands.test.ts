@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describeCommand } from '@hbar/commands'
 import { HbarClient, createSessionLaunchTargetPreparationManager, createSessionLaunchTargetReader } from '@hbar/client'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { Kernel, MemorySecrets, createSessionLaunchTargetCommands } from '@hbar/kernel'
 import { sessionLaunchTargetCommands } from '@hbar/contracts/commands/session-launch-target'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -201,4 +201,53 @@ test('target mutation during an active async preparation is a typed precommit BU
       idempotencyKey: 'blocked-target-change',
     }),
   ).toBeNull()
+})
+
+test('launch target catalog forwards internal authorization descriptors and every registry filter', async () => {
+  const f = await fixture()
+  const service = createSessionLaunchTargetCommands(f.kernel, () => {})
+  try {
+    expect(service.list().items).toHaveLength(0)
+    expect(service.list({ includeInternal: false }).items).toHaveLength(0)
+    const all = service.list({ includeInternal: true })
+    const ids = Object.keys(sessionLaunchTargetCommands).sort()
+    expect(all.items.map((item) => item.metadata.id)).toEqual(ids)
+    expect(all.items).toHaveLength(10)
+    expect(all.items.find((item) => item.metadata.id === 'sessionLaunchTarget.set')?.metadata).toMatchObject({
+      visibility: 'internal',
+      scope: 'session',
+      stateEffect: 'persistent',
+      idempotency: 'required',
+    })
+    const first = service.list({ includeInternal: true, limit: 2 })
+    expect(first.items.map((item) => item.metadata.id)).toEqual(ids.slice(0, 2))
+    expect(first.nextCursor).toBe(ids[1])
+    if (first.nextCursor === undefined) throw new Error('LAUNCH_TARGET_CATALOG_CURSOR_MISSING')
+    expect(
+      service.list({ includeInternal: true, after: first.nextCursor, limit: 2 }).items.map((item) => item.metadata.id),
+    ).toEqual(ids.slice(2, 4))
+    expect(service.list({ includeInternal: true, category: 'workspace', surface: 'api' }).items).toHaveLength(10)
+    expect(
+      service.list({ includeInternal: true, category: 'workspace.session-launch-target', surface: 'api' }).items,
+    ).toHaveLength(10)
+    expect(service.list({ includeInternal: true, category: 'unknown' }).items).toHaveLength(0)
+    expect(service.list({ includeInternal: true, surface: 'cli' }).items).toHaveLength(0)
+    expect(() => service.list({ includeInternal: true, limit: 501 })).toThrow()
+    const manager = createSessionLaunchTargetPreparationManager(f.client)
+    expect(await manager.readTarget(f.session.id)).toMatchObject({ revision: 0 })
+    const request = {
+      sessionId: f.session.id,
+      expectedRevision: 0,
+      selection: { mode: 'isolated-worktree' as const, branch: { kind: 'new' as const, name: 'catalog-target' } },
+    }
+    const receipt = await manager.setSelection(request, { idempotencyKey: 'catalog-target-selection' })
+    expect(receipt).toMatchObject({ request, revision: 1, changed: true })
+    expect(await manager.readTarget(f.session.id)).toMatchObject({ revision: 1, selection: request.selection })
+    expect(
+      await manager.readSelectionReceipt({ sessionId: f.session.id, idempotencyKey: 'catalog-target-selection' }),
+    ).toEqual(receipt)
+    expect(service.list().items).toHaveLength(0)
+  } finally {
+    service.dispose()
+  }
 })

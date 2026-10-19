@@ -16,6 +16,7 @@ import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import type { ModelRequest, ToolResult } from './index'
 import { runtimeResolvedModelSchema } from './runtime-resolved-model'
+export { runtimeResolvedModelSchema }
 
 export const runtimeMessageSchema = z.object({
   id: idSchema,
@@ -191,7 +192,10 @@ export type RuntimeDriverCallbackValue<Value = RuntimeDriverCallback> = Value ex
   ? Omit<Value, 'invocationId'>
   : never
 export const runtimeDriverModelActivitySchema = z.strictObject({ invocationId: idSchema, requestId: z.string().uuid() })
-export const RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS = ['driver.modelActivity.begin', 'driver.modelActivity.settle'] as const
+export const RUNTIME_DRIVER_MODEL_ACTIVITY_METHODS = [
+  'driver.modelActivity.begin',
+  'driver.modelActivity.settle',
+] as const
 export const runtimeDriverStreamSchema = z.strictObject({
   invocationId: idSchema,
   id: idSchema,

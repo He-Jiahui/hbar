@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { createBrowserCommandClient } from '@hbar/client'
+import { HbarClient, createBrowserCommandClient } from '@hbar/client'
 import { HbarError } from '@hbar/contracts'
 import { createBrowserCommands } from '@hbar/kernel'
 import type { BrowserUseService } from '@hbar/plugin-sdk'
@@ -232,4 +232,42 @@ test('browser external actions treat backend and transport timeouts as unknown r
   await expect(client.execute('browser.status', { sessionId: 'session-1' })).rejects.toMatchObject({
     code: 'DISCONNECTED',
   })
+})
+
+test('browser client rejects an already aborted request before transport admission', async () => {
+  const transport = new HbarClient('http://127.0.0.1:1')
+  const client = createBrowserCommandClient(transport)
+  await expect(
+    client.execute('browser.navigate', { sessionId: 'session-1', url: page.url }, { signal: AbortSignal.abort() }),
+  ).rejects.toMatchObject({ code: 'CANCELLED' })
+})
+
+test('browser client aborts observation after dispatch with an unknown outcome', async () => {
+  const entered = Promise.withResolvers<void>()
+  let effects = 0
+  const transport: ClientTransport = {
+    call(_method, _params, options) {
+      if (options?.signal?.aborted) return Promise.reject(new HbarError('CANCELLED', 'Not dispatched'))
+      effects++
+      entered.resolve()
+      return new Promise<never>((_resolve, reject) => {
+        options?.signal?.addEventListener(
+          'abort',
+          () => reject(new HbarError('RESULT_UNKNOWN', 'Observation ended; inspect state')),
+          { once: true },
+        )
+      })
+    },
+  }
+  const controller = new AbortController()
+  const client = createBrowserCommandClient(transport)
+  const pending = client.execute(
+    'browser.navigate',
+    { sessionId: 'session-1', url: page.url },
+    { signal: controller.signal },
+  )
+  await entered.promise
+  controller.abort()
+  await expect(pending).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+  expect(effects).toBe(1)
 })

@@ -37,23 +37,23 @@ const resolvedProviderModelSchema = providerInputSchema.shape.models
 export const runtimeResolvedModelSchema = z
   .object({
     ...providerInputSchema.shape,
-    // The prefix remains a strict provider key; the suffix is the existing opaque model ID.
-    id: z
-      .string()
-      .min(1)
-      .max(225)
-      .refine((id) => {
-        const separator = id.indexOf('/')
-        const providerId = separator < 0 ? id : id.slice(0, separator)
-        return (
-          providerInputSchema.shape.id.safeParse(providerId).success &&
-          (separator < 0 || (id.length > separator + 1 && id.length - separator - 1 <= 160))
-        )
-      }, 'Invalid resolved model selection ID'),
+    id: z.string().min(1).max(225),
     models: z.array(resolvedProviderModelSchema).min(1).max(256),
     contextMode: z.enum(['standard', 'max']).optional(),
   })
   .required({ ...requiredModelFields, model: true })
+  .superRefine((value, context) => {
+    // Raw model IDs are opaque. Catalog selections retain their strict provider prefix.
+    if (value.id === value.model) return
+    const separator = value.id.indexOf('/')
+    const providerId = separator < 0 ? value.id : value.id.slice(0, separator)
+    if (
+      !providerInputSchema.shape.id.safeParse(providerId).success ||
+      (separator >= 0 && (value.id.length === separator + 1 || value.id.length - separator - 1 > 160))
+    ) {
+      context.addIssue({ code: 'custom', path: ['id'], message: 'Invalid resolved model selection ID' })
+    }
+  })
   .transform((value): ProviderConfig => {
     const { cacheReadPrice, cacheWritePrice, contextTiers, maxModePricingMultiplier, contextMode, ...required } = value
     return {

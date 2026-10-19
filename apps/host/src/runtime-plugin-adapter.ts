@@ -285,6 +285,9 @@ export class RuntimePluginAdapter {
           (method: string, parameters: readonly unknown[]) => this.host(api, method, parameters),
         ],
         {
+          // tool.before is a pre-execution gate; its nested context signal is collected by RuntimeValuePort.
+          // Preserve only this local call's abort provenance, without rewriting dispatched tool failures.
+          preserveAbortReason: operation.operation === 'hook' && operation.name === 'tool.before',
           ...(operationSignal ? { signal: operationSignal } : {}),
           timeoutMs: Math.min(operationTimeoutMs + 125_000, 1_325_000),
         },

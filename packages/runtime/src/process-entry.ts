@@ -82,6 +82,7 @@ export async function runRuntimeProcess(
   let phase: 'boot' | 'preparing' | 'ready' | 'serving' | 'draining' | 'disposed' = 'boot'
   let exiting = false
   let heartbeatFrozen = false
+  let timeoutReported = false
   const heartbeatSends = new Set<Promise<void>>()
   type StopReason =
     | 'transport_failure'
@@ -94,6 +95,36 @@ export async function runRuntimeProcess(
     | 'requested_exit'
     | 'heartbeat_failure'
   const report = (code: number, reason: StopReason, error?: unknown) => {
+    if (code !== 0) {
+      const reasons: Record<StopReason, string> = {
+        transport_failure: 'IPC_FAILURE',
+        dispatched_timeout: 'CALL_TIMEOUT',
+        uncaught_exception: 'UNCAUGHT_EXCEPTION',
+        unhandled_rejection: 'UNHANDLED_REJECTION',
+        parent_disconnect: 'PARENT_DISCONNECTED',
+        signal_int: 'SIGNAL_SIGINT',
+        signal_term: 'SIGNAL_SIGTERM',
+        requested_exit: 'REQUESTED_EXIT',
+        heartbeat_failure: 'HEARTBEAT_FAILED',
+      }
+      try {
+        writeSync(
+          2,
+          `[hbar runtime stop] ${JSON.stringify({
+            event: 'runtime.child_stop',
+            exitCode: code,
+            reason: reasons[reason],
+            phase,
+            unitId: owner.unitId,
+            generation: owner.generation,
+            incarnation: owner.incarnation,
+            childPid: process.pid,
+          })}\n`,
+        )
+      } catch {
+        /* Stop policy is independent of the diagnostic sink. */
+      }
+    }
     try {
       const event = diagnosticEvent({
         component: 'host',
@@ -174,7 +205,29 @@ export async function runRuntimeProcess(
       // The broken channel cannot acknowledge diagnostics; preserve fixed fields before exit.
       writeRuntimeExceptionDiagnostic(JSON.stringify(metadata) + '\n', options.write)
     },
-    onTimeout: () => stop(76, 'dispatched_timeout'),
+    onTimeout: (_requestId, timeout) => {
+      if (!timeoutReported) {
+        timeoutReported = true
+        try {
+          writeSync(
+            2,
+            `[hbar runtime timeout] ${JSON.stringify({
+              event: 'runtime.child_call_timeout',
+              code: 'IPC_TIMEOUT',
+              unitId: owner.unitId,
+              generation: owner.generation,
+              incarnation: owner.incarnation,
+              childPid: process.pid,
+              remoteUnitId: remote.unitId,
+              ...timeout,
+            })}\n`,
+          )
+        } catch {
+          /* Stop policy is independent of the diagnostic sink. */
+        }
+      }
+      stop(76, 'dispatched_timeout')
+    },
     onCallTimeout: (event) => {
       const snapshot = peer.snapshot()
       const metadata = diagnosticEvent({

@@ -176,6 +176,8 @@ export const runtimeKernelStateSchema = z.strictObject({
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
 /** Kernel-initiated callbacks to the stable Host, never exposed as Kernel services or operator RPC. */
 export const RUNTIME_KERNEL_HOST_METHODS = [
+  // Leaf Storage forwarding must progress while plugin invocations await Kernel callbacks.
+  'kernel.storage',
   'kernel.commands.list',
   'kernel.commands.clients',
   'kernel.commands.describe',

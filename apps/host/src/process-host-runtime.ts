@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { scopeRuntimeDiagnostic } from './runtime-diagnostic-scope'
 import { startupStorageMigrationRequired } from './startup-storage-migration'
 import {
   RuntimeRecoveryResponsibility,
@@ -2579,45 +2580,54 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private async dispose(): Promise<void> {
     this.closing = true
-    this.commandDiscovery.close()
-    this.maintenance.dispose()
+    const errors: unknown[] = []
+    const attempt = async (cleanup: () => void | Promise<void>): Promise<void> => {
+      try {
+        await cleanup()
+      } catch (error) {
+        errors.push(error)
+      }
+    }
+    await attempt(() => this.commandDiscovery.close())
+    await attempt(() => this.maintenance.dispose())
     this.controllerStarted = false
     this.controllerBackgroundEpoch++
-    this.scheduleAlarms.stop()
-    this.maintenanceAlarms.stop()
-    this.sessionWakeAlarms.close()
-    this.demand.stop()
-    this.recoveryResponsibility.stop()
-    this.disposeStatus()
-    this.statusFeed.close()
-    this.disposeSource()
-    this.deferredWakeups.close()
-    this.sourceAbort.abort()
+    await attempt(() => this.scheduleAlarms.stop())
+    await attempt(() => this.maintenanceAlarms.stop())
+    await attempt(() => this.sessionWakeAlarms.close())
+    await attempt(() => this.demand.stop())
+    await attempt(() => this.recoveryResponsibility.stop())
+    await attempt(() => this.disposeStatus())
+    await attempt(() => this.statusFeed.close())
+    await attempt(() => this.disposeSource())
+    await attempt(() => this.deferredWakeups.close())
+    await attempt(() => this.sourceAbort.abort())
     clearInterval(this.sweep)
-    const compilerClose = this.compiler.close().then(
-      () => undefined,
-      (error: unknown) => ({ error }),
-    )
-    let primary: { error: unknown } | undefined
-    try {
-      await this.settingsScheduling.running()
-      await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
-      await this.sourceTask
-      for (const record of this.generations.values())
-        if (record.artifact.unitId === 'kernel') await record.process.dispose()
-      await this.storage.close()
-      await this.manager.close()
-      this.recoveryResponsibility.reconcilePhysical()
-      await this.startupTask?.catch(() => {})
-      await this.transitions
-      this.facade.dispose()
-    } catch (error) {
-      primary = { error }
+    const compilerClose = attempt(() => this.compiler.close())
+    await attempt(() => this.settingsScheduling.running())
+    const startupOutcomes = await Promise.allSettled([
+      Promise.resolve().then(() => this.startupProbe?.close()),
+      Promise.resolve().then(() => this.startupStorage?.close()),
+    ])
+    for (const outcome of startupOutcomes) {
+      if (outcome.status === 'rejected') {
+        const error: unknown = outcome.reason
+        errors.push(error)
+      }
     }
-    const cleanup = await compilerClose
-    if (primary && cleanup) throw new AggregateError([primary.error, cleanup.error], 'Host shutdown failed')
-    if (primary) throw primary.error
-    if (cleanup) throw cleanup.error
+    await attempt(() => this.sourceTask)
+    for (const record of this.generations.values())
+      if (record.artifact.unitId === 'kernel') await attempt(() => record.process.dispose())
+    await attempt(() => this.storage.close())
+    await attempt(() => this.manager.close())
+    await attempt(() => this.recoveryResponsibility.reconcilePhysical())
+    await this.startupTask?.catch(() => {})
+    await attempt(() => this.transitions)
+    await attempt(() => this.facade.dispose())
+    await compilerClose
+    // Every owner receives a cleanup attempt; this does not prove execution convergence.
+    if (errors.length === 1) throw errors[0]
+    if (errors.length > 1) throw new AggregateError(errors, 'Runtime shutdown failed', { cause: errors[0] })
   }
   private async buildInitial(): Promise<RuntimeArtifact[]> {
     await this.compiler.prepare()
@@ -3178,6 +3188,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                   ? { physicalModelActivity: true }
                   : {}
     let record: Generation
+    let reportedExitIncarnation: string | undefined
     const managed = new ManagedProcess({
       descriptor: artifact.descriptor,
       artifactId: artifact.id,
@@ -3263,7 +3274,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         record.cleanup.push(
           peer.onEvent('runtime.diagnostic', diagnosticEventSchema, (event) => {
             try {
-              this.options.diagnostics?.emit({ ...event, instanceId: this.instanceId })
+              this.options.diagnostics?.emit(scopeRuntimeDiagnostic(event, owner, this.instanceId))
             } catch {
               /* A journal observer never owns runtime recovery. */
             }
@@ -3510,7 +3521,21 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           outcome: 'failure',
         })
       },
-      onFault: (owner, reason, childPid) => {
+      onFault: (owner, reason, childPid, ipcFailureCode) => {
+        if (ipcFailureCode !== undefined)
+          this.emitProcessLifecycleDiagnostic({
+            component: 'host',
+            level: 'error',
+            event: 'host.runtime_ipc_failure',
+            phase: `generation.${owner.generation}`,
+            contextId: owner.unitId,
+            requestId: owner.incarnation,
+            instanceId: this.instanceId,
+            processId: process.pid,
+            childPid,
+            errorCode: ipcFailureCode,
+            outcome: 'failure',
+          })
         this.emitProcessLifecycleDiagnostic({
           component: 'host',
           level: 'error',
@@ -3527,21 +3552,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         return this.fault(owner, reason)
       },
       onExit: async (owner, exit) => {
-        this.emitProcessLifecycleDiagnostic({
-          component: 'host',
-          level: exit.deliberate ? 'info' : 'error',
-          event: 'host.runtime_process_exit',
-          phase: `generation.${owner.generation}`,
-          contextId: owner.unitId,
-          requestId: owner.incarnation,
-          instanceId: this.instanceId,
-          processId: process.pid,
-          childPid: exit.childPid,
-          exitCode: exit.exitCode,
-          ...(exit.reasonCode ? { errorCode: exit.reasonCode } : {}),
-          restartExpected: exit.restartExpected,
-          outcome: exit.deliberate ? 'success' : 'failure',
-        })
+        if (reportedExitIncarnation !== owner.incarnation) {
+          reportedExitIncarnation = owner.incarnation
+          this.emitProcessLifecycleDiagnostic({
+            component: 'host',
+            level: exit.deliberate ? 'info' : 'error',
+            event: 'host.runtime_process_exit',
+            phase: `generation.${owner.generation}`,
+            contextId: owner.unitId,
+            requestId: owner.incarnation,
+            instanceId: this.instanceId,
+            processId: process.pid,
+            childPid: exit.childPid,
+            exitCode: exit.exitCode,
+            ...(exit.reasonCode ? { errorCode: exit.reasonCode } : {}),
+            restartExpected: exit.restartExpected,
+            outcome: exit.deliberate ? 'success' : 'failure',
+          })
+        }
         if (artifact.unitId === 'node-link') this.nodeLink.exited(owner)
         if (artifact.unitId === 'kernel') {
           this.relay.kernelExited(owner)

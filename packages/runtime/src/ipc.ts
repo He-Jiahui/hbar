@@ -10,6 +10,24 @@ import {
   type RuntimeOwner,
 } from '@hbar/contracts/runtime'
 
+/** Fixed local channel failure descriptors; never copy transport messages or payloads into diagnostics. */
+export function ipcChannelFailure(error: unknown): HbarError {
+  const code = runtimeDomainError(error)?.code
+  const allowed = new Set([
+    'IPC_BUSY',
+    'IPC_FRAGMENT_TIMEOUT',
+    'IPC_PAYLOAD_LIMIT',
+    'IPC_SERIALIZATION',
+    'IPC_PROTOCOL',
+    'IPC_OWNER_CHANGED',
+    'IPC_DISCONNECTED',
+    'IPC_TRANSPORT_FAILED',
+  ])
+  return new HbarError(
+    code !== undefined && allowed.has(code) ? code : 'IPC_TRANSPORT_FAILED',
+    'Runtime channel failed',
+  )
+}
 const id = z.string().min(1).max(160)
 const methodName = z
   .string()
@@ -114,6 +132,8 @@ export interface IpcCallOptions {
   /** Physical reply, or proof no dispatch occurred. Closing a dispatched peer is unknown. */
   readonly onDispatchSettled?: ((event: 'reply' | 'not-dispatched') => void) | undefined
   readonly signal?: AbortSignal | undefined
+  /** Preserve local abort provenance for application bridges; remote failures retain their own error. */
+  readonly preserveAbortReason?: boolean | undefined
   readonly timeoutMs?: number | undefined
   readonly requestId?: string | undefined
   readonly ownership?: ExecutionOwnership | undefined
@@ -163,7 +183,21 @@ export interface IpcPeerOptions {
   readonly timeoutMs?: number
   readonly fragmentTimeoutMs?: number
   readonly onFailure?: (error: HbarError) => void
-  readonly onTimeout?: (requestId: string) => void
+  readonly onTimeout?: (
+    requestId: string,
+    timeout: {
+      readonly callId: string
+      readonly method: string
+      readonly elapsedMs: number
+      readonly timeoutMs: number
+      readonly started: boolean
+      readonly pending: number
+      readonly inFlight: number
+      readonly queued: number
+      readonly incoming: number
+      readonly incomingQueued: number
+    },
+  ) => void
   readonly onCallTimeout?: (event: IpcCallTimeout) => void
   /** Reserve active admission for named control ports; confirmed human waits retain separate physical accounting. */
   readonly controlMethods?: readonly string[]
@@ -191,7 +225,7 @@ interface Pending {
   encoded: string | undefined
   readonly bytes: number
   readonly resolve: (value: unknown) => void
-  readonly reject: (error: Error) => void
+  readonly reject: (error: unknown) => void
   readonly rejectSettlement?: ((error: unknown) => void) | undefined
   readonly signal: AbortSignal | undefined
   readonly abort: () => void
@@ -374,7 +408,7 @@ export class IpcPeer {
             ? 'IPC_PAYLOAD_LIMIT'
             : 'IPC_PROTOCOL',
     )
-    this.close()
+    this.close(ipcChannelFailure(error))
   }
 
   constructor(private readonly options: IpcPeerOptions) {
@@ -502,8 +536,12 @@ export class IpcPeer {
       settlement?.reject(error)
       return Promise.reject(error)
     }
+    const { signal, preserveAbortReason } = options
     if (this.failure) return refuse(this.failure)
-    if (options.signal?.aborted) return refuse(new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'))
+    if (signal?.aborted)
+      return refuse(
+        preserveAbortReason ? signal.reason : new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'),
+      )
     const deadlineMs = options.timeoutMs ?? this.timeoutMs
     if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 2_147_483_647)
       return refuse(new HbarError('INVALID_INPUT', 'Runtime request deadlines require a positive timer-safe integer'))
@@ -561,12 +599,18 @@ export class IpcPeer {
         started: false,
         transportStarted: false,
         settled: false,
-        abort: () => this.cancel(callId, new HbarError('IPC_CANCELLED', 'Runtime request was cancelled')),
+        abort: () =>
+          this.cancel(
+            callId,
+            preserveAbortReason ? signal?.reason : new HbarError('IPC_CANCELLED', 'Runtime request was cancelled'),
+          ),
       }
       this.pending.set(callId, pending)
       this.queue.push(callId)
       this.queuedBytes += bytes
       pending.deadline = new RpcDeadline(deadlineMs, () => {
+        const state = this.snapshot()
+        const pendingCount = this.pending.size
         const diagnostic: IpcCallTimeout = {
           callId,
           method: /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(method) ? method : 'redacted',
@@ -581,7 +625,18 @@ export class IpcPeer {
         }
         if (pending.started) {
           try {
-            this.options.onTimeout?.(requestId)
+            this.options.onTimeout?.(requestId, {
+              callId,
+              method,
+              elapsedMs: Math.max(0, performance.now() - enqueuedAt),
+              timeoutMs: options.timeoutMs ?? this.timeoutMs,
+              started: pending.started,
+              pending: pendingCount,
+              inFlight: state.inFlight,
+              queued: state.queued,
+              incoming: state.incoming,
+              incomingQueued: state.incomingQueued,
+            })
           } catch {
             console.error('[hbar runtime] timeout observer failed')
           }
@@ -737,7 +792,7 @@ export class IpcPeer {
     pending.signal?.removeEventListener('abort', pending.abort)
   }
 
-  private cancel(callId: string, error: HbarError): void {
+  private cancel(callId: string, error: unknown): void {
     const pending = this.pending.get(callId)
     if (!pending || pending.settled) return
     this.settle(pending)

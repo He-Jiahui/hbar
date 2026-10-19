@@ -432,3 +432,51 @@ test('real Bun IPC carries a fragmented round trip and settles pending calls on 
     }
   }
 })
+
+// Exercise the real IpcPeer framing/ACK state machine; transport failure injection carries no model/provider.
+test('channel failure preserves ACK timeout as first cause and rejects pending calls', async () => {
+  const failures: string[] = []
+  const peer = new IpcPeer({
+    owner,
+    remote,
+    fragmentTimeoutMs: 10,
+    transport: { send: () => {} },
+    onFailure: (error) => {
+      failures.push(error.code)
+    },
+  })
+  try {
+    const result = await peer.call('echo', 'small', z.string()).catch((error: unknown) => error)
+    expect(result).toMatchObject({ code: 'IPC_FRAGMENT_TIMEOUT' })
+    peer.close(new HbarError('IPC_PROTOCOL', 'later failure'))
+    expect(failures).toEqual(['IPC_FRAGMENT_TIMEOUT'])
+    expect(peer.snapshot()).toMatchObject({ failed: true, inFlight: 0, queued: 0, incoming: 0, bufferedBytes: 0 })
+  } finally {
+    peer.close()
+  }
+})
+
+test('channel failure maps unknown transport payload to a fixed safe descriptor', async () => {
+  const failures: Array<{ code: string; message: string }> = []
+  const canary = 'PRIVATE_TRANSPORT_PAYLOAD_CANARY'
+  const peer = new IpcPeer({
+    owner,
+    remote,
+    transport: {
+      send: () => {
+        throw new Error(canary)
+      },
+    },
+    onFailure: (error) => {
+      failures.push({ code: error.code, message: error.message })
+    },
+  })
+  try {
+    const result = await peer.call('echo', 'small', z.string()).catch((error: unknown) => error)
+    expect(result).toMatchObject({ code: 'IPC_TRANSPORT_FAILED', message: 'Runtime channel failed' })
+    expect(failures).toEqual([{ code: 'IPC_TRANSPORT_FAILED', message: 'Runtime channel failed' }])
+    expect(JSON.stringify(failures)).not.toContain(canary)
+  } finally {
+    peer.close()
+  }
+})
