@@ -14,7 +14,7 @@ import { dirname, join, relative } from 'node:path'
 import { sessionEventSchema } from '@hbar/contracts'
 import type { SessionEvent } from '@hbar/contracts'
 
-const LOG_READ_CHUNK_BYTES = 64 * 1024
+const LOG_READ_CHUNK_BYTES = 1024 * 1024
 /** Bounds one encoded canonical JSONL record; this cap is far above the approved seed's largest line. */
 export const DEFAULT_MAX_SESSION_LOG_RECORD_BYTES = 64 * 1024 * 1024
 
@@ -139,13 +139,13 @@ export function visitSessionLogs(
         if (!recordTooLarge) segments.push(Buffer.from(readBuffer.subarray(start, end)))
       }
 
-      const emitRecord = () => {
-        if (recordTooLarge)
+      const emitRecord = (direct?: Buffer) => {
+        if (recordTooLarge || (direct !== undefined && direct.length > maxRecordBytes))
           throw new SessionLogRecoveryError(
             'SESSION_LOG_RECORD_TOO_LARGE',
             'SESSION_LOG_RECORD_TOO_LARGE canonical JSONL record exceeds the configured byte limit',
           )
-        const line = segments.length === 1 ? segments[0]! : Buffer.concat(segments, segmentBytes)
+        const line = direct ?? (segments.length === 1 ? segments[0]! : Buffer.concat(segments, segmentBytes))
         const raw = line.subarray(0, line.length - 1)
         if (raw.length) {
           const event = parseRecord(raw, path, recordOffset)
@@ -159,7 +159,7 @@ export function visitSessionLogs(
             })
           }
         }
-        fileOffset += segmentBytes
+        fileOffset += line.length
         recordOffset = fileOffset
         segments.length = 0
         segmentBytes = 0
@@ -180,10 +180,16 @@ export function visitSessionLogs(
             'SESSION_LOG_CHANGED_DURING_RECOVERY canonical log ended before its initial size',
           )
         let segmentStart = 0
-        for (let index = 0; index < read; index++) {
-          if (readBuffer[index] !== 10) continue
-          appendSegment(segmentStart, index + 1)
-          emitRecord()
+        // Search only bytes read this time: the reusable buffer can retain an old newline after EOF.
+        const chunk = readBuffer.subarray(0, read)
+        for (let index = chunk.indexOf(10); index !== -1; index = chunk.indexOf(10, segmentStart)) {
+          if (segmentBytes === 0) {
+            // Parsing and hashing consume this view synchronously before the reusable buffer changes.
+            emitRecord(chunk.subarray(segmentStart, index + 1))
+          } else {
+            appendSegment(segmentStart, index + 1)
+            emitRecord()
+          }
           segmentStart = index + 1
         }
         appendSegment(segmentStart, read)

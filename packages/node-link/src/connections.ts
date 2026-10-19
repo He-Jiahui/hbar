@@ -40,6 +40,31 @@ export class ConversationNodeConnections {
   private readonly heartbeat: ReturnType<typeof setInterval>
   private readonly unlisten: () => void
   private closed = false
+  private physicalBackground = 0
+  private physicalRequests = 0
+  private uncertainRemote = false
+  idleSnapshot() {
+    const now = this.now()
+    return {
+      connections: this.connections.size,
+      handshakes: [...this.connections.values()].filter((entry) => entry.node === null).length,
+      physicalBackground: this.physicalBackground,
+      physicalRequests: this.physicalRequests,
+      uncertainRemote: this.uncertainRemote,
+      rateLimitSources: [...this.attempts.values()].filter((entry) => entry.resetAt > now).length,
+    }
+  }
+  private async background<Result>(operation: () => Promise<Result>): Promise<Result> {
+    this.physicalBackground++
+    try {
+      return await operation()
+    } catch (error) {
+      this.uncertainRemote = true
+      throw error
+    } finally {
+      this.physicalBackground--
+    }
+  }
   private readonly now: () => number
   constructor(
     private readonly registry: NodeRegistryService,
@@ -88,51 +113,57 @@ export class ConversationNodeConnections {
     })
   }
   async receive(id: string, text: string): Promise<void> {
-    const connection = this.connections.get(id)
-    if (!connection || this.closed) return
-    if (connection.peer) {
-      connection.lastSeenAt = this.now()
-      await connection.peer.receive(text)
-      return
-    }
-    if (connection.busy) {
-      this.closeConnection(id, 4002, 'Concurrent node authentication frames')
-      return
-    }
-    connection.busy = true
+    this.physicalRequests++
     try {
-      const reply = await connection.handshake.receive(text)
-      if (this.connections.get(id) !== connection) return
-      if (!connection.transport.send(encodeNodeFrame(reply))) {
-        this.closeConnection(id)
+      const connection = this.connections.get(id)
+      if (!connection || this.closed) return
+      if (connection.peer) {
+        connection.lastSeenAt = this.now()
+        await connection.peer.receive(text)
         return
       }
-      const node = connection.handshake.node
-      if (!node) return
-      const prior = this.byNode.get(node.nodeId)
-      if (prior) this.closeConnection(prior, NODE_CLOSE_CODES.replaced, 'Node link replaced by a new signed connection')
-      connection.node = node
-      connection.peer = this.peer(connection)
-      this.byNode.set(node.nodeId, id)
-      clearTimeout(connection.deadline)
-      // Do not hold a transport dispatch request while its capability reply needs the same IPC owner.
-      void this.refresh(connection).catch(() =>
-        this.closeConnection(id, NODE_CLOSE_CODES.evaluator, 'Node capabilities rejected'),
-      )
-    } catch (error) {
+      if (connection.busy) {
+        this.closeConnection(id, 4002, 'Concurrent node authentication frames')
+        return
+      }
+      connection.busy = true
       try {
-        connection.transport.send(
-          encodeNodeFrame({
-            type: 'error',
-            code: error instanceof HbarError ? error.code : 'NODE_AUTH_INVALID',
-            message: error instanceof HbarError ? error.message : 'Node authentication failed',
-          }),
+        const reply = await connection.handshake.receive(text)
+        if (this.connections.get(id) !== connection) return
+        if (!connection.transport.send(encodeNodeFrame(reply))) {
+          this.closeConnection(id)
+          return
+        }
+        const node = connection.handshake.node
+        if (!node) return
+        const prior = this.byNode.get(node.nodeId)
+        if (prior)
+          this.closeConnection(prior, NODE_CLOSE_CODES.replaced, 'Node link replaced by a new signed connection')
+        connection.node = node
+        connection.peer = this.peer(connection)
+        this.byNode.set(node.nodeId, id)
+        clearTimeout(connection.deadline)
+        // Do not hold a transport dispatch request while its capability reply needs the same IPC owner.
+        void this.refresh(connection).catch(() =>
+          this.closeConnection(id, NODE_CLOSE_CODES.evaluator, 'Node capabilities rejected'),
         )
+      } catch (error) {
+        try {
+          connection.transport.send(
+            encodeNodeFrame({
+              type: 'error',
+              code: error instanceof HbarError ? error.code : 'NODE_AUTH_INVALID',
+              message: error instanceof HbarError ? error.message : 'Node authentication failed',
+            }),
+          )
+        } finally {
+          this.closeConnection(id, 4001, 'Node authentication failed')
+        }
       } finally {
-        this.closeConnection(id, 4001, 'Node authentication failed')
+        connection.busy = false
       }
     } finally {
-      connection.busy = false
+      this.physicalRequests--
     }
   }
   private peer(connection: Connection): Peer {
@@ -142,11 +173,13 @@ export class ConversationNodeConnections {
       transport: connection.transport,
       incomingNotifications: nodeNotificationSchemas,
       handle: async (method, input, signal) => {
-        const node = connection.node
-        if (!node || this.byNode.get(node.nodeId) !== connection.id)
-          throw new HbarError('NODE_OFFLINE', 'Node link authority was replaced')
-        await this.registry.known(node.publicKey)
-        return this.options.observe(node.nodeId, method, input, signal)
+        return this.background(async () => {
+          const node = connection.node
+          if (!node || this.byNode.get(node.nodeId) !== connection.id)
+            throw new HbarError('NODE_OFFLINE', 'Node link authority was replaced')
+          await this.registry.known(node.publicKey)
+          return this.options.observe(node.nodeId, method, input, signal)
+        })
       },
       onNotification: (method, input) => {
         if (!connection.node) return
@@ -166,6 +199,7 @@ export class ConversationNodeConnections {
       return
     }
     connection.refreshing = true
+    this.physicalBackground++
     try {
       do {
         connection.refreshAgain = false
@@ -181,8 +215,12 @@ export class ConversationNodeConnections {
         connection.lastSeenAt = this.now()
         this.options.onChanged?.()
       } while (connection.refreshAgain)
+    } catch (error) {
+      this.uncertainRemote = true
+      throw error
     } finally {
       connection.refreshing = false
+      this.physicalBackground--
     }
   }
   private tick(): void {
@@ -194,6 +232,7 @@ export class ConversationNodeConnections {
       }
       if (connection.pinging) continue
       connection.pinging = true
+      this.physicalBackground++
       const nonce = nodeChallenge()
       void connection.peer
         .call('node.ping', { nonce }, { timeoutMs: this.options.heartbeatTimeoutMs ?? NODE_LIMITS.heartbeatTimeoutMs })
@@ -204,9 +243,13 @@ export class ConversationNodeConnections {
           if (connection.node && connection.capabilities)
             await this.registry.touch(connection.node.nodeId, connection.capabilities)
         })
-        .catch(() => this.closeConnection(connection.id, 4003, 'Node heartbeat failed'))
+        .catch(() => {
+          this.uncertainRemote = true
+          this.closeConnection(connection.id, 4003, 'Node heartbeat failed')
+        })
         .finally(() => {
           connection.pinging = false
+          this.physicalBackground--
         })
     }
   }
@@ -220,7 +263,15 @@ export class ConversationNodeConnections {
       connection = id ? this.connections.get(id) : undefined
     if (!connection?.peer || !connection.capabilities)
       throw new HbarError('NODE_OFFLINE', 'Workspace node is offline or preparing')
-    return connection.peer.call(method, input, { ...(signal ? { signal } : {}) })
+    this.physicalRequests++
+    try {
+      return await connection.peer.call(method, input, { ...(signal ? { signal } : {}) })
+    } catch (error) {
+      this.uncertainRemote = true
+      throw error
+    } finally {
+      this.physicalRequests--
+    }
   }
   async list() {
     return (await this.registry.list()).map((node) => {

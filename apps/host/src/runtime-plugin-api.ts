@@ -82,6 +82,7 @@ export function createRuntimePluginAPI(options: {
   readonly preparing: () => boolean
   readonly fallback: RuntimePluginHostInvoker
   readonly resources: NonNullable<HbarAPI['resources']>
+  readonly runtimeIdle?: NonNullable<HbarAPI['runtimeIdle']> | undefined
 }): HbarAPI {
   const invoke = async <Result>(method: string, args: readonly unknown[]): Promise<Result> => {
     const host = scope.getStore()?.host ?? options.fallback
@@ -120,6 +121,7 @@ export function createRuntimePluginAPI(options: {
     restoreMode: 'projection',
     tools,
     resources: options.resources,
+    ...(options.runtimeIdle ? { runtimeIdle: options.runtimeIdle } : {}),
     hooks: {
       on: (event, listener) => options.hooks.on(event, listener),
       dispatch: async (event, value) => {

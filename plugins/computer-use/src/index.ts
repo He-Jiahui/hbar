@@ -19,6 +19,8 @@ export const computerConfigSchema = computerUseConfigSchema.extend({
 export type ComputerConfig = z.infer<typeof computerConfigSchema>
 
 export interface ComputerBackend {
+  /** Pure native handle count; omission means idle proof is unsupported. */
+  idleResources?(): number
   available(): boolean | Promise<boolean>
   isLocked?(signal: AbortSignal): boolean | Promise<boolean>
   screenshot(appId: string | undefined, signal: AbortSignal): Promise<ComputerScreen>
@@ -32,6 +34,7 @@ export interface ComputerBackend {
   dispose?(): Promise<void> | void
 }
 
+let nativeComputerChildren = 0
 function unavailable(): never {
   throw new HbarError('COMPUTER_BACKEND_UNAVAILABLE', 'Computer use requires a supported desktop backend')
 }
@@ -56,6 +59,15 @@ async function runPowerShell(script: string, values: Record<string, string>, sig
     stdin: 'ignore',
     windowsHide: true,
   })
+  nativeComputerChildren++
+  void child.exited.then(
+    () => {
+      nativeComputerChildren--
+    },
+    () => {
+      /* unknown physical exit remains pinned */
+    },
+  )
   let terminating: Promise<void> | undefined
   let timedOut = false
   const terminate = () =>
@@ -65,7 +77,10 @@ async function runPowerShell(script: string, values: Record<string, string>, sig
         stderr: 'ignore',
         windowsHide: true,
       })
-      await killer.exited
+      nativeComputerChildren++
+      await killer.exited.then(() => {
+        nativeComputerChildren--
+      })
     })())
   const onAbort = () => void terminate().catch(() => {})
   signal.addEventListener('abort', onAbort, { once: true })
@@ -183,6 +198,9 @@ function sendKeysValue(value: string) {
 }
 
 export class WindowsComputerBackend implements ComputerBackend {
+  idleResources() {
+    return nativeComputerChildren
+  }
   constructor(private readonly timeoutMs = 30_000, private readonly maxScreenshotBytes = MAX_SCREENSHOT) {}
   available() { return process.platform === 'win32' }
   async isLocked(signal: AbortSignal) {
@@ -223,6 +241,9 @@ export class WindowsComputerBackend implements ComputerBackend {
 }
 
 export class UnavailableComputerBackend implements ComputerBackend {
+  idleResources() {
+    return nativeComputerChildren
+  }
   available() { return false }
   screenshot() { return unavailable() }
   click() { return unavailable() }
@@ -252,6 +273,21 @@ function requirementFor(config: ComputerConfig, appId: string | undefined) {
 }
 
 export class ComputerRuntime implements ComputerUseService {
+  private physicalOperations = 0
+  private readonly physicalPending = new Set<Promise<unknown>>()
+  private disposal: Promise<void> | undefined
+  private disposalUnknown = false
+  idleCheckpoint() {
+    const native = this.backend.idleResources?.()
+    const valid = native !== undefined && Number.isSafeInteger(native) && native >= 0
+    return {
+      supported: valid,
+      requests: this.physicalOperations,
+      resources: this.activeApps.size + (valid ? (native ?? 0) : 0),
+      background: 0,
+      unconfirmed: valid && !this.disposalUnknown ? 0 : 1,
+    }
+  }
   private activeApps = new Map<string, string | null>()
   private readonly backend: ComputerBackend
   constructor(
@@ -263,6 +299,7 @@ export class ComputerRuntime implements ComputerUseService {
   }
 
   private async bounded<T>(parent: AbortSignal, operation: (signal: AbortSignal) => Promise<T>) {
+    if (this.disposal) throw new HbarError('COMPUTER_BACKEND_UNAVAILABLE', 'Computer runtime is closing')
     const controller = new AbortController()
     let rejectTimeout: ((reason?: unknown) => void) | undefined
     let rejectAbort: ((reason?: unknown) => void) | undefined
@@ -285,7 +322,15 @@ export class ComputerRuntime implements ComputerUseService {
     parent.addEventListener('abort', onAbort, { once: true })
     if (parent.aborted) onAbort()
     try {
-      return await Promise.race([Promise.resolve().then(() => operation(controller.signal)), timeout, aborted])
+      this.physicalOperations++
+      const physical = Promise.resolve()
+        .then(() => operation(controller.signal))
+        .finally(() => {
+          this.physicalOperations--
+          this.physicalPending.delete(physical)
+        })
+      this.physicalPending.add(physical)
+      return await Promise.race([physical, timeout, aborted])
     } finally {
       clearTimeout(timer)
       parent.removeEventListener('abort', onAbort)
@@ -355,9 +400,23 @@ export class ComputerRuntime implements ComputerUseService {
     return computerActionSchema.parse({ action: 'wait', accepted: true })
   }
   async launch(sessionId: string, appId: string, signal = new AbortController().signal) { return this.action(sessionId, 'launch', appId, signal, (boundedSignal) => this.backend.launch(appId, boundedSignal)) }
-  async dispose() {
-    await this.backend.dispose?.()
-    this.activeApps.clear()
+  dispose(): Promise<void> {
+    if (this.disposal) return this.disposal
+    this.physicalOperations++
+    this.disposal = Promise.resolve()
+      .then(async () => {
+        await Promise.allSettled([...this.physicalPending])
+        await this.backend.dispose?.()
+        this.activeApps.clear()
+      })
+      .catch((error: unknown) => {
+        this.disposalUnknown = true
+        throw error
+      })
+      .finally(() => {
+        this.physicalOperations--
+      })
+    return this.disposal
   }
 }
 
@@ -397,6 +456,7 @@ export const computerPlugin = definePlugin({
   async apply(ctx, rawConfig) {
     const config = computerConfigSchema.parse(rawConfig)
     const runtime = new ComputerRuntime(ctx.hbar.api, config)
+    ctx.hbar.api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     provide<ComputerUseService>(ctx, 'computer', runtime)
     provide<ComputerUseService>(ctx, 'computer-use', runtime)
     ctx.effect(() => () => runtime.dispose())

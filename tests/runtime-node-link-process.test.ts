@@ -51,6 +51,17 @@ async function fixture(
   let endpoint: RuntimeNodeLinkEndpoint | null = null,
     active: RuntimeOwner | null = null
   const relay = new RuntimeNodeLinkRelay({
+    demand: {
+      acquire() {
+        if (!endpoint) throw new Error('Fixture endpoint missing')
+        return Promise.resolve({
+          owners: [endpoint.owner],
+          release() {
+            /* Managed fixture owns lifetime. */
+          },
+        })
+      },
+    },
     current: () => {
       if (!endpoint || managed.snapshot().phase !== 'serving')
         throw new HbarError('NODE_LINK_UNAVAILABLE', 'Owner is not serving')
@@ -86,7 +97,7 @@ async function fixture(
     },
     onFault: async (owner) => {
       if (active?.incarnation === owner.incarnation) active = null
-      relay.exited(owner)
+      relay.faulted(owner)
     },
     onExit: async (owner) => {
       relay.exited(owner)

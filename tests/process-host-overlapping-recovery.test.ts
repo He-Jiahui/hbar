@@ -37,15 +37,14 @@ test('overlapping Kernel and driver faults reconcile one outcome before claiming
     }
     reconcile(sessionId)
   }
+  let primary: { error: unknown } | undefined
   try {
+    const application = runtime.controller.application
+    if (!application) throw new Error('Actual controller lifecycle is missing')
+    await application.scheduleController.start()
     const workspace = (await runtime.storage.call('workspaces'))[0]
     if (!workspace) throw new Error('Expected fixture workspace')
     const session = await runtime.storage.call('createSession', workspace.id)
-    const before = runtime.snapshot()
-    const kernel = before.units.find((unit) => unit.descriptor.id === 'kernel')?.generations[0]
-    const driver = before.units.find((unit) => unit.descriptor.id === 'driver.pi')?.generations[0]
-    if (!kernel?.pid || !driver?.pid || kernel.pid === process.pid || driver.pid === process.pid)
-      throw new Error('Expected two distinct owned runtime children')
     const original = await runtime.kernel.submit(
       session.id,
       'overlap-original',
@@ -53,6 +52,12 @@ test('overlapping Kernel and driver faults reconcile one outcome before claiming
       'local-fixture',
     )
     await until(() => runtime.facade.streams.size > 0)
+    // Capture physical identities only after the existing first business has started Driver.
+    const before = runtime.snapshot()
+    const kernel = before.units.find((unit) => unit.descriptor.id === 'kernel')?.generations[0]
+    const driver = before.units.find((unit) => unit.descriptor.id === 'driver.pi')?.generations[0]
+    if (!kernel?.pid || !driver?.pid || kernel.pid === process.pid || driver.pid === process.pid)
+      throw new Error('Expected two distinct owned runtime children')
     const queued = await runtime.kernel.submit(
       session.id,
       'overlap-already-queued',
@@ -68,15 +73,19 @@ test('overlapping Kernel and driver faults reconcile one outcome before claiming
       const nextKernel = snapshot.units.find((unit) => unit.descriptor.id === 'kernel')?.generations[0]
       const nextDriver = snapshot.units.find((unit) => unit.descriptor.id === 'driver.pi')?.generations[0]
       return (
-        snapshot.ready &&
+        !snapshot.ready &&
+        nextKernel?.phase === 'serving' &&
+        nextDriver?.phase === 'serving' &&
         nextKernel?.incarnation !== kernel.incarnation &&
         nextDriver?.incarnation !== driver.incarnation &&
         denied > 0
       )
     })
     expect((await runtime.storage.call('run', queued.id)).status).toBe('queued')
+    expect(runtime.snapshot().ready).toBe(false)
     expect(await runtime.storage.call('runtimeExecutionRead', queued.id)).toBeNull()
     allowReconciliation = true
+    await until(() => runtime.snapshot().ready)
     await until(
       async () =>
         (await runtime.storage.call('run', queued.id)).status === 'completed' &&
@@ -98,10 +107,28 @@ test('overlapping Kernel and driver faults reconcile one outcome before claiming
     expect(snapshot.messages.filter((message) => message.role === 'user')).toHaveLength(2)
     const instanceId: string = runtime.instanceId
     expect(instanceId).toBe(before.instanceId)
-  } finally {
-    allowReconciliation = true
-    runtime.coordinator.reconciled = reconcile
-    await runtime.close()
-    await rm(root, { recursive: true, force: true })
+  } catch (error) {
+    primary = { error }
   }
+  allowReconciliation = true
+  runtime.coordinator.reconciled = reconcile
+  const cleanupErrors: unknown[] = []
+  try {
+    await runtime.close()
+  } catch (error) {
+    cleanupErrors.push(error)
+  }
+  if (!primary && cleanupErrors.length === 0) {
+    try {
+      await rm(root, { recursive: true, force: true })
+    } catch (error) {
+      cleanupErrors.push(error)
+    }
+  }
+  if (cleanupErrors.length)
+    throw new AggregateError(
+      primary ? [primary.error, ...cleanupErrors] : cleanupErrors,
+      'Overlapping recovery cleanup failed',
+    )
+  if (primary) throw primary.error
 }, 120_000)

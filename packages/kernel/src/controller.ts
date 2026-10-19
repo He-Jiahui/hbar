@@ -26,9 +26,20 @@ export { createChatDatabaseDatabaseService } from './chat-database-database'
 export { createChatDatabaseScheduler } from './chat-database-scheduler'
 export { createUsageCommands } from './usage-commands'
 export { createWorkflowCommands } from './workflow-commands'
-export { createScheduleCommands, createPromptTemplateCommands, createNotificationCommands, createRunBoardCommands } from './feature-commands'
-export { createScheduleService } from './schedule-service'
-export { createScheduleRunner, ScheduleRunFailure, type ScheduleExecutionPort, type SchedulePrepareInput, type ScheduleSubmitInput } from './schedule-runner'
+export {
+  createScheduleCommands,
+  createPromptTemplateCommands,
+  createNotificationCommands,
+  createRunBoardCommands,
+} from './feature-commands'
+export { createScheduleService, latestDueSchedule, previewSchedule } from './schedule-service'
+export {
+  createScheduleRunner,
+  ScheduleRunFailure,
+  type ScheduleExecutionPort,
+  type SchedulePrepareInput,
+  type ScheduleSubmitInput,
+} from './schedule-runner'
 export { createScheduleAdmission } from './schedule-admission'
 export type { ScheduleService } from './schedule-service'
 export { createScheduleDueReader } from './schedule-due-reader'

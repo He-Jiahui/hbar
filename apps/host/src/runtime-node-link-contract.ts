@@ -148,6 +148,7 @@ export const NODE_LINK_RUNTIME_FINGERPRINT = createHash('sha256')
   .update(
     JSON.stringify([
       'hbar.node-link.runtime.v1',
+      'idle-drained-quiescence-v1',
       z.toJSONSchema(runtimeNodeOpenSchema),
       z.toJSONSchema(runtimeNodeFrameSchema),
       z.toJSONSchema(runtimeNodeTransportSchema),

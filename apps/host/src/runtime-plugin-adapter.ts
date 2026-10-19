@@ -413,6 +413,9 @@ export class RuntimePluginAdapter {
       throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Undeclared host callback')
     return Reflect.apply(implementation, object, [...args])
   }
+  idleCounts() {
+    return this.values.idleCounts()
+  }
   dispose(): void {
     this.values.dispose()
   }

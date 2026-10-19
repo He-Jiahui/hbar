@@ -41,6 +41,9 @@ class BoundedQueryQueue {
     private readonly maxQueued: number,
   ) {}
 
+  idleRequests(): number {
+    return this.#waiting.length + this.#running.size
+  }
   enqueue(job: RunnableJob): void {
     if (this.#disposed) throw new HbarError('QUERY_UNAVAILABLE', 'Workspace query service is closed')
     if (this.#running.size < this.maxRunning) {
@@ -284,6 +287,9 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
     this.#reads.clear()
   }
 
+  idleRequests(): number {
+    return this.#queue.idleRequests()
+  }
   cacheStats(): NativeCacheStats {
     return this.#native.cacheStats()
   }

@@ -412,6 +412,17 @@ export class WorkflowRuntime implements WorkflowService {
   private agentPlans: PlanService
   private git: GitService | null
 
+  idleCheckpoint() {
+    let background = this.locks.size
+    for (const workflow of this.workflows.values()) {
+      background += workflow.pendingMutations?.length ?? 0
+      for (const delegation of workflow.delegations)
+        if (!['applied', 'cancelled', 'failed'].includes(delegation.status)) background++
+      for (const dispatch of workflow.targetDispatches ?? [])
+        if (!['succeeded', 'failed', 'cancelled'].includes(dispatch.status)) background++
+    }
+    return { supported: this.hydrated, requests: 0, resources: this.toolTargets.size, background, unconfirmed: 0 }
+  }
   constructor(
     private api: HbarAPI,
     private goals: GoalService,
@@ -4155,6 +4166,7 @@ export const workflowPlugin = definePlugin({
       api.service<GitService>('git'),
     )
     await runtime.restore()
+    api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     if (api.restoreMode !== 'projection') await runtime.resumeDelegations()
     provide<WorkflowService>(ctx, 'workflow', runtime)
     api.hooks.on('run.start', (event) => runtime.startReviewer(event))

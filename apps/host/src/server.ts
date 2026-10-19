@@ -60,10 +60,12 @@ import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/c
 import { SystemTerminalManager } from './system-terminal'
 import { NodeTerminalRouter, sessionTerminalSandboxProvider } from './node-terminal-router'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
-import { isStableRpc, isRecoveryControl } from './stable-rpc'
+import { isStableRpc, isRecoveryControl, isRuntimeMetadataRead } from './stable-rpc'
+import { createHostPluginConfigurationCommands } from './extension-commands'
 
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
+import { readRuntimeActivity } from './runtime-activity-metrics'
 import { createMetricsCommands } from './metrics-commands.ts'
 import type { StorageFatalEvent } from '@hbar/storage'
 
@@ -124,19 +126,13 @@ export interface ServerOptions {
 export async function startServer(kernel: KernelControllerPort, options: ServerOptions = {}) {
   const nodeSockets = options.nodeLink ? new NodeSocketSurface(options.nodeLink) : null
   const performance = new PerformanceCollector(
-    createHostPerformanceProvider(async () => {
-      const runtime = options.runtime?.snapshot()
-      return {
-        activeRuns: kernel.active.size,
-        queuedRuns:
-          runtime && !options.runtime?.authenticationAvailable?.()
-            ? null
-            : (await kernel.storage.call('queuedSessions')).length,
-        managedChildProcesses: runtime
-          ? runtime.units.flatMap((unit) => unit.generations).filter((generation) => generation.pid !== null).length
-          : null,
-      }
-    }),
+    createHostPerformanceProvider(() =>
+      readRuntimeActivity({
+        activeRuns: () => kernel.active.size,
+        readQueuedSessionCount: async () => (await kernel.storage.call('queuedSessions')).length,
+        ...(options.runtime ? { runtime: options.runtime } : {}),
+      }),
+    ),
     { intervalMs: options.metricsIntervalMs },
   )
   await performance.start()
@@ -169,6 +165,15 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     commandDispatchers,
     commandDescribers,
   } = application
+  const pluginConfiguration =
+    options.runtime && options.controller?.application
+      ? createHostPluginConfigurationCommands((id, enabled, config) => kernel.changePlugin(id, enabled, config))
+      : null
+  if (pluginConfiguration) {
+    commandServices.push({ commandIds: ['plugin.set'], service: pluginConfiguration })
+    commandDispatchers.set('plugin.set', pluginConfiguration.dispatch)
+    commandDescribers.set('plugin.set', () => pluginConfiguration.describe('plugin.set'))
+  }
   commandServices.push({ commandIds: Object.keys(metricsDefinitions), service: metricsCommands })
   for (const id of Object.keys(metricsDefinitions)) {
     commandDispatchers.set(id, metricsCommands.dispatch)
@@ -539,7 +544,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             : Object.hasOwn(chatDatabaseDefinitions, id)
               ? !!options.runtime?.maintenance || !!options.controller?.application
               : !!options.controller?.application
-          if (localDefinitions || !managed)
+          if (localDefinitions || (id === 'plugin.set' && pluginConfiguration) || !managed)
             return localCommandJobs.execute(
               actorId,
               (signal) => actual(invocation, actorId, expectation, { ...executeOptions, signal }),
@@ -1241,7 +1246,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       }
       case 'plugin.set': {
         const p = rpcSchemas[method].parse(raw)
-        return extensionCommands.execute('plugin.set', p, { actorId: socket.data.deviceId! })
+        return (pluginConfiguration ?? extensionCommands).execute('plugin.set', p, {
+          actorId: socket.data.deviceId!,
+        })
       }
       case 'plugin.install': {
         const p = rpcSchemas[method].parse(raw)
@@ -1710,7 +1717,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                     if (request.method !== 'system.hello') {
                       if (!socket.data.initialized)
                         throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-                      if (isRecoveryControl(request.method, request.params))
+                      if (isRuntimeMetadataRead(request.method, request.params))
+                        socket.data.device = auth.authenticateMetadata(socket.data.token, socket.data.deviceId)
+                      else if (isRecoveryControl(request.method, request.params))
                         await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                       else socket.data.device = await auth.authenticate(socket.data.token)
                     }
@@ -1721,7 +1730,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                     signal.throwIfAborted()
                     if (!socket.data.initialized || !socket.data.deviceId)
                       throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-                    if (isRecoveryControl(request.method, request.params))
+                    if (isRuntimeMetadataRead(request.method, request.params))
+                      socket.data.device = auth.authenticateMetadata(socket.data.token, socket.data.deviceId)
+                    else if (isRecoveryControl(request.method, request.params))
                       await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                     else socket.data.device = await auth.authenticate(socket.data.token)
                     if (socket.data.device)
@@ -1780,7 +1791,9 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
               if (request.method !== 'system.hello') {
                 if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
                 requestSpan.stage('auth', socket.data.pending)
-                if (isRecoveryControl(request.method, request.params))
+                if (isRuntimeMetadataRead(request.method, request.params))
+                  socket.data.device = auth.authenticateMetadata(socket.data.token, socket.data.deviceId)
+                else if (isRecoveryControl(request.method, request.params))
                   await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                 else socket.data.device = await auth.authenticate(socket.data.token)
               }
@@ -1943,6 +1956,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       nodeCommands.dispose()
       commandResultCommands.dispose()
       remoteWorkspaceCommands.dispose()
+      pluginConfiguration?.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })

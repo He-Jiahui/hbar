@@ -25,6 +25,13 @@ import type {
 } from '@hbar/plugin-sdk'
 import { withExecutionBudget } from './execution-budget.ts'
 import { auditProgress, continuationIntentSchema, continuationState } from './continuation.ts'
+import {
+  goalWakeRequestSchema,
+  sameSessionWake,
+  type SessionWakeEntry,
+  type GoalWakeRequest,
+  type GoalWakeReply,
+} from '@hbar/contracts/session-wake'
 import type { ContinuationIntent } from './continuation.ts'
 import type { GoalContinuation } from '@hbar/contracts'
 
@@ -245,13 +252,155 @@ class GoalRuntime implements GoalService {
   private uncertainSessions = new Set<string>()
   private continuationTriggers = new Map<string, Set<string>>()
   private restoredRuns = new Map<string, Run>()
+  private wakeProofRestoring = false
+  private readonly transferredWakes = new Map<string, { token: string; entry: SessionWakeEntry }>()
 
+  private wakeEntry(sessionId: string): SessionWakeEntry | null {
+    const goal = this.goals.get(sessionId),
+      intent = goal?.continuationIntent
+    if (
+      !this.config.autoContinue ||
+      !goal ||
+      goal.status !== 'active' ||
+      !intent ||
+      intent.phase !== 'waiting' ||
+      intent.reason !== 'retry_wait' ||
+      intent.retryAt === undefined ||
+      intent.modelId === null
+    )
+      return null
+    return {
+      sessionId,
+      goalId: goal.goalId,
+      intentId: intent.intentId,
+      requestId: `goal-${intent.intentId}`,
+      dueAt: intent.retryAt,
+      goalRevision: this.sequences.get(sessionId) ?? 0,
+    }
+  }
+  /** Remove only a projection proof invalidated by an acknowledged canonical Goal state.
+   * Parent deadline responsibility is independent and still requires its own stale reply.
+   */
+  private discardInvalidWakeProof(sessionId: string): void {
+    const held = this.transferredWakes.get(sessionId)
+    if (
+      !held ||
+      !this.hydrated ||
+      this.wakeProofRestoring ||
+      this.uncertainSessions.has(sessionId) ||
+      [...this.activeRuns.values()].some((value) => value.sessionId === sessionId)
+    )
+      return
+    const revision = this.sequences.get(sessionId)
+    // Missing/older journal data cannot prove that an accepted proof is obsolete.
+    if (revision === undefined || revision < held.entry.goalRevision) return
+    const current = this.wakeEntry(sessionId)
+    if (!current || !sameSessionWake(current, held.entry)) this.transferredWakes.delete(sessionId)
+  }
+  async continuationWake(raw: GoalWakeRequest): Promise<GoalWakeReply> {
+    const input = goalWakeRequestSchema.parse(raw)
+    await this.ready()
+    if (input.action === 'coverage') {
+      if (this.locks.size || this.activeRuns.size || this.uncertainSessions.size || !input.entries)
+        return { accepted: false, entry: null }
+      const entries: SessionWakeEntry[] = []
+      let resources = 0
+      for (const goal of this.goals.values()) {
+        if (!goal.continuationIntent || goal.continuationIntent.phase === 'stopped') continue
+        const entry = this.wakeEntry(goal.threadId)
+        if (!entry || entry.dueAt <= Date.now()) return { accepted: false, entry: null }
+        entries.push(entry)
+        const held = this.transferredWakes.get(goal.threadId)
+        if (!held || !sameSessionWake(entry, held.entry)) resources++
+      }
+      return {
+        accepted:
+          entries.length === input.entries.length &&
+          entries.every((entry) => input.entries?.some((value) => sameSessionWake(entry, value))),
+        entry: null,
+        resources,
+      }
+    }
+    this.assertKnown(input.sessionId)
+    if ([...this.activeRuns.values()].some((value) => value.sessionId === input.sessionId))
+      throw new HbarError('BUSY', 'Active Goal accounting cannot transfer its deadline')
+    return this.serial(input.sessionId, async () => {
+      if ([...this.activeRuns.values()].some((value) => value.sessionId === input.sessionId))
+        throw new HbarError('BUSY', 'Active Goal accounting cannot transfer its deadline')
+      // Read durable controls without clearing UNKNOWN or active accounting as refreshSession would.
+      if (input.action === 'commit' || input.action === 'deliver') {
+        const events = await readGoalEvents(
+          this.api.sessions,
+          input.sessionId,
+          GOAL_STATE_EVENT_TYPES,
+          'GOAL_RESTORE_LIMIT',
+        )
+        for (const event of events) {
+          if (event.type === 'goal.cleared') {
+            this.goals.delete(input.sessionId)
+            this.sequences.set(input.sessionId, event.seq)
+            continue
+          }
+          const persisted = eventGoal(event)
+          if (persisted) {
+            if (persisted.threadId !== input.sessionId)
+              throw new HbarError('INVALID_GOAL_HISTORY', 'Goal wake history belongs to another session')
+            this.goals.set(input.sessionId, persisted)
+            this.sequences.set(input.sessionId, event.seq)
+          }
+        }
+      }
+      this.discardInvalidWakeProof(input.sessionId)
+      const entry = this.wakeEntry(input.sessionId)
+      if (input.action === 'describe') return { accepted: entry !== null, entry }
+      const matches = entry !== null && input.entry !== undefined && sameSessionWake(entry, input.entry)
+      if (input.action === 'abort') {
+        const held = this.transferredWakes.get(input.sessionId)
+        if (held?.token === input.token) this.transferredWakes.delete(input.sessionId)
+        return { accepted: true, entry }
+      }
+      if (!matches || entry === null) return { accepted: false, entry }
+      if (input.action === 'validate') return { accepted: true, entry }
+      if (input.action === 'commit') {
+        if (!input.token) throw new HbarError('INVALID_INPUT', 'Wake transfer requires a parent token')
+        if (!this.transferredWakes.has(input.sessionId) && this.transferredWakes.size >= 128)
+          throw new HbarError('GOAL_WAKE_CAPACITY', 'Goal deadline transfer capacity is exhausted')
+        this.transferredWakes.set(input.sessionId, { token: input.token, entry })
+        return { accepted: true, entry }
+      }
+      if (this.transferredWakes.get(input.sessionId)?.token !== input.token) return { accepted: false, entry }
+      if (Date.now() < entry.dueAt) return { accepted: false, entry }
+      this.transferredWakes.delete(input.sessionId)
+      return { accepted: true, entry }
+    })
+  }
+
+  idleCheckpoint() {
+    let background = this.locks.size,
+      resources = 0
+    for (const goal of this.goals.values())
+      if (goal.continuationIntent && goal.continuationIntent.phase !== 'stopped') {
+        const entry = this.wakeEntry(goal.threadId),
+          held = this.transferredWakes.get(goal.threadId)
+        if (entry && entry.dueAt > Date.now()) {
+          if (!held || !sameSessionWake(entry, held.entry)) resources++
+        } else background++
+      }
+    return {
+      supported: this.hydrated,
+      requests: this.activeRuns.size,
+      resources,
+      background,
+      unconfirmed: this.uncertainSessions.size,
+    }
+  }
   constructor(
     private api: HbarAPI,
     private config: GoalConfig,
   ) {}
 
   async restore() {
+    this.wakeProofRestoring = true
     const projectionOnly = this.api.restoreMode === 'projection'
     this.activeRuns.clear()
     this.boundRuns.clear()
@@ -418,6 +567,8 @@ class GoalRuntime implements GoalService {
       await Bun.sleep(0)
     }
     this.hydrated = true
+    this.wakeProofRestoring = false
+    for (const sessionId of this.transferredWakes.keys()) this.discardInvalidWakeProof(sessionId)
   }
 
   async resumeOnStartup(): Promise<void> {
@@ -498,7 +649,9 @@ class GoalRuntime implements GoalService {
     try {
       await this.ready()
       this.assertKnown(sessionId)
-      return await operation()
+      const result = await operation()
+      this.discardInvalidWakeProof(sessionId)
+      return result
     } finally {
       release()
       if (this.locks.get(sessionId) === current) this.locks.delete(sessionId)
@@ -789,6 +942,7 @@ class GoalRuntime implements GoalService {
       this.activeRuns.set(accountedRunId, accounting)
       this.boundRuns.add(accountedRunId)
     }
+    this.discardInvalidWakeProof(goal.threadId)
     this.api.notify({
       method: 'goal.updated',
       params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: this.projectGoal(goal), seq: event.seq },
@@ -990,7 +1144,8 @@ class GoalRuntime implements GoalService {
       if (!reason && intent.retryAt !== undefined && intent.retryAt > Date.now()) {
         const waiting = this.withContinuation(goal, 'waiting', 'retry_wait')
         if (waiting !== goal) await this.persist(waiting)
-        return { ...event, wakeAt: intent.retryAt }
+        const continuationWake = this.wakeEntry(event.sessionId)
+        return { ...event, wakeAt: intent.retryAt, ...(continuationWake ? { continuationWake } : {}) }
       }
       const next =
         reason && SESSION_STOP_REASONS.has(reason) && !backendDisabled
@@ -1051,6 +1206,7 @@ class GoalRuntime implements GoalService {
     const event = await this.append(sessionId, 'goal.cleared', { sessionId }, runId)
     this.goals.delete(sessionId)
     this.sequences.set(sessionId, event.seq)
+    this.discardInvalidWakeProof(sessionId)
     this.continuationTriggers.delete(sessionId)
     this.api.notify({ method: 'goal.cleared', params: { sessionId, seq: event.seq } })
     this.api.changed('goals')
@@ -1796,6 +1952,7 @@ export const goalPlugin = definePlugin({
     const api = ctx.hbar.api
     const runtime = new GoalRuntime(api, config)
     await runtime.restore()
+    api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     provide<GoalService>(ctx, 'goal', runtime)
     api.hooks.on('run.start', (event) => runtime.startRun(event))
     api.hooks.on('run.modeChanged', (event) => runtime.modeChanged(event))

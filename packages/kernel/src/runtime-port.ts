@@ -1,3 +1,4 @@
+import { kernelPluginQuiescenceSchema } from './runtime-idle'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -181,6 +182,7 @@ export const RUNTIME_KERNEL_HOST_METHODS = [
   'kernel.commands.prepare',
   'kernel.commands.execute',
   'kernel.commands.admitMutation',
+  'kernel.plugin.quiescence',
   'kernel.nodeIntentRecovery.reconcileRun',
   'kernel.nodeWorkspaceInspection.captureExecutionTarget',
   'kernel.nodeWorkspaceInspection.resolveWorkspaceMountManifest',
@@ -188,6 +190,12 @@ export const RUNTIME_KERNEL_HOST_METHODS = [
   'kernel.nodeWorktree.call',
 ] as const
 export const RUNTIME_KERNEL_CONTROL_METHODS = [
+  'kernel.sessionWakes.preview',
+  'kernel.sessionWakes.quiesce',
+  'kernel.sessionWakes.commit',
+  'kernel.sessionWakes.abort',
+  'kernel.sessionWakes.restore',
+  'kernel.sessionWakes.deliver',
   // Leaf Storage RPC must progress while outer plugin invocations await their Kernel callbacks.
   'kernel.storage',
   'kernel.resume',
@@ -211,6 +219,8 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
       [commandJobSnapshotSchema, commandJobWatchSchema, commandJobReadSchema, commandJobChunkSchema].map((schema) =>
         z.toJSONSchema(schema),
       ),
+      ['idle-checkpoint-v3-stable-cache', 'idle-wake-no-global-resume'],
+      z.toJSONSchema(kernelPluginQuiescenceSchema),
       z.toJSONSchema(runtimeKernelConfigurationSchema),
       z.toJSONSchema(runtimeKernelSubmitSchema),
       RUNTIME_APPLICATION_METHODS,

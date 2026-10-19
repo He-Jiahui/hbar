@@ -16,20 +16,70 @@ export const diagnosticEventSchema = z.strictObject({
   instanceId: z.string().min(1).max(160).optional(),
   requestId: z.string().min(1).max(160).optional(),
   rpcId: z.string().min(1).max(160).optional(),
-  storageRequestId: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
-  anchorSeq: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
-  cursorSeq: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
+  storageRequestId: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** 53 - 1)
+    .optional(),
+  anchorSeq: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** 53 - 1)
+    .optional(),
+  cursorSeq: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** 53 - 1)
+    .optional(),
   contextId: z.string().min(1).max(160).optional(),
   sessionId: z.string().min(1).max(160).optional(),
   runId: z.string().min(1).max(160).optional(),
   stepId: z.string().min(1).max(160).optional(),
   callId: z.string().min(1).max(160).optional(),
-  processId: z.number().int().positive().max(2 ** 32 - 1).optional(),
-  childPid: z.number().int().positive().max(2 ** 32 - 1).optional(),
-  supervisorPid: z.number().int().positive().max(2 ** 32 - 1).optional(),
-  exitCode: z.number().int().min(-(2 ** 31)).max(2 ** 32 - 1).optional(),
-  signal: z.string().regex(/^SIG[A-Z0-9]{1,16}$/).optional(),
+  processId: z
+    .number()
+    .int()
+    .positive()
+    .max(2 ** 32 - 1)
+    .optional(),
+  childPid: z
+    .number()
+    .int()
+    .positive()
+    .max(2 ** 32 - 1)
+    .optional(),
+  supervisorPid: z
+    .number()
+    .int()
+    .positive()
+    .max(2 ** 32 - 1)
+    .optional(),
+  exitCode: z
+    .number()
+    .int()
+    .min(-(2 ** 31))
+    .max(2 ** 32 - 1)
+    .optional(),
+  signal: z
+    .string()
+    .regex(/^SIG[A-Z0-9]{1,16}$/)
+    .optional(),
   restartExpected: z.boolean().optional(),
+  /** Original ACK checkpoint, not a fresh timer snapshot. Changed-source replies remain explicit; hashes confer no authority. */
+  runtimeDeadline: z
+    .strictObject({
+      domain: z.enum(['goal', 'schedule', 'search', 'maintenance']),
+      tokenSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      checkpointSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      revision: z.number().int().nonnegative().safe(),
+      dueAt: z.number().int().nonnegative().safe().nullable(),
+      entries: z.number().int().nonnegative().max(1_000_000),
+      restorationKind: z.enum(['settled', 'changed']).optional(),
+    })
+    .optional(),
   recoveryAttempt: z.number().int().nonnegative().max(1_000_000).optional(),
   recoveryLimit: z.number().int().nonnegative().max(1_000_000).optional(),
   owner: z.enum(['window', 'tray', 'process_exit']).optional(),
@@ -56,7 +106,10 @@ export const diagnosticEventSchema = z.strictObject({
     .optional(),
   stopReason: z.enum(['stop', 'toolUse', 'length', 'aborted', 'error']).optional(),
   httpStatus: z.number().int().min(100).max(599).optional(),
-  upstreamRequestIdSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  upstreamRequestIdSha256: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   transportKind: z.enum(['abort', 'timeout', 'connection', 'unknown']).optional(),
   transportCode: z
     .enum([
@@ -207,8 +260,18 @@ export const diagnosticEventSchema = z.strictObject({
     .nonnegative()
     .max(2 ** 53 - 1)
     .optional(),
-  recordsIn: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
-  recordsOut: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
+  recordsIn: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** 53 - 1)
+    .optional(),
+  recordsOut: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** 53 - 1)
+    .optional(),
   memoryBytes: z
     .number()
     .int()
@@ -218,8 +281,16 @@ export const diagnosticEventSchema = z.strictObject({
   dropped: z.number().int().nonnegative().max(1_000_000_000).optional(),
   sampled: z.boolean().optional(),
   /** SQLite/Bun runtime facts captured from the live connection. These fields are safe to log. */
-  sqliteVersion: z.string().regex(/^\d+\.\d+(?:\.\d+)?$/).max(32).optional(),
-  runtimeVersion: z.string().regex(/^\d+\.\d+\.\d+$/).max(32).optional(),
+  sqliteVersion: z
+    .string()
+    .regex(/^\d+\.\d+(?:\.\d+)?$/)
+    .max(32)
+    .optional(),
+  runtimeVersion: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .max(32)
+    .optional(),
   databaseSchemaVersion: z.number().int().nonnegative().max(1_000_000).optional(),
   userVersion: z.number().int().nonnegative().max(1_000_000).optional(),
   journalMode: z.enum(['delete', 'truncate', 'persist', 'memory', 'wal', 'off', 'unknown']).optional(),

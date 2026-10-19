@@ -7,4 +7,6 @@ export { createChatDatabaseArtifactReferenceService } from './chat-database-arti
 export { createChatDatabaseResourceService } from './chat-database-resources'
 export { createChatDatabaseDatabaseService } from './chat-database-database'
 export { createChatDatabaseScheduler } from './chat-database-scheduler'
+export { chatDatabaseInspectionCheckpointSchema } from './chat-database-inspection'
+export type { ChatDatabaseInspectionCheckpoint } from './chat-database-inspection'
 export type { ChatDatabaseCleanupDomainPort, ChatDatabaseMaintenanceLifecycle } from './chat-database-maintenance'

@@ -1,3 +1,4 @@
+import { runtimePluginIdleCheckpointSchema } from '@hbar/plugin-sdk'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
@@ -11,7 +12,7 @@ import { RUNTIME_APPLICATION_METHODS } from '@hbar/kernel/runtime-application'
 export const RUNTIME_PLUGIN_CALLBACK_TIMEOUT_MS = 1_325_000
 
 export const RUNTIME_PLUGIN_SERVICES = {
-  goal: [...RUNTIME_APPLICATION_METHODS.goal, 'refreshSession'],
+  goal: [...RUNTIME_APPLICATION_METHODS.goal, 'refreshSession', 'continuationWake'],
   plan: [...RUNTIME_APPLICATION_METHODS.plan, 'refreshSession'],
   mode: [...RUNTIME_APPLICATION_METHODS.mode, 'effectiveMode'],
   budget: [...RUNTIME_APPLICATION_METHODS.budget, 'refreshSession', 'accountPendingUsage'],
@@ -115,6 +116,7 @@ export const PLUGIN_RUNTIME_FINGERPRINT = createHash('sha256')
       'hbar.plugin.runtime.v1',
       'owned-invocation-physical-reply.v1',
       ['sessions.scanPage', z.toJSONSchema(sessionScanInputSchema), z.toJSONSchema(sessionScanPageSchema)],
+      ['plugin-idle-checkpoint', z.toJSONSchema(runtimePluginIdleCheckpointSchema)],
       z.toJSONSchema(runtimePluginStateSchema),
       z.toJSONSchema(runtimePluginAuthoritySchema),
       z.toJSONSchema(runtimePluginConfigurationSchema),

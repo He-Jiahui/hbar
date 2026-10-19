@@ -11,15 +11,53 @@ export interface ExtensionCommandDependencies {
   install(path: string, projectId?: string): Promise<PluginInfo[]>
   remove(id: string): Promise<PluginInfo[]>
   resolve(id?: string): { order: string[]; enabled: string[] } | Promise<{ order: string[]; enabled: string[] }>
-  graph(): {
-    nodes: { id: string; version: string; enabled: boolean }[]
-    edges: { from: string; to: string; kind: string; range: string }[]
-  } | Promise<{ nodes: { id: string; version: string; enabled: boolean }[]; edges: { from: string; to: string; kind: string; range: string }[] }>
+  graph():
+    | {
+        nodes: { id: string; version: string; enabled: boolean }[]
+        edges: { from: string; to: string; kind: string; range: string }[]
+      }
+    | Promise<{
+        nodes: { id: string; version: string; enabled: boolean }[]
+        edges: { from: string; to: string; kind: string; range: string }[]
+      }>
   lock(): Promise<{ version: 1; plugins: Record<string, unknown> }>
-  doctor(): { ok: boolean; errors: string[]; order?: string[] } | Promise<{ ok: boolean; errors: string[]; order?: string[] }>
+  doctor():
+    { ok: boolean; errors: string[]; order?: string[] } | Promise<{ ok: boolean; errors: string[]; order?: string[] }>
   skills(signal?: AbortSignal): Promise<SkillDescriptor[]>
   skillInspection?: SkillInspectionService
   skillImport?: SkillImportService
+}
+
+function registerPluginConfiguration(registry: CommandRegistry, set: ExtensionCommandDependencies['set']) {
+  registry.register(
+    extensionCommands['plugin.set'],
+    async ({ id, enabled, config }) => {
+      try {
+        return await set(id, enabled, config)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
+    },
+    { durable: true },
+  )
+}
+
+/** Configuration replaces a managed plugin owner, so its command registry belongs to the stable Host. */
+export function createHostPluginConfigurationCommands(set: ExtensionCommandDependencies['set']) {
+  const registry = new CommandRegistry({ execution: 'host' })
+  registerPluginConfiguration(registry, set)
+  const definitions = { 'plugin.set': extensionCommands['plugin.set'] }
+  return {
+    ...createCommandClient(definitions, registry),
+    prepare: registry.prepare.bind(registry),
+    dispatchPrepared: registry.dispatchPrepared.bind(registry),
+    dispatchPreparedTracked: registry.dispatchPreparedTracked.bind(registry),
+    dispatch: (value: unknown, actorId: string) => registry.dispatch(value, { actorId }),
+    describe: (id: string) => registry.describe(id),
+    list: () => registry.list({ limit: 500 }),
+    dispose: () => registry.dispose(),
+  }
 }
 
 export function createExtensionCommands(dependencies: ExtensionCommandDependencies) {
@@ -38,11 +76,7 @@ export function createExtensionCommands(dependencies: ExtensionCommandDependenci
     extensionCommands['plugin.inspect'],
     ({ id }) => dependencies.list().find((item) => item.id === id) ?? null,
   )
-  registry.register(
-    extensionCommands['plugin.set'],
-    ({ id, enabled, config }) => translate(() => dependencies.set(id, enabled, config)),
-    { durable: true },
-  )
+  registerPluginConfiguration(registry, dependencies.set)
   registry.register(
     extensionCommands['plugin.install'],
     ({ path, projectId }) => translate(() => dependencies.install(path, projectId)),

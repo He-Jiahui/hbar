@@ -50,6 +50,12 @@ async function blockedKernel(activatedFailure = false) {
     workspace: root,
     buildUnits,
     watchSource: activatedFailure,
+    diagnostics: {
+      emit(event) {
+        if (event.event === 'host.runtime_startup_failed')
+          console.error(JSON.stringify({ fixture: 'runtime-startup', ...event }))
+      },
+    },
   })
   return { root, gate, source, code, runtime }
 }
@@ -122,7 +128,26 @@ test('first-start Kernel failure keeps liveness, authenticated status and the so
     const pids = before.units.flatMap((unit) =>
       unit.generations.filter((g) => g.role === 'default').map((g) => [unit.descriptor.id, g.pid] as const),
     )
-    expect(pids).toHaveLength(13)
+    expect(before.units.map((unit) => unit.descriptor.id).sort()).toEqual(
+      hostRuntimeBuildUnits()
+        .map((unit) => unit.descriptor.id)
+        .sort(),
+    )
+    expect(pids.map(([id]) => id).sort()).toEqual(
+      hostRuntimeBuildUnits()
+        .filter((unit) => !['kernel', 'maintenance', 'driver.pi'].includes(unit.descriptor.id))
+        .map((unit) => unit.descriptor.id)
+        .sort(),
+    )
+    expect(pids.every(([, pid]) => typeof pid === 'number' && Number.isSafeInteger(pid) && pid > 0)).toBe(true)
+    const driver = before.units.find((unit) => unit.descriptor.id === 'driver.pi')
+    expect(driver).toMatchObject({
+      generations: [],
+      queuedArtifactId: null,
+      idle: { phase: 'dormant', demandHolds: 0, checkpointPending: false, enabled: false },
+    })
+    expect(driver?.idle?.selectedArtifactId).toBeString()
+    expect(driver?.idle?.selectedArtifactId?.length).toBeGreaterThan(0)
     const nodeLinkDefaults = before.units
       .find((unit) => unit.descriptor.id === 'node-link')
       ?.generations.filter((generation) => generation.role === 'default')
@@ -158,6 +183,10 @@ test('first-start Kernel failure keeps liveness, authenticated status and the so
     const after = await commands.execute('system.runtime.get', {})
     expect(after.ready).toBe(true)
     expect(after.instanceId).toBe(before.instanceId)
+    expect(after.units.find((unit) => unit.descriptor.id === 'driver.pi')).toMatchObject({
+      generations: [],
+      idle: { phase: 'dormant', demandHolds: 0 },
+    })
     expect((await host.auth.authenticate(device.token)).id).toBe(device.device.id)
     expect(client.connectionStatus()).toBe('connected')
     for (const [id, pid] of pids)
@@ -226,5 +255,45 @@ test('a corrupt database keeps the stable listener alive and never enters migrat
     await host?.close()
     await runtime.close()
     await remove(root)
+  }
+}, 120_000)
+
+test('first-start migration uses the registered real Worker when the fallback entry is unavailable', async () => {
+  const root = await mkdtemp(join(process.cwd(), 'artifacts', 'runtime-startup-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  const missingWorker = join(root, 'unavailable-default-worker.ts')
+  const previous = process.env.HBAR_STORAGE_WORKER
+  let runtime: ProcessHostRuntime | undefined
+  try {
+    process.env.HBAR_STORAGE_WORKER = missingWorker
+    runtime = await ProcessHostRuntime.open({
+      layout,
+      sourceRoot: process.cwd(),
+      secrets: new MemorySecrets(),
+      demo: true,
+      workspace: root,
+    })
+    const actual = runtime
+    await until(() => actual.snapshot().ready)
+    await actual.ready()
+    expect(await Bun.file(missingWorker).exists()).toBe(false)
+    expect(process.env.HBAR_STORAGE_WORKER).toBe(missingWorker)
+    expect(actual.storage.snapshot()).toMatchObject({ phase: 'serving', owner: { unitId: 'storage' } })
+    const storage = actual.snapshot().units.find((unit) => unit.descriptor.id === 'storage')
+    const owners = storage?.generations.filter((owner) => owner.role === 'default' && owner.phase === 'serving')
+    expect(owners).toHaveLength(1)
+    expect(owners?.[0]?.pid).toBeGreaterThan(0)
+    expect(actual.snapshot().units.find((unit) => unit.descriptor.id === 'driver.pi')).toMatchObject({
+      generations: [],
+      idle: { phase: 'dormant', demandHolds: 0 },
+    })
+  } finally {
+    try {
+      await runtime?.close()
+    } finally {
+      if (previous === undefined) delete process.env.HBAR_STORAGE_WORKER
+      else process.env.HBAR_STORAGE_WORKER = previous
+      await remove(root)
+    }
   }
 }, 120_000)

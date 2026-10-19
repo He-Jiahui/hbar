@@ -3,7 +3,7 @@ import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'nod
 import { resolve, relative, dirname, join, basename, posix } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { definePlugin, provide, resolveToolTimeoutMs } from '@hbar/plugin-sdk'
+import { definePlugin, provide, resolveToolTimeoutMs, nativeDescendantsConfirmed } from '@hbar/plugin-sdk'
 import type { ExecOptions, ExecutionProvider, ToolResult, WorkspaceQueryProvider } from '@hbar/plugin-sdk'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import { assertLocalExecutionAllowed, HbarError, LOCAL_EXECUTION_ENABLED } from '@hbar/contracts'
@@ -205,6 +205,21 @@ export async function workspacePath(
 }
 
 export class LocalExecution implements ExecutionProvider {
+  private idleQuery: (() => number) | undefined
+  private nativeChildren = 0
+  private nativeDescendantsPending = false
+  private executionUnknown = false
+  private physicalShellPromises = 0
+  idleCheckpoint(authority?: import('@hbar/plugin-sdk').RuntimePluginIdleAuthority) {
+    const descendantsProven = nativeDescendantsConfirmed(authority, this.physicalShellPromises, this.nativeChildren)
+    return {
+      supported: this.idleQuery !== undefined,
+      requests: this.idleQuery?.() ?? 0,
+      resources: this.nativeChildren,
+      background: this.physicalShellPromises,
+      unconfirmed: Number(this.executionUnknown || (this.nativeDescendantsPending && !descendantsProven)),
+    }
+  }
   private readonly fileMutations = new FileMutationQueue()
   readonly workspaceQuery: WorkspaceQueryProvider
 
@@ -222,6 +237,7 @@ export class LocalExecution implements ExecutionProvider {
       (workspace) => this.blockedForWorkspace(workspace),
       (workspace, path) => this.workspacePath(workspace, path, true),
     )
+    this.idleQuery = () => queryRuntime.idleRequests()
     const query = mounts ? mountedWorkspaceQuery(queryRuntime, mounts) : queryRuntime
     const executionPolicy = this.localExecutionPolicy
     const guardedQuery: WorkspaceQueryProvider = {
@@ -497,6 +513,8 @@ export class LocalExecution implements ExecutionProvider {
     }
 
     signal.throwIfAborted()
+    // A direct shell exit cannot prove detached descendants exited. Parent native-job reconciliation is required.
+    this.nativeDescendantsPending = true
     const child = Bun.spawn(argv, {
       cwd: workingDirectory,
       env,
@@ -505,6 +523,16 @@ export class LocalExecution implements ExecutionProvider {
       stdin: 'ignore',
       windowsHide: true,
     })
+    this.nativeChildren++
+    void child.exited.then(
+      () => {
+        this.nativeChildren--
+      },
+      () => {
+        this.nativeChildren--
+        this.executionUnknown = true
+      },
+    )
     let terminating: Promise<void> | undefined
     const terminate = () =>
       (terminating ??= (async () => {
@@ -514,7 +542,10 @@ export class LocalExecution implements ExecutionProvider {
             stderr: 'ignore',
             windowsHide: true,
           })
-          await killer.exited
+          this.nativeChildren++
+          await killer.exited.then(() => {
+            this.nativeChildren--
+          })
         } else {
           child.kill('SIGTERM')
         }
@@ -579,11 +610,17 @@ export class LocalExecution implements ExecutionProvider {
     const childExited = child.exited
     const stdoutPromise = collect(child.stdout, childExited)
     const stderrPromise = collect(child.stderr, childExited)
+    this.physicalShellPromises++
+    void Promise.allSettled([stdoutPromise, stderrPromise, childExited]).then((results) => {
+      if (results.some((result) => result.status === 'rejected')) this.executionUnknown = true
+      this.physicalShellPromises--
+    })
     try {
       const [stdoutResult, stderrResult, code] = await Promise.all([stdoutPromise, stderrPromise, childExited])
       const stdout = stdoutResult.text
       const stderr = stderrResult.text
       const drainCutoff = stdoutResult.drainCutoff || stderrResult.drainCutoff
+      if (drainCutoff) this.executionUnknown = true
       if (terminating) await terminating
       signal.throwIfAborted()
       if (timedOut)
@@ -597,6 +634,9 @@ export class LocalExecution implements ExecutionProvider {
         isError: code !== 0,
         details: { code, truncated, drainCutoff },
       }
+    } catch (error) {
+      this.executionUnknown = true
+      throw error
     } finally {
       clearTimeout(timeout)
       signal.removeEventListener('abort', onAbort)
@@ -628,6 +668,7 @@ export function localExecutionPlugin(
     },
     apply(ctx) {
       const execution = new LocalExecution(blocked, managedWorkspace, mounts, undefined, localExecutionPolicy)
+      ctx.hbar.api.runtimeIdle?.register((authority) => execution.idleCheckpoint(authority))
       ctx.effect(() => () => execution.dispose())
       provide(ctx, 'execution', execution)
       provide<WorkspaceDirectoryService>(ctx, 'workspace-directories', {
@@ -650,6 +691,13 @@ export default definePlugin({
     permissions: ['fs', 'process'],
   },
   apply(ctx) {
+    ctx.hbar.api.runtimeIdle?.register(() => ({
+      supported: true,
+      requests: 0,
+      resources: 0,
+      background: 0,
+      unconfirmed: 0,
+    }))
     const execution = ctx.hbar.api.service<ExecutionProvider>('execution')
     const register = ctx.hbar.api.tools.register
     register({

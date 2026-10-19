@@ -27,6 +27,23 @@ import { createControllerApplication } from './controller-application'
 import { ownsControllerRpc, invokeControllerRpc } from './controller-rpc'
 import { RUNTIME_CONTROLLER_SERVICES } from './runtime-controller-services'
 import { attachRuntimeCommandJobs } from './runtime-command-jobs'
+import {
+  earliestRuntimeDue,
+  runtimeControllerIdleCheckpointSchema,
+  type RuntimeBackgroundCheckpoint,
+} from './runtime-background-idle'
+import {
+  scheduleIdleManifestSchema,
+  scheduleWakeReplySchema,
+  type ScheduleTransferAck,
+} from './runtime-schedule-idle-contract'
+import {
+  controllerScheduleInitializeSchema,
+  controllerScheduleTransferSchema,
+  controllerScheduleWakeSchema,
+  controllerScheduleStatusSchema,
+  controllerScheduleControlMethods,
+} from './runtime-controller-schedule-contract'
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   let requests = 0
@@ -34,6 +51,16 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   let backgroundStarted = false
   const commandJobs = new CommandExecutionJobs()
   const detachCommandJobs = attachRuntimeCommandJobs(context.peer, commandJobs)
+  let serviceRequests = 0
+  let transitions = 0
+  let schedulePhase: 'open' | 'restored' | 'quiescing' | 'quiesced' | 'committed' | 'unknown' = 'open'
+  let scheduleAck: ScheduleTransferAck | null = null
+  const assertScheduleAdmission = () => {
+    if (schedulePhase !== 'open')
+      throw new HbarError('RUNTIME_IDLE_FENCED', 'Controller schedule transfer owns admission')
+  }
+  const sameAck = (ack: ScheduleTransferAck) =>
+    scheduleAck !== null && JSON.stringify(scheduleAck) === JSON.stringify(ack)
   const configuration = runtimeControllerConfigurationSchema.safeParse(context.configuration)
   if (!configuration.success && !z.strictObject({}).safeParse(context.configuration).success)
     throw new HbarError('INVALID_INPUT', 'Controller configuration must satisfy its declared lifecycle contract')
@@ -81,6 +108,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     'controller.command.start',
     procedure(runtimeControllerCommandStartSchema, commandJobSnapshotSchema, (input, call) => {
       call.signal.throwIfAborted()
+      assertScheduleAdmission()
       if (context.preparing() || !kernel || !application)
         throw new HbarError('RUNTIME_PREPARING', 'Controller command jobs are not activated')
       return kernel.pin(input.scope, () =>
@@ -93,44 +121,235 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     }),
   )
   values.register('service', async (args, signal) => {
+    assertScheduleAdmission()
     if (context.preparing() || !kernel || !application)
       throw new HbarError('RUNTIME_PREPARING', 'Controller services are not activated')
     const scope = runtimeControllerScopeSchema.parse(args[0]),
       service = z.string().parse(args[1]),
       method = z.string().parse(args[2]),
       input = z.array(z.unknown()).max(32).parse(args[3])
-    return kernel.pin(scope, async () => {
-      if (service === 'commands' && method === 'prepare')
-        return (await application.commandRouter.prepare(input[0])).invocation
-      if (service === 'commands' && method === 'dispatch') {
-        const invocation = rpcSchemas['command.execute'].parse(input[0])
-        const dispatch = application.commandDispatchers.get(invocation.commandId)
-        if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is absent from this Controller owner')
-        return dispatch(invocation, z.string().min(1).max(160).parse(input[1]))
-      }
-      if (service === 'commands' && method === 'dispatchPrepared') {
-        const actorId = z.string().min(1).max(160).parse(input[1])
-        if (actorId !== scope.actorId) throw new HbarError('FORBIDDEN', 'Command actor differs from its admitted scope')
-        return application.commandRouter.executePrepared(
-          input[0],
-          actorId,
-          commandExecutionExpectationSchema.parse(input[2]),
-          { signal },
-        )
-      }
-      const declared: unknown = Reflect.get(RUNTIME_CONTROLLER_SERVICES, service)
-      if (!Array.isArray(declared) || !declared.includes(method))
-        throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Controller service method is not public')
-      const target: unknown = Reflect.get(application, service)
-      if (!target || typeof target !== 'object')
-        throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Controller service is absent')
-      const callable: unknown = Reflect.get(target, method)
-      if (typeof callable !== 'function')
-        throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Controller service method is absent')
-      const result: unknown = Reflect.apply(callable, target, input)
-      return await result
-    })
+    serviceRequests++
+    try {
+      return await kernel.pin(scope, async () => {
+        if (service === 'commands' && method === 'prepare')
+          return (await application.commandRouter.prepare(input[0])).invocation
+        if (service === 'commands' && method === 'dispatch') {
+          const invocation = rpcSchemas['command.execute'].parse(input[0])
+          const dispatch = application.commandDispatchers.get(invocation.commandId)
+          if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is absent from this Controller owner')
+          return dispatch(invocation, z.string().min(1).max(160).parse(input[1]))
+        }
+        if (service === 'commands' && method === 'dispatchPrepared') {
+          const actorId = z.string().min(1).max(160).parse(input[1])
+          if (actorId !== scope.actorId)
+            throw new HbarError('FORBIDDEN', 'Command actor differs from its admitted scope')
+          return application.commandRouter.executePrepared(
+            input[0],
+            actorId,
+            commandExecutionExpectationSchema.parse(input[2]),
+            { signal },
+          )
+        }
+        const declared: unknown = Reflect.get(RUNTIME_CONTROLLER_SERVICES, service)
+        if (!Array.isArray(declared) || !declared.includes(method))
+          throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Controller service method is not public')
+        const target: unknown = Reflect.get(application, service)
+        if (!target || typeof target !== 'object')
+          throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Controller service is absent')
+        const callable: unknown = Reflect.get(target, method)
+        if (typeof callable !== 'function')
+          throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Controller service method is absent')
+        const result: unknown = Reflect.apply(callable, target, input)
+        return await result
+      })
+    } finally {
+      serviceRequests--
+    }
   })
+  const checkpoint = () => {
+    const search = application?.sessionSearchCommands.idleSnapshot() ?? null
+    const schedule = application?.scheduleController.idleSnapshot() ?? null
+    const result: RuntimeBackgroundCheckpoint<{ search: typeof search; schedule: typeof schedule }> = {
+      schemaVersion: 1,
+      unitId: 'controller',
+      coverage: 'incomplete',
+      alarmsTransferRequired: kernel !== null,
+      requiredDomains: [
+        'enabledSchedules/full-page-nextDue-and-revisions',
+        'scheduleRuntime/pendingDueAt',
+        'activeScheduleOccurrences/original-occurrence-run',
+        'searchIndexStep/continuation',
+      ],
+      nextDueAt: earliestRuntimeDue([search?.nextDueAt ?? null, schedule?.nextDueAt ?? null]),
+      state: { search, schedule },
+    }
+    return result
+  }
+  context.peer.register(
+    'controller.idleCheckpoint',
+    procedure(z.undefined(), runtimeControllerIdleCheckpointSchema, () =>
+      runtimeControllerIdleCheckpointSchema.parse(checkpoint()),
+    ),
+  )
+  const readSchedule = async () => {
+    if (!kernel || !application || !defaultOwner || context.preparing())
+      throw new HbarError('RUNTIME_NOT_DEFAULT', 'Only the activated Controller owns the schedule checkpoint')
+    const scope = await context.peer.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
+    return kernel.pin(scope, () => application.scheduleCheckpoint.read())
+  }
+  const physicalQuiet = () => {
+    const counts = values.idleCounts()
+    return (
+      requests === 0 &&
+      serviceRequests === 0 &&
+      commandJobs.stats().jobs === 0 &&
+      transitions === 0 &&
+      counts.incoming === 0 &&
+      counts.outgoing === 0 &&
+      counts.callbacks === 0 &&
+      (kernel?.idleSnapshot().physicalCalls ?? 0) === 0
+    )
+  }
+  const matchesSource = (manifest: Awaited<ReturnType<typeof readSchedule>>, ack: ScheduleTransferAck) =>
+    manifest.snapshot.coverage === 'complete' &&
+    manifest.snapshot.database.id === ack.databaseId &&
+    manifest.snapshot.database.sourceRevision === ack.sourceRevision
+  const resumeBackgroundTimer = async () => {
+    if (!kernel || !application) throw new HbarError('RUNTIME_NOT_DEFAULT', 'Controller absent')
+    const scope = await context.peer.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
+    await kernel.pin(scope, async () => {
+      const search = await application.sessionSearchCommands.checkpoint()
+      application.scheduleController.resumeTimer()
+      application.sessionSearchCommands.resumeInspectionTimer(search.complete)
+    })
+  }
+  context.peer.register(
+    'controller.schedule.initialize',
+    procedure(controllerScheduleInitializeSchema, controllerScheduleStatusSchema, async (input) => {
+      if (backgroundStarted || transitions !== 0 || schedulePhase !== 'open')
+        throw new HbarError('RUNTIME_IDLE_FENCED', 'Controller background initialization already began')
+      if (input.mode === 'idle-wake') {
+        scheduleAck = input.ack
+        schedulePhase = 'restored'
+        try {
+          await application?.scheduleController.pause()
+          await application?.sessionSearchCommands.pause()
+        } catch (error) {
+          schedulePhase = 'unknown'
+          throw error
+        }
+      }
+      return { phase: schedulePhase }
+    }),
+  )
+  context.peer.register(
+    'controller.schedule.preview',
+    procedure(z.undefined(), scheduleIdleManifestSchema, readSchedule),
+  )
+  context.peer.register(
+    'controller.schedule.quiesce',
+    procedure(controllerScheduleTransferSchema, scheduleIdleManifestSchema, async ({ ack }) => {
+      assertScheduleAdmission()
+      scheduleAck = ack
+      schedulePhase = 'quiescing'
+      // Seal first. Unknown physical work cannot be awaited by a cancelled logical Promise.
+      // A known busy attempt does not stop any timer; the parent may offer again later.
+      if (!physicalQuiet()) {
+        schedulePhase = 'open'
+        scheduleAck = null
+        throw new HbarError('BUSY', 'Controller physical work has not settled')
+      }
+      try {
+        await application?.scheduleController.pause()
+        await application?.sessionSearchCommands.pause()
+        const manifest = await readSchedule()
+        if (!physicalQuiet() || !matchesSource(manifest, ack)) {
+          await resumeBackgroundTimer()
+          schedulePhase = 'open'
+          scheduleAck = null
+          throw new HbarError('SCHEDULE_CHECKPOINT_CHANGED', 'Controller checkpoint changed after quiescence')
+        }
+        schedulePhase = 'quiesced'
+        return manifest
+      } catch (error) {
+        if (schedulePhase !== 'open') schedulePhase = 'unknown'
+        throw error
+      }
+    }),
+  )
+  context.peer.register(
+    'controller.schedule.commit',
+    procedure(controllerScheduleTransferSchema, controllerScheduleStatusSchema, ({ ack }) => {
+      if (!sameAck(ack) || schedulePhase !== 'quiesced')
+        throw new HbarError('RUNTIME_IDLE_FENCED', 'Schedule commit does not match quiesced transfer')
+      schedulePhase = 'committed'
+      return { phase: schedulePhase }
+    }),
+  )
+  context.peer.register(
+    'controller.schedule.abort',
+    procedure(controllerScheduleTransferSchema, controllerScheduleStatusSchema, async ({ ack }) => {
+      if (!sameAck(ack) || schedulePhase !== 'quiesced')
+        throw new HbarError('RUNTIME_IDLE_FENCED', 'Only a known quiesced transfer may abort')
+      try {
+        await resumeBackgroundTimer()
+      } catch (error) {
+        schedulePhase = 'unknown'
+        throw error
+      }
+      scheduleAck = null
+      schedulePhase = 'open'
+      return { phase: schedulePhase }
+    }),
+  )
+  context.peer.register(
+    'controller.schedule.wake',
+    procedure(controllerScheduleWakeSchema, scheduleWakeReplySchema, async ({ ack, restoration }) => {
+      if (!sameAck(ack) || !['restored', 'committed'].includes(schedulePhase))
+        throw new HbarError('RUNTIME_IDLE_FENCED', 'Wake must match the committed transfer')
+      try {
+        const before = await readSchedule()
+        if (before.snapshot.coverage !== 'complete' || before.snapshot.database.id !== ack.databaseId)
+          throw new HbarError('SCHEDULE_CHECKPOINT_CHANGED', 'Wake database checkpoint is incomplete')
+        const changed = !matchesSource(before, ack)
+        if (changed) {
+          await resumeBackgroundTimer()
+          scheduleAck = null
+          schedulePhase = 'open'
+          backgroundStarted = true
+          return { kind: 'changed', manifest: before }
+        }
+        if (!kernel || !application) throw new HbarError('RUNTIME_NOT_DEFAULT', 'Controller absent')
+        const scope = await context.peer.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
+        await kernel.pin(scope, async () => {
+          if (
+            restoration?.nextDueAt !== undefined &&
+            restoration.nextDueAt !== null &&
+            restoration.nextDueAt > Date.now()
+          )
+            application.scheduleController.resumeTimer(restoration.nextDueAt)
+          else await application.scheduleController.wakeDue()
+          if (restoration && restoration.nextSearchCheckAt > Date.now())
+            application.sessionSearchCommands.resumeInspectionTimer(
+              before.snapshot.search.complete,
+              restoration.nextSearchCheckAt,
+            )
+          else {
+            const search = await application.sessionSearchCommands.wakeStep()
+            application.sessionSearchCommands.resumeInspectionTimer(search.complete)
+          }
+        })
+        const manifest = await readSchedule()
+        scheduleAck = null
+        schedulePhase = 'open'
+        backgroundStarted = true
+        return { kind: 'settled', manifest }
+      } catch (error) {
+        schedulePhase = 'unknown'
+        throw error
+      }
+    }),
+  )
   context.peer.register(
     'controller.catalog',
     procedure(z.undefined(), runtimeControllerCatalogSchema, () =>
@@ -151,29 +370,42 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   context.peer.register(
     'controller.resume',
     procedure(z.undefined(), z.undefined(), async () => {
+      assertScheduleAdmission()
       if (!defaultOwner || !kernel || !application || context.preparing())
         throw new HbarError('RUNTIME_NOT_DEFAULT', 'Only the activated Controller schedules background work')
       if (backgroundStarted) return
-      const scope = await context.peer.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
-      await kernel.pin(scope, async () => {
-        application.sessionSearchCommands.start()
-        await application.scheduleController.start()
-      })
-      backgroundStarted = true
+      transitions++
+      try {
+        const scope = await context.peer.call('controller.background.scope', undefined, runtimeControllerScopeSchema)
+        await kernel.pin(scope, async () => {
+          application.sessionSearchCommands.start()
+          await application.scheduleController.start()
+        })
+        backgroundStarted = true
+      } finally {
+        transitions--
+      }
     }),
   )
   context.peer.register(
     'controller.pause',
     procedure(z.undefined(), z.undefined(), async () => {
-      await application?.scheduleController.close()
-      await application?.sessionSearchCommands.pause()
-      backgroundStarted = false
+      assertScheduleAdmission()
+      transitions++
+      try {
+        await application?.scheduleController.pause()
+        await application?.sessionSearchCommands.pause()
+        backgroundStarted = false
+      } finally {
+        transitions--
+      }
     }),
   )
   const dispatch = async (
     input: z.infer<typeof runtimeControllerDispatchSchema>,
     control: boolean,
   ): Promise<string> => {
+    assertScheduleAdmission()
     if (context.preparing())
       throw new HbarError('RUNTIME_PREPARING', 'Controller preflight cannot invoke production requests')
     let id: string | number | null = null
@@ -224,12 +456,38 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     'controller.control',
     procedure(runtimeControllerDispatchSchema, z.string().max(33_554_432), (input) => dispatch(input, true)),
   )
+  const idle = () => {
+    const state = checkpoint()
+    const search = state.state.search
+    const schedule = state.state.schedule
+    const port = values.idleCounts()
+    const resources =
+      commandJobs.stats().jobs +
+      port.callbacks +
+      port.incoming +
+      port.outgoing +
+      (kernel?.idleSnapshot().physicalCalls ?? 0) +
+      transitions +
+      Number(search?.timer === true) +
+      Number(search?.background === true) +
+      Number(search?.pendingStep === true) +
+      Number(schedule?.timer === true) +
+      Number(schedule?.ticking === true)
+    // Committed transfer now covers both schedule and a bounded durable search continuation alarm.
+    return {
+      eligible: !state.alarmsTransferRequired || schedulePhase === 'committed',
+      requests: requests + serviceRequests,
+      runs: 0,
+      resources,
+    }
+  }
   return {
+    idle,
     async prepare() {
       return {
         contractFingerprint: CONTROLLER_RUNTIME_FINGERPRINT,
         storageSchema: STORAGE_SCHEMA_VERSION,
-        capabilities: ['controller.handle', 'controller.control'],
+        capabilities: ['controller.handle', 'controller.control', ...controllerScheduleControlMethods],
       }
     },
     async activate(role) {
@@ -240,7 +498,8 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       await application?.scheduleController.close()
       await application?.sessionSearchCommands.pause()
       backgroundStarted = false
-      return { requests, runs: 0, resources: commandJobs.stats().jobs }
+      const state = idle()
+      return { requests: state.requests, runs: state.runs, resources: state.resources }
     },
     async dispose() {
       defaultOwner = false

@@ -81,6 +81,10 @@ export function runtimeExecutionRouterPlugin(options: RuntimeExecutionRouterOpti
         loadSnapshot: options.loadSnapshot,
         localEnabled: options.localEnabled,
       })
+      ctx.hbar.api.runtimeIdle?.register((authority) => {
+        const proof = local.idleCheckpoint(authority)
+        return { ...proof, requests: proof.requests + router.idleRequests() }
+      })
       ctx.effect(() => () => router.dispose())
       provide(ctx, 'execution', router)
       provide<WorkspaceDirectoryService>(ctx, 'workspace-directories', {

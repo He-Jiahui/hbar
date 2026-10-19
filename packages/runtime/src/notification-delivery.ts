@@ -122,6 +122,15 @@ export class RuntimeNotificationDelivery {
     this.bytesPeak = Math.max(this.bytesPeak, this.bytes)
     this.flush()
   }
+  idleCounts() {
+    return {
+      queued: this.queue.length,
+      sending: Number(this.sending !== undefined),
+      bytes: this.bytes,
+      failed: this.failure !== null,
+      closed: this.closed,
+    }
+  }
   snapshot(): RuntimeNotificationDeliverySnapshot {
     const queuedByClass = emptyClassCounts()
     for (const item of this.queue) queuedByClass[item.eventClass]++

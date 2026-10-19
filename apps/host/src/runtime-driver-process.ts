@@ -44,6 +44,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   >()
   const decisions = new Set<AbortController>()
   const streams = new Map<string, { invocationId: string; id: string; text: string; thinking: string }>()
+  let summaryRequests = 0
   let draining = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let flushing: Promise<void> | undefined
@@ -281,10 +282,16 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   )
   context.peer.register(
     'driver.summarize',
-    procedure(runtimeDriverSummarySchema, runtimeDriverSummaryResultSchema, (input, call) => {
-      if (context.preparing())
-        throw new HbarError('DRIVER_NOT_SERVING', 'Driver candidate cannot perform model requests')
-      return driver.summarize(input.request, input.apiKey, call.signal)
+    procedure(runtimeDriverSummarySchema, runtimeDriverSummaryResultSchema, async (input, call) => {
+      if (context.preparing() || draining)
+        throw new HbarError('DRIVER_NOT_SERVING', 'Driver is not accepting summary requests')
+      if (summaryRequests >= 64) throw new HbarError('DRIVER_CAPACITY', 'Driver summary capacity is exhausted')
+      summaryRequests++
+      try {
+        return await driver.summarize(input.request, input.apiKey, call.signal)
+      } finally {
+        summaryRequests--
+      }
     }),
   )
   context.peer.register(
@@ -349,9 +356,28 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     async activate(role) {
       draining = role === 'draining'
     },
+    idle() {
+      const callback = callbacks.snapshot()
+      const requests = summaryRequests + decisions.size + callback.active + callback.queued
+      const resources = streams.size + Number(timer !== undefined) + Number(flushing !== undefined)
+      const unavailable =
+        context.preparing() ||
+        callback.recursive.closed ||
+        callback.leaf.closed ||
+        callback.recursive.fenced ||
+        callback.leaf.fenced ||
+        callback.recursive.unconfirmed > 0 ||
+        callback.leaf.unconfirmed > 0
+      return {
+        eligible: !unavailable && active.size === 0 && requests === 0 && resources === 0,
+        runs: active.size,
+        requests,
+        resources,
+      }
+    },
     async drain() {
       draining = true
-      return { runs: active.size, requests: decisions.size, resources: 0 }
+      return { runs: active.size, requests: summaryRequests + decisions.size, resources: 0 }
     },
     async dispose() {
       callbacks.close()

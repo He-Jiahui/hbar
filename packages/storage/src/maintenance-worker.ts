@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs'
 import { HbarError } from '@hbar/contracts'
 import { STORAGE_SCHEMA_VERSION } from './rpc-catalog'
 import { startupSettingsLayerSchema } from './startup-settings-contract'
+import { readPreflightDatabaseSequentially } from './preflight-database-read'
 
 const base = z.strictObject({
   path: z.string().min(1).max(4_000),
@@ -68,12 +69,14 @@ if (input.mode === 'startup-settings') {
     if (existsSync(input.path)) {
       const database = new Database(input.path, { readonly: true, strict: true })
       try {
-        database.exec('PRAGMA busy_timeout=5000')
+        // Limit mapping to this readonly connection; the complete check still reads pages beyond the mapped prefix.
+        database.exec('PRAGMA busy_timeout=5000; PRAGMA mmap_size=2147418112')
         const version = z
           .object({ user_version: z.number().int().min(0).max(STORAGE_SCHEMA_VERSION) })
           .safeParse(database.query('PRAGMA user_version').get())
         if (!version.success || (!input.allowMigration && version.data.user_version !== STORAGE_SCHEMA_VERSION))
           throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Maintenance Worker needs an incompatible schema migration')
+        readPreflightDatabaseSequentially(input.path)
         const integrity = z
           .object({ quick_check: z.literal('ok') })
           .safeParse(database.query('PRAGMA quick_check(1)').get())

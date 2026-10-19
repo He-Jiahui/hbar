@@ -8,6 +8,21 @@ import { Worker } from 'node:worker_threads'
 import type { StorageMethods } from './types.ts'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import { storageRpcCallSchema } from './rpc'
+export { readChatDatabaseActiveJournalProof, chatDatabaseActiveJournalProofSchema } from './chat-database-active-proof'
+export type { ChatDatabaseActiveJournalProof } from './chat-database-active-proof'
+import { z } from 'zod'
+import { STORAGE_SCHEMA_VERSION } from './rpc-catalog'
+import {
+  buildActivatedStorageCatalog,
+  storageActivatedCatalogSchema,
+  type StorageActivatedCatalog,
+} from './activated-catalog'
+export {
+  buildActivatedStorageCatalog,
+  storageSourceDatabaseId,
+  storageActivatedCatalogSchema,
+} from './activated-catalog'
+export type { StorageActivatedCatalog } from './activated-catalog'
 export type { RuntimeRecoveryRecord, RuntimeRecoveryScope, RuntimeManualRecovery } from './runtime-state'
 export type {
   NodeExecutionIntentIdentity,
@@ -29,7 +44,21 @@ export type {
 } from './runtime-backend-recovery'
 export { StableStoragePort } from './stable-port'
 export { readStartupSettingsLayer } from './startup-settings'
-export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'
+export type {
+  ManagedStorageWriter,
+  StableStorageSnapshot,
+  StorageDemandLease,
+  StorageDemandGate,
+  StoragePhysicalSettlement,
+  StoragePhysicalCall,
+  StorageHibernateCheckpoint,
+  StorageIdleOutcome,
+  StorageDemandReconciliation,
+} from './stable-port'
+export { scheduleIdleCheckpointInputSchema, scheduleIdleCheckpointSchema } from './schedule-idle-checkpoint'
+export type { ScheduleIdleCheckpointInput, ScheduleIdleCheckpoint } from './schedule-idle-checkpoint'
+export { searchIdleCheckpointSchema } from './search-idle-checkpoint'
+export type { SearchIdleCheckpoint } from './search-idle-checkpoint'
 export { storageRpcCallSchema, storageRpcInput, callStorageRpc } from './rpc'
 export type { StorageRpcCall, StorageRpcPort } from './rpc'
 export { STORAGE_RPC_METHODS, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION } from './rpc-catalog'
@@ -160,7 +189,10 @@ export class Storage {
   private nextId = 0
   private pending = new Map<number, PendingRequest>()
   private stopped = false
+  private catalog: StorageActivatedCatalog | null = null
   private closing: Promise<void> | null = null
+  private cleanCloseAcknowledged = false
+  private closeWorkerError = false
   private terminating: Promise<void> | null = null
   private fatalNotified = false
   private fatalListeners = new Set<StorageFatalListener>()
@@ -263,10 +295,24 @@ export class Storage {
         ...(reply.ok ? {} : { errorCode: reply.code }),
         ...(handler.correlation === undefined ? {} : { correlation: handler.correlation }),
       })
-      if (reply.ok) handler.resolve(reply.result)
-      else handler.reject(new HbarError(reply.code, reply.error))
+      if (reply.ok) {
+        if (handler.method === 'ready') {
+          const ready = z.strictObject({ version: z.literal(STORAGE_SCHEMA_VERSION) }).safeParse(reply.result)
+          if (ready.success && lifecycle.preflight !== true && path !== ':memory:' && path.length > 0) {
+            this.catalog = buildActivatedStorageCatalog({
+              sourceMode: 'single-worker-single-path',
+              path,
+              preflight: false,
+              readySchemaVersion: ready.data.version,
+              expectedSchemaVersion: STORAGE_SCHEMA_VERSION,
+            })
+          }
+        }
+        handler.resolve(reply.result)
+      } else handler.reject(new HbarError(reply.code, reply.error))
     })
     this.worker.on('error', (event) => {
+      this.closeWorkerError = true
       const error = new HbarError(
         'STORAGE_WORKER_FAILED',
         `Storage worker failed: ${event instanceof Error ? event.message : String(event)}`,
@@ -277,6 +323,12 @@ export class Storage {
         // close() awaits the same termination result; no unhandled event-callback rejection.
       })
     })
+  }
+  /** Cached activated-source metadata; never reads or wakes its Worker. */
+  activatedCatalog(): StorageActivatedCatalog {
+    if (!this.catalog || this.stopped || this.closing || this.terminating)
+      throw new HbarError('STORAGE_CATALOG_UNAVAILABLE', 'Storage catalog requires an activated healthy source')
+    return storageActivatedCatalogSchema.parse(this.catalog)
   }
   /** Explicit startup handshake budget; ordinary serving calls keep their configured deadline. */
   ready(timeoutMs: number): Promise<ReturnType<StorageMethods['ready']>> {
@@ -522,10 +574,25 @@ export class Storage {
     this.closing ??= this.closeWorker()
     return this.closing
   }
+  /** Owner-only hibernate checkpoint; never a general Storage RPC or a write replay. */
+  async closeIdle(): Promise<{ databaseCloseAcknowledged: true; workerExitConfirmed: true }> {
+    if (this.stopped || this.closing || this.pending.size !== 0)
+      throw new HbarError('STORAGE_IDLE_BUSY', 'A healthy quiescent Storage Worker is required')
+    // closeWorker waits for the actual close RPC and then joins the Worker termination.
+    this.closing = this.closeWorker()
+    await this.closing
+    if (!this.cleanCloseAcknowledged || this.closeWorkerError)
+      throw new HbarError('STORAGE_IDLE_OUTCOME_UNKNOWN', 'The database close checkpoint is not confirmed')
+    await this.exited
+    return { databaseCloseAcknowledged: true, workerExitConfirmed: true }
+  }
   private async closeWorker(): Promise<void> {
     let closeError: HbarError | undefined
     try {
-      if (!this.stopped) await this.request('close', [], this.closeTimeoutMs)
+      if (!this.stopped) {
+        await this.request('close', [], this.closeTimeoutMs)
+        this.cleanCloseAcknowledged = true
+      }
     } catch (error) {
       closeError = error instanceof HbarError ? error : new HbarError('STORAGE_CLOSE_FAILED', String(error))
       throw closeError

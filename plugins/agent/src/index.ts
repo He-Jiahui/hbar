@@ -141,6 +141,15 @@ export class AgentRuntime implements AgentService {
   private createLocks = new Map<string, Promise<void>>()
   private applyLocks = new Map<string, Promise<void>>()
 
+  idleCheckpoint() {
+    return {
+      supported: true,
+      requests: 0,
+      resources: 0,
+      background: this.createLocks.size + this.applyLocks.size,
+      unconfirmed: 0,
+    }
+  }
   constructor(
     private sessions: SessionService,
     private budgets: BudgetService,
@@ -889,6 +898,7 @@ export const agentPlugin = definePlugin({
       api,
     )
     provide<AgentService>(ctx, 'agent', runtime)
+    api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     api.tools.register(createAgentTool(runtime, api.sessions))
     api.hooks.on('tools.advertise', (event) => advertiseAgentTool(event))
     api.hooks.on('tools.select', (event) => runtime.selectProfileTools(event))

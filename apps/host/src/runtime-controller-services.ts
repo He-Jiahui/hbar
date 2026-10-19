@@ -109,7 +109,18 @@ export function createRuntimeControllerServices(
     list: (filter?: { readonly includeInternal?: boolean }) =>
       filter?.includeInternal ? options.catalog() : publicCatalog(),
   }
-  const commandIds = allDescriptors().map((value) => value.metadata.id)
+  // The listener is composed before the first Controller has published its catalog.
+  // This initial routing index may be empty; resolveCommand and every catalog read
+  // still consult the real owner, so recovery is never presented as an empty catalog.
+  const initialCommandIds = (): string[] => {
+    try {
+      return allDescriptors().map((value) => value.metadata.id)
+    } catch (error) {
+      if (error instanceof HbarError && error.code === 'RUNTIME_RECOVERING') return []
+      throw error
+    }
+  }
+  const commandIds = initialCommandIds()
   const commandDispatchers = new Map(commandIds.map((id) => [id, service.dispatch]))
   const commandDescribers = new Map(commandIds.map((id) => [id, () => service.describe(id)]))
   return {

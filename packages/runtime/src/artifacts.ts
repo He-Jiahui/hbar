@@ -116,6 +116,30 @@ async function boundedArtifactRead(path: string, limit: number): Promise<Buffer>
   }
 }
 
+/** Hash-only verification retains one bounded read buffer, never the whole bundle/resource. */
+async function boundedArtifactHash(path: string, limit: number): Promise<string> {
+  const handle = await open(path, 'r')
+  try {
+    const metadata = await handle.stat()
+    if (!metadata.isFile() || metadata.size > limit)
+      throw new HbarError('RUNTIME_ARTIFACT_LIMIT', 'Registered artifact exceeds its file byte bound')
+    const bytes = Buffer.alloc(Math.max(1, Math.min(262_144, metadata.size)))
+    const hash = createHash('sha256')
+    for (let offset = 0; offset < metadata.size;) {
+      const next = await handle.read(bytes, 0, Math.min(bytes.byteLength, metadata.size - offset), offset)
+      if (!next.bytesRead)
+        throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Registered artifact changed during verification')
+      hash.update(bytes.subarray(0, next.bytesRead))
+      offset += next.bytesRead
+    }
+    if ((await handle.read(bytes, 0, 1, metadata.size)).bytesRead)
+      throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Registered artifact grew during verification')
+    return hash.digest('hex')
+  } finally {
+    await handle.close()
+  }
+}
+
 /** Registered immutable bundles, verified again before loading. It never accepts an arbitrary reload path. */
 export class RuntimeArtifactStore implements RuntimeArtifactPort {
   private readonly sets = new Map<string, RuntimeArtifactSet>()
@@ -304,14 +328,17 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
   }
 
   /** Keep live generations and pending operations; expire only unused registry metadata, never immutable files. */
-  compactMetadata(references: { readonly artifactIds: readonly string[]; readonly setIds: readonly string[] }, keep = 128): void {
+  compactMetadata(
+    references: { readonly artifactIds: readonly string[]; readonly setIds: readonly string[] },
+    keep = 128,
+  ): void {
     if (!Number.isSafeInteger(keep) || keep < 1 || keep > 128)
       throw new HbarError('INVALID_INPUT', 'Artifact history needs a bounded retention count')
     const sets = new Set([...references.setIds, ...[...this.sets.keys()].slice(-keep)])
     for (const id of this.sets.keys()) if (!sets.has(id)) this.sets.delete(id)
     const artifacts = new Set([
       ...references.artifactIds,
-      ...[...this.sets.values()].flatMap(set => set.artifacts.map(artifact => artifact.id)),
+      ...[...this.sets.values()].flatMap((set) => set.artifacts.map((artifact) => artifact.id)),
       ...[...this.registered.keys()].slice(-keep),
     ])
     for (const id of this.registered.keys()) if (!artifacts.has(id)) this.registered.delete(id)
@@ -345,28 +372,36 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     if (artifact.id !== id || JSON.stringify(artifact) !== JSON.stringify(this.registered.get(id)))
       throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime artifact manifest changed after registration')
     for (const file of artifact.files)
-      if (sha256(await boundedArtifactRead(join(directory, fileName(file.name)), 128 * 1024 * 1024)) !== file.sha256)
+      if ((await boundedArtifactHash(join(directory, fileName(file.name)), 128 * 1024 * 1024)) !== file.sha256)
         throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime artifact content changed after preparation')
     for (const file of artifact.resourceFiles)
-      if (sha256(await boundedArtifactRead(join(directory, fileName(file.name)), 64 * 1024 * 1024)) !== file.sha256)
+      if ((await boundedArtifactHash(join(directory, fileName(file.name)), 64 * 1024 * 1024)) !== file.sha256)
         throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime resource changed after preparation')
     return artifact
   }
 
   async configurePlugin(id: string, configuration: Record<string, unknown>): Promise<RuntimeArtifact> {
     const original = await this.get(id)
-    if (original.descriptor.kind !== 'plugin') throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Configuration variants require an owned plugin')
+    if (original.descriptor.kind !== 'plugin')
+      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Configuration variants require an owned plugin')
     const pluginConfiguration = z.record(z.string(), z.json()).parse(configuration)
     if (Buffer.byteLength(JSON.stringify(pluginConfiguration)) > 1024 * 1024)
       throw new HbarError('RUNTIME_CONFIGURATION_LIMIT', 'Plugin configuration exceeds its byte bound')
     const { id: _id, pluginConfiguration: _previous, ...metadata } = original
-    const artifact = artifactSchema.parse({ ...metadata, pluginConfiguration, id: sha256(JSON.stringify({ metadata, pluginConfiguration })) })
+    const artifact = artifactSchema.parse({
+      ...metadata,
+      pluginConfiguration,
+      id: sha256(JSON.stringify({ metadata, pluginConfiguration })),
+    })
     if (!this.registered.has(artifact.id) && this.registered.size >= 4_096)
       throw new HbarError('RUNTIME_ARTIFACT_CAPACITY', 'Registered artifact capacity is exhausted')
     const directory = join(this.root, artifact.id)
     await mkdir(directory, { recursive: true })
     for (const file of [...original.files, ...original.resourceFiles])
-      await this.immutableWrite(join(directory, fileName(file.name)), await boundedArtifactRead(join(this.root, id, fileName(file.name)), 128 * 1024 * 1024))
+      await this.immutableWrite(
+        join(directory, fileName(file.name)),
+        await boundedArtifactRead(join(this.root, id, fileName(file.name)), 128 * 1024 * 1024),
+      )
     await this.immutableWrite(join(directory, 'manifest.json'), `${JSON.stringify(artifact)}\n`)
     this.registered.set(artifact.id, artifact)
     return artifactSchema.parse(artifact)

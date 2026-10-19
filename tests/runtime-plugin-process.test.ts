@@ -92,7 +92,19 @@ test('a cancelled source call retains an actual plugin write and its Run claim u
   const relay = new RuntimePluginRelay({
     storage,
     coordinator,
-    current: () => (endpoint ? [endpoint] : []),
+    catalog: () => (endpoint ? [{ unitId: endpoint.owner.unitId, state: endpoint.state }] : []),
+    retainedVersion: () => undefined,
+    demand: {
+      acquire: async (ids) => ({
+        owners: ids.map((id) => {
+          if (!endpoint || endpoint.owner.unitId !== id) throw new Error('Plugin endpoint has not prepared')
+          return endpoint.owner
+        }),
+        release() {
+          /* The fixture owns the active endpoint until cleanup. */
+        },
+      }),
+    },
     resolve: () => {
       if (!endpoint) throw new Error('Plugin endpoint has not prepared')
       return endpoint
@@ -580,7 +592,13 @@ test('the Host plugin relay validates and forwards event-page reads to the actua
     relay = new RuntimePluginRelay({
       storage: stable,
       coordinator,
-      current: () => [],
+      catalog: () => [],
+      retainedVersion: () => undefined,
+      demand: {
+        acquire() {
+          throw new Error('No demand admission is expected in this storage read fixture')
+        },
+      },
       resolve: () => {
         throw new Error('No endpoint resolution is expected in a Host read')
       },

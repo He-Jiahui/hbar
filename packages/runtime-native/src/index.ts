@@ -81,6 +81,17 @@ export function createRuntimeProcessTreePort(): RuntimeProcessTreePort {
         const tree = new native.RuntimeProcessTree(pid)
         let closed = false
         const result: RuntimeProcessTree = {
+          active() {
+            if (closed) throw new HbarError('RUNTIME_PROCESS_TREE_UNCONFIRMED', 'Native job handle is closed')
+            // POSIX implementation reports group existence (0/1), NOT cardinality.
+            if (process.platform !== 'win32')
+              throw new HbarError('RUNTIME_PROCESS_TREE_UNCONFIRMED', 'This native backend cannot count descendants')
+            try {
+              return z.number().int().nonnegative().safe().parse(tree.active())
+            } catch (error) {
+              throw domain(error)
+            }
+          },
           terminate() {
             if (!closed) {
               try {

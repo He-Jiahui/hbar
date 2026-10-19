@@ -84,7 +84,13 @@ test('the plugin API and authenticated relay carry bounded facts through the exi
   const relay = new RuntimePluginRelay({
     storage: stable,
     coordinator,
-    current: () => [],
+    catalog: () => [],
+    retainedVersion: () => undefined,
+    demand: {
+      acquire: () => {
+        throw new Error('No capability admission is expected for bounded Storage reads')
+      },
+    },
     resolve: () => {
       throw new Error('No capability invocation is expected')
     },

@@ -66,7 +66,7 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
     {
       descriptor: descriptor('maintenance', 'maintenance', MAINTENANCE_RUNTIME_FINGERPRINT, ['storage', 'kernel']),
       entrypoint: 'apps/host/src/runtime-maintenance-process.ts',
-      workers: ['packages/storage/src/maintenance-worker.ts'],
+      workers: ['packages/storage/src/maintenance-worker.ts', 'packages/storage/src/startup-schema-worker.ts'],
     },
     ...plugins.map(([id, entry, dependencies]) => ({
       descriptor: descriptor('plugin.' + id, 'plugin', PLUGIN_RUNTIME_FINGERPRINT, [...dependencies]),
@@ -75,11 +75,14 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
     })),
     {
       descriptor: {
-        ...descriptor('kernel', 'kernel', KERNEL_RUNTIME_FINGERPRINT, [
-          'storage',
-          'driver.pi',
-          ...plugins.map(([id]) => 'plugin.' + id),
-        ]),
+        // Keep submit preflight capabilities together without starting execution-only plugins.
+        // Claim admission separately retains the Driver and the remaining plugins.
+        ...descriptor(
+          'kernel',
+          'kernel',
+          KERNEL_RUNTIME_FINGERPRINT,
+          options.profileModule ? ['storage', 'driver.pi'] : ['storage', 'plugin.plan', 'plugin.budget', 'plugin.goal'],
+        ),
         reloadable: !options.profileModule,
       },
       entrypoint: 'apps/host/src/runtime-kernel-process.ts',
@@ -97,7 +100,7 @@ export function hostRuntimeBaseBuildUnit(): RuntimeBuildUnit {
   return {
     descriptor: { ...descriptor('base', 'base', CONTROLLER_RUNTIME_FINGERPRINT), isolation: 'base', reloadable: false },
     entrypoint: 'apps/host/src/main.ts',
-    workers: ['packages/storage/src/maintenance-worker.ts'],
+    workers: ['packages/storage/src/maintenance-worker.ts', 'apps/host/src/runtime-build-entry.ts'],
     external: RUNTIME_BUNDLE_EXTERNALS,
     resources: [
       'packages/runtime/src/build-worker.ts',

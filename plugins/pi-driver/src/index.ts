@@ -1,5 +1,5 @@
 import { runAgentLoop, runAgentLoopContinue } from '@earendil-works/pi-agent-core'
-import type { AgentEvent, AgentMessage, AgentTool, StreamFn } from '@earendil-works/pi-agent-core'
+import type { AgentContext, AgentEvent, AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
 import { normalizeContext, Type } from '@earendil-works/pi-ai'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
 import type {
@@ -13,9 +13,7 @@ import type {
   ThinkingLevelMap,
   Usage as PiUsage,
 } from '@earendil-works/pi-ai'
-import { streamSimple as openaiCompletions } from '@earendil-works/pi-ai/api/openai-completions'
-import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/openai-responses'
-import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
+import { lazyApi } from '@earendil-works/pi-ai/api/lazy'
 import { z } from 'zod'
 import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import { providerFailure } from './provider-failure'
@@ -51,6 +49,10 @@ import {
 } from './provider-http-diagnostics'
 import { ProviderStreamObservation } from './provider-stream-diagnostics'
 import { VisibleStreamProjection } from './visible-stream'
+
+const openaiCompletions = lazyApi(() => import('@earendil-works/pi-ai/api/openai-completions')).streamSimple
+const openaiResponses = lazyApi(() => import('@earendil-works/pi-ai/api/openai-responses')).streamSimple
+const anthropicMessages = lazyApi(() => import('@earendil-works/pi-ai/api/anthropic-messages')).streamSimple
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -658,13 +660,13 @@ export class PiDriver implements HarnessDriver {
       }
     }
     const transientToolContent = new Map<string, ToolResultContent[]>()
-    const tools: AgentTool[] = input.tools.map((tool) => ({
+    const tools: NonNullable<AgentContext['tools']> = input.tools.map((tool) => ({
       name: tool.name,
       label: tool.name,
       description: `${tool.description}\n${describeToolTimeout(tool)}`,
       parameters: Type.Unsafe(tool.inputJsonSchema ?? z.toJSONSchema(tool.inputSchema, { io: 'input' })),
       executionMode: 'sequential',
-      execute: async (callId, args) => {
+      execute: async (callId: string, args: unknown) => {
         toolExecutedInStep = true
         const result = await input.execute(tool.name, args as Record<string, unknown>, callId)
         if (result.hostControl) goalStopped = true
@@ -828,9 +830,10 @@ export class PiDriver implements HarnessDriver {
             protocol: request.model.protocol,
           })
         modelDiagnosticStartedAt = performance.now()
-        const physicalRequest = request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
-          ? await input.modelActivity?.begin()
-          : undefined
+        const physicalRequest =
+          request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
+            ? await input.modelActivity?.begin()
+            : undefined
         const physicalState = streamState
         return streamProvider(
           request.model,
@@ -1219,9 +1222,9 @@ export class PiDriver implements HarnessDriver {
             (message.stopReason !== 'stop' || message.content.some((c) => c.type === 'toolCall'))
               ? ''
               : message.content
-            .filter((c) => c.type === 'text')
-            .map((c) => c.text)
-            .join('\n'),
+                  .filter((c) => c.type === 'text')
+                  .map((c) => c.text)
+                  .join('\n'),
           usage: normalizeUsage(message.usage),
         }
       } catch (error) {

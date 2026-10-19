@@ -105,6 +105,8 @@ test('unsupported and coordination routes reject before any locator access; miss
     { id: 2, method: 'runByRequestInWorkspace', args: ['workspace', 'request'] },
     { id: 3, method: 'settingsReceipt', args: ['actor', 'key'] },
     { id: 4, method: 'close', args: [] },
+    { id: 9, method: 'scheduleIdleCheckpoint', args: [{ maxItems: 128, maxBytes: 131072 }] },
+    { id: 10, method: 'searchIdleCheckpoint', args: [] },
   ]
   for (const call of calls) {
     const route = partitionRouteCatalog[call.method].route

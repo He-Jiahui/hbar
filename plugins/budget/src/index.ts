@@ -81,6 +81,15 @@ export class BudgetRuntime {
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
 
+  idleCheckpoint() {
+    return {
+      supported: true,
+      requests: 0,
+      resources: 0,
+      background: this.locks.size,
+      unconfirmed: this.uncertainSessions.size,
+    }
+  }
   constructor(
     private api: HbarAPI,
     private maxLimit: number,
@@ -557,6 +566,7 @@ export const budgetPlugin = definePlugin({
     const config = budgetConfigSchema.parse(rawConfig)
     const runtime = new BudgetRuntime(ctx.hbar.api, config.maxLimit, config.autoContinue, config.maxContinuations)
     await runtime.restore()
+    ctx.hbar.api.runtimeIdle?.register(() => runtime.idleCheckpoint())
     provide<BudgetRuntime>(ctx, 'budget', runtime)
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))
     ctx.hbar.api.hooks.on('run.end', (event) => runtime.accountRun(event))

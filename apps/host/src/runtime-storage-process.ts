@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import {
   Storage,
+  storageActivatedCatalogSchema,
   createPathLayout,
   storageRpcCallSchema,
   STORAGE_SCHEMA_VERSION,
@@ -11,6 +12,7 @@ import {
   type StorageFatalEvent,
 } from '@hbar/storage'
 import { procedure, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
+import { runtimeOwnerSchema } from '@hbar/contracts/runtime'
 import { acquireHostProcessLock } from './process-lock'
 
 const fatalDiagnosticSchema = 'hbar.storage-fatal.v1'
@@ -81,7 +83,20 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
   let releaseWriter: (() => Promise<void>) | undefined
   let calls = 0
   let draining = false
+  let activated = false
   let suspended: string | null = null
+  let hibernation: { readonly operationId: string; phase: 'closing' | 'checkpointed' | 'unknown' } | null = null
+  const workerDiagnostics = configuration.diagnosticsEnabled
+    ? {
+        diagnostics: {
+          emit: (event: import('@hbar/contracts').DiagnosticEvent) => {
+            void context.peer.notify('runtime.diagnostic', event).catch(() => {})
+          },
+        },
+        instanceId: context.peer.owner.incarnation,
+        diagnosticsFullCoverage: configuration.diagnosticsFullCoverage ?? false,
+      }
+    : {}
   const verify = () => {
     if (!existsSync(configuration.database)) return
     const database = new Database(configuration.database, { readonly: true, strict: true })
@@ -101,6 +116,7 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
       preflight: true,
       ...(configuration.workerPath ? { workerPath: configuration.workerPath } : {}),
       requestTimeoutMs: 120_000,
+      ...workerDiagnostics,
     })
     probe = candidateProbe
     try {
@@ -111,6 +127,8 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
     }
   }
   const open = async () => {
+    if (hibernation)
+      throw new HbarError('STORAGE_IDLE_OUTCOME_UNKNOWN', 'A hibernated owner cannot reopen its old Worker')
     verify()
     releaseWriter = await acquireHostProcessLock(`${configuration.database}.runtime-writer.lock`).catch(() => {
       throw new HbarError('STORAGE_WRITER_ACTIVE', 'The previous storage process still owns the database writer')
@@ -122,17 +140,7 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
       if (configuration.workerPath) process.env.HBAR_STORAGE_WORKER = configuration.workerPath
       storage = new Storage(configuration.database, layout, {
         onFatal: (_error, event) => exitStorageProcessForFatal(event),
-        ...(configuration.diagnosticsEnabled
-          ? {
-              diagnostics: {
-                emit: (event) => {
-                  void context.peer.notify('runtime.diagnostic', event).catch(() => {})
-                },
-              },
-              instanceId: context.peer.owner.incarnation,
-              diagnosticsFullCoverage: configuration.diagnosticsFullCoverage ?? false,
-            }
-          : {}),
+        ...workerDiagnostics,
       })
       await storage.ready(120_000)
     } catch (error) {
@@ -144,6 +152,15 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
     }
   }
   context.peer.register(
+    'storage.catalog',
+    procedure(z.undefined(), storageActivatedCatalogSchema, () => {
+      if (context.preparing() || !activated || !storage || draining || suspended || hibernation)
+        throw new HbarError('STORAGE_CATALOG_UNAVAILABLE', 'Storage catalog requires an activated healthy writer')
+      // Pure cached metadata. No Worker RPC, database read, demand acquisition or wake.
+      return storage.activatedCatalog()
+    }),
+  )
+  context.peer.register(
     'storage.call',
     procedure(storageRpcCallSchema, z.unknown(), async (input) => {
       if (context.preparing() || !storage || draining || suspended)
@@ -153,6 +170,69 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
         return await storage.executeRpc(input)
       } finally {
         calls--
+      }
+    }),
+  )
+  const hibernateInput = z.strictObject({ operationId: z.string().min(1).max(160), owner: runtimeOwnerSchema })
+  const hibernateCheckpoint = hibernateInput.extend({
+    databaseCloseAcknowledged: z.literal(true),
+    workerExitConfirmed: z.literal(true),
+    writerLeaseReleased: z.literal(true),
+    queuedSessionCount: z.literal(0),
+  })
+  context.peer.register(
+    'storage.hibernate',
+    procedure(hibernateInput, hibernateCheckpoint, async ({ operationId, owner }) => {
+      const self = context.peer.owner
+      if (
+        owner.unitId !== self.unitId ||
+        owner.generation !== self.generation ||
+        owner.incarnation !== self.incarnation
+      )
+        throw new HbarError('STORAGE_IDLE_OWNER_CHANGED', 'Storage checkpoint requires its exact owner')
+      if (context.preparing() || !storage || probe || draining || suspended || hibernation || calls)
+        throw new HbarError('STORAGE_IDLE_BUSY', 'Storage must quiesce before the explicit checkpoint')
+      const ipc = context.peer.snapshot()
+      if (
+        ipc.failed ||
+        ipc.inFlight ||
+        ipc.queued ||
+        ipc.queuedBytes ||
+        ipc.incoming !== 1 ||
+        ipc.incomingQueued ||
+        ipc.bufferedBytes
+      )
+        throw new HbarError('STORAGE_IDLE_BUSY', 'Storage transport must quiesce before the explicit checkpoint')
+      const checkpoint: { readonly operationId: string; phase: 'closing' | 'checkpointed' | 'unknown' } = {
+        operationId,
+        phase: 'closing',
+      }
+      hibernation = checkpoint
+      draining = true
+      const current = storage
+      try {
+        // The drain seal rejects new business RPC before this bounded queue-existence probe.
+        // Nonempty persistent work cannot be called an idle checkpoint.
+        const hasQueuedRuns = await current.call('hasQueuedRuns')
+        if (hasQueuedRuns) {
+          // Only a completed read occurred: this exact pre-close busy boundary is reopenable.
+          hibernation = null
+          draining = false
+          throw new HbarError('STORAGE_IDLE_QUEUE_NOT_EMPTY', 'Storage queue prevents hibernation')
+        }
+        const closed = await current.closeIdle()
+        // closeIdle resolves only after close ACK and Worker exit; the OS writer lock is still held here.
+        if (storage !== current || hibernation !== checkpoint || !releaseWriter || calls !== 0 || suspended)
+          throw new HbarError('STORAGE_IDLE_OUTCOME_UNKNOWN', 'Storage checkpoint authority changed')
+        await releaseWriter()
+        releaseWriter = undefined
+        storage = undefined
+        checkpoint.phase = 'checkpointed'
+        return { operationId, owner, ...closed, writerLeaseReleased: true, queuedSessionCount: 0 }
+      } catch (error) {
+        if (hibernation === checkpoint) checkpoint.phase = 'unknown'
+        // Do not release the writer lock or claim eligibility on an uncertain close.
+        throw error
       }
     }),
   )
@@ -186,7 +266,7 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
       return {
         contractFingerprint: STORAGE_RPC_FINGERPRINT,
         storageSchema: STORAGE_SCHEMA_VERSION,
-        capabilities: ['storage.call', 'storage.suspend', 'storage.resume'],
+        capabilities: ['storage.call', 'storage.suspend', 'storage.resume', 'storage.hibernate', 'storage.catalog'],
       }
     },
     async activate(role) {
@@ -194,12 +274,33 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
         throw new HbarError('STORAGE_WRITER_UNAVAILABLE', 'Only the default storage process may own the writer')
       // This process-lifetime OS lease remains held until the Worker has actually exited.
       await open()
+      activated = true
+    },
+    idle() {
+      const checkpointed = hibernation?.phase === 'checkpointed'
+      const resources =
+        Number(storage !== undefined) +
+        Number(probe !== undefined) +
+        Number(releaseWriter !== undefined) +
+        Number(suspended !== null) +
+        Number(hibernation !== null && !checkpointed)
+      return { eligible: checkpointed && calls === 0 && resources === 0, requests: calls, runs: 0, resources }
     },
     async drain() {
       draining = true
-      return { requests: calls, runs: 0, resources: storage ? 1 : 0 }
+      return {
+        requests: calls,
+        runs: 0,
+        resources:
+          Number(storage !== undefined) +
+          Number(probe !== undefined) +
+          Number(releaseWriter !== undefined) +
+          Number(suspended !== null) +
+          Number(hibernation !== null && hibernation.phase !== 'checkpointed'),
+      }
     },
     async dispose() {
+      activated = false
       draining = true
       await probe?.close()
       probe = undefined

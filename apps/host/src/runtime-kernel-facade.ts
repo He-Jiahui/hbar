@@ -27,6 +27,14 @@ export interface RuntimeKernelEndpoint {
   readonly state: RuntimeKernelState
 }
 export interface RuntimeKernelFacadeOptions {
+  readonly withCall?: <Result>(
+    target: string,
+    method: string,
+    args: readonly unknown[],
+    captured: RuntimeKernelEndpoint | undefined,
+    operation: () => Promise<Result>,
+  ) => Promise<Result>
+  readonly metadata?: () => RuntimeKernelState
   readonly instanceId: string
   readonly layout: PathLayout
   readonly demo: boolean
@@ -139,7 +147,7 @@ export class RuntimeKernelFacade {
         has: (sessionId) => options.coordinator.executionForSession(sessionId) !== null,
       },
       streams: this.streams,
-      permissionMode: () => this.selected().state.permission,
+      permissionMode: () => this.metadata().permission,
       changed: (kind) => {
         this.publish({ method: 'host.changed', params: { kind } })
         if (kind === 'settings') options.settingsChanged?.()
@@ -166,10 +174,10 @@ export class RuntimeKernelFacade {
           .endpoints()
           .flatMap((endpoint) => endpoint.state.userInputs)
           .find((value) => value.requestId === requestId) ?? null,
-      tools: { list: () => this.selected().state.tools.map((name) => ({ name })) },
+      tools: { list: () => this.metadata().tools.map((name) => ({ name })) },
       plugins: {
         ...this.methods('plugins'),
-        list: () => this.selected().state.plugins,
+        list: () => this.metadata().plugins,
         protectedResourceRoots: () => [
           ...new Set(options.endpoints().flatMap((endpoint) => endpoint.state.protectedRoots)),
         ],
@@ -178,7 +186,7 @@ export class RuntimeKernelFacade {
           if (options.openScope) return options.openScope(id)
           let plugins: RuntimeKernelState['plugins']
           try {
-            plugins = this.selected().state.plugins
+            plugins = this.metadata().plugins
           } catch (error) {
             if (runtimeDomainError(error)?.code !== 'RUNTIME_RECOVERING') throw error
             // Connection identity and runtime diagnostics are stable before a business Kernel is ready.
@@ -343,6 +351,9 @@ export class RuntimeKernelFacade {
       )
     return endpoint
   }
+  private metadata(): RuntimeKernelState {
+    return this.options.metadata?.() ?? this.selected().state
+  }
   private idle(): boolean {
     return (
       this.options.coordinator.snapshot().sessions === 0 &&
@@ -365,17 +376,35 @@ export class RuntimeKernelFacade {
     }
   }
   private async call<Result>(target: string, method: string, args: readonly unknown[]): Promise<Result> {
+    const source = this.options.commandScopes?.invokeApplication<Result>(target, method, args)
+    if (source) return await source
+    const captured = this.sourceKernel() ?? this.context.getStore()
+    // The Host wrapper may select an exact execution owner after an asynchronous lookup.
+    // Keep an original callback capture; otherwise inherit that wrapper's pin at invocation time.
+    const operation = () => this.callOwned<Result>(target, method, args, captured ?? this.context.getStore())
+    return this.options.withCall ? this.options.withCall(target, method, args, captured, operation) : operation()
+  }
+  private async callOwned<Result>(
+    target: string,
+    method: string,
+    args: readonly unknown[],
+    captured?: RuntimeKernelEndpoint,
+  ): Promise<Result> {
     try {
-      const source = this.options.commandScopes?.invokeApplication<Result>(target, method, args)
-      if (source) return await source
-      const captured = this.sourceKernel()
-      const endpoint = await this.options.resolve(target, method, args, captured ?? this.context.getStore())
-      if (captured) this.sourceKernel()
+      const commandSource = this.sourceKernel()
+      const endpoint = await this.options.resolve(
+        target,
+        method,
+        args,
+        commandSource ?? captured ?? this.context.getStore(),
+      )
+      if (commandSource) this.sourceKernel()
       if (!['serving', 'draining'].includes(endpoint.process.snapshot().phase))
         throw new HbarError('RUNTIME_RECOVERING', 'The requested Kernel owner is recovering')
       return await this.pin(endpoint, async () => {
         const callOptions = this.options.commandScopes?.applicationOptions()
-        if (!captured) return endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 })
+        if (!commandSource)
+          return endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 })
         const ticket = endpoint.application.callTracked<Result>(
           `${target}.${method}`,
           args,
