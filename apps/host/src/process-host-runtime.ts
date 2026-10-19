@@ -779,6 +779,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       resolve: (owner) => this.maintenanceEndpoint(owner),
       changed: () => this.schedule(),
       demand: { acquire: (unitIds, signal) => this.demand.acquire(unitIds, signal) },
+      withBackground: (operation) => this.demand.withBackground(operation),
       beforeDispatch: (owner, signal) => this.restoreMaintenanceInspection(owner, signal),
     })
     this.manager = new RuntimeManager({

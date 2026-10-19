@@ -122,6 +122,7 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
       readonly resolve: (owner: RuntimeOwner) => RuntimeMaintenanceEndpoint
       readonly changed: () => void
       readonly demand?: HostRuntimeDemandPort
+      readonly withBackground?: <Result>(operation: () => Result) => Result
       readonly beforeDispatch?: (owner: RuntimeOwner, signal: AbortSignal) => Promise<void>
     },
   ) {}
@@ -571,7 +572,8 @@ export class RuntimeMaintenanceRelay implements RuntimeMaintenancePort {
           this.storageCalls.set(owner.incarnation, (this.storageCalls.get(owner.incarnation) ?? 0) + 1)
           let result: unknown
           try {
-            result = await this.options.storage.executeRpc(input)
+            const invoke = () => this.options.storage.executeRpc(input)
+            result = await (this.options.withBackground ? this.options.withBackground(invoke) : invoke())
           } finally {
             const remaining = (this.storageCalls.get(owner.incarnation) ?? 1) - 1
             if (remaining) this.storageCalls.set(owner.incarnation, remaining)

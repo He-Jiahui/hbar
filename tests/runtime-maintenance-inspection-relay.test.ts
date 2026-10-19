@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -90,6 +91,10 @@ async function withRelay(
     holdStorage(method: keyof StorageMethods): { entered: Promise<void>; release(): void }
     holdRestoreReply(): { entered: Promise<void>; release(): void }
   }) => Promise<void>,
+  options: {
+    readonly withBackground?: <Result>(operation: () => Result) => Result
+    readonly storageCalled?: (method: keyof StorageMethods) => void
+  } = {},
 ): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), 'hbar-maintenance-relay-child-'))
   const oldWorker = process.env.HBAR_MAINTENANCE_WORKER
@@ -125,6 +130,7 @@ async function withRelay(
         args: Parameters<StorageMethods[K]>,
       ): Promise<ReturnType<StorageMethods[K]>> {
         writerCalls++
+        options.storageCalled?.(method)
         const result = await writer.call(method, ...args)
         const gate = storageHold
         if (gate?.method === method) {
@@ -209,6 +215,7 @@ async function withRelay(
       },
       resolve: () => ({ owner, version, process: processPort }),
       changed: () => {},
+      ...(options.withBackground ? { withBackground: options.withBackground } : {}),
     })
     detach = relay.attach(host, owner, version, 'idle-wake')
     const producer = createMaintenance({
@@ -316,6 +323,54 @@ function invocation() {
     input: { scope: { kind: 'global' } },
   }
 }
+
+test('Maintenance inspection journal callbacks preserve background context across paired IPC without renewing business demand', async () => {
+  const activity = new AsyncLocalStorage<'business' | 'background'>()
+  const calls: Array<{ method: keyof StorageMethods; activity: 'business' | 'background' | undefined }> = []
+  await withRelay(
+    async ({ relay, parent, child, owner, source, writerCalls, revokeOwner }) => {
+      await activity.run('business', async () => {
+        const ack = maintenanceInspectionAckSchema.parse({
+          epoch: 'background-inspection-epoch',
+          token: crypto.randomUUID(),
+          version: 1,
+          source,
+        })
+        const checkpoint = { version: 1 as const, cursor: null, nextCheckAt: Date.now() + 30_000 }
+        await relay.initializeIdle(owner, ack, checkpoint, new AbortController().signal)
+        const before = calls.length
+        await parent.call('maintenance.inspection.preview', source, maintenanceInspectionManifestSchema)
+        await Promise.resolve()
+        expect(activity.getStore()).toBe('business')
+        relay.sealInspection(owner, ack)
+        await parent.call('maintenance.inspection.quiesce', ack, maintenanceInspectionManifestSchema)
+        const journals = calls.slice(before).filter((call) => call.method === 'chatDatabaseActiveJournalProof')
+        expect(journals).toHaveLength(2)
+        expect(journals.every((call) => call.activity === 'background')).toBe(true)
+        expect(activity.getStore()).toBe('business')
+        expect(relay.inspectionSealed(owner, ack)).toBe(true)
+        const beforeRevoked = writerCalls()
+        revokeOwner()
+        expect(
+          await failure(() =>
+            child.call(
+              'maintenance.storage',
+              storageRpcInput('chatDatabaseActiveJournalProof', []),
+              chatDatabaseActiveJournalProofSchema,
+            ),
+          ),
+        ).toMatchObject({ code: 'EXECUTION_OWNER_REVOKED' })
+        expect(writerCalls()).toBe(beforeRevoked)
+        expect(activity.getStore()).toBe('business')
+      })
+      expect(activity.getStore()).toBeUndefined()
+    },
+    {
+      withBackground: (operation) => activity.run('background', operation),
+      storageCalled: (method) => calls.push({ method, activity: activity.getStore() }),
+    },
+  )
+}, 20_000)
 
 test('captured Maintenance seals its real inspection after default admission closes and still rejects revoked ownership', async () => {
   await withRelay(async ({ relay, parent, owner, source, writerCalls, closeDefaultAdmission, revokeOwner }) => {
