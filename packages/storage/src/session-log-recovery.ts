@@ -111,7 +111,10 @@ export function visitSessionLogs(
   const maxRecordBytes = recordLimit(options)
   const snapshots: SessionLogFileSnapshot[] = []
   const truncated: TruncatedSessionLogTail[] = []
-  for (const path of files(root, excluded).sort()) {
+  const paths = files(root, excluded).sort()
+  if (paths.length === 0) return { files: snapshots, truncated }
+  const readBuffer = Buffer.allocUnsafe(LOG_READ_CHUNK_BYTES)
+  for (const path of paths) {
     const relativePath = relative(root, path).replaceAll('\\', '/')
     const descriptor = openSync(path, 'r')
     try {
@@ -120,7 +123,6 @@ export function visitSessionLogs(
       snapshots.push(snapshot)
       options.onFile?.(snapshot)
 
-      const readBuffer = Buffer.allocUnsafe(LOG_READ_CHUNK_BYTES)
       const segments: Buffer[] = []
       let segmentBytes = 0
       let recordTooLarge = false

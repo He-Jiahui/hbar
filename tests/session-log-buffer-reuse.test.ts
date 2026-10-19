@@ -72,3 +72,43 @@ test('a short final MiB read ignores stale delimiters and complete records still
   )
   expect(await readFile(path)).toEqual(oversized)
 })
+
+test('retained records and offsets stay independent across files and nested scans', async () => {
+  const { root, path } = await fixture()
+  const nested = await fixture()
+  const first = line(1, '跨文件🌊'.repeat(160_000))
+  const second = line(2, 'short second file')
+  const nestedLine = line(3, 'nested scan')
+  const tail = '{"unfinished":'
+  await writeFile(path, first)
+  await writeFile(join(root, 'z-last.jsonl'), second + tail)
+  await writeFile(nested.path, nestedLine)
+  const records: RecoveredLogEvent[] = []
+  const nestedRecords: RecoveredLogEvent[] = []
+  const scan = visitSessionLogs(root, new Set(), (record) => {
+    records.push(record)
+    if (record.event.seq === 1) visitSessionLogs(nested.root, new Set(), (item) => nestedRecords.push(item))
+  })
+  expect(records.map((record) => record.event)).toEqual(
+    [first, second].map((raw) => sessionEventSchema.parse(JSON.parse(raw))),
+  )
+  expect(nestedRecords.map((record) => record.event)).toEqual([sessionEventSchema.parse(JSON.parse(nestedLine))])
+  expect(records.map(({ relativePath, offset, length, hash }) => ({ relativePath, offset, length, hash }))).toEqual(
+    [first, second].map((raw, index) => ({
+      relativePath: index === 0 ? 'source.jsonl' : 'z-last.jsonl',
+      offset: 0,
+      length: Buffer.byteLength(raw),
+      hash: createHash('sha256').update(raw.slice(0, -1)).digest('hex'),
+    })),
+  )
+  expect(scan.truncated).toEqual([
+    {
+      path: join(root, 'z-last.jsonl'),
+      relativePath: 'z-last.jsonl',
+      offset: Buffer.byteLength(second),
+      originalSize: Buffer.byteLength(second + tail),
+    },
+  ])
+  expect(await readFile(path, 'utf8')).toBe(first)
+  expect(await readFile(join(root, 'z-last.jsonl'), 'utf8')).toBe(second + tail)
+})
