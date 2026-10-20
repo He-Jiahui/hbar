@@ -4,6 +4,9 @@ use napi_derive::napi;
 #[cfg(windows)]
 mod memory_priority;
 
+#[cfg(windows)]
+mod file_io_priority;
+
 fn failure(message: impl Into<String>) -> Error {
     Error::from_reason(message.into())
 }

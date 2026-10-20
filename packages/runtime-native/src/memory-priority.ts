@@ -1,5 +1,7 @@
 import { currentThreadMemoryPriority, setCurrentThreadMemoryPriority } from './memory-priority-native'
 
+export { setReadMostlyFileIoPriority } from './memory-priority-native'
+
 function synchronousRead<T>(read: () => T): T {
   const result = read()
   if (
