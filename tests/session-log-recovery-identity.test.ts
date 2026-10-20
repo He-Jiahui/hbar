@@ -175,3 +175,95 @@ test('a NULL indexed event ID fails before truncating a tail or restoring any pr
     after.close()
   }
 })
+
+test('sparse recovery restores all 293 missing projections across 2048 indexed and unindexed events', async () => {
+  const f = await fixture()
+  const template = f.firstEvents.at(-1)
+  const source = records(f.layout.sessions).find((record) => record.event.sessionId === f.first.id)
+  if (!template || !source) throw new Error('Expected a canonical recovery fixture event')
+  const generated = Array.from({ length: 2048 }, (_, index) => ({
+    ...template,
+    eventId: randomUUID(),
+    seq: template.seq + index + 1,
+    data: { marker: 'sparse-' + index },
+    time: template.time + index + 1,
+  }))
+  const expected = [...f.firstEvents, ...generated]
+  const missing = generated.filter((_, index) => index % 7 === 0)
+  const positions = new Map<string, number>(generated.map((event, index) => [event.eventId, index]))
+  const log = join(f.layout.sessions, source.relativePath)
+  await appendFile(log, generated.map((event) => JSON.stringify(event) + '\n').join(''))
+  const logBefore = await readFile(log)
+  const database = new Database(f.layout.database, { strict: true })
+  try {
+    const insertEvent = database.prepare(
+      'INSERT INTO events(eventId,sessionId,seq,runId,stepId,type,data,time,version) VALUES(?,?,?,?,?,?,?,?,?)',
+    )
+    const insertIndex = database.prepare('INSERT INTO session_event_index VALUES(?,?,?,?,?,?,?)')
+    try {
+      database.transaction(() => {
+        for (const record of records(f.layout.sessions)) {
+          const index = positions.get(record.event.eventId)
+          if (index === undefined || index % 7 === 0) continue
+          const event = record.event
+          insertEvent.run(
+            event.eventId,
+            event.sessionId,
+            event.seq,
+            event.runId,
+            event.stepId,
+            event.type,
+            JSON.stringify(event.data),
+            event.time,
+            event.version,
+          )
+          insertIndex.run(
+            event.eventId,
+            event.sessionId,
+            event.seq,
+            record.relativePath,
+            record.offset,
+            record.length,
+            record.hash,
+          )
+        }
+        database.query('UPDATE sessions SET seq=? WHERE id=?').run(template.seq + generated.length, f.first.id)
+        database
+          .query('UPDATE session_log_files SET size=?,lastSeq=?,updatedAt=? WHERE path=?')
+          .run(logBefore.length, template.seq + generated.length, template.time + generated.length, source.relativePath)
+      })()
+    } finally {
+      insertIndex.finalize()
+      insertEvent.finalize()
+    }
+    expect(missing).toHaveLength(293)
+    expect(
+      database
+        .query<{ count: number }, [string]>('SELECT COUNT(*) AS count FROM events WHERE sessionId=?')
+        .get(f.first.id)?.count,
+    ).toBe(expected.length - missing.length)
+  } finally {
+    database.close()
+  }
+  const storage = new Storage(f.layout.database, f.layout)
+  try {
+    await storage.call('ready')
+    expect(await storage.call('events', f.first.id, 0, expected.length + 1)).toEqual(expected)
+    expect(await storage.call('events', f.second.id, 0)).toEqual(f.secondEvents)
+  } finally {
+    await storage.close()
+  }
+  expect(await readFile(log)).toEqual(logBefore)
+  const after = new Database(f.layout.database, { readonly: true, strict: true })
+  try {
+    const indexed = after
+      .query<{ eventId: string }, [string]>(
+        'SELECT eventId FROM session_event_index WHERE sessionId=? ORDER BY eventId',
+      )
+      .all(f.first.id)
+      .map((row) => row.eventId)
+    expect(indexed).toEqual(expected.map((event) => event.eventId).sort())
+  } finally {
+    after.close()
+  }
+})

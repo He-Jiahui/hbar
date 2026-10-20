@@ -4414,15 +4414,36 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       contentHash TEXT NOT NULL,
       restoreProjection INTEGER NOT NULL DEFAULT 0,
       visited INTEGER NOT NULL DEFAULT 0,
-      PRIMARY KEY(sessionId,seq),
-      UNIQUE(eventId)
+      PRIMARY KEY(sessionId,seq)
     ) WITHOUT ROWID;
   `)
       let restored = 0
       let tails: ReturnType<typeof visitSessionLogs>['truncated'] = []
+      function createEventIdentityIndex(): void {
+        try {
+          db.exec(
+            'CREATE UNIQUE INDEX temp.recovery_session_log_events_event_id ON recovery_session_log_events(eventId)',
+          )
+        } catch (error) {
+          if (safeStorageErrorCode(error).startsWith('SQLITE_CONSTRAINT'))
+            throw new SessionLogRecoveryError(
+              'SESSION_LOG_CORRUPTED',
+              'SESSION_LOG_CORRUPTED duplicate event identity or session sequence',
+            )
+          throw error
+        }
+      }
+      function hasRecoveryRow(sql: string): boolean {
+        const statement = db.prepare(sql)
+        try {
+          return statement.get() !== null
+        } finally {
+          statement.finalize()
+        }
+      }
       try {
-        const stageFile = db.query(`INSERT INTO ${filesTable}(path,size) VALUES(?,?)`)
-        const stageEvent = db.query(
+        const stageFile = db.prepare(`INSERT INTO ${filesTable}(path,size) VALUES(?,?)`)
+        const stageEvent = db.prepare(
           `INSERT INTO ${eventsTable}(eventId,sessionId,seq,logPath,byteOffset,byteLength,contentHash) VALUES(?,?,?,?,?,?,?)`,
         )
         try {
@@ -4456,11 +4477,16 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
               'SESSION_LOG_CORRUPTED duplicate canonical log path',
             )
           throw error
+        } finally {
+          stageEvent.finalize()
+          stageFile.finalize()
         }
 
-        const indexMismatch = db
-          .query(
-            `
+        // Validate every event identity before repair, then scan by the clustered Session sequence.
+        createEventIdentityIndex()
+        db.exec('DROP INDEX temp.recovery_session_log_events_event_id')
+        const indexMismatch = hasRecoveryRow(
+          `
       SELECT 1
       FROM session_event_index AS indexed
       LEFT JOIN ${eventsTable} AS scanned ON scanned.sessionId=indexed.sessionId AND scanned.seq=indexed.seq
@@ -4474,8 +4500,7 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         OR indexed.contentHash<>scanned.contentHash
       LIMIT 1
     `,
-          )
-          .get()
+        )
         if (indexMismatch)
           throw new SessionLogRecoveryError(
             'SESSION_LOG_CORRUPTED',
@@ -4491,7 +4516,9 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         WHERE indexed.sessionId=scanned.sessionId AND indexed.seq=scanned.seq
       )
     `)
-        const needsRestore = db.query(`SELECT 1 FROM ${eventsTable} WHERE restoreProjection=1 LIMIT 1`).get()
+        const needsRestore = hasRecoveryRow(`SELECT 1 FROM ${eventsTable} WHERE restoreProjection=1 LIMIT 1`)
+        // The second pass still needs direct eventId lookup; rebuild before truncation or projection writes.
+        if (needsRestore) createEventIdentityIndex()
 
         truncateSessionLogTails(tails)
         if (tails.length)
