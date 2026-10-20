@@ -12,6 +12,7 @@
   "dependencies": {
     "diff": "9.0.0",
     "@hbar/contracts": "workspace:*",
+    "@hbar/runtime-native": "workspace:*",
     "@hbar/usage": "workspace:*",
     "zod": "4.5.4"
   }

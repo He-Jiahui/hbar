@@ -386,6 +386,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hbar/contracts": "workspace:*",
+        "@hbar/runtime-native": "workspace:*",
         "@hbar/usage": "workspace:*",
         "diff": "9.0.0",
         "zod": "4.5.4",

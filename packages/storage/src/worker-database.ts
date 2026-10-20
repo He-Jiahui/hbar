@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite'
+import { withReadMostlyMemoryPriority } from '@hbar/runtime-native/memory-priority'
 import { createSessionScanner } from './session-scan'
 import { createContextSummaryReader } from './context-summary'
 import { readSessionFacts } from './session-read-facts'
@@ -4970,26 +4971,28 @@ function createStorageDatabaseOwner(
               level: 'info',
               workerState: 'starting',
             })
-            if (!shadowMemory) {
-              // Bound this short-lived readonly connection; the serving writer keeps its existing settings.
-              db.exec('PRAGMA mmap_size=2147418112')
-              observeStorageStartupPhase(workerDiagnostics, 'preflight.read', () =>
-                readPreflightDatabaseSequentially(options.path),
-              )
-            }
-            workerDiagnostics.emit({
-              event: 'sqlite.preflight_read_completed',
-              phase: 'preflight.read',
-              level: 'info',
-              outcome: 'success',
-              durationMs: Math.max(0, performance.now() - preflightStartedAt),
-            })
-            observeStorageStartupPhase(workerDiagnostics, 'preflight.check', () => {
-              const integrity = z
-                .object({ quick_check: z.literal('ok') })
-                .safeParse(db.query('PRAGMA quick_check(1)').get())
-              if (!integrity.success)
-                throw new HbarError('STORAGE_INTEGRITY_UNKNOWN', 'Candidate Worker cannot confirm database integrity')
+            withReadMostlyMemoryPriority(() => {
+              if (!shadowMemory) {
+                // Bound this short-lived readonly connection; the serving writer keeps its existing settings.
+                db.exec('PRAGMA mmap_size=2147418112')
+                observeStorageStartupPhase(workerDiagnostics, 'preflight.read', () =>
+                  readPreflightDatabaseSequentially(options.path),
+                )
+              }
+              workerDiagnostics.emit({
+                event: 'sqlite.preflight_read_completed',
+                phase: 'preflight.read',
+                level: 'info',
+                outcome: 'success',
+                durationMs: Math.max(0, performance.now() - preflightStartedAt),
+              })
+              observeStorageStartupPhase(workerDiagnostics, 'preflight.check', () => {
+                const integrity = z
+                  .object({ quick_check: z.literal('ok') })
+                  .safeParse(db.query('PRAGMA quick_check(1)').get())
+                if (!integrity.success)
+                  throw new HbarError('STORAGE_INTEGRITY_UNKNOWN', 'Candidate Worker cannot confirm database integrity')
+              })
             })
             workerDiagnostics.emit({
               event: 'sqlite.preflight_completed',
