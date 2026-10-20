@@ -12,6 +12,34 @@ export const DRIVER_CALLBACK_ADMISSION_CONTRACT = {
 } as const
 
 type Settlement = NonNullable<IpcCallOptions['onDispatchSettled']>
+type Submission = NonNullable<IpcCallOptions['onDispatchStarted']>
+export interface CallbackAdmissionObservation {
+  readonly phase:
+    | 'waiting'
+    | 'granted'
+    | 'transport_submitting'
+    | 'transport_sent'
+    | 'transport_send_failed'
+    | 'logical_settled'
+    | 'physical_reply'
+    | 'not_dispatched'
+  readonly stage:
+    'admission' | 'waiting' | 'granted' | 'transport_submitting' | 'transport_sent' | 'transport_send_failed'
+  readonly active: number
+  readonly queued: number
+  readonly unconfirmed: number
+  readonly budgetMs: number
+  readonly remainingBudgetMs: number
+  readonly elapsedMs: number
+  readonly errorCode?: string | undefined
+}
+export type CallbackAdmissionObserver = (event: CallbackAdmissionObservation) => void
+interface CallbackOptions {
+  timeoutMs: number
+  onDispatchSettled: Settlement
+  onDispatchStarted: Submission
+}
+
 interface Permit {
   settle: Settlement
   unknown(): boolean
@@ -50,12 +78,45 @@ class CallbackLane {
   async run<Result>(
     signal: AbortSignal,
     timeoutMs: number,
-    operation: (options: { timeoutMs: number; onDispatchSettled: Settlement }) => Promise<Result>,
+    operation: (options: CallbackOptions) => Promise<Result>,
+    observer?: CallbackAdmissionObserver,
   ): Promise<Result> {
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647)
       throw new HbarError('INVALID_INPUT', 'Driver callback deadline is outside its supported range')
     const deadline = performance.now() + timeoutMs
-    const permit = await this.acquire(signal, deadline)
+    let stage: CallbackAdmissionObservation['stage'] = 'admission'
+    const emit = (phase: CallbackAdmissionObservation['phase'], error?: unknown): void => {
+      if (
+        phase === 'waiting' ||
+        phase === 'granted' ||
+        phase === 'transport_submitting' ||
+        phase === 'transport_sent' ||
+        phase === 'transport_send_failed'
+      )
+        stage = phase
+      if (!observer) return
+      try {
+        const code = runtimeDomainError(error)?.code
+        observer({
+          phase,
+          stage,
+          active: this.active,
+          queued: this.queue.length,
+          unconfirmed: this.unconfirmed,
+          budgetMs: timeoutMs,
+          remainingBudgetMs: Math.max(0, Math.floor(deadline - performance.now())),
+          elapsedMs: Math.max(0, performance.now() - (deadline - timeoutMs)),
+          ...(code && /^[A-Z][A-Z0-9_.-]{0,127}$/.test(code) ? { errorCode: code } : {}),
+        })
+      } catch {
+        /* Observation never owns admission or settlement. */
+      }
+    }
+    const permit = await this.acquire(signal, deadline, () => emit('waiting')).catch((error: unknown) => {
+      emit('logical_settled', error)
+      throw error
+    })
+    emit('granted')
     let started = false
     try {
       signal.throwIfAborted()
@@ -63,12 +124,31 @@ class CallbackLane {
       const remainingMs = Math.floor(deadline - performance.now())
       if (remainingMs < 1) throw new HbarError('IPC_TIMEOUT', 'Driver callback admission deadline expired')
       started = true
-      return await operation({ timeoutMs: remainingMs, onDispatchSettled: permit.settle })
+      const value = await operation({
+        timeoutMs: remainingMs,
+        onDispatchStarted: (event) =>
+          emit(
+            event === 'submitting'
+              ? 'transport_submitting'
+              : event === 'sent'
+                ? 'transport_sent'
+                : 'transport_send_failed',
+          ),
+        onDispatchSettled: (event) => {
+          permit.settle(event)
+          emit(event === 'reply' ? 'physical_reply' : 'not_dispatched')
+        },
+      })
+      emit('logical_settled')
+      return value
     } catch (error) {
-      if (!started) permit.settle('not-dispatched')
-      else {
+      if (!started) {
+        permit.settle('not-dispatched')
+        emit('not_dispatched')
+      } else {
         if (permit.unknown() && runtimeDomainError(error)?.code !== 'IPC_CANCELLED') this.fence()
       }
+      emit('logical_settled', error)
       throw error
     }
   }
@@ -86,7 +166,7 @@ class CallbackLane {
       throw new HbarError('DRIVER_CALLBACK_GATE_FENCED', 'Driver callback physical completion is unconfirmed')
   }
 
-  private acquire(signal: AbortSignal, deadline: number): Promise<Permit> {
+  private acquire(signal: AbortSignal, deadline: number, waitingObserved: () => void): Promise<Permit> {
     signal.throwIfAborted()
     this.assertAdmission()
     if (this.active < this.limit) return Promise.resolve(this.permit())
@@ -112,6 +192,7 @@ class CallbackLane {
       }
       this.queue.push(waiting)
       signal.addEventListener('abort', waiting.abort, { once: true })
+      waitingObserved()
     })
   }
 
@@ -186,11 +267,12 @@ export class RuntimeDriverCallbackAdmission {
     method: string,
     signal: AbortSignal,
     timeoutMs: number,
-    operation: (options: { timeoutMs: number; onDispatchSettled: Settlement }) => Promise<Result>,
+    operation: (options: CallbackOptions) => Promise<Result>,
+    observer?: CallbackAdmissionObserver,
   ): Promise<Result> {
     // Only these audited callbacks await Storage leaves or local diagnostics.
     const leaf = DRIVER_CALLBACK_ADMISSION_CONTRACT.leafMethods.some((value) => value === method)
-    return (leaf ? this.leaf : this.recursive).run(signal, timeoutMs, operation)
+    return (leaf ? this.leaf : this.recursive).run(signal, timeoutMs, operation, observer)
   }
   snapshot() {
     const recursive = this.recursive.snapshot(),

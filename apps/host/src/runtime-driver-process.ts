@@ -118,23 +118,27 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           owner: context.peer.owner,
           rpcId,
           invocationId: input.invocationId,
+          runId: input.run.id,
+          sessionId: input.session.id,
           method: value.method,
           emit: (event) => {
             context.peer.notify('runtime.diagnostic', event).catch(() => {})
           },
-          operation: () =>
+          operation: (observe) =>
             callbacks.run(
               value.method,
               controller.signal,
               driverCallbackTimeoutMs(value.method),
-              ({ timeoutMs, onDispatchSettled }) =>
+              ({ timeoutMs, onDispatchSettled, onDispatchStarted }) =>
                 context.peer.call('driver.callback', { invocationId: input.invocationId, ...value }, result, {
                   requestId: rpcId,
                   signal: controller.signal,
                   timeoutMs,
                   onDispatchSettled,
+                  onDispatchStarted,
                   ...(input.ownership ? { ownership: input.ownership } : {}),
                 }),
+              observe,
             ),
         })
       }

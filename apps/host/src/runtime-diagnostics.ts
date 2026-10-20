@@ -1,5 +1,6 @@
 import {
   diagnosticEvent,
+  diagnosticEventSchema,
   type DiagnosticEvent,
   type DiagnosticSink,
   type ReadonlyDiagnosticCorrelation,
@@ -27,11 +28,17 @@ export interface HostRuntimeDiagnosticsOptions extends Omit<DiagnosticJournalOpt
   readonly instanceId?: string
 }
 
+export interface HostRuntimeDiagnosticsSnapshot extends DiagnosticJournalSnapshot {
+  readonly normal: DiagnosticJournalSnapshot
+  readonly critical: DiagnosticJournalSnapshot
+}
 export interface HostRuntimeDiagnostics {
   readonly journal: DiagnosticJournal
   readonly sink: DiagnosticSink
   readonly scope: ReturnType<typeof createDiagnosticScope>
   readonly filePath: string
+  readonly criticalFilePath: string
+  criticalSnapshot(): DiagnosticJournalSnapshot
   setInstanceId(instanceId: string): void
   emit(
     input: Omit<DiagnosticEvent, 'schemaVersion' | 'time' | 'monotonicMs' | 'component'> & {
@@ -42,8 +49,8 @@ export interface HostRuntimeDiagnostics {
     },
   ): void
   run<T>(context: ReadonlyDiagnosticCorrelation, operation: () => T): T
-  snapshot(): DiagnosticJournalSnapshot
-  close(timeoutMs?: number): Promise<DiagnosticJournalSnapshot>
+  snapshot(): HostRuntimeDiagnosticsSnapshot
+  close(timeoutMs?: number): Promise<HostRuntimeDiagnosticsSnapshot>
   installFatalObserver(phase?: HostFatalPhase): void
   setFatalPhase(phase: HostFatalPhase): void
   closeFatalObserver(): void
@@ -71,8 +78,28 @@ export function createHostRuntimeDiagnostics(options: HostRuntimeDiagnosticsOpti
     enabled: options.enabled ?? diagnosticsEnabled,
     fullCoverage: options.fullCoverage ?? diagnosticsFull,
   })
+  // Reuse the bounded writer, with independent retention from high-frequency success records.
+  const critical = createDiagnosticJournal({
+    root: options.root,
+    fileName: (options.fileName ?? 'hbar-host-diagnostics.jsonl') + '.critical.jsonl',
+    maxBytes: 1024 * 1024,
+    retention: 4,
+    ringEntries: 128,
+    queueEntries: 128,
+    enabled: options.enabled ?? diagnosticsEnabled,
+    fullCoverage: options.fullCoverage ?? diagnosticsFull,
+  })
   const scope = createDiagnosticScope()
-  const sink = protectDiagnosticSink(journal, scope)
+  const sink = protectDiagnosticSink(
+    {
+      emit(event) {
+        journal.emit(event)
+        const projected = criticalFailureMetadata(event)
+        if (projected) critical.emit(projected)
+      },
+    },
+    scope,
+  )
   let baseInstanceId = options.instanceId
   let fatalPhase: HostFatalPhase = 'startup'
   let fatalObserverInstalled = false
@@ -131,13 +158,23 @@ export function createHostRuntimeDiagnostics(options: HostRuntimeDiagnosticsOpti
     sink,
     scope,
     filePath: journal.filePath,
+    criticalFilePath: critical.filePath,
+    criticalSnapshot: () => critical.snapshot(),
     setInstanceId(instanceId) {
       if (instanceId.length > 0) baseInstanceId = instanceId.slice(0, 160)
     },
     emit,
     run: (context, operation) => scope.run(context, operation),
-    snapshot: () => journal.snapshot(),
-    close: (timeoutMs) => journal.close(timeoutMs),
+    snapshot: () => hostDiagnosticSnapshot(journal.snapshot(), critical.snapshot()),
+    async close(timeoutMs = 2_000) {
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000)
+        throw new RangeError('timeoutMs is out of range')
+      const deadline = performance.now() + timeoutMs
+      const normalClose = journal.close(timeoutMs)
+      const criticalClose = critical.close(Math.max(1, Math.floor(deadline - performance.now())))
+      const [normal, failures] = await Promise.all([normalClose, criticalClose])
+      return hostDiagnosticSnapshot(normal, failures)
+    },
     installFatalObserver(phase = 'startup') {
       if (fatalObserverInstalled) return
       fatalPhase = phase
@@ -190,4 +227,71 @@ export function supervisorLifecycleEvent(
     level: input.event === 'supervisor.recovery_limit' ? 'error' : 'info',
     ...input,
   })
+}
+
+const CRITICAL_RUNTIME_EVENTS = new Set([
+  'host.runtime_driver_callback',
+  'host.runtime_entry_call_timeout',
+  'host.runtime_entry_stop',
+  'host.runtime_process_fault',
+])
+/** Fixed safe scalar projection; no callback arguments, results, error descriptions or details. */
+function criticalFailureMetadata(event: DiagnosticEvent): DiagnosticEvent | null {
+  if (
+    !CRITICAL_RUNTIME_EVENTS.has(event.event) ||
+    !(event.outcome === 'failure' || event.level === 'error' || event.level === 'fatal')
+  )
+    return null
+  const parsed = diagnosticEventSchema.safeParse(event)
+  if (!parsed.success) return null
+  const value = parsed.data
+  return diagnosticEventSchema.parse({
+    schemaVersion: value.schemaVersion,
+    time: value.time,
+    monotonicMs: value.monotonicMs,
+    component: value.component,
+    level: value.level,
+    event: value.event,
+    ...(value.phase !== undefined ? { phase: value.phase } : {}),
+    ...(value.instanceId !== undefined ? { instanceId: value.instanceId } : {}),
+    ...(value.requestId !== undefined ? { requestId: value.requestId } : {}),
+    ...(value.rpcId !== undefined ? { rpcId: value.rpcId } : {}),
+    ...(value.contextId !== undefined ? { contextId: value.contextId } : {}),
+    ...(value.sessionId !== undefined ? { sessionId: value.sessionId } : {}),
+    ...(value.runId !== undefined ? { runId: value.runId } : {}),
+    ...(value.callId !== undefined ? { callId: value.callId } : {}),
+    ...(value.method !== undefined ? { method: value.method } : {}),
+    ...(value.errorCode !== undefined ? { errorCode: value.errorCode } : {}),
+    ...(value.outcome !== undefined ? { outcome: value.outcome } : {}),
+    ...(value.durationMs !== undefined ? { durationMs: value.durationMs } : {}),
+    ...(value.admissionLane !== undefined ? { admissionLane: value.admissionLane } : {}),
+    ...(value.callbackStage !== undefined ? { callbackStage: value.callbackStage } : {}),
+    ...(value.admissionActive !== undefined ? { admissionActive: value.admissionActive } : {}),
+    ...(value.admissionUnconfirmed !== undefined ? { admissionUnconfirmed: value.admissionUnconfirmed } : {}),
+    ...(value.queueDepth !== undefined ? { queueDepth: value.queueDepth } : {}),
+    ...(value.budgetMs !== undefined ? { budgetMs: value.budgetMs } : {}),
+    ...(value.remainingBudgetMs !== undefined ? { remainingBudgetMs: value.remainingBudgetMs } : {}),
+    ...(value.processId !== undefined ? { processId: value.processId } : {}),
+    ...(value.childPid !== undefined ? { childPid: value.childPid } : {}),
+    ...(value.pending !== undefined ? { pending: value.pending } : {}),
+    ...(value.exitCode !== undefined ? { exitCode: value.exitCode } : {}),
+  })
+}
+
+function hostDiagnosticSnapshot(
+  normal: DiagnosticJournalSnapshot,
+  critical: DiagnosticJournalSnapshot,
+): HostRuntimeDiagnosticsSnapshot {
+  return {
+    ...normal,
+    normal,
+    critical,
+    queued: normal.queued + critical.queued,
+    ringEntries: normal.ringEntries + critical.ringEntries,
+    dropped: normal.dropped + critical.dropped,
+    invalid: normal.invalid + critical.invalid,
+    writeFailures: normal.writeFailures + critical.writeFailures,
+    bytes: normal.bytes + critical.bytes,
+    closed: normal.closed && critical.closed,
+  }
 }

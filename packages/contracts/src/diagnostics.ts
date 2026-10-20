@@ -190,6 +190,15 @@ export const diagnosticEventSchema = z.strictObject({
     .nonnegative()
     .max(2 ** 53 - 1)
     .optional(),
+  /** Local callback admission facts; never remote handler or side-effect confirmation. */
+  admissionLane: z.enum(['recursive', 'leaf']).optional(),
+  callbackStage: z
+    .enum(['admission', 'waiting', 'granted', 'transport_submitting', 'transport_sent', 'transport_send_failed'])
+    .optional(),
+  admissionActive: z.number().int().nonnegative().max(8).optional(),
+  admissionUnconfirmed: z.number().int().nonnegative().max(8).optional(),
+  budgetMs: z.number().int().positive().max(2_147_483_647).optional(),
+  remainingBudgetMs: z.number().int().nonnegative().max(2_147_483_647).optional(),
   queueDepth: z.number().int().nonnegative().max(1_000_000).optional(),
   startedStepCount: z.number().int().nonnegative().max(1_000_000).optional(),
   completedStepCount: z.number().int().nonnegative().max(1_000_000).optional(),

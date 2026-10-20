@@ -346,9 +346,11 @@ export class RuntimeDriverRelay {
             owner: invocation.kernel.remote,
             rpcId,
             invocationId: input.invocationId,
+            runId: invocation.execution.runId,
+            sessionId: invocation.execution.sessionId,
             method: input.method,
             emit: (event) => this.options.onDiagnostic?.(event),
-            operation: () => {
+            operation: (observe) => {
               const incarnation = invocation.kernel.remote.incarnation
               let gate = this.callbackGates.get(incarnation)
               if (!gate) {
@@ -359,7 +361,7 @@ export class RuntimeDriverRelay {
                 input.method,
                 call.signal,
                 driverCallbackTimeoutMs(input.method),
-                async ({ timeoutMs, onDispatchSettled }) => {
+                async ({ timeoutMs, onDispatchSettled, onDispatchStarted }) => {
                   let current: Invocation
                   try {
                     current = owned(input.invocationId)
@@ -379,6 +381,7 @@ export class RuntimeDriverRelay {
                     requestId: rpcId,
                     timeoutMs,
                     onDispatchSettled,
+                    onDispatchStarted,
                     ownership: current.execution,
                   })
                   void tracked.result.catch(() => {})
@@ -410,6 +413,7 @@ export class RuntimeDriverRelay {
                     }
                   }
                 },
+                observe,
               )
             },
           })
