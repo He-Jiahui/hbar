@@ -1631,8 +1631,29 @@ function createStorageDatabaseOwner(
             .query<Row, [string]>("SELECT * FROM messages WHERE runId=? AND role='user' ORDER BY seq LIMIT 1")
             .get(run.id)
           if (row) return messageRow(row)
-          if (!run.recovery) return null
-          run = methods.run(run.recovery.predecessorRunId)
+          const retryContext =
+            !run.recovery && run.input.source === 'system' ? autonomyRetries.context(run.id) : null
+          if (retryContext) {
+            const retained = db.query<{ messageId: unknown; messageType: string | null }, [string]>(
+              "SELECT json_type(data,'$.canonicalInputMessageId') AS messageType,json_extract(data,'$.canonicalInputMessageId') AS messageId FROM events WHERE runId=? AND type='run.queued' ORDER BY seq LIMIT 1",
+            ).get(run.id)
+            if (!retained)
+              throw new HbarError('SESSION_LOG_CORRUPTED', 'Canonical retry acceptance is unavailable')
+            if (retained.messageType !== null) {
+              const messageId = idSchema.safeParse(retained.messageId)
+              if (retained.messageType !== 'text' || !messageId.success)
+                throw new HbarError('SESSION_LOG_CORRUPTED', 'Canonical retry input reference is invalid')
+              const message = db.query<Row, [string]>('SELECT * FROM messages WHERE id=?').get(messageId.data)
+              if (!message || message.sessionId !== sessionId || message.role !== 'user')
+                throw new HbarError('SESSION_LOG_CORRUPTED', 'Canonical retry input is missing or belongs to another Session or role')
+              return messageRow(message)
+            }
+          }
+          const predecessorRunId =
+            run.recovery?.predecessorRunId ??
+            retryContext?.plan.predecessorRunId
+          if (!predecessorRunId) return null
+          run = methods.run(predecessorRunId)
         }
         throw new HbarError('RECOVERY_TOTAL_LIMIT', 'Recovery input lineage exceeds its bounded history')
       },
@@ -1860,6 +1881,7 @@ function createStorageDatabaseOwner(
       delegatedInputInbox: delegatedInputs.inbox,
       decisionPage: decisions.page,
       autonomyRetryPlan: autonomyRetries.plan,
+      autonomyRetryContext: autonomyRetries.context,
       decisionOperationRead: decisions.operationRead,
       decisionOperationBegin: decisions.operationBegin,
       decisionOperationComplete: decisions.operationComplete,
@@ -3206,6 +3228,7 @@ function createStorageDatabaseOwner(
             : sourceRun
               ? executionPrincipals.run(sourceRun.id)
               : executionPrincipals.session(sessionId)
+          const canonicalInput = retrySource === undefined ? null : methods.recoveryInputMessage(retrySource)
           const retainedLaunchTarget = sessionLaunchTarget.bindToRun(sessionId, run.id, workspace.path, launchTarget)
           db.query(
             'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
@@ -3217,7 +3240,10 @@ function createStorageDatabaseOwner(
               run,
               executionPrincipal,
               launchTarget: retainedLaunchTarget,
-              ...(autonomyRetry ? { autonomyRetry: autonomyRetry.plan } : {}),
+              ...(autonomyRetry ? {
+                autonomyRetry: autonomyRetry.plan,
+                ...(canonicalInput ? { canonicalInputMessageId: canonicalInput.id } : {}),
+              } : {}),
               workspaceId: owner.workspaceId,
               ...(workspace.location?.kind === 'node'
                 ? {

@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./controller": "./src/controller.ts",
     "./controller-port": "./src/controller-port.ts",
+    "./settings": "./src/settings-service.ts",
     "./maintenance": "./src/maintenance.ts",
     "./secrets": "./src/secrets.ts",
     "./runtime-port": "./src/runtime-port.ts",

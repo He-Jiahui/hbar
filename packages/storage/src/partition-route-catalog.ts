@@ -7,6 +7,7 @@ export interface PartitionRouteDefinition {
 export const partitionRouteCatalog = {
   approvalResolution: { route: 'unsupported' },
   autonomyRetryPlan: { route: 'unsupported' },
+  autonomyRetryContext: { route: 'unsupported' },
   commandExecutionAccept: { route: 'unsupported' },
   commandExecutionPending: { route: 'unsupported' },
   commandExecutionRead: { route: 'unsupported' },

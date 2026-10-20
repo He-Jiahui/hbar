@@ -42,8 +42,23 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         name: copy.settings.resolve('i18n:settings.backend.webPort.label'),
         exact: true,
       })
+      const retryFields = [
+        { name: 'backend.transientRetries', key: 'transientRetries', initial: '2', saved: '4' },
+        { name: 'backend.repairRetries', key: 'repairRetries', initial: '3', saved: '0' },
+        { name: 'backend.retryDelayMs', key: 'retryDelayMs', initial: '1000', saved: '250' },
+      ].map((field) => ({
+        ...field,
+        control: page.getByRole('textbox', {
+          name: copy.settings.resolve(`i18n:settings.backend.${field.key}.label`),
+          exact: true,
+        }),
+      }))
       await selectLumenOption(webAccess, 'string:lan')
       await webPort.fill('46377')
+      for (const field of retryFields) {
+        await expect(field.control).toHaveValue(field.initial)
+        await field.control.fill(field.saved)
+      }
       await page
         .locator('.hbar-app-react-settings-footer')
         .getByRole('button', { name: copy.settings.save, exact: true })
@@ -52,11 +67,14 @@ for (const locale of ['zh-CN', 'en-US'] as const)
       await expect
         .poll(async () => {
           const { resolution } = await settings.execute('settings.get', { scope: { kind: 'global' } })
-          return ['desktop.startupMode', 'backend.webAccess', 'backend.webPort'].map(
-            (name) => resolution.reports[`f:${name}`]?.effectiveValue,
-          )
+          return [
+            'desktop.startupMode',
+            'backend.webAccess',
+            'backend.webPort',
+            ...retryFields.map((field) => field.name),
+          ].map((name) => resolution.reports[`f:${name}`]?.effectiveValue)
         })
-        .toEqual(['background', 'lan', 46377])
+        .toEqual(['background', 'lan', 46377, 4, 0, 250])
       await expect(page.getByText(copy.general.web.current([host.url]), { exact: true })).toBeVisible()
       await mkdir('artifacts/backend-autonomy', { recursive: true })
       for (const width of [1440, 320]) {
@@ -67,6 +85,16 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         await page.screenshot({ path: `artifacts/backend-autonomy/startup-${locale}-${width}.png`, fullPage: true })
         await webPort.scrollIntoViewIfNeeded()
         await page.screenshot({ path: `artifacts/backend-autonomy/web-access-${locale}-${width}.png`, fullPage: true })
+        for (const field of retryFields) {
+          await field.control.scrollIntoViewIfNeeded()
+          await expect(field.control).toBeVisible()
+          await expect(field.control).toHaveValue(field.saved)
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        }
+        await page.screenshot({
+          path: `artifacts/backend-autonomy/retry-settings-${locale}-${width}.png`,
+          fullPage: true,
+        })
       }
       await page.setViewportSize({ width: 1440, height: 960 })
       await page.reload()
@@ -74,6 +102,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
       await expect(control).toHaveAttribute('data-value', 'string:background')
       await expect(webAccess).toHaveAttribute('data-value', 'string:lan')
       await expect(webPort).toHaveValue('46377')
+      for (const field of retryFields) await expect(field.control).toHaveValue(field.saved)
       expect(errors).toEqual([])
     } finally {
       await context.close()

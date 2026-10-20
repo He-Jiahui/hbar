@@ -318,6 +318,7 @@ export interface StorageMethods {
   delegatedInputInbox(input: DelegatedInputInbox): { items: DelegatedInputRecord[]; nextCursor?: string }
   decisionPage: ReturnType<typeof createDecisionStorage>['page']
   autonomyRetryPlan: ReturnType<typeof createAutonomyRetryStorage>['plan']
+  autonomyRetryContext: ReturnType<typeof createAutonomyRetryStorage>['context']
   decisionOperationRead: ReturnType<typeof createDecisionStorage>['operationRead']
   decisionOperationBegin: ReturnType<typeof createDecisionStorage>['operationBegin']
   decisionOperationComplete: ReturnType<typeof createDecisionStorage>['operationComplete']

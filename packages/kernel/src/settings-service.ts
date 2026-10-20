@@ -16,6 +16,14 @@ import {
 } from '@hbar/contracts/autonomy'
 import { resolveAutonomyDecisionPolicy } from './autonomy-policy'
 import {
+  AUTONOMY_TRANSIENT_RETRIES_SETTING,
+  AUTONOMY_REPAIR_RETRIES_SETTING,
+  AUTONOMY_RETRY_DELAY_SETTING,
+  AUTONOMY_TRANSIENT_RETRY_LIMIT,
+  AUTONOMY_REPAIR_RETRY_LIMIT,
+  AUTONOMY_RETRY_MAX_ATTEMPTS,
+} from '@hbar/contracts/autonomy-retry'
+import {
   BACKEND_WEB_ACCESS_SETTING,
   BACKEND_WEB_PORT_SETTING,
   BACKEND_UNATTENDED_SETTING,
@@ -89,6 +97,38 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         component: 'CheckBox',
         multiple: false,
       },
+      ...[
+        {
+          name: AUTONOMY_TRANSIENT_RETRIES_SETTING,
+          key: 'transientRetries',
+          defaultValue: AUTONOMY_TRANSIENT_RETRY_LIMIT,
+          minimum: 0,
+          maximum: AUTONOMY_RETRY_MAX_ATTEMPTS,
+        },
+        {
+          name: AUTONOMY_REPAIR_RETRIES_SETTING,
+          key: 'repairRetries',
+          defaultValue: AUTONOMY_REPAIR_RETRY_LIMIT,
+          minimum: 0,
+          maximum: AUTONOMY_RETRY_MAX_ATTEMPTS,
+        },
+        { name: AUTONOMY_RETRY_DELAY_SETTING, key: 'retryDelayMs', defaultValue: 1_000, minimum: 100, maximum: 60_000 },
+      ].map((field, index) => ({
+        path: path(field.name),
+        type: 'integer' as const,
+        nullable: false,
+        defaultValue: field.defaultValue,
+        minimum: field.minimum,
+        maximum: field.maximum,
+        allowedScopes: ['global' as const],
+        applyMode: 'nextRequest' as const,
+        labelKey: `i18n:settings.backend.${field.key}.label`,
+        helpKey: `i18n:settings.backend.${field.key}.help`,
+        group: 'general',
+        order: 47 + index,
+        component: 'NumberField',
+        multiple: false,
+      })),
       {
         path: path(AUTONOMY_DECISION_MODE_SETTING),
         type: 'string',

@@ -10,7 +10,7 @@ import { RuntimeRecoveryService } from './runtime-recovery'
 import { planAutonomyRetry } from './autonomy-retry'
 import { backendAllowsGoalContinuation, backendOwnsOrdinaryCompletion } from './backend-completion'
 import type { ExecutionWaitDecision } from '@hbar/contracts/execution-waits'
-import type { AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
+import { autonomyRetryInstructions, type AutonomyRetryAdmission } from '@hbar/contracts/autonomy-retry'
 import type { NodeIntentRecoveryPort } from './node-intent-recovery-port'
 import type { NodeWorkspaceInspectionPort } from './node-workspace-inspection'
 import type { NodeWorktreePort } from './node-worktree-port'
@@ -2792,7 +2792,10 @@ export class Kernel {
         ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
         ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
       ]
-      const retainedInput = run.recovery ? await this.storage.call('recoveryInputMessage', run.id) : null
+      const retainedInput =
+        run.recovery || run.input.source === 'system'
+          ? await this.storage.call('recoveryInputMessage', run.id)
+          : null
       const initialCommit = retainedInput
         ? { message: retainedInput, event: null }
         : await this.storage.call('commit', sessionId, run.id, 'user', content, undefined, run.input.peerMessage)
@@ -3426,8 +3429,10 @@ export class Kernel {
     const messages = steering
       ? buildSteeringContext(context.messages, { ...steering, compactedThroughSeq: context.throughSeq })
       : context.messages
+    const retryContext = run?.input.source === 'system' ? await this.storage.call('autonomyRetryContext', run.id) : null
+    const retryInstructions = retryContext ? `\n${autonomyRetryInstructions(retryContext)}` : ''
     return hooks.dispatch('context.build', {
-      system: `You are hbar, a coding assistant. Work in ${modelWorkspacePath}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(modelWorkspacePath, remoteFolderAliases)}${remotePathInstructions}${run?.recovery ? '\nThis Run safely continues an interrupted execution. Use the durable conversation and tool results below. Continue only unfinished work under the original authorization; do not repeat committed operations or perform an operation whose prior result is unknown.' : ''}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
+      system: `You are hbar, a coding assistant. Work in ${modelWorkspacePath}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(modelWorkspacePath, remoteFolderAliases)}${remotePathInstructions}${run?.recovery ? '\nThis Run safely continues an interrupted execution. Use the durable conversation and tool results below. Continue only unfinished work under the original authorization; do not repeat committed operations or perform an operation whose prior result is unknown.' : ''}${retryInstructions}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
       messages:
         context.summary && messages[0]?.role !== 'user'
           ? [

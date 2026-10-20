@@ -1,5 +1,6 @@
 import { kernelPluginQuiescenceSchema } from './runtime-idle'
 import { createHash } from 'node:crypto'
+import { autonomyRetryContextSchema } from '@hbar/contracts/autonomy-retry'
 import { z } from 'zod'
 import {
   approvalModeSchema,
@@ -217,6 +218,7 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256')
       'owned-invocation-physical-reply.v1',
       'kernel.application.physical-callbacks.v1',
       'kernel.directory.tracked-commands.v1',
+      ['autonomy-retry.diagnostic-context.v2', z.toJSONSchema(autonomyRetryContextSchema, { unrepresentable: 'any' })],
       z.toJSONSchema(commandJobStartSchema, { unrepresentable: 'any' }),
       [commandJobSnapshotSchema, commandJobWatchSchema, commandJobReadSchema, commandJobChunkSchema].map((schema) =>
         z.toJSONSchema(schema),

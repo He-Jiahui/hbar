@@ -5,6 +5,7 @@ import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy
 import { settingsUsageCopy } from './settings-usage-copy'
 import { inputCacheCopy } from './input-cache-copy'
 import { resolveChatDatabaseSettingCopy, resolveChatDatabaseChoiceCopy } from './chat-database-settings-copy'
+import { resolveBackendExecutionSettingCopy } from './backend-execution-settings-copy'
 import { createSessionRequestLabels } from './session-request-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
@@ -611,9 +612,6 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
           '填写同一宿主上目标会话的 ID；执行时仍按来源设备权限检查两个会话。',
         'i18n:settings.desktop.startupMode.label': '桌面启动方式',
         'i18n:settings.desktop.startupMode.help': '下次启动时打开客户端，或仅在托盘运行后台。',
-        'i18n:settings.backend.unattended.label': '无人值守运行',
-        'i18n:settings.backend.unattended.help':
-          '后台继续排队任务；普通任务遇到临时服务故障时，退避后最多重试两次。需要用户输入时按决策模式处理。',
         'i18n:settings.backend.webAccess.label': '网页访问范围',
         'i18n:settings.backend.webAccess.help': '局域网设备仍需配对并遵守设备权限；重启后台后应用监听范围。',
         'i18n:settings.backend.webPort.label': '网页端口',
@@ -659,9 +657,6 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
           'Enter a session ID on this Host. Execution still checks access to both sessions using the source device.',
         'i18n:settings.desktop.startupMode.label': 'Desktop startup',
         'i18n:settings.desktop.startupMode.help': 'On the next launch, open the client or run the backend in the tray.',
-        'i18n:settings.backend.unattended.label': 'Unattended execution',
-        'i18n:settings.backend.unattended.help':
-          'Continue queued work in the backend. Ordinary tasks retry temporary service failures up to twice with backoff; input requests follow the decision mode.',
         'i18n:settings.backend.webAccess.label': 'Web access',
         'i18n:settings.backend.webAccess.help': 'Network devices still require pairing and device permissions. Restart the backend to apply.',
         'i18n:settings.backend.webPort.label': 'Web port',
@@ -764,7 +759,11 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
             ? choose('请等待当前设置操作结束后重试。', 'Wait for the current settings operation before retrying.')
             : choose('未能开始读取选项，请重试。', 'Could not reload the options. Try again.'),
     },
-    resolve: (key) => resolveChatDatabaseSettingCopy(locale, key) ?? messages[key] ?? key,
+    resolve: (key) =>
+      resolveBackendExecutionSettingCopy(locale, key) ??
+      resolveChatDatabaseSettingCopy(locale, key) ??
+      messages[key] ??
+      key,
     form: {
       reset: choose('恢复已保存值', 'Restore saved value'),
       loading: choose('正在加载选项…', 'Loading options…'),

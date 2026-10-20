@@ -1,4 +1,5 @@
 import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
+import { isAutonomyRepairCode } from '@hbar/contracts/autonomy-retry'
 import type { RunFailure } from '@hbar/contracts'
 
 /** Preserve typed Host failures. Text matching is only a legacy/provider fallback. */
@@ -20,6 +21,7 @@ export function classifyRunFailure(error: unknown): RunFailure {
   if (code === 'PROVIDER_CONNECTION_FAILED' || code === 'PROVIDER_STREAM_INTERRUPTED' || code === 'PROVIDER_TRANSIENT')
     return { code, category: 'transient', retryable: true }
   if (code === 'PROVIDER_USAGE_LIMIT') return { code, category: 'usage_limit', retryable: false }
+  if (code !== null && isAutonomyRepairCode(code)) return { code, category: 'execution', retryable: true }
   if (code === RUN_STEP_LIMIT_CODE) return { code: RUN_STEP_LIMIT_CODE, category: 'execution', retryable: false }
   // An explicit Host/tool cause cannot become a provider failure because its
   // message happens to mention a status, errno or quota. Legacy text is untyped.

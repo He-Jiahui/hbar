@@ -1,13 +1,18 @@
 import { createHash } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { z } from 'zod'
 import type { Database } from 'bun:sqlite'
 import { HbarError, idSchema, type Run, type SessionEvent, type UserInput } from '@hbar/contracts'
 import { BACKEND_UNATTENDED_VALUE_KEY } from '@hbar/contracts/backend'
 import type { ExecutionPrincipal } from '@hbar/contracts/execution-principal'
 import {
-  AUTONOMY_TRANSIENT_RETRY_LIMIT,
+  AUTONOMY_RETRY_MAX_DELAY_MS,
+  autonomyRetryConfigurationSchema,
+  autonomyRetrySettingKeys,
+  autonomyRetryKind,
   autonomyRetryPlanSchema,
   autonomyRetryAdmissionSchema,
+  autonomyRetryContextSchema,
   autonomyRetryInput,
   type AutonomyRetryAdmission,
   type AutonomyRetryPlan,
@@ -36,6 +41,35 @@ export function createAutonomyRetryStorage(
   const acceptance = db.query<{ type: string; data: string }, [string]>(
     "SELECT type,data FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1",
   )
+  const contextAcceptance = db.query<
+    {
+      type: string
+      retry: string | null
+      predecessor: string | null
+    },
+    [string]
+  >(
+    `SELECT type,json_extract(data,'$.autonomyRetry') AS retry,
+     json_extract(data,'$.predecessorRunId') AS predecessor FROM events
+     WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1`,
+  )
+  const contextRun = db.query<
+    {
+      id: string
+      sessionId: string
+      error: string | null
+      failureCode: string | null
+    },
+    [string]
+  >(
+    `SELECT id,sessionId,substr(error,1,4000) AS error,json_extract(failure,'$.code') AS failureCode
+     FROM runs WHERE id=?`,
+  )
+  function contextFacts(runId: string) {
+    const facts = contextRun.get(runId)
+    if (!facts) throw new HbarError('NOT_FOUND', 'Run not found')
+    return facts
+  }
   function enabled() {
     const row = db
       .query<{ revision: number; valuesJson: string }, []>(
@@ -43,7 +77,15 @@ export function createAutonomyRetryStorage(
       )
       .get()
     const values = row ? z.record(z.string(), z.unknown()).parse(JSON.parse(row.valuesJson) as unknown) : {}
-    return { enabled: values[BACKEND_UNATTENDED_VALUE_KEY] === true, revision: row?.revision ?? 0 }
+    return {
+      enabled: values[BACKEND_UNATTENDED_VALUE_KEY] === true,
+      revision: row?.revision ?? 0,
+      configuration: autonomyRetryConfigurationSchema.parse({
+        transientRetries: values[autonomyRetrySettingKeys.transientRetries],
+        repairRetries: values[autonomyRetrySettingKeys.repairRetries],
+        retryDelayMs: values[autonomyRetrySettingKeys.retryDelayMs],
+      }),
+    }
   }
   const typeOf = (runId: string) => 'run.autonomyRetry.' + createHash('sha256').update(runId).digest('hex')
   function hasGoal(sessionId: string) {
@@ -67,16 +109,8 @@ export function createAutonomyRetryStorage(
       .sort((a, b) => b.seq - a.seq)[0]
     if (!latest) return null
     const run = options.run(idSchema.parse(latest.runId))
-    if (
-      run.status !== 'failed' ||
-      run.failure?.category !== 'transient' ||
-      !run.failure.retryable ||
-      run.input.source === 'goal' ||
-      run.input.delegatedDecision !== undefined
-    )
-      return null
-    if (!['PROVIDER_TRANSIENT', 'PROVIDER_CONNECTION_FAILED', 'PROVIDER_STREAM_INTERRUPTED'].includes(run.failure.code))
-      return null
+    const kind = autonomyRetryKind(run)
+    if (kind === null || run.input.source === 'goal' || run.input.delegatedDecision !== undefined) return null
     const principal = principals.run(run.id)
     if (
       !principal ||
@@ -112,14 +146,20 @@ export function createAutonomyRetryStorage(
       if (options.run(sourceId).sessionId !== sessionId)
         throw new HbarError('AUTONOMY_RETRY_LINEAGE', 'Recovery belongs to another Session')
     }
-    if ((previous?.transientRetries ?? 0) >= AUTONOMY_TRANSIENT_RETRY_LIMIT) return null
+    const attempts = {
+      transientRetries: previous?.transientRetries ?? 0,
+      repairRetries: previous?.repairRetries ?? 0,
+    }
+    const counter = kind === 'transient' ? 'transientRetries' : 'repairRetries'
+    if (attempts[counter] >= setting.configuration[counter]) return null
+    attempts[counter]++
     if (
       db
         .query("SELECT 1 FROM events WHERE runId=? AND type='run.cancelRequested' LIMIT 1")
         .get(previous?.rootRunId ?? sourceId)
     )
       return null
-    return { run, setting, rootRunId: previous?.rootRunId ?? sourceId, attempt: (previous?.transientRetries ?? 0) + 1 }
+    return { run, setting, kind, rootRunId: previous?.rootRunId ?? sourceId, ...attempts, attempt: attempts[counter] }
   }
   function plan(rawSessionId: string) {
     const sessionId = idSchema.parse(rawSessionId)
@@ -132,19 +172,26 @@ export function createAutonomyRetryStorage(
           ? autonomyRetryPlanSchema.parse(JSON.parse(prior.data) as unknown)
           : autonomyRetryPlanSchema.parse({
               version: 1,
-              kind: 'transient',
+              kind: source.kind,
               sessionId,
               rootRunId: source.rootRunId,
               predecessorRunId: source.run.id,
               requestId: 'autonomy:retry:' + createHash('sha256').update(source.run.id).digest('hex'),
-              transientRetries: source.attempt,
-              repairRetries: 0,
-              wakeAt: (source.run.endedAt ?? Date.now()) + 1_000 * 2 ** (source.attempt - 1),
+              transientRetries: source.transientRetries,
+              repairRetries: source.repairRetries,
+              wakeAt:
+                (source.run.endedAt ?? Date.now()) +
+                Math.min(
+                  AUTONOMY_RETRY_MAX_DELAY_MS,
+                  source.setting.configuration.retryDelayMs * 2 ** (source.attempt - 1),
+                ),
             })
         if (
           value.predecessorRunId !== source.run.id ||
           value.rootRunId !== source.rootRunId ||
-          value.transientRetries !== source.attempt
+          value.kind !== source.kind ||
+          value.transientRetries !== source.transientRetries ||
+          value.repairRetries !== source.repairRetries
         )
           throw new HbarError('AUTONOMY_RETRY_LINEAGE', 'Retry plan differs from its canonical source')
         if (!prior) append(sessionId, typeOf(source.run.id), value, source.run.id)
@@ -154,6 +201,37 @@ export function createAutonomyRetryStorage(
   }
   return {
     plan,
+    context(rawRunId: string) {
+      const original = contextFacts(idSchema.parse(rawRunId))
+      let current = original
+      const visited = new Set<string>()
+      for (;;) {
+        if (visited.has(current.id) || visited.size >= 32)
+          throw new HbarError('AUTONOMY_RETRY_LINEAGE', 'Retry context recovery lineage is cyclic or too deep')
+        visited.add(current.id)
+        const accepted = contextAcceptance.get(current.id)
+        if (!accepted) return null
+        if (accepted.retry !== null) {
+          const plan = autonomyRetryPlanSchema.parse(JSON.parse(accepted.retry) as unknown)
+          const predecessor = contextFacts(plan.predecessorRunId)
+          if (
+            plan.sessionId !== original.sessionId ||
+            predecessor.sessionId !== original.sessionId ||
+            contextFacts(plan.rootRunId).sessionId !== original.sessionId
+          )
+            throw new HbarError('AUTONOMY_RETRY_LINEAGE', 'Retry diagnostic belongs to another Session')
+          return autonomyRetryContextSchema.parse({
+            plan,
+            failureCode: predecessor.failureCode,
+            diagnostic: predecessor.error?.slice(0, 4_000) ?? null,
+          })
+        }
+        if (accepted.type !== 'run.recoveryQueued' || accepted.predecessor === null) return null
+        current = contextFacts(idSchema.parse(accepted.predecessor))
+        if (current.sessionId !== original.sessionId)
+          throw new HbarError('AUTONOMY_RETRY_LINEAGE', 'Retry context recovery belongs to another Session')
+      }
+    },
     successor(runId: string): Run | null {
       const run = options.run(idSchema.parse(runId))
       const planned = record.get(run.sessionId, typeOf(run.id))
@@ -178,7 +256,7 @@ export function createAutonomyRetryStorage(
       const run = options.run(idSchema.parse(runId))
       if (
         run.status !== 'failed' ||
-        run.failure?.category !== 'transient' ||
+        autonomyRetryKind(run) === null ||
         run.input.source === 'goal' ||
         hasGoal(run.sessionId)
       )
@@ -206,13 +284,30 @@ export function createAutonomyRetryStorage(
         )
       if (Date.now() < current.plan.wakeAt)
         throw new HbarError('AUTONOMY_RETRY_BACKOFF', 'The durable retry delay has not elapsed')
+      const inherited = autonomyRetryInput(current.predecessor)
+      const retainedContent = (value: UserInput) => ({
+        images: value.images.map((artifact) => artifact.id),
+        files: (value.files ?? []).map((artifact) => artifact.id),
+        sandbox: value.sandbox ?? null,
+        maxMode: value.maxMode === true,
+        continuation: value.continuation ?? null,
+        peerMessage: value.peerMessage ?? null,
+        delegatedDecision: value.delegatedDecision ?? null,
+      })
       if (
         requestId !== current.plan.requestId ||
         input.source !== 'system' ||
-        input.text !== autonomyRetryInput(current.predecessor).text ||
+        input.text !== inherited.text ||
+        !isDeepStrictEqual(retainedContent(input), retainedContent(inherited)) ||
+        (['approval', 'mode', 'thinking', 'permissionAtAdmission'] as const).some(
+          (key) => inherited[key] !== undefined && input[key] !== inherited[key],
+        ) ||
         modelId !== current.predecessor.modelId
       )
-        throw new HbarError('AUTONOMY_RETRY_INVALID', 'The retry must retain its original task and model')
+        throw new HbarError(
+          'AUTONOMY_RETRY_INVALID',
+          'The retry must retain its original task, model and execution constraints',
+        )
       return current.plan.predecessorRunId
     },
   }
