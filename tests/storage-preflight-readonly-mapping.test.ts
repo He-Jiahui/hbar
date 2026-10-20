@@ -108,6 +108,9 @@ for (const mode of ['source', 'emitted']) {
             probe = undefined
           }
           expect(events.filter((event) => event.event === 'sqlite.preflight_started')).toHaveLength(rounds)
+          expect(events.filter((event) => event.event === 'sqlite.preflight_io_hint_confirmed')).toHaveLength(
+            process.platform === 'win32' ? rounds : 0,
+          )
           expect(events.filter((event) => event.event === 'sqlite.preflight_completed')).toHaveLength(
             corrupt ? 0 : rounds,
           )
@@ -154,3 +157,22 @@ for (const mode of ['source', 'emitted']) {
     )
   }
 }
+
+test('serving Storage keeps its writer outside readonly file I/O hints', async () => {
+  const { parent, root, layout } = await fixture()
+  const events: DiagnosticEvent[] = []
+  const writer = new Storage(layout.database, layout, {
+    diagnostics: { emit: (event) => events.push(event) },
+    diagnosticsFullCoverage: true,
+  })
+  try {
+    expect(await writer.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
+    await writer.call('setSetting', 'file-io-scope', 'serving')
+    expect(await writer.call('getSetting', 'file-io-scope')).toBe('serving')
+  } finally {
+    await writer.close()
+  }
+  expect(events.filter((event) => event.event === 'sqlite.preflight_io_hint_confirmed')).toHaveLength(0)
+  await assertOwned(parent, root)
+  await rm(root, { recursive: true, force: true })
+})

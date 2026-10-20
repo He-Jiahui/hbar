@@ -1,5 +1,5 @@
-import { Database } from 'bun:sqlite'
-import { withReadMostlyMemoryPriority } from '@hbar/runtime-native/memory-priority'
+import { Database, constants } from 'bun:sqlite'
+import { setReadMostlyFileIoPriority, withReadMostlyMemoryPriority } from '@hbar/runtime-native/memory-priority'
 import { createSessionScanner } from './session-scan'
 import { createContextSummaryReader } from './context-summary'
 import { readSessionFacts } from './session-read-facts'
@@ -4973,6 +4973,22 @@ function createStorageDatabaseOwner(
             })
             withReadMostlyMemoryPriority(() => {
               if (!shadowMemory) {
+                if (process.platform === 'win32') {
+                  const handleBytes = new Uint8Array(8)
+                  if (db.fileControl(constants.SQLITE_FCNTL_WIN32_GET_HANDLE, handleBytes) !== 0)
+                    throw new HbarError(
+                      'STORAGE_PREFLIGHT_IO_HINT_UNCONFIRMED',
+                      'Candidate Worker cannot confirm its readonly file handle',
+                    )
+                  setReadMostlyFileIoPriority(new DataView(handleBytes.buffer).getBigUint64(0, true))
+                  workerDiagnostics.emit({
+                    event: 'sqlite.preflight_io_hint_confirmed',
+                    phase: 'preflight',
+                    level: 'info',
+                    outcome: 'success',
+                    workerState: 'starting',
+                  })
+                }
                 // Bound this short-lived readonly connection; the serving writer keeps its existing settings.
                 db.exec('PRAGMA mmap_size=2147418112')
                 observeStorageStartupPhase(workerDiagnostics, 'preflight.read', () =>
