@@ -1,6 +1,9 @@
 use napi::{Error, Result};
 use napi_derive::napi;
 
+#[cfg(windows)]
+mod memory_priority;
+
 fn failure(message: impl Into<String>) -> Error {
     Error::from_reason(message.into())
 }
