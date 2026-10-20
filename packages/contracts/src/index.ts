@@ -1794,7 +1794,7 @@ export const rpcSchemas = {
       .optional(),
   }),
   'file.list': z.object({ workspaceId: idSchema, path: z.string().max(4000).default('.') }),
-} satisfies Record<string, z.ZodType>
+} satisfies Record<string, z.core.$ZodType>
 export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {

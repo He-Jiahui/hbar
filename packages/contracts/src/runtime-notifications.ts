@@ -15,7 +15,7 @@ export const streamDeltaSchema = liveStreamSchema.omit({ offset: true }).extend(
   operation: z.enum(['append', 'reset']), textOffset: z.number().int().nonnegative(), thinkingOffset: z.number().int().nonnegative(),
 })
 const sequence = z.number().int().nonnegative().optional()
-const event = <Method extends WireNotification['method'], Params>(method: Method, params: z.ZodType<Params>) =>
+const event = <Method extends WireNotification['method'], Schema extends z.ZodType>(method: Method, params: Schema) =>
   z.strictObject({ method: z.literal(method), params })
 /** Every business event crosses the same validated public wire boundary as an RPC result. */
 export const runtimeWireNotificationSchema: z.ZodType<WireNotification> = z.discriminatedUnion('method', [
