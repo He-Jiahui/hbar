@@ -6,7 +6,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./memory-priority": "./src/memory-priority.ts"
+    "./memory-priority": "./src/memory-priority.ts",
+    "./readonly-sqlite": "./src/readonly-sqlite.ts"
   },
   "dependencies": {
     "@hbar/contracts": "workspace:*",

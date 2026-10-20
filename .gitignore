@@ -11,6 +11,7 @@ target/
 plugins/local-tools/native/*.node
 plugins/local-tools/sandbox/*.node
 packages/runtime-native/native/*.node
+packages/runtime-native/native/hbar_sqlite_readonly.asset
 *.tsbuildinfo
 
 # Local runtime data and generated reports
