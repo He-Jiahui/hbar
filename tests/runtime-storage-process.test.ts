@@ -176,7 +176,7 @@ async function fixture() {
   const artifact = await registry.build({
     descriptor,
     entrypoint: 'apps/host/src/runtime-storage-process.ts',
-    workers: ['packages/storage/src/worker.ts'],
+    workers: ['packages/storage/src/worker.ts', 'packages/storage/src/session-log-scan-worker.ts'],
   })
   const port = new StableStoragePort(5000)
   const entry = { root, port, processes: [] as ManagedProcess[] }
@@ -330,7 +330,7 @@ test('the current RPC candidate reads event pages on the current schema and reje
   const previousArtifact = await f.registry.build({
     descriptor: previousDescriptor,
     entrypoint: 'apps/host/src/runtime-storage-process.ts',
-    workers: ['packages/storage/src/worker.ts'],
+    workers: ['packages/storage/src/worker.ts', 'packages/storage/src/session-log-scan-worker.ts'],
   })
   expect(await outcome(f.make(2, previousArtifact, previousDescriptor))).toMatchObject({
     code: 'RUNTIME_RESTART_REQUIRED',

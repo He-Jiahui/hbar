@@ -47,7 +47,20 @@ test('real Storage hibernates its Worker, releases the writer lease and wakes a 
     await initial.ready(120_000)
     const catalog = initial.activatedCatalog()
     expect(catalog.coverage).toBe('complete-single-source')
-    expect(STORAGE_RPC_METHODS).toHaveLength(250)
+    const methodsSource = await Bun.file('packages/storage/src/types.ts').text()
+    const publicPort = methodsSource.slice(
+      methodsSource.indexOf('export interface StorageMethods'),
+      methodsSource.indexOf('export type StorageCall'),
+    )
+    const declaredMethods = [...publicPort.matchAll(/^ {2}(\w+)(?:\(|:)/gm)]
+      .map((match) => {
+        if (!match[1]) throw new Error('Missing public Storage method name')
+        return match[1]
+      })
+      .sort()
+    const actualMethods: string[] = [...STORAGE_RPC_METHODS]
+    expect(actualMethods.sort()).toEqual(declaredMethods)
+    expect(new Set(STORAGE_RPC_METHODS).size).toBe(declaredMethods.length)
     expect(STORAGE_SCHEMA_VERSION).toBe(32)
     const workspace = await initial.call('createWorkspace', root, 'real-idle')
     const session = await initial.call('createSession', workspace.id)
@@ -67,7 +80,7 @@ test('real Storage hibernates its Worker, releases the writer lease and wakes a 
     const artifact = await registry.build({
       descriptor,
       entrypoint: 'apps/host/src/runtime-storage-process.ts',
-      workers: ['packages/storage/src/worker.ts'],
+      workers: ['packages/storage/src/worker.ts', 'packages/storage/src/session-log-scan-worker.ts'],
     })
     const make = async (generation: number): Promise<ManagedProcess> => {
       const runtime = new ManagedProcess({

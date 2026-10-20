@@ -138,7 +138,8 @@ import { RunSteeringRegistry } from './run-steering.ts'
 import { createRuntimeState, RUNTIME_STATE_SQL, runtimeManualRecoverySchema } from './runtime-state'
 import { createRuntimeBackendRecoveryPage } from './runtime-backend-recovery'
 import { readPreflightDatabaseSequentially } from './preflight-database-read'
-import { observeStorageStartupPhase } from './startup-phase-observation'
+import { observeStorageStartupPhase, observeStorageStartupPhaseAsync } from './startup-phase-observation'
+import { parallelVisitSessionLogs } from './session-log-scan'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { readSessionObservability } from './session-observability.ts'
 import { beginContextCompaction, finishContextCompaction, readContextHistory } from './context-history'
@@ -210,6 +211,36 @@ export interface StorageDatabase {
 
 /** Each connection owns its mutable repositories; Worker/process lifecycle belongs to the entry. */
 export function createStorageDatabase(options: StorageDatabaseOptions, ports: StorageDatabasePorts): StorageDatabase {
+  return createStorageDatabaseOwner(options, ports, false).database
+}
+
+/** Managed Worker bootstrap can cancel its bounded scanners before acknowledging close. */
+export async function createStorageDatabaseAsync(
+  options: StorageDatabaseOptions,
+  ports: StorageDatabasePorts,
+  signal?: AbortSignal,
+): Promise<StorageDatabase> {
+  if (signal?.aborted) throw new Error('SCAN_CANCELLED')
+  const owner = createStorageDatabaseOwner(options, ports, true)
+  try {
+    await owner.initialize(signal)
+    return owner.database
+  } catch (error) {
+    owner.closeAfterInitializationFailure()
+    throw error
+  }
+}
+
+interface StorageDatabaseOwner {
+  readonly database: StorageDatabase
+  initialize(signal?: AbortSignal): Promise<void>
+  closeAfterInitializationFailure(): void
+}
+function createStorageDatabaseOwner(
+  options: StorageDatabaseOptions,
+  ports: StorageDatabasePorts,
+  deferRecovery: boolean,
+): StorageDatabaseOwner {
   const preflight = options.preflight === true
   const shadowMemory = preflight && !existsSync(options.path)
   const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -253,6 +284,20 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       workerState: 'failed',
     })
     throw error
+  }
+  function closeAfterInitializationFailure(): void {
+    try {
+      db.close()
+    } catch {
+      workerDiagnostics.emit({
+        event: 'sqlite.initialization_cleanup_failed',
+        phase: 'close',
+        level: 'fatal',
+        outcome: 'failure',
+        errorCode: 'SQLITE_INITIALIZATION_CLEANUP_FAILED',
+        workerState: 'failed',
+      })
+    }
   }
   try {
     // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
@@ -4392,31 +4437,31 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       if (notification) notifications.insert(notification)
     }
 
-    function reconcileSessionLogs() {
+    function createSessionLogReconciliation() {
       const filesTable = 'temp.recovery_session_log_files'
       const eventsTable = 'temp.recovery_session_log_events'
       db.exec('PRAGMA temp_store=FILE; PRAGMA temp.cache_size=-2000')
       db.exec(`
-    DROP TABLE IF EXISTS ${filesTable};
-    DROP TABLE IF EXISTS ${eventsTable};
-    CREATE TEMP TABLE recovery_session_log_files (
-      path TEXT PRIMARY KEY,
-      size INTEGER NOT NULL,
-      visited INTEGER NOT NULL DEFAULT 0
-    ) WITHOUT ROWID;
-    CREATE TEMP TABLE recovery_session_log_events (
-      eventId TEXT NOT NULL,
-      sessionId TEXT NOT NULL,
-      seq INTEGER NOT NULL,
-      logPath TEXT NOT NULL,
-      byteOffset INTEGER NOT NULL,
-      byteLength INTEGER NOT NULL,
-      contentHash TEXT NOT NULL,
-      restoreProjection INTEGER NOT NULL DEFAULT 0,
-      visited INTEGER NOT NULL DEFAULT 0,
-      PRIMARY KEY(sessionId,seq)
-    ) WITHOUT ROWID;
-  `)
+        DROP TABLE IF EXISTS ${filesTable};
+        DROP TABLE IF EXISTS ${eventsTable};
+        CREATE TEMP TABLE recovery_session_log_files (
+          path TEXT PRIMARY KEY,
+          size INTEGER NOT NULL,
+          visited INTEGER NOT NULL DEFAULT 0
+        ) WITHOUT ROWID;
+        CREATE TEMP TABLE recovery_session_log_events (
+          eventId TEXT NOT NULL,
+          sessionId TEXT NOT NULL,
+          seq INTEGER NOT NULL,
+          logPath TEXT NOT NULL,
+          byteOffset INTEGER NOT NULL,
+          byteLength INTEGER NOT NULL,
+          contentHash TEXT NOT NULL,
+          restoreProjection INTEGER NOT NULL DEFAULT 0,
+          visited INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY(sessionId,seq)
+        ) WITHOUT ROWID;
+      `)
       let restored = 0
       let tails: ReturnType<typeof visitSessionLogs>['truncated'] = []
       function createEventIdentityIndex(): void {
@@ -4441,241 +4486,319 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
           statement.finalize()
         }
       }
-      try {
-        const stageFile = db.prepare(`INSERT INTO ${filesTable}(path,size) VALUES(?,?)`)
-        const stageEvent = db.prepare(
-          `INSERT INTO ${eventsTable}(eventId,sessionId,seq,logPath,byteOffset,byteLength,contentHash) VALUES(?,?,?,?,?,?,?)`,
-        )
-        try {
-          db.transaction(() => {
-            const scan = visitSessionLogs(
+      const stageFile = db.prepare('INSERT INTO temp.recovery_session_log_files(path,size) VALUES(?,?)')
+      const stageEvent = db.prepare(
+        'INSERT INTO temp.recovery_session_log_events(eventId,sessionId,seq,logPath,byteOffset,byteLength,contentHash) VALUES(?,?,?,?,?,?,?)',
+      )
+      let staging = true
+      function finishStaging(): void {
+        if (!staging) return
+        staging = false
+        stageEvent.finalize()
+        stageFile.finalize()
+      }
+      function stageFailure(error: unknown): never {
+        if (safeStorageErrorCode(error).startsWith('SQLITE_CONSTRAINT'))
+          throw new SessionLogRecoveryError(
+            'SESSION_LOG_CORRUPTED',
+            'SESSION_LOG_CORRUPTED duplicate event identity, session sequence or canonical log path',
+          )
+        throw error
+      }
+      return {
+        stageSync(): void {
+          try {
+            db.transaction(() => {
+              const scan = visitSessionLogs(
+                sessionsRoot,
+                chatDatabaseDeletion.excluded,
+                (record) => {
+                  stageEvent.run(
+                    record.event.eventId,
+                    record.event.sessionId,
+                    record.event.seq,
+                    record.relativePath,
+                    record.offset,
+                    record.length,
+                    record.hash,
+                  )
+                },
+                {
+                  maxRecordBytes: DEFAULT_MAX_SESSION_LOG_RECORD_BYTES,
+                  onFile: ({ path, size }) => stageFile.run(path, size),
+                },
+              )
+              tails = scan.truncated
+            })()
+          } catch (error) {
+            stageFailure(error)
+          } finally {
+            finishStaging()
+          }
+        },
+        async stageParallel(signal?: AbortSignal): Promise<void> {
+          // Only disposable TEMP rows are staged while awaiting. No RPC is served until commit and full validation.
+          db.exec('BEGIN')
+          try {
+            const scan = await parallelVisitSessionLogs(
               sessionsRoot,
               chatDatabaseDeletion.excluded,
-              ({ event, relativePath, offset, length, hash }) => {
-                try {
-                  stageEvent.run(event.eventId, event.sessionId, event.seq, relativePath, offset, length, hash)
-                } catch (error) {
-                  if (safeStorageErrorCode(error).startsWith('SQLITE_CONSTRAINT'))
-                    throw new SessionLogRecoveryError(
-                      'SESSION_LOG_CORRUPTED',
-                      'SESSION_LOG_CORRUPTED duplicate event identity or session sequence',
-                    )
-                  throw error
-                }
+              (rows) => {
+                for (const row of rows)
+                  stageEvent.run(
+                    row.eventId,
+                    row.sessionId,
+                    row.seq,
+                    row.relativePath,
+                    row.offset,
+                    row.length,
+                    row.hash,
+                  )
               },
               {
                 maxRecordBytes: DEFAULT_MAX_SESSION_LOG_RECORD_BYTES,
+                ...(signal ? { signal } : {}),
                 onFile: ({ path, size }) => stageFile.run(path, size),
+                onWorkersClosed: (stats) =>
+                  workerDiagnostics.emit({
+                    event: 'sqlite.session_log_scan_workers_closed',
+                    phase: 'recovery',
+                    level: 'info',
+                    workerState: 'starting',
+                    outcome: stats.allWorkersJoined && stats.forcedWorkerTerminations === 0 ? 'success' : 'failure',
+                    queueDepth: 0,
+                  }),
               },
             )
+            if (signal?.aborted) throw new Error('SCAN_CANCELLED')
             tails = scan.truncated
-          })()
-        } catch (error) {
-          if (safeStorageErrorCode(error).startsWith('SQLITE_CONSTRAINT'))
+            db.exec('COMMIT')
+          } catch (error) {
+            db.exec('ROLLBACK')
+            stageFailure(error)
+          } finally {
+            finishStaging()
+          }
+        },
+        complete(): void {
+          // Validate every event identity before repair, then scan by the clustered Session sequence.
+          createEventIdentityIndex()
+          db.exec('DROP INDEX temp.recovery_session_log_events_event_id')
+          const indexMismatch = hasRecoveryRow(
+            `
+          SELECT 1
+          FROM session_event_index AS indexed
+          LEFT JOIN ${eventsTable} AS scanned ON scanned.sessionId=indexed.sessionId AND scanned.seq=indexed.seq
+          WHERE scanned.eventId IS NULL
+            OR indexed.eventId IS NOT scanned.eventId
+            OR indexed.sessionId<>scanned.sessionId
+            OR indexed.seq<>scanned.seq
+            OR indexed.logPath<>scanned.logPath
+            OR indexed.byteOffset<>scanned.byteOffset
+            OR indexed.byteLength<>scanned.byteLength
+            OR indexed.contentHash<>scanned.contentHash
+          LIMIT 1
+        `,
+          )
+          if (indexMismatch)
             throw new SessionLogRecoveryError(
               'SESSION_LOG_CORRUPTED',
-              'SESSION_LOG_CORRUPTED duplicate canonical log path',
+              'SESSION_LOG_CORRUPTED SQLite event index does not match canonical JSONL',
             )
-          throw error
-        } finally {
-          stageEvent.finalize()
-          stageFile.finalize()
-        }
 
-        // Validate every event identity before repair, then scan by the clustered Session sequence.
-        createEventIdentityIndex()
-        db.exec('DROP INDEX temp.recovery_session_log_events_event_id')
-        const indexMismatch = hasRecoveryRow(
-          `
-      SELECT 1
-      FROM session_event_index AS indexed
-      LEFT JOIN ${eventsTable} AS scanned ON scanned.sessionId=indexed.sessionId AND scanned.seq=indexed.seq
-      WHERE scanned.eventId IS NULL
-        OR indexed.eventId IS NOT scanned.eventId
-        OR indexed.sessionId<>scanned.sessionId
-        OR indexed.seq<>scanned.seq
-        OR indexed.logPath<>scanned.logPath
-        OR indexed.byteOffset<>scanned.byteOffset
-        OR indexed.byteLength<>scanned.byteLength
-        OR indexed.contentHash<>scanned.contentHash
-      LIMIT 1
-    `,
-        )
-        if (indexMismatch)
-          throw new SessionLogRecoveryError(
-            'SESSION_LOG_CORRUPTED',
-            'SESSION_LOG_CORRUPTED SQLite event index does not match canonical JSONL',
+          // Every existing index row has already passed the complete identity comparison.
+          db.exec(`
+          UPDATE recovery_session_log_events AS scanned
+          SET restoreProjection=1
+          WHERE NOT EXISTS (
+            SELECT 1 FROM session_event_index AS indexed
+            WHERE indexed.sessionId=scanned.sessionId AND indexed.seq=scanned.seq
           )
+        `)
+          const needsRestore = hasRecoveryRow(`SELECT 1 FROM ${eventsTable} WHERE restoreProjection=1 LIMIT 1`)
+          // The second pass still needs direct eventId lookup; rebuild before truncation or projection writes.
+          if (needsRestore) createEventIdentityIndex()
 
-        // Every existing index row has already passed the complete identity comparison.
-        db.exec(`
-      UPDATE recovery_session_log_events AS scanned
-      SET restoreProjection=1
-      WHERE NOT EXISTS (
-        SELECT 1 FROM session_event_index AS indexed
-        WHERE indexed.sessionId=scanned.sessionId AND indexed.seq=scanned.seq
-      )
-    `)
-        const needsRestore = hasRecoveryRow(`SELECT 1 FROM ${eventsTable} WHERE restoreProjection=1 LIMIT 1`)
-        // The second pass still needs direct eventId lookup; rebuild before truncation or projection writes.
-        if (needsRestore) createEventIdentityIndex()
+          truncateSessionLogTails(tails)
+          if (tails.length)
+            recordRecoveryDiagnostic(diagnosticsRoot, {
+              truncated: tails.map(({ relativePath, offset }) => ({ path: relativePath, offset })),
+            })
+          if (!needsRestore) return
+          for (const tail of tails)
+            db.query(`UPDATE ${filesTable} SET size=? WHERE path=?`).run(tail.offset, tail.relativePath)
 
-        truncateSessionLogTails(tails)
-        if (tails.length)
-          recordRecoveryDiagnostic(diagnosticsRoot, {
-            truncated: tails.map(({ relativePath, offset }) => ({ path: relativePath, offset })),
-          })
-        if (!needsRestore) return
-        for (const tail of tails)
-          db.query(`UPDATE ${filesTable} SET size=? WHERE path=?`).run(tail.offset, tail.relativePath)
+          const markFile = db.query(`UPDATE ${filesTable} SET visited=1 WHERE path=? AND size=?`)
+          const findEvent = db.query(
+            `SELECT sessionId,seq,logPath,byteOffset,byteLength,contentHash,restoreProjection,visited FROM ${eventsTable} WHERE eventId=?`,
+          )
+          const visitEvent = db.query(`UPDATE ${eventsTable} SET visited=1 WHERE eventId=? AND visited=0`)
+          const insertLog = db.query(`
+          INSERT INTO session_log_files VALUES(?,?,?,?,?,?,?)
+          ON CONFLICT(path) DO UPDATE SET
+            firstSeq=MIN(firstSeq,excluded.firstSeq),lastSeq=MAX(lastSeq,excluded.lastSeq),
+            size=MAX(size,excluded.size),updatedAt=excluded.updatedAt
+        `)
+          const insertEvent = db.query('INSERT INTO session_event_index VALUES(?,?,?,?,?,?,?)')
 
-        const markFile = db.query(`UPDATE ${filesTable} SET visited=1 WHERE path=? AND size=?`)
-        const findEvent = db.query(
-          `SELECT sessionId,seq,logPath,byteOffset,byteLength,contentHash,restoreProjection,visited FROM ${eventsTable} WHERE eventId=?`,
-        )
-        const visitEvent = db.query(`UPDATE ${eventsTable} SET visited=1 WHERE eventId=? AND visited=0`)
-        const insertLog = db.query(`
-      INSERT INTO session_log_files VALUES(?,?,?,?,?,?,?)
-      ON CONFLICT(path) DO UPDATE SET
-        firstSeq=MIN(firstSeq,excluded.firstSeq),lastSeq=MAX(lastSeq,excluded.lastSeq),
-        size=MAX(size,excluded.size),updatedAt=excluded.updatedAt
-    `)
-        const insertEvent = db.query('INSERT INTO session_event_index VALUES(?,?,?,?,?,?,?)')
-
-        db.transaction(() => {
-          const replay = visitSessionLogs(
-            sessionsRoot,
-            chatDatabaseDeletion.excluded,
-            (item) => {
-              const row = findEvent.get(item.event.eventId) as {
-                sessionId: string
-                seq: number
-                logPath: string
-                byteOffset: number
-                byteLength: number
-                contentHash: string
-                restoreProjection: number
-                visited: number
-              } | null
-              if (
-                !row ||
-                row.visited !== 0 ||
-                row.sessionId !== item.event.sessionId ||
-                row.seq !== item.event.seq ||
-                row.logPath !== item.relativePath ||
-                row.byteOffset !== item.offset ||
-                row.byteLength !== item.length ||
-                row.contentHash !== item.hash
-              )
-                throw new SessionLogRecoveryError(
-                  'SESSION_LOG_CHANGED_DURING_RECOVERY',
-                  'SESSION_LOG_CHANGED_DURING_RECOVERY canonical event differs between recovery passes',
+          db.transaction(() => {
+            const replay = visitSessionLogs(
+              sessionsRoot,
+              chatDatabaseDeletion.excluded,
+              (item) => {
+                const row = findEvent.get(item.event.eventId) as {
+                  sessionId: string
+                  seq: number
+                  logPath: string
+                  byteOffset: number
+                  byteLength: number
+                  contentHash: string
+                  restoreProjection: number
+                  visited: number
+                } | null
+                if (
+                  !row ||
+                  row.visited !== 0 ||
+                  row.sessionId !== item.event.sessionId ||
+                  row.seq !== item.event.seq ||
+                  row.logPath !== item.relativePath ||
+                  row.byteOffset !== item.offset ||
+                  row.byteLength !== item.length ||
+                  row.contentHash !== item.hash
                 )
-              if (visitEvent.run(item.event.eventId).changes !== 1)
-                throw new SessionLogRecoveryError(
-                  'SESSION_LOG_CORRUPTED',
-                  'SESSION_LOG_CORRUPTED duplicate event encountered during recovery replay',
-                )
-              if (row.restoreProjection === 0) return
-
-              const projectId = item.relativePath.split('/')[0]
-              if (!projectId)
-                throw new SessionLogRecoveryError(
-                  'SESSION_LOG_CORRUPTED',
-                  'SESSION_LOG_CORRUPTED canonical log path has no project identity',
-                )
-              insertLog.run(
-                item.relativePath,
-                projectId,
-                item.event.sessionId,
-                item.event.seq,
-                item.event.seq,
-                item.offset + item.length,
-                item.event.time,
-              )
-              restoreProjection(item.event)
-              insertEvent.run(
-                item.event.eventId,
-                item.event.sessionId,
-                item.event.seq,
-                item.relativePath,
-                item.offset,
-                item.length,
-                item.hash,
-              )
-              restored++
-            },
-            {
-              maxRecordBytes: DEFAULT_MAX_SESSION_LOG_RECORD_BYTES,
-              onFile: ({ path, size }) => {
-                if (markFile.run(path, size).changes !== 1)
                   throw new SessionLogRecoveryError(
                     'SESSION_LOG_CHANGED_DURING_RECOVERY',
-                    'SESSION_LOG_CHANGED_DURING_RECOVERY canonical file set or size changed between recovery passes',
+                    'SESSION_LOG_CHANGED_DURING_RECOVERY canonical event differs between recovery passes',
                   )
-              },
-            },
-          )
-          if (replay.truncated.length)
-            throw new SessionLogRecoveryError(
-              'SESSION_LOG_CHANGED_DURING_RECOVERY',
-              'SESSION_LOG_CHANGED_DURING_RECOVERY canonical log gained an incomplete tail during recovery',
-            )
-          if (db.query(`SELECT 1 FROM ${filesTable} WHERE visited=0 LIMIT 1`).get())
-            throw new SessionLogRecoveryError(
-              'SESSION_LOG_CHANGED_DURING_RECOVERY',
-              'SESSION_LOG_CHANGED_DURING_RECOVERY canonical file disappeared between recovery passes',
-            )
-          if (db.query(`SELECT 1 FROM ${eventsTable} WHERE visited=0 LIMIT 1`).get())
-            throw new SessionLogRecoveryError(
-              'SESSION_LOG_CHANGED_DURING_RECOVERY',
-              'SESSION_LOG_CHANGED_DURING_RECOVERY canonical event set changed between recovery passes',
-            )
-        })()
+                if (visitEvent.run(item.event.eventId).changes !== 1)
+                  throw new SessionLogRecoveryError(
+                    'SESSION_LOG_CORRUPTED',
+                    'SESSION_LOG_CORRUPTED duplicate event encountered during recovery replay',
+                  )
+                if (row.restoreProjection === 0) return
 
-        if (restored) recordRecoveryDiagnostic(diagnosticsRoot, { restored })
-      } finally {
-        db.exec(`DROP TABLE IF EXISTS ${eventsTable}; DROP TABLE IF EXISTS ${filesTable};`)
+                const projectId = item.relativePath.split('/')[0]
+                if (!projectId)
+                  throw new SessionLogRecoveryError(
+                    'SESSION_LOG_CORRUPTED',
+                    'SESSION_LOG_CORRUPTED canonical log path has no project identity',
+                  )
+                insertLog.run(
+                  item.relativePath,
+                  projectId,
+                  item.event.sessionId,
+                  item.event.seq,
+                  item.event.seq,
+                  item.offset + item.length,
+                  item.event.time,
+                )
+                restoreProjection(item.event)
+                insertEvent.run(
+                  item.event.eventId,
+                  item.event.sessionId,
+                  item.event.seq,
+                  item.relativePath,
+                  item.offset,
+                  item.length,
+                  item.hash,
+                )
+                restored++
+              },
+              {
+                maxRecordBytes: DEFAULT_MAX_SESSION_LOG_RECORD_BYTES,
+                onFile: ({ path, size }) => {
+                  if (markFile.run(path, size).changes !== 1)
+                    throw new SessionLogRecoveryError(
+                      'SESSION_LOG_CHANGED_DURING_RECOVERY',
+                      'SESSION_LOG_CHANGED_DURING_RECOVERY canonical file set or size changed between recovery passes',
+                    )
+                },
+              },
+            )
+            if (replay.truncated.length)
+              throw new SessionLogRecoveryError(
+                'SESSION_LOG_CHANGED_DURING_RECOVERY',
+                'SESSION_LOG_CHANGED_DURING_RECOVERY canonical log gained an incomplete tail during recovery',
+              )
+            if (db.query(`SELECT 1 FROM ${filesTable} WHERE visited=0 LIMIT 1`).get())
+              throw new SessionLogRecoveryError(
+                'SESSION_LOG_CHANGED_DURING_RECOVERY',
+                'SESSION_LOG_CHANGED_DURING_RECOVERY canonical file disappeared between recovery passes',
+              )
+            if (db.query(`SELECT 1 FROM ${eventsTable} WHERE visited=0 LIMIT 1`).get())
+              throw new SessionLogRecoveryError(
+                'SESSION_LOG_CHANGED_DURING_RECOVERY',
+                'SESSION_LOG_CHANGED_DURING_RECOVERY canonical event set changed between recovery passes',
+              )
+          })()
+
+          if (restored) recordRecoveryDiagnostic(diagnosticsRoot, { restored })
+        },
+        close(): void {
+          finishStaging()
+          db.exec(
+            'DROP TABLE IF EXISTS temp.recovery_session_log_events; DROP TABLE IF EXISTS temp.recovery_session_log_files;',
+          )
+        },
       }
     }
 
-    if (!preflight) {
+    function reconcileSessionLogs(): void {
+      const recovery = createSessionLogReconciliation()
+      try {
+        recovery.stageSync()
+        recovery.complete()
+      } finally {
+        recovery.close()
+      }
+    }
+
+    async function reconcileSessionLogsAsync(signal?: AbortSignal): Promise<void> {
+      const recovery = createSessionLogReconciliation()
+      try {
+        await recovery.stageParallel(signal)
+        if (signal?.aborted) throw new Error('SCAN_CANCELLED')
+        recovery.complete()
+      } finally {
+        recovery.close()
+      }
+    }
+    function recoveryStarted(): number {
       ports.onStartupPhase?.('recovery')
-      const recoveryStartedAt = performance.now()
+      const startedAt = performance.now()
       workerDiagnostics.emit({
         event: 'sqlite.recovery_started',
         phase: 'recovery',
         level: 'info',
         workerState: 'starting',
       })
-      try {
-        observeStorageStartupPhase(workerDiagnostics, 'recovery', () => {
-          chatDatabaseDeletion.reconcile()
-          if (chatDatabaseDeletion.recoveryIssues.length)
-            recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
-          reconcileSessionLogs()
-          db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
-        })
-      } catch (error) {
-        workerDiagnostics.emit({
-          event: 'sqlite.recovery_failed',
-          phase: 'recovery',
-          level: 'fatal',
-          outcome: 'failure',
-          errorCode: safeStorageErrorCode(error, 'SQLITE_RECOVERY_FAILED'),
-          workerState: 'failed',
-        })
-        throw error
-      }
+      return startedAt
+    }
+    function reconcileDeletedLogs(): void {
+      chatDatabaseDeletion.reconcile()
+      if (chatDatabaseDeletion.recoveryIssues.length)
+        recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
+    }
+    function recoveryFailed(error: unknown): never {
+      workerDiagnostics.emit({
+        event: 'sqlite.recovery_failed',
+        phase: 'recovery',
+        level: 'fatal',
+        outcome: 'failure',
+        errorCode: safeStorageErrorCode(error, 'SQLITE_RECOVERY_FAILED'),
+        workerState: 'failed',
+      })
+      throw error
+    }
+    function recoveryCompleted(startedAt: number): void {
       workerDiagnostics.emit({
         event: 'sqlite.recovery_completed',
         phase: 'recovery',
         level: 'info',
         outcome: 'success',
         workerState: 'starting',
-        durationMs: Math.max(0, performance.now() - recoveryStartedAt),
+        durationMs: Math.max(0, performance.now() - startedAt),
       })
-
       ports.onStartupPhase?.('ready')
       try {
         const facts = readSqliteFacts()
@@ -4719,6 +4842,35 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
         })
         throw error
       }
+    }
+    if (!preflight && !deferRecovery) {
+      const startedAt = recoveryStarted()
+      try {
+        observeStorageStartupPhase(workerDiagnostics, 'recovery', () => {
+          reconcileDeletedLogs()
+          reconcileSessionLogs()
+          db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
+        })
+      } catch (error) {
+        recoveryFailed(error)
+      }
+      recoveryCompleted(startedAt)
+    }
+
+    async function initialize(signal?: AbortSignal): Promise<void> {
+      if (preflight) return
+      if (signal?.aborted) throw new Error('SCAN_CANCELLED')
+      const startedAt = recoveryStarted()
+      try {
+        await observeStorageStartupPhaseAsync(workerDiagnostics, 'recovery', async () => {
+          reconcileDeletedLogs()
+          await reconcileSessionLogsAsync(signal)
+          db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
+        })
+      } catch (error) {
+        recoveryFailed(error)
+      }
+      recoveryCompleted(startedAt)
     }
     function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
       if (method === 'delegatedInputComplete') return delegatedInputCompleteSchema.parse(args[0]).targetRunId
@@ -4975,25 +5127,18 @@ export function createStorageDatabase(options: StorageDatabaseOptions, ports: St
       return reply
     }
     return {
-      handle,
-      close: () => {
-        if (preflight) db.close()
-        else methods.close()
+      database: {
+        handle,
+        close: () => {
+          if (preflight) db.close()
+          else methods.close()
+        },
       },
+      initialize,
+      closeAfterInitializationFailure,
     }
   } catch (error: unknown) {
-    try {
-      db.close()
-    } catch {
-      workerDiagnostics.emit({
-        event: 'sqlite.initialization_cleanup_failed',
-        phase: 'close',
-        level: 'fatal',
-        outcome: 'failure',
-        errorCode: 'SQLITE_INITIALIZATION_CLEANUP_FAILED',
-        workerState: 'failed',
-      })
-    }
+    closeAfterInitializationFailure()
     throw error
   }
 }

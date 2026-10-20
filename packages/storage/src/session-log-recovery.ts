@@ -10,7 +10,7 @@ import {
   truncateSync,
 } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { dirname, join, relative } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 import { sessionEventSchema } from '@hbar/contracts'
 import type { SessionEvent } from '@hbar/contracts'
 
@@ -108,10 +108,46 @@ export function visitSessionLogs(
   visit: (record: RecoveredLogEvent) => void,
   options: SessionLogVisitOptions = {},
 ): SessionLogVisitResult {
+  recordLimit(options)
+  return visitSessionLogPaths(root, excluded, listSessionLogFiles(root, excluded), visit, options)
+}
+
+/** Internal scan scheduling; the public visitor retains canonical file order. */
+export function listSessionLogFiles(root: string, excluded: ReadonlySet<string>): string[] {
+  return files(root, excluded).sort()
+}
+
+/** Scans one owned file using the same framing, validation and hash implementation. */
+export function visitSessionLogFile(
+  root: string,
+  excluded: ReadonlySet<string>,
+  path: string,
+  visit: (record: RecoveredLogEvent) => void,
+  options: SessionLogVisitOptions = {},
+): SessionLogVisitResult {
+  recordLimit(options)
+  const local = relative(root, path)
+  if (
+    !local ||
+    isAbsolute(local) ||
+    local.split(/[\\/]/).some((part) => part === '..' || part === '.maintenance') ||
+    !path.endsWith('.jsonl') ||
+    excluded.has(basename(path).slice(0, -6))
+  )
+    throw new Error('SESSION_LOG_SCAN_FILE_OWNER_MISMATCH')
+  return visitSessionLogPaths(root, excluded, [path], visit, options)
+}
+
+function visitSessionLogPaths(
+  root: string,
+  excluded: ReadonlySet<string>,
+  paths: readonly string[],
+  visit: (record: RecoveredLogEvent) => void,
+  options: SessionLogVisitOptions = {},
+): SessionLogVisitResult {
   const maxRecordBytes = recordLimit(options)
   const snapshots: SessionLogFileSnapshot[] = []
   const truncated: TruncatedSessionLogTail[] = []
-  const paths = files(root, excluded).sort()
   if (paths.length === 0) return { files: snapshots, truncated }
   const readBuffer = Buffer.allocUnsafe(LOG_READ_CHUNK_BYTES)
   for (const path of paths) {

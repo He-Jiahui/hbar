@@ -11,15 +11,13 @@ function processCpu(): ReturnType<typeof process.cpuUsage> | undefined {
   }
 }
 
-/** Observes synchronous startup work. CPU covers every thread in this OS process, not only its Worker. */
-export function observeStorageStartupPhase<T>(
+/** CPU covers every thread in this OS process, not only its Storage Worker. */
+function startupPhaseObservation(
   diagnostics: StartupDiagnostics,
   phase: StartupPhase,
-  action: () => T,
-): T {
+): (outcome: 'success' | 'failure') => void {
   const startedAt = performance.now()
   const cpuBefore = processCpu()
-  let outcome: 'success' | 'failure' = 'failure'
   const publish: StartupDiagnostics['emit'] = (event) => {
     try {
       diagnostics.emit(event)
@@ -27,11 +25,7 @@ export function observeStorageStartupPhase<T>(
       // Losing telemetry must not replace the storage result or its original failure.
     }
   }
-  try {
-    const result = action()
-    outcome = 'success'
-    return result
-  } finally {
+  return (outcome) => {
     const durationMs = Math.max(0, performance.now() - startedAt)
     const cpuAfter = processCpu()
     publish({
@@ -69,5 +63,37 @@ export function observeStorageStartupPhase<T>(
         workerState: 'starting',
       })
     }
+  }
+}
+
+export function observeStorageStartupPhase<T>(
+  diagnostics: StartupDiagnostics,
+  phase: StartupPhase,
+  action: () => T,
+): T {
+  const complete = startupPhaseObservation(diagnostics, phase)
+  let outcome: 'success' | 'failure' = 'failure'
+  try {
+    const result = action()
+    outcome = 'success'
+    return result
+  } finally {
+    complete(outcome)
+  }
+}
+
+export async function observeStorageStartupPhaseAsync<T>(
+  diagnostics: StartupDiagnostics,
+  phase: StartupPhase,
+  action: () => Promise<T>,
+): Promise<T> {
+  const complete = startupPhaseObservation(diagnostics, phase)
+  let outcome: 'success' | 'failure' = 'failure'
+  try {
+    const result = await action()
+    outcome = 'success'
+    return result
+  } finally {
+    complete(outcome)
   }
 }

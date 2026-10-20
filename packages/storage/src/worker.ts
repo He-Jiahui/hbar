@@ -1,11 +1,11 @@
 import { workerData, parentPort } from 'node:worker_threads'
 import { createStorageWorkerDiagnostics } from './worker-diagnostics'
 import {
-  createStorageDatabase,
+  createStorageDatabaseAsync,
   storageDatabaseOptionsSchema,
   type StorageDatabaseStartupPhase,
 } from './worker-database'
-import type { StorageCall } from './types'
+import type { StorageCall, StorageReply } from './types'
 
 const options = storageDatabaseOptionsSchema.parse(workerData)
 const port = parentPort
@@ -28,10 +28,57 @@ process.on('uncaughtExceptionMonitor', () => {
     workerState: 'failed',
   })
 })
-const database = createStorageDatabase(options, {
-  diagnostics,
-  onStartupPhase: (phase) => {
-    startupPhase = phase
+const cancellation = new AbortController()
+let closing = false
+const initialization = createStorageDatabaseAsync(
+  options,
+  {
+    diagnostics,
+    onStartupPhase: (phase) => {
+      startupPhase = phase
+    },
   },
+  cancellation.signal,
+)
+// The parent already bounds pending RPC requests. During bootstrap each request waits for the same owner.
+port.on('message', (call: StorageCall) => {
+  if (call.method === 'close') {
+    closing = true
+    cancellation.abort()
+  }
+  initialization
+    .then(
+      (database) =>
+        port.postMessage(
+          closing && call.method !== 'close'
+            ? ({ id: call.id, ok: false, error: 'Storage is closed', code: 'STORAGE_CLOSED' } satisfies StorageReply)
+            : database.handle(call),
+        ),
+      () => {
+        if (!closing) return // The top-level await preserves the original fatal initialization error.
+        port.postMessage(
+          call.method === 'close'
+            ? ({ id: call.id, ok: true, result: undefined } satisfies StorageReply)
+            : ({ id: call.id, ok: false, error: 'Storage is closed', code: 'STORAGE_CLOSED' } satisfies StorageReply),
+        )
+      },
+    )
+    .catch((error: unknown) => {
+      queueMicrotask(() => {
+        throw error
+      })
+    })
 })
-port.on('message', (call: StorageCall) => port.postMessage(database.handle(call)))
+try {
+  await initialization
+} catch (error) {
+  if (!closing) throw error
+  // The rejected initialization has joined its scan Workers and closed the SQLite connection before close ACK.
+  diagnostics.emit({
+    event: 'sqlite.startup_cancelled',
+    phase: 'close',
+    level: 'info',
+    outcome: 'success',
+    workerState: 'closed',
+  })
+}

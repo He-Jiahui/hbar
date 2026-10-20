@@ -48,7 +48,7 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
     {
       descriptor: descriptor('storage', 'storage', STORAGE_RPC_FINGERPRINT),
       entrypoint: 'apps/host/src/runtime-storage-process.ts',
-      workers: ['packages/storage/src/worker.ts'],
+      workers: ['packages/storage/src/worker.ts', 'packages/storage/src/session-log-scan-worker.ts'],
     },
     {
       descriptor: {

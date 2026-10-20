@@ -5,7 +5,39 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import type { DiagnosticEvent } from '@hbar/contracts'
 import { Storage, createPathLayout, ensurePathLayout } from '@hbar/storage'
-import { observeStorageStartupPhase } from '../packages/storage/src/startup-phase-observation'
+import {
+  observeStorageStartupPhase,
+  observeStorageStartupPhaseAsync,
+} from '../packages/storage/src/startup-phase-observation'
+
+for (const fail of [false, true]) {
+  test('async startup telemetry waits for actual settlement and preserves its result: fail=' + fail, async () => {
+    const events: Array<Parameters<Parameters<typeof observeStorageStartupPhase>[0]['emit']>[0]> = []
+    let finish: () => void = () => undefined
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const primary = new Error('original async storage failure')
+    const value = { retained: true }
+    const result = observeStorageStartupPhaseAsync({ emit: (event) => events.push(event) }, 'recovery', async () => {
+      await pending
+      if (fail) throw primary
+      return value
+    }).then(
+      (resolved) => resolved,
+      (error: unknown) => error,
+    )
+    await Promise.resolve()
+    expect(events).toHaveLength(0)
+    finish()
+    expect(await result).toBe(fail ? primary : value)
+    expect(events.map((event) => event.event)).toEqual([
+      'sqlite.startup_phase_wall_completed',
+      'sqlite.startup_phase_process_cpu_completed',
+    ])
+    expect(events.every((event) => event.outcome === (fail ? 'failure' : 'success'))).toBe(true)
+  })
+}
 
 test('startup telemetry cannot replace the original storage result when its observer fails', () => {
   const value = { retained: true }

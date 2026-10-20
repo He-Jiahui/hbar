@@ -19,6 +19,7 @@ export async function buildStandaloneCli(project: string, outfile: string): Prom
         entrypoints: [
           resolve(root, 'apps/cli/src/main.ts'),
           resolve(root, 'packages/storage/src/worker.ts'),
+          resolve(root, 'packages/storage/src/session-log-scan-worker.ts'),
           resolve(root, 'packages/storage/src/maintenance-worker.ts'),
           resolve(root, 'packages/storage/src/node-state-worker.ts'),
         ],

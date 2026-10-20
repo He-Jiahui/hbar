@@ -6,6 +6,7 @@ export const HOST_BUNDLE_ENTRIES = [
   ['apps/host/src/runtime-entry.ts', 'runtime-entry.js'],
   ['apps/host/src/runtime-build-entry.ts', 'runtime-build-entry.js'],
   ['packages/storage/src/worker.ts', 'storage-worker.js'],
+  ['packages/storage/src/session-log-scan-worker.ts', 'session-log-scan-worker.js'],
   ['packages/storage/src/maintenance-worker.ts', 'maintenance-worker.js'],
 ] as const
 
